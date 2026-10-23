@@ -21,15 +21,21 @@ enum LeoSettingsTab: Hashable {
     var hasUnsavedChanges: Bool { get }
     /// Drops the draft: the user chose to leave.
     func discardChanges()
+    /// The same machine is back with a new client: fetch its document again
+    /// and rebase the draft onto it (`LeoConfigDraft.rebased(onto:)`), keeping
+    /// the user's edits. Never called after a switch to another machine.
+    func reload(using client: any LeoConfigClient) async
 }
 
 /// Which machine the config panes edit and whether it can be edited now.
 ///
 /// It defaults to the machine of the agent selected in the sidebar and can
-/// point at any machine over its existing connection. Every switch or
-/// reconnect bumps `generation`, which reloads each pane and makes a reply
-/// from the previous machine unwelcome. A machine whose daemon lacks the config
-/// API is `.tooOld`, never a half-working form.
+/// point at any machine over its existing connection. Every refresh bumps
+/// `generation`, which makes a reply from before it unwelcome. Only a switch
+/// bumps `machineEpoch`, the identity a pane is mounted under: a reconnect to
+/// the same machine keeps a dirty pane (and its edits) mounted and reloads it.
+/// A machine whose daemon lacks the config API is `.tooOld`, never a
+/// half-working form.
 @MainActor final class LeoSettingsTargetModel: ObservableObject {
     enum Availability {
         /// Looking at what the machine can do.
@@ -49,8 +55,11 @@ enum LeoSettingsTab: Hashable {
 
     @Published private(set) var selectedHost: LeoHostID
     @Published private(set) var availability: Availability = .loading
-    /// Bumped on every switch and reconnect; a pane reloads when it changes.
+    /// Bumped on every refresh, to drop replies from before it.
     @Published private(set) var generation = 0
+    /// Bumped only when the selected machine changes: panes are rebuilt then,
+    /// never on a refresh of the same machine.
+    @Published private(set) var machineEpoch = 0
     @Published private(set) var selectedTab: LeoSettingsTab = .machines
     @Published private(set) var pendingChange: PendingChange?
     /// The revisions the app's own writes superseded on the selected machine.
@@ -66,6 +75,9 @@ enum LeoSettingsTab: Hashable {
     private let reconnectHost: (LeoHostID) -> Void
     private var panes: [LeoSettingsTab: WeakPane] = [:]
     private var refreshTask: Task<Void, Never>?
+    /// The selected machine's last ready client, kept while it is briefly gone
+    /// so a dirty pane can stay mounted; cleared on a switch.
+    private var lastClient: (any LeoConfigClient)?
     /// The selected machine's status when last looked at, so an unrelated
     /// publish (another machine, or the same status again) does nothing.
     private var lastStatus: LeoMachineStatus?
@@ -112,6 +124,19 @@ enum LeoSettingsTab: Hashable {
 
     var hasUnsavedChanges: Bool {
         panes.values.contains { $0.pane?.hasUnsavedChanges == true }
+    }
+
+    /// The client a pane keeps editing against: the ready one, or, while the
+    /// same machine reconnects, the last one if this tab's pane holds edits.
+    /// Nil when the pane should give way to the status notice.
+    func retainedClient(for tab: LeoSettingsTab) -> (any LeoConfigClient)? {
+        switch availability {
+        case .ready(let client): return client
+        case .tooOld: return nil
+        case .loading, .disconnected: break
+        }
+        guard panes[tab]?.pane?.hasUnsavedChanges == true else { return nil }
+        return lastClient
     }
 
     func discardAllChanges() {
@@ -172,6 +197,7 @@ enum LeoSettingsTab: Hashable {
         generation += 1
         let token = generation
         let host = selectedHost
+        let isSameMachineAgain = lastClient != nil
         refreshTask?.cancel()
         refreshTask = nil
         guard let daemon = clients.daemon(for: host) else {
@@ -186,11 +212,14 @@ enum LeoSettingsTab: Hashable {
         refreshTask = Task { [weak self] in
             let info = try? await config.versionInfo()
             guard let self, !Task.isCancelled, generation == token else { return }
-            availability = switch info {
-            case .some(let info) where LeoConfigAPI.isSupported(by: info): .ready(config)
-            case .some(let info): .tooOld(info)
-            case nil: .disconnected(status(host))
+            guard let info, LeoConfigAPI.isSupported(by: info) else {
+                availability = info.map { .tooOld($0) } ?? .disconnected(status(host))
+                return
             }
+            availability = .ready(config)
+            lastClient = config
+            guard isSameMachineAgain else { return }
+            for pane in panes.values.compactMap(\.pane) { await pane.reload(using: config) }
         }
     }
 
@@ -198,6 +227,8 @@ enum LeoSettingsTab: Hashable {
 
     private func switchNow(to host: LeoHostID) {
         selectedHost = host
+        machineEpoch += 1
+        lastClient = nil
         lastStatus = status(host)
         revisions.reset()
         refresh()

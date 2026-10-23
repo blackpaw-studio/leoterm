@@ -13,8 +13,10 @@ struct LeoSettingsTargetModelTests {
     private final class Pane: LeoSettingsPane {
         var hasUnsavedChanges: Bool
         private(set) var discards = 0
+        private(set) var reloaded: [any LeoConfigClient] = []
         init(dirty: Bool) { hasUnsavedChanges = dirty }
         func discardChanges() { hasUnsavedChanges = false; discards += 1 }
+        func reload(using client: any LeoConfigClient) async { reloaded.append(client) }
     }
 
     private struct Harness {
@@ -22,10 +24,18 @@ struct LeoSettingsTargetModelTests {
         let clients: FakeMachineClients
         let statuses: PassthroughSubject<[LeoHostID: LeoMachineStatus], Never>
         let reconnects: Reconnects
+
+        /// A status change as the registry makes it: the lookup and the publisher agree.
+        @MainActor func publish(_ host: LeoHostID, _ status: LeoMachineStatus) {
+            reconnects.statuses[host] = status
+            statuses.send([host: status])
+        }
     }
 
     @MainActor private final class Reconnects {
         var hosts: [LeoHostID] = []
+        /// What `status` answers; `Harness.publish` keeps it in step with the publisher.
+        var statuses: [LeoHostID: LeoMachineStatus] = [:]
     }
 
     private static func config(supported: Bool = true, version: String = "0.52.0") -> LeoFakeConfigClient {
@@ -35,15 +45,16 @@ struct LeoSettingsTargetModelTests {
         )
     }
 
-    private static func harness(
+    @MainActor private static func harness(
         daemons: [LeoHostID: LeoFakeConfigClient] = [:], statuses initial: [LeoHostID: LeoMachineStatus] = [:],
         initialHost: LeoHostID? = nil, machines: @escaping () -> [LeoHostID] = { [.local, dionysus, hestia] }
     ) -> Harness {
         let clients = FakeMachineClients(daemons: daemons.mapValues { ConfigStubDaemon(config: $0) })
         let subject = PassthroughSubject<[LeoHostID: LeoMachineStatus], Never>()
         let reconnects = Reconnects()
+        reconnects.statuses = initial
         let model = LeoSettingsTargetModel(
-            clients: clients, machines: machines, status: { initial[$0] }, statuses: subject.eraseToAnyPublisher(),
+            clients: clients, machines: machines, status: { reconnects.statuses[$0] }, statuses: subject.eraseToAnyPublisher(),
             reconnect: { reconnects.hosts.append($0) }, initialHost: initialHost
         )
         return Harness(model: model, clients: clients, statuses: subject, reconnects: reconnects)
@@ -188,6 +199,113 @@ struct LeoSettingsTargetModelTests {
 
         #expect(harness.model.requestSwitch(to: .local))
         #expect(harness.model.generation == before)
+    }
+
+    // MARK: a same-machine reconnect
+
+    /// A tunnel blip: the machine's client goes away and a new one is bound.
+    private static func blip(_ harness: Harness, host: LeoHostID = .local, to config: LeoFakeConfigClient) async {
+        harness.clients.disconnect(host)
+        harness.publish(host, .failed("tunnel dropped"))
+        await harness.model.settled()
+        harness.clients.connect(host, ConfigStubDaemon(config: config))
+        harness.publish(host, .connected)
+        await harness.model.settled()
+    }
+
+    @Test func aDirtyPaneStaysMountedAcrossAReconnectAndKeepsItsEdits() async {
+        let harness = Self.harness(daemons: [.local: Self.config()], statuses: [.local: .connected])
+        let tab = LeoSettingsTab.config("templates")
+        let pane = Pane(dirty: true)
+        harness.model.register(pane, for: tab)
+        await harness.model.settled()
+        let epoch = harness.model.machineEpoch
+        #expect(harness.model.retainedClient(for: tab) != nil)
+
+        harness.clients.disconnect(.local)
+        harness.publish(.local, .failed("tunnel dropped"))
+        await harness.model.settled()
+
+        guard case .disconnected = harness.model.availability else {
+            Issue.record("Expected disconnected")
+            return
+        }
+        #expect(harness.model.machineEpoch == epoch)
+        #expect(harness.model.retainedClient(for: tab) != nil)
+        #expect(pane.discards == 0)
+        #expect(pane.hasUnsavedChanges)
+    }
+
+    @Test func aReconnectReloadsTheMountedPaneWithTheNewClient() async {
+        let harness = Self.harness(daemons: [.local: Self.config()], statuses: [.local: .connected])
+        let pane = Pane(dirty: true)
+        harness.model.register(pane, for: .config("templates"))
+        await harness.model.settled()
+        let epoch = harness.model.machineEpoch
+        let replacement = Self.config()
+        await Self.blip(harness, to: replacement)
+
+        #expect(pane.reloaded.count == 1)
+        #expect((pane.reloaded.first as? LeoFakeConfigClient) === replacement)
+        #expect(pane.discards == 0)
+        #expect(pane.hasUnsavedChanges)
+        #expect(harness.model.machineEpoch == epoch)
+    }
+
+    @Test func aCleanPaneIsNotRetainedWhileTheMachineIsGone() async {
+        let harness = Self.harness(daemons: [.local: Self.config()], statuses: [.local: .connected])
+        let tab = LeoSettingsTab.config("templates")
+        let pane = Pane(dirty: false)
+        harness.model.register(pane, for: tab)
+        await harness.model.settled()
+
+        harness.clients.disconnect(.local)
+        harness.publish(.local, .failed("down"))
+        await harness.model.settled()
+
+        #expect(harness.model.retainedClient(for: tab) == nil)
+        withExtendedLifetime(pane) {}
+    }
+
+    @Test func onlyTheDirtyTabsPaneIsRetained() async {
+        let harness = Self.harness(daemons: [.local: Self.config()], statuses: [.local: .connected])
+        let dirty = Pane(dirty: true)
+        let clean = Pane(dirty: false)
+        harness.model.register(dirty, for: .config("templates"))
+        harness.model.register(clean, for: .config("tasks"))
+        await harness.model.settled()
+
+        harness.clients.disconnect(.local)
+        harness.publish(.local, .failed("down"))
+        await harness.model.settled()
+
+        #expect(harness.model.retainedClient(for: .config("templates")) != nil)
+        #expect(harness.model.retainedClient(for: .config("tasks")) == nil)
+        withExtendedLifetime((dirty, clean)) {}
+    }
+
+    @Test func aMachineSwitchIsANewIdentityButARefreshIsNot() async {
+        let harness = Self.harness(daemons: [.local: Self.config(), Self.dionysus: Self.config()], statuses: [.local: .connected])
+        await harness.model.settled()
+        let epoch = harness.model.machineEpoch
+        harness.model.refresh()
+        await harness.model.settled()
+        #expect(harness.model.machineEpoch == epoch)
+
+        _ = harness.model.requestSwitch(to: Self.dionysus)
+        #expect(harness.model.machineEpoch > epoch)
+    }
+
+    @Test func aMachineSwitchDoesNotReloadTheOldMachinesPane() async {
+        let harness = Self.harness(daemons: [.local: Self.config(), Self.dionysus: Self.config()], statuses: [.local: .connected])
+        let pane = Pane(dirty: false)
+        harness.model.register(pane, for: .config("templates"))
+        await harness.model.settled()
+
+        _ = harness.model.requestSwitch(to: Self.dionysus)
+        await harness.model.settled()
+
+        #expect(pane.reloaded.isEmpty)
     }
 
     // MARK: unsaved changes

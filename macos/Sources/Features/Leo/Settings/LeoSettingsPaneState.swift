@@ -3,19 +3,37 @@ import SwiftUI
 
 /// What a config pane shows in place of its form when the selected machine
 /// can't be edited: connecting, disconnected (with Reconnect) or too old. The
-/// form itself only ever appears for a machine that is ready, and is rebuilt
-/// whenever the target's generation changes, so a switch reloads it.
+/// form appears for a machine that is ready and is rebuilt only when the
+/// machine changes. While the same machine reconnects, a pane with unsaved
+/// edits stays mounted under a banner (its model reloads on return), so a
+/// tunnel blip never drops a draft.
 struct LeoSettingsPaneState<Content: View>: View {
     @ObservedObject var target: LeoSettingsTargetModel
+    let tab: LeoSettingsTab
     @ViewBuilder let content: (any LeoConfigClient) -> Content
 
     var body: some View {
+        if let client = target.retainedClient(for: tab), case .ready = target.availability {
+            content(client).id(target.machineEpoch)
+        } else if let client = target.retainedClient(for: tab) {
+            VStack(spacing: 0) {
+                LeoReconnectingBanner(
+                    machine: SpawnMachineOption.title(for: target.selectedHost), isLoading: target.isLoading, reconnect: target.reconnect
+                )
+                content(client).id(target.machineEpoch).disabled(true)
+            }
+        } else {
+            notice
+        }
+    }
+
+    @ViewBuilder private var notice: some View {
         switch target.availability {
         case .loading:
             ProgressView("Loading…")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        case .ready(let client):
-            content(client).id(target.generation)
+        case .ready:
+            EmptyView()
         case .disconnected(let status):
             LeoDisconnectedPaneNotice(
                 machine: SpawnMachineOption.title(for: target.selectedHost), status: status, reconnect: target.reconnect
@@ -23,6 +41,26 @@ struct LeoSettingsPaneState<Content: View>: View {
         case .tooOld(let info):
             LeoTooOldPaneNotice(machine: SpawnMachineOption.title(for: target.selectedHost), running: info?.version)
         }
+    }
+}
+
+/// Shown over a mounted pane whose machine is reconnecting: the edits are kept
+/// and saving waits for the connection.
+struct LeoReconnectingBanner: View {
+    let machine: String
+    let isLoading: Bool
+    let reconnect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "bolt.horizontal.circle").foregroundStyle(.secondary).accessibilityHidden(true)
+            Text(isLoading ? "Reconnecting to \(machine)…" : "\(machine) is disconnected. Your edits are kept.")
+            Spacer()
+            if !isLoading { Button("Reconnect", action: reconnect) }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .background(.bar)
+        .accessibilityElement(children: .contain)
     }
 }
 
