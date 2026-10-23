@@ -285,6 +285,7 @@ actor ConfigRecordingTransport: LeoDaemonTransport, LeoWebTransport {
     private static func fixtureName(forRoute route: String) -> String? {
         if route.hasSuffix("/schema") { return "schema" }
         if route.hasSuffix("/version") { return "version" }
+        if route.hasSuffix("/delegation/preview") { return "delegation_preview" }
         if route.hasSuffix("/templates/my%20coder") { return "template_coder" }
         return route.split(separator: "/").last.map(String.init)
     }

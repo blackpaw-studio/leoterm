@@ -18,6 +18,9 @@ public enum LeoFakeConfigCall: Equatable, Sendable {
     case taskPrompt(String)
     case saveTaskPrompt(name: String, content: String, ifMatch: String)
     case cronPreview(String)
+    case delegation
+    case delegationPreview(String)
+    case delegationWrite(LeoFakeDelegationWrite, ifMatch: String)
 }
 
 /// What a fake daemon knows about its tasks beyond their config: run history
@@ -54,29 +57,31 @@ public struct LeoFakeTaskData: Sendable {
 /// the daemon would reject (a 422 on a value, a timeout) is scripted with
 /// `failNextWrite` / `failNextRead`.
 public actor LeoFakeConfigClient: LeoConfigClient {
-    private let schemaValue: LeoConfigSchema
+    let schemaValue: LeoConfigSchema
     private let version: LeoDaemonVersionInfo
     private var singletons: [String: LeoConfigItem]
     private var collections: [String: [String: LeoConfigItem]]
-    private var revisionNumber = 0
-    private var restartRequired = LeoConfigRestartRequired()
+    var revisionNumber = 0
+    var restartRequired = LeoConfigRestartRequired()
     private var nextWriteFailure: (any Error)?
     private var nextReadFailure: (any Error)?
     private var isHoldingReads = false
     private var heldReads: [CheckedContinuation<Void, Never>] = []
-    private var isHoldingWrites = false
-    private var heldWrites: [CheckedContinuation<Void, Never>] = []
+    var isHoldingWrites = false
+    var heldWrites: [CheckedContinuation<Void, Never>] = []
     private var taskData: LeoFakeTaskData
+    var delegationState: LeoFakeDelegationState?
 
-    public private(set) var calls: [LeoFakeConfigCall] = []
+    public internal(set) var calls: [LeoFakeConfigCall] = []
 
     public init(
         schema: LeoConfigSchema, singletons: [String: LeoConfigItem] = [:], collections: [String: [LeoConfigItem]] = [:],
-        tasks: LeoFakeTaskData = LeoFakeTaskData(),
+        tasks: LeoFakeTaskData = LeoFakeTaskData(), delegation: LeoDelegationDocument? = nil,
         version: LeoDaemonVersionInfo = LeoDaemonVersionInfo(version: "0.0.0-fake", capabilities: [LeoConfigAPI.capability])
     ) {
         schemaValue = schema
         taskData = tasks
+        delegationState = delegation.flatMap { $0.configured ? LeoFakeDelegationState($0) : nil }
         self.version = version
         self.singletons = singletons
         self.collections = collections.mapValues { items in
@@ -210,7 +215,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
 
     public var heldReadCount: Int { heldReads.count }
 
-    /// Updates suspend (after being recorded, before anything is written)
+    /// Updates and delegation writes suspend (after being recorded, before anything is written)
     /// until `releaseWrites()`: a way to observe the app mid-request.
     public func holdWrites() {
         isHoldingWrites = true
@@ -293,13 +298,13 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         return strings.count == entries.count ? .map(strings) : .object(entries)
     }
 
-    private var revision: String { "sha256:fake-\(revisionNumber)" }
+    var revision: String { "sha256:fake-\(revisionNumber)" }
 
     private func document(of item: LeoConfigItem, named name: String?) -> LeoConfigDocument {
         LeoConfigDocument(revision: revision, name: name, values: item.values, inherited: item.inherited, effectiveHarness: item.effectiveHarness)
     }
 
-    private func beforeRead() async throws {
+    func beforeRead() async throws {
         if let failure = nextReadFailure {
             nextReadFailure = nil
             throw failure
@@ -314,7 +319,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         return nextWriteFailure
     }
 
-    private func beforeWrite(_ ifMatch: String) throws {
+    func beforeWrite(_ ifMatch: String) throws {
         if let failure = takeWriteFailure() { throw failure }
         guard !ifMatch.isEmpty else { throw LeoConfigError.revisionRequired }
         guard ifMatch == revision else { throw LeoConfigError.conflict(currentRevision: revision) }
