@@ -235,8 +235,8 @@ struct LeoConfigCollectionView: View {
 
     @ViewBuilder private func confirmationButtons(_ confirmation: LeoConfigCollectionModel.Confirmation) -> some View {
         switch confirmation {
-        case .delete: Button("Delete", role: .destructive) { Task { await model.confirm() } }
-        case .discardChanges: Button("Discard", role: .destructive) { Task { await model.confirm() } }
+        case .delete: Button("Delete", role: .destructive) { Task { await model.confirm(confirmation) } }
+        case .discardChanges: Button("Discard", role: .destructive) { Task { await model.confirm(confirmation) } }
         }
         Button("Cancel", role: .cancel) {}
     }

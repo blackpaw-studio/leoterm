@@ -23,6 +23,21 @@ struct LeoFakeConfigClientTests {
         )
     }
 
+    @Test func deletingAnEnvironmentATemplateStillListsIsA422LikeTheDaemons() async throws {
+        let fake = try Self.fake()
+        let revision = await fake.currentRevision
+        await fake.externalChange("templates", name: "coder", values: ["environments": .list([.string("base")])])
+
+        do {
+            _ = try await fake.delete("environments", name: "base", ifMatch: await fake.currentRevision)
+            Issue.record("Expected a 422")
+        } catch LeoConfigError.invalid(let errors) {
+            #expect(errors.first?.message == "unknown environment \"base\"")
+        }
+        #expect(try await fake.collection("environments").items.map(\.name).contains("base"))
+        #expect(revision != (await fake.currentRevision))
+    }
+
     /// No registered daemon field is a secret yet, so the secret tests run on
     /// a synthetic `hosts` resource that has a write-only `token`.
     private static func secretFake() throws -> LeoFakeConfigClient {

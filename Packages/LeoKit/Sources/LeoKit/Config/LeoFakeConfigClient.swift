@@ -182,8 +182,21 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         if let user = referrer(of: resource, name: name) {
             throw LeoConfigError.invalid([LeoConfigFieldError(field: "", message: "\(name) is still used by \(user)")])
         }
+        if usesListReference(to: resource, name: name) {
+            throw LeoConfigError.invalid([LeoConfigFieldError(field: "", message: "unknown \(resource.hasSuffix("s") ? String(resource.dropLast()) : resource) \"\(name)\"")])
+        }
         collections[resource]?[name] = nil
         return committed(resource)
+    }
+
+    /// An item another resource still lists by name (a template's `environments`):
+    /// the daemon's validation then refuses the delete as an unknown reference.
+    private func usesListReference(to resource: String, name: String) -> Bool {
+        let owners = schemaValue.resources.filter { $0.fields.contains { $0.key == resource && $0.type == .list } }
+        return owners.contains { owner in
+            let lists = (collections[owner.key]?.values.map(\.values) ?? []) + [singletons[owner.key]?.values].compactMap { $0 }
+            return lists.contains { $0[resource]?.stringList?.contains(name) == true }
+        }
     }
 
     /// What the daemon fills in when it adds a task: a schedule is required,

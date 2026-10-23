@@ -319,8 +319,9 @@ import LeoKit
 
     // MARK: Confirmations and banners
 
-    func confirm() async {
-        guard let pending = confirmation else { return }
+    /// Takes the confirmation the alert showed: SwiftUI has already closed the
+    /// alert, and cleared `confirmation`, by the time its button runs.
+    func confirm(_ pending: Confirmation) async {
         confirmation = nil
         switch pending {
         case .delete(let name):

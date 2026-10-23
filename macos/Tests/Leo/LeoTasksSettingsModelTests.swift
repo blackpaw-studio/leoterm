@@ -445,7 +445,7 @@ import Testing
         #expect(harness.model.collection.confirmation == .discardChanges(thenSelect: "nightly"))
         #expect(harness.model.collection.selection == "heartbeat")
 
-        await harness.model.collection.confirm()
+        await harness.model.collection.confirm(try #require(harness.model.collection.confirmation))
         await harness.model.settled()
         #expect(harness.model.collection.selection == "nightly")
         #expect(!harness.model.hasUnsavedChanges)

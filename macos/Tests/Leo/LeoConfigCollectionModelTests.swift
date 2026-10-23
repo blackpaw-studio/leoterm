@@ -264,7 +264,7 @@ import Testing
         #expect(harness.model.isDirty)
 
         harness.model.select("reviewer")
-        await harness.model.confirm()
+        await harness.model.confirm(try #require(harness.model.confirmation))
         #expect(harness.model.selection == "reviewer")
         #expect(!harness.model.isDirty)
     }
@@ -322,7 +322,7 @@ import Testing
 
         #expect(harness.model.confirmation == .delete("reviewer"))
         #expect(await harness.fake.calls.allSatisfy { if case .delete = $0 { false } else { true } })
-        await harness.model.confirm()
+        await harness.model.confirm(try #require(harness.model.confirmation))
 
         #expect(harness.model.items.map(\.name) == ["coder"])
         #expect(harness.model.selection == "coder")
@@ -334,7 +334,7 @@ import Testing
         let used = try await harness.fake.update("tasks", name: "nightly", patch: ["template": .string("reviewer")], ifMatch: revision)
         harness.revisions.recordWrite(from: revision, to: used.revision)
         harness.model.requestDelete()
-        await harness.model.confirm()
+        await harness.model.confirm(try #require(harness.model.confirmation))
 
         #expect(harness.model.errorMessage == "reviewer is still used by tasks/nightly")
         #expect(harness.model.items.map(\.name) == ["coder", "reviewer"])
