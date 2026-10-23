@@ -148,6 +148,89 @@ import Testing
         #expect(!harness.model.isDirty)
     }
 
+    private static func strings(_ names: String...) -> LeoConfigValue {
+        .list(names.map(LeoConfigValue.string))
+    }
+
+    /// `coder` with `add_dirs` already holding `names`, loaded and selected.
+    private static func harness(addDirs names: [String]) async throws -> Harness {
+        let fake = try LeoConfigGolden.client()
+        await fake.externalChange("templates", name: "coder", values: ["add_dirs": .list(names.map(LeoConfigValue.string))])
+        let revisions = LeoConfigRevisionTracker()
+        let model = LeoConfigCollectionModel(resource: "templates", client: fake, revisions: revisions)
+        await model.load()
+        return Harness(model: model, fake: fake, revisions: revisions)
+    }
+
+    @Test func overwriteKeepsAListEntryTheOtherWriterAddedWhileTheUserRemovedAnother() async throws {
+        let harness = try await Self.harness(addDirs: ["a", "b"])
+        harness.model.set("add_dirs", Self.strings("a"))
+        await harness.fake.externalChange("templates", name: "coder", values: ["add_dirs": Self.strings("a", "b", "c")])
+        await harness.model.save()
+        #expect(harness.model.conflict != nil)
+        await harness.model.overwrite()
+
+        let stored = try await harness.fake.item("templates", name: "coder").values["add_dirs"]
+        #expect(stored == Self.strings("a", "c"))
+        #expect(harness.model.conflict == nil)
+        #expect(!harness.model.isDirty)
+    }
+
+    @Test func overwriteKeepsAnEnvEntryTheOtherWriterAdded() async throws {
+        let harness = try await Self.harness()
+        let env = try #require(harness.model.draft?.value(at: "env"))
+        harness.model.set("env", env.replacingEnvEntries(["MINE": "1"]))
+        await harness.fake.externalChange("templates", name: "coder", values: ["env": .map(["THEIRS": "2"])])
+        await harness.model.save()
+        await harness.model.overwrite()
+
+        let stored = try await harness.fake.item("templates", name: "coder").values["env"]
+        #expect(stored == .map(["MINE": "1", "THEIRS": "2"]))
+        #expect(harness.model.conflict == nil)
+    }
+
+    @Test func overwriteSendsOnlyTheUsersKeysOverTheFreshItem() async throws {
+        let harness = try await Self.harness()
+        harness.model.set("model", .string("sonnet"))
+        await harness.fake.externalChange("templates", name: "coder", values: ["workspace": .string("/tmp/theirs")])
+        let current = await harness.fake.currentRevision
+        await harness.model.save()
+        await harness.model.overwrite()
+
+        #expect(await Self.updates(harness.fake).last == .update(resource: "templates", name: "coder", patch: ["model": .string("sonnet")], ifMatch: current))
+        #expect(try await harness.fake.item("templates", name: "coder").values["workspace"] == .string("/tmp/theirs"))
+    }
+
+    @Test func overwriteSendsNothingWhenTheOtherWriterAlreadyMadeTheSameEdit() async throws {
+        let harness = try await Self.harness()
+        harness.model.set("model", .string("sonnet"))
+        await harness.fake.externalChange("templates", name: "coder", values: ["model": .string("sonnet")])
+        await harness.model.save()
+        let sentBefore = await Self.updates(harness.fake).count
+        await harness.model.overwrite()
+
+        #expect(await Self.updates(harness.fake).count == sentBefore)
+        #expect(harness.model.conflict == nil)
+        #expect(!harness.model.isDirty)
+    }
+
+    @Test func overwriteStaysAConflictWhenTheFileMovesAgainBeforeItLands() async throws {
+        let harness = try await Self.harness()
+        harness.model.set("model", .string("sonnet"))
+        await harness.fake.externalChange("templates", name: "coder", values: ["max_turns": .int(3)])
+        await harness.model.save()
+        await harness.fake.holdWrites()
+        let overwriting = Task { await harness.model.overwrite() }
+        while await harness.fake.heldWriteCount == 0 { await Task.yield() }
+        await harness.fake.externalChange("templates", name: "coder", values: ["max_turns": .int(4)])
+        await harness.fake.releaseWrites()
+        await overwriting.value
+
+        #expect(harness.model.conflict != nil)
+        #expect(harness.model.isDirty)
+        #expect(try await harness.fake.item("templates", name: "coder").values["model"] == .string("opus"))
+    }
+
     @Test func editingAnEnvVariableLeavesTheSecretOneOutOfThePatchAndStored() async throws {
         let fake = try LeoConfigGolden.client(secretEnv: true)
         let model = LeoConfigCollectionModel(resource: "templates", client: fake, revisions: LeoConfigRevisionTracker())

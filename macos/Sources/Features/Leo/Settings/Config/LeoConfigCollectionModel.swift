@@ -238,15 +238,34 @@ import LeoKit
         await refresh(preferring: selection, carrying: draft)
     }
 
-    /// Overwrite after a conflict: the same patch against the revision the
-    /// daemon says is current.
+    /// Overwrite after a conflict: the item is read again, the user's edits
+    /// (per key, per env entry, and a list as the names it added and removed)
+    /// are replayed over that copy, and the result is sent against its
+    /// revision. Another writer's list entries and keys survive; nothing is
+    /// sent when their copy already has every edit.
     func overwrite() async {
-        guard let conflict, let draft, let name = selection else { return }
-        let sent = draft
+        guard conflict != nil, let stale = draft, let name = selection, !isBusy else { return }
+        isBusy = true
+        let current: LeoConfigDocument
+        do {
+            current = try await client.item(resourceKey, name: name)
+        } catch {
+            isBusy = false
+            errorMessage = Self.message(for: error)
+            return
+        }
+        isBusy = false
+        let replayed = stale.rebased(onto: current)
+        draft = replayed
+        guard replayed.isDirty else {
+            conflict = nil
+            await refresh(preferring: name, carrying: replayed)
+            return
+        }
         await write(
-            ifMatch: conflict.currentRevision, preferring: name, onFailure: { model, error in model.handleSaveFailure(error, draft: sent) },
+            ifMatch: current.revision, preferring: name, onFailure: { model, error in model.handleSaveFailure(error, draft: replayed) },
             operation: { [resourceKey, client] ifMatch in
-                try await client.update(resourceKey, name: name, patch: sent.patch, ifMatch: ifMatch)
+                try await client.update(resourceKey, name: name, patch: replayed.patch, ifMatch: ifMatch)
             }
         )
     }
