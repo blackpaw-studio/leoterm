@@ -266,7 +266,7 @@ extension LeoChatMessage {
         LeoChatMessage(
             id: id, agent: agent, direction: direction, kind: kind, text: text, transcript: transcript, replyTo: replyTo, task: task,
             runID: runID, state: "answered", answer: answer, ts: ts, attachments: attachments, input: input,
-            closedReason: closedReason
+            closedReason: closedReason, sender: sender
         )
     }
 

@@ -78,7 +78,7 @@ struct LeoChatMessageRow: View {
             }
             if endsGroup, let caption = message.senderCaption {
                 Text(caption).accessibilityIdentifier("chat.sender")
-                Text("·")
+                Text("·").accessibilityHidden(true)
             }
             if endsGroup { Text(message.ts, format: .dateTime.hour().minute()) }
         }
