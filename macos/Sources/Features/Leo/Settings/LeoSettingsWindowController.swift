@@ -2,6 +2,32 @@ import AppKit
 import LeoKit
 import SwiftUI
 
+/// A question the window asks before it closes, shown as a sheet.
+struct LeoSettingsPrompt: Equatable {
+    let title: String
+    let message: String
+    /// In display order; the answer is an index into it.
+    let buttons: [String]
+}
+
+/// Shows a prompt as a sheet on `window` and reports the chosen button.
+@MainActor protocol LeoSettingsPrompting {
+    func ask(_ prompt: LeoSettingsPrompt, on window: NSWindow, answer: @escaping @MainActor (Int) -> Void)
+}
+
+/// The live prompter: an `NSAlert` sheet.
+struct LeoAlertPrompting: LeoSettingsPrompting {
+    func ask(_ prompt: LeoSettingsPrompt, on window: NSWindow, answer: @escaping @MainActor (Int) -> Void) {
+        let alert = NSAlert()
+        alert.messageText = prompt.title
+        alert.informativeText = prompt.message
+        prompt.buttons.forEach { alert.addButton(withTitle: $0) }
+        alert.beginSheetModal(for: window) { response in
+            answer(response.rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue)
+        }
+    }
+}
+
 /// The Leo Settings window (Agents ▸ Machines…, a header's Edit Machine…).
 /// ⌘, stays the Ghostty config. One window, with a tab per pane; Machines
 /// is the first. A toolbar machine picker chooses which daemon the config
@@ -14,10 +40,15 @@ import SwiftUI
     private let statsStyle: LeoStatsStyleSetting
     /// The machine of the agent selected in the sidebar, if any.
     private let selectedHost: () -> LeoHostID?
-    private var model: LeoMachinesSettingsModel?
-    private var target: LeoSettingsTargetModel?
+    private let prompting: any LeoSettingsPrompting
+    private(set) var model: LeoMachinesSettingsModel?
+    private(set) var target: LeoSettingsTargetModel?
 
-    init(registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?) {
+    init(
+        registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
+        prompting: (any LeoSettingsPrompting)? = nil
+    ) {
+        self.prompting = prompting ?? LeoAlertPrompting()
         self.registry = registry
         self.clients = clients
         self.selectedHost = selectedHost
@@ -101,35 +132,32 @@ import SwiftUI
         return true
     }
 
+    /// Save / Discard / Cancel on the machine list. Once answered, the close
+    /// is retried with `performClose` so the panes get their own question;
+    /// `close()` would skip `windowShouldClose` and drop their edits.
     private func askAboutMachines(_ model: LeoMachinesSettingsModel, closing sender: NSWindow) {
-        let alert = NSAlert()
-        alert.messageText = "Save changes to your machines?"
-        alert.informativeText = "Your edits to the machine list haven't been saved."
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Discard")
-        alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: sender) { [weak self, weak sender] response in
-            switch response {
-            case .alertFirstButtonReturn:
-                guard model.save() else { return }
-            case .alertSecondButtonReturn:
-                break
-            default:
-                return
+        let prompt = LeoSettingsPrompt(
+            title: "Save changes to your machines?", message: "Your edits to the machine list haven't been saved.",
+            buttons: ["Save", "Discard", "Cancel"]
+        )
+        prompting.ask(prompt, on: sender) { [weak self, weak sender] choice in
+            switch choice {
+            case 0: guard model.save() else { return }
+            case 1: break
+            default: return
             }
             self?.model = nil
-            sender?.close()
+            sender?.performClose(nil)
         }
     }
 
     private func askAboutPanes(closing sender: NSWindow) {
-        let alert = NSAlert()
-        alert.messageText = "Discard unsaved settings changes?"
-        alert.informativeText = "Your edits haven't been saved to the machine."
-        alert.addButton(withTitle: "Discard")
-        alert.addButton(withTitle: "Cancel")
-        alert.beginSheetModal(for: sender) { [weak self, weak sender] response in
-            guard response == .alertFirstButtonReturn else { return }
+        let prompt = LeoSettingsPrompt(
+            title: "Discard unsaved settings changes?", message: "Your edits haven't been saved to the machine.",
+            buttons: ["Discard", "Cancel"]
+        )
+        prompting.ask(prompt, on: sender) { [weak self, weak sender] choice in
+            guard choice == 0 else { return }
             self?.target?.discardAllChanges()
             sender?.close()
         }
