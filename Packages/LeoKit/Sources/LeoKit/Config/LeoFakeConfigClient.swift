@@ -21,7 +21,8 @@ public enum LeoFakeConfigCall: Equatable, Sendable {
 /// stale `If-Match` is a 409 that changes nothing, and a missing one is a
 /// 428. It enforces the schema's actions and the name rules, renames
 /// rewrite references, and a delete refuses an item still referenced; the
-/// last is this fake's assumption about the daemon's 422 text. Anything else
+/// last is this fake's assumption about the daemon's 422 text. A secret is
+/// stored as set / not set only, and a key written as null is dropped. Anything else
 /// the daemon would reject (a 422 on a value, a timeout) is scripted with
 /// `failNextWrite` / `failNextRead`.
 public actor LeoFakeConfigClient: LeoConfigClient {
@@ -92,12 +93,12 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         try beforeWrite(ifMatch)
         if let name {
             var item = try existing(resource, name)
-            item = LeoConfigItem(name: name, values: item.values.merging(patch) { _, new in new }, inherited: item.inherited, effectiveHarness: item.effectiveHarness)
+            item = LeoConfigItem(name: name, values: Self.merged(item.values, patch), inherited: item.inherited, effectiveHarness: item.effectiveHarness)
             collections[resource]?[name] = item
         } else {
             guard let single = singletons[resource] else { throw try notFoundResource(resource) }
             singletons[resource] = LeoConfigItem(
-                name: "", values: single.values.merging(patch) { _, new in new }, inherited: single.inherited, effectiveHarness: single.effectiveHarness
+                name: "", values: Self.merged(single.values, patch), inherited: single.inherited, effectiveHarness: single.effectiveHarness
             )
         }
         return committed(resource)
@@ -108,7 +109,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         try beforeWrite(ifMatch)
         let definition = try collectionDefinition(resource, supporting: .add)
         try checkName(name, field: "name", in: definition, excluding: nil)
-        collections[resource, default: [:]][name] = LeoConfigItem(name: name, values: values)
+        collections[resource, default: [:]][name] = LeoConfigItem(name: name, values: Self.merged([:], values))
         return committed(resource, item: name)
     }
 
@@ -191,6 +192,20 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     public var currentRevision: String { revision }
 
     // MARK: internals
+
+    /// What the daemon stores after a write: a secret's replace or clear
+    /// becomes set / not set (the value is never kept or returned), and a key
+    /// sent as null is dropped rather than stored.
+    private static func merged(_ stored: [String: LeoConfigValue], _ patch: [String: LeoConfigValue]) -> [String: LeoConfigValue] {
+        let normalised = patch.mapValues { value -> LeoConfigValue in
+            switch value {
+            case .secretReplace: .secret(isSet: true)
+            case .secretClear: .secret(isSet: false)
+            default: value
+            }
+        }
+        return stored.merging(normalised) { _, new in new }.filter { !$0.value.isNull }
+    }
 
     private var revision: String { "sha256:fake-\(revisionNumber)" }
 

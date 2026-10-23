@@ -107,6 +107,9 @@ extension LeoConfigValue: Codable {
 
     /// Reads an object as a secret form, a string map, or a general object.
     /// A string map `{"set": "yes"}` stays a map: only `{"set": <bool>}` is a secret.
+    /// TODO: decoding should follow the schema's field type. Accepted risk
+    /// until then: an env map whose only variable is named `set` (with a bool
+    /// value), `replace` or `clear` reads as a secret.
     private static func classify(_ object: [String: LeoConfigValue]) -> Self {
         if object.count == 1, let (key, value) = object.first {
             switch (key, value) {

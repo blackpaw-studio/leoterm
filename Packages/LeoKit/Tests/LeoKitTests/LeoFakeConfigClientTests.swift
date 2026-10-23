@@ -91,8 +91,38 @@ struct LeoFakeConfigClientTests {
 
         let reviewer = try await fake.item("templates", name: "reviewer")
         #expect(reviewer.values["model"] == .string("gpt-6"))
-        #expect(reviewer.values["max_turns"] == .null)
+        #expect(reviewer.values["max_turns"] == nil)
         #expect(reviewer.values["harness"] == .string("codex"))
+    }
+
+    @Test func aSecretIsStoredAsSetOrNotSetNeverAsItsValue() async throws {
+        let fake = try Self.fake()
+        var revision = try await fake.collection("hosts").revision
+        revision = try await fake.update("hosts", name: "hestia", patch: ["token": .secretReplace("s3cret")], ifMatch: revision).revision
+        #expect(try await fake.item("hosts", name: "hestia").values["token"] == .secret(isSet: true))
+
+        revision = try await fake.update("hosts", name: "dionysus", patch: ["token": .secretClear], ifMatch: revision).revision
+        #expect(try await fake.item("hosts", name: "dionysus").values["token"] == .secret(isSet: false))
+        #expect(try await fake.collection("hosts").items.allSatisfy { item in
+            if case .secretReplace = item.values["token"] { return false }
+            return item.values["token"] != .secretClear
+        })
+    }
+
+    @Test func aSecretAddedWithAnItemIsNormalisedToo() async throws {
+        let fake = try Self.fake()
+        let revision = try await fake.collection("hosts").revision
+        _ = try await fake.add("hosts", name: "new-host", values: ["token": .secretReplace("x"), "address": .string("h:1")], ifMatch: revision)
+
+        #expect(try await fake.item("hosts", name: "new-host").values["token"] == .secret(isSet: true))
+    }
+
+    @Test func aKeySentAsNullIsDroppedNotStored() async throws {
+        let fake = try Self.fake()
+        let revision = try await fake.document("web").revision
+        _ = try await fake.update("web", name: nil, patch: ["bind": .null], ifMatch: revision)
+
+        #expect(try await fake.document("web").values["bind"] == nil)
     }
 
     @Test func aNestedObjectIsReplacedWhole() async throws {
