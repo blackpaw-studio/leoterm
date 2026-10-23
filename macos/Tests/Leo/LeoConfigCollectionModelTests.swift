@@ -148,7 +148,7 @@ import Testing
         #expect(!harness.model.isDirty)
     }
 
-    @Test func editingAnEnvVariableKeepsTheSecretOneInThePatch() async throws {
+    @Test func editingAnEnvVariableLeavesTheSecretOneOutOfThePatchAndStored() async throws {
         let fake = try LeoConfigGolden.client(secretEnv: true)
         let model = LeoConfigCollectionModel(resource: "templates", client: fake, revisions: LeoConfigRevisionTracker())
         await model.load()
@@ -157,9 +157,10 @@ import Testing
         let sent = try #require(model.draft?.patch["env"])
 
         #expect(sent.envEntries == ["ANTHROPIC_BASE_URL": "http://other"])
-        #expect(sent.envSecretNames == ["ANTHROPIC_AUTH_TOKEN"])
+        #expect(sent.envSecretNames.isEmpty)
         await model.save()
         #expect(model.errorMessage == nil)
+        #expect(model.draft?.value(at: "env").envSecrets == ["ANTHROPIC_AUTH_TOKEN": .set])
     }
 
     private static func secretEnvModel() async throws -> (LeoConfigCollectionModel, LeoFakeConfigClient) {
@@ -192,7 +193,7 @@ import Testing
         await model.save()
 
         let stored = try await fake.item("templates", name: "coder").values["env"]
-        #expect(stored == .object(["ANTHROPIC_BASE_URL": .string("http://localhost:3325")]))
+        #expect(stored == .map(["ANTHROPIC_BASE_URL": "http://localhost:3325"]))
     }
 
     // MARK: field errors

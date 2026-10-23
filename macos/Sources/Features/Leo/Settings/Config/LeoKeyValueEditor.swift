@@ -34,22 +34,30 @@ struct LeoKeyValueEditor: View {
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
             ForEach(secrets.keys.sorted(), id: \.self) { name in
+                // The same two flexible columns and trailing button slot as a
+                // plain row, so names and values line up down the list.
                 HStack(spacing: 6) {
-                    Text(name).font(.body.monospaced()).frame(maxWidth: .infinity, alignment: .leading)
+                    Text(name).font(.body.monospaced()).foregroundStyle(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     LeoSecretField(
                         state: secrets[name] ?? .set, confirmClearOf: name,
                         set: { setSecret(name, $0) }, revert: { setSecret(name, .secret(isSet: true)) }
                     )
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "minus.circle").hidden()
                 }
             }
             ForEach($rows) { $row in
                 HStack(spacing: 6) {
                     TextField("Name", text: $row.key).labelsHidden().font(.body.monospaced())
+                        .multilineTextAlignment(.leading).frame(maxWidth: .infinity)
                     TextField("Value", text: $row.value).labelsHidden()
+                        .multilineTextAlignment(.leading).frame(maxWidth: .infinity)
                     Button { remove(row.id) } label: { Image(systemName: "minus.circle") }
                         .buttonStyle(.borderless)
                         .accessibilityLabel("Remove \(row.key.isEmpty ? "entry" : row.key)")
                 }
+                .frame(maxWidth: .infinity)
             }
             Button { rows.append(Row(key: "", value: "")) } label: { Label("Add", systemImage: "plus.circle") }
                 .buttonStyle(.borderless)
