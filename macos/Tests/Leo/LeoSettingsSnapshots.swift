@@ -309,6 +309,49 @@ struct LeoSettingsSnapshots {
         try Self.write(LeoDelegationAddRoleSheet(model: configured, close: {}), named: "delegationAddRole", size: NSSize(width: 380, height: 220), to: directory)
     }
 
+    // MARK: Defaults pane
+
+    private static let restartActions = LeoConfigRestartActions(restartService: {}, restartAgents: {})
+    private static let defaultsSize = NSSize(width: 820, height: 760)
+
+    private static func defaultsModel() async throws -> (LeoConfigSingletonModel, LeoFakeConfigClient) {
+        let fake = try LeoConfigGolden.client()
+        let model = LeoConfigSingletonModel(resource: "defaults", client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus")
+        await model.load()
+        return (model, fake)
+    }
+
+    @Test func defaults() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.defaultsModel()
+        try Self.write(
+            LeoConfigSingletonView(model: model, machine: "dionysus", restart: Self.restartActions), named: "defaults", size: Self.defaultsSize, to: directory
+        )
+    }
+
+    @Test func defaultsEditedWithAFieldErrorAndARestartPrompt() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.defaultsModel()
+        model.set("model", .string("opus"))
+        await model.save()
+        model.set("max_turns", .int(-1))
+        model.set("environments", .list([.string("base"), .string("work")]))
+        try Self.write(
+            LeoConfigSingletonView(model: model, machine: "dionysus", restart: Self.restartActions), named: "defaultsEdited", size: Self.defaultsSize, to: directory
+        )
+    }
+
+    @Test func defaultsConflict() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, fake) = try await Self.defaultsModel()
+        await fake.externalChange("defaults", values: ["max_turns": .int(3)])
+        model.set("model", .string("opus"))
+        await model.save()
+        try Self.write(
+            LeoConfigSingletonView(model: model, machine: "dionysus", restart: Self.restartActions), named: "defaultsConflict", size: Self.defaultsSize, to: directory
+        )
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {

@@ -127,59 +127,20 @@ struct LeoConfigCollectionView: View {
         }
     }
 
-    @ViewBuilder private var banners: some View {
-        let hasBanner = model.conflict != nil || model.errorMessage != nil || model.warning != nil || model.restartPrompt != nil
-        if hasBanner {
-            VStack(spacing: 8) {
-                if model.conflict != nil { conflictBanner }
-                if let message = model.errorMessage { messageBanner(message, symbol: "exclamationmark.octagon.fill", tint: .red) }
-                if let warning = model.warning { messageBanner(warning, symbol: "exclamationmark.triangle.fill", tint: .orange) }
-                if let required = model.restartPrompt {
-                    LeoRestartPrompt(required: required, machine: machine, actions: restart, dismiss: model.dismissRestartPrompt)
-                }
-            }
-            .padding(12)
-        }
-    }
-
-    private var conflictBanner: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Changed on \(machine) since you opened it").font(.headline)
-                Text("Reload keeps your edits over the new settings. Overwrite replaces what changed.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 12)
-            Button("Reload") { Task { await model.reloadAfterConflict() } }
-            Button("Overwrite", role: .destructive) { Task { await model.overwrite() } }
-        }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityElement(children: .contain)
-    }
-
-    private func messageBanner(_ message: String, symbol: String, tint: Color) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: symbol).foregroundStyle(tint).accessibilityHidden(true)
-            Text(message).textSelection(.enabled)
-            Spacer(minLength: 12)
-            Button("Dismiss", action: model.dismissError).buttonStyle(.borderless)
-        }
-        .padding(10)
-        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityElement(children: .combine)
+    private var banners: some View {
+        LeoConfigBanners(
+            machine: machine, hasConflict: model.conflict != nil, errorMessage: model.errorMessage, warning: model.warning,
+            restartPrompt: model.restartPrompt, restart: restart,
+            reload: { Task { await model.reloadAfterConflict() } }, overwrite: { Task { await model.overwrite() } },
+            dismissError: model.dismissError, dismissRestart: model.dismissRestartPrompt
+        )
     }
 
     private var saveBar: some View {
-        HStack {
-            if model.isBusy { ProgressView().controlSize(.small) }
-            Spacer()
-            Button("Revert") { model.revertAll() }.disabled(!model.isDirty || model.isBusy)
-            Button("Save") { Task { await model.save() } }
-                .keyboardShortcut(.defaultAction).disabled(!model.canSave)
-        }
-        .padding(12)
+        LeoConfigSaveBar(
+            isBusy: model.isBusy, isDirty: model.isDirty, canSave: model.canSave,
+            revert: { model.revertAll() }, save: { Task { await model.save() } }
+        )
     }
 
     // MARK: Sheets and alerts

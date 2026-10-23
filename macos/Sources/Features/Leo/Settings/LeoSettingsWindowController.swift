@@ -195,6 +195,9 @@ private struct LeoSettingsView: View {
             LeoDelegationSettingsView(target: target)
                 .tabItem { Label("Delegation", systemImage: "arrow.triangle.branch") }
                 .tag(LeoDelegationSettingsView.tab)
+            LeoDefaultsSettingsView(target: target)
+                .tabItem { Label("Defaults", systemImage: "slider.horizontal.3") }
+                .tag(LeoDefaultsSettingsView.tab)
         }
         .alert(
             "Discard unsaved changes?",
