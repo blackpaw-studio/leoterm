@@ -12,18 +12,18 @@ enum LeoDelegationFixtures {
 
     /// Two profiles (`fast` active), two declared roles, `qa` routed only by `deep`.
     static func document(
-        roles: [LeoDelegationRole]? = nil, warnings: [String] = [], consults: [LeoDelegationConsult] = [], hideIsDefault: Bool = true,
+        active: String = "fast", roles: [LeoDelegationRole]? = nil, warnings: [String] = [], consults: [LeoDelegationConsult] = [], hideIsDefault: Bool = true,
         enabled: Bool = true
     ) -> LeoDelegationDocument {
         LeoDelegationDocument(
-            revision: "seed", enabled: enabled, activeProfile: "fast", hideNativeAgentsIsDefault: hideIsDefault, templates: templates,
+            revision: "seed", enabled: enabled, activeProfile: active, hideNativeAgentsIsDefault: hideIsDefault, templates: templates,
             roles: roles ?? [LeoDelegationRole(name: "coder", useFor: "writing code"), LeoDelegationRole(name: "qa", useFor: "tests")],
             profiles: [
-                LeoDelegationProfile(name: "deep", roles: [
+                LeoDelegationProfile(name: "deep", active: active == "deep", roles: [
                     "coder": LeoDelegationCell(template: "coder", inheritedModel: "opus"),
                     "qa": LeoDelegationCell(template: "reviewer", model: "sonnet", effort: "high", inheritedModel: "haiku"),
                 ]),
-                LeoDelegationProfile(name: "fast", active: true, roles: [
+                LeoDelegationProfile(name: "fast", active: active == "fast", roles: [
                     "coder": LeoDelegationCell(template: "reviewer", inheritedModel: "haiku"),
                 ]),
             ],
@@ -53,7 +53,12 @@ enum LeoDelegationFixtures {
         }
         return LeoDelegationDocument(
             revision: "seed", activeProfile: "fast", hideNativeAgents: ["Explore", "Plan"], templates: templates, roles: roles, profiles: profiles,
-            warnings: ["profile \"offline\" routes role \"writer\" to template \"drafter\", which is not installed"]
+            warnings: ["profile \"offline\" routes role \"writer\" to template \"drafter\", which is not installed"],
+            recentConsults: [
+                LeoDelegationConsult(id: "d-3", role: "coder", profile: "fast", template: "reviewer", model: "", effort: "low", status: "done"),
+                LeoDelegationConsult(id: "d-2", role: "architect", profile: "fast", template: "coder", model: "claude-sonnet-5-5-20261001", effort: "high", status: "running"),
+                LeoDelegationConsult(id: "d-1", role: "security-reviewer", profile: "deep", template: "scout", model: "", effort: "", status: "failed"),
+            ]
         )
     }
 }

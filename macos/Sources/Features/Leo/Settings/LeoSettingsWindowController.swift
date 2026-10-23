@@ -192,6 +192,9 @@ private struct LeoSettingsView: View {
             LeoEnvironmentsSettingsView(target: target)
                 .tabItem { Label("Environments", systemImage: "leaf") }
                 .tag(LeoEnvironmentsSettingsView.tab)
+            LeoDelegationSettingsView(target: target)
+                .tabItem { Label("Delegation", systemImage: "arrow.triangle.branch") }
+                .tag(LeoDelegationSettingsView.tab)
         }
         .alert(
             "Discard unsaved changes?",

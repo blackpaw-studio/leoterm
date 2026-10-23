@@ -239,6 +239,76 @@ struct LeoSettingsSnapshots {
         try Self.write(sheet, named: "environmentsAddSheet", size: NSSize(width: 360, height: 150), to: directory)
     }
 
+    // MARK: Delegation pane
+
+    private static func delegationModel(_ document: LeoDelegationDocument? = LeoDelegationFixtures.document()) async throws -> (LeoDelegationSettingsModel, LeoFakeConfigClient) {
+        let fake = try LeoConfigGolden.client(delegation: document)
+        let model = LeoDelegationSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus")
+        await model.load()
+        return (model, fake)
+    }
+
+    private static func delegationPane(_ model: LeoDelegationSettingsModel) -> some View {
+        LeoDelegationView(model: model, machine: "dionysus", restart: LeoConfigRestartActions(restartService: {}, restartAgents: {}))
+    }
+
+    @Test func delegation() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.delegationModel()
+        try Self.write(Self.delegationPane(model), named: "delegation", size: NSSize(width: 900, height: 760), to: directory)
+    }
+
+    /// Six profiles by eight roles, once at a width that shows the whole grid and once at the window's, where it scrolls sideways.
+    @Test func delegationWide() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.delegationModel(LeoDelegationFixtures.wide())
+        try Self.write(Self.delegationPane(model), named: "delegationWide", size: NSSize(width: 1500, height: 1500), to: directory)
+        try Self.write(Self.delegationPane(model), named: "delegationWideNarrow", size: NSSize(width: 900, height: 1500), to: directory)
+    }
+
+    @Test func delegationConflictAndRestartPrompt() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, fake) = try await Self.delegationModel()
+        model.beginCellEdit(profile: "fast", role: "coder")
+        model.setCellEffort("low")
+        await model.saveCellEdit()
+        model.beginCellEdit(profile: "deep", role: "qa")
+        model.setCellEffort("max")
+        await fake.externalDelegationChange(profile: "deep", role: "qa", target: LeoDelegationTarget(template: "coder"))
+        await model.saveCellEdit()
+        try Self.write(Self.delegationPane(model), named: "delegationConflict", size: NSSize(width: 900, height: 760), to: directory)
+    }
+
+    @Test func delegationCellPopover() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.delegationModel()
+        model.beginCellEdit(profile: "deep", role: "qa")
+        model.setCellEffort("ludicrous")
+        await model.saveCellEdit()
+        try Self.write(LeoDelegationCellPopover(model: model), named: "delegationCellPopover", size: NSSize(width: 340, height: 300), to: directory)
+        model.beginCellEdit(profile: "deep", role: "qa")
+        model.setCellTemplate("")
+        try Self.write(LeoDelegationCellPopover(model: model), named: "delegationCellPopoverRemove", size: NSSize(width: 340, height: 300), to: directory)
+    }
+
+    @Test func delegationPreviewSheet() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.delegationModel()
+        await model.requestActivate("deep")
+        try Self.write(LeoDelegationPreviewSheet(model: model), named: "delegationPreview", size: NSSize(width: 460, height: 260), to: directory)
+        let (back, _) = try await Self.delegationModel(LeoDelegationFixtures.document(active: "deep"))
+        await back.requestActivate("fast")
+        try Self.write(LeoDelegationPreviewSheet(model: back), named: "delegationPreviewMissing", size: NSSize(width: 460, height: 260), to: directory)
+    }
+
+    @Test func delegationNotConfiguredAndAddRole() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.delegationModel(nil)
+        try Self.write(Self.delegationPane(model), named: "delegationNotConfigured", size: NSSize(width: 700, height: 360), to: directory)
+        let (configured, _) = try await Self.delegationModel()
+        try Self.write(LeoDelegationAddRoleSheet(model: configured, close: {}), named: "delegationAddRole", size: NSSize(width: 380, height: 220), to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {
