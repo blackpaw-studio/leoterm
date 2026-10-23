@@ -68,6 +68,32 @@ public enum LeoConfigValue: Equatable, Sendable {
     }
 }
 
+extension LeoConfigValue {
+    /// An env map's plain variables. The daemon reports a secret-valued
+    /// variable as `{"set": true}`, never its value (`envSecretNames`).
+    public var envEntries: [String: String] {
+        objectValue?.compactMapValues(\.stringValue) ?? [:]
+    }
+
+    /// The env variables whose value the daemon holds back.
+    public var envSecretNames: [String] {
+        (objectValue ?? [:]).compactMap { entry in
+            if case .secret = entry.value { entry.key } else { nil }
+        }.sorted()
+    }
+
+    /// This map with its plain variables replaced by `entries`; its secret
+    /// variables are carried along as they were (`{"set": true}` keeps one),
+    /// unless `entries` names the same variable, which then wins.
+    public func replacingEnvEntries(_ entries: [String: String]) -> LeoConfigValue {
+        let secrets = (objectValue ?? [:]).filter { entry in
+            if case .secret = entry.value { entries[entry.key] == nil } else { false }
+        }
+        guard !secrets.isEmpty else { return .map(entries) }
+        return .object(entries.mapValues(LeoConfigValue.string).merging(secrets) { $1 })
+    }
+}
+
 extension LeoConfigValue: Codable {
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()

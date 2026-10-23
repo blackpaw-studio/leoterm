@@ -19,6 +19,7 @@
   "prompt": 200,
   "prompt_put": 200,
   "put_defaults": 200,
+  "put_template_env_secret": 200,
   "put_web": 200,
   "schema": 200,
   "service_status": 200,

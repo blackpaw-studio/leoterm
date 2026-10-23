@@ -18,7 +18,7 @@ struct LeoConfigGoldenTests {
         case "schema": .schema
         case "defaults", "web", "client", "template_coder": .document
         case "templates", "tasks", "environments", "hosts": .collection
-        case "post_task", "post_template_duplicate", "post_template_rename", "put_defaults", "put_web", "delegation_cell": .writeResult
+        case "post_task", "post_template_duplicate", "post_template_rename", "put_defaults", "put_web", "put_template_env_secret", "delegation_cell": .writeResult
         case "error_400": .error(status: 400)
         case "error_404": .error(status: 404)
         case "error_409": .error(status: 409)
@@ -28,8 +28,18 @@ struct LeoConfigGoldenTests {
         }
     }
 
-    @Test func theGoldenDirectoryIsComplete() {
-        #expect(LeoConfigFixtures.goldenNames.count == 28)
+    @Test func everyStatusEntryHasAFileAndEveryFileAStatus() throws {
+        let statuses = try JSONDecoder().decode([String: Int].self, from: LeoConfigFixtures.goldenData("STATUS"))
+        #expect(Set(LeoConfigFixtures.goldenNames) == Set(statuses.keys))
+        #expect(LeoConfigFixtures.goldenNames.count >= 28)
+    }
+
+    @Test func aSecretEnvVariableInAWriteResultSurvivesAnEdit() throws {
+        let result = try LeoConfigFixtures.decode(LeoConfigWriteResult.self, "put_template_env_secret")
+        let env = try #require(result.item?.values["env"])
+
+        #expect(env.envSecretNames == ["ANTHROPIC_AUTH_TOKEN"])
+        #expect(env.envEntries == ["ANTHROPIC_BASE_URL": "http://localhost:3325"])
     }
 
     @Test(arguments: LeoConfigFixtures.goldenNames)

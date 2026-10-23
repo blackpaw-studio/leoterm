@@ -71,4 +71,37 @@ struct LeoConfigValueCodingTests {
         #expect(LeoConfigValue.null.isNull)
         #expect(LeoConfigValue.int(3).stringValue == nil)
     }
+
+    // MARK: env maps with secret values
+
+    private static let secretEnv = #"{"ANTHROPIC_AUTH_TOKEN":{"set":true},"ANTHROPIC_BASE_URL":"http://localhost:3325"}"#
+
+    @Test func anEnvMapWithASecretVariableKeepsBothKinds() throws {
+        let env = try decode(Self.secretEnv)
+
+        #expect(env.envEntries == ["ANTHROPIC_BASE_URL": "http://localhost:3325"])
+        #expect(env.envSecretNames == ["ANTHROPIC_AUTH_TOKEN"])
+    }
+
+    @Test func editingThePlainEntriesKeepsTheSecretVariables() throws {
+        let edited = try decode(Self.secretEnv).replacingEnvEntries(["ANTHROPIC_BASE_URL": "http://other", "NEW": "1"])
+
+        #expect(edited.envEntries == ["ANTHROPIC_BASE_URL": "http://other", "NEW": "1"])
+        #expect(edited.envSecretNames == ["ANTHROPIC_AUTH_TOKEN"])
+        #expect(try decode(try encode(edited)) == edited)
+        #expect(try encode(edited).contains(#""ANTHROPIC_AUTH_TOKEN":{"set":true}"#))
+    }
+
+    @Test func aPlainEnvMapStaysAPlainMapAndAnEmptyOneIsEmpty() throws {
+        #expect(LeoConfigValue.map(["A": "1"]).replacingEnvEntries(["B": "2"]) == .map(["B": "2"]))
+        #expect(LeoConfigValue.null.replacingEnvEntries([:]) == .map([:]))
+        #expect(LeoConfigValue.map([:]).envSecretNames.isEmpty)
+    }
+
+    @Test func aSecretVariableTheUserReusesTheNameOfIsReplacedByTheirEntry() throws {
+        let edited = try decode(Self.secretEnv).replacingEnvEntries(["ANTHROPIC_AUTH_TOKEN": "typed"])
+
+        #expect(edited.envSecretNames.isEmpty)
+        #expect(edited == .map(["ANTHROPIC_AUTH_TOKEN": "typed"]))
+    }
 }
