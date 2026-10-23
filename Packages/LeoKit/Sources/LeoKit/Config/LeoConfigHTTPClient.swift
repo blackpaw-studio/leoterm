@@ -73,19 +73,24 @@ public struct LeoConfigHTTPClient: LeoConfigClient {
         return path
     }
 
-    private static func segment(_ part: String, what: String) throws -> String {
+    static func segment(_ part: String, what: String) throws -> String {
         guard !part.isEmpty else { throw LeoDaemonError.decoding("\(what) is empty") }
         return try LeoSocketDaemonClient.pathSegment(part)
     }
 
-    private func read<T: Decodable & Sendable>(_ path: String) async throws -> T {
+    func read<T: Decodable & Sendable>(_ path: String) async throws -> T {
         let response = try await transport.send(LeoHTTPRequest(method: "GET", path: path), timeout: defaultTimeout)
         return try Self.payload(response)
     }
 
     private func write(_ method: String, _ path: String, body: [String: LeoConfigValue]?, ifMatch: String) async throws -> LeoConfigWriteResult {
+        try await exchange(method, path, body: body, ifMatch: ifMatch)
+    }
+
+    /// A mutating request: the `If-Match` header when it has a revision, a JSON body when it has one.
+    func exchange<T: Decodable & Sendable>(_ method: String, _ path: String, body: [String: LeoConfigValue]? = nil, ifMatch: String? = nil) async throws -> T {
         let encoded = try body.map { try Self.encoder.encode($0) }
-        let request = LeoHTTPRequest(method: method, path: path, body: encoded, headers: ["If-Match": ifMatch])
+        let request = LeoHTTPRequest(method: method, path: path, body: encoded, headers: ifMatch.map { ["If-Match": $0] } ?? [:])
         return try Self.payload(try await transport.send(request, timeout: mutationTimeout))
     }
 

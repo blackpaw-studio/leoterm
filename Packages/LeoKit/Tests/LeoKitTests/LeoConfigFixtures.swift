@@ -9,7 +9,7 @@ import Testing
 enum LeoConfigFixtures {
     static let names = [
         "schema", "defaults", "templates", "template_coder", "tasks", "environments", "web", "client", "hosts",
-        "delegation", "delegation_preview", "prompt", "history", "service_status", "version",
+        "delegation", "delegation_preview", "prompt", "task_history", "service_status", "version",
         "write_result", "error_409", "error_422",
     ]
 

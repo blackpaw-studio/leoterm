@@ -262,6 +262,11 @@ actor ConfigRecordingTransport: LeoDaemonTransport, LeoWebTransport {
         reply = { _ in (status, Data(body.utf8)) }
     }
 
+    /// Every request is answered by the fixture `pick` names for it.
+    init(pick: @escaping @Sendable (LeoHTTPRequest) -> String) {
+        reply = { request in (200, (try? LeoConfigFixtures.data(pick(request))) ?? Data()) }
+    }
+
     func send(_ request: LeoHTTPRequest, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
         requests.append(request)
         let answer = reply(request)

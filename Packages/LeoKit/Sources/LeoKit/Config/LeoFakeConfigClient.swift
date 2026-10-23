@@ -12,6 +12,34 @@ public enum LeoFakeConfigCall: Equatable, Sendable {
     case rename(resource: String, name: String, newName: String, ifMatch: String)
     case duplicate(resource: String, name: String, newName: String, ifMatch: String)
     case delete(resource: String, name: String, ifMatch: String)
+    case runTask(String)
+    case taskHistory(name: String, limit: Int)
+    case taskLog(name: String, file: String)
+    case taskPrompt(String)
+    case saveTaskPrompt(name: String, content: String, ifMatch: String)
+    case cronPreview(String)
+}
+
+/// What a fake daemon knows about its tasks beyond their config: run history
+/// (newest first, per task), run logs by file, and the workspace's prompt
+/// files by path. A protected prompt file is one the daemon refuses to serve.
+public struct LeoFakeTaskData: Sendable {
+    public var runs: [String: [LeoTaskRun]]
+    public var logs: [String: String]
+    public var truncatedLogs: Set<String>
+    public var prompts: [String: String]
+    public var protectedPrompts: Set<String>
+
+    public init(
+        runs: [String: [LeoTaskRun]] = [:], logs: [String: String] = [:], truncatedLogs: Set<String> = [],
+        prompts: [String: String] = [:], protectedPrompts: Set<String> = []
+    ) {
+        self.runs = runs
+        self.logs = logs
+        self.truncatedLogs = truncatedLogs
+        self.prompts = prompts
+        self.protectedPrompts = protectedPrompts
+    }
 }
 
 /// An in-memory `LeoConfigClient` with the daemon's revision semantics, for
@@ -36,14 +64,17 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     private var nextReadFailure: (any Error)?
     private var isHoldingReads = false
     private var heldReads: [CheckedContinuation<Void, Never>] = []
+    private var taskData: LeoFakeTaskData
 
     public private(set) var calls: [LeoFakeConfigCall] = []
 
     public init(
         schema: LeoConfigSchema, singletons: [String: LeoConfigItem] = [:], collections: [String: [LeoConfigItem]] = [:],
+        tasks: LeoFakeTaskData = LeoFakeTaskData(),
         version: LeoDaemonVersionInfo = LeoDaemonVersionInfo(version: "0.0.0-fake", capabilities: [LeoConfigAPI.capability])
     ) {
         schemaValue = schema
+        taskData = tasks
         self.version = version
         self.singletons = singletons
         self.collections = collections.mapValues { items in
@@ -109,7 +140,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         try beforeWrite(ifMatch)
         let definition = try collectionDefinition(resource, supporting: .add)
         try checkName(name, field: "name", in: definition, excluding: nil)
-        collections[resource, default: [:]][name] = LeoConfigItem(name: name, values: Self.merged([:], values))
+        collections[resource, default: [:]][name] = LeoConfigItem(name: name, values: Self.merged(try addDefaults(resource, name, values), values))
         return committed(resource, item: name)
     }
 
@@ -147,6 +178,16 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         return committed(resource)
     }
 
+    /// What the daemon fills in when it adds a task: a schedule is required,
+    /// the prompt file defaults to `prompts/<name>.md`, and it starts disabled.
+    private func addDefaults(_ resource: String, _ name: String, _ values: [String: LeoConfigValue]) throws -> [String: LeoConfigValue] {
+        guard resource == "tasks" else { return [:] }
+        guard let schedule = values["schedule"]?.stringValue, !schedule.isEmpty else {
+            throw LeoConfigError.invalid([LeoConfigFieldError(field: "schedule", message: "schedule is required")])
+        }
+        return ["prompt_file": .string("prompts/\(name).md"), "enabled": .bool(false)]
+    }
+
     // MARK: scripting
 
     /// The next write throws `error` before touching anything.
@@ -182,6 +223,11 @@ public actor LeoFakeConfigClient: LeoConfigClient {
             singletons[resource] = LeoConfigItem(name: "", values: single.values.merging(values) { _, new in new }, inherited: single.inherited, effectiveHarness: single.effectiveHarness)
         }
         revisionNumber += 1
+    }
+
+    /// An edit to a prompt file made outside the app: its revision changes.
+    public func externalPromptChange(file: String, content: String) {
+        taskData.prompts[file] = content
     }
 
     /// What the daemon does when it restarts: the pending flags reset.
@@ -245,11 +291,13 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         }
     }
 
+    fileprivate func takeWriteFailure() -> (any Error)? {
+        defer { nextWriteFailure = nil }
+        return nextWriteFailure
+    }
+
     private func beforeWrite(_ ifMatch: String) throws {
-        if let failure = nextWriteFailure {
-            nextWriteFailure = nil
-            throw failure
-        }
+        if let failure = takeWriteFailure() { throw failure }
         guard !ifMatch.isEmpty else { throw LeoConfigError.revisionRequired }
         guard ifMatch == revision else { throw LeoConfigError.conflict(currentRevision: revision) }
     }
@@ -327,5 +375,77 @@ public actor LeoFakeConfigClient: LeoConfigClient {
             if singletons[owner]?.values[field] == .string(name) { return owner }
         }
         return nil
+    }
+}
+
+// MARK: tasks
+
+extension LeoFakeConfigClient {
+    public func runTask(_ name: String) async throws -> LeoTaskRunStart {
+        calls.append(.runTask(name))
+        if let failure = takeWriteFailure() { throw failure }
+        _ = try existing("tasks", name)
+        return LeoTaskRunStart(name: name, status: "started")
+    }
+
+    public func taskHistory(_ name: String, limit: Int) async throws -> [LeoTaskRun] {
+        calls.append(.taskHistory(name: name, limit: limit))
+        try await beforeRead()
+        _ = try existing("tasks", name)
+        return Array((taskData.runs[name] ?? []).prefix(limit))
+    }
+
+    public func taskLog(_ name: String, file: String) async throws -> LeoTaskLog {
+        calls.append(.taskLog(name: name, file: file))
+        try await beforeRead()
+        _ = try existing("tasks", name)
+        guard file.hasPrefix("\(name)-") else {
+            throw LeoDaemonError.daemon(code: "bad_request", message: "log file does not match task", matches: [])
+        }
+        guard let text = taskData.logs[file] else {
+            throw LeoDaemonError.daemon(code: "not_found", message: "log file \"\(file)\" not found", matches: [])
+        }
+        return LeoTaskLog(file: file, text: text, truncated: taskData.truncatedLogs.contains(file))
+    }
+
+    public func taskPrompt(_ name: String) async throws -> LeoTaskPrompt {
+        calls.append(.taskPrompt(name))
+        try await beforeRead()
+        let file = try promptFile(of: name)
+        let content = taskData.prompts[file] ?? ""
+        return LeoTaskPrompt(revision: LeoTaskPrompt.revision(of: content), file: file, files: servedPromptFiles, content: content)
+    }
+
+    public func saveTaskPrompt(_ name: String, content: String, ifMatch: String) async throws -> LeoTaskPromptWrite {
+        calls.append(.saveTaskPrompt(name: name, content: content, ifMatch: ifMatch))
+        if let failure = takeWriteFailure() { throw failure }
+        guard !ifMatch.isEmpty else { throw LeoConfigError.revisionRequired }
+        let file = try promptFile(of: name)
+        let current = LeoTaskPrompt.revision(of: taskData.prompts[file] ?? "")
+        guard ifMatch == current else { throw LeoConfigError.conflict(currentRevision: current) }
+        taskData.prompts[file] = content
+        return LeoTaskPromptWrite(revision: LeoTaskPrompt.revision(of: content), file: file)
+    }
+
+    public func cronPreview(_ expression: String) async throws -> LeoCronPreview {
+        calls.append(.cronPreview(expression))
+        try await beforeRead()
+        let fields = expression.split(separator: " ").count
+        return fields == 5
+            ? LeoCronPreview(valid: true, description: "Schedule \(expression)", error: nil)
+            : LeoCronPreview(valid: false, description: "", error: "expected 5 fields, got \(fields)")
+    }
+
+    /// The task's configured prompt file, refused when the daemon protects it.
+    private func promptFile(of name: String) throws -> String {
+        let file = try existing("tasks", name).values["prompt_file"]?.stringValue ?? ""
+        guard !taskData.protectedPrompts.contains(file) else {
+            throw LeoConfigError.invalid([LeoConfigFieldError(field: "prompt_file", message: "\(file) is not available as a prompt")])
+        }
+        return file
+    }
+
+    private var servedPromptFiles: [String] {
+        taskData.prompts.keys.filter { !taskData.protectedPrompts.contains($0) }.sorted()
     }
 }
