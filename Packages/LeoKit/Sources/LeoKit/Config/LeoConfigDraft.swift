@@ -28,7 +28,7 @@ public struct LeoConfigDraft: Equatable, Sendable {
     }
 
     public mutating func set(_ path: String, _ value: LeoConfigValue) {
-        if value == Self.value(at: path, in: document.values) {
+        if value.isEquivalent(to: Self.value(at: path, in: document.values)) {
             edits[path] = nil
         } else {
             edits[path] = value

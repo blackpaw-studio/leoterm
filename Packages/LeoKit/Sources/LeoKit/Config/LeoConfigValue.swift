@@ -20,6 +20,23 @@ public enum LeoConfigValue: Equatable, Sendable {
 
     public var isNull: Bool { self == .null }
 
+    /// Unset for a form's purposes: null, empty text, an empty list or map.
+    /// Zero and `false` are real values.
+    public var isBlank: Bool {
+        switch self {
+        case .null: true
+        case .string(let text): text.isEmpty
+        case .list(let values): values.isEmpty
+        case .map(let entries): entries.isEmpty
+        default: false
+        }
+    }
+
+    /// Whether the two read the same on a form: equal, or both unset.
+    public func isEquivalent(to other: LeoConfigValue) -> Bool {
+        self == other || (isBlank && other.isBlank)
+    }
+
     public var stringValue: String? {
         guard case .string(let value) = self else { return nil }
         return value

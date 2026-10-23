@@ -72,8 +72,8 @@ public struct LeoConfigValidator: Equatable, Sendable {
     // MARK: rules
 
     private func check(_ value: LeoConfigValue, _ field: LeoConfigField) -> String? {
-        if field.constraints.required, isBlank(value) { return "Required" }
-        if isBlank(value) { return nil }
+        if field.constraints.required, value.isBlank { return "Required" }
+        if value.isBlank { return nil }
         switch field.type {
         case .int: return checkInt(value, field.constraints)
         case .enum: return checkEnum(value, field)
@@ -82,14 +82,6 @@ public struct LeoConfigValidator: Equatable, Sendable {
         case .map: return checkMap(value)
         case .string: return checkPattern(value, field.constraints)
         case .bool, .list, .secret, .yaml, .unknown: return nil
-        }
-    }
-
-    private func isBlank(_ value: LeoConfigValue) -> Bool {
-        switch value {
-        case .null: true
-        case .string(let text): text.isEmpty
-        default: false
         }
     }
 

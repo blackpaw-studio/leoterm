@@ -44,6 +44,28 @@ struct LeoConfigDraftTests {
         #expect(!draft.canSave)
     }
 
+    @Test func emptyTextAndEmptyCollectionsEqualUnset() {
+        var draft = LeoConfigDraft(document: LeoConfigDocument(revision: "r", values: [
+            "text": .null, "blank": .string(""), "list": .null, "map": .null, "full": .list([.string("x")]),
+        ]))
+        draft.set("text", .string(""))
+        draft.set("blank", .null)
+        draft.set("list", .list([]))
+        draft.set("map", .map([:]))
+        #expect(!draft.isDirty)
+
+        draft.set("full", .list([]))
+        #expect(draft.patch == ["full": .list([])])
+    }
+
+    @Test func zeroAndFalseAreRealValuesNotUnset() {
+        var draft = LeoConfigDraft(document: LeoConfigDocument(revision: "r", values: ["n": .null, "b": .null]))
+        draft.set("n", .int(0))
+        draft.set("b", .bool(false))
+        #expect(draft.isDirty("n"))
+        #expect(draft.isDirty("b"))
+    }
+
     @Test func aMissingKeyReadsAsNullAndNullEqualsMissing() throws {
         var draft = try Self.draft()
         #expect(draft.value(at: "no_such_key") == .null)
