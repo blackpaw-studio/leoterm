@@ -23,7 +23,16 @@ enum LeoConfigGolden {
         try decode(LeoConfigWriteResult.self, "put_template_env_secret").item?.item ?? LeoConfigItem(name: "coder", values: [:])
     }
 
-    static func client(supported: Bool = true, secretEnv: Bool = false, tasks: LeoFakeTaskData = LeoFakeTaskData()) throws -> LeoFakeConfigClient {
+    /// The golden `base` environment plus a second one, `work`, whose `env` also holds a secret variable.
+    static func environmentsWithSecret() throws -> [LeoConfigItem] {
+        try decode(LeoConfigCollection.self, "environments").items + [
+            LeoConfigItem(name: "work", values: ["env": .object(["WORK_TOKEN": .secret(isSet: true), "WORK_URL": .string("http://work.local")])]),
+        ]
+    }
+
+    static func client(
+        supported: Bool = true, secretEnv: Bool = false, secretEnvironment: Bool = false, tasks: LeoFakeTaskData = LeoFakeTaskData()
+    ) throws -> LeoFakeConfigClient {
         func items(_ name: String) throws -> [LeoConfigItem] { try decode(LeoConfigCollection.self, name).items }
         func singleton(_ name: String) throws -> LeoConfigItem { try decode(LeoConfigDocument.self, name).item }
         return LeoFakeConfigClient(
@@ -32,7 +41,7 @@ enum LeoConfigGolden {
             collections: [
                 "templates": try items("templates").map { secretEnv && $0.name == "coder" ? try coderWithSecretEnv() : $0 },
                 "tasks": try items("tasks"),
-                "environments": try items("environments"), "hosts": try items("hosts"),
+                "environments": secretEnvironment ? try environmentsWithSecret() : try items("environments"), "hosts": try items("hosts"),
             ],
             tasks: tasks,
             version: LeoDaemonVersionInfo(version: "0.52.0", capabilities: supported ? [LeoConfigAPI.capability] : [])

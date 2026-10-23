@@ -189,6 +189,9 @@ private struct LeoSettingsView: View {
             LeoTasksSettingsView(target: target)
                 .tabItem { Label("Tasks", systemImage: "clock") }
                 .tag(LeoTasksSettingsView.tab)
+            LeoEnvironmentsSettingsView(target: target)
+                .tabItem { Label("Environments", systemImage: "leaf") }
+                .tag(LeoEnvironmentsSettingsView.tab)
         }
         .alert(
             "Discard unsaved changes?",

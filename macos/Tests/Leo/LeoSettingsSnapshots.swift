@@ -203,6 +203,42 @@ struct LeoSettingsSnapshots {
         try Self.write(sheet, named: "tasksAddSheet", size: NSSize(width: 420, height: 184), to: directory)
     }
 
+    // MARK: Environments pane
+
+    private static func environmentsModel() async throws -> LeoConfigCollectionModel {
+        let fake = try LeoConfigGolden.client(secretEnvironment: true)
+        let model = LeoConfigCollectionModel(resource: "environments", client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus")
+        await model.load()
+        model.select("work")
+        return model
+    }
+
+    private static let environmentsSize = NSSize(width: 820, height: 460)
+
+    @Test func environments() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.environmentsModel()
+        try Self.write(Self.templatesPane(model), named: "environments", size: Self.environmentsSize, to: directory)
+    }
+
+    @Test func environmentsEditedWithARestartPrompt() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.environmentsModel()
+        model.set("env", model.draft?.value(at: "env").replacingEnvEntries(["WORK_URL": "http://work.local", "REGION": "eu"]) ?? .null)
+        await model.save()
+        model.set("env", model.draft?.value(at: "env").settingEnvSecret("WORK_TOKEN", to: .secretReplace("new")) ?? .null)
+        try Self.write(Self.templatesPane(model), named: "environmentsEdited", size: Self.environmentsSize, to: directory)
+    }
+
+    @Test func environmentsAddSheet() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.environmentsModel()
+        let sheet = LeoNameSheet(
+            title: "New environment", confirmTitle: "Add", name: "", validate: { model.nameError($0) }, submit: { _ in }, cancel: {}
+        )
+        try Self.write(sheet, named: "environmentsAddSheet", size: NSSize(width: 360, height: 150), to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {
