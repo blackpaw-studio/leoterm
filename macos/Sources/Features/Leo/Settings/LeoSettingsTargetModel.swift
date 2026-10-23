@@ -122,6 +122,11 @@ enum LeoSettingsTab: Hashable {
         panes[tab] = WeakPane(pane: pane)
     }
 
+    /// The pane mounted for `tab`, if it is still alive.
+    func pane(for tab: LeoSettingsTab) -> (any LeoSettingsPane)? {
+        panes[tab]?.pane
+    }
+
     var hasUnsavedChanges: Bool {
         panes.values.contains { $0.pane?.hasUnsavedChanges == true }
     }

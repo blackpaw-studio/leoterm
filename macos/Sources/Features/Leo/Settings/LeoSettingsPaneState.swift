@@ -13,18 +13,25 @@ struct LeoSettingsPaneState<Content: View>: View {
     @ViewBuilder let content: (any LeoConfigClient) -> Content
 
     var body: some View {
-        if let client = target.retainedClient(for: tab), case .ready = target.availability {
-            content(client).id(target.machineEpoch)
-        } else if let client = target.retainedClient(for: tab) {
+        if let client = target.retainedClient(for: tab) {
+            // One structure for ready and reconnecting alike: the content keeps
+            // its place, and so the state its view owns, while the banner comes and goes.
             VStack(spacing: 0) {
-                LeoReconnectingBanner(
-                    machine: SpawnMachineOption.title(for: target.selectedHost), isLoading: target.isLoading, reconnect: target.reconnect
-                )
-                content(client).id(target.machineEpoch).disabled(true)
+                if !isReady {
+                    LeoReconnectingBanner(
+                        machine: SpawnMachineOption.title(for: target.selectedHost), isLoading: target.isLoading, reconnect: target.reconnect
+                    )
+                }
+                content(client).id(target.machineEpoch).disabled(!isReady)
             }
         } else {
             notice
         }
+    }
+
+    private var isReady: Bool {
+        if case .ready = target.availability { return true }
+        return false
     }
 
     @ViewBuilder private var notice: some View {
