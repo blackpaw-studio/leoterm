@@ -125,7 +125,7 @@ struct LeoSidebarView: View {
         self.windowID = windowID
         self.actions = actions
         self.terminals = terminals
-        _unread = ObservedObject(wrappedValue: unread ?? .detached())
+        _unread = ObservedObject(wrappedValue: unread ?? LeoChatUnreadStore())
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions

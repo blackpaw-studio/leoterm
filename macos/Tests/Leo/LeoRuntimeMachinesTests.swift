@@ -11,6 +11,9 @@ import Testing
 @Suite(.serialized, .timeLimit(.minutes(1)))
 @MainActor struct LeoRuntimeMachinesTests {
     private typealias Support = LeoMachineRegistryTestSupport
+    private static let aAgent = LeoAgentID(host: .remote("a"), name: "a-agent")
+    private static let bAgent = LeoAgentID(host: .remote("b"), name: "b-agent")
+    private static let localAlpha = LeoAgentID(host: .local, name: "alpha")
     nonisolated private static let quiet = LeoSidebarActivitySource(events: { AsyncStream { _ in } }, fetchState: { [] })
 
     @Test func everyMachineIsFedByDefault() {
@@ -78,7 +81,8 @@ import Testing
                         )) }
                     },
                     fetchState: { [] }
-                )
+                ),
+                chat: FakeChatClient()
             )
         }
         defer { runtime.shutdown() }
@@ -138,7 +142,7 @@ import Testing
         let templates = LeoRecordingTemplateRunner()
         let runtime = try makeRuntime(machines: ["b"], tunnels: tunnels, templates: templates) { _, _ in
             await gate.pass()
-            return LeoMachineDaemon(daemon: late, activitySource: Self.quiet)
+            return LeoMachineDaemon(daemon: late, activitySource: Self.quiet, chat: FakeChatClient())
         }
         defer { runtime.shutdown() }
         start(runtime)
@@ -162,7 +166,9 @@ import Testing
         let builds = LeoLockedLog<LeoHostID>()
         let runtime = try makeRuntime(machines: ["a"], defaults: defaults) { host, _ in
             builds.append(host)
-            return LeoMachineDaemon(daemon: LeoListingDaemon(names: ["a-\(builds.values.count)"]), activitySource: Self.quiet)
+            return LeoMachineDaemon(
+                daemon: LeoListingDaemon(names: ["a-\(builds.values.count)"]), activitySource: Self.quiet, chat: FakeChatClient()
+            )
         }
         defer { runtime.shutdown() }
         start(runtime)
@@ -186,7 +192,9 @@ import Testing
         let runtime = try makeRuntime(machines: ["a"], defaults: defaults) { host, _ in
             builds.append(host)
             if builds.values.count == 1 { await gate.pass() }
-            return LeoMachineDaemon(daemon: LeoListingDaemon(names: ["build-\(builds.values.count)"]), activitySource: Self.quiet)
+            return LeoMachineDaemon(
+                daemon: LeoListingDaemon(names: ["build-\(builds.values.count)"]), activitySource: Self.quiet, chat: FakeChatClient()
+            )
         }
         defer { runtime.shutdown() }
         start(runtime)
@@ -236,6 +244,90 @@ import Testing
         #expect(runtime.machines.configuration(for: .remote("a"))?.isEnabled == true)
     }
 
+    // MARK: - Chat follows the agent's machine
+
+    /// The reported bug: an agent on a remote machine showed "<Machine> isn't
+    /// connected." because Chat was only ever bound to This Mac.
+    @Test func chatLoadsForAnAgentOnARemoteMachine() async throws {
+        let a = FakeChatClient()
+        await a.enqueuePage([chatMessage("m1", agent: "a-agent", at: 1)])
+        let runtime = try makeRuntime(machines: ["a"], chats: [.remote("a"): a])
+        defer { runtime.shutdown() }
+        start(runtime)
+        try await until { @MainActor in rows(runtime, "a") == ["a-agent"] }
+
+        await runtime.chat.show(Self.aAgent)
+
+        #expect(runtime.chat.loadError == nil)
+        #expect(runtime.chat.timeline.messages.map(\.id) == ["m1"])
+        #expect(await a.pageRequests.count == 1)
+    }
+
+    @Test func aRemoteMachinesUnreadSeedsFromItsOwnDaemonAndCountsItsLiveMessages() async throws {
+        let local = FakeChatClient()
+        await local.setThreads([LeoChatThread(agent: "alpha", unread: 4)])
+        let a = FakeChatClient()
+        await a.setThreads([LeoChatThread(agent: "a-agent", unread: 2)])
+        let stub = LeoChatEventStub()
+        let runtime = try makeRuntime(machines: ["a"], chatClient: local, chats: [.remote("a"): a], activities: [.remote("a"): stub])
+        defer { runtime.shutdown() }
+        start(runtime)
+        try await until { @MainActor in runtime.unread.count(for: Self.aAgent) == 2 && runtime.unread.count(for: Self.localAlpha) == 4 }
+
+        stub.send(.chat(seq: 2, .message(chatMessage("x", agent: "a-agent", at: 5))))
+
+        try await until { @MainActor in runtime.unread.count(for: Self.aAgent) == 3 }
+        #expect(runtime.unread.count(for: Self.localAlpha) == 4)
+    }
+
+    @Test func chatShowsNotConnectedOnlyWhileItsMachineIsDownAndReloadsOnReconnect() async throws {
+        let tunnels = LeoFakeTunnels()
+        let a = FakeChatClient()
+        let b = FakeChatClient()
+        await a.enqueuePage([chatMessage("m1", agent: "a-agent", at: 1)])
+        await b.setThreads([LeoChatThread(agent: "b-agent", unread: 7)])
+        let runtime = try makeRuntime(machines: ["a", "b"], tunnels: tunnels, chats: [.remote("a"): a, .remote("b"): b])
+        defer { runtime.shutdown() }
+        start(runtime)
+        try await until { @MainActor in rows(runtime, "a") == ["a-agent"] && runtime.unread.count(for: Self.bAgent) == 7 }
+        await runtime.chat.show(Self.aAgent)
+        #expect(runtime.chat.timeline.messages.map(\.id) == ["m1"])
+        let bThreadRequests = await b.threadRequestCount
+
+        tunnels.tunnels("evan@a").first?.exit()
+
+        try await until { @MainActor in runtime.chat.loadError == "a isn't connected." }
+        #expect(runtime.chat.timeline.messages.isEmpty)
+        #expect(runtime.unread.count(for: Self.bAgent) == 7)
+
+        await a.enqueuePage([chatMessage("m1", agent: "a-agent", at: 1), chatMessage("m2", agent: "a-agent", at: 2)])
+        runtime.model.reconnectRequested(.remote("a"))
+
+        try await until { @MainActor in runtime.chat.loadError == nil && runtime.chat.timeline.messages.map(\.id) == ["m1", "m2"] }
+        #expect(runtime.unread.count(for: Self.bAgent) == 7)
+        #expect(await b.threadRequestCount == bThreadRequests, "a's reconnect reseeded b")
+    }
+
+    @Test func aRemovedMachineDropsItsChatClientAndUnreadCounts() async throws {
+        let defaults = LeoInMemoryDefaults()
+        let a = FakeChatClient()
+        await a.setThreads([LeoChatThread(agent: "a-agent", unread: 3)])
+        let runtime = try makeRuntime(machines: ["a"], defaults: defaults, chats: [.remote("a"): a])
+        defer { runtime.shutdown() }
+        start(runtime)
+        try await until { @MainActor in runtime.unread.count(for: Self.aAgent) == 3 }
+        await runtime.chat.show(Self.aAgent)
+        #expect(runtime.chat.loadError == nil)
+
+        try Support.save([], to: defaults)
+        runtime.machines.reload()
+
+        try await until { @MainActor in !runtime.unread.isBound(.remote("a")) }
+        #expect(runtime.unread.count(for: Self.aAgent) == 0)
+        #expect(runtime.chat.loadError == "a isn't connected.")
+        #expect(runtime.unread.isBound(.local))
+    }
+
     // MARK: - Helpers
 
     private func makeRuntime(
@@ -246,6 +338,9 @@ import Testing
         tunnels: LeoFakeTunnels = LeoFakeTunnels(),
         feedsRemoteMachines: Bool = true,
         templates: LeoRecordingTemplateRunner = LeoRecordingTemplateRunner(),
+        chatClient: FakeChatClient = FakeChatClient(),
+        chats: [LeoHostID: FakeChatClient] = [:],
+        activities: [LeoHostID: LeoChatEventStub] = [:],
         remoteDaemon: LeoRemoteDaemonFactory? = nil
     ) throws -> LeoRuntime {
         if seedsHosts { try Support.save(names.map { Support.host($0, enabled: !disabled.contains($0)) }, to: defaults) }
@@ -259,10 +354,14 @@ import Testing
             machineControlSocketDirectory: directory,
             makeTunnel: tunnels.factory,
             remoteDaemon: remoteDaemon ?? { host, _ in
-                LeoMachineDaemon(daemon: LeoListingDaemon(names: ["\(host.displayName)-agent"]), activitySource: Self.quiet)
+                LeoMachineDaemon(
+                    daemon: LeoListingDaemon(names: ["\(host.displayName)-agent"]),
+                    activitySource: activities[host]?.activity ?? Self.quiet, chat: chats[host] ?? FakeChatClient()
+                )
             },
             machineRetrySleep: { try await sleeper.sleep($0) },
-            feedsRemoteMachines: feedsRemoteMachines
+            feedsRemoteMachines: feedsRemoteMachines,
+            chatClient: chatClient
         )
     }
 
@@ -330,4 +429,27 @@ private struct LeoStatsListingDaemon: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
     func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
+}
+
+/// A machine's activity stream that opens with a hello (so the machine's chat
+/// resyncs) and then carries whatever `send` pushes.
+final class LeoChatEventStub: @unchecked Sendable {
+    private let lock = NSLock()
+    private var continuations: [AsyncStream<LeoObserveEvent>.Continuation] = []
+
+    var activity: LeoSidebarActivitySource {
+        LeoSidebarActivitySource(
+            events: { [self] in
+                AsyncStream { continuation in
+                    continuation.yield(.hello(seq: 1, at: nil, version: "1", serverTime: nil, bootID: "boot", features: []))
+                    lock.withLock { continuations.append(continuation) }
+                }
+            },
+            fetchState: { [] }
+        )
+    }
+
+    func send(_ event: LeoObserveEvent) {
+        lock.withLock { continuations }.forEach { $0.yield(event) }
+    }
 }

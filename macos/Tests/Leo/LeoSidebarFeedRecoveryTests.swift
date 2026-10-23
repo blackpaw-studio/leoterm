@@ -71,7 +71,7 @@ struct LeoSidebarFeedRecoveryTests {
         // a dead stream, which disconnects the feed (D-061) and can beat
         // the first refresh.
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
         let session = runtime.makeWindowSession()
         // The sidebar is hidden by default on a fresh install -- this test
         // is specifically about *visible*-sidebar pollability, so state
@@ -98,7 +98,7 @@ struct LeoSidebarFeedRecoveryTests {
         // An inert stream: a dead one would (rightly) disconnect the feed
         // and stop all refreshes (D-061), which is not what this is about.
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
         let session = runtime.makeWindowSession()
 
         runtime.start()

@@ -4,15 +4,15 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// One feed per shown machine: only This Mac's forwards Leo Chat, and a
-/// machine that leaves and comes back gets a fresh feed whose snapshots are
+/// One feed per shown machine: every machine's forwards Leo Chat tagged with
+/// its own host, and a machine that leaves and comes back gets a fresh feed whose snapshots are
 /// the only ones delivered for it.
 @Suite(.timeLimit(.minutes(1)))
 @MainActor struct LeoMachineFeedsTests {
     private static let work = LeoHostID.remote("work")
 
-    @Test func onlyThisMacsFeedForwardsChat() async throws {
-        let chats = LeoLockedLog<LeoChatFeedSignal>()
+    @Test func everyMachinesFeedForwardsChatTaggedWithItsMachine() async throws {
+        let chats = LeoLockedLog<LeoChatFeedDelivery>()
         let delivered = DeliveredSnapshots()
         let feeds = Self.feeds(
             localActivity: Self.activity(sending: Self.hello(features: [])), chats: chats, delivered: delivered
@@ -25,9 +25,12 @@ import Testing
         ))
 
         try await until { await delivered.last(for: Self.work)?.features.contains(.attachDispatchPlacement) == true }
-        try await until { chats.values.count >= 1 }
+        try await until { chats.values.count >= 2 }
         for _ in 0..<20 { await Task.yield() }
-        #expect(chats.values == [.resync], "work's hello reached Chat")
+        // The two feeds run on their own queues, so their order isn't fixed.
+        #expect(chats.values.count == 2)
+        #expect(chats.values.contains(LeoChatFeedDelivery(host: .local, signal: .resync)), "This Mac's hello reached Chat")
+        #expect(chats.values.contains(LeoChatFeedDelivery(host: Self.work, signal: .resync)), "work's hello reached Chat")
     }
 
     @Test func aMachineThatLeavesAndComesBackOnlyEverDeliversItsNewFeedsSnapshots() async throws {
@@ -60,13 +63,13 @@ import Testing
 
     private static func feeds(
         localActivity: LeoSidebarActivitySource = activity(sending: nil),
-        chats: LeoLockedLog<LeoChatFeedSignal> = LeoLockedLog(),
+        chats: LeoLockedLog<LeoChatFeedDelivery> = LeoLockedLog(),
         delivered: DeliveredSnapshots
     ) -> LeoMachineFeeds {
         LeoMachineFeeds(dependencies: .init(
             localDaemon: LeoListingDaemon(names: []),
             localActivity: localActivity,
-            onChat: { chats.append($0) },
+            onChat: { host, signal in chats.append(LeoChatFeedDelivery(host: host, signal: signal)) },
             onSnapshot: { host, snapshot in delivered.record(snapshot, for: host) }
         ))
     }

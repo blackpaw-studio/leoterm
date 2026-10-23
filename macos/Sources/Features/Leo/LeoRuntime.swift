@@ -14,14 +14,18 @@ import LeoKit
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
     /// on the row's own machine's daemon, like `actions`.
     let control: LeoAgentControlModel
-    /// Leo Chat for the selected agent: This Mac's daemon only, never
-    /// rebound; fed This Mac's `chat.*` events in stream order by `chatRelay`.
+    /// Leo Chat for the selected agent, on the agent's own machine: each
+    /// machine's chat client binds when it connects and unbinds when it
+    /// drops (`LeoRuntime+Machines`). Fed every machine's `chat.*` events,
+    /// in that machine's stream order, by `chatRelay`.
     let chat: LeoChatPaneModel
-    /// Unread agent messages per This Mac agent, behind the sidebar and
-    /// Chat-switch badges; fed by `chatRelay` before `chat` sees a delivery,
-    /// so agents that aren't shown count too.
+    /// Unread agent messages per agent on every connected machine, behind the
+    /// sidebar and Chat-switch badges; fed by `chatRelay` before `chat` sees
+    /// a delivery, so agents that aren't shown count too.
     let unread: LeoChatUnreadStore
-    private let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
+    /// This Mac's chat client; a remote machine's arrives with its connection.
+    let localChatClient: any LeoChatClient
+    let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
     /// Windows open Chat for a selected agent with unread messages: on a
     /// selection change, and when a seed lands after one.
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
@@ -315,10 +319,12 @@ import LeoKit
         let localChatClient = chatClient ?? LeoChatPaneModel.makeClient(
             socketPath: NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath, transport: LeoUnixSocketTransport()
         )
-        let unread = LeoChatUnreadStore(client: localChatClient, host: .local)
+        self.localChatClient = localChatClient
+        // Nothing is bound until a machine connects (`LeoRuntime+Machines`).
+        let unread = LeoChatUnreadStore()
         self.unread = unread
         let chat = LeoChatPaneModel(
-            client: localChatClient, host: .local, recorder: LeoChatVoiceRecorder(),
+            clients: [:], recorder: LeoChatVoiceRecorder(),
             attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory,
             onRead: { [weak unread] in unread?.clear($0) }
         )
@@ -329,7 +335,7 @@ import LeoKit
             // pane merges the message and marks it read.
             await MainActor.run {
                 unread?.receive(delivery, isOnScreen: { chat?.marksRead($0) ?? false })
-                if let agent = LeoChatAutoOpen.agent(sending: delivery) {
+                if unread?.isBound(delivery.host) == true, let agent = LeoChatAutoOpen.agent(sending: delivery) {
                     registry?.sessions.forEach { $0.openChatIfSent(by: agent) }
                 }
             }
@@ -358,7 +364,7 @@ import LeoKit
             localDaemon: daemon, localActivity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
-            onChat: { signal in chatRelay.send(LeoChatFeedDelivery(host: .local, signal: signal)) },
+            onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
             onSnapshot: { [weak model] host, snapshot in
                 model?.receive(snapshot, for: host)
                 // B-270: a hello advertising dispatch placement re-attaches

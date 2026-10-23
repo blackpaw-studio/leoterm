@@ -17,7 +17,7 @@ struct LeoChatSenderSnapshots {
         let directory = try #require(snapshotOutputDirectory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let model = LeoChatPaneModel(
-            client: FakeChatClient(), host: .local, recorder: FakeVoiceRecorder(),
+            clients: [.local: FakeChatClient()], recorder: FakeVoiceRecorder(),
             attachmentDirectory: FileManager.default.temporaryDirectory.appending(path: "leo-sender-snapshots-\(UUID().uuidString)")
         )
         let base = Date(timeIntervalSince1970: 1_800_000_000)

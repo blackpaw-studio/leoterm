@@ -1,17 +1,21 @@
 import Foundation
 import LeoKit
 
-/// A connected machine's daemon client and activity stream.
+/// A connected machine's daemon client, activity stream and Leo Chat client.
+/// `chat` has no default: a missing production client must not compile
+/// silently, or that machine's chat would sit at "isn't connected".
 struct LeoMachineDaemon: Sendable {
     let daemon: any LeoDaemonClient
     let activitySource: LeoSidebarActivitySource
+    let chat: any LeoChatClient
 }
 
 /// Builds a remote machine's `LeoMachineDaemon` for its forwarded socket.
 typealias LeoRemoteDaemonFactory = @Sendable (_ host: LeoHostID, _ socketPath: String) async -> LeoMachineDaemon
 
 /// Every machine connects on its own: its state transitions reach only its
-/// own feed and client, and This Mac's never moves Chat anywhere.
+/// own feed, client and Chat client. Leo Chat follows each agent's machine:
+/// a machine's chat binds when it connects and unbinds when it drops.
 extension LeoRuntime {
     /// Opens Leo Settings on its Machines tab, selecting `host` when given.
     func presentMachinesSettings(selecting host: LeoHostID? = nil) {
@@ -29,7 +33,10 @@ extension LeoRuntime {
         model.setMachines(shown)
         feeds.setMachines(shown)
         statsPoller.setMachines(shown)
-        gone.forEach { clients.unbind($0) }
+        gone.forEach {
+            clients.unbind($0)
+            chatMachineDisconnected($0)
+        }
     }
 
     /// A machine connected, failed, was disabled or came back: the spawn
@@ -66,9 +73,11 @@ extension LeoRuntime {
         connectionSequences[host] = sequence
         switch state {
         case .connecting:
+            chatMachineDisconnected(host)
             feeds.updateConnection(host: host, generation: generation, phase: .connecting)
             statsPoller.reconcile()
         case .failed(let message, _):
+            chatMachineDisconnected(host)
             feeds.updateConnection(host: host, generation: generation, phase: .failed(message: message))
             statsPoller.reconcile()
         case .connected(let socketPath):
@@ -87,16 +96,35 @@ extension LeoRuntime {
     /// change) has since been seen, this stale result is dropped.
     private func applyConnected(host: LeoHostID, generation: Int, socketPath: String, sequence: Int) async {
         let connected = host == .local
-            ? LeoMachineDaemon(daemon: localDaemon, activitySource: localActivitySource)
+            ? LeoMachineDaemon(daemon: localDaemon, activitySource: localActivitySource, chat: localChatClient)
             : await remoteDaemon(host, socketPath)
         guard !isShutDown, connectionSequences[host] == sequence,
               generation == machines.generation(for: host) else { return }
         clients.bind(connected.daemon, host: host, generation: generation)
         actions.hostConnected(host)
+        chatMachineConnected(host, connected.chat)
         feeds.updateConnection(
             host: host, generation: generation, phase: .connected(daemon: connected.daemon, activitySource: connected.activitySource)
         )
         statsPoller.reconcile()
+    }
+
+    /// `host`'s daemon is up: its chat and unread counts bind to its client,
+    /// and a synthetic resync through the chat relay (in order with the
+    /// machine's live events) seeds its counts and reloads the shown thread
+    /// if that thread lives there. The feed's own hello sends another; the
+    /// seed and page tokens drop the stale answer.
+    private func chatMachineConnected(_ host: LeoHostID, _ client: any LeoChatClient) {
+        unread.bind(client, host: host)
+        chat.bind(client, host: host)
+        chatRelay.send(LeoChatFeedDelivery(host: host, signal: .resync))
+    }
+
+    /// `host`'s daemon is gone (connecting again, failed, or removed): its
+    /// unread counts clear and a thread shown from it reads "isn't connected".
+    private func chatMachineDisconnected(_ host: LeoHostID) {
+        unread.unbind(host)
+        chat.unbind(host)
     }
 
     /// The production `LeoRemoteDaemonFactory`: a socket client over the
@@ -113,7 +141,8 @@ extension LeoRuntime {
                     observedState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
                   )
                 : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-            return LeoMachineDaemon(daemon: daemon, activitySource: activity)
+            let chat = LeoChatPaneModel.makeClient(socketPath: socketPath, transport: tunnelTransport)
+            return LeoMachineDaemon(daemon: daemon, activitySource: activity, chat: chat)
         }
     }
 }

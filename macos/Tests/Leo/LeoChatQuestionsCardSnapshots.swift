@@ -52,7 +52,7 @@ struct LeoChatQuestionsCardSnapshots {
     private func model(client: FakeChatClient, message: LeoChatMessage) async -> LeoChatPaneModel {
         await client.enqueuePage([message])
         let model = LeoChatPaneModel(
-            client: client, host: .local, recorder: FakeVoiceRecorder(),
+            clients: [.local: client], recorder: FakeVoiceRecorder(),
             attachmentDirectory: FileManager.default.temporaryDirectory.appending(path: "leo-card-snapshots-\(UUID().uuidString)")
         )
         await model.show(Self.alpha)

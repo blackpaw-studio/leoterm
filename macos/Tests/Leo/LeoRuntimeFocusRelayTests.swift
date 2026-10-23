@@ -17,7 +17,8 @@ import Testing
         let runtime = LeoRuntime(
             daemon: EmptyDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
             templateFetchRunner: LeoRecordingTemplateRunner(),
-            focusedAgentSink: { await delivered.append($0) }
+            focusedAgentSink: { await delivered.append($0) },
+            chatClient: FakeChatClient()
         )
         defer { runtime.shutdown() }
         let alpha = LeoAgentIdentity(host: .local, name: "alpha")

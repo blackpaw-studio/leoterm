@@ -56,7 +56,8 @@ struct LeoDaemonFeaturesScopeTests {
             machineLegacySocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             machineControlSocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             makeTunnel: LeoFakeTunnels().factory,
-            feedsRemoteMachines: true
+            feedsRemoteMachines: true,
+            chatClient: FakeChatClient()
         )
         defer { runtime.shutdown() }
         runtime.model.receive(LeoSidebarSnapshot(
