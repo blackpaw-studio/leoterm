@@ -390,8 +390,8 @@ import LeoKit
     }
 
     /// The form's Save was held for the prompt text: drop the text, then save.
-    func confirmFormSave() async {
-        guard case .saveWithFile? = prompt.confirmation else { return }
+    func confirmFormSave(_ confirmation: LeoTaskPromptState.Confirmation) async {
+        guard case .saveWithFile = confirmation else { return }
         discardPromptEdits()
         await collection.save()
         await settled()
@@ -431,8 +431,9 @@ import LeoKit
         await choosePromptFile(path)
     }
 
-    func confirmPromptFileSwitch() async {
-        guard case .switchFile(let file)? = prompt.confirmation, let name = selectedTask else { return }
+    /// Takes the confirmation the alert showed: SwiftUI has already closed it, and cleared the state, when the button runs.
+    func confirmPromptFileSwitch(_ confirmation: LeoTaskPromptState.Confirmation) async {
+        guard case .switchFile(let file) = confirmation, let name = selectedTask else { return }
         discardPromptEdits()
         await switchPromptFile(to: file, of: name)
     }

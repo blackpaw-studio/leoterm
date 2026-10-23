@@ -177,6 +177,19 @@ struct LeoSettingsSnapshots {
         try Self.write(LeoTasksView(model: model, machine: "dionysus"), named: "tasksPrompt", size: Self.tasksSize, to: directory)
     }
 
+    @Test func tasksPromptMoved() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let fake = try LeoConfigGolden.client(tasks: LeoConfigGolden.taskData())
+        let model = LeoTasksSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus", previewer: LeoCronPreviewer(sleep: { _ in }, fetch: { try await fake.cronPreview($0) }))
+        await model.load()
+        model.setPage(.prompt)
+        await model.settled()
+        model.setPromptText("Check the thing.\n\nThen, if anything looks off, post a short note in the ops thread.\n")
+        await fake.externalChange("tasks", name: "heartbeat", values: ["prompt_file": .string("notes.md")])
+        await model.reload(using: fake)
+        try Self.write(LeoTasksView(model: model, machine: "dionysus"), named: "tasksPromptMoved", size: Self.tasksSize, to: directory)
+    }
+
     @Test func tasksHistory() async throws {
         let directory = try #require(snapshotOutputDirectory)
         let model = try await Self.tasksModel(page: .history)

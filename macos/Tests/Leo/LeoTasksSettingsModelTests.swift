@@ -123,6 +123,20 @@ import Testing
         #expect(stored?.values["schedule"] == .string("0 9 * * *"))
     }
 
+    @Test func togglingAgainAfterARetriedToggleStillLeavesTheFormAConflict() async throws {
+        let harness = try await Self.harness()
+        harness.model.collection.set("schedule", .string("0 5 * * *"))
+        await harness.fake.externalChange("tasks", name: "heartbeat", values: ["schedule": .string("0 9 * * *")])
+
+        await harness.model.setEnabled(true, for: "nightly")
+        await harness.model.setEnabled(false, for: "nightly")
+        await harness.model.collection.save()
+
+        #expect(harness.model.collection.conflict != nil)
+        let stored = try await harness.fake.collection("tasks").items.first { $0.name == "heartbeat" }
+        #expect(stored?.values["schedule"] == .string("0 9 * * *"))
+    }
+
     @Test func aToggleWhileASaveIsRunningSaysSoAndRollsBack() async throws {
         let harness = try await Self.harness()
         harness.model.collection.set("model", .string("opus"))
@@ -374,7 +388,7 @@ import Testing
         #expect(harness.model.prompt.confirmation == .switchFile("notes.md"))
         #expect(await Self.updates(harness.fake).isEmpty)
 
-        await harness.model.confirmPromptFileSwitch()
+        await harness.model.confirmPromptFileSwitch(.switchFile("notes.md"))
         #expect(harness.model.prompt.document?.file == "notes.md")
         #expect(!harness.model.prompt.isDirty)
     }
@@ -555,10 +569,38 @@ import Testing
         #expect(harness.model.prompt.confirmation == .saveWithFile("notes.md"))
         #expect(await Self.updates(harness.fake).isEmpty)
 
-        await harness.model.confirmFormSave()
+        await harness.model.confirmFormSave(.saveWithFile("notes.md"))
         #expect(await Self.updates(harness.fake).count == 1)
         #expect(harness.model.prompt.document?.file == "notes.md")
         #expect(harness.model.prompt.text == "Notes\n")
+    }
+
+    /// SwiftUI closes an alert (the `isPresented` setter, which cancels) before it runs the pressed button's action.
+    @Test func theAlertsDiscardButtonSavesTheFormAfterTheAlertHasAlreadyClosed() async throws {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        harness.model.collection.set("prompt_file", .string("notes.md"))
+        await harness.model.collection.save()
+
+        let shown = try #require(harness.model.prompt.confirmation)
+        harness.model.cancelPromptFileSwitch()
+        await harness.model.confirmFormSave(shown)
+
+        #expect(await Self.updates(harness.fake).count == 1)
+        #expect(harness.model.prompt.document?.file == "notes.md")
+    }
+
+    @Test func theAlertsDiscardButtonSwitchesFilesAfterTheAlertHasAlreadyClosed() async throws {
+        let harness = try await Self.harness(page: .prompt)
+        harness.model.setPromptText("Mine.\n")
+        await harness.model.choosePromptFile("notes.md")
+
+        let shown = try #require(harness.model.prompt.confirmation)
+        harness.model.cancelPromptFileSwitch()
+        await harness.model.confirmPromptFileSwitch(shown)
+
+        #expect(harness.model.prompt.document?.file == "notes.md")
+        #expect(!harness.model.prompt.isDirty)
     }
 
     @Test func cancellingTheHeldFormSaveSendsNothingAndKeepsBothEdits() async throws {

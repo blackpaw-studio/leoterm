@@ -98,9 +98,9 @@ private struct LeoTaskDetail: View {
             presenting: model.prompt.confirmation
         ) { confirmation in
             if case .saveWithFile = confirmation {
-                Button("Discard and Save", role: .destructive) { Task { await model.confirmFormSave() } }
+                Button("Discard and Save", role: .destructive) { Task { await model.confirmFormSave(confirmation) } }
             } else {
-                Button("Discard", role: .destructive) { Task { await model.confirmPromptFileSwitch() } }
+                Button("Discard", role: .destructive) { Task { await model.confirmPromptFileSwitch(confirmation) } }
             }
             Button("Cancel", role: .cancel) {}
         } message: { confirmation in

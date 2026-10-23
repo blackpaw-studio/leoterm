@@ -348,9 +348,9 @@ import LeoKit
 
     /// Runs one write, then reads the list again. `preferring` is the item to
     /// select afterwards; `selectingResult` follows the item the daemon
-    /// returned; `keepingDraft` rebases the open draft onto what was read, unless
-    /// `retryingConflict` had to resend against a newer revision (then the
-    /// draft keeps its own). The write's failure goes to `onFailure`, else to the banner.
+    /// returned; `keepingDraft` rebases the open draft onto what was read, but
+    /// only a draft whose base is the revision this write was sent with: one
+    /// left behind by an earlier retry keeps its own, however many writes follow. The write's failure goes to `onFailure`, else to the banner.
     private func write(
         ifMatch: String, preferring name: String?, selectingResult: Bool = false, keepingDraft: Bool = false, retryingConflict: Bool = false,
         onFailure: ((LeoConfigCollectionModel, Error) -> Void)? = nil,
@@ -370,12 +370,13 @@ import LeoKit
                 sentWith = current
                 result = try await operation(current)
             }
+            let draftWasCurrent = draft.map { revisions.resolve($0.revision) == sentWith } ?? true
             revisions.recordWrite(from: sentWith, to: result.revision)
             conflict = nil
             warning = result.warning
             if result.restartRequired.isNeeded { restartPrompt = result.restartRequired }
             let followed = selectingResult ? (result.item?.name ?? name) : name
-            await refresh(preferring: followed, carrying: keepingDraft ? draft : nil, rebasing: sentWith == ifMatch)
+            await refresh(preferring: followed, carrying: keepingDraft ? draft : nil, rebasing: draftWasCurrent)
         } catch {
             if let onFailure { onFailure(self, error) } else { errorMessage = Self.message(for: error) }
         }
