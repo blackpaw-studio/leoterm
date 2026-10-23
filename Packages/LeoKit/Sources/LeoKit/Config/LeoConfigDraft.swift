@@ -183,12 +183,22 @@ public struct LeoConfigDraft: Equatable, Sendable {
         return copy
     }
 
-    /// A list edit is the names it added and removed against the list it was
-    /// made on (`LeoDelegationListEdit`), so over a newer list it keeps another
-    /// writer's additions and removals instead of replacing them with the
-    /// whole list that was typed. Any other value replays as it is.
+    /// The string lists that are sets: order and repeats mean nothing, so an
+    /// edit over a newer list keeps another writer's additions and removals.
+    /// Every other list (ssh args, the environments merge order, harness
+    /// options) is ordered and may repeat: it is replayed whole, as typed.
+    /// Keyed by path, so a list not named here gets that safe behaviour.
+    private static let setListPaths: Set<String> = [
+        "allowed_hosts", "trusted_proxies", "public_urls",
+        "channels", "dev_channels", "push.channels", "push.dev_channels",
+    ]
+
+    /// A set-list edit is the names it added and removed against the list it
+    /// was made on (`LeoDelegationListEdit`), so over a newer list it keeps
+    /// another writer's changes instead of replacing them with the whole list
+    /// that was typed. Any other value replays as it is.
     private func replayed(_ value: LeoConfigValue, at path: String, over target: Self) -> LeoConfigValue {
-        guard let names = value.stringList else { return value }
+        guard Self.setListPaths.contains(path), let names = value.stringList else { return value }
         let base = baseValue(at: path).stringList ?? []
         let fresh = target.baseValue(at: path).stringList ?? []
         var edit = LeoDelegationListEdit(base: base)

@@ -414,13 +414,67 @@ struct LeoConfigDraftTests {
         #expect(Self.names(rebased) == ["b", "a", "c"])
     }
 
-    @Test func aNestedListEditReplaysAsADiffToo() {
-        let base = LeoConfigDocument(revision: "r1", values: ["push": .object(["topics": .list([.string("a")])])])
+    @Test func aNestedSetListEditReplaysAsADiffToo() {
+        let base = LeoConfigDocument(revision: "r1", values: ["push": .object(["channels": .list([.string("a")])])])
         var draft = LeoConfigDraft(document: base)
-        draft.set("push.topics", .list([.string("a"), .string("b")]))
-        let fresh = LeoConfigDocument(revision: "r2", values: ["push": .object(["topics": .list([.string("a"), .string("c")])])])
+        draft.set("push.channels", .list([.string("a"), .string("b")]))
+        let fresh = LeoConfigDocument(revision: "r2", values: ["push": .object(["channels": .list([.string("a"), .string("c")])])])
         let rebased = draft.rebased(onto: fresh)
 
-        #expect(rebased.value(at: "push.topics").stringList == ["a", "c", "b"])
+        #expect(rebased.value(at: "push.channels").stringList == ["a", "c", "b"])
+    }
+
+    // MARK: ordered lists replay whole
+
+    private static func strings(_ values: [String]) -> LeoConfigValue {
+        .list(values.map(LeoConfigValue.string))
+    }
+
+    @Test func anOrderedListEditIsReplayedExactlyAsTypedOverAChangedBase() {
+        let base = LeoConfigDocument(revision: "r1", values: ["ssh_args": Self.strings(["-p", "22"])])
+        var draft = LeoConfigDraft(document: base)
+        draft.set("ssh_args", Self.strings(["-p", "2222"]))
+        let fresh = LeoConfigDocument(revision: "r2", values: ["ssh_args": Self.strings(["-p", "22", "-v"])])
+        let rebased = draft.rebased(onto: fresh)
+
+        #expect(rebased.value(at: "ssh_args") == Self.strings(["-p", "2222"]))
+        #expect(rebased.patch == ["ssh_args": Self.strings(["-p", "2222"])])
+    }
+
+    @Test func aListThatRepeatsAnEntryKeepsEveryRepeatOverAChangedBase() {
+        let base = LeoConfigDocument(revision: "r1", values: ["ssh_args": Self.strings(["-o", "A"])])
+        var draft = LeoConfigDraft(document: base)
+        draft.set("ssh_args", Self.strings(["-o", "A", "-o", "B"]))
+        let fresh = LeoConfigDocument(revision: "r2", values: ["ssh_args": Self.strings(["-o", "A", "-q"])])
+        let rebased = draft.rebased(onto: fresh)
+
+        #expect(rebased.value(at: "ssh_args") == Self.strings(["-o", "A", "-o", "B"]))
+    }
+
+    @Test func aReorderOfAnOrderedListSurvivesAChangedBase() {
+        let base = LeoConfigDocument(revision: "r1", values: ["environments": Self.strings(["base", "work"])])
+        var draft = LeoConfigDraft(document: base)
+        draft.set("environments", Self.strings(["work", "base"]))
+        let fresh = LeoConfigDocument(revision: "r2", values: ["environments": Self.strings(["base", "work", "extra"])])
+        let rebased = draft.rebased(onto: fresh)
+
+        #expect(rebased.value(at: "environments") == Self.strings(["work", "base"]))
+        #expect(rebased.isDirty)
+    }
+
+    @Test func aSetListStillMergesAnotherWritersEntryWhileAnOrderedOneDoesNot() {
+        let base = LeoConfigDocument(revision: "r1", values: [
+            "allowed_hosts": Self.strings(["a"]), "ssh_args": Self.strings(["-p", "22"]),
+        ])
+        var draft = LeoConfigDraft(document: base)
+        draft.set("allowed_hosts", Self.strings(["a", "b"]))
+        draft.set("ssh_args", Self.strings(["-p", "2222"]))
+        let fresh = LeoConfigDocument(revision: "r2", values: [
+            "allowed_hosts": Self.strings(["a", "c"]), "ssh_args": Self.strings(["-p", "22", "-v"]),
+        ])
+        let rebased = draft.rebased(onto: fresh)
+
+        #expect(rebased.value(at: "allowed_hosts") == Self.strings(["a", "c", "b"]))
+        #expect(rebased.value(at: "ssh_args") == Self.strings(["-p", "2222"]))
     }
 }

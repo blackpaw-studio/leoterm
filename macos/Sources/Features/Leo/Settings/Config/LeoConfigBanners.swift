@@ -35,7 +35,7 @@ struct LeoConfigBanners: View {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Changed on \(machine) since you opened it").font(.headline)
-                Text("Reload keeps your edits over the new settings. Overwrite replaces what changed.")
+                Text("Reload keeps your edits over the new settings. Overwrite saves your edits over theirs now.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 12)

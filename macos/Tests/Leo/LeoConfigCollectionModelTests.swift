@@ -152,28 +152,40 @@ import Testing
         .list(names.map(LeoConfigValue.string))
     }
 
-    /// `coder` with `add_dirs` already holding `names`, loaded and selected.
-    private static func harness(addDirs names: [String]) async throws -> Harness {
+    /// `coder` with the list `key` already holding `names`, loaded and selected.
+    private static func harness(addDirs names: [String], key: String = "add_dirs") async throws -> Harness {
         let fake = try LeoConfigGolden.client()
-        await fake.externalChange("templates", name: "coder", values: ["add_dirs": .list(names.map(LeoConfigValue.string))])
+        await fake.externalChange("templates", name: "coder", values: [key: .list(names.map(LeoConfigValue.string))])
         let revisions = LeoConfigRevisionTracker()
         let model = LeoConfigCollectionModel(resource: "templates", client: fake, revisions: revisions)
         await model.load()
         return Harness(model: model, fake: fake, revisions: revisions)
     }
 
-    @Test func overwriteKeepsAListEntryTheOtherWriterAddedWhileTheUserRemovedAnother() async throws {
-        let harness = try await Self.harness(addDirs: ["a", "b"])
-        harness.model.set("add_dirs", Self.strings("a"))
-        await harness.fake.externalChange("templates", name: "coder", values: ["add_dirs": Self.strings("a", "b", "c")])
+    @Test func overwriteKeepsASetListEntryTheOtherWriterAddedWhileTheUserRemovedAnother() async throws {
+        let harness = try await Self.harness(addDirs: ["a", "b"], key: "channels")
+        harness.model.set("channels", Self.strings("a"))
+        await harness.fake.externalChange("templates", name: "coder", values: ["channels": Self.strings("a", "b", "c")])
         await harness.model.save()
         #expect(harness.model.conflict != nil)
         await harness.model.overwrite()
 
-        let stored = try await harness.fake.item("templates", name: "coder").values["add_dirs"]
+        let stored = try await harness.fake.item("templates", name: "coder").values["channels"]
         #expect(stored == Self.strings("a", "c"))
         #expect(harness.model.conflict == nil)
         #expect(!harness.model.isDirty)
+    }
+
+    @Test func overwriteSendsAnOrderedListExactlyAsTypedOverTheOtherWritersChange() async throws {
+        let harness = try await Self.harness(addDirs: ["a", "b"])
+        harness.model.set("add_dirs", Self.strings("b", "a"))
+        await harness.fake.externalChange("templates", name: "coder", values: ["add_dirs": Self.strings("a", "b", "c")])
+        await harness.model.save()
+        await harness.model.overwrite()
+
+        let stored = try await harness.fake.item("templates", name: "coder").values["add_dirs"]
+        #expect(stored == Self.strings("b", "a"))
+        #expect(harness.model.conflict == nil)
     }
 
     @Test func overwriteKeepsAnEnvEntryTheOtherWriterAdded() async throws {

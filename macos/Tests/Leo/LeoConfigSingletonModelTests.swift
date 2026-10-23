@@ -169,14 +169,14 @@ import Testing
         #expect(harness.model.draft?.revision == (await harness.fake.currentRevision))
     }
 
-    @Test func reloadReplaysAListEditOverTheOtherWritersList() async throws {
+    @Test func reloadReplaysAnOrderedListEditAsTypedOverTheOtherWritersList() async throws {
         let harness = try await Self.harness()
         harness.model.set("environments", Self.list("base", "work"))
         await harness.fake.externalChange("defaults", values: ["environments": Self.list("base", "ci")])
         await harness.model.save()
         await harness.model.reloadAfterConflict()
 
-        #expect(harness.model.draft?.value(at: "environments") == Self.list("base", "ci", "work"))
+        #expect(harness.model.draft?.value(at: "environments") == Self.list("base", "work"))
     }
 
     @Test func overwriteSendsOnlyTheUsersEditsOverTheCurrentFile() async throws {
@@ -196,7 +196,7 @@ import Testing
         #expect(!harness.model.isDirty)
     }
 
-    @Test func overwriteKeepsTheOtherWritersListEntries() async throws {
+    @Test func overwriteSendsAnOrderedListAsTypedOverTheOtherWritersChange() async throws {
         let harness = try await Self.harness()
         harness.model.set("environments", Self.list("base", "work"))
         await harness.fake.externalChange("defaults", values: ["environments": Self.list("base", "ci")])
@@ -204,7 +204,7 @@ import Testing
         await harness.model.overwrite()
 
         let stored = try await harness.fake.document("defaults").values
-        #expect(stored["environments"] == Self.list("base", "ci", "work"))
+        #expect(stored["environments"] == Self.list("base", "work"))
         #expect(harness.model.conflict == nil)
     }
 
@@ -281,7 +281,7 @@ import Testing
         await harness.model.reload(using: replacement)
 
         #expect(harness.model.draft?.value(at: "max_turns") == .int(3))
-        #expect(harness.model.draft?.value(at: "environments") == Self.list("base", "ci", "work"))
+        #expect(harness.model.draft?.value(at: "environments") == Self.list("base", "work"))
         #expect(harness.model.draft?.patch["model"] == .string("opus"))
         #expect(harness.model.hasUnsavedChanges)
     }

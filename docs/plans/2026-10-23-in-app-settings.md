@@ -463,3 +463,6 @@ There is no bootstrap route. The web UI can't create a `delegation:` block eithe
 - **D10 Delegation bootstrap.** None, as in the web UI; show "isn't configured".
 - **D11 Restart flags** move into the shared `ConfigService`, so the socket, the web banners and the app agree.
 - **D12 Role duplicate.** The spec lists "role/profile … duplicate", but the web UI duplicates profiles only. Ship profile duplicate only; a role duplicate (copy one role's cells under a new name) would be a new daemon route.
+
+## Follow-ups
+- iOS half of in-app settings (LeoKit Config/ is ready; UI only)
