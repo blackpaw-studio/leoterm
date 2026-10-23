@@ -66,7 +66,8 @@ struct LeoMachineMigrationTests {
 
         _ = LeoRuntime(
             daemon: RuntimeTestDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
-            templateFetchRunner: LeoRecordingTemplateRunner()
+            templateFetchRunner: LeoRecordingTemplateRunner(),
+            chatClient: FakeChatClient()
         )
 
         #expect(defaults.string(forKey: LeoMachineDefaultsMigration.lastSpawnMachineKey) == "mars")

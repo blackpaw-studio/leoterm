@@ -21,7 +21,8 @@ import Testing
             machineRunner: LeoFakeHomeRunner(stdout: "/home/evan"),
             machineLegacySocketDirectory: directory,
             machineControlSocketDirectory: directory,
-            makeTunnel: tunnels.factory
+            makeTunnel: tunnels.factory,
+            chatClient: FakeChatClient()
         )
         defer { runtime.shutdown() }
         runtime.machines.start(flavor: .socketEvents)

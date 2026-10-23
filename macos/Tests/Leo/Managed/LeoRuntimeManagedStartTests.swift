@@ -717,7 +717,8 @@ import Testing
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
             daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
-            templateFetchRunner: LeoRecordingTemplateRunner()
+            templateFetchRunner: LeoRecordingTemplateRunner(),
+            chatClient: FakeChatClient()
         )
         defer { runtime.shutdown() }
         let connectedDuringStartup = Recorded()
