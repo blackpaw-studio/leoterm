@@ -44,6 +44,16 @@ public struct LeoConfigDraft: Equatable, Sendable {
         return Self.value(at: path, in: document.values)
     }
 
+    /// The same edits judged by another validator: the names a reference
+    /// field can pick changed under an open form.
+    public func validated(by validator: LeoConfigValidator?) -> Self {
+        var copy = Self(document: document, validator: validator)
+        copy.edits = edits
+        copy.entryEdits = entryEdits
+        copy.serverErrors = serverErrors
+        return copy
+    }
+
     public mutating func set(_ path: String, _ value: LeoConfigValue) {
         let base = baseValue(at: path)
         edits[path] = nil
@@ -167,10 +177,23 @@ public struct LeoConfigDraft: Equatable, Sendable {
         var copy = Self(document: newDocument, validator: validator)
         // The harness first: it decides what the option edits are measured against.
         for (path, value) in edits.sorted(by: { $0.key == "harness" || ($1.key != "harness" && $0.key < $1.key) }) {
-            copy.set(path, value)
+            copy.set(path, replayed(value, at: path, over: copy))
         }
         for (path, diff) in entryEdits { copy.setEntryEdits(diff, at: path) }
         return copy
+    }
+
+    /// A list edit is the names it added and removed against the list it was
+    /// made on (`LeoDelegationListEdit`), so over a newer list it keeps another
+    /// writer's additions and removals instead of replacing them with the
+    /// whole list that was typed. Any other value replays as it is.
+    private func replayed(_ value: LeoConfigValue, at path: String, over target: Self) -> LeoConfigValue {
+        guard let names = value.stringList else { return value }
+        let base = baseValue(at: path).stringList ?? []
+        let fresh = target.baseValue(at: path).stringList ?? []
+        var edit = LeoDelegationListEdit(base: base)
+        edit.names = names
+        return .list(edit.applied(to: fresh).map(LeoConfigValue.string))
     }
 
     // MARK: env entries

@@ -362,4 +362,65 @@ struct LeoConfigDraftTests {
         #expect(rebased.patch == ["env": .object(["Y": .string("2")])])
         #expect(rebased.value(at: "env") == .map(["A": "1", "X": "3", "Y": "2"]))
     }
+
+    // MARK: list edits replay as a diff
+
+    private static func listDocument(_ names: [String], revision: String = "r1") -> LeoConfigDocument {
+        LeoConfigDocument(revision: revision, values: ["allowed_hosts": .list(names.map(LeoConfigValue.string))])
+    }
+
+    private static func names(_ draft: LeoConfigDraft) -> [String]? {
+        draft.value(at: "allowed_hosts").stringList
+    }
+
+    @Test func rebasingAListEditKeepsAnEntryAnotherWriterAdded() {
+        var draft = LeoConfigDraft(document: Self.listDocument(["a"]))
+        draft.set("allowed_hosts", .list([.string("a"), .string("b")]))
+        let rebased = draft.rebased(onto: Self.listDocument(["a", "c"], revision: "r2"))
+
+        #expect(Self.names(rebased) == ["a", "c", "b"])
+        #expect(rebased.patch == ["allowed_hosts": .list([.string("a"), .string("c"), .string("b")])])
+    }
+
+    @Test func rebasingAListEditDoesNotRestoreAnEntryAnotherWriterRemoved() {
+        var draft = LeoConfigDraft(document: Self.listDocument(["a", "b"]))
+        draft.set("allowed_hosts", .list([.string("a"), .string("b"), .string("c")]))
+        let rebased = draft.rebased(onto: Self.listDocument(["a"], revision: "r2"))
+
+        #expect(Self.names(rebased) == ["a", "c"])
+    }
+
+    @Test func rebasingAListEditKeepsItsOwnRemovalOverANewerList() {
+        var draft = LeoConfigDraft(document: Self.listDocument(["a", "b"]))
+        draft.set("allowed_hosts", .list([.string("b")]))
+        let rebased = draft.rebased(onto: Self.listDocument(["a", "b", "x"], revision: "r2"))
+
+        #expect(Self.names(rebased) == ["b", "x"])
+    }
+
+    @Test func aListEditThatTheNewDocumentAlreadyHasDropsOut() {
+        var draft = LeoConfigDraft(document: Self.listDocument(["a"]))
+        draft.set("allowed_hosts", .list([.string("a"), .string("b")]))
+        let rebased = draft.rebased(onto: Self.listDocument(["a", "b"], revision: "r2"))
+
+        #expect(!rebased.isDirty)
+    }
+
+    @Test func aRebasedListEditOverAnUnchangedListIsExactlyWhatWasTyped() {
+        var draft = LeoConfigDraft(document: Self.listDocument(["a", "b"]))
+        draft.set("allowed_hosts", .list([.string("b"), .string("a"), .string("c")]))
+        let rebased = draft.rebased(onto: Self.listDocument(["a", "b"], revision: "r2"))
+
+        #expect(Self.names(rebased) == ["b", "a", "c"])
+    }
+
+    @Test func aNestedListEditReplaysAsADiffToo() {
+        let base = LeoConfigDocument(revision: "r1", values: ["push": .object(["topics": .list([.string("a")])])])
+        var draft = LeoConfigDraft(document: base)
+        draft.set("push.topics", .list([.string("a"), .string("b")]))
+        let fresh = LeoConfigDocument(revision: "r2", values: ["push": .object(["topics": .list([.string("a"), .string("c")])])])
+        let rebased = draft.rebased(onto: fresh)
+
+        #expect(rebased.value(at: "push.topics").stringList == ["a", "c", "b"])
+    }
 }
