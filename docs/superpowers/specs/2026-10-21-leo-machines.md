@@ -35,7 +35,7 @@ The Leo app treats every configured leo host as a first-class **machine**. All m
 - An unreachable machine stays listed. Its header is dimmed, its section collapses, and it shows the failure reason and a Reconnect button.
 - A machine on a daemon too old for stats shows its section without meters.
 - The header's context menu offers New Agent Here…, Reconnect, Edit Machine… and Disable.
-- Anything that is inherently about one daemon binds to This Mac: Leo Chat, the menu-bar daemon controls, and the bundled-daemon and managed banners. The plan must list every current consumer of `hostSelection.selected` and give each one a home. Any consumer that doesn't fit is a question for Evan.
+- Anything that is inherently about one daemon binds to This Mac: the menu-bar daemon controls, and the bundled-daemon and managed banners. (Leo Chat was originally listed here; see Amendment 2026-10-22.) The plan must list every current consumer of `hostSelection.selected` and give each one a home. Any consumer that doesn't fit is a question for Evan.
 
 ### Machines settings (Mac)
 - A Machines pane in Settings replaces `LeoHostsSheet`. It supports add, edit, remove, enable/disable, and Test Connection, which runs SSH plus a daemon `hello` and reports the result inline.
@@ -123,3 +123,15 @@ UI and transports stay per platform. The Mac uses an SSH socket; iOS uses HTTPS 
 - Each connected machine shows CPU, memory and disk usage, refreshed about every 5s.
 - Killing one remote machine leaves every other machine's section working.
 - iOS shows the same meters and has the machine picker.
+
+
+## Amendment 2026-10-22: Leo Chat follows the agent's machine
+
+Binding Leo Chat to This Mac (S5) broke chat for every agent on a remote machine: the pane shows "<Machine> isn't connected." even when that machine is connected. Evan approved reversing it.
+
+- The chat pane talks to the daemon of the selected agent's machine, using that machine's existing tunnelled connection. Switching agents across machines rebinds it.
+- `chat.*` events from every connected machine's feed reach the chat relay, tagged with their machine. The pane and the unread store accept only events for the machine they apply to.
+- Unread counts and auto-open work per machine: an agent's unread badge reflects its own machine's daemon. Seeding from `chat/threads` runs per connected machine.
+- "<Machine> isn't connected." appears only when the agent's machine is actually disconnected; reconnecting it reloads the thread.
+- A machine that leaves or disconnects drops its chat client and unread state; a late reply from it is ignored.
+- Platform: Mac only. iOS chat already talks to the daemon it is paired with (to be confirmed in the plan).
