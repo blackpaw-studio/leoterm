@@ -56,7 +56,7 @@ public struct LeoTaskRun: Decodable, Equatable, Sendable, Identifiable {
     /// Whether the run exited 0; nil when the daemon recorded no exit code.
     public var succeeded: Bool? { exitCode.map { $0 == 0 } }
 
-    private static func date(_ text: String) -> Date? {
+    static func date(_ text: String) -> Date? {
         if let date = try? Date(text, strategy: .iso8601) { return date }
         return try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(text)
     }

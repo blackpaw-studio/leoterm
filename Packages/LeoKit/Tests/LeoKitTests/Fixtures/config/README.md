@@ -20,3 +20,13 @@ where the daemon has no body of that name yet:
 The registered daemon schema has no `secret` field, no `multiline` or
 `nullable` non-harness field, and no `pattern` constraint, so tests of those
 controls build a small synthetic schema inline.
+
+The service routes have one golden body, `service_status` (no processes, no
+pending restart). The rest are built from `internal/web/config_ops.go` and
+`config_errors.go` at the same commit, with the shapes of
+`docs/configuration/config-api.md`: `service_status_busy.json` (the status with
+processes and a pending agents restart), `service_restart.json` (202
+`{status: "restarting"}`), `service_restart_agents.json` and
+`service_restart_agents_failed.json` (`{restarted, skipped, failed}`),
+`service_log.json` (`{text}`), `config_reload.json` (`{revision}`) and
+`error_restart_in_progress.json` (409, code `restart_in_progress`, no `data`).

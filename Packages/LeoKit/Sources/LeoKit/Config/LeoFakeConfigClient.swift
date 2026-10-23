@@ -21,6 +21,11 @@ public enum LeoFakeConfigCall: Equatable, Sendable {
     case delegation
     case delegationPreview(String)
     case delegationWrite(LeoFakeDelegationWrite, ifMatch: String)
+    case serviceStatus
+    case restartService
+    case restartAgents
+    case serviceLog(lines: Int)
+    case reloadConfig
 }
 
 /// What a fake daemon knows about its tasks beyond their config: run history
@@ -71,6 +76,8 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     var heldWrites: [CheckedContinuation<Void, Never>] = []
     private var taskData: LeoFakeTaskData
     var delegationState: LeoFakeDelegationState?
+    var serviceState = LeoFakeServiceState()
+    var isRestartingService = false
 
     public internal(set) var calls: [LeoFakeConfigCall] = []
 
@@ -327,7 +334,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
         }
     }
 
-    fileprivate func takeWriteFailure() -> (any Error)? {
+    func takeWriteFailure() -> (any Error)? {
         defer { nextWriteFailure = nil }
         return nextWriteFailure
     }
