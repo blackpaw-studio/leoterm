@@ -19,7 +19,7 @@ struct LeoConfigCollectionPane: View {
     }
 
     var body: some View {
-        LeoConfigCollectionView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost))
+        LeoConfigCollectionView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions)
             .task {
                 target.register(model, for: .config(resource))
                 await model.load()

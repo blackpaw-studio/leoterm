@@ -7,9 +7,10 @@ import SwiftUI
 struct LeoTasksView: View {
     @ObservedObject var model: LeoTasksSettingsModel
     let machine: String
+    var restart = LeoConfigRestartActions.none
 
     var body: some View {
-        LeoConfigCollectionView(model: model.collection, machine: machine, extras: extras)
+        LeoConfigCollectionView(model: model.collection, machine: machine, restart: restart, extras: extras)
     }
 
     private var extras: LeoConfigCollectionExtras {

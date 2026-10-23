@@ -24,6 +24,8 @@ struct LeoSettingsTargetModelTests {
         let clients: FakeMachineClients
         let statuses: PassthroughSubject<[LeoHostID: LeoMachineStatus], Never>
         let reconnects: Reconnects
+        /// Drives the Service model's polling by hand.
+        let ticker: ServiceTicker
 
         /// A status change as the registry makes it: the lookup and the publisher agree.
         @MainActor func publish(_ host: LeoHostID, _ status: LeoMachineStatus) {
@@ -53,11 +55,15 @@ struct LeoSettingsTargetModelTests {
         let subject = PassthroughSubject<[LeoHostID: LeoMachineStatus], Never>()
         let reconnects = Reconnects()
         reconnects.statuses = initial
+        let ticker = ServiceTicker()
         let model = LeoSettingsTargetModel(
             clients: clients, machines: machines, status: { reconnects.statuses[$0] }, statuses: subject.eraseToAnyPublisher(),
-            reconnect: { reconnects.hosts.append($0) }, initialHost: initialHost
+            reconnect: { reconnects.hosts.append($0) }, initialHost: initialHost,
+            makeService: { client, machine in
+                LeoServiceSettingsModel(client: client, machine: machine, sleep: { try await ticker.sleep($0) }, copyToPasteboard: { _ in })
+            }
         )
-        return Harness(model: model, clients: clients, statuses: subject, reconnects: reconnects)
+        return Harness(model: model, clients: clients, statuses: subject, reconnects: reconnects, ticker: ticker)
     }
 
     // MARK: target
@@ -282,6 +288,117 @@ struct LeoSettingsTargetModelTests {
         #expect(harness.model.retainedClient(for: .config("templates")) != nil)
         #expect(harness.model.retainedClient(for: .config("tasks")) == nil)
         withExtendedLifetime((dirty, clean)) {}
+    }
+
+    // MARK: restarting the daemon
+
+    @Test func theRestartActionsRestartTheDaemonThroughTheCurrentClient() async {
+        let fake = Self.config()
+        let harness = Self.harness(daemons: [.local: fake], statuses: [.local: .connected])
+        await harness.model.settled()
+
+        #expect(await harness.model.restartActions.restartService?() == nil)
+        #expect(await fake.calls.contains(.restartService))
+    }
+
+    @Test func theAgentsRestartActionRestartsThemThroughTheCurrentClient() async {
+        let fake = Self.config()
+        let harness = Self.harness(daemons: [.local: fake], statuses: [.local: .connected])
+        await harness.model.settled()
+
+        #expect(await harness.model.restartActions.restartAgents?() == nil)
+        #expect(await fake.calls.contains(.restartAgents))
+    }
+
+    @Test func aRestartThatFailsComesBackAsTextForThePromptToShow() async {
+        let fake = Self.config()
+        let harness = Self.harness(daemons: [.local: fake], statuses: [.local: .connected])
+        await harness.model.settled()
+        await fake.failNextWrite(with: LeoDaemonError.transport("tunnel dropped"))
+
+        #expect(await harness.model.restartActions.restartService?() != nil)
+        await fake.failNextWrite(with: LeoDaemonError.transport("tunnel dropped"))
+        #expect(await harness.model.restartActions.restartAgents?() != nil)
+    }
+
+    @Test func aRestartWithNoConnectionSaysSoInsteadOfDoingNothing() async {
+        let harness = Self.harness(statuses: [.local: .failed("down")])
+        await harness.model.settled()
+
+        #expect(await harness.model.restartActions.restartService?()?.contains("Not connected") == true)
+        #expect(await harness.model.restartActions.restartAgents?()?.contains("Not connected") == true)
+    }
+
+    /// The daemon restarting drops this app's connection to it. The reconnect
+    /// is the usual one: a dirty pane keeps its edits and reloads, and the
+    /// Service pane, which is waiting for the daemon, stays on screen.
+    @Test func aDaemonRestartIsRiddenOutWithoutLosingAnyPanesDrafts() async {
+        let old = Self.config()
+        let harness = Self.harness(daemons: [.local: old], statuses: [.local: .connected])
+        let dirty = Pane(dirty: true)
+        let templates = LeoSettingsTab.config("templates")
+        harness.model.register(dirty, for: templates)
+        await harness.model.settled()
+        let epoch = harness.model.machineEpoch
+        #expect(await harness.model.restartActions.restartService?() == nil)
+        let service = harness.model.service(using: old)
+        #expect(service.isRestarting)
+
+        harness.clients.disconnect(.local)
+        harness.publish(.local, .failed("tunnel dropped"))
+        await harness.model.settled()
+
+        #expect(harness.model.retainedClient(for: .service) != nil)
+        #expect(harness.model.retainedClient(for: templates) != nil)
+        #expect(harness.model.machineEpoch == epoch)
+
+        let replacement = Self.config()
+        await replacement.setService(LeoFakeServiceState(pid: 2, startedAt: Date(timeIntervalSince1970: 1_792_738_860)))
+        harness.clients.connect(.local, ConfigStubDaemon(config: replacement))
+        harness.publish(.local, .connected)
+        await harness.model.settled()
+        await harness.ticker.tick()
+        await service.settledRestart()
+
+        #expect(!service.isRestarting)
+        #expect(service.notice?.hasPrefix("leo restarted on") == true)
+        #expect(service.status?.pid == 2)
+        #expect((dirty.reloaded.last as? LeoFakeConfigClient) === replacement)
+        #expect(dirty.discards == 0)
+        #expect(dirty.hasUnsavedChanges)
+        #expect(harness.model.machineEpoch == epoch)
+    }
+
+    @Test func theServicePaneGivesWayOnceNothingIsWaitingOnTheDaemon() async {
+        let old = Self.config()
+        let harness = Self.harness(daemons: [.local: old], statuses: [.local: .connected])
+        await harness.model.settled()
+        _ = harness.model.service(using: old)
+
+        harness.clients.disconnect(.local)
+        harness.publish(.local, .failed("down"))
+        await harness.model.settled()
+
+        #expect(harness.model.retainedClient(for: .service) == nil)
+    }
+
+    @Test func aMachineSwitchStopsTheOldMachinesServiceModelAndStartsAFreshOne() async {
+        let old = Self.config()
+        let harness = Self.harness(daemons: [.local: old, Self.dionysus: Self.config()], statuses: [.local: .connected])
+        await harness.model.settled()
+        let service = harness.model.service(using: old)
+        #expect(await harness.model.restartActions.restartService?() == nil)
+        #expect(service.isRestarting)
+
+        harness.model.requestSwitch(to: Self.dionysus)
+        await harness.model.settled()
+
+        #expect(!service.isRestarting)
+        guard case .ready(let client) = harness.model.availability else {
+            Issue.record("Expected ready")
+            return
+        }
+        #expect(harness.model.service(using: client) !== service)
     }
 
     @Test func aMachineSwitchIsANewIdentityButARefreshIsNot() async {

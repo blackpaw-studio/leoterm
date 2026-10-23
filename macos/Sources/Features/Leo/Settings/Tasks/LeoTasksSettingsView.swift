@@ -28,7 +28,7 @@ private struct LeoTasksPane: View {
     }
 
     var body: some View {
-        LeoTasksView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost))
+        LeoTasksView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions)
             .task {
                 target.register(model, for: LeoTasksSettingsView.tab)
                 await model.load()

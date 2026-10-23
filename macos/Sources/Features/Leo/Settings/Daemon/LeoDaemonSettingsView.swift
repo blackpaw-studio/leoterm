@@ -28,7 +28,7 @@ private struct LeoDaemonPane: View {
     }
 
     var body: some View {
-        LeoDaemonView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost))
+        LeoDaemonView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions)
             .task {
                 target.register(model, for: LeoDaemonSettingsView.tab)
                 await model.load()
@@ -41,6 +41,7 @@ private struct LeoDaemonPane: View {
 struct LeoDaemonView: View {
     @ObservedObject var model: LeoDaemonSettingsModel
     let machine: String
+    var restart = LeoConfigRestartActions.none
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,12 +49,12 @@ struct LeoDaemonView: View {
             Divider()
             switch model.section {
             case .web:
-                LeoConfigSingletonView(model: model.web, machine: machine)
+                LeoConfigSingletonView(model: model.web, machine: machine, restart: restart)
             case .client:
-                LeoConfigSingletonView(model: model.client, machine: machine)
+                LeoConfigSingletonView(model: model.client, machine: machine, restart: restart)
             case .hosts:
                 LeoConfigCollectionView(
-                    model: model.hosts, machine: machine, extras: LeoConfigCollectionExtras(deleteNote: model.deleteNote(forHost:))
+                    model: model.hosts, machine: machine, restart: restart, extras: LeoConfigCollectionExtras(deleteNote: model.deleteNote(forHost:))
                 )
             }
         }

@@ -13,6 +13,10 @@ enum LeoSettingsTab: Hashable {
         if case .config = self { return true }
         return false
     }
+
+    /// The Service tab, whose model the target owns so a daemon restart can
+    /// be waited out from any pane's prompt.
+    static let service = LeoSettingsTab.config("service")
 }
 
 /// A config pane's unsaved state, as the Settings window needs it to ask
@@ -25,6 +29,13 @@ enum LeoSettingsTab: Hashable {
     /// and rebase the draft onto it (`LeoConfigDraft.rebased(onto:)`), keeping
     /// the user's edits. Never called after a switch to another machine.
     func reload(using client: any LeoConfigClient) async
+    /// Whether the pane stays on screen, over a reconnecting banner, while its
+    /// machine is gone. A pane with edits must; the default is just that.
+    var staysMountedWhileReconnecting: Bool { get }
+}
+
+extension LeoSettingsPane {
+    var staysMountedWhileReconnecting: Bool { hasUnsavedChanges }
 }
 
 /// Which machine the config panes edit and whether it can be edited now.
@@ -82,14 +93,20 @@ enum LeoSettingsTab: Hashable {
     /// publish (another machine, or the same status again) does nothing.
     private var lastStatus: LeoMachineStatus?
     private var subscriptions: Set<AnyCancellable> = []
+    private let makeService: @MainActor (any LeoConfigClient, String) -> LeoServiceSettingsModel
+    /// The selected machine's Service model: held here, not by a view, because
+    /// a restart started from another tab's prompt outlives that tab.
+    private var serviceModel: LeoServiceSettingsModel?
 
     /// `initialHost` is the selected agent's machine, if there is one.
     init(
         clients: any LeoMachineClientResolving, machines: @escaping () -> [LeoHostID],
         status: @escaping (LeoHostID) -> LeoMachineStatus?, statuses: AnyPublisher<[LeoHostID: LeoMachineStatus], Never>,
-        reconnect: @escaping (LeoHostID) -> Void, initialHost: LeoHostID?
+        reconnect: @escaping (LeoHostID) -> Void, initialHost: LeoHostID?,
+        makeService: @escaping @MainActor (any LeoConfigClient, String) -> LeoServiceSettingsModel = { LeoServiceSettingsModel(client: $0, machine: $1) }
     ) {
         self.clients = clients
+        self.makeService = makeService
         machineList = machines
         self.status = status
         reconnectHost = reconnect
@@ -140,12 +157,40 @@ enum LeoSettingsTab: Hashable {
         case .tooOld: return nil
         case .loading, .disconnected: break
         }
-        guard panes[tab]?.pane?.hasUnsavedChanges == true else { return nil }
+        guard panes[tab]?.pane?.staysMountedWhileReconnecting == true else { return nil }
         return lastClient
     }
 
     func discardAllChanges() {
         panes.values.forEach { $0.pane?.discardChanges() }
+    }
+
+    // MARK: Service
+
+    /// The selected machine's Service model, made on first use and registered
+    /// for the reconnect hook (it picks up the new client after a restart).
+    func service(using client: any LeoConfigClient) -> LeoServiceSettingsModel {
+        if let serviceModel { return serviceModel }
+        let model = makeService(client, SpawnMachineOption.title(for: selectedHost))
+        serviceModel = model
+        register(model, for: .service)
+        return model
+    }
+
+    /// What the restart prompts on every pane run: through the Service model,
+    /// against the connected machine. Each answers why it failed, or nil.
+    var restartActions: LeoConfigRestartActions {
+        LeoConfigRestartActions(
+            restartService: { [weak self] in await self?.runRestart { await $0.restartDaemon() } },
+            restartAgents: { [weak self] in await self?.runRestart { await $0.restartAllAgents() } }
+        )
+    }
+
+    private func runRestart(_ action: (LeoServiceSettingsModel) async -> String?) async -> String? {
+        guard case .ready(let client) = availability else {
+            return "Not connected to \(SpawnMachineOption.title(for: selectedHost))."
+        }
+        return await action(service(using: client))
     }
 
     // MARK: Switching
@@ -233,6 +278,9 @@ enum LeoSettingsTab: Hashable {
     private func switchNow(to host: LeoHostID) {
         selectedHost = host
         machineEpoch += 1
+        serviceModel?.stop()
+        serviceModel = nil
+        panes[.service] = nil
         lastClient = nil
         lastStatus = status(host)
         revisions.reset()

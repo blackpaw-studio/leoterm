@@ -28,7 +28,7 @@ private struct LeoDelegationPane: View {
     }
 
     var body: some View {
-        LeoDelegationView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost))
+        LeoDelegationView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions)
             .task {
                 target.register(model, for: LeoDelegationSettingsView.tab)
                 await model.load()

@@ -2,10 +2,11 @@ import LeoKit
 import SwiftUI
 
 /// What the app can do about a pending restart. An action is nil until
-/// the machine's service API is wired, and its button is then left out.
+/// the machine's service API is wired, and its button is then left out. An
+/// action answers why it failed, or nil when it went through.
 struct LeoConfigRestartActions {
-    var restartService: (() async -> Void)?
-    var restartAgents: (() async -> Void)?
+    var restartService: (() async -> String?)?
+    var restartAgents: (() async -> String?)?
 
     static let none = LeoConfigRestartActions()
 }
@@ -19,6 +20,8 @@ struct LeoRestartPrompt: View {
     let dismiss: () -> Void
 
     @State private var confirming: Kind?
+    @State private var isWorking = false
+    @State private var failure: String?
 
     private enum Kind: Identifiable {
         case service, agents
@@ -32,13 +35,16 @@ struct LeoRestartPrompt: View {
                 Text(headline).font(.headline)
                 Text("Saved to leo.yaml on \(machine). Running processes keep the old settings until then.")
                     .font(.caption).foregroundStyle(.secondary)
+                if let failure {
+                    Text(failure).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+                }
             }
             Spacer(minLength: 12)
             if required.service, actions.restartService != nil {
-                Button("Restart Daemon") { confirming = .service }
+                Button("Restart Daemon") { confirming = .service }.disabled(isWorking)
             }
             if required.agents, actions.restartAgents != nil {
-                Button("Restart All Agents") { confirming = .agents }
+                Button("Restart All Agents") { confirming = .agents }.disabled(isWorking)
             }
             Button("Later", action: dismiss)
         }
@@ -50,14 +56,28 @@ struct LeoRestartPrompt: View {
             isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }), presenting: confirming
         ) { kind in
             Button(kind == .service ? "Restart Daemon" : "Restart All Agents", role: .destructive) {
-                Task { await (kind == .service ? actions.restartService : actions.restartAgents)?() }
-                dismiss()
+                Task { await run(kind) }
             }
             Button("Cancel", role: .cancel) {}
         } message: { kind in
             Text(kind == .service
                 ? "Running agents keep their tmux sessions."
                 : "Each agent is restarted and loses its current turn.")
+        }
+    }
+
+    /// Runs the confirmed restart. The prompt goes away when it went through
+    /// and stays, with the reason, when it didn't. `kind` is the one the dialog
+    /// showed: the dialog has cleared `confirming` by the time its button runs.
+    private func run(_ kind: Kind) async {
+        isWorking = true
+        failure = nil
+        defer { isWorking = false }
+        let action = kind == .service ? actions.restartService : actions.restartAgents
+        if let message = await action?() {
+            failure = message
+        } else {
+            dismiss()
         }
     }
 

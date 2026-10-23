@@ -30,7 +30,7 @@ private struct LeoDefaultsPane: View {
     }
 
     var body: some View {
-        LeoConfigSingletonView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost))
+        LeoConfigSingletonView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions)
             .task {
                 target.register(model, for: LeoDefaultsSettingsView.tab)
                 await model.load()

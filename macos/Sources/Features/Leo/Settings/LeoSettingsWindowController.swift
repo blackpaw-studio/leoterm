@@ -201,6 +201,9 @@ private struct LeoSettingsView: View {
             LeoDaemonSettingsView(target: target)
                 .tabItem { Label("Daemon", systemImage: "gearshape.2") }
                 .tag(LeoDaemonSettingsView.tab)
+            LeoServiceSettingsView(target: target)
+                .tabItem { Label("Service", systemImage: "waveform.path.ecg") }
+                .tag(LeoServiceSettingsView.tab)
         }
         .alert(
             "Discard unsaved changes?",

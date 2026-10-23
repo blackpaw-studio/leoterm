@@ -89,7 +89,7 @@ struct LeoSettingsSnapshots {
     }
 
     private static func templatesPane(_ model: LeoConfigCollectionModel) -> some View {
-        let restart = LeoConfigRestartActions(restartService: {}, restartAgents: {})
+        let restart = LeoConfigRestartActions(restartService: { nil }, restartAgents: { nil })
         return LeoConfigCollectionView(model: model, machine: "dionysus", restart: restart)
     }
 
@@ -249,7 +249,7 @@ struct LeoSettingsSnapshots {
     }
 
     private static func delegationPane(_ model: LeoDelegationSettingsModel) -> some View {
-        LeoDelegationView(model: model, machine: "dionysus", restart: LeoConfigRestartActions(restartService: {}, restartAgents: {}))
+        LeoDelegationView(model: model, machine: "dionysus", restart: LeoConfigRestartActions(restartService: { nil }, restartAgents: { nil }))
     }
 
     @Test func delegation() async throws {
@@ -311,7 +311,7 @@ struct LeoSettingsSnapshots {
 
     // MARK: Defaults pane
 
-    private static let restartActions = LeoConfigRestartActions(restartService: {}, restartAgents: {})
+    private static let restartActions = LeoConfigRestartActions(restartService: { nil }, restartAgents: { nil })
     private static let defaultsSize = NSSize(width: 820, height: 760)
 
     private static func defaultsModel() async throws -> (LeoConfigSingletonModel, LeoFakeConfigClient) {
@@ -393,6 +393,59 @@ struct LeoSettingsSnapshots {
         model.hosts.select("remote")
         model.hosts.set("ssh_args", .list([.string("-p"), .string("2222")]))
         try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "daemonHosts", size: Self.daemonSize, to: directory)
+    }
+
+    // MARK: Service pane
+
+    private static let serviceSize = NSSize(width: 820, height: 620)
+    private static let serviceLog = """
+    2026-10-23T11:58:02-04:00 INFO  agent started name=coder harness=claude
+    2026-10-23T11:58:41-04:00 INFO  task run task=nightly-digest exit=0 duration=38s
+    2026-10-23T11:59:10-04:00 WARN  agent restarting name=reviewer reason="tmux: no server running"
+    2026-10-23T11:59:11-04:00 INFO  agent started name=reviewer harness=codex
+    2026-10-23T12:00:00-04:00 INFO  config reloaded revision=3f9a1c
+    """
+
+    /// A Service model whose polling never fires: the view shows the state a test sets up.
+    private static func serviceModel(agents: LeoAgentsRestartResult = LeoAgentsRestartResult()) async throws -> LeoServiceSettingsModel {
+        let fake = try LeoConfigGolden.client()
+        await fake.setService(LeoFakeServiceState(
+            version: "v0.52.0", pid: 41_207, startedAt: Date(timeIntervalSince1970: 1_792_738_800),
+            processes: [
+                LeoServiceProcess(name: "coder", status: "running"), LeoServiceProcess(name: "reviewer", status: "running"),
+                LeoServiceProcess(name: "scratch", status: "stopped"),
+            ],
+            log: serviceLog, agentsRestart: agents
+        ))
+        let model = LeoServiceSettingsModel(
+            client: fake, machine: "dionysus", sleep: { _ in try await Task.sleep(for: .seconds(3600)) }, copyToPasteboard: { _ in }
+        )
+        await model.load()
+        model.setLogVisible(true)
+        while model.logText.isEmpty { await Task.yield() }
+        return model
+    }
+
+    @Test func serviceIdle() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.serviceModel()
+        try Self.write(LeoServiceView(model: model, machine: "dionysus"), named: "serviceIdle", size: Self.serviceSize, to: directory)
+        model.stop()
+    }
+
+    @Test func serviceRestartingAndAgentsSummary() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.serviceModel()
+        model.setLogPaused(true)
+        _ = await model.restartDaemon()
+        try Self.write(LeoServiceView(model: model, machine: "dionysus"), named: "serviceRestarting", size: Self.serviceSize, to: directory)
+        model.stop()
+
+        let partial = LeoAgentsRestartResult(restarted: ["coder"], skipped: ["scratch"], failed: ["reviewer": "tmux: no server running"])
+        let agents = try await Self.serviceModel(agents: partial)
+        _ = await agents.restartAllAgents()
+        try Self.write(LeoServiceView(model: agents, machine: "dionysus"), named: "serviceAgentsSummary", size: Self.serviceSize, to: directory)
+        agents.stop()
     }
 
     // MARK: Rendering
