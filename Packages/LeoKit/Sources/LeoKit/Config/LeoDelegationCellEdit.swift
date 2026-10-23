@@ -35,9 +35,11 @@ public struct LeoDelegationCellEdit: Equatable, Sendable {
     /// An empty template deletes the cell.
     public var deletesCell: Bool { target.template.isEmpty }
 
-    /// `fresh` (the cell now, nil if it has none) with the edited keys over it.
+    /// `fresh` (the cell now, nil if it has none) with the edited keys over it; the typed cell as it is when there is none.
     public func merged(onto fresh: LeoDelegationTarget?) -> LeoDelegationTarget {
-        var result = fresh ?? LeoDelegationTarget()
+        // A cell another writer deleted: only the whole typed cell keeps the
+        // edit, since an empty template sent in its place would delete nothing.
+        guard var result = fresh else { return target }
         for key in changedKeys {
             switch key {
             case .template: result.template = target.template

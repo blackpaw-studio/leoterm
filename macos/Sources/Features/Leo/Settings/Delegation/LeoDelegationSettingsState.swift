@@ -22,13 +22,14 @@ struct LeoDelegationUseForEditor: Equatable {
     var isDirty: Bool { text != base }
 }
 
-/// The hide list being edited: the list as it was read and the one typed.
+/// The hide list being edited: the list as it was read and the one typed,
+/// kept as the names added and removed so it replays over a newer list.
 struct LeoDelegationHiddenAgentsEdit: Equatable {
-    var base: [String]
-    var names: [String]
+    var edit: LeoDelegationListEdit
     var baseRevision: String
 
-    var isDirty: Bool { names != base }
+    var names: [String] { edit.names }
+    var isDirty: Bool { edit.isDirty }
 }
 
 /// The Make Active dialog: the daemon's account of what switching would change.

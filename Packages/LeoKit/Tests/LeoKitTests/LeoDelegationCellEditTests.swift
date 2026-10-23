@@ -72,6 +72,13 @@ struct LeoDelegationCellEditTests {
         #expect(rebased.target == LeoDelegationTarget(template: "coder", model: "opus", effort: "high"))
     }
 
+    @Test func mergingOntoACellThatIsGoneSendsTheWholeTypedCell() {
+        var edit = LeoDelegationCellEdit(base: Self.base)
+        edit.target.effort = "high"
+
+        #expect(edit.merged(onto: nil) == LeoDelegationTarget(template: "coder", model: "opus", effort: "high"))
+    }
+
     @Test func clearingTheTemplateDeletesTheCell() {
         var edit = LeoDelegationCellEdit(base: Self.base)
         edit.target.template = ""

@@ -375,6 +375,48 @@ import Testing
         #expect(await Self.writes(harness.fake).first?.write == .hideAgents(["Explore"]))
     }
 
+    @Test func reloadingAfterAnotherWriterAddedAHiddenAgentKeepsTheirAdditionAndTheUsersRemoval() async throws {
+        let harness = try await Self.harness()
+        let original = try #require(harness.model.document?.hideNativeAgents)
+        harness.model.setHiddenAgents(original.filter { $0 != "Plan" })
+        _ = try await harness.fake.setHiddenAgents(original + ["Explore2"], ifMatch: await harness.fake.currentRevision)
+
+        await harness.model.saveHiddenAgents()
+        #expect(harness.model.conflict != nil)
+        await harness.model.reloadAfterConflict()
+        #expect(harness.model.hiddenAgentNames == original.filter { $0 != "Plan" } + ["Explore2"])
+        await harness.model.saveHiddenAgents()
+
+        #expect(try await harness.fake.delegation().hideNativeAgents == original.filter { $0 != "Plan" } + ["Explore2"])
+    }
+
+    @Test func overwritingTheHideListResendsTheUsersDiffOverTheCurrentList() async throws {
+        let harness = try await Self.harness()
+        let original = try #require(harness.model.document?.hideNativeAgents)
+        harness.model.setHiddenAgents(original.filter { $0 != "Plan" })
+        _ = try await harness.fake.setHiddenAgents(original + ["Explore2"], ifMatch: await harness.fake.currentRevision)
+
+        await harness.model.saveHiddenAgents()
+        await harness.model.overwrite()
+
+        #expect(try await harness.fake.delegation().hideNativeAgents == original.filter { $0 != "Plan" } + ["Explore2"])
+    }
+
+    @Test func overwritingACellAnotherWriterDeletedKeepsTheUsersEditedCell() async throws {
+        let harness = try await Self.harness()
+        harness.model.beginCellEdit(profile: "deep", role: "coder")
+        harness.model.setCellEffort("high")
+        await harness.fake.externalDelegationChange(profile: "deep", role: "coder", target: LeoDelegationTarget())
+        await harness.model.saveCellEdit()
+        #expect(harness.model.conflict != nil)
+
+        await harness.model.overwrite()
+
+        let cell = try #require(try await harness.fake.delegation().profiles.first { $0.name == "deep" }?.roles["coder"])
+        #expect(cell.template == "coder" && cell.effort == "high")
+        #expect(harness.model.cellEditor == nil)
+    }
+
     // MARK: active profile
 
     @Test func makingAProfileActiveShowsThePreviewThenWritesAfterConfirming() async throws {

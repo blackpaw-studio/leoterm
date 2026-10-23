@@ -191,10 +191,11 @@ import LeoKit
 
     func setHiddenAgents(_ names: [String]) {
         guard isConfigured, let document else { return }
-        let base = hiddenAgentsEdit?.base ?? document.hideNativeAgents
-        hiddenAgentsEdit = names == base ? nil : LeoDelegationHiddenAgentsEdit(
-            base: base, names: names, baseRevision: hiddenAgentsEdit?.baseRevision ?? document.revision
-        )
+        var edit = hiddenAgentsEdit?.edit ?? LeoDelegationListEdit(base: document.hideNativeAgents)
+        edit.names = names
+        hiddenAgentsEdit = edit.isDirty ? LeoDelegationHiddenAgentsEdit(
+            edit: edit, baseRevision: hiddenAgentsEdit?.baseRevision ?? document.revision
+        ) : nil
     }
 
     func revertHiddenAgents() {
@@ -411,7 +412,7 @@ import LeoKit
             return { try await client.setRoleUseFor(role: role, useFor: text, ifMatch: $0) }
         case .hiddenAgents:
             guard let edit = hiddenAgentsEdit else { return nil }
-            let names = edit.names.map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+            let names = edit.edit.applied(to: document.hideNativeAgents).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
             return { try await client.setHiddenAgents(names, ifMatch: $0) }
         case .enabled(let enabled): return { try await client.setDelegationEnabled(enabled, ifMatch: $0) }
         case .activate(let profile): return { try await client.setActiveProfile(profile, ifMatch: $0) }
@@ -472,7 +473,7 @@ import LeoKit
             }
         }
         if editors.contains(.hiddenAgents), var edit = hiddenAgentsEdit {
-            edit.base = fresh.hideNativeAgents
+            edit.edit = edit.edit.rebased(onto: fresh.hideNativeAgents)
             edit.baseRevision = fresh.revision
             hiddenAgentsEdit = edit.isDirty ? edit : nil
         }
