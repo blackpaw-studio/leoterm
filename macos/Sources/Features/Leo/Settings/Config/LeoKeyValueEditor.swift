@@ -3,8 +3,11 @@ import SwiftUI
 /// A string map as two columns of fields with a remove button per row. Rows
 /// keep the order they were typed in (a dictionary has none) and survive an
 /// empty or duplicate key until the validator and the daemon have had their say.
+/// `lockedNames` are variables whose value the daemon holds back: listed
+/// read-only, and kept as they are when the map is saved.
 struct LeoKeyValueEditor: View {
     let entries: [String: String]
+    var lockedNames: [String] = []
     let onChange: ([String: String]) -> Void
 
     private struct Row: Identifiable, Equatable {
@@ -15,14 +18,22 @@ struct LeoKeyValueEditor: View {
 
     @State private var rows: [Row]
 
-    init(entries: [String: String], onChange: @escaping ([String: String]) -> Void) {
+    init(entries: [String: String], lockedNames: [String] = [], onChange: @escaping ([String: String]) -> Void) {
         self.entries = entries
+        self.lockedNames = lockedNames
         self.onChange = onChange
         _rows = State(initialValue: Self.rows(of: entries))
     }
 
     var body: some View {
         VStack(alignment: .trailing, spacing: 6) {
+            ForEach(lockedNames, id: \.self) { name in
+                HStack(spacing: 6) {
+                    Text(name).font(.body.monospaced()).frame(maxWidth: .infinity, alignment: .leading)
+                    Label("Secret, set", systemImage: "lock.fill").foregroundStyle(.secondary).font(.caption)
+                }
+                .accessibilityElement(children: .combine)
+            }
             ForEach($rows) { $row in
                 HStack(spacing: 6) {
                     TextField("Name", text: $row.key).labelsHidden().font(.body.monospaced())

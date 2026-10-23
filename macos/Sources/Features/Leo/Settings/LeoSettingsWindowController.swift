@@ -169,7 +169,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     }
 }
 
-/// The tabs. Machines is the only pane so far; each config pane is a tab
+/// The tabs. Machines, then one tab per config resource; each config pane is a tab
 /// whose content sits in a `LeoSettingsPaneState`, so a machine that can't be
 /// edited says why instead of showing a half form.
 private struct LeoSettingsView: View {
@@ -183,6 +183,9 @@ private struct LeoSettingsView: View {
             LeoMachinesSettingsView(model: model, statsStyle: statsStyle, registry: registry)
                 .tabItem { Label("Machines", systemImage: "server.rack") }
                 .tag(LeoSettingsTab.machines)
+            LeoTemplatesSettingsView(target: target)
+                .tabItem { Label("Templates", systemImage: "doc.text") }
+                .tag(LeoTemplatesSettingsView.tab)
         }
         .alert(
             "Discard unsaved changes?",

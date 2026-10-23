@@ -79,6 +79,63 @@ struct LeoSettingsSnapshots {
         try Self.write(LeoTooOldPaneNotice(machine: "dionysus", running: "0.40.0"), named: "paneTooOld", size: NSSize(width: 640, height: 220), to: directory)
     }
 
+    // MARK: Templates pane
+
+    private static func templatesModel(secretEnv: Bool = false) async throws -> (LeoConfigCollectionModel, LeoFakeConfigClient) {
+        let fake = try LeoConfigGolden.client(secretEnv: secretEnv)
+        let model = LeoConfigCollectionModel(resource: "templates", client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus")
+        await model.load()
+        return (model, fake)
+    }
+
+    private static func templatesPane(_ model: LeoConfigCollectionModel) -> some View {
+        let restart = LeoConfigRestartActions(restartService: {}, restartAgents: {})
+        return LeoConfigCollectionView(model: model, machine: "dionysus", restart: restart)
+    }
+
+    private static let templatesSize = NSSize(width: 820, height: 760)
+
+    @Test func templates() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.templatesModel()
+        try Self.write(Self.templatesPane(model), named: "templates", size: Self.templatesSize, to: directory)
+    }
+
+    @Test func templatesEditedWithAFieldErrorAndARestartPrompt() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.templatesModel()
+        model.set("model", .string("sonnet"))
+        await model.save()
+        model.set("max_turns", .int(-1))
+        model.set("workspace", .string("~/code/leo"))
+        try Self.write(Self.templatesPane(model), named: "templatesEdited", size: Self.templatesSize, to: directory)
+    }
+
+    @Test func templatesConflict() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, fake) = try await Self.templatesModel()
+        let revision = try await fake.collection("templates").revision
+        _ = try await fake.update("web", name: nil, patch: ["port": .int(9000)], ifMatch: revision)
+        model.set("model", .string("sonnet"))
+        await model.save()
+        try Self.write(Self.templatesPane(model), named: "templatesConflict", size: Self.templatesSize, to: directory)
+    }
+
+    @Test func templatesEnvWithASecretVariable() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.templatesModel(secretEnv: true)
+        try Self.write(Self.templatesPane(model), named: "templatesEnvSecret", size: NSSize(width: 820, height: 2300), to: directory)
+    }
+
+    @Test func templatesAddSheet() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let (model, _) = try await Self.templatesModel()
+        let sheet = LeoNameSheet(
+            title: "New template", confirmTitle: "Add", name: "coder", validate: { model.nameError($0) }, submit: { _ in }, cancel: {}
+        )
+        try Self.write(sheet, named: "templatesAddSheet", size: NSSize(width: 360, height: 150), to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {
