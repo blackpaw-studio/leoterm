@@ -358,7 +358,7 @@ import LeoKit
             localDaemon: daemon, localActivity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
-            onChat: { signal in chatRelay.send(LeoChatFeedDelivery(host: .local, signal: signal)) },
+            onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
             onSnapshot: { [weak model] host, snapshot in
                 model?.receive(snapshot, for: host)
                 // B-270: a hello advertising dispatch placement re-attaches

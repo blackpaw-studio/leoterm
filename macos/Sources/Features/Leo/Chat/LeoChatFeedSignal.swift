@@ -19,7 +19,7 @@ enum LeoChatFeedSignal: Equatable, Sendable {
 }
 
 /// One signal with the host whose stream it came from.
-struct LeoChatFeedDelivery: Sendable {
+struct LeoChatFeedDelivery: Equatable, Sendable {
     let host: LeoHostID
     let signal: LeoChatFeedSignal
 }
