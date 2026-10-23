@@ -31,7 +31,8 @@ enum LeoConfigGolden {
     }
 
     static func client(
-        supported: Bool = true, secretEnv: Bool = false, secretEnvironment: Bool = false, tasks: LeoFakeTaskData = LeoFakeTaskData()
+        supported: Bool = true, secretEnv: Bool = false, secretEnvironment: Bool = false, tasks: LeoFakeTaskData = LeoFakeTaskData(),
+        delegation: LeoDelegationDocument? = nil
     ) throws -> LeoFakeConfigClient {
         func items(_ name: String) throws -> [LeoConfigItem] { try decode(LeoConfigCollection.self, name).items }
         func singleton(_ name: String) throws -> LeoConfigItem { try decode(LeoConfigDocument.self, name).item }
@@ -43,7 +44,7 @@ enum LeoConfigGolden {
                 "tasks": try items("tasks"),
                 "environments": secretEnvironment ? try environmentsWithSecret() : try items("environments"), "hosts": try items("hosts"),
             ],
-            tasks: tasks,
+            tasks: tasks, delegation: delegation,
             version: LeoDaemonVersionInfo(version: "0.52.0", capabilities: supported ? [LeoConfigAPI.capability] : [])
         )
     }
