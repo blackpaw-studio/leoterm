@@ -32,7 +32,9 @@ import LeoKit
     /// Every configured machine, connected at once (This Mac first).
     let machines: LeoMachineRegistry
     /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
-    private(set) lazy var settingsWindow = LeoSettingsWindowController(registry: machines, defaults: defaults)
+    private(set) lazy var settingsWindow = LeoSettingsWindowController(
+        registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host }
+    )
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
