@@ -313,6 +313,11 @@ struct LeoChatDecodingTests {
         #expect(message.senderLabel == "laptop")
     }
 
+    @Test func theCaptionReadsViaTheClientName() throws {
+        #expect(try Self.decode(Self.message(sender: #""client:laptop""#)).senderCaption == "via laptop")
+        #expect(try Self.decode(Self.message(sender: "null")).senderCaption == nil)
+    }
+
     @Test func senderNamesAreTrimmed() throws {
         #expect(try Self.decode(Self.message(sender: #""client:  Evan's iPad \t""#)).senderLabel == "Evan's iPad")
     }

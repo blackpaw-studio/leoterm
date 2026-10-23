@@ -139,6 +139,11 @@ public struct LeoChatMessage: Codable, Equatable, Identifiable, Sendable {
         return name.isEmpty ? nil : name
     }
 
+    /// The secondary caption under a client-posted bubble: "via <name>".
+    public var senderCaption: String? {
+        senderLabel.map { String(localized: "via \($0)") }
+    }
+
     private static let clientSenderPrefix = "client:"
 
     /// An `ask` or `permission` still waiting for an answer.

@@ -170,7 +170,8 @@ final class ChatMessageCell: UICollectionViewCell {
         let hasProblem = message.isFailed || message.isPending
         let state = endsGroup || hasProblem ? ChatPresentation.stateLine(message) : nil
         if message.kind != .system, message.kind != .task, endsGroup || hasProblem, !Self.failsOutsideBubble(message) {
-            footer.text = [endsGroup ? ChatPresentation.time(message.ts) : nil, state].compactMap { $0 }.joined(separator: " · ")
+            footer.text = [endsGroup ? message.senderCaption : nil, endsGroup ? ChatPresentation.time(message.ts) : nil, state]
+                .compactMap { $0 }.joined(separator: " · ")
             footer.textColor = Self.isMine(message) ? Self.onTintSecondary : .secondaryLabel
             footer.textAlignment = message.direction == .inbound ? .right : .left
             views.append(footer)
