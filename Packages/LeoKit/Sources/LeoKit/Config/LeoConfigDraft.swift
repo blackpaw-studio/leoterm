@@ -4,9 +4,18 @@ import Foundation
 /// value. Edits are keyed by field path (`model`, `push.enabled`,
 /// `harness_options.sandbox`) and kept only while they differ from the
 /// document, so `isDirty` is exact. `patch` is what a save sends.
+///
+/// The daemon merges nested objects and env maps per entry, so a draft keeps
+/// and sends only what the user changed: an edited nested key, or one
+/// set/delete per env entry (`entryEdits`). Nothing else is replayed, so a
+/// Reload, a reconnect or an Overwrite never touches what another writer
+/// changed.
 public struct LeoConfigDraft: Equatable, Sendable {
     public let document: LeoConfigDocument
     public private(set) var edits: [String: LeoConfigValue] = [:]
+    /// Per-entry changes to a top-level map field (env): a value sets or
+    /// replaces the entry, `null` deletes it.
+    public private(set) var entryEdits: [String: [String: LeoConfigValue]] = [:]
     private var serverErrors: [LeoConfigFieldError] = []
     private let validator: LeoConfigValidator?
 
@@ -16,17 +25,18 @@ public struct LeoConfigDraft: Equatable, Sendable {
     }
 
     public var revision: String { document.revision }
-    public var isDirty: Bool { !edits.isEmpty }
+    public var isDirty: Bool { !edits.isEmpty || !entryEdits.isEmpty }
 
     public func isDirty(_ path: String) -> Bool {
-        edits[path] != nil
+        edits[path] != nil || entryEdits[path] != nil
     }
 
     /// The value shown for `path`: the edit, else the document's, else null.
     /// After a harness change the document's `harness_options` belong to the
     /// old harness, so none of them show.
     public func value(at path: String) -> LeoConfigValue {
-        edits[path] ?? baseValue(at: path)
+        if let diff = entryEdits[path] { return Self.applying(diff, to: baseValue(at: path)) }
+        return edits[path] ?? baseValue(at: path)
     }
 
     private func baseValue(at path: String) -> LeoConfigValue {
@@ -35,9 +45,12 @@ public struct LeoConfigDraft: Equatable, Sendable {
     }
 
     public mutating func set(_ path: String, _ value: LeoConfigValue) {
-        if value.isEquivalent(to: baseValue(at: path)) {
-            edits[path] = nil
-        } else {
+        let base = baseValue(at: path)
+        edits[path] = nil
+        entryEdits[path] = nil
+        if Self.isEntrywise(path, value) {
+            setEntryEdits(Self.entryDiff(from: base, to: value), at: path)
+        } else if !value.isEquivalent(to: base) {
             edits[path] = value
         }
         serverErrors.removeAll { $0.field == path || $0.field.isEmpty }
@@ -45,11 +58,22 @@ public struct LeoConfigDraft: Equatable, Sendable {
 
     public mutating func revert(_ path: String) {
         edits[path] = nil
+        entryEdits[path] = nil
     }
 
     public mutating func revert() {
         edits = [:]
+        entryEdits = [:]
         serverErrors = []
+    }
+
+    /// Keeps the entry changes that still differ from the document.
+    private mutating func setEntryEdits(_ diff: [String: LeoConfigValue], at path: String) {
+        let base = baseValue(at: path).objectValue ?? [:]
+        let live = diff.filter { entry in
+            entry.value.isNull ? base[entry.key] != nil : base[entry.key] != entry.value
+        }
+        entryEdits[path] = live.isEmpty ? nil : live
     }
 
     // MARK: harness
@@ -76,39 +100,24 @@ public struct LeoConfigDraft: Equatable, Sendable {
 
     // MARK: patch
 
-    /// The changed keys only. A nested edit sends its whole subsection or
-    /// `harness_options` object (the document's values with the edits laid
-    /// over), so a daemon that replaces a nested object and one that merges it
-    /// end up in the same place. Changing the harness sends only `harness`:
-    /// the daemon drops the old harness's options itself, and an option edited
+    /// The changed keys only. A nested edit sends just its own key (the
+    /// daemon merges the rest), and an env edit sends one entry per change,
+    /// `null` for a removal. Changing the harness sends only `harness`: the
+    /// daemon drops the old harness's options itself, and an option edited
     /// afterwards is sent alone.
     public var patch: [String: LeoConfigValue] {
         var result: [String: LeoConfigValue] = [:]
         var groups: [String: [String: LeoConfigValue]] = [:]
         for (path, value) in edits {
             guard let (group, key) = Self.split(path) else {
-                result[path] = withDeletions(value, at: path)
+                result[path] = value
                 continue
             }
-            groups[group, default: baseGroup(group)][key] = value
+            groups[group, default: [:]][key] = value
         }
         for (group, object) in groups { result[group] = .object(object) }
+        for (path, diff) in entryEdits { result[path] = .object(diff) }
         return result
-    }
-
-    /// A map field is merged by the daemon (an omitted key is kept), so an
-    /// entry the edit removed is sent as `null`.
-    private func withDeletions(_ value: LeoConfigValue, at path: String) -> LeoConfigValue {
-        guard case .map = value, let base = document.values[path]?.objectValue else { return value }
-        let kept = value.objectValue ?? [:]
-        let removed = base.keys.filter { kept[$0] == nil }
-        guard !removed.isEmpty else { return value }
-        return .object(kept.merging(removed.map { ($0, LeoConfigValue.null) }) { $1 })
-    }
-
-    private func baseGroup(_ group: String) -> [String: LeoConfigValue] {
-        if group == LeoConfigValidator.harnessOptionsKey, isHarnessChanged { return [:] }
-        return document.values[group]?.objectValue ?? [:]
     }
 
     // MARK: errors
@@ -160,7 +169,30 @@ public struct LeoConfigDraft: Equatable, Sendable {
         for (path, value) in edits.sorted(by: { $0.key == "harness" || ($1.key != "harness" && $0.key < $1.key) }) {
             copy.set(path, value)
         }
+        for (path, diff) in entryEdits { copy.setEntryEdits(diff, at: path) }
         return copy
+    }
+
+    // MARK: env entries
+
+    /// Top-level map fields (env) are edited and sent per entry.
+    private static func isEntrywise(_ path: String, _ value: LeoConfigValue) -> Bool {
+        split(path) == nil && value.objectValue != nil
+    }
+
+    /// The entry changes that turn `base` into `value`; `null` deletes.
+    private static func entryDiff(from base: LeoConfigValue, to value: LeoConfigValue) -> [String: LeoConfigValue] {
+        let before = base.objectValue ?? [:]
+        let after = value.objectValue ?? [:]
+        let changed = after.filter { before[$0.key] != $0.value }
+        let removed = before.keys.filter { after[$0] == nil }.map { ($0, LeoConfigValue.null) }
+        return changed.merging(removed) { $1 }
+    }
+
+    private static func applying(_ diff: [String: LeoConfigValue], to base: LeoConfigValue) -> LeoConfigValue {
+        let entries = (base.objectValue ?? [:]).merging(diff) { $1 }.filter { !$0.value.isNull }
+        let strings = entries.compactMapValues(\.stringValue)
+        return strings.count == entries.count ? .map(strings) : .object(entries)
     }
 
     // MARK: paths

@@ -193,25 +193,40 @@ public actor LeoFakeConfigClient: LeoConfigClient {
 
     // MARK: internals
 
-    /// What the daemon stores after a write: a secret's replace or clear
-    /// becomes set / not set (the value is never kept or returned), and a key
-    /// sent as null is dropped rather than stored.
+    /// What the daemon stores after a write. An object sent over an object
+    /// (a nested group, an env map) merges entry by entry; anything else
+    /// replaces. A secret's replace or clear becomes set / not set (the value
+    /// is never kept or returned), and a key sent as null is dropped.
     private static func merged(_ stored: [String: LeoConfigValue], _ patch: [String: LeoConfigValue]) -> [String: LeoConfigValue] {
-        stored.merging(patch.mapValues(normalised)) { _, new in new }.filter { !$0.value.isNull }
+        var result = stored
+        for (key, value) in patch {
+            if case .object(let entries) = value, let current = stored[key]?.objectValue {
+                result[key] = normalised(.object(current.merging(entries) { $1 }))
+            } else {
+                result[key] = normalised(value)
+            }
+        }
+        return result.filter { !$0.value.isNull }
     }
 
     /// What the daemon stores for a written value: a secret as set / not set,
-    /// and inside an object (an env map) a `null` or cleared entry is gone.
+    /// and inside an object a `null` or cleared entry is gone. An object of
+    /// plain strings is an env map.
     private static func normalised(_ value: LeoConfigValue) -> LeoConfigValue {
         switch value {
         case .secretReplace: .secret(isSet: true)
         case .secretClear: .secret(isSet: false)
         case .object(let entries):
-            .object(entries.filter { entry in
+            stored(entries.filter { entry in
                 if case .secretClear = entry.value { false } else { !entry.value.isNull }
             }.mapValues(normalised))
         default: value
         }
+    }
+
+    private static func stored(_ entries: [String: LeoConfigValue]) -> LeoConfigValue {
+        let strings = entries.compactMapValues(\.stringValue)
+        return strings.count == entries.count ? .map(strings) : .object(entries)
     }
 
     private var revision: String { "sha256:fake-\(revisionNumber)" }

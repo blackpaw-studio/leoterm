@@ -126,26 +126,22 @@ struct LeoConfigDraftTests {
         #expect(draft.patch == ["model": .null])
     }
 
-    @Test func aSubsectionEditSendsTheWholeSubsectionObject() throws {
+    @Test func aSubsectionEditSendsOnlyTheEditedKeys() throws {
         var draft = try Self.draft()
         draft.set("push.chat", .bool(true))
         draft.set("permissions.can_spawn", .list([.string("reviewer"), .string("tester")]))
 
         #expect(Set(draft.patch.keys) == ["push", "permissions"])
-        #expect(draft.patch["push"]?.objectValue == ["chat": .bool(true), "errored": .null, "finished": .null, "needs_input": .null])
-        let permissions = try #require(draft.patch["permissions"]?.objectValue)
-        #expect(permissions["can_spawn"] == .list([.string("reviewer"), .string("tester")]))
-        #expect(permissions["deny_tools"] == .list([]))
+        #expect(draft.patch["push"]?.objectValue == ["chat": .bool(true)])
+        #expect(draft.patch["permissions"]?.objectValue == ["can_spawn": .list([.string("reviewer"), .string("tester")])])
         #expect(draft.isDirty("push.chat"))
     }
 
-    @Test func aHarnessOptionEditKeepsTheScopesOtherOptions() throws {
+    @Test func aHarnessOptionEditSendsOnlyThatOption() throws {
         var draft = try Self.draft()
         draft.set("harness_options.allowed_tools", .list([.string("Read"), .string("Edit")]))
 
-        let options = try #require(draft.patch["harness_options"]?.objectValue)
-        #expect(options["allowed_tools"] == .list([.string("Read"), .string("Edit")]))
-        #expect(options["permission_mode"] == .string("plan"))
+        #expect(draft.patch["harness_options"]?.objectValue == ["allowed_tools": .list([.string("Read"), .string("Edit")])])
     }
 
     @Test func changingTheHarnessDropsTheOldHarnessOptions() throws {
@@ -275,7 +271,7 @@ struct LeoConfigDraftTests {
         #expect(rebased.errors(for: "max_turns") == ["Must be at least 0"])
     }
 
-    @Test func aRebasedNestedEditSendsTheFreshSiblings() throws {
+    @Test func aRebasedNestedEditStillSendsOnlyItsOwnKey() throws {
         var draft = try Self.draft()
         draft.set("harness_options.permission_mode", .string("acceptEdits"))
         let newDocument = LeoConfigDocument(
@@ -283,9 +279,10 @@ struct LeoConfigDraftTests {
             values: ["harness_options": .object(["allowed_tools": .list([.string("Grep")])])],
             effectiveHarness: "claude"
         )
-        let options = try #require(draft.rebased(onto: newDocument).patch["harness_options"]?.objectValue)
+        let rebased = draft.rebased(onto: newDocument)
 
-        #expect(options == ["permission_mode": .string("acceptEdits"), "allowed_tools": .list([.string("Grep")])])
+        #expect(rebased.patch["harness_options"]?.objectValue == ["permission_mode": .string("acceptEdits")])
+        #expect(rebased.value(at: "harness_options.allowed_tools") == .list([.string("Grep")]))
     }
 
     // MARK: singletons and no validator
@@ -309,21 +306,21 @@ struct LeoConfigDraftTests {
         var draft = Self.envDraft(.map(["A": "1", "B": "2"]))
         draft.set("env", .map(["A": "1"]))
 
-        #expect(draft.patch == ["env": .object(["A": .string("1"), "B": .null])])
+        #expect(draft.patch == ["env": .object(["B": .null])])
     }
 
     @Test func aRemovedSecretEntryIsSentAsNullToo() {
         var draft = Self.envDraft(.object(["A": .string("1"), "T": .secret(isSet: true)]))
         draft.set("env", .map(["A": "1"]))
 
-        #expect(draft.patch == ["env": .object(["A": .string("1"), "T": .null])])
+        #expect(draft.patch == ["env": .object(["T": .null])])
     }
 
-    @Test func addedOrChangedMapEntriesNeedNoNulls() {
-        var draft = Self.envDraft(.map(["A": "1"]))
-        draft.set("env", .map(["A": "2", "B": "3"]))
+    @Test func addedOrChangedMapEntriesAreSentAloneWithoutNulls() {
+        var draft = Self.envDraft(.map(["A": "1", "C": "4"]))
+        draft.set("env", .map(["A": "2", "B": "3", "C": "4"]))
 
-        #expect(draft.patch == ["env": .map(["A": "2", "B": "3"])])
+        #expect(draft.patch == ["env": .object(["A": .string("2"), "B": .string("3")])])
     }
 
     @Test func addingThenRemovingAnEntryLeavesTheDraftClean() {
@@ -333,5 +330,36 @@ struct LeoConfigDraftTests {
 
         #expect(!draft.isDirty)
         #expect(draft.patch.isEmpty)
+    }
+
+    // MARK: per-key diffs
+
+    @Test func removingAPlainEnvVariableNextToASecretSendsItsDeletion() {
+        let env = LeoConfigValue.object([
+            "ANTHROPIC_AUTH_TOKEN": .secret(isSet: true), "ANTHROPIC_BASE_URL": .string("https://proxy.test"),
+        ])
+        var draft = Self.envDraft(env)
+        draft.set("env", env.replacingEnvEntries([:]))
+
+        #expect(draft.patch == ["env": .object(["ANTHROPIC_BASE_URL": .null])])
+    }
+
+    @Test func aNestedEditSendsOnlyTheKeyTheUserEditedSoAnOverwriteLeavesItsSiblings() throws {
+        // Another writer changed push.finished; the user edits push.needs_input.
+        // Overwrite resends this patch, so it must not carry push.finished.
+        var draft = try Self.draft()
+        draft.set("push.needs_input", .bool(true))
+
+        #expect(draft.patch == ["push": .object(["needs_input": .bool(true)])])
+    }
+
+    @Test func rebasingOntoADocumentWithAnEnvEntryAnotherWriterAddedKeepsThatEntry() {
+        var draft = Self.envDraft(.map(["A": "1"]))
+        draft.set("env", .map(["A": "1", "Y": "2"]))
+        let newDocument = LeoConfigDocument(revision: "r2", name: "t", values: ["env": .map(["A": "1", "X": "3"])], effectiveHarness: "claude")
+        let rebased = draft.rebased(onto: newDocument)
+
+        #expect(rebased.patch == ["env": .object(["Y": .string("2")])])
+        #expect(rebased.value(at: "env") == .map(["A": "1", "X": "3", "Y": "2"]))
     }
 }

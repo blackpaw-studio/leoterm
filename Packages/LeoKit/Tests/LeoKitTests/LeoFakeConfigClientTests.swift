@@ -155,15 +155,25 @@ struct LeoFakeConfigClientTests {
         #expect(try await fake.document("web").values["bind"] == nil)
     }
 
-    @Test func aNestedObjectIsReplacedWhole() async throws {
+    @Test func aNestedObjectMergesPerKeyAndKeepsTheOthers() async throws {
         let fake = try Self.fake()
         let revision = try await fake.collection("templates").revision
         _ = try await fake.update(
-            "templates", name: "reviewer", patch: ["harness_options": .object(["profile": .string("p")])], ifMatch: revision
+            "templates", name: "coder", patch: ["harness_options": .object(["profile": .string("p"), "permission_mode": .null])], ifMatch: revision
         )
 
-        let options = try await fake.item("templates", name: "reviewer").values["harness_options"]?.objectValue
-        #expect(options == ["profile": .string("p")])
+        let options = try await fake.item("templates", name: "coder").values["harness_options"]?.objectValue
+        #expect(options?["profile"] == .string("p"))
+        #expect(options?["permission_mode"] == nil)
+    }
+
+    @Test func anEnvPatchMergesPerEntryAndAnAllStringResultIsAMap() async throws {
+        let fake = try Self.fake()
+        var revision = try await fake.collection("templates").revision
+        revision = try await fake.update("templates", name: "coder", patch: ["env": .map(["A": "1", "B": "2"])], ifMatch: revision).revision
+        _ = try await fake.update("templates", name: "coder", patch: ["env": .object(["B": .null, "C": .string("3")])], ifMatch: revision)
+
+        #expect(try await fake.item("templates", name: "coder").values["env"] == .map(["A": "1", "C": "3"]))
     }
 
     // MARK: collections
