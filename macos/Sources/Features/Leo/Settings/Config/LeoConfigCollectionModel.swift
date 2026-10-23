@@ -49,12 +49,18 @@ import LeoKit
 
     private var client: any LeoConfigClient
     private let revisions: LeoConfigRevisionTracker
-    private let references: [String: [String]]
+    private var references: [String: [String]]
     private let machineHost: String?
     private var schema: LeoConfigSchema?
     private var webDocument: LeoConfigDocument?
     /// The file revision the list was read at.
     private var revision = ""
+
+    /// A pane that edits more than the form (the task prompt) reports its
+    /// unsaved state here, so leaving the item asks about it too.
+    var extraUnsavedChanges: () -> Bool = { false }
+    /// Called when the user chooses to drop the pane's unsaved edits.
+    var onDiscard: () -> Void = {}
 
     init(
         resource: String, client: any LeoConfigClient, revisions: LeoConfigRevisionTracker,
@@ -76,7 +82,7 @@ import LeoKit
     var isDirty: Bool { draft?.isDirty ?? false }
     var canSave: Bool { draft?.canSave == true && conflict == nil && !isBusy }
     /// Structural changes wait for a clean draft, so no edit is lost to a rename.
-    var canRestructure: Bool { !isDirty && !isBusy && phase == .loaded }
+    var canRestructure: Bool { !hasUnsavedChanges && !isBusy && phase == .loaded }
 
     var sections: [LeoConfigFormSection] {
         guard let draft, let resource, let schema else { return [] }
@@ -100,10 +106,11 @@ import LeoKit
 
     // MARK: LeoSettingsPane
 
-    var hasUnsavedChanges: Bool { isDirty }
+    var hasUnsavedChanges: Bool { isDirty || extraUnsavedChanges() }
 
     func discardChanges() {
         draft?.revert()
+        onDiscard()
     }
 
     /// The machine reconnected: read again through its new client and keep the
@@ -122,11 +129,22 @@ import LeoKit
         do {
             schema = try await client.schema()
             webDocument = try? await client.document("web")
+            await loadReferences()
             let collection = try await client.collection(resourceKey)
             apply(collection, preferring: selection, carrying: nil)
             phase = .loaded
         } catch {
             phase = .failed(Self.message(for: error))
+        }
+    }
+
+    /// The names behind the schema's reference fields (a task's template), so
+    /// they pick from, and are checked against, what exists. A collection that
+    /// can't be read is left unchecked: the daemon still judges.
+    private func loadReferences() async {
+        let wanted = Set(resource?.fields.compactMap { $0.type == .reference ? $0.references : nil } ?? [])
+        for key in wanted where references[key] == nil && key != resourceKey {
+            if let list = try? await client.collection(key) { references[key] = list.items.map(\.name) }
         }
     }
 
@@ -174,7 +192,7 @@ import LeoKit
 
     func select(_ name: String?) {
         guard name != selection else { return }
-        guard !isDirty else {
+        guard !hasUnsavedChanges else {
             confirmation = .discardChanges(thenSelect: name)
             return
         }
@@ -239,11 +257,34 @@ import LeoKit
 
     // MARK: Add, rename, duplicate, delete
 
-    func add(name: String) async {
+    /// `values` carries the fields an add requires beyond the name (a task's schedule).
+    func add(name: String, values: [String: LeoConfigValue] = [:]) async {
         guard canRestructure, actions.contains(.add) else { return }
         await write(ifMatch: revisions.resolve(revision), preferring: name, selectingResult: true) { [resourceKey, client] ifMatch in
-            try await client.add(resourceKey, name: name, ifMatch: ifMatch)
+            try await client.add(resourceKey, name: name, values: values, ifMatch: ifMatch)
         }
+    }
+
+    /// A write of `patch` to one item that isn't the open form's Save (a list
+    /// toggle, a prompt file choice): only these keys are sent, the open
+    /// draft and its edits stay, and a stale revision is retried once against
+    /// the current one, because the patch is the user's whole intent. Returns
+    /// why it failed, or nil.
+    func applyPatch(_ patch: [String: LeoConfigValue], to name: String) async -> String? {
+        guard phase == .loaded, !isBusy else { return "Another change is still being saved. Try again in a moment." }
+        var failure: String?
+        await write(
+            ifMatch: revisions.resolve(revision), preferring: selection, keepingDraft: true,
+            onFailure: { _, error in failure = Self.message(for: error) },
+            operation: { [resourceKey, client] ifMatch in
+                do {
+                    return try await client.update(resourceKey, name: name, patch: patch, ifMatch: ifMatch)
+                } catch LeoConfigError.conflict(let current) {
+                    return try await client.update(resourceKey, name: name, patch: patch, ifMatch: current)
+                }
+            }
+        )
+        return failure
     }
 
     func rename(to newName: String) async {
@@ -280,7 +321,7 @@ import LeoKit
         case .delete(let name):
             await deleteSelected(name)
         case .discardChanges(let target):
-            draft?.revert()
+            discardChanges()
             selectNow(target)
         }
     }
@@ -302,9 +343,9 @@ import LeoKit
 
     /// Runs one write, then reads the list again. `preferring` is the item to
     /// select afterwards; `selectingResult` follows the item the daemon
-    /// returned. The write's failure goes to `onFailure`, else to the banner.
+    /// returned; `keepingDraft` rebases the open draft onto what was read. The write's failure goes to `onFailure`, else to the banner.
     private func write(
-        ifMatch: String, preferring name: String?, selectingResult: Bool = false,
+        ifMatch: String, preferring name: String?, selectingResult: Bool = false, keepingDraft: Bool = false,
         onFailure: ((LeoConfigCollectionModel, Error) -> Void)? = nil,
         operation: @Sendable (String) async throws -> LeoConfigWriteResult
     ) async {
@@ -320,7 +361,7 @@ import LeoKit
             warning = result.warning
             if result.restartRequired.isNeeded { restartPrompt = result.restartRequired }
             let followed = selectingResult ? (result.item?.name ?? name) : name
-            await refresh(preferring: followed, carrying: nil)
+            await refresh(preferring: followed, carrying: keepingDraft ? draft : nil)
         } catch {
             if let onFailure { onFailure(self, error) } else { errorMessage = Self.message(for: error) }
         }

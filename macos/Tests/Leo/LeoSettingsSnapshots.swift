@@ -64,7 +64,7 @@ struct LeoSettingsSnapshots {
             resource: resource, harnesses: [:], draft: draft, references: ["templates": ["coder", "reviewer"]], webLink: URL(string: "https://leo.example.com/config")
         )
         let form = LeoSchemaForm(
-            sections: sections, formErrors: ["templates.old: workspace is required"], cronPreviews: ["schedule": "At 03:00 every day"],
+            sections: sections, formErrors: ["templates.old: workspace is required"], cronPreviews: ["schedule": .valid("At 03:00 every day")],
             set: { _, _ in }, revert: { _ in }
         )
         try Self.write(form, named: "allFieldTypes", size: NSSize(width: 640, height: 1500), to: directory)
@@ -134,6 +134,60 @@ struct LeoSettingsSnapshots {
             title: "New template", confirmTitle: "Add", name: "coder", validate: { model.nameError($0) }, submit: { _ in }, cancel: {}
         )
         try Self.write(sheet, named: "templatesAddSheet", size: NSSize(width: 360, height: 150), to: directory)
+    }
+
+    // MARK: Tasks pane
+
+    private static func tasksModel(page: LeoTasksSettingsModel.Page = .settings) async throws -> LeoTasksSettingsModel {
+        let fake = try LeoConfigGolden.client(tasks: LeoConfigGolden.taskData())
+        let previewer = LeoCronPreviewer(sleep: { _ in }, fetch: { expression in
+            expression.split(separator: " ").count == 5
+                ? LeoCronPreview(valid: true, description: "Every hour, on the hour", error: nil)
+                : LeoCronPreview(valid: false, description: "", error: "Expected 5 fields (minute hour day month weekday), got \(expression.split(separator: " ").count)")
+        })
+        let model = LeoTasksSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus", previewer: previewer)
+        await model.load()
+        model.setPage(page)
+        await model.settled()
+        return model
+    }
+
+    private static let tasksSize = NSSize(width: 900, height: 720)
+
+    @Test func tasks() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.tasksModel()
+        await model.runNow("heartbeat")
+        try Self.write(LeoTasksView(model: model, machine: "dionysus"), named: "tasks", size: Self.tasksSize, to: directory)
+    }
+
+    @Test func tasksEditedWithAnInvalidSchedule() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.tasksModel()
+        model.collection.set("schedule", .string("0 * *"))
+        model.collection.set("model", .string("sonnet"))
+        await model.settled()
+        try Self.write(LeoTasksView(model: model, machine: "dionysus"), named: "tasksEdited", size: Self.tasksSize, to: directory)
+    }
+
+    @Test func tasksPrompt() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.tasksModel(page: .prompt)
+        model.setPromptText("Check the thing.\n\nThen, if anything looks off, post a short note in the ops thread.\n")
+        try Self.write(LeoTasksView(model: model, machine: "dionysus"), named: "tasksPrompt", size: Self.tasksSize, to: directory)
+    }
+
+    @Test func tasksHistory() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.tasksModel(page: .history)
+        try Self.write(LeoTasksView(model: model, machine: "dionysus"), named: "tasksHistory", size: Self.tasksSize, to: directory)
+    }
+
+    @Test func tasksAddSheet() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = try await Self.tasksModel()
+        let sheet = LeoTaskAddSheet(model: model, submit: { _, _ in }, cancel: {})
+        try Self.write(sheet, named: "tasksAddSheet", size: NSSize(width: 420, height: 184), to: directory)
     }
 
     // MARK: Rendering

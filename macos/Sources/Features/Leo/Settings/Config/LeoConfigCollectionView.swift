@@ -1,12 +1,28 @@
 import LeoKit
 import SwiftUI
 
+/// What a resource adds to the generic collection pane. Every part is
+/// optional; an empty value is the plain list and form.
+struct LeoConfigCollectionExtras {
+    /// Content after an item's name in the list.
+    var row: ((LeoConfigItem) -> AnyView)?
+    /// Content under the list's buttons.
+    var listFooter: AnyView?
+    /// Wraps the standard detail (banners, form, Save bar), which it is handed.
+    var detail: ((AnyView) -> AnyView)?
+    /// Replaces the add sheet. `submit` takes the name and the extra fields to send with it.
+    var addSheet: ((_ submit: @escaping (String, [String: LeoConfigValue]) -> Void, _ cancel: @escaping () -> Void) -> AnyView)?
+    /// A live description under a cron field, by its path.
+    var cronPreviews: [String: LeoCronPreviewResult] = [:]
+}
+
 /// A collection resource's pane: the item list with add / remove / more, and
 /// the selected item's schema form under a Save / Revert bar.
 struct LeoConfigCollectionView: View {
     @ObservedObject var model: LeoConfigCollectionModel
     let machine: String
     var restart = LeoConfigRestartActions.none
+    var extras = LeoConfigCollectionExtras()
 
     @State private var nameRequest: NameRequest?
 
@@ -39,7 +55,7 @@ struct LeoConfigCollectionView: View {
         VStack(spacing: 0) {
             List(selection: Binding(get: { model.selection }, set: { model.select($0) })) {
                 ForEach(model.items) { item in
-                    Text(item.name).tag(item.name).accessibilityIdentifier("leo.config.item.\(item.name)")
+                    row(item).tag(item.name).accessibilityIdentifier("leo.config.item.\(item.name)")
                 }
             }
             .accessibilityLabel(model.title)
@@ -60,6 +76,17 @@ struct LeoConfigCollectionView: View {
             }
             .buttonStyle(.borderless)
             .padding(6)
+            if let footer = extras.listFooter {
+                footer.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.bottom, 6)
+            }
+        }
+    }
+
+    @ViewBuilder private func row(_ item: LeoConfigItem) -> some View {
+        if let accessory = extras.row {
+            accessory(item)
+        } else {
+            Text(item.name)
         }
     }
 
@@ -81,16 +108,22 @@ struct LeoConfigCollectionView: View {
     @ViewBuilder private var detail: some View {
         if model.draft == nil {
             Text("No \(model.title.lowercased()) yet.").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let wrap = extras.detail {
+            wrap(AnyView(standardDetail))
         } else {
-            VStack(spacing: 0) {
-                banners
-                LeoSchemaForm(
-                    sections: model.sections, formErrors: model.draft?.formErrors ?? [],
-                    set: { model.set($0, $1) }, revert: { model.revert($0) }
-                )
-                Divider()
-                saveBar
-            }
+            standardDetail
+        }
+    }
+
+    private var standardDetail: some View {
+        VStack(spacing: 0) {
+            banners
+            LeoSchemaForm(
+                sections: model.sections, formErrors: model.draft?.formErrors ?? [], cronPreviews: extras.cronPreviews,
+                set: { model.set($0, $1) }, revert: { model.revert($0) }
+            )
+            Divider()
+            saveBar
         }
     }
 
@@ -153,6 +186,10 @@ struct LeoConfigCollectionView: View {
 
     @ViewBuilder private func nameSheet(_ request: NameRequest) -> some View {
         switch request {
+        case .add where extras.addSheet != nil:
+            extras.addSheet?(
+                { name, values in nameRequest = nil; Task { await model.add(name: name, values: values) } }, { nameRequest = nil }
+            )
         case .add:
             LeoNameSheet(
                 title: "New \(singular)", confirmTitle: "Add", name: "", validate: { model.nameError($0) },

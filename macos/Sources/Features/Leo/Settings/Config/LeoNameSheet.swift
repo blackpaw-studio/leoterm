@@ -5,6 +5,7 @@ struct LeoNameSheet: View {
     let title: String
     let confirmTitle: String
     @State var name: String
+    var fieldLabel = "Name"
     /// The reason `name` can't be used, or nil.
     let validate: (String) -> String?
     let submit: (String) -> Void
@@ -15,7 +16,7 @@ struct LeoNameSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.headline)
-            TextField("Name", text: $name)
+            TextField(fieldLabel, text: $name)
                 .focused($isFocused)
                 .onSubmit(confirm)
                 .frame(minWidth: 280)

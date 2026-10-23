@@ -9,7 +9,7 @@ struct LeoSchemaForm: View {
     /// Messages that belong to no field.
     var formErrors: [String] = []
     /// A live description for a cron field, by its path.
-    var cronPreviews: [String: String] = [:]
+    var cronPreviews: [String: LeoCronPreviewResult] = [:]
     let set: (_ path: String, _ value: LeoConfigValue) -> Void
     let revert: (_ path: String) -> Void
 

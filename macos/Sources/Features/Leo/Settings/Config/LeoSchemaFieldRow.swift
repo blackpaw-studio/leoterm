@@ -6,7 +6,7 @@ import SwiftUI
 /// unknown one is shown read-only (`LeoConfigControl.readOnlyUnknown`).
 struct LeoSchemaFieldRow: View {
     let row: LeoConfigFormRow
-    var cronPreview: String?
+    var cronPreview: LeoCronPreviewResult?
     let set: (LeoConfigValue) -> Void
     let revert: () -> Void
 

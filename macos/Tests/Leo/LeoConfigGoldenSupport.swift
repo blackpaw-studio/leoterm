@@ -23,7 +23,7 @@ enum LeoConfigGolden {
         try decode(LeoConfigWriteResult.self, "put_template_env_secret").item?.item ?? LeoConfigItem(name: "coder", values: [:])
     }
 
-    static func client(supported: Bool = true, secretEnv: Bool = false) throws -> LeoFakeConfigClient {
+    static func client(supported: Bool = true, secretEnv: Bool = false, tasks: LeoFakeTaskData = LeoFakeTaskData()) throws -> LeoFakeConfigClient {
         func items(_ name: String) throws -> [LeoConfigItem] { try decode(LeoConfigCollection.self, name).items }
         func singleton(_ name: String) throws -> LeoConfigItem { try decode(LeoConfigDocument.self, name).item }
         return LeoFakeConfigClient(
@@ -34,7 +34,25 @@ enum LeoConfigGolden {
                 "tasks": try items("tasks"),
                 "environments": try items("environments"), "hosts": try items("hosts"),
             ],
+            tasks: tasks,
             version: LeoDaemonVersionInfo(version: "0.52.0", capabilities: supported ? [LeoConfigAPI.capability] : [])
+        )
+    }
+
+    /// The golden tasks' runs, logs and prompt files: `heartbeat` has three runs
+    /// (the newest failed, with a truncated log, and one left no log) and a
+    /// prompt, `nightly`'s prompt file doesn't exist yet.
+    static func taskData(protectedPrompts: Set<String> = []) -> LeoFakeTaskData {
+        func run(_ second: Int, exit: Int? = 0, log: String? = nil) -> LeoTaskRun {
+            LeoTaskRun(
+                task: "heartbeat", startedAt: Date(timeIntervalSince1970: 1_792_742_400 + Double(second) * 60), exitCode: exit, durationMs: 1500,
+                logFile: log ?? "heartbeat-\(second).jsonl"
+            )
+        }
+        return LeoFakeTaskData(
+            runs: ["heartbeat": [run(300, exit: 1), run(200, log: ""), run(100)]],
+            logs: ["heartbeat-300.jsonl": "boom\n", "heartbeat-100.jsonl": "fine\n"], truncatedLogs: ["heartbeat-300.jsonl"],
+            prompts: ["heartbeat.md": "Check the thing.\n", "notes.md": "Notes\n"], protectedPrompts: protectedPrompts
         )
     }
 }

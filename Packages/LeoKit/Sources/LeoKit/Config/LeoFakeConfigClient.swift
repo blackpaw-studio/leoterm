@@ -64,6 +64,8 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     private var nextReadFailure: (any Error)?
     private var isHoldingReads = false
     private var heldReads: [CheckedContinuation<Void, Never>] = []
+    private var isHoldingWrites = false
+    private var heldWrites: [CheckedContinuation<Void, Never>] = []
     private var taskData: LeoFakeTaskData
 
     public private(set) var calls: [LeoFakeConfigCall] = []
@@ -121,6 +123,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
 
     public func update(_ resource: String, name: String?, patch: [String: LeoConfigValue], ifMatch: String) async throws -> LeoConfigWriteResult {
         calls.append(.update(resource: resource, name: name, patch: patch, ifMatch: ifMatch))
+        if isHoldingWrites { await withCheckedContinuation { heldWrites.append($0) } }
         try beforeWrite(ifMatch)
         if let name {
             var item = try existing(resource, name)
@@ -206,6 +209,21 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     }
 
     public var heldReadCount: Int { heldReads.count }
+
+    /// Updates suspend (after being recorded, before anything is written)
+    /// until `releaseWrites()`: a way to observe the app mid-request.
+    public func holdWrites() {
+        isHoldingWrites = true
+    }
+
+    public var heldWriteCount: Int { heldWrites.count }
+
+    public func releaseWrites() {
+        isHoldingWrites = false
+        let waiting = heldWrites
+        heldWrites = []
+        for continuation in waiting { continuation.resume() }
+    }
 
     public func releaseReads() {
         isHoldingReads = false
