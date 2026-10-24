@@ -8,6 +8,8 @@ public struct Daemons {
     @ObservableState
     public struct State: Equatable {
         @Presents public var alert: AlertState<Action.Alert>?
+        /// The open machine's settings.
+        @Presents public var machine: MachineSettings.State?
 
         public init() {}
     }
@@ -20,6 +22,9 @@ public struct Daemons {
         case delegate(Delegate)
         case disappeared
         case forgetButtonTapped(PairedDaemon)
+        case machine(PresentationAction<MachineSettings.Action>)
+        /// A machine's row was tapped; the parent opens its settings.
+        case machineTapped(PairedDaemon.ID)
         case retryButtonTapped(PairedDaemon.ID)
 
         @CasePathable
@@ -31,6 +36,7 @@ public struct Daemons {
         public enum Delegate {
             case add
             case forget(PairedDaemon.ID)
+            case openMachine(PairedDaemon.ID)
             case retry(PairedDaemon.ID)
             case visibilityChanged(Bool)
         }
@@ -45,7 +51,9 @@ public struct Daemons {
                 return .send(.delegate(.add))
             case .alert(.presented(.confirmForget(let id))):
                 return .send(.delegate(.forget(id)))
-            case .alert, .delegate:
+            case .machine(.presented(.delegate(.retry(let id)))):
+                return .send(.delegate(.retry(id)))
+            case .alert, .delegate, .machine:
                 return .none
             case .appeared:
                 return .send(.delegate(.visibilityChanged(true)))
@@ -54,11 +62,14 @@ public struct Daemons {
             case .forgetButtonTapped(let daemon):
                 state.alert = Self.forgetAlert(daemon)
                 return .none
+            case .machineTapped(let id):
+                return .send(.delegate(.openMachine(id)))
             case .retryButtonTapped(let id):
                 return .send(.delegate(.retry(id)))
             }
         }
         .ifLet(\.$alert, action: \.alert)
+        .ifLet(\.$machine, action: \.machine) { MachineSettings() }
     }
 
     static func forgetAlert(_ daemon: PairedDaemon) -> AlertState<Action.Alert> {

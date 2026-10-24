@@ -109,4 +109,54 @@ struct AppFeatureTests {
         await store.receive(\.push.authorizationRefreshed) { $0.push.authorization = .authorized }
         await store.send(.scenePhaseChanged(isActive: false)) { $0.fleet.isActive = false }
     }
+
+    @Test func machineLinkStaysInSyncWithTheFleet() async {
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.fleet.isActive = true
+        initial.fleet.sessions[0].connection = .connected
+        initial.fleet.sessions[0].features = LeoDaemonFeatures(["config_api"])
+        initial.daemons.machine = MachineSettings.State(link: MachineLink(session: initial.fleet.sessions[0]))
+        let store = TestStore(initialState: initial) { AppFeature() }
+        store.exhaustivity = .off
+
+        await store.send(.scenePhaseChanged(isActive: false))
+
+        await store.receive(\.daemons.machine.presented.linkUpdated)
+        #expect(store.state.daemons.machine?.link.connection == .offline)
+    }
+
+    @Test func tappingAMachineOpensItsSettings() async {
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.fleet.sessions[0].connection = .connected
+        let store = TestStore(initialState: initial) { AppFeature() }
+        store.exhaustivity = .off
+
+        await store.send(.daemons(.machineTapped(PairedDaemon.dionysus.id)))
+
+        await store.receive(\.daemons.delegate.openMachine)
+        #expect(store.state.daemons.machine?.id == PairedDaemon.dionysus.id)
+    }
+
+    @Test func forgettingTheOpenMachineClosesItsSettings() async {
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.daemons.machine = MachineSettings.State(link: MachineLink(session: initial.fleet.sessions[0]))
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.secrets.delete = { _ in }
+            $0.secrets.load = { _ in nil }
+            $0.pushClient.sharePairedDaemons = { _ in }
+            $0.pairedDaemons.save = { _ in }
+        }
+        store.exhaustivity = .off
+
+        await store.send(\.daemons.forgetButtonTapped, .dionysus)
+        await store.send(\.daemons.alert.presented.confirmForget, PairedDaemon.dionysus.id)
+        await store.receive(\.daemons.delegate.forget)
+
+        #expect(store.state.daemons.machine == nil)
+    }
 }
