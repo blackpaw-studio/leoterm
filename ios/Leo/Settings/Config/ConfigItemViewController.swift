@@ -27,6 +27,9 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
     private var webLink: URL?
     private var openEditor: (path: String, controller: any SchemaFieldEditorViewController)?
     private let saveButton = UIBarButtonItem(title: String(localized: "Save"), style: .done, target: nil, action: nil)
+    private lazy var backButton = UIBarButtonItem(image: UIImage(systemName: "chevron.backward"), primaryAction: UIAction(
+        title: String(localized: "Back"), image: UIImage(systemName: "chevron.backward")
+    ) { [store] _ in store.send(.backTapped) })
     private let revertButton = UIBarButtonItem(image: UIImage(systemName: "arrow.uturn.backward"), style: .plain, target: nil, action: nil)
 
     private lazy var handlers = SchemaFieldHandlers(
@@ -88,10 +91,11 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         navigationController?.interactivePopGestureRecognizer?.isEnabled = !store.core.isDirty
     }
 
-    /// Popped without going through `backAction` (a swipe while clean).
+    /// Popped without going through the back button (a swipe while clean, or
+    /// something else). A dirty draft stays, and the list brings this back.
     override func didMove(toParent parent: UIViewController?) {
         super.didMove(toParent: parent)
-        if parent == nil { store.send(.backTapped) }
+        if parent == nil { store.send(.editorPopped) }
     }
 
     // MARK: rendering
@@ -102,6 +106,11 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         saveButton.isEnabled = core.canSave
         revertButton.isEnabled = core.isDirty && !core.isBusy
         navigationController?.interactivePopGestureRecognizer?.isEnabled = !core.isDirty
+        // The system back button offers a history menu that jumps past the
+        // question, so while there are unsaved edits it is replaced by one
+        // that doesn't.
+        navigationItem.hidesBackButton = core.isDirty
+        navigationItem.leftBarButtonItem = core.isDirty ? backButton : nil
         banners.show(ConfigBanners.banners(store))
 
         let sections = core.sections

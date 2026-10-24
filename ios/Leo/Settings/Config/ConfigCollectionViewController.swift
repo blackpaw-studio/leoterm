@@ -67,6 +67,11 @@ final class ConfigCollectionViewController: UIViewController, UICollectionViewDe
         store.send(.task)
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        syncEditor(isOpen: store.core.selection != nil)
+    }
+
     // MARK: rendering
 
     private func render() {
@@ -96,6 +101,12 @@ final class ConfigCollectionViewController: UIViewController, UICollectionViewDe
             let pushed = ConfigItemViewController(store: store)
             editor = pushed
             navigationController?.pushViewController(pushed, animated: true)
+        } else if isOpen, let pushed = editor, store.core.isDirty, navigationController?.topViewController === self,
+                  navigationController?.viewControllers.contains(pushed) == false {
+            // Something popped a dirty editor without asking (a pop to a
+            // view controller further back): its edits are still here, so
+            // it comes back, and leaving it then asks.
+            navigationController?.pushViewController(pushed, animated: false)
         } else if !isOpen, let pushed = editor {
             editor = nil
             if navigationController?.viewControllers.contains(pushed) == true {
