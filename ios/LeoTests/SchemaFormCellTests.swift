@@ -377,6 +377,14 @@ struct SchemaFormCellTests {
         #expect(CellHarness.view(CellHarness.row(.list), recorder: CellRecorder()).subview("field.rowMenu") == nil)
     }
 
+    @Test func aMapRowShowsTheRowWordingOfItsHelpNotTheTextareaOne() {
+        let env = CellHarness.row(.keyValue, help: "KEY=VALUE, one per line. Absolute paths only")
+        let plain = CellHarness.row(.text(placeholder: nil), help: "KEY=VALUE, one per line.")
+
+        #expect(CellHarness.view(env, recorder: CellRecorder()).help?.text == "One variable per row. Absolute paths only")
+        #expect(CellHarness.view(plain, recorder: CellRecorder()).help?.text == "KEY=VALUE, one per line.")
+    }
+
     @Test func pushedControlsSummariseTheirValue() throws {
         func summary(_ row: LeoConfigFormRow) throws -> String? {
             try #require(CellHarness.view(row, recorder: CellRecorder()).control as? UIButton).configuration?.title

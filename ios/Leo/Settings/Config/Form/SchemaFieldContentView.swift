@@ -142,8 +142,8 @@ final class SchemaFieldContentView: UIView, UIContentView {
         control?.update()
         rowMenu?.menu = control?.rowMenuSource?.menu
         showCronPreview(row)
-        helpLabel.text = row.field.help
-        helpLabel.isHidden = row.field.help.isEmpty
+        helpLabel.text = row.displayHelp
+        helpLabel.isHidden = row.displayHelp.isEmpty
         showWarning(row.field.warning)
         showErrors(row.errors)
         isAccessibilityElement = false
