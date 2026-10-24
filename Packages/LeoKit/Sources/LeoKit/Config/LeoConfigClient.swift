@@ -28,9 +28,9 @@ public struct LeoDaemonVersionInfo: Decodable, Equatable, Sendable {
 /// What a daemon needs for the app to edit its settings.
 public enum LeoConfigAPI {
     public static let capability = "config_api"
-    /// The first leo release that serves the config API; shown as
-    /// "Requires leo ≥ X". Nil until the daemon PR has a release.
-    public static let minimumVersion: LeoDaemonVersion? = nil
+    /// The first leo release that serves the config API (leo #295);
+    /// shown as "Requires leo ≥ X".
+    public static let minimumVersion = LeoDaemonVersion(parsing: "0.59.0")
 
     public static func isSupported(by info: LeoDaemonVersionInfo) -> Bool {
         info.supports(capability)
