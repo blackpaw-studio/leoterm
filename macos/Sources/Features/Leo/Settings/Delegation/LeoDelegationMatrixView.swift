@@ -25,10 +25,24 @@ struct LeoDelegationMatrixView: View {
             if model.matrix.rows.isEmpty {
                 Text("No roles yet.").foregroundStyle(.secondary)
             } else {
-                ScrollView(.horizontal, showsIndicators: true) {
-                    grid.padding(.bottom, 12)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: true) {
+                        grid.padding(.bottom, 12)
+                    }
+                    .onAppear { reveal(model.matrix.activeProfile?.name, with: proxy, animated: false) }
+                    .onChange(of: model.matrix.activeProfile?.name) { reveal($0, with: proxy, animated: true) }
                 }
             }
+        }
+    }
+
+    /// Brings the active profile's column into a pane that scrolls sideways.
+    private func reveal(_ profile: String?, with proxy: ScrollViewProxy, animated: Bool) {
+        guard let profile else { return }
+        if animated {
+            withAnimation { proxy.scrollTo(profile, anchor: .center) }
+        } else {
+            proxy.scrollTo(profile, anchor: .center)
         }
     }
 
@@ -37,7 +51,7 @@ struct LeoDelegationMatrixView: View {
             GridRow {
                 Color.clear.frame(width: Self.roleColumnWidth, height: 1)
                 ForEach(model.matrix.profiles) { profile in
-                    LeoDelegationProfileHeader(model: model, profile: profile, request: $request)
+                    LeoDelegationProfileHeader(model: model, profile: profile, request: $request).id(profile.name)
                 }
             }
             ForEach(model.matrix.rows) { row in
