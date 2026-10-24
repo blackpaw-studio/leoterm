@@ -141,7 +141,7 @@ public struct LeoConfigDraft: Equatable, Sendable {
     public var canSave: Bool { isDirty && allErrors.isEmpty }
 
     public func errors(for path: String) -> [String] {
-        allErrors.filter { $0.field == path }.map(\.message)
+        allErrors.filter { $0.field == path }.map(\.inlineMessage)
     }
 
     /// Messages that belong to no rendered field: form-level ones, and any

@@ -11,6 +11,19 @@ public struct LeoConfigFieldError: Decodable, Equatable, Sendable {
         self.message = message
     }
 
+    /// The message for showing on its own field. The daemon starts these with
+    /// the config path they are about (`delegation.profiles.deep.roles.qa.effort: …`),
+    /// which the field already says; that `<path>: ` is dropped. A prefix that is not
+    /// a dotted path or this field's own key is part of the sentence and stays.
+    public var inlineMessage: String {
+        guard !field.isEmpty, let separator = message.range(of: ": ") else { return message }
+        let path = message[..<separator.lowerBound]
+        let rest = message[separator.upperBound...]
+        let isPath = !path.isEmpty && !path.contains(where: \.isWhitespace)
+            && (path.contains(".") || path == field.split(separator: ".").last)
+        return isPath && !rest.isEmpty ? String(rest) : message
+    }
+
     enum CodingKeys: String, CodingKey { case field, message }
 
     public init(from decoder: Decoder) throws {

@@ -218,6 +218,29 @@ struct LeoConfigDraftTests {
         #expect(!draft.canSave)
     }
 
+    @Test func aServerErrorOnItsFieldDropsTheRepeatedConfigPath() throws {
+        var draft = try Self.draft()
+        draft.set("model", .string("x"))
+        draft = draft.applying(serverErrors: [
+            LeoConfigFieldError(field: "model", message: "templates.coder.model: unknown model"),
+            LeoConfigFieldError(field: "", message: "templates.old: workspace is required"),
+        ])
+
+        #expect(draft.errors(for: "model") == ["unknown model"])
+        #expect(draft.formErrors == ["templates.old: workspace is required"])
+    }
+
+    @Test func inlineMessageStripsOnlyALeadingConfigPath() {
+        func inline(_ field: String, _ message: String) -> String { LeoConfigFieldError(field: field, message: message).inlineMessage }
+        #expect(inline("effort", "delegation.profiles.deep.roles.qa.effort: expected one of low, high") == "expected one of low, high")
+        #expect(inline("effort", "effort: expected one of low, high") == "expected one of low, high")
+        #expect(inline("effort", "expected one of low, high") == "expected one of low, high")
+        #expect(inline("effort", "expected: low or high") == "expected: low or high")
+        #expect(inline("effort", "template: not installed") == "template: not installed")
+        #expect(inline("", "delegation.profiles.deep: bad") == "delegation.profiles.deep: bad")
+        #expect(inline("effort", "delegation.profiles.deep.roles.qa.effort: ") == "delegation.profiles.deep.roles.qa.effort: ")
+    }
+
     @Test func editingAFieldClearsItsServerErrorAndTheFormLevelOnes() throws {
         var draft = try Self.draft()
         draft.set("model", .string("x"))
