@@ -22,6 +22,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if ProcessInfo.processInfo.arguments.contains("-resetForUITests") { Self.resetForUITests() }
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-exportPushKey") { Self.exportPushKey() }
+        // XCUITest waits for the app to be free of animations before each step
+        // (up to 60 s a time); a live daemon keeps list updates animating.
+        if ProcessInfo.processInfo.arguments.contains("-noAnimationsForUITests") { UIView.setAnimationsEnabled(false) }
         #endif
         // Before returning, so a tap that launched the app is delivered.
         UNUserNotificationCenter.current().delegate = self

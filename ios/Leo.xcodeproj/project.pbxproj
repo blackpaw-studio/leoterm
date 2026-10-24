@@ -44,6 +44,7 @@
 		7224AF18FDB286110FFD8309 /* LeoSettingsScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D3C9F892F834E02CE81A74 /* LeoSettingsScreensTests.swift */; };
 		787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */; };
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
+		81C7612D440AA87361720BEE /* LeoSettingsE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
 		85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */; };
 		8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */; };
@@ -132,6 +133,7 @@
 		238A0EF95E58F7CF1A40AB89 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoE2ETests.swift; sourceTree = "<group>"; };
 		2A3E500114C72A2CED014F5E /* AgentPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPresentation.swift; sourceTree = "<group>"; };
+		2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoSettingsE2ETests.swift; sourceTree = "<group>"; };
 		2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogAnchorTests.swift; sourceTree = "<group>"; };
 		2E5F3AE843078FDC58DA8289 /* SchemaFieldHandlers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldHandlers.swift; sourceTree = "<group>"; };
 		36770E26AC7E79990AFA6F96 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
@@ -381,6 +383,7 @@
 				ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */,
 				0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */,
 				D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */,
+				2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */,
 				A7D3C9F892F834E02CE81A74 /* LeoSettingsScreensTests.swift */,
 				4259E396F6B6491459936938 /* LeoUITests.swift */,
 			);
@@ -665,6 +668,7 @@
 				674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */,
 				35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */,
 				FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */,
+				81C7612D440AA87361720BEE /* LeoSettingsE2ETests.swift in Sources */,
 				7224AF18FDB286110FFD8309 /* LeoSettingsScreensTests.swift in Sources */,
 				B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */,
 			);
