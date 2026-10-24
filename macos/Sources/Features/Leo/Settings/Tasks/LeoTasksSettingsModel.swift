@@ -35,11 +35,10 @@ import LeoKit
     @Published private(set) var selectedRunID: String?
     @Published private(set) var log = LeoTasksLoad<LeoTaskLog>.idle
     @Published private(set) var prompt = LeoTaskPromptState()
-    @Published private var enabledOverrides: [String: Bool] = [:]
+    @Published private var toggles = LeoTaskToggleOverrides()
 
     private var client: any LeoConfigClient
     private var previewer: LeoCronPreviewer?
-    private var pendingToggles: [String: Int] = [:]
     private var toggleChain: Task<Void, Never>?
     private var pageLoad: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
@@ -142,24 +141,13 @@ import LeoKit
     /// of the new file put to the user: that text was typed for the old one.
     private func itemsChanged(_ items: [LeoConfigItem], selectedTask name: String?) {
         guard prompt.phase != .idle, let name else { return }
-        let configured = Self.promptFile(of: name, in: items)
-        guard !prompt.isDirty else {
-            if configured != prompt.document?.file { prompt.confirmation = .fileChanged(configured) } else if case .fileChanged? = prompt.confirmation {
-                prompt.confirmation = nil
-            }
-            return
-        }
-        guard configured != prompt.file else { return }
+        guard prompt.itemsChanged(configuredFile: Self.promptFile(of: name, in: items)) == .reload else { return }
         pageLoad = Task { await loadPrompt(for: name) }
     }
 
     /// The form's Save that would repoint the task drops the prompt text, so it asks first.
     private func allowFormSave(_ draft: LeoConfigDraft) -> Bool {
-        guard prompt.isDirty, let change = draft.patch["prompt_file"] else { return true }
-        let file = change.stringValue ?? ""
-        guard file != prompt.document?.file else { return true }
-        prompt.confirmation = .saveWithFile(file)
-        return false
+        prompt.formSaveAllowed(patch: draft.patch)
     }
 
     private func configuredPromptFile(of name: String) -> String {
@@ -173,15 +161,14 @@ import LeoKit
     // MARK: Enabled toggle
 
     func isEnabled(_ item: LeoConfigItem) -> Bool {
-        enabledOverrides[item.name] ?? item.values["enabled"]?.boolValue ?? false
+        toggles.isEnabled(item)
     }
 
     /// Shows `enabled` at once and writes it alone. Toggles run one at a time;
     /// a failure rolls the switch back and says why.
     func setEnabled(_ enabled: Bool, for name: String) async {
         message = nil
-        enabledOverrides[name] = enabled
-        pendingToggles[name, default: 0] += 1
+        toggles.begin(name, enabled: enabled)
         let previous = toggleChain
         let toggle = Task {
             await previous?.value
@@ -190,11 +177,7 @@ import LeoKit
         }
         toggleChain = toggle
         await toggle.value
-        pendingToggles[name, default: 0] -= 1
-        if pendingToggles[name, default: 0] <= 0 {
-            pendingToggles[name] = nil
-            enabledOverrides[name] = nil
-        }
+        toggles.finish(name)
     }
 
     func dismissMessage() {
@@ -335,12 +318,8 @@ import LeoKit
 
     /// `checkingFile` is false only for text just placed on a file read from the daemon.
     private func writePrompt(ifMatch: String, checkingFile: Bool = true) async {
-        guard prompt.phase == .loaded, prompt.isDirty, !prompt.isSaving, let name = selectedTask, let document = prompt.document else { return }
-        let configured = configuredPromptFile(of: name)
-        if checkingFile, configured != document.file {
-            prompt.confirmation = .fileChanged(configured)
-            return
-        }
+        guard prompt.canWrite, let name = selectedTask else { return }
+        if checkingFile, prompt.saveCheck(configuredFile: configuredPromptFile(of: name)) == .askFileChanged { return }
         let token = promptToken
         let sent = prompt.text
         prompt.isSaving = true
@@ -349,17 +328,11 @@ import LeoKit
         do {
             let saved = try await client.saveTaskPrompt(name, content: sent, ifMatch: ifMatch)
             guard token == promptToken else { return }
-            let files = Set(document.files + [saved.file]).sorted()
-            prompt.document = LeoTaskPrompt(revision: saved.revision, file: saved.file, files: files, content: sent)
-            prompt.conflict = nil
+            prompt.saved(saved, sent: sent)
         } catch LeoConfigError.conflict(let current) {
             let served = try? await client.taskPrompt(name)
             guard token == promptToken else { return }
-            if let served, served.file != document.file {
-                prompt.confirmation = .fileChanged(served.file)
-            } else {
-                prompt.conflict = current
-            }
+            prompt.conflictOutcome(served: served, current: current)
         } catch {
             guard token == promptToken else { return }
             prompt.error = Self.message(for: error)
@@ -405,10 +378,7 @@ import LeoKit
     }
 
     private func discardPromptEdits() {
-        prompt.text = prompt.document?.content ?? ""
-        prompt.conflict = nil
-        prompt.error = nil
-        prompt.confirmation = nil
+        prompt.discardEdits()
     }
 
     // MARK: Switching the prompt file
