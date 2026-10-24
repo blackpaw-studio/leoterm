@@ -22,7 +22,12 @@ public struct ConfigClients: Sendable {
     public static func trackers() -> @Sendable (String) -> LeoConfigRevisionTracker {
         let trackers = LockIsolated<[String: LeoConfigRevisionTracker]>([:])
         return { daemonID in
-            trackers.withValue { $0[daemonID, default: LeoConfigRevisionTracker()] }
+            trackers.withValue { known in
+                if let tracker = known[daemonID] { return tracker }
+                let tracker = LeoConfigRevisionTracker()
+                known[daemonID] = tracker
+                return tracker
+            }
         }
     }
 }
