@@ -43,6 +43,9 @@ public struct LeoConfigCollectionState: Equatable, Sendable {
 
     public let resourceKey: String
     public let machineHost: String?
+    /// The origin this device reached the machine at: the "edit on the web"
+    /// link's way there when the machine publishes no URL of its own.
+    public let webOrigin: URL?
     /// The Mac shows the first item at once. A phone pushes a screen on
     /// selection, so it starts with none.
     public let autoSelectsFirst: Bool
@@ -67,11 +70,13 @@ public struct LeoConfigCollectionState: Equatable, Sendable {
     public private(set) var revision = ""
 
     public init(
-        resource: String, references: [String: [String]] = [:], machineHost: String? = nil, autoSelectsFirst: Bool = true
+        resource: String, references: [String: [String]] = [:], machineHost: String? = nil, webOrigin: URL? = nil,
+        autoSelectsFirst: Bool = true
     ) {
         resourceKey = resource
         self.references = references
         self.machineHost = machineHost
+        self.webOrigin = webOrigin
         self.autoSelectsFirst = autoSelectsFirst
     }
 
@@ -104,7 +109,7 @@ public struct LeoConfigCollectionState: Equatable, Sendable {
     }
 
     public var webLink: URL? {
-        LeoConfigWebLink.url(web: webDocument, machineHost: machineHost, resource: resourceKey, item: selection)
+        LeoConfigWebLink.url(web: webDocument, machineHost: machineHost, resource: resourceKey, item: selection, fallbackOrigin: webOrigin)
     }
 
     public func nameError(_ name: String, excluding: String? = nil) -> String? {

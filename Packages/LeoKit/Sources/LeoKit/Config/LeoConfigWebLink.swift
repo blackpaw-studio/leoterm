@@ -1,10 +1,11 @@
 import Foundation
 
 /// The "Edit in the web UI" link for a field the app can't render (plan D4).
-/// It goes to the machine's first `web.public_urls` entry, else to a
-/// routable bind address and port, else nowhere: a web UI bound to loopback
-/// on a tunnelled machine can't be reached from here, so the row says so in
-/// text instead.
+/// It goes to the machine's first `web.public_urls` entry, else to the
+/// `fallbackOrigin` (the origin a phone paired with, which it can reach),
+/// else to a routable bind address and port, else nowhere: a web UI bound to
+/// loopback on a tunnelled machine can't be reached from here, so the row
+/// says so in text instead.
 public enum LeoConfigWebLink {
     public static let defaultPort = 8370
     public static let defaultBind = "127.0.0.1"
@@ -14,9 +15,11 @@ public enum LeoConfigWebLink {
     /// `resource` (a schema resource key, or `service`) picks the web page that
     /// edits it, and `item` the entry of a collection that has a page of its
     /// own; without a known resource the link is the site root.
-    public static func url(web: LeoConfigDocument?, machineHost: String? = nil, resource: String? = nil, item: String? = nil) -> URL? {
+    public static func url(
+        web: LeoConfigDocument?, machineHost: String? = nil, resource: String? = nil, item: String? = nil, fallbackOrigin: URL? = nil
+    ) -> URL? {
         guard let web, web.values["enabled"]?.boolValue != false else { return nil }
-        let base = publicURL(in: web) ?? boundURL(in: web, machineHost: machineHost)
+        let base = publicURL(in: web) ?? fallbackOrigin.flatMap(webURL) ?? boundURL(in: web, machineHost: machineHost)
         return base.flatMap { URL(string: $0.absoluteString.trimmingTrailingSlash + path(resource: resource, item: item)) }
     }
 
@@ -39,10 +42,12 @@ public enum LeoConfigWebLink {
     }
 
     private static func publicURL(in web: LeoConfigDocument) -> URL? {
-        (web.values["public_urls"]?.stringList ?? []).lazy.compactMap { text -> URL? in
-            guard let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
-            return url
-        }.first
+        (web.values["public_urls"]?.stringList ?? []).lazy.compactMap { URL(string: $0).flatMap(webURL) }.first
+    }
+
+    /// `url` if it is an http(s) address with a host.
+    private static func webURL(_ url: URL) -> URL? {
+        ["http", "https"].contains(url.scheme?.lowercased() ?? "") && url.host != nil ? url : nil
     }
 
     private static func boundURL(in web: LeoConfigDocument, machineHost: String?) -> URL? {

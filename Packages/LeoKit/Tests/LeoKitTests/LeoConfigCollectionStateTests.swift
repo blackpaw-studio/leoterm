@@ -112,4 +112,13 @@ struct LeoConfigCollectionStateTests {
         #expect(started)
         #expect(!state.canRestructure)
     }
+
+    @Test func theWebLinkFallsBackToThePairedOrigin() async throws {
+        let client = try LeoConfigPaneFixtures.client()
+        var state = LeoConfigCollectionState(resource: "templates", webOrigin: URL(string: "https://leo.example.com"))
+        state.loaded(await LeoConfigCollectionOps.load(resource: "templates", client: client, references: [:]))
+
+        // The golden web document is enabled and bound to loopback, so only the paired origin can reach it.
+        #expect(state.webLink == URL(string: "https://leo.example.com/config/templates/coder"))
+    }
 }

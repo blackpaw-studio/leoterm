@@ -88,4 +88,33 @@ struct LeoConfigWebLinkTests {
     @Test func noWebDocumentMeansNoLink() {
         #expect(LeoConfigWebLink.url(web: nil, resource: "templates") == nil)
     }
+
+    // MARK: paired origin (iOS)
+
+    @Test func pairedOriginBeatsBindWhenNoPublicURL() {
+        let document = web(["enabled": .bool(true), "bind": .string("10.0.2.10"), "port": .int(9000)])
+        let origin = URL(string: "https://leo.tailnet.ts.net:8443/")
+
+        #expect(LeoConfigWebLink.url(web: document, resource: "templates", fallbackOrigin: origin) == URL(string: "https://leo.tailnet.ts.net:8443/config/templates"))
+        #expect(LeoConfigWebLink.url(web: web(["enabled": .bool(true)]), resource: "tasks", item: "nightly", fallbackOrigin: origin) == URL(string: "https://leo.tailnet.ts.net:8443/tasks/nightly"))
+    }
+
+    @Test func thePublicURLStillBeatsThePairedOrigin() {
+        let document = web(["enabled": .bool(true), "public_urls": .list([.string("https://leo.example.com")])])
+
+        #expect(LeoConfigWebLink.url(web: document, resource: "templates", fallbackOrigin: URL(string: "https://paired.example.com")) == URL(string: "https://leo.example.com/config/templates"))
+    }
+
+    @Test func disabledWebStillNoLink() {
+        let document = web(["enabled": .bool(false), "bind": .string("10.0.2.10")])
+
+        #expect(LeoConfigWebLink.url(web: document, resource: "templates", fallbackOrigin: URL(string: "https://paired.example.com")) == nil)
+        #expect(LeoConfigWebLink.url(web: nil, resource: "templates", fallbackOrigin: URL(string: "https://paired.example.com")) == nil)
+    }
+
+    @Test func aPairedOriginThatIsNotHTTPFallsThroughToTheBind() {
+        let document = web(["enabled": .bool(true), "bind": .string("10.0.2.10"), "port": .int(9000)])
+
+        #expect(LeoConfigWebLink.url(web: document, resource: "templates", fallbackOrigin: URL(string: "ftp://paired.example.com")) == URL(string: "http://10.0.2.10:9000/config/templates"))
+    }
 }
