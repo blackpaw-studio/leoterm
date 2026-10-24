@@ -8,6 +8,8 @@ final class NameEntryViewController: UIViewController {
     private let store: StoreOf<NameEntry>
     private let field = UITextField()
     private let errorLabel = UILabel()
+    private let scheduleField = UITextField()
+    private let scheduleLabel = UILabel()
     private let submit: UIBarButtonItem
 
     init(store: StoreOf<NameEntry>) {
@@ -54,7 +56,27 @@ final class NameEntryViewController: UIViewController {
         errorLabel.textColor = .systemRed
         errorLabel.numberOfLines = 0
 
-        let stack = UIStackView(arrangedSubviews: [field, errorLabel])
+        scheduleField.accessibilityIdentifier = "config.name.schedule"
+        scheduleField.placeholder = String(localized: "Schedule, like 0 9 * * *")
+        scheduleField.borderStyle = .roundedRect
+        scheduleField.autocapitalizationType = .none
+        scheduleField.autocorrectionType = .no
+        scheduleField.spellCheckingType = .no
+        scheduleField.returnKeyType = .done
+        scheduleField.font = .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .regular)
+        scheduleField.addAction(UIAction { [weak self] _ in
+            guard let self else { return }
+            store.send(.scheduleChanged(scheduleField.text ?? ""))
+        }, for: .editingChanged)
+        scheduleField.addAction(UIAction { [store] _ in store.send(.submitTapped) }, for: .primaryActionTriggered)
+        scheduleField.isHidden = !store.requiresSchedule
+
+        scheduleLabel.accessibilityIdentifier = "config.name.schedulePreview"
+        scheduleLabel.font = .preferredFont(forTextStyle: .footnote)
+        scheduleLabel.adjustsFontForContentSizeCategory = true
+        scheduleLabel.numberOfLines = 0
+
+        let stack = UIStackView(arrangedSubviews: [field, errorLabel, scheduleField, scheduleLabel])
         stack.axis = .vertical
         stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -69,7 +91,21 @@ final class NameEntryViewController: UIViewController {
             guard let self else { return }
             errorLabel.text = store.error
             errorLabel.isHidden = store.error == nil
+            renderSchedule()
         }
+    }
+
+    /// The reading of the schedule, or what is wrong with it.
+    private func renderSchedule() {
+        let message: (text: String, color: UIColor)? = switch (store.scheduleError, store.schedulePreview) {
+        case (let error?, _): (error, .systemRed)
+        case (nil, .invalid(let reason)?): (reason, .systemRed)
+        case (nil, .valid(let text)?): (text, .secondaryLabel)
+        case (nil, nil): nil
+        }
+        scheduleLabel.text = message?.text
+        scheduleLabel.textColor = message?.color
+        scheduleLabel.isHidden = message == nil
     }
 
     override func viewDidAppear(_ animated: Bool) {

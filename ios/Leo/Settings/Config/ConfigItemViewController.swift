@@ -4,21 +4,42 @@ import LeoKit
 import UIKit
 import UIKitNavigation
 
+/// What a pane adds to its items' forms: the live reading of a schedule, and
+/// rows that open the item's other screens (a task's prompt and history).
+struct ConfigItemExtras {
+    struct Link: Hashable {
+        let id: String
+        let title: String
+        let symbol: String
+    }
+
+    var cronPreview: LeoCronPreviewResult?
+    var links: [Link] = []
+    var open: (String) -> Void = { _ in }
+}
+
 /// One item's form: a section per layout group, with Save and Revert in the
 /// bar. Back with unsaved edits asks first (see `ConfigCollection.backTapped`),
 /// so the back button and the swipe are both held while the draft is dirty.
 final class ConfigItemViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Hashable {
         case form(String)
+        case links
         case web
     }
 
     private enum Item: Hashable {
         case field(String)
+        case link(ConfigItemExtras.Link)
         case web
     }
 
     @UIBindable private var store: StoreOf<ConfigCollection>
+    private let extras: (() -> ConfigItemExtras)?
+    private var currentExtras = ConfigItemExtras()
+    /// Told when the form comes back into view: a pane that pushed screens
+    /// over it checks they are still where its state wants them.
+    var onDidAppear: (() -> Void)?
     private let banners = ConfigBannerStack()
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
@@ -40,8 +61,9 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         open: { UIApplication.shared.open($0) }
     )
 
-    init(store: StoreOf<ConfigCollection>) {
+    init(store: StoreOf<ConfigCollection>, extras: (() -> ConfigItemExtras)? = nil) {
         self.store = store
+        self.extras = extras
         super.init(nibName: nil, bundle: nil)
         title = store.core.selection
     }
@@ -88,8 +110,15 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.interactivePopGestureRecognizer?.isEnabled = !store.core.isDirty
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = !isDirty
     }
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        onDidAppear?()
+    }
+
+    private var isDirty: Bool { store.core.isDirty || store.extraUnsaved }
 
     /// Popped without going through the back button (a swipe while clean, or
     /// something else). A dirty draft stays, and the list brings this back.
@@ -105,13 +134,14 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         title = core.selection
         saveButton.isEnabled = core.canSave
         revertButton.isEnabled = core.isDirty && !core.isBusy
-        navigationController?.interactivePopGestureRecognizer?.isEnabled = !core.isDirty
+        navigationController?.interactivePopGestureRecognizer?.isEnabled = !isDirty
         // The system back button offers a history menu that jumps past the
         // question, so while there are unsaved edits it is replaced by one
         // that doesn't.
-        navigationItem.hidesBackButton = core.isDirty
-        navigationItem.leftBarButtonItem = core.isDirty ? backButton : nil
+        navigationItem.hidesBackButton = isDirty
+        navigationItem.leftBarButtonItem = isDirty ? backButton : nil
         banners.show(ConfigBanners.banners(store))
+        currentExtras = extras?() ?? ConfigItemExtras()
 
         let sections = core.sections
         rows = Dictionary(sections.flatMap(\.rows).map { ($0.path, $0) }, uniquingKeysWith: { first, _ in first })
@@ -122,6 +152,10 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         for section in sections {
             snapshot.appendSections([.form(section.id)])
             snapshot.appendItems(section.rows.map { .field($0.path) }, toSection: .form(section.id))
+        }
+        if !currentExtras.links.isEmpty {
+            snapshot.appendSections([.links])
+            snapshot.appendItems(currentExtras.links.map(Item.link), toSection: .links)
         }
         if webLink != nil {
             snapshot.appendSections([.web])
@@ -144,11 +178,21 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
     private func configureDataSource() {
         let field = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { [weak self] cell, _, item in
             guard let self else { return }
+            cell.accessories = []
             switch item {
             case .field(let path):
                 guard let row = rows[path] else { return }
-                cell.contentConfiguration = SchemaFieldContentConfiguration(row: row, cronPreview: nil, handlers: handlers)
+                cell.contentConfiguration = SchemaFieldContentConfiguration(
+                    row: row, cronPreview: row.control == .cron ? currentExtras.cronPreview : nil, handlers: handlers
+                )
                 cell.accessibilityIdentifier = "config.field.\(path)"
+            case .link(let link):
+                var content = UIListContentConfiguration.cell()
+                content.text = link.title
+                content.image = UIImage(systemName: link.symbol)
+                cell.contentConfiguration = content
+                cell.accessories = [.disclosureIndicator()]
+                cell.accessibilityIdentifier = "config.link.\(link.id)"
             case .web:
                 var content = UIListContentConfiguration.cell()
                 content.text = String(localized: "Edit in the web UI")
@@ -174,12 +218,19 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
     }
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
-        dataSource.itemIdentifier(for: indexPath) == .web
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .web?, .link?: true
+        default: false
+        }
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
-        if let webLink { UIApplication.shared.open(webLink) }
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .link(let link)?: currentExtras.open(link.id)
+        case .web?: if let webLink { UIApplication.shared.open(webLink) }
+        default: break
+        }
     }
 
     // MARK: pushed editors and prompts

@@ -32,7 +32,7 @@ struct MachineSettingsTests {
     @Test func rowsNeedConfigAPI() {
         let state = MachineSettings.State(link: Self.link())
 
-        #expect(state.availability == .rows([.templates, .environments]))
+        #expect(state.availability == .rows([.templates, .environments, .tasks]))
     }
 
     @Test func oldDaemonShowsRequires() {
@@ -75,7 +75,7 @@ struct MachineSettingsTests {
         await store.send(.linkUpdated(Self.link(.reconnecting(attempt: 1, reason: "dropped"), features: [])))
 
         #expect(store.state.destination?.templates != nil)
-        #expect(store.state.availability == .rows([.templates, .environments]))
+        #expect(store.state.availability == .rows([.templates, .environments, .tasks]))
         await store.receive(\.destination.presented.templates.machine.connectionChanged)
     }
 
@@ -96,6 +96,16 @@ struct MachineSettingsTests {
         await store.send(.rowTapped(.templates))
 
         await store.send(.linkUpdated(Self.link(.connected, features: ["config_api", "machine_stats"])))
+    }
+
+    @Test func theTasksRowOpensTheTasksPaneAndForwardsConnectivityToItsList() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+
+        await store.send(.rowTapped(.tasks))
+        #expect(store.state.destination?.tasks != nil)
+
+        await store.send(.linkUpdated(Self.link(.offline, features: [])))
+        await store.receive(\.destination.presented.tasks.collection.machine.connectionChanged, false)
     }
 
     @Test func reconnectTapAsksTheFleetToRetry() async throws {

@@ -5,7 +5,7 @@ import UIKit
 import UIKitNavigation
 
 /// One machine: its info card, then the Configuration rows that open its
-/// Templates and Environments. A machine that is down shows its status and a
+/// Templates, Environments and Tasks. A machine that is down shows its status and a
 /// Reconnect; one whose daemon is too old says what it requires.
 final class MachineSettingsViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int { case info, configuration }
@@ -57,6 +57,9 @@ final class MachineSettingsViewController: UIViewController, UICollectionViewDel
         }
         navigationDestination(item: $store.scope(state: \.destination?.environments, action: \.destination.environments)) { store in
             ConfigCollectionViewController(store: store)
+        }
+        navigationDestination(item: $store.scope(state: \.destination?.tasks, action: \.destination.tasks)) { store in
+            TasksViewController(store: store)
         }
 
         observe { [weak self] in
@@ -159,6 +162,7 @@ extension MachineSettings.Row {
         switch self {
         case .templates: "doc.on.doc"
         case .environments: "square.stack.3d.up"
+        case .tasks: "checklist"
         }
     }
 }

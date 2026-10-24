@@ -25,13 +25,16 @@
 		494127E980DF78B990F8CD76 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7C4CB7ED94C7DDF2894E56F5 /* LeoKit */; };
 		49DFFA476CDBDD3A17C8E741 /* MeterLineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57A6CD6037FBCBC596DCEE0F /* MeterLineView.swift */; };
 		4A17426C8214D9DDEFD25D26 /* ConfigItemViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */; };
+		4A70B7218DD15E34171BB0B2 /* TaskScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */; };
 		52267BE6F859097A09775A73 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 02FB66C3DAF86096FDC01F27 /* LeoKit */; };
 		5B17D4836F510CA07BB3683D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */; };
 		5DA21AA250E27BBAF2F4B3A7 /* KeyValueRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B08BB06CBB0AABFFD7068CB /* KeyValueRows.swift */; };
 		5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0798F4619AB2A887324F77 /* AppDelegate.swift */; };
 		61C7847BB0226FB17CDD61F7 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */; };
+		6284C2784E803A0500458645 /* TasksViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59740A69E25BA69E10AD4CD5 /* TasksViewController.swift */; };
 		674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */; };
 		6789F4305E1CE53DF0968B75 /* KeyValueRowsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A367FE1B657DE5E681571E6F /* KeyValueRowsTests.swift */; };
+		691FAB10CBE4FEDE4BF0FF85 /* TaskHistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8702DD90379197184ED18E /* TaskHistoryViewController.swift */; };
 		6AD426790811463F508E8740 /* ConfigBanners.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8CB022F0DC686D52A30AFFA /* ConfigBanners.swift */; };
 		6B3F6C3A8FDF1D872BB68026 /* AttachmentPickerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
@@ -53,6 +56,7 @@
 		B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */; };
 		C3CBC2AC2DB9E7C18DE162EF /* ConfigCollectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C40E03637E8C2B8531F2901 /* ConfigCollectionViewController.swift */; };
 		C9D7F5EB7A3C2C3EE88255BE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A4590A54B9047670434E5737 /* Assets.xcassets */; };
+		D0B71B4BBA703CBDC8610261 /* TaskPromptViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4AA411389E96719E10F589 /* TaskPromptViewController.swift */; };
 		D258721E750F95337A546A00 /* SchemaFieldContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19A3B2FDB00B10511B1282E0 /* SchemaFieldContentView.swift */; };
 		D3BAB2D4681490832C6470C8 /* StatsStyleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B49401DB8C7296CBD9D8EC /* StatsStyleViewController.swift */; };
 		D40FC2D15D3B36995C075597 /* ChatsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */; };
@@ -61,6 +65,7 @@
 		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E092B1F2FD246F8984A737F6 /* MachineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C6F25CCCD87641CD218A9C /* MachineCell.swift */; };
 		E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38482350857C026362E8F7EE /* QRScannerViewController.swift */; };
+		EB64EEED1BC1858429F218F1 /* TaskLogViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186DF50396BCA70A75DC69E1 /* TaskLogViewController.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
 		F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 650EBAD07E75A2D3EA0F60F3 /* MeterAppearance.swift */; };
 		FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */; };
@@ -109,6 +114,7 @@
 		0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoPushE2ETests.swift; sourceTree = "<group>"; };
 		0FE39999ECDA1982AB15718A /* AgentsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsViewController.swift; sourceTree = "<group>"; };
 		14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootSplitViewController.swift; sourceTree = "<group>"; };
+		186DF50396BCA70A75DC69E1 /* TaskLogViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskLogViewController.swift; sourceTree = "<group>"; };
 		18B49401DB8C7296CBD9D8EC /* StatsStyleViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsStyleViewController.swift; sourceTree = "<group>"; };
 		19A3B2FDB00B10511B1282E0 /* SchemaFieldContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldContentView.swift; sourceTree = "<group>"; };
 		1C40E03637E8C2B8531F2901 /* ConfigCollectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigCollectionViewController.swift; sourceTree = "<group>"; };
@@ -132,6 +138,7 @@
 		54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LeoNotificationService.entitlements; sourceTree = "<group>"; };
 		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
 		57A6CD6037FBCBC596DCEE0F /* MeterLineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterLineView.swift; sourceTree = "<group>"; };
+		59740A69E25BA69E10AD4CD5 /* TasksViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TasksViewController.swift; sourceTree = "<group>"; };
 		5B08BB06CBB0AABFFD7068CB /* KeyValueRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueRows.swift; sourceTree = "<group>"; };
 		5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsViewController.swift; sourceTree = "<group>"; };
 		5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageCell.swift; sourceTree = "<group>"; };
@@ -140,6 +147,7 @@
 		6E33C69E01DC3265B930EAB6 /* MachinesFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesFixture.swift; sourceTree = "<group>"; };
 		79366C4E5F3E01AFDCC19AA8 /* NameEntryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameEntryViewController.swift; sourceTree = "<group>"; };
 		8489DDAE52EDC6E8AF2BF84B /* SchemaFieldEditorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldEditorViewController.swift; sourceTree = "<group>"; };
+		866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskScreensTests.swift; sourceTree = "<group>"; };
 		87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFormCellTests.swift; sourceTree = "<group>"; };
 		93C6F25CCCD87641CD218A9C /* MachineCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineCell.swift; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
@@ -156,7 +164,9 @@
 		BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatClientsLive.swift; sourceTree = "<group>"; };
 		C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetailViewController.swift; sourceTree = "<group>"; };
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
+		CB4AA411389E96719E10F589 /* TaskPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPromptViewController.swift; sourceTree = "<group>"; };
 		CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAskControls.swift; sourceTree = "<group>"; };
+		CF8702DD90379197184ED18E /* TaskHistoryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskHistoryViewController.swift; sourceTree = "<group>"; };
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoQuestionsCardTests.swift; sourceTree = "<group>"; };
 		D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTimeHeaderCell.swift; sourceTree = "<group>"; };
@@ -260,6 +270,7 @@
 				A367FE1B657DE5E681571E6F /* KeyValueRowsTests.swift */,
 				87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */,
 				4AF76CE70071EA3957056747 /* SchemaFormTestSupport.swift */,
+				866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */,
 			);
 			path = LeoTests;
 			sourceTree = "<group>";
@@ -312,8 +323,20 @@
 				18B49401DB8C7296CBD9D8EC /* StatsStyleViewController.swift */,
 				6CE0ABEF50CF7919F04F5ED8 /* Config */,
 				C22A1BF67CD5829D6C7B0CC9 /* Machine */,
+				7E8979885657B15A97B16E3E /* Tasks */,
 			);
 			path = Settings;
+			sourceTree = "<group>";
+		};
+		7E8979885657B15A97B16E3E /* Tasks */ = {
+			isa = PBXGroup;
+			children = (
+				CF8702DD90379197184ED18E /* TaskHistoryViewController.swift */,
+				186DF50396BCA70A75DC69E1 /* TaskLogViewController.swift */,
+				CB4AA411389E96719E10F589 /* TaskPromptViewController.swift */,
+				59740A69E25BA69E10AD4CD5 /* TasksViewController.swift */,
+			);
+			path = Tasks;
 			sourceTree = "<group>";
 		};
 		90C3B4069CE6286F9B1FAFAA /* Terminal */ = {
@@ -591,6 +614,7 @@
 				6789F4305E1CE53DF0968B75 /* KeyValueRowsTests.swift in Sources */,
 				AC0BFDF8CC92DE3B580B7EAC /* SchemaFormCellTests.swift in Sources */,
 				2BC71F157DD346713AA024CB /* SchemaFormTestSupport.swift in Sources */,
+				4A70B7218DD15E34171BB0B2 /* TaskScreensTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -657,6 +681,10 @@
 				377B2E9AEAA174DDF41C34A2 /* SchemaFieldHandlers.swift in Sources */,
 				47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */,
 				D3BAB2D4681490832C6470C8 /* StatsStyleViewController.swift in Sources */,
+				691FAB10CBE4FEDE4BF0FF85 /* TaskHistoryViewController.swift in Sources */,
+				EB64EEED1BC1858429F218F1 /* TaskLogViewController.swift in Sources */,
+				D0B71B4BBA703CBDC8610261 /* TaskPromptViewController.swift in Sources */,
+				6284C2784E803A0500458645 /* TasksViewController.swift in Sources */,
 				15A91201486195EC72F38990 /* TerminalViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

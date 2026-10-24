@@ -32,16 +32,19 @@ public struct MachineSettings {
     public enum Destination {
         case templates(ConfigCollection)
         case environments(ConfigCollection)
+        case tasks(TaskSettings)
     }
 
     public enum Row: String, CaseIterable, Equatable, Sendable {
         case templates
         case environments
+        case tasks
 
         public var title: String {
             switch self {
             case .templates: String(localized: "Templates")
             case .environments: String(localized: "Environments")
+            case .tasks: String(localized: "Tasks")
             }
         }
     }
@@ -121,10 +124,10 @@ public struct MachineSettings {
                     }
                     return .none
                 }
-                let pane = ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection)
                 state.destination = switch row {
-                case .templates: .templates(pane)
-                case .environments: .environments(pane)
+                case .templates: .templates(ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection))
+                case .environments: .environments(ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection))
+                case .tasks: .tasks(TaskSettings.State(daemon: daemon, connection: connection))
                 }
                 return .none
             }
@@ -137,6 +140,7 @@ public struct MachineSettings {
         switch state.destination {
         case .templates?: .send(.destination(.presented(.templates(.machine(.connectionChanged(isConnected))))))
         case .environments?: .send(.destination(.presented(.environments(.machine(.connectionChanged(isConnected))))))
+        case .tasks?: .send(.destination(.presented(.tasks(.collection(.machine(.connectionChanged(isConnected)))))))
         case nil: .none
         }
     }

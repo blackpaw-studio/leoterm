@@ -22,6 +22,11 @@ public struct ConfigCollection {
         /// The machine is connected right now. A disconnect keeps the editor
         /// and its draft and says so; a reconnect reads again.
         public var isMachineConnected = true
+        /// A pane that edits more than the form (a task's prompt) says it has
+        /// unsaved text, so leaving the item asks about that too.
+        public var extraUnsaved = false
+        /// The form's Save is held for a question that pane has to ask first.
+        public var saveHeld = false
         @Presents public var alert: AlertState<Action.Alert>?
         @Presents public var leaveDialog: ConfirmationDialogState<Action.Leave>?
         @Presents public var nameEntry: NameEntry.State?
@@ -43,6 +48,8 @@ public struct ConfigCollection {
             /// Add, rename or duplicate: the name sheet is open for it.
             case restructure
             case delete
+            /// One item's keys written alone (a list switch): the open form stays.
+            case patch(name: String)
         }
 
         public var kind: Kind
@@ -75,6 +82,9 @@ public struct ConfigCollection {
         case dismissErrorTapped
         case dismissRestartBanner
         case restartBannerTapped
+        /// Writes `patch` to one item without touching the open form: a stale
+        /// revision is retried once, since the patch is the whole intent.
+        case patch(name: String, patch: [String: LeoConfigValue])
         case alert(PresentationAction<Alert>)
         case leaveDialog(PresentationAction<Leave>)
         case nameEntry(PresentationAction<NameEntry.Action>)
@@ -96,6 +106,12 @@ public struct ConfigCollection {
         @CasePathable
         public enum Delegate {
             case restart(LeoConfigRestartRequired)
+            /// A `patch` ended: `failure` is why it didn't land.
+            case patchFinished(name: String, failure: String?)
+            /// Save was pressed while `saveHeld`.
+            case saveHeld
+            /// The item's edits were dropped on the way out.
+            case discarded
         }
 
         @CasePathable
@@ -144,7 +160,7 @@ public struct ConfigCollection {
     private func reduceEditing(_ state: inout State, _ action: Action) -> Effect<Action> {
         switch action {
         case .rowTapped(let name):
-            guard !state.core.isDirty else { return .none }
+            guard !state.core.isDirty, !state.extraUnsaved else { return .none }
             state.core.selectNow(name)
         case .field(let path, let value):
             state.core.set(path, value)
@@ -170,8 +186,10 @@ public struct ConfigCollection {
             return overwrite(&state)
         case .overwriteFinished(let outcome, let name):
             state.core.finishOverwrite(outcome, name: name)
+        case .patch(let name, let patch):
+            return writePatch(&state, name, patch)
         case .writeFinished(let context, let outcome):
-            finish(&state, context, outcome)
+            return finish(&state, context, outcome)
         default:
             return reduceNavigation(&state, action)
         }
@@ -184,7 +202,7 @@ public struct ConfigCollection {
         switch action {
         case .backTapped:
             guard state.core.selection != nil else { return .none }
-            guard state.core.isDirty else {
+            guard state.core.isDirty || state.extraUnsaved else {
                 state.core.selectNow(nil)
                 return .none
             }
@@ -192,15 +210,16 @@ public struct ConfigCollection {
         case .editorPopped:
             // Clean, it is just closed. Dirty, the draft stays: the view
             // brings the editor back, and leaving it then asks.
-            if !state.core.isDirty { state.core.selectNow(nil) }
+            if !state.core.isDirty, !state.extraUnsaved { state.core.selectNow(nil) }
         case .leaveDialog(.presented(.save)):
             return save(&state, leaveAfter: true)
         case .leaveDialog(.presented(.discard)):
             state.core.discardEdits()
             state.core.selectNow(nil)
+            return .send(.delegate(.discarded))
         case .addTapped:
             guard state.core.allows(.add) else { return .none }
-            state.nameEntry = NameEntry.State(kind: .add)
+            state.nameEntry = NameEntry.State(kind: .add, requiresSchedule: state.core.resourceKey == Self.tasksResource)
         case .renameTapped(let name):
             guard state.core.allows(.rename) else { return .none }
             state.nameEntry = NameEntry.State(kind: .rename(from: name))
@@ -225,6 +244,8 @@ public struct ConfigCollection {
         }
         return .none
     }
+
+    static let tasksResource = "tasks"
 
     private static func renamedItem(_ kind: NameEntry.State.Kind) -> String? {
         if case .rename(let name) = kind { name } else { nil }
@@ -286,6 +307,7 @@ public struct ConfigCollection {
 
     private func save(_ state: inout State, leaveAfter: Bool) -> Effect<Action> {
         guard state.core.canSave, let sent = state.core.draft else { return .none }
+        guard !state.saveHeld else { return .send(.delegate(.saveHeld)) }
         let name = sent.document.name
         let resource = state.core.resourceKey
         let context = WriteContext(kind: .save(sent: sent), preferring: name, leaveAfter: leaveAfter)
@@ -302,14 +324,20 @@ public struct ConfigCollection {
             state.nameEntry?.error = nameError
             return .none
         }
+        let schedule = entry.schedule.trimmingCharacters(in: .whitespacesAndNewlines)
+        if case .add = entry.kind, entry.requiresSchedule, schedule.isEmpty {
+            state.nameEntry?.scheduleError = "Enter a schedule, like 0 9 * * *."
+            return .none
+        }
         guard state.core.canRestructure else { return .none }
         let resource = state.core.resourceKey
         let ifMatch = configClients.revisions(state.daemon.id).resolve(state.core.revision)
         switch entry.kind {
         case .add:
             let context = WriteContext(kind: .restructure, preferring: name, selectingResult: true)
+            let values: [String: LeoConfigValue] = entry.requiresSchedule ? ["schedule": .string(schedule)] : [:]
             return write(&state, context, ifMatch: ifMatch) { client, ifMatch in
-                try await client.add(resource, name: name, values: [:], ifMatch: ifMatch)
+                try await client.add(resource, name: name, values: values, ifMatch: ifMatch)
             }
         case .rename(let from):
             return write(&state, WriteContext(kind: .restructure, preferring: nil), ifMatch: ifMatch) { client, ifMatch in
@@ -332,9 +360,28 @@ public struct ConfigCollection {
         }
     }
 
+    /// Writes `patch` to `name` alone, without the open form: only these keys
+    /// go out, the draft and its edits stay, and a stale revision is retried
+    /// once against the current one (the patch is the user's whole intent). The
+    /// retry doesn't vouch for the open form, whose Save still meets the other
+    /// writer's change as a conflict. Always answers with `patchFinished`.
+    private func writePatch(_ state: inout State, _ name: String, _ patch: [String: LeoConfigValue]) -> Effect<Action> {
+        guard state.core.phase == .loaded, !state.core.isBusy else {
+            return .send(.delegate(.patchFinished(name: name, failure: Self.busyMessage)))
+        }
+        let resource = state.core.resourceKey
+        let context = WriteContext(kind: .patch(name: name), preferring: state.core.selection)
+        let ifMatch = configClients.revisions(state.daemon.id).resolve(state.core.revision)
+        return write(&state, context, ifMatch: ifMatch, retryingConflict: true) { client, ifMatch in
+            try await client.update(resource, name: name, patch: patch, ifMatch: ifMatch)
+        }
+    }
+
+    static let busyMessage = "Another change is still being saved. Try again in a moment."
+
     /// Starts one write, then reads the list again.
     private func write(
-        _ state: inout State, _ context: WriteContext, ifMatch: String,
+        _ state: inout State, _ context: WriteContext, ifMatch: String, retryingConflict: Bool = false,
         operation: @escaping @Sendable (any LeoConfigClient, String) async throws -> LeoConfigWriteResult
     ) -> Effect<Action> {
         guard state.core.beginWrite() else { return .none }
@@ -344,7 +391,8 @@ public struct ConfigCollection {
         let revisions = configClients.revisions(state.daemon.id)
         return .run { send in
             let outcome = await LeoConfigCollectionOps.write(
-                resource: resource, client: client, revisions: revisions, ifMatch: ifMatch, draftRevision: draftRevision,
+                resource: resource, client: client, revisions: revisions, ifMatch: ifMatch,
+                retryingConflict: retryingConflict, draftRevision: draftRevision,
                 operation: { try await operation(client, $0) }
             )
             await send(.writeFinished(context, outcome))
@@ -353,13 +401,17 @@ public struct ConfigCollection {
 
     /// A write landed or failed. Only a landed one closes the name sheet, and
     /// only a landed Save closes the editor.
-    private func finish(_ state: inout State, _ context: WriteContext, _ outcome: LeoConfigWriteOutcome) {
+    private func finish(_ state: inout State, _ context: WriteContext, _ outcome: LeoConfigWriteOutcome) -> Effect<Action> {
+        if case .patch(let name) = context.kind {
+            let failure = state.core.finishWrite(outcome, preferring: state.core.selection, keepingDraft: true)
+            return .send(.delegate(.patchFinished(name: name, failure: failure.map(LeoConfigCollectionState.message(for:)))))
+        }
         // A Save can answer after the user opened another item. Its outcome
         // is then the daemon's business, not the open form's: the list is
         // read in, but the selection, the draft and its errors stay put.
         if case .save(let sent) = context.kind, state.core.selection != sent.document.name {
             _ = state.core.finishWrite(outcome, preferring: state.core.selection, keepingDraft: true)
-            return
+            return .none
         }
         let failure = state.core.finishWrite(
             outcome, preferring: context.preferring, selectingResult: context.selectingResult
@@ -367,15 +419,16 @@ public struct ConfigCollection {
         guard let failure else {
             state.nameEntry = nil
             if context.leaveAfter { state.core.selectNow(nil) }
-            return
+            return .none
         }
         switch context.kind {
         case .save(let sent):
             state.core.failed(failure, sent: sent)
         case .restructure where state.nameEntry != nil:
             state.nameEntry?.error = LeoConfigCollectionState.message(for: failure)
-        case .restructure, .delete:
+        case .restructure, .delete, .patch:
             state.core.report(failure)
         }
+        return .none
     }
 }

@@ -18,7 +18,7 @@ enum ConfigGolden {
         return try JSONDecoder().decode(Envelope<Value>.self, from: body).data
     }
 
-    static func client(supported: Bool = true) throws -> LeoFakeConfigClient {
+    static func client(supported: Bool = true, tasks: LeoFakeTaskData = LeoFakeTaskData()) throws -> LeoFakeConfigClient {
         func items(_ name: String) throws -> [LeoConfigItem] { try decode(LeoConfigCollection.self, name).items }
         func singleton(_ name: String) throws -> LeoConfigItem { try decode(LeoConfigDocument.self, name).item }
         return LeoFakeConfigClient(
@@ -28,6 +28,7 @@ enum ConfigGolden {
                 "templates": try items("templates"), "tasks": try items("tasks"),
                 "environments": try items("environments"), "hosts": try items("hosts"),
             ],
+            tasks: tasks,
             version: LeoDaemonVersionInfo(version: "0.59.0", capabilities: supported ? [LeoConfigAPI.capability] : [])
         )
     }
