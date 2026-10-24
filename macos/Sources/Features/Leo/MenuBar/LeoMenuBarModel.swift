@@ -14,7 +14,7 @@ struct LeoMenuBarInputs: Equatable {
 }
 
 struct LeoMenuBarAgent: Equatable {
-    enum State: Equatable { case running, starting, stopped, other }
+    enum State: Equatable { case running, starting, restoring, stopped, other }
 
     let id: LeoAgentRow.ID
     let name: String
@@ -114,6 +114,7 @@ enum LeoMenuBarModel {
         switch status {
         case .running: .running
         case .starting: .starting
+        case .restoring: .restoring
         case .stopped: .stopped
         case .unknown: .other
         }
