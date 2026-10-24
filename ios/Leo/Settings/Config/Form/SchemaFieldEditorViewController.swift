@@ -314,7 +314,11 @@ final class KeyValueEditorViewController: UITableViewController, SchemaFieldEdit
         case .notSet:
             return [replace("Set…")]
         case .replacing, .clearing:
-            return [UIAction(title: "Undo") { [weak self] _ in self?.setSecret(name, .secret(isSet: true)) }]
+            // Back to what the document held, not to "set".
+            return [UIAction(title: "Undo") { [weak self] _ in
+                guard let self else { return }
+                setSecret(name, .secret(isSet: row.base.envSecrets[name] == .set))
+            }]
         }
     }
 

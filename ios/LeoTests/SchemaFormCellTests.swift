@@ -399,3 +399,32 @@ struct SchemaFormGoldenSizingTests {
         #expect(unsized.isEmpty, "\(unsized)")
     }
 }
+
+@MainActor
+struct KeyValueEditorTests {
+    private static func undoButton(
+        value: LeoConfigValue, base: LeoConfigValue, recorder: CellRecorder
+    ) throws -> (editor: KeyValueEditorViewController, button: UIButton) {
+        let row = CellHarness.row(.keyValue, value: value, base: base)
+        let editor = KeyValueEditorViewController(row: row, handlers: recorder.handlers)
+        editor.loadViewIfNeeded()
+        editor.view.frame = CGRect(x: 0, y: 0, width: 390, height: 600)
+        editor.tableView.layoutIfNeeded()
+        let cell = try #require(editor.tableView.cellForRow(at: IndexPath(row: 0, section: 0)))
+        return (editor, try #require(cell.accessoryView as? UIButton))
+    }
+
+    @Test(arguments: [LeoConfigSecretState.notSet, .set])
+    func undoRestoresTheSecretToWhatItWasBeforeTheEdit(original: LeoConfigSecretState) throws {
+        let recorder = CellRecorder()
+        let was = LeoConfigValue.secret(isSet: original == .set)
+        let (editor, button) = try Self.undoButton(
+            value: .object(["TOKEN": .secretReplace("x")]), base: .object(["TOKEN": was]), recorder: recorder
+        )
+
+        button.choose("Undo")
+        withExtendedLifetime(editor) {}
+
+        #expect(recorder.lastValue == .object(["TOKEN": was]))
+    }
+}

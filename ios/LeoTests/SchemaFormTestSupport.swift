@@ -50,12 +50,12 @@ enum CellHarness {
     static func row(
         _ control: LeoConfigControl, value: LeoConfigValue = .null, path: String = "field", label: String = "Field",
         help: String = "", warning: String = "", inherited: LeoConfigValue? = nil, isDirty: Bool = false,
-        errors: [String] = [], defaultValue: LeoConfigValue = .null
+        errors: [String] = [], defaultValue: LeoConfigValue = .null, base: LeoConfigValue = .null
     ) -> LeoConfigFormRow {
         LeoConfigFormRow(
             path: path,
             field: LeoConfigField(key: path, label: label, help: help, warning: warning, type: .string, defaultValue: defaultValue),
-            control: control, value: value, inherited: inherited, isDirty: isDirty, errors: errors
+            control: control, value: value, base: base, inherited: inherited, isDirty: isDirty, errors: errors
         )
     }
 }

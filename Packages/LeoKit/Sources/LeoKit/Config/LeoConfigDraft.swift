@@ -39,7 +39,8 @@ public struct LeoConfigDraft: Equatable, Sendable {
         return edits[path] ?? baseValue(at: path)
     }
 
-    private func baseValue(at path: String) -> LeoConfigValue {
+    /// What the document holds for `path`, whatever the edits say.
+    public func baseValue(at path: String) -> LeoConfigValue {
         if isHarnessChanged, Self.split(path)?.group == LeoConfigValidator.harnessOptionsKey { return .null }
         return Self.value(at: path, in: document.values)
     }

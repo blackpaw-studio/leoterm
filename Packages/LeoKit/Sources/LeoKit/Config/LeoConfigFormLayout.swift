@@ -38,6 +38,9 @@ public struct LeoConfigFormRow: Equatable, Sendable, Identifiable {
     public let control: LeoConfigControl
     /// What the draft holds for this field now.
     public let value: LeoConfigValue
+    /// What the document held for this field when the draft was opened: what
+    /// an undo goes back to.
+    public let base: LeoConfigValue
     /// What the field falls back to when unset, if the daemon says.
     public let inherited: LeoConfigValue?
     public let isDirty: Bool
@@ -47,12 +50,13 @@ public struct LeoConfigFormRow: Equatable, Sendable, Identifiable {
 
     public init(
         path: String, field: LeoConfigField, control: LeoConfigControl, value: LeoConfigValue = .null,
-        inherited: LeoConfigValue? = nil, isDirty: Bool = false, errors: [String] = []
+        base: LeoConfigValue = .null, inherited: LeoConfigValue? = nil, isDirty: Bool = false, errors: [String] = []
     ) {
         self.path = path
         self.field = field
         self.control = control
         self.value = value
+        self.base = base
         self.inherited = inherited
         self.isDirty = isDirty
         self.errors = errors
@@ -138,7 +142,7 @@ public enum LeoConfigFormLayout {
         return LeoConfigFormRow(
             path: path, field: field,
             control: control(for: field, value: value, inherited: inherited, context: context),
-            value: value, inherited: inherited, isDirty: draft.isDirty(path), errors: draft.errors(for: path)
+            value: value, base: draft.baseValue(at: path), inherited: inherited, isDirty: draft.isDirty(path), errors: draft.errors(for: path)
         )
     }
 
