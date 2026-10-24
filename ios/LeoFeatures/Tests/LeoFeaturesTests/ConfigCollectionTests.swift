@@ -176,9 +176,9 @@ struct ConfigCollectionTests {
         await harness.store.send(.saveTapped)
         await harness.store.receive(\.writeFinished)
 
-        await harness.store.send(.restartBannerTapped)
+        await harness.store.send(.restartBannerTapped(.agents))
 
-        await harness.store.receive(\.delegate.restart) { _ in }
+        await harness.store.receive(\.delegate.restart, .agents)
         #expect(harness.core.restartPrompt == nil)
     }
 

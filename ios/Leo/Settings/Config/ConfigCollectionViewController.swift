@@ -17,14 +17,16 @@ final class ConfigCollectionViewController: UIViewController, UICollectionViewDe
     }
 
     @UIBindable private var store: StoreOf<ConfigCollection>
+    private let restart: StoreOf<MachineRestart>?
     private let banners = ConfigBannerStack()
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
     private var editor: ConfigItemViewController?
     private let addButton = UIBarButtonItem(systemItem: .add)
 
-    init(store: StoreOf<ConfigCollection>) {
+    init(store: StoreOf<ConfigCollection>, restart: StoreOf<MachineRestart>? = nil) {
         self.store = store
+        self.restart = restart
         super.init(nibName: nil, bundle: nil)
         title = store.core.title
     }
@@ -79,7 +81,7 @@ final class ConfigCollectionViewController: UIViewController, UICollectionViewDe
         title = core.title
         addButton.isEnabled = core.allows(.add)
         addButton.isHidden = !core.actions.contains(.add)
-        banners.show(ConfigBanners.banners(store))
+        banners.show(ConfigBanners.banners(store, restart: restart))
 
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
         snapshot.appendSections([0])
@@ -98,7 +100,7 @@ final class ConfigCollectionViewController: UIViewController, UICollectionViewDe
     /// store lets go of it (a Discard, a clean back, a delete).
     private func syncEditor(isOpen: Bool) {
         if isOpen, editor == nil {
-            let pushed = ConfigItemViewController(store: store)
+            let pushed = ConfigItemViewController(store: store, restart: restart)
             editor = pushed
             navigationController?.pushViewController(pushed, animated: true)
         } else if isOpen, let pushed = editor, store.core.isDirty, navigationController?.topViewController === self,

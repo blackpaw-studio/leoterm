@@ -32,7 +32,7 @@ struct MachineSettingsTests {
     @Test func rowsNeedConfigAPI() {
         let state = MachineSettings.State(link: Self.link())
 
-        #expect(state.availability == .rows([.templates, .environments, .tasks]))
+        #expect(state.availability == .rows([.templates, .environments, .tasks, .service]))
     }
 
     @Test func oldDaemonShowsRequires() {
@@ -52,10 +52,10 @@ struct MachineSettingsTests {
         let store = try Self.store(MachineSettings.State(link: Self.link()))
         store.exhaustivity = .on
 
+        let connection = DaemonConnection(daemon: .dionysus, secrets: DaemonSecrets(token: "t"))
         await store.send(.rowTapped(.templates)) {
-            $0.destination = .templates(ConfigCollection.State(
-                resource: "templates", daemon: .dionysus, connection: DaemonConnection(daemon: .dionysus, secrets: DaemonSecrets(token: "t"))
-            ))
+            $0.restart.connection = connection
+            $0.destination = .templates(ConfigCollection.State(resource: "templates", daemon: .dionysus, connection: connection))
         }
     }
 
@@ -75,7 +75,7 @@ struct MachineSettingsTests {
         await store.send(.linkUpdated(Self.link(.reconnecting(attempt: 1, reason: "dropped"), features: [])))
 
         #expect(store.state.destination?.templates != nil)
-        #expect(store.state.availability == .rows([.templates, .environments, .tasks]))
+        #expect(store.state.availability == .rows([.templates, .environments, .tasks, .service]))
         await store.receive(\.destination.presented.templates.machine.connectionChanged)
     }
 
@@ -106,6 +106,42 @@ struct MachineSettingsTests {
 
         await store.send(.linkUpdated(Self.link(.offline, features: [])))
         await store.receive(\.destination.presented.tasks.collection.machine.connectionChanged, false)
+    }
+
+    @Test func aConfigPanesRestartBannerAsksTheMachineToRestart() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.templates))
+        await store.send(.destination(.presented(.templates(.task))))
+        await store.receive(\.destination.presented.templates.loaded)
+        await store.send(.destination(.presented(.templates(.rowTapped("coder")))))
+        await store.send(.destination(.presented(.templates(.field("model", .string("sonnet"))))))
+        await store.send(.destination(.presented(.templates(.saveTapped))))
+        await store.receive(\.destination.presented.templates.writeFinished)
+
+        await store.send(.destination(.presented(.templates(.restartBannerTapped(.agents)))))
+        await store.receive(\.destination.presented.templates.delegate.restart, .agents)
+        await store.receive(\.restart.requested, .agents)
+        await store.receive(\.restart.statusChecked)
+
+        #expect(store.state.restart.alert != nil)
+        #expect(store.state.restart.machine == PairedDaemon.dionysus.name)
+    }
+
+    @Test func theServiceRowOpensTheServicePane() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+
+        await store.send(.rowTapped(.service))
+
+        #expect(store.state.destination?.service != nil)
+    }
+
+    @Test func aFinishedRestartRefreshesAnOpenServicePane() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.service))
+
+        await store.send(.restart(.delegate(.finished)))
+
+        await store.receive(\.destination.presented.service.refreshRequested)
     }
 
     @Test func reconnectTapAsksTheFleetToRetry() async throws {

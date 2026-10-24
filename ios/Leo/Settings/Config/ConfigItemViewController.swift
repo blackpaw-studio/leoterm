@@ -36,6 +36,7 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
 
     @UIBindable private var store: StoreOf<ConfigCollection>
     private let extras: (() -> ConfigItemExtras)?
+    private let restart: StoreOf<MachineRestart>?
     private var currentExtras = ConfigItemExtras()
     /// Told when the form comes back into view: a pane that pushed screens
     /// over it checks they are still where its state wants them.
@@ -61,8 +62,9 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         open: { UIApplication.shared.open($0) }
     )
 
-    init(store: StoreOf<ConfigCollection>, extras: (() -> ConfigItemExtras)? = nil) {
+    init(store: StoreOf<ConfigCollection>, restart: StoreOf<MachineRestart>? = nil, extras: (() -> ConfigItemExtras)? = nil) {
         self.store = store
+        self.restart = restart
         self.extras = extras
         super.init(nibName: nil, bundle: nil)
         title = store.core.selection
@@ -140,7 +142,7 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         // that doesn't.
         navigationItem.hidesBackButton = isDirty
         navigationItem.leftBarButtonItem = isDirty ? backButton : nil
-        banners.show(ConfigBanners.banners(store))
+        banners.show(ConfigBanners.banners(store, restart: restart))
         currentExtras = extras?() ?? ConfigItemExtras()
 
         let sections = core.sections

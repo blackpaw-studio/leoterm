@@ -120,7 +120,7 @@ public struct TaskSettings {
 
         @CasePathable
         public enum Delegate {
-            case restart(LeoConfigRestartRequired)
+            case restart(MachineRestart.Kind)
         }
     }
 
@@ -195,8 +195,8 @@ public struct TaskSettings {
             state.toggles.finish(name)
             state.toggleInFlight = nil
             return startNextToggle(&state)
-        case .delegate(.restart(let required)):
-            return .send(.delegate(.restart(required)))
+        case .delegate(.restart(let kind)):
+            return .send(.delegate(.restart(kind)))
         case .delegate(.saveHeld):
             let patch = state.collection.core.draft?.patch ?? [:]
             _ = state.prompt.formSaveAllowed(patch: patch)

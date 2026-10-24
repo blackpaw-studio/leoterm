@@ -80,10 +80,14 @@ final class ConfigBannerStack: UIStackView {
 /// The banners a collection pane's state calls for, wired to its store.
 @MainActor
 enum ConfigBanners {
-    static func banners(_ store: StoreOf<ConfigCollection>) -> [ConfigBanner] {
+    static func banners(_ store: StoreOf<ConfigCollection>, restart: StoreOf<MachineRestart>? = nil) -> [ConfigBanner] {
         let state = store.state
         let core = state.core
         var banners: [ConfigBanner] = []
+        if let restart, restart.isRestarting {
+            let text = restart.isWaitingOnAgents ? MachineRestart.State.waitingOnAgentsText : "Restarting leo on \(restart.machine)…"
+            banners.append(ConfigBanner(id: "restarting", style: .info, text: text))
+        }
         if !state.isMachineConnected {
             let text = core.isDirty ? "Disconnected — your edits are kept." : "Disconnected."
             banners.append(ConfigBanner(id: "disconnected", style: .warning, text: text))
@@ -98,10 +102,11 @@ enum ConfigBanners {
             ))
         }
         if let restart = core.restartPrompt {
-            banners.append(ConfigBanner(
-                id: "restart", style: .info, text: restartText(restart),
-                actions: [.init(title: "Dismiss") { store.send(.dismissRestartBanner) }]
-            ))
+            var actions: [ConfigBanner.Action] = []
+            if restart.service { actions.append(.init(title: "Restart leo") { store.send(.restartBannerTapped(.daemon)) }) }
+            if restart.agents { actions.append(.init(title: "Restart Agents") { store.send(.restartBannerTapped(.agents)) }) }
+            actions.append(.init(title: "Later") { store.send(.dismissRestartBanner) })
+            banners.append(ConfigBanner(id: "restart", style: .info, text: restartText(restart), actions: actions))
         }
         if let warning = core.warning {
             banners.append(ConfigBanner(

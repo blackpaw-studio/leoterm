@@ -18,6 +18,7 @@ final class TasksViewController: UIViewController, UICollectionViewDelegate {
     }
 
     @UIBindable private var store: StoreOf<TaskSettings>
+    private let restart: StoreOf<MachineRestart>?
     private let banners = ConfigBannerStack()
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
@@ -29,8 +30,9 @@ final class TasksViewController: UIViewController, UICollectionViewDelegate {
 
     private var collection: StoreOf<ConfigCollection> { store.scope(state: \.collection, action: \.collection) }
 
-    init(store: StoreOf<TaskSettings>) {
+    init(store: StoreOf<TaskSettings>, restart: StoreOf<MachineRestart>? = nil) {
         self.store = store
+        self.restart = restart
         super.init(nibName: nil, bundle: nil)
         title = String(localized: "Tasks")
     }
@@ -99,7 +101,7 @@ final class TasksViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func banners(for store: StoreOf<TaskSettings>) -> [ConfigBanner] {
-        var banners = ConfigBanners.banners(collection)
+        var banners = ConfigBanners.banners(collection, restart: restart)
         if let message = store.message {
             banners.append(ConfigBanner(
                 id: "task.message", style: .error, text: message, actions: [.init(title: "Dismiss") { store.send(.dismissMessage) }]
@@ -154,7 +156,7 @@ final class TasksViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func makeEditor() -> ConfigItemViewController {
-        let editor = ConfigItemViewController(store: collection, extras: { [store] in
+        let editor = ConfigItemViewController(store: collection, restart: restart, extras: { [store] in
             ConfigItemExtras(
                 cronPreview: store.preview,
                 links: [

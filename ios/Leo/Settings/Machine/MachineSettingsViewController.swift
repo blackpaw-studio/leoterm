@@ -23,6 +23,7 @@ final class MachineSettingsViewController: UIViewController, UICollectionViewDel
     private var session: DaemonSession?
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Section, Item>!
+    private var restartAlertToken: ObserveToken?
 
     init(store: StoreOf<MachineSettings>, fleet: StoreOf<Fleet>) {
         self.store = store
@@ -52,19 +53,36 @@ final class MachineSettingsViewController: UIViewController, UICollectionViewDel
         present(item: $store.scope(state: \.alert, action: \.alert)) { store in
             UIAlertController(store: store)
         }
-        navigationDestination(item: $store.scope(state: \.destination?.templates, action: \.destination.templates)) { store in
-            ConfigCollectionViewController(store: store)
+        navigationDestination(item: $store.scope(state: \.destination?.templates, action: \.destination.templates)) { [weak self] store in
+            ConfigCollectionViewController(store: store, restart: self?.restartStore)
         }
-        navigationDestination(item: $store.scope(state: \.destination?.environments, action: \.destination.environments)) { store in
-            ConfigCollectionViewController(store: store)
+        navigationDestination(item: $store.scope(state: \.destination?.environments, action: \.destination.environments)) { [weak self] store in
+            ConfigCollectionViewController(store: store, restart: self?.restartStore)
         }
-        navigationDestination(item: $store.scope(state: \.destination?.tasks, action: \.destination.tasks)) { store in
-            TasksViewController(store: store)
+        navigationDestination(item: $store.scope(state: \.destination?.tasks, action: \.destination.tasks)) { [weak self] store in
+            TasksViewController(store: store, restart: self?.restartStore)
         }
+        navigationDestination(item: $store.scope(state: \.destination?.service, action: \.destination.service)) { [weak self] store in
+            ServiceViewController(store: store, restart: self?.restartStore ?? Store(initialState: MachineRestart.State(machine: "")) { MachineRestart() })
+        }
+        bindRestartAlert()
 
         observe { [weak self] in
             guard let self else { return }
             render(availability: store.availability, session: fleet.sessions[id: store.id])
+        }
+    }
+
+    private var restartStore: StoreOf<MachineRestart> { store.scope(state: \.restart, action: \.restart) }
+
+    /// The restart's questions and answers are asked of whichever screen is
+    /// showing (a config form, the Service screen), so they are presented
+    /// from the navigation controller, not from this screen, which a pane
+    /// may be covering.
+    private func bindRestartAlert() {
+        let host: UIViewController = navigationController ?? self
+        restartAlertToken = host.present(item: $store.scope(state: \.restart.alert, action: \.restart.alert)) { store in
+            UIAlertController(store: store)
         }
     }
 
@@ -163,6 +181,7 @@ extension MachineSettings.Row {
         case .templates: "doc.on.doc"
         case .environments: "square.stack.3d.up"
         case .tasks: "checklist"
+        case .service: "server.rack"
         }
     }
 }

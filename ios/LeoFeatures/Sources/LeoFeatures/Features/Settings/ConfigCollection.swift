@@ -81,7 +81,8 @@ public struct ConfigCollection {
         case deleteTapped(String)
         case dismissErrorTapped
         case dismissRestartBanner
-        case restartBannerTapped
+        /// The restart the banner offers, asked of the machine.
+        case restartBannerTapped(MachineRestart.Kind)
         /// Writes `patch` to one item without touching the open form: a stale
         /// revision is retried once, since the patch is the whole intent.
         case patch(name: String, patch: [String: LeoConfigValue])
@@ -105,7 +106,7 @@ public struct ConfigCollection {
 
         @CasePathable
         public enum Delegate {
-            case restart(LeoConfigRestartRequired)
+            case restart(MachineRestart.Kind)
             /// A `patch` ended: `failure` is why it didn't land.
             case patchFinished(name: String, failure: String?)
             /// Save was pressed while `saveHeld`.
@@ -172,10 +173,10 @@ public struct ConfigCollection {
             state.core.dismissError()
         case .dismissRestartBanner:
             state.core.dismissRestartPrompt()
-        case .restartBannerTapped:
-            guard let prompt = state.core.restartPrompt else { return .none }
+        case .restartBannerTapped(let kind):
+            guard state.core.restartPrompt != nil else { return .none }
             state.core.dismissRestartPrompt()
-            return .send(.delegate(.restart(prompt)))
+            return .send(.delegate(.restart(kind)))
         case .saveTapped:
             return save(&state, leaveAfter: false)
         case .reloadTapped:

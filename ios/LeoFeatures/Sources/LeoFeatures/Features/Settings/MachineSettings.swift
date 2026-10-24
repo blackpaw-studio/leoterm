@@ -33,18 +33,21 @@ public struct MachineSettings {
         case templates(ConfigCollection)
         case environments(ConfigCollection)
         case tasks(TaskSettings)
+        case service(ServiceSettings)
     }
 
     public enum Row: String, CaseIterable, Equatable, Sendable {
         case templates
         case environments
         case tasks
+        case service
 
         public var title: String {
             switch self {
             case .templates: String(localized: "Templates")
             case .environments: String(localized: "Environments")
             case .tasks: String(localized: "Tasks")
+            case .service: String(localized: "Service")
             }
         }
     }
@@ -61,11 +64,15 @@ public struct MachineSettings {
     @ObservableState
     public struct State: Equatable, Identifiable {
         public var link: MachineLink
+        /// Restarting the daemon, its agents, and reloading its config: here
+        /// rather than in a pane, so a restart outlives the screen that asked.
+        public var restart: MachineRestart.State
         @Presents public var alert: AlertState<Never>?
         @Presents public var destination: Destination.State?
 
         public init(link: MachineLink) {
             self.link = link
+            restart = MachineRestart.State(machine: link.daemon.name)
         }
 
         public var id: PairedDaemon.ID { link.daemon.id }
@@ -86,6 +93,7 @@ public struct MachineSettings {
         case alert(PresentationAction<Never>)
         case delegate(Delegate)
         case destination(PresentationAction<Destination.Action>)
+        case restart(MachineRestart.Action)
         /// The machine's live session changed (the parent keeps this in step with `Fleet`).
         case linkUpdated(MachineLink)
         case reconnectTapped
@@ -102,9 +110,25 @@ public struct MachineSettings {
     public init() {}
 
     public var body: some ReducerOf<Self> {
+        Scope(state: \.restart, action: \.restart) { MachineRestart() }
         Reduce { state, action in
             switch action {
-            case .alert, .delegate, .destination:
+            case .alert, .delegate:
+                return .none
+
+            case .destination(.presented(.templates(.delegate(.restart(let kind))))),
+                 .destination(.presented(.environments(.delegate(.restart(let kind))))),
+                 .destination(.presented(.tasks(.delegate(.restart(let kind))))):
+                return .send(.restart(.requested(kind)))
+
+            case .destination:
+                return .none
+
+            case .restart(.delegate(.finished)):
+                guard case .service? = state.destination else { return .none }
+                return .send(.destination(.presented(.service(.refreshRequested))))
+
+            case .restart:
                 return .none
 
             case .linkUpdated(let link):
@@ -124,10 +148,13 @@ public struct MachineSettings {
                     }
                     return .none
                 }
+                state.restart.connection = connection
+                state.restart.machine = daemon.name
                 state.destination = switch row {
                 case .templates: .templates(ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection))
                 case .environments: .environments(ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection))
                 case .tasks: .tasks(TaskSettings.State(daemon: daemon, connection: connection))
+                case .service: .service(ServiceSettings.State(daemon: daemon, connection: connection))
                 }
                 return .none
             }
@@ -141,6 +168,7 @@ public struct MachineSettings {
         case .templates?: .send(.destination(.presented(.templates(.machine(.connectionChanged(isConnected))))))
         case .environments?: .send(.destination(.presented(.environments(.machine(.connectionChanged(isConnected))))))
         case .tasks?: .send(.destination(.presented(.tasks(.collection(.machine(.connectionChanged(isConnected)))))))
+        case .service?: .send(.destination(.presented(.service(.machine(.connectionChanged(isConnected))))))
         case nil: .none
         }
     }
