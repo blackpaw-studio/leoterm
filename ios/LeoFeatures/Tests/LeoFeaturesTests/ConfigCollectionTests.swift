@@ -372,6 +372,163 @@ struct ConfigCollectionTests {
         #expect(harness.core.isDirty)
     }
 
+    // MARK: a write that answers after the user moved on
+
+    /// Waits until the fake daemon is sitting on a write.
+    private static func untilHeld(_ fake: LeoFakeConfigClient) async {
+        for _ in 0..<1_000 where await fake.heldWriteCount == 0 { try? await Task.sleep(for: .milliseconds(5)) }
+    }
+
+    /// Save on `coder` goes out and is held; the user discards, opens `reviewer`, and `reviewer` has one edit of its own.
+    private static func movedOn(after start: (Harness) async -> Void) async throws -> Harness {
+        let harness = try await Self.harness(open: "coder")
+        await harness.fake.holdWrites()
+        await start(harness)
+        await Self.untilHeld(harness.fake)
+        await harness.store.send(.backTapped)
+        await harness.store.send(.leaveDialog(.presented(.discard)))
+        await harness.store.send(.rowTapped("reviewer"))
+        await harness.store.send(.field("workspace", .string("/tmp/reviewer")))
+        return harness
+    }
+
+    @Test func aSaveRejectedAfterTheUserOpenedAnotherItemLeavesThatItemAlone() async throws {
+        let harness = try await Self.movedOn { harness in
+            await harness.store.send(.field("model", .string("bogus")))
+            await harness.store.send(.saveTapped)
+        }
+        await harness.fake.failNextWrite(with: LeoConfigError.invalid([LeoConfigFieldError(field: "model", message: "no such model")]))
+
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.writeFinished)
+
+        #expect(harness.core.selection == "reviewer")
+        #expect(harness.core.draft?.document.name == "reviewer")
+        #expect(harness.core.draft?.value(at: "model") != .string("bogus"))
+        #expect(harness.core.draft?.errors(for: "model") == [])
+        #expect(harness.core.draft?.patch == ["workspace": .string("/tmp/reviewer")])
+        #expect(!harness.core.isBusy)
+    }
+
+    @Test func aSaveThatLandsAfterTheUserOpenedAnotherItemKeepsTheOpenItemAndItsEdits() async throws {
+        let harness = try await Self.movedOn { harness in
+            await harness.store.send(.field("model", .string("sonnet")))
+            await harness.store.send(.saveTapped)
+        }
+
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.writeFinished)
+
+        #expect(harness.core.selection == "reviewer")
+        #expect(harness.core.draft?.document.name == "reviewer")
+        #expect(harness.core.draft?.patch == ["workspace": .string("/tmp/reviewer")])
+        let stored = try await harness.fake.item("templates", name: "coder").values["model"]
+        #expect(stored == .string("sonnet"))
+    }
+
+    @Test func saveSendsOnlyTheOpenItemsEditsAfterALateFailure() async throws {
+        let harness = try await Self.movedOn { harness in
+            await harness.store.send(.field("model", .string("bogus")))
+            await harness.store.send(.saveTapped)
+        }
+        await harness.fake.failNextWrite(with: LeoConfigError.invalid([LeoConfigFieldError(field: "model", message: "no such model")]))
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.writeFinished)
+
+        await harness.store.send(.saveTapped)
+        await harness.store.receive(\.writeFinished)
+
+        let last = await harness.updates().last
+        guard case .update(_, let name, let patch, _)? = last else {
+            Issue.record("Expected an update, got \(String(describing: last))")
+            return
+        }
+        #expect(name == "reviewer")
+        #expect(patch == ["workspace": .string("/tmp/reviewer")])
+    }
+
+    @Test func anOverwriteRejectedAfterTheUserOpenedAnotherItemLeavesThatItemAlone() async throws {
+        let harness = try await Self.harness(open: "coder")
+        await Self.conflicted(harness)
+        await harness.store.send(.field("model", .string("bogus")))
+        await harness.store.send(.saveTapped)
+        await harness.store.receive(\.writeFinished)
+        await harness.fake.holdWrites()
+        await harness.store.send(.overwriteTapped)
+        await Self.untilHeld(harness.fake)
+        await harness.store.send(.backTapped)
+        await harness.store.send(.leaveDialog(.presented(.discard)))
+        await harness.store.send(.rowTapped("reviewer"))
+        await harness.fake.failNextWrite(with: LeoConfigError.invalid([LeoConfigFieldError(field: "model", message: "no such model")]))
+
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.overwriteFinished)
+
+        #expect(harness.core.selection == "reviewer")
+        #expect(harness.core.draft?.document.name == "reviewer")
+        #expect(harness.core.draft?.errors(for: "model") == [])
+        #expect(!harness.core.isDirty)
+        #expect(!harness.core.isBusy)
+    }
+
+    @Test func anOverwriteThatLandsAfterTheUserOpenedAnotherItemKeepsTheOpenItem() async throws {
+        let harness = try await Self.harness(open: "coder")
+        await Self.conflicted(harness)
+        await harness.store.send(.field("model", .string("sonnet")))
+        await harness.store.send(.saveTapped)
+        await harness.store.receive(\.writeFinished)
+        await harness.fake.holdWrites()
+        await harness.store.send(.overwriteTapped)
+        await Self.untilHeld(harness.fake)
+        await harness.store.send(.backTapped)
+        await harness.store.send(.leaveDialog(.presented(.discard)))
+        await harness.store.send(.rowTapped("reviewer"))
+
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.overwriteFinished)
+
+        #expect(harness.core.selection == "reviewer")
+        #expect(harness.core.draft?.document.name == "reviewer")
+        #expect(!harness.core.isBusy)
+    }
+
+    @Test func aSaveFromTheLeaveQuestionDoesNotCloseAnotherItemsEditor() async throws {
+        let harness = try await Self.harness(open: "coder")
+        await harness.fake.holdWrites()
+        await harness.store.send(.field("model", .string("sonnet")))
+        await harness.store.send(.backTapped)
+        await harness.store.send(.leaveDialog(.presented(.save)))
+        await Self.untilHeld(harness.fake)
+        await harness.store.send(.rowTapped("reviewer"))
+        #expect(harness.core.selection == "coder")
+
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.writeFinished)
+
+        #expect(harness.core.selection == nil)
+    }
+
+    // MARK: the editor leaving the screen on its own
+
+    @Test func theEditorPoppingWhileCleanClosesIt() async throws {
+        let harness = try await Self.harness(open: "coder")
+
+        await harness.store.send(.editorPopped)
+
+        #expect(harness.core.selection == nil)
+    }
+
+    @Test func theEditorPoppingWhileDirtyKeepsTheDraftAndAsksNothingOffScreen() async throws {
+        let harness = try await Self.harness(open: "coder")
+        await harness.store.send(.field("model", .string("sonnet")))
+
+        await harness.store.send(.editorPopped)
+
+        #expect(harness.core.selection == "coder")
+        #expect(harness.core.draft?.patch == ["model": .string("sonnet")])
+        #expect(harness.store.state.leaveDialog == nil)
+    }
+
     // MARK: add, rename, duplicate, delete
 
     @Test func deleteAsksWithTheItemsName() async throws {

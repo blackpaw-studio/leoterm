@@ -95,6 +95,39 @@ struct LeoConfigCollectionStateTests {
         #expect(!state.canSave)
     }
 
+    @Test func aSaveFailureForAnItemThatIsNoLongerOpenChangesNothing() async throws {
+        var state = try await Self.state()
+        state.set("model", .string("bogus"))
+        let sent = try #require(state.draft)
+        state.selectNow("reviewer")
+
+        state.failed(LeoConfigError.invalid([LeoConfigFieldError(field: "model", message: "no such model")]), sent: sent)
+        state.failed(LeoConfigError.conflict(currentRevision: "r9"), sent: sent)
+
+        #expect(state.selection == "reviewer")
+        #expect(state.draft?.document.name == "reviewer")
+        #expect(state.draft?.errors(for: "model") == [])
+        #expect(state.conflict == nil)
+    }
+
+    @Test func anOverwriteThatAnswersAfterAnotherItemWasOpenedLeavesItsDraftAndFreesTheWrite() async throws {
+        var state = try await Self.state()
+        state.set("model", .string("sonnet"))
+        let stale = try #require(state.draft)
+        state.failed(LeoConfigError.conflict(currentRevision: "r2"), sent: stale)
+        let started = state.beginOverwrite()
+        #expect(started != nil)
+        state.selectNow("reviewer")
+        state.set("workspace", .string("/tmp/reviewer"))
+        let open = try #require(state.draft)
+
+        state.finishOverwrite(.nothingToSend(replayed: stale, collection: .success(Self.collection(revision: "r3", items: state.items))), name: "coder")
+
+        #expect(state.selection == "reviewer")
+        #expect(state.draft?.patch == open.patch)
+        #expect(!state.isBusy)
+    }
+
     @Test func restructureNeedsCleanDraft() async throws {
         var state = try await Self.state()
         #expect(state.canRestructure)

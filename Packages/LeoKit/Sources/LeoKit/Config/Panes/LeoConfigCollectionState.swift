@@ -284,6 +284,10 @@ public struct LeoConfigCollectionState: Equatable, Sendable {
     /// edits stay on the draft (replayed over the fresh read), and a failed
     /// write lands on it like a Save does.
     public mutating func finishOverwrite(_ outcome: LeoConfigOverwriteOutcome, name: String) {
+        guard selection == name else {
+            finishOverwriteElsewhere(outcome)
+            return
+        }
         switch outcome {
         case .readFailed(let error):
             isBusy = false
@@ -302,9 +306,26 @@ public struct LeoConfigCollectionState: Equatable, Sendable {
         }
     }
 
+    /// An Overwrite that answers after the user opened another item: the list
+    /// is read in, but the open item's draft, its errors and the selection
+    /// stay as they are.
+    private mutating func finishOverwriteElsewhere(_ outcome: LeoConfigOverwriteOutcome) {
+        switch outcome {
+        case .readFailed:
+            isBusy = false
+        case .nothingToSend(_, let collection):
+            isBusy = false
+            if case .success(let collection) = collection { apply(collection, preferring: selection, carrying: draft) }
+        case .sent(_, let write):
+            _ = finishWrite(write, preferring: selection, keepingDraft: true)
+        }
+    }
+
     /// A Save that failed: a conflict raises the banner, a 422 lands on its
     /// fields, anything else is a message. The draft keeps the user's edits.
+    /// A failure for an item that is no longer open changes nothing.
     public mutating func failed(_ error: Error, sent: LeoConfigDraft) {
+        guard sent.document.name == selection else { return }
         switch error {
         case LeoConfigError.conflict(let current):
             conflict = Conflict(currentRevision: current)

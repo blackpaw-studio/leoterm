@@ -66,6 +66,8 @@ public struct ConfigCollection {
         case overwriteTapped
         case overwriteFinished(LeoConfigOverwriteOutcome, name: String)
         case backTapped
+        /// The editor left the screen without going through `backTapped`.
+        case editorPopped
         case addTapped
         case renameTapped(String)
         case duplicateTapped(String)
@@ -187,6 +189,10 @@ public struct ConfigCollection {
                 return .none
             }
             state.leaveDialog = Self.leaveDialog(canSave: state.core.canSave)
+        case .editorPopped:
+            // Clean, it is just closed. Dirty, the draft stays: the view
+            // brings the editor back, and leaving it then asks.
+            if !state.core.isDirty { state.core.selectNow(nil) }
         case .leaveDialog(.presented(.save)):
             return save(&state, leaveAfter: true)
         case .leaveDialog(.presented(.discard)):
@@ -279,7 +285,8 @@ public struct ConfigCollection {
     }
 
     private func save(_ state: inout State, leaveAfter: Bool) -> Effect<Action> {
-        guard state.core.canSave, let sent = state.core.draft, let name = state.core.selection else { return .none }
+        guard state.core.canSave, let sent = state.core.draft else { return .none }
+        let name = sent.document.name
         let resource = state.core.resourceKey
         let context = WriteContext(kind: .save(sent: sent), preferring: name, leaveAfter: leaveAfter)
         return write(&state, context, ifMatch: configClients.revisions(state.daemon.id).resolve(sent.revision)) { client, ifMatch in
@@ -347,6 +354,13 @@ public struct ConfigCollection {
     /// A write landed or failed. Only a landed one closes the name sheet, and
     /// only a landed Save closes the editor.
     private func finish(_ state: inout State, _ context: WriteContext, _ outcome: LeoConfigWriteOutcome) {
+        // A Save can answer after the user opened another item. Its outcome
+        // is then the daemon's business, not the open form's: the list is
+        // read in, but the selection, the draft and its errors stay put.
+        if case .save(let sent) = context.kind, state.core.selection != sent.document.name {
+            _ = state.core.finishWrite(outcome, preferring: state.core.selection, keepingDraft: true)
+            return
+        }
         let failure = state.core.finishWrite(
             outcome, preferring: context.preferring, selectingResult: context.selectingResult
         )
