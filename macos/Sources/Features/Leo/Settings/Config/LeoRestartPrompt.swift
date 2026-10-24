@@ -66,7 +66,7 @@ struct LeoRestartPrompt: View {
         } message: { kind in
             Text(kind == .service
                 ? "Running agents keep their tmux sessions."
-                : LeoServiceSettingsModel.agentsRestartMessage(running: runningAgents))
+                : LeoServiceText.agentsRestartMessage(running: runningAgents))
         }
     }
 

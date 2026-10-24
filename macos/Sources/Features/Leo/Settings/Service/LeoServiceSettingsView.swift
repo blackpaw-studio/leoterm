@@ -89,7 +89,7 @@ struct LeoServiceView: View {
         case .restartDaemon:
             "leo waits for busy agents to pause, then restarts and is unreachable for a few seconds. Agents keep their tmux sessions."
         case .restartAgents(let running):
-            LeoServiceSettingsModel.agentsRestartMessage(running: running)
+            LeoServiceText.agentsRestartMessage(running: running)
         }
     }
 }
