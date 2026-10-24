@@ -61,6 +61,16 @@ public struct LeoConfigFormRow: Equatable, Sendable, Identifiable {
         self.isDirty = isDirty
         self.errors = errors
     }
+
+    /// The help line to show. The daemon words a map field's help for the web
+    /// textarea; the key/value editor has rows, so that wording is replaced.
+    public var displayHelp: String {
+        guard control == .keyValue, field.help.hasPrefix(Self.textareaHelp) else { return field.help }
+        return Self.rowHelp + field.help.dropFirst(Self.textareaHelp.count)
+    }
+
+    private static let textareaHelp = "KEY=VALUE, one per line"
+    private static let rowHelp = "One variable per row"
 }
 
 public struct LeoConfigFormSection: Equatable, Sendable, Identifiable {

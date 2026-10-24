@@ -41,6 +41,12 @@ struct LeoAgentControlAvailabilityTests {
         #expect(availability.reason != nil)
     }
 
+    @Test func restoringDisablesAllAndSaysSo() {
+        let availability = LeoAgentControlAvailability(row: Self.row(.restoring), features: Self.control, deniedHosts: [], inFlight: nil)
+        #expect(Self.all(availability) == [false, false, false, false])
+        #expect(availability.reason == "alpha is restoring.")
+    }
+
     @Test func stoppedWithWakeOnMessageAllowsOnlySend() {
         let availability = LeoAgentControlAvailability(row: Self.row(.stopped, wake: true), features: Self.control, deniedHosts: [], inFlight: nil)
         #expect(Self.all(availability) == [true, false, false, false])

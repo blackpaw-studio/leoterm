@@ -17,8 +17,8 @@ struct LeoSchemaFieldRow: View {
             } label: {
                 Text(row.field.label).fontWeight(row.isDirty ? .semibold : .regular)
             }
-            if !row.field.help.isEmpty {
-                Text(row.field.help).font(.caption).foregroundStyle(.secondary)
+            if !row.displayHelp.isEmpty {
+                Text(row.displayHelp).font(.caption).foregroundStyle(.secondary)
             }
             if !row.field.warning.isEmpty {
                 Label(row.field.warning, systemImage: "exclamationmark.triangle.fill")

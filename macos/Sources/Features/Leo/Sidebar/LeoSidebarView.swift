@@ -56,6 +56,7 @@ enum LeoSidebarSectioning {
         switch status {
         case .running: "running"
         case .starting: "starting"
+        case .restoring: "restoring"
         case .stopped: "stopped"
         case .unknown(let raw): "unknown:\(raw)"
         }
@@ -65,6 +66,7 @@ enum LeoSidebarSectioning {
         switch key {
         case "running": return "Running"
         case "starting": return "Starting"
+        case "restoring": return LeoStatusPresentation.restoringTitle
         case "stopped": return "Stopped"
         default:
             guard key.hasPrefix("unknown:") else { return key.capitalized }
