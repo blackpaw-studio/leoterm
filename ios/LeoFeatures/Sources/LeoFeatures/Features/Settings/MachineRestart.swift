@@ -44,6 +44,9 @@ public struct MachineRestart {
         var restartPrevious: LeoServiceStatus?
         /// The wait was stopped because the app left the foreground.
         var isWaitSuspended = false
+        /// Whether the app is in the foreground, so a restart accepted while
+        /// it is away doesn't start a wait nothing can keep running.
+        var isSceneActive = true
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(machine: String, connection: DaemonConnection? = nil) {
@@ -132,8 +135,8 @@ public struct MachineRestart {
                 state.notice = alreadyRunning ? "A restart is already in progress on \(state.machine)." : nil
                 state.phase = .restarting(waitingOnAgents: false)
                 state.restartPrevious = previous
-                state.isWaitSuspended = false
-                return wait(state, previous: previous)
+                state.isWaitSuspended = !state.isSceneActive
+                return state.isSceneActive ? wait(state, previous: previous) : .none
             case .requestFailed(let message):
                 state.phase = .idle
                 state.errorMessage = message
@@ -208,6 +211,7 @@ public struct MachineRestart {
     /// daemon. It stops there (the restart stays "under way", with the process
     /// it is told apart from) and starts again, with a full deadline, on return.
     private func scenePhaseChanged(_ state: inout State, isActive: Bool) -> Effect<Action> {
+        state.isSceneActive = isActive
         guard state.isRestarting else { return .none }
         if !isActive {
             state.isWaitSuspended = true

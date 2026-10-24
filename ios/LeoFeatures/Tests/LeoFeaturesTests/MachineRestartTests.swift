@@ -268,6 +268,33 @@ struct MachineRestartTests {
         #expect(harness.state.errorMessage == nil)
     }
 
+    @Test func aRestartAcceptedWhileInTheBackgroundWaitsOnlyOnceBackInTheForeground() async throws {
+        let harness = try await Self.harness()
+        await harness.store.send(.requested(.daemon))
+        await harness.store.receive(\.statusChecked)
+        let action = try #require(harness.state.alert?.buttons.first { $0.role != .cancel }?.action.action)
+        await harness.fake.holdWrites()
+        await harness.store.send(.alert(.presented(action)))
+        #expect(harness.state.phase == .working)
+
+        // The app leaves while the request is still in flight; the daemon takes it.
+        await harness.store.send(.scenePhaseChanged(isActive: false))
+        await harness.fake.releaseWrites()
+        await harness.store.receive(\.restartAccepted)
+        await harness.fake.finishServiceRestart()
+        harness.now.withValue { $0 = $0.addingTimeInterval(13 * 60) }
+        await harness.clock.advance(by: .seconds(13 * 60))
+        #expect(harness.state.phase == .restarting(waitingOnAgents: false))
+        #expect(harness.state.errorMessage == nil)
+
+        await harness.store.send(.scenePhaseChanged(isActive: true))
+        await harness.tick()
+        await harness.store.receive(\.waitEnded)
+
+        #expect(harness.state.phase == .idle)
+        #expect(harness.state.notice == "leo restarted on Dionysus.")
+    }
+
     @Test func theOldPidAfterResumeDoesNotReadAsRestarted() async throws {
         let harness = try await Self.harness()
         await harness.startDaemonRestart()
