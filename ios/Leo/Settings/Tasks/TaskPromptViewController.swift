@@ -61,18 +61,12 @@ final class TaskPromptViewController: UIViewController, UITextViewDelegate {
         ])
 
         present(item: $store.scope(state: \.promptDialog, action: \.promptDialog)) { [weak self] store in
-            let dialog = UIAlertController(store: store)
-            // Anchored to the system back button's corner of the bar.
-            if let bar = self?.navigationController?.navigationBar {
-                dialog.popoverPresentationController?.sourceView = bar
-                dialog.popoverPresentationController?.sourceRect = CGRect(x: bar.layoutMargins.left, y: bar.bounds.midY, width: 44, height: 0)
-            }
-            return dialog
+            guard let self else { return UIAlertController(store: store) }
+            return UIAlertController(store: store).anchored(to: saveButton)
         }
         present(item: $store.scope(state: \.promptLeave, action: \.promptLeave)) { [weak self] store in
-            let dialog = UIAlertController(store: store)
-            dialog.popoverPresentationController?.barButtonItem = self?.saveButton
-            return dialog
+            guard let self else { return UIAlertController(store: store) }
+            return UIAlertController(store: store).anchoredToBack(of: self)
         }
         observe { [weak self] in self?.render() }
     }

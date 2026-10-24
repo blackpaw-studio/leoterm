@@ -116,6 +116,11 @@ struct ConfigEditorNavigationTests {
         await Self.settle { rig.store.leaveDialog != nil }
         #expect(rig.store.leaveDialog != nil)
         #expect(rig.navigation.topViewController === editor)
+
+        // On iPad the question is a popover, pointing at the back button.
+        await Self.settle { editor.presentedViewController is UIAlertController }
+        let dialog = try #require(editor.presentedViewController as? UIAlertController)
+        #expect(dialog.popoverPresentationController?.sourceView === rig.navigation.navigationBar)
     }
 
     @Test func anEditorPoppedWhileDirtyComesBackWithItsEdits() async throws {

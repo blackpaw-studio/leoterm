@@ -48,7 +48,7 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
     private var titles: [Section: String] = [:]
     private var webLink: URL?
     private var openEditor: (path: String, controller: any SchemaFieldEditorViewController)?
-    private let saveButton = UIBarButtonItem(title: String(localized: "Save"), style: .done, target: nil, action: nil)
+    let saveButton = UIBarButtonItem(title: String(localized: "Save"), style: .done, target: nil, action: nil)
     private let revertButton = UIBarButtonItem(image: UIImage(systemName: "arrow.uturn.backward"), style: .plain, target: nil, action: nil)
 
     private lazy var handlers = SchemaFieldHandlers(
@@ -107,13 +107,8 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         configureDataSource()
 
         present(item: $store.scope(state: \.leaveDialog, action: \.leaveDialog)) { [weak self] store in
-            let dialog = UIAlertController(store: store)
-            // Anchored to the system back button's corner of the bar.
-            if let bar = self?.navigationController?.navigationBar {
-                dialog.popoverPresentationController?.sourceView = bar
-                dialog.popoverPresentationController?.sourceRect = CGRect(x: bar.layoutMargins.left, y: bar.bounds.midY, width: 44, height: 0)
-            }
-            return dialog
+            guard let self else { return UIAlertController(store: store) }
+            return UIAlertController(store: store).anchoredToBack(of: self)
         }
         observe { [weak self] in self?.render() }
     }

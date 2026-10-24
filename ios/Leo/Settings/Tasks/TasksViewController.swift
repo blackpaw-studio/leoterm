@@ -169,8 +169,9 @@ final class TasksViewController: UIViewController, UICollectionViewDelegate {
         })
         editor.onDidAppear = { [weak self] in self?.syncStack() }
         editor.loadViewIfNeeded()
-        editor.present(item: $store.scope(state: \.formSaveDialog, action: \.formSaveDialog)) { store in
-            UIAlertController(store: store)
+        editor.present(item: $store.scope(state: \.formSaveDialog, action: \.formSaveDialog)) { [weak editor] store in
+            guard let editor else { return UIAlertController(store: store) }
+            return UIAlertController(store: store).anchored(to: editor.saveButton)
         }
         return editor
     }

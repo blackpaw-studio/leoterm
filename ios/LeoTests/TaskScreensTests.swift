@@ -119,6 +119,11 @@ struct TaskScreensTests {
 
         #expect(rig.store.promptLeave != nil)
         #expect(rig.navigation.topViewController === prompt)
+
+        // On iPad the question is a popover, pointing at the back button.
+        await Self.settle { prompt.presentedViewController is UIAlertController }
+        let dialog = try #require(prompt.presentedViewController as? UIAlertController)
+        #expect(dialog.popoverPresentationController?.sourceView === rig.navigation.navigationBar)
     }
 
     @Test func aDirtyPromptPoppedWithoutAskingComesBack() async throws {
