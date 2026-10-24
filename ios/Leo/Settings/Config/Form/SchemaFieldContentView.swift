@@ -58,7 +58,8 @@ final class SchemaFieldContentView: UIView, UIContentView {
     private let cronPreview = UILabel()
     private let helpLabel = UILabel()
     private let warningLabel = UILabel()
-    private let errorStack = UIStackView()
+    private let stack = UIStackView()
+    private var errorLabels: [UILabel] = []
 
     init(configuration: SchemaFieldContentConfiguration) {
         current = configuration
@@ -98,10 +99,10 @@ final class SchemaFieldContentView: UIView, UIContentView {
         configure(helpLabel, id: "field.help", style: .footnote)
         configure(warningLabel, id: "field.warning", style: .footnote)
         helpLabel.textColor = .secondaryLabel
-        errorStack.axis = .vertical
-        errorStack.spacing = 2
 
-        let stack = UIStackView(arrangedSubviews: [header, cronPreview, helpLabel, warningLabel, errorStack])
+        // No empty stack in here: a view with no intrinsic height soaks up
+        // whatever height a list asks for and the cell sizes to infinity.
+        [header, cronPreview, helpLabel, warningLabel].forEach(stack.addArrangedSubview)
         stack.axis = .vertical
         stack.spacing = 4
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -182,17 +183,18 @@ final class SchemaFieldContentView: UIView, UIContentView {
     }
 
     private func showErrors(_ errors: [String]) {
-        for view in errorStack.arrangedSubviews {
-            errorStack.removeArrangedSubview(view)
-            view.removeFromSuperview()
+        for label in errorLabels {
+            stack.removeArrangedSubview(label)
+            label.removeFromSuperview()
         }
-        for message in errors {
+        errorLabels = errors.map { message in
             let label = UILabel()
             configure(label, id: "field.error", style: .footnote)
             label.text = message
             label.textColor = .systemRed
             label.accessibilityLabel = "Error: \(message)"
-            errorStack.addArrangedSubview(label)
+            stack.addArrangedSubview(label)
+            return label
         }
     }
 }

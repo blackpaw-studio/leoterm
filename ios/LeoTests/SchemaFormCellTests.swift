@@ -28,6 +28,22 @@ struct SchemaFormCellTests {
         #expect(view.control != nil)
     }
 
+    /// A list cell sizes itself from its content view; an unconstrained one
+    /// makes UIKit throw ("Content view returned an invalid size").
+    @Test(arguments: SchemaFormCellTests.everyControl)
+    func everyControlSizesItselfToAFiniteHeight(control: LeoConfigControl) {
+        let view = CellHarness.view(
+            CellHarness.row(control, help: "Some help.", warning: "Careful.", errors: ["Bad"]), recorder: CellRecorder()
+        )
+
+        for target in [UIView.layoutFittingCompressedSize.height, UIView.layoutFittingExpandedSize.height] {
+            let size = view.systemLayoutSizeFitting(
+                CGSize(width: 370, height: target), withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel
+            )
+            #expect(size.height > 0 && size.height < 2_000, "target \(target)")
+        }
+    }
+
     @Test func emptyHelpIsHidden() {
         let view = CellHarness.view(CellHarness.row(.toggle, help: ""), recorder: CellRecorder())
 
@@ -355,5 +371,31 @@ struct SchemaFormCellTests {
 
         #expect(recorder.opened == [url])
         #expect(recorder.edits.isEmpty)
+    }
+}
+
+/// The same sizing check over the rows a real template form lays out.
+@MainActor
+struct SchemaFormGoldenSizingTests {
+    @Test func everyRowOfARealTemplateFormSizesItself() async throws {
+        let client = try ConfigGolden.client()
+        var core = LeoConfigCollectionState(resource: "templates", autoSelectsFirst: false)
+        core.loaded(await LeoConfigCollectionOps.load(resource: "templates", client: client, references: [:]))
+        core.selectNow("coder")
+
+        var unsized: [String] = []
+        let targets = [
+            CGSize(width: 370, height: UIView.layoutFittingCompressedSize.height),
+            CGSize(width: 370, height: UIView.layoutFittingExpandedSize.height),
+        ]
+        for row in core.sections.flatMap(\.rows) {
+            let view = CellHarness.view(row, recorder: CellRecorder())
+            for target in targets {
+                let size = view.systemLayoutSizeFitting(target, withHorizontalFittingPriority: .required, verticalFittingPriority: .fittingSizeLevel)
+                if !(size.height > 0 && size.height < 2_000) { unsized.append("\(row.path) \(target.height): \(size.height)") }
+            }
+        }
+
+        #expect(unsized.isEmpty, "\(unsized)")
     }
 }
