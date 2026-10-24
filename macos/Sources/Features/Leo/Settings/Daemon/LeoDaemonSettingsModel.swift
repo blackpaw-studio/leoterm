@@ -33,7 +33,7 @@ import LeoKit
         )
         hosts = LeoConfigCollectionModel(resource: Self.hostsKey, client: daemon, revisions: revisions, machineHost: machineHost)
         let client = client
-        hosts.$items
+        hosts.$state.map(\.items).removeDuplicates()
             .sink { items in client.setReferences([Self.hostsKey: items.map(\.name)]) }
             .store(in: &subscriptions)
     }

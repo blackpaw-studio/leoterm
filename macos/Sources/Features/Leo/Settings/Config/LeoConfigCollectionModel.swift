@@ -6,6 +6,11 @@ import LeoKit
 /// its list, the selected item's draft, and Save / Revert against the
 /// machine's config API.
 ///
+/// The pane's state and every transition live in LeoKit
+/// (`LeoConfigCollectionState`, `LeoConfigCollectionOps`), shared with iOS;
+/// this model holds the state, awaits the operations inline and forwards the
+/// reads the views make.
+///
 /// Every write carries the revision the pane read, mapped through the shared
 /// `LeoConfigRevisionTracker` so another pane's write isn't a conflict. A 409
 /// keeps the draft and offers Reload (rebase onto the new document) or
@@ -14,53 +19,24 @@ import LeoKit
 /// delete are offered only for the actions the schema lists, and only while
 /// the draft is clean.
 @MainActor final class LeoConfigCollectionModel: ObservableObject, LeoSettingsPane {
-    enum Phase: Equatable {
-        case loading
-        case loaded
-        case failed(String)
-    }
-
-    /// A question waiting on the user.
-    enum Confirmation: Equatable {
-        case delete(String)
-        /// Leave the item, dropping its unsaved edits, for `thenSelect`.
-        case discardChanges(thenSelect: String?)
-    }
-
-    /// The daemon's file moved on since this pane read it.
-    struct Conflict: Equatable {
-        let currentRevision: String
-    }
+    typealias Phase = LeoConfigCollectionState.Phase
+    typealias Confirmation = LeoConfigCollectionState.Confirmation
+    typealias Conflict = LeoConfigCollectionState.Conflict
 
     let resourceKey: String
 
-    @Published private(set) var phase = Phase.loading
-    @Published private(set) var items: [LeoConfigItem] = []
-    @Published private(set) var selection: String?
-    @Published private(set) var draft: LeoConfigDraft?
-    @Published private(set) var conflict: Conflict?
-    @Published private(set) var restartPrompt: LeoConfigRestartRequired?
-    /// The daemon saved but its reload failed.
-    @Published private(set) var warning: String?
-    /// A failure that belongs to no field.
-    @Published private(set) var errorMessage: String?
-    @Published private(set) var confirmation: Confirmation?
-    @Published private(set) var isBusy = false
+    @Published private(set) var state: LeoConfigCollectionState
 
     private var client: any LeoConfigClient
     private let revisions: LeoConfigRevisionTracker
-    private var references: [String: [String]]
-    private let machineHost: String?
-    private var schema: LeoConfigSchema?
-    private var webDocument: LeoConfigDocument?
-    /// The file revision the list was read at.
-    private var revision = ""
 
     /// A pane that edits more than the form (the task prompt) reports its
     /// unsaved state here, so leaving the item asks about it too.
     var extraUnsavedChanges: () -> Bool = { false }
     /// Called when the user chooses to drop the pane's unsaved edits.
     var onDiscard: () -> Void = {}
+    /// A pane's veto over the form's Save (it asks the user first); false stops the write.
+    var beforeSave: (LeoConfigDraft) -> Bool = { _ in true }
 
     init(
         resource: String, client: any LeoConfigClient, revisions: LeoConfigRevisionTracker,
@@ -69,50 +45,42 @@ import LeoKit
         resourceKey = resource
         self.client = client
         self.revisions = revisions
-        self.references = references
-        self.machineHost = machineHost
+        state = LeoConfigCollectionState(resource: resource, references: references, machineHost: machineHost)
     }
 
     // MARK: Reading state
 
-    private var resource: LeoConfigResource? { schema?.resource(resourceKey) }
+    var phase: Phase { state.phase }
+    var items: [LeoConfigItem] { state.items }
+    var selection: String? { state.selection }
+    var draft: LeoConfigDraft? { state.draft }
+    var conflict: Conflict? { state.conflict }
+    var restartPrompt: LeoConfigRestartRequired? { state.restartPrompt }
+    /// The daemon saved but its reload failed.
+    var warning: String? { state.warning }
+    /// A failure that belongs to no field.
+    var errorMessage: String? { state.errorMessage }
+    var confirmation: Confirmation? { state.confirmation }
+    var isBusy: Bool { state.isBusy }
 
-    var title: String { resource?.label ?? resourceKey.capitalized }
-    var actions: Set<LeoConfigAction> { Set(resource?.actions ?? []) }
-    /// A pane's veto over the form's Save (it asks the user first); false stops the write.
-    var beforeSave: (LeoConfigDraft) -> Bool = { _ in true }
-
-    var isDirty: Bool { draft?.isDirty ?? false }
-    var canSave: Bool { draft?.canSave == true && conflict == nil && !isBusy }
-    /// Structural changes wait for a clean draft, so no edit is lost to a rename.
-    var canRestructure: Bool { !hasUnsavedChanges && !isBusy && phase == .loaded }
-
-    var sections: [LeoConfigFormSection] {
-        guard let draft, let resource, let schema else { return [] }
-        return LeoConfigFormLayout.sections(
-            resource: resource, harnesses: schema.harnesses, draft: draft, references: references, webLink: webLink
-        )
-    }
-
-    var webLink: URL? {
-        LeoConfigWebLink.url(web: webDocument, machineHost: machineHost, resource: resourceKey, item: selection)
-    }
+    var title: String { state.title }
+    var actions: Set<LeoConfigAction> { state.actions }
+    var isDirty: Bool { state.isDirty }
+    var canSave: Bool { state.canSave }
+    var canRestructure: Bool { state.canRestructure }
+    var sections: [LeoConfigFormSection] { state.sections }
+    var webLink: URL? { state.webLink }
 
     func nameError(_ name: String, excluding: String? = nil) -> String? {
-        validator?.nameError(name, existing: items.map(\.name), excluding: excluding)
-    }
-
-    private var validator: LeoConfigValidator? {
-        guard let resource, let schema else { return nil }
-        return LeoConfigValidator(resource: resource, harnesses: schema.harnesses, namePattern: schema.namePattern, references: references)
+        state.nameError(name, excluding: excluding)
     }
 
     // MARK: LeoSettingsPane
 
-    var hasUnsavedChanges: Bool { isDirty || extraUnsavedChanges() }
+    var hasUnsavedChanges: Bool { state.hasUnsavedChanges(extra: extraUnsavedChanges()) }
 
     func discardChanges() {
-        draft?.revert()
+        state.discardEdits()
         onDiscard()
     }
 
@@ -120,102 +88,42 @@ import LeoKit
     /// user's edits over the fresh document.
     func reload(using client: any LeoConfigClient) async {
         self.client = client
-        guard schema != nil else { return await load() }
-        conflict = nil
+        guard state.schema != nil else { return await load() }
+        state.dismissConflict()
         await refresh(preferring: selection, carrying: draft)
     }
 
     // MARK: Loading
 
     func load() async {
-        phase = .loading
+        state.beginLoading()
+        state.loaded(await LeoConfigCollectionOps.load(resource: resourceKey, client: client, references: state.references))
+    }
+
+    private func refresh(preferring name: String?, carrying carried: LeoConfigDraft?) async {
         do {
-            schema = try await client.schema()
-            webDocument = try? await client.document("web")
-            await loadReferences()
-            let collection = try await client.collection(resourceKey)
-            apply(collection, preferring: selection, carrying: nil)
-            phase = .loaded
+            state.apply(try await client.collection(resourceKey), preferring: name, carrying: carried)
         } catch {
-            phase = .failed(Self.message(for: error))
+            state.report(error)
         }
-    }
-
-    /// The names behind the schema's reference fields (a task's template), so
-    /// they pick from, and are checked against, what exists. A collection that
-    /// can't be read is left unchecked: the daemon still judges.
-    private func loadReferences() async {
-        let wanted = Set(resource?.fields.compactMap { $0.type == .reference ? $0.references : nil } ?? [])
-        for key in wanted where references[key] == nil && key != resourceKey {
-            if let list = try? await client.collection(key) { references[key] = list.items.map(\.name) }
-        }
-    }
-
-    private func refresh(preferring name: String?, carrying carried: LeoConfigDraft?, rebasing: Bool = true) async {
-        do {
-            apply(try await client.collection(resourceKey), preferring: name, carrying: carried, rebasing: rebasing)
-        } catch {
-            errorMessage = Self.message(for: error)
-        }
-    }
-
-    /// `rebasing: false` leaves a carried draft with edits on the document it was opened on, so its next Save is judged against that revision.
-    private func apply(_ collection: LeoConfigCollection, preferring name: String?, carrying carried: LeoConfigDraft?, rebasing: Bool = true) {
-        items = collection.items
-        revision = collection.revision
-        let chosen = [name, selection].lazy.compactMap { $0 }.first { wanted in items.contains { $0.name == wanted } } ?? items.first?.name
-        selection = chosen
-        guard let item = items.first(where: { $0.name == chosen }) else {
-            draft = nil
-            return
-        }
-        let fresh = LeoConfigDraft(document: document(of: item), validator: validator)
-        draft = carried.flatMap { kept in
-            guard kept.document.name == chosen else { return nil }
-            return rebasing || !kept.isDirty ? kept.rebased(onto: fresh.document) : kept
-        } ?? fresh
-    }
-
-    private func document(of item: LeoConfigItem) -> LeoConfigDocument {
-        LeoConfigDocument(
-            revision: revision, name: item.name, values: item.values, inherited: item.inherited, effectiveHarness: item.effectiveHarness
-        )
     }
 
     // MARK: Editing
 
     func set(_ path: String, _ value: LeoConfigValue) {
-        draft?.set(path, value)
+        state.set(path, value)
     }
 
     func revert(_ path: String) {
-        draft?.revert(path)
+        state.revert(path)
     }
 
     func revertAll() {
-        draft?.revert()
-        errorMessage = nil
+        state.revertAll()
     }
 
     func select(_ name: String?) {
-        guard name != selection else { return }
-        guard !hasUnsavedChanges else {
-            confirmation = .discardChanges(thenSelect: name)
-            return
-        }
-        selectNow(name)
-    }
-
-    private func selectNow(_ name: String?) {
-        selection = name
-        errorMessage = nil
-        warning = nil
-        conflict = nil
-        guard let item = items.first(where: { $0.name == name }) else {
-            draft = nil
-            return
-        }
-        draft = LeoConfigDraft(document: document(of: item), validator: validator)
+        state.requestSelect(name, extraUnsaved: extraUnsavedChanges())
     }
 
     // MARK: Saving
@@ -224,7 +132,7 @@ import LeoKit
         guard canSave, let draft, let name = selection, beforeSave(draft) else { return }
         let sent = draft
         await write(
-            ifMatch: revisions.resolve(draft.revision), preferring: name, onFailure: { model, error in model.handleSaveFailure(error, draft: sent) },
+            ifMatch: revisions.resolve(draft.revision), preferring: name, onFailure: { model, error in model.state.failed(error, sent: sent) },
             operation: { [resourceKey, client] ifMatch in
                 try await client.update(resourceKey, name: name, patch: sent.patch, ifMatch: ifMatch)
             }
@@ -234,7 +142,7 @@ import LeoKit
     /// Reload after a conflict: the new document, with the user's edits over it.
     func reloadAfterConflict() async {
         guard conflict != nil else { return }
-        conflict = nil
+        state.dismissConflict()
         await refresh(preferring: selection, carrying: draft)
     }
 
@@ -244,49 +152,19 @@ import LeoKit
     /// revision. Another writer's list entries and keys survive; nothing is
     /// sent when their copy already has every edit.
     func overwrite() async {
-        guard conflict != nil, let stale = draft, let name = selection, !isBusy else { return }
-        isBusy = true
-        let current: LeoConfigDocument
-        do {
-            current = try await client.item(resourceKey, name: name)
-        } catch {
-            isBusy = false
-            errorMessage = Self.message(for: error)
-            return
-        }
-        isBusy = false
-        let replayed = stale.rebased(onto: current)
-        draft = replayed
-        guard replayed.isDirty else {
-            conflict = nil
-            await refresh(preferring: name, carrying: replayed)
-            return
-        }
-        await write(
-            ifMatch: current.revision, preferring: name, onFailure: { model, error in model.handleSaveFailure(error, draft: replayed) },
-            operation: { [resourceKey, client] ifMatch in
-                try await client.update(resourceKey, name: name, patch: replayed.patch, ifMatch: ifMatch)
-            }
+        guard let (stale, name) = state.beginOverwrite() else { return }
+        let outcome = await LeoConfigCollectionOps.overwrite(
+            stale: stale, resource: resourceKey, name: name, client: client, revisions: revisions
         )
-    }
-
-    private func handleSaveFailure(_ error: Error, draft sent: LeoConfigDraft) {
-        switch error {
-        case LeoConfigError.conflict(let current):
-            conflict = Conflict(currentRevision: current)
-        case LeoConfigError.invalid(let errors):
-            draft = sent.applying(serverErrors: errors)
-        default:
-            errorMessage = Self.message(for: error)
-        }
+        state.finishOverwrite(outcome, name: name)
     }
 
     // MARK: Add, rename, duplicate, delete
 
     /// `values` carries the fields an add requires beyond the name (a task's schedule).
     func add(name: String, values: [String: LeoConfigValue] = [:]) async {
-        guard canRestructure, actions.contains(.add) else { return }
-        await write(ifMatch: revisions.resolve(revision), preferring: name, selectingResult: true) { [resourceKey, client] ifMatch in
+        guard state.allows(.add) else { return }
+        await write(ifMatch: revisions.resolve(state.revision), preferring: name, selectingResult: true) { [resourceKey, client] ifMatch in
             try await client.add(resourceKey, name: name, values: values, ifMatch: ifMatch)
         }
     }
@@ -302,8 +180,8 @@ import LeoKit
         guard phase == .loaded, !isBusy else { return "Another change is still being saved. Try again in a moment." }
         var failure: String?
         await write(
-            ifMatch: revisions.resolve(revision), preferring: selection, keepingDraft: true, retryingConflict: true,
-            onFailure: { _, error in failure = Self.message(for: error) },
+            ifMatch: revisions.resolve(state.revision), preferring: selection, keepingDraft: true, retryingConflict: true,
+            onFailure: { _, error in failure = LeoConfigCollectionState.message(for: error) },
             operation: { [resourceKey, client] ifMatch in
                 try await client.update(resourceKey, name: name, patch: patch, ifMatch: ifMatch)
             }
@@ -312,26 +190,25 @@ import LeoKit
     }
 
     func rename(to newName: String) async {
-        guard canRestructure, actions.contains(.rename), let name = selection else { return }
-        await write(ifMatch: revisions.resolve(revision), preferring: newName) { [resourceKey, client] ifMatch in
+        guard state.allows(.rename), let name = selection else { return }
+        await write(ifMatch: revisions.resolve(state.revision), preferring: newName) { [resourceKey, client] ifMatch in
             try await client.rename(resourceKey, name: name, to: newName, ifMatch: ifMatch)
         }
     }
 
     func duplicate(as newName: String) async {
-        guard canRestructure, actions.contains(.duplicate), let name = selection else { return }
-        await write(ifMatch: revisions.resolve(revision), preferring: newName, selectingResult: true) { [resourceKey, client] ifMatch in
+        guard state.allows(.duplicate), let name = selection else { return }
+        await write(ifMatch: revisions.resolve(state.revision), preferring: newName, selectingResult: true) { [resourceKey, client] ifMatch in
             try await client.duplicate(resourceKey, name: name, as: newName, ifMatch: ifMatch)
         }
     }
 
     func requestDelete() {
-        guard canRestructure, actions.contains(.delete), let name = selection else { return }
-        confirmation = .delete(name)
+        state.requestDelete(selection)
     }
 
     private func deleteSelected(_ name: String) async {
-        await write(ifMatch: revisions.resolve(revision), preferring: nil) { [resourceKey, client] ifMatch in
+        await write(ifMatch: revisions.resolve(state.revision), preferring: nil) { [resourceKey, client] ifMatch in
             try await client.delete(resourceKey, name: name, ifMatch: ifMatch)
         }
     }
@@ -341,27 +218,25 @@ import LeoKit
     /// Takes the confirmation the alert showed: SwiftUI has already closed the
     /// alert, and cleared `confirmation`, by the time its button runs.
     func confirm(_ pending: Confirmation) async {
-        confirmation = nil
-        switch pending {
+        switch state.take(pending) {
         case .delete(let name):
             await deleteSelected(name)
-        case .discardChanges(let target):
+        case .discard(let target):
             discardChanges()
-            selectNow(target)
+            state.selectNow(target)
         }
     }
 
     func cancelConfirmation() {
-        confirmation = nil
+        state.cancelConfirmation()
     }
 
     func dismissRestartPrompt() {
-        restartPrompt = nil
+        state.dismissRestartPrompt()
     }
 
     func dismissError() {
-        errorMessage = nil
-        warning = nil
+        state.dismissError()
     }
 
     // MARK: Writing
@@ -376,33 +251,12 @@ import LeoKit
         onFailure: ((LeoConfigCollectionModel, Error) -> Void)? = nil,
         operation: @Sendable (String) async throws -> LeoConfigWriteResult
     ) async {
-        guard !isBusy else { return }
-        isBusy = true
-        defer { isBusy = false }
-        errorMessage = nil
-        warning = nil
-        do {
-            var sentWith = ifMatch
-            let result: LeoConfigWriteResult
-            do {
-                result = try await operation(ifMatch)
-            } catch LeoConfigError.conflict(let current) where retryingConflict {
-                sentWith = current
-                result = try await operation(current)
-            }
-            let draftWasCurrent = draft.map { revisions.resolve($0.revision) == sentWith } ?? true
-            revisions.recordWrite(from: sentWith, to: result.revision)
-            conflict = nil
-            warning = result.warning
-            if result.restartRequired.isNeeded { restartPrompt = result.restartRequired }
-            let followed = selectingResult ? (result.item?.name ?? name) : name
-            await refresh(preferring: followed, carrying: keepingDraft ? draft : nil, rebasing: draftWasCurrent)
-        } catch {
-            if let onFailure { onFailure(self, error) } else { errorMessage = Self.message(for: error) }
-        }
-    }
-
-    private static func message(for error: Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? String(describing: error)
+        guard state.beginWrite() else { return }
+        let outcome = await LeoConfigCollectionOps.write(
+            resource: resourceKey, client: client, revisions: revisions, ifMatch: ifMatch, retryingConflict: retryingConflict,
+            draftRevision: draft?.revision, operation: operation
+        )
+        guard let error = state.finishWrite(outcome, preferring: name, selectingResult: selectingResult, keepingDraft: keepingDraft) else { return }
+        if let onFailure { onFailure(self, error) } else { state.report(error) }
     }
 }

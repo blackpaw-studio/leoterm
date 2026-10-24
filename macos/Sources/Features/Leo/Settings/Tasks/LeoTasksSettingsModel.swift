@@ -59,9 +59,11 @@ import LeoKit
         collection.extraUnsavedChanges = { [weak self] in self?.prompt.isDirty ?? false }
         collection.onDiscard = { [weak self] in self?.discardPromptEdits() }
         collection.beforeSave = { [weak self] in self?.allowFormSave($0) ?? true }
-        collection.$selection.removeDuplicates().sink { [weak self] in self?.selectionChanged(to: $0) }.store(in: &subscriptions)
-        collection.$items.sink { [weak self] in self?.itemsChanged($0) }.store(in: &subscriptions)
-        collection.$draft.sink { [weak self] in self?.draftChanged($0) }.store(in: &subscriptions)
+        // `$state` publishes before the change lands, so each sink reads the new value it is handed, never the model.
+        collection.$state.map(\.selection).removeDuplicates().sink { [weak self] in self?.selectionChanged(to: $0) }.store(in: &subscriptions)
+        collection.$state.map { (items: $0.items, selection: $0.selection) }.removeDuplicates { $0.items == $1.items }
+            .sink { [weak self] in self?.itemsChanged($0.items, selectedTask: $0.selection) }.store(in: &subscriptions)
+        collection.$state.map(\.draft).sink { [weak self] in self?.draftChanged($0) }.store(in: &subscriptions)
         collection.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }.store(in: &subscriptions)
     }
 
@@ -138,8 +140,8 @@ import LeoKit
     /// The form saved a new `prompt_file` (or another writer changed it): a
     /// prompt with no edits follows it. One with edits stays, with the choice
     /// of the new file put to the user: that text was typed for the old one.
-    private func itemsChanged(_ items: [LeoConfigItem]) {
-        guard prompt.phase != .idle, let name = selectedTask else { return }
+    private func itemsChanged(_ items: [LeoConfigItem], selectedTask name: String?) {
+        guard prompt.phase != .idle, let name else { return }
         let configured = Self.promptFile(of: name, in: items)
         guard !prompt.isDirty else {
             if configured != prompt.document?.file { prompt.confirmation = .fileChanged(configured) } else if case .fileChanged? = prompt.confirmation {
