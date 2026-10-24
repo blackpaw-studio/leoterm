@@ -19,6 +19,11 @@ struct LeoSidebarSectioningTests {
         #expect(sections.map { $0.rows.map(\.name) } == [["a"], ["b"], ["c"], ["d"]])
     }
 
+    @Test func restoringRowsGetTheirOwnSectionAfterStarting() {
+        let sections = LeoSidebarSectioning.sections(for: [row("a", status: .starting), row("b", status: .restoring)])
+        #expect(sections.map(\.title) == ["Starting", "Restoring…"])
+    }
+
     @Test func allRunningProducesSingleSection() {
         let ranked = [row("a", status: .running), row("b", status: .running)]
 

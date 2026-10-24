@@ -41,6 +41,8 @@ struct LeoAgentControlAvailability: Equatable, Sendable {
             self.init(isOffered: true, canCompose: true, canSend: idle, canInterrupt: false, canCompact: false, canClear: false, reason: nil)
         case .starting:
             self = .off(isOffered: true, reason: "\(row.name) is starting.")
+        case .restoring:
+            self = .off(isOffered: true, reason: "\(row.name) is restoring.")
         case .stopped, .unknown:
             self = .off(isOffered: true, reason: "\(row.name) isn't running.")
         }

@@ -487,7 +487,7 @@ import LeoKit
             let first = errors.first?.message ?? Self.message(for: error)
             switch operation {
             case .cell:
-                cellEditor?.errors = Dictionary(errors.map { ($0.field, $0.message) }, uniquingKeysWith: { first, _ in first })
+                cellEditor?.errors = Dictionary(errors.map { ($0.field, $0.inlineMessage) }, uniquingKeysWith: { first, _ in first })
             case .useFor:
                 useForEditor?.error = first
             default:

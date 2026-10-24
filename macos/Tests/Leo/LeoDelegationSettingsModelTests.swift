@@ -135,6 +135,31 @@ import Testing
         #expect(harness.model.cellEditor?.errors["effort"] == nil)
     }
 
+    @Test func aRejectedCellShowsTheFieldErrorWithoutTheRepeatedConfigPath() async throws {
+        let harness = try await Self.harness()
+        await harness.fake.failNextWrite(with: LeoConfigError.invalid([
+            LeoConfigFieldError(field: "effort", message: "delegation.profiles.deep.roles.coder.effort: expected one of low, high"),
+        ]))
+
+        harness.model.beginCellEdit(profile: "deep", role: "coder")
+        harness.model.setCellEffort("low")
+        await harness.model.saveCellEdit()
+
+        #expect(harness.model.cellEditor?.errors["effort"] == "expected one of low, high")
+    }
+
+    @Test func aRejectedDescriptionKeepsTheFullDaemonText() async throws {
+        let harness = try await Self.harness()
+        let message = "delegation.roles.qa.use_for: too long"
+        await harness.fake.failNextWrite(with: LeoConfigError.invalid([LeoConfigFieldError(field: "use_for", message: message)]))
+
+        harness.model.beginUseForEdit(role: "qa")
+        harness.model.setUseForText("changed")
+        await harness.model.saveUseFor()
+
+        #expect(harness.model.useForEditor?.error == message)
+    }
+
     @Test func cancellingTheEditorDropsItWithoutAWrite() async throws {
         let harness = try await Self.harness()
 

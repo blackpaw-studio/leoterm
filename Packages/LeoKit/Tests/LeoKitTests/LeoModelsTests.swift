@@ -23,6 +23,19 @@ struct LeoModelsTests {
         #expect(agent.wakeOnMessage == nil)
     }
 
+    @Test func decodesRestoringAsItsOwnStatusAndRoundTrips() throws {
+        let data = Data(#"{"name":"booting","status":"restoring"}"#.utf8)
+        let agent = try JSONDecoder().decode(LeoAgent.self, from: data)
+        #expect(agent.status == .some(.restoring))
+        let encoded = try JSONEncoder().encode(LeoAgentStatus.restoring)
+        #expect(try JSONDecoder().decode(LeoAgentStatus.self, from: encoded) == .restoring)
+    }
+
+    @Test func daemonRestoringErrorReadsFriendly() {
+        let error = LeoDaemonError.daemon(code: "daemon_restoring", message: "daemon is restoring agents", matches: [])
+        #expect(error.localizedDescription == "leo is still restoring agents — try again in a moment")
+    }
+
     @Test func mapsErrorEnvelopeIncludingMatches() throws {
         let data = Data(#"{"ok":false,"error":"ambiguous agent","code":"ambiguous","matches":["one","two"]}"#.utf8)
         let envelope = try LeoDaemonEnvelope<LeoAgent>.decode(data)

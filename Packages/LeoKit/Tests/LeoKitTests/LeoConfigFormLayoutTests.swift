@@ -91,6 +91,29 @@ struct LeoConfigFormLayoutTests {
         #expect(Self.control(LeoConfigField(key: "k", type: .map)) == .keyValue)
     }
 
+    // MARK: help for the key/value editor
+
+    private static func helpRow(_ field: LeoConfigField) -> LeoConfigFormRow? {
+        let draft = LeoConfigDraft(document: LeoConfigDocument(revision: "r", values: [:], inherited: [:], effectiveHarness: "claude"))
+        return LeoConfigFormLayout.sections(
+            resource: LeoConfigResource(key: "r", fields: [field]), harnesses: [:], draft: draft, references: [:], webLink: link
+        ).first?.rows.first
+    }
+
+    @Test func aKeyValueEditorDropsTheWebTextareaWordingFromItsHelp() {
+        let plain = Self.helpRow(LeoConfigField(key: "env", help: "KEY=VALUE, one per line", type: .map))
+        #expect(plain?.displayHelp == "One variable per row")
+        let paths = Self.helpRow(LeoConfigField(
+            key: "env", help: "KEY=VALUE, one per line. Absolute paths only \u{2014} a literal ~ is not expanded", type: .map
+        ))
+        #expect(paths?.displayHelp == "One variable per row. Absolute paths only \u{2014} a literal ~ is not expanded")
+    }
+
+    @Test func otherHelpIsShownAsTheDaemonSaidIt() {
+        #expect(Self.helpRow(LeoConfigField(key: "k", help: "Anything else", type: .map))?.displayHelp == "Anything else")
+        #expect(Self.helpRow(LeoConfigField(key: "k", help: "KEY=VALUE, one per line", type: .string))?.displayHelp == "KEY=VALUE, one per line")
+    }
+
     @Test func aDurationIsADurationFieldWithItsDefaultAsPlaceholder() {
         let field = LeoConfigField(key: "k", type: .duration, defaultValue: .string("30m"))
         #expect(Self.control(field) == .duration(placeholder: "30m"))

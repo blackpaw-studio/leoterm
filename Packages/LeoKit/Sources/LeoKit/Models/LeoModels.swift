@@ -4,6 +4,9 @@ public enum LeoAgentStatus: Codable, Equatable, Sendable {
     case starting
     case running
     case stopped
+    /// The daemon is still restoring agents at startup (leo 0.59). `/api/v1`
+    /// never sends it; it folds into `stopped` there.
+    case restoring
     case unknown(String)
 
     public init(from decoder: Decoder) throws {
@@ -12,6 +15,7 @@ public enum LeoAgentStatus: Codable, Equatable, Sendable {
         case "starting": self = .starting
         case "running": self = .running
         case "stopped": self = .stopped
+        case "restoring": self = .restoring
         default: self = .unknown(value)
         }
     }
@@ -22,6 +26,7 @@ public enum LeoAgentStatus: Codable, Equatable, Sendable {
         case .starting: value = "starting"
         case .running: value = "running"
         case .stopped: value = "stopped"
+        case .restoring: value = "restoring"
         case .unknown(let raw): value = raw
         }
         var container = encoder.singleValueContainer()
@@ -157,8 +162,12 @@ public enum LeoDaemonError: Error, Equatable, Sendable {
 }
 
 extension LeoDaemonError: LocalizedError {
+    /// The 503 code a mutation gets while the daemon restores agents at startup.
+    static let restoringCode: String? = "daemon_restoring"
+
     public var errorDescription: String? {
         switch self {
+        case .daemon(Self.restoringCode, _, _): return "leo is still restoring agents — try again in a moment"
         case .daemon(_, let message, _): return message
         case .transport(let message): return "Connection to the Leo daemon failed: \(message)"
         case .timeout: return "The Leo daemon did not respond in time"
