@@ -122,8 +122,7 @@ final class LeoSettingsE2ETests: XCTestCase {
         row.tap()
         let variables = app.cells["config.field.env"]
         XCTAssertTrue(variables.waitForExistence(timeout: 20), "the Variables field never appeared")
-        // Only the chevron button opens the editor; the rest of the row is inert.
-        variables.buttons["field.control"].tap()
+        variables.tap()
         let add = app.cells["field.editor.add"]
         if !add.waitForExistence(timeout: 10) { capture("e2e-env-no-add") }
         XCTAssertTrue(add.exists, "the variables editor has no Add row")

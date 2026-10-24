@@ -50,6 +50,8 @@ final class SchemaFieldContentView: UIView, UIContentView {
 
     private let context: SchemaFieldContext
     private var control: SchemaFieldControl?
+    /// Over the whole row when its control is a menu button, so the row opens the menu.
+    private var rowMenu: UIButton?
     private var controlKind: String?
 
     private let dirtyDot = UIView()
@@ -71,6 +73,9 @@ final class SchemaFieldContentView: UIView, UIContentView {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// The row was selected rather than its control tapped.
+    func activate() { control?.activate?() }
 
     // MARK: layout
 
@@ -135,6 +140,7 @@ final class SchemaFieldContentView: UIView, UIContentView {
         dirtyDot.isHidden = !row.isDirty
         setControl(for: row.control)
         control?.update()
+        rowMenu?.menu = control?.rowMenuSource?.menu
         showCronPreview(row)
         helpLabel.text = row.field.help
         helpLabel.isHidden = row.field.help.isEmpty
@@ -148,10 +154,28 @@ final class SchemaFieldContentView: UIView, UIContentView {
         let key = SchemaFieldControls.kind(of: kind)
         guard key != controlKind else { return }
         control?.view.removeFromSuperview()
+        rowMenu?.removeFromSuperview()
+        rowMenu = nil
         let built = SchemaFieldControls.make(kind, context: context)
         header.addArrangedSubview(built.view)
         control = built
         controlKind = key
+        if built.rowMenuSource != nil { rowMenu = addRowMenu() }
+    }
+
+    private func addRowMenu() -> UIButton {
+        let overlay = UIButton(type: .custom)
+        overlay.accessibilityIdentifier = "field.rowMenu"
+        // The control underneath is what VoiceOver and Switch Control use.
+        overlay.isAccessibilityElement = false
+        overlay.showsMenuAsPrimaryAction = true
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(overlay)
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: topAnchor), overlay.bottomAnchor.constraint(equalTo: bottomAnchor),
+            overlay.leadingAnchor.constraint(equalTo: leadingAnchor), overlay.trailingAnchor.constraint(equalTo: trailingAnchor),
+        ])
+        return overlay
     }
 
     private func showCronPreview(_ row: LeoConfigFormRow) {

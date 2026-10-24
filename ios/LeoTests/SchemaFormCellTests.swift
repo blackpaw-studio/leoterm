@@ -343,6 +343,40 @@ struct SchemaFormCellTests {
         #expect(recorder.pushes.map(\.isMonospaced) == [false, false, false, true])
     }
 
+    @Test func selectingTheRowPushesTheEditorLikeItsChevron() throws {
+        let recorder = CellRecorder()
+        let list = CellHarness.row(.list, value: .list([.string("a")]))
+        let env = CellHarness.row(.keyValue, value: .object(["A": .string("1")]))
+        let notes = CellHarness.row(.multiline, value: .string("line one"))
+        let yaml = CellHarness.row(.yaml, value: .string("a: 1"))
+
+        for row in [list, env, notes, yaml] {
+            try #require(CellHarness.view(row, recorder: recorder) as? SchemaFieldContentView).activate()
+        }
+
+        #expect(recorder.pushes == [.list(list), .keyValue(env), .text(notes), .text(yaml)])
+    }
+
+    @Test func aMenuRowLaysItsMenuOverTheWholeRow() throws {
+        let rows = [
+            CellHarness.row(.triState, value: .bool(true)),
+            CellHarness.row(.picker(options: [LeoConfigOption(value: "a", label: "A")]), value: .string("a")),
+            CellHarness.row(.referencePicker(collection: "templates", names: ["coder"], emptyLabel: "None")),
+            CellHarness.row(.secret(.notSet)),
+        ]
+        for row in rows {
+            let view = CellHarness.view(row, recorder: CellRecorder())
+            let button = try #require(view.control as? UIButton)
+            let overlay = try #require(view.subview("field.rowMenu") as? UIButton)
+            #expect(overlay.frame == view.bounds)
+            #expect(overlay.showsMenuAsPrimaryAction)
+            let titles = { (menu: UIMenu?) in menu?.children.map { $0.title } }
+            #expect(titles(overlay.menu) == titles(button.menu))
+            #expect(!overlay.isAccessibilityElement)
+        }
+        #expect(CellHarness.view(CellHarness.row(.list), recorder: CellRecorder()).subview("field.rowMenu") == nil)
+    }
+
     @Test func pushedControlsSummariseTheirValue() throws {
         func summary(_ row: LeoConfigFormRow) throws -> String? {
             try #require(CellHarness.view(row, recorder: CellRecorder()).control as? UIButton).configuration?.title

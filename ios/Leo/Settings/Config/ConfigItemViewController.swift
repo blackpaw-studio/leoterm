@@ -220,6 +220,7 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
         case .web?, .link?: true
+        case .field(let path)?: rows[path].map { SchemaFieldControls.isActivatable($0.control) } ?? false
         default: false
         }
     }
@@ -229,6 +230,7 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         switch dataSource.itemIdentifier(for: indexPath) {
         case .link(let link)?: currentExtras.open(link.id)
         case .web?: if let webLink { UIApplication.shared.open(webLink) }
+        case .field?: collectionView.cellForItem(at: indexPath)?.firstSubview(ofType: SchemaFieldContentView.self)?.activate()
         default: break
         }
     }
@@ -253,5 +255,11 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
             done(alert?.textFields?.first?.text)
         })
         present(alert, animated: true)
+    }
+}
+
+private extension UIView {
+    func firstSubview<View: UIView>(ofType type: View.Type) -> View? {
+        subviews.lazy.compactMap { ($0 as? View) ?? $0.firstSubview(ofType: type) }.first
     }
 }

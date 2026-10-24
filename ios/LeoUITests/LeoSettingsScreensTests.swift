@@ -62,6 +62,21 @@ final class LeoSettingsScreensTests: XCTestCase {
         XCTAssertFalse(app.menus.firstMatch.waitForExistence(timeout: 2), "the back button still offers its history menu")
     }
 
+    /// The label side of a row, away from its trailing button.
+    func testTappingAnywhereOnARowOpensItsEditorOrMenu() {
+        openTemplate("coder")
+        let picker = app.cells["config.field.harness"]
+        XCTAssertTrue(picker.waitForExistence(timeout: 10))
+        picker.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["codex"].waitForExistence(timeout: 5), "a tap on a picker row's label opened no menu")
+        app.buttons["codex"].tap()
+
+        let list = app.cells["config.field.channels"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        list.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.5)).tap()
+        XCTAssertTrue(app.cells["field.editor.add"].waitForExistence(timeout: 5), "a tap on a list row's label opened no editor")
+    }
+
     func testStaleSaveShowsTheConflictBanner() {
         openTemplate("coder", arguments: ["-settingsFixtureWrite", "conflict"])
         editModel()

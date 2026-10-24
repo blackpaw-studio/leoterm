@@ -5,6 +5,20 @@ import UIKit
 struct SchemaFieldControl {
     let view: UIView
     let update: () -> Void
+    /// What selecting the row does: the same as tapping its trailing button.
+    /// Nil for controls the row has no other way to open (a text field, a switch).
+    var activate: (() -> Void)?
+    var rowMenuSource: UIButton?
+
+    func activating(_ action: @escaping () -> Void) -> SchemaFieldControl {
+        SchemaFieldControl(view: view, update: update, activate: action, rowMenuSource: rowMenuSource)
+    }
+
+    /// The row opens this button's menu wherever it is tapped, not just on the
+    /// button: the content view lays a transparent twin of the menu over the row.
+    func menuOpenedByTheRow(of button: UIButton) -> SchemaFieldControl {
+        SchemaFieldControl(view: view, update: update, activate: activate, rowMenuSource: button)
+    }
 }
 
 /// The standard control for each `LeoConfigControl`. Controls update in
@@ -12,6 +26,15 @@ struct SchemaFieldControl {
 @MainActor
 enum SchemaFieldControls {
     static let controlID = "field.control"
+
+    /// Whether selecting the row pushes an editor. (A menu's row opens the menu
+    /// through an overlay instead; see `menuOpenedByTheRow`.)
+    static func isActivatable(_ control: LeoConfigControl) -> Bool {
+        switch control {
+        case .list, .keyValue, .multiline, .yaml: true
+        default: false
+        }
+    }
 
     /// Controls of one kind update in place; a new kind builds a new control.
     static func kind(of control: LeoConfigControl) -> String {
@@ -168,7 +191,7 @@ enum SchemaFieldControls {
                 UIAction(title: "On", state: selected == true ? .on : .off) { _ in context.emit(.bool(true)) },
                 UIAction(title: "Off", state: selected == false ? .on : .off) { _ in context.emit(.bool(false)) },
             ])
-        }
+        }.menuOpenedByTheRow(of: button)
     }
 
     // MARK: pickers
@@ -195,7 +218,7 @@ enum SchemaFieldControls {
             button?.menu = UIMenu(children: options.map { option in
                 UIAction(title: option.title, state: option.value == value ? .on : .off) { _ in context.emit(.string(option.value)) }
             })
-        }
+        }.menuOpenedByTheRow(of: button)
     }
 
     private static func menuButton() -> UIButton {
@@ -227,6 +250,7 @@ enum SchemaFieldControls {
         return SchemaFieldControl(view: button) { [weak button] in
             button?.configuration?.title = summary(of: context.row)
         }
+        .activating { [weak button] in button?.sendActions(for: .primaryActionTriggered) }
     }
 
     private static func editor(for row: LeoConfigFormRow) -> SchemaFieldEditor {
@@ -270,7 +294,7 @@ enum SchemaFieldControls {
             guard case .secret(let state) = context.row.control else { return }
             button?.configuration?.title = SecretText.summary(state)
             button?.menu = UIMenu(children: secretActions(state, context: context))
-        }
+        }.menuOpenedByTheRow(of: button)
     }
 
     private static func secretActions(_ state: LeoConfigSecretState, context: SchemaFieldContext) -> [UIAction] {
