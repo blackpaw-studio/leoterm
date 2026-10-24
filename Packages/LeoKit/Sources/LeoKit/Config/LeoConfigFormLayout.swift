@@ -44,6 +44,19 @@ public struct LeoConfigFormRow: Equatable, Sendable, Identifiable {
     public let errors: [String]
 
     public var id: String { path }
+
+    public init(
+        path: String, field: LeoConfigField, control: LeoConfigControl, value: LeoConfigValue = .null,
+        inherited: LeoConfigValue? = nil, isDirty: Bool = false, errors: [String] = []
+    ) {
+        self.path = path
+        self.field = field
+        self.control = control
+        self.value = value
+        self.inherited = inherited
+        self.isDirty = isDirty
+        self.errors = errors
+    }
 }
 
 public struct LeoConfigFormSection: Equatable, Sendable, Identifiable {
