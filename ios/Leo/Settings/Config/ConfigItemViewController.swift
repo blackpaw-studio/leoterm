@@ -94,6 +94,9 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
+        // To the view's edge while the keyboard is down, so the form scrolls
+        // under the home indicator instead of stopping above it.
+        view.keyboardLayoutGuide.usesBottomSafeArea = false
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),

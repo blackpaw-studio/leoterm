@@ -13,6 +13,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         prepareDependencies { $0.deviceName = deviceName }
         #if DEBUG
         if MachinesFixture.isRequested { prepareDependencies { MachinesFixture.prepare(&$0) } }
+        if SettingsFixture.isRequested { prepareDependencies { SettingsFixture.prepare(&$0) } }
         #endif
         return Store(initialState: AppFeature.State()) { AppFeature() }
     }()
@@ -28,6 +29,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Self.store.send(.task)
         #if DEBUG
         if MachinesFixture.isRequested { MachinesFixture.openMachines(Self.store) }
+        if SettingsFixture.isRequested { SettingsFixture.openMachines(Self.store) }
         #endif
         return true
     }
