@@ -94,28 +94,28 @@ struct ConfigEditorNavigationTests {
         #expect(!rig.store.core.isDirty)
     }
 
-    @Test func aDirtyEditorHasNoSystemBackButtonSoThereIsNoHistoryMenu() async throws {
+    @Test func aDirtyEditorKeepsTheSystemBackButtonAndItsBackActionAsks() async throws {
         let rig = try Self.rig()
         await Self.settle { rig.store.core.phase == .loaded }
+        let list = try #require(rig.navigation.topViewController as? ConfigCollectionViewController)
         rig.store.send(.rowTapped("coder"))
         await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
         let editor = try #require(rig.navigation.topViewController as? ConfigItemViewController)
-        #expect(!editor.navigationItem.hidesBackButton)
 
         rig.store.send(.field("model", .string("sonnet")))
-        await Self.settle { editor.navigationItem.hidesBackButton }
+        await Self.settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
 
-        #expect(editor.navigationItem.hidesBackButton)
-        let back = try #require(editor.navigationItem.leftBarButtonItem)
-        back.primaryAction?.performWithSender(nil, target: nil)
+        // One back button: the system's. Nothing hides it or stands in for it.
+        #expect(!editor.navigationItem.hidesBackButton)
+        #expect(editor.navigationItem.leftBarButtonItems == nil)
+        // Its long-press history menu is gone, since it would skip the question.
+        let back = try #require(list.navigationItem.backBarButtonItem as? NoHistoryBackBarButtonItem)
+        #expect(back.menu == nil)
+        let backAction = try #require(editor.navigationItem.backAction)
+        backAction.performWithSender(nil, target: nil)
         await Self.settle { rig.store.leaveDialog != nil }
         #expect(rig.store.leaveDialog != nil)
-
-        rig.store.send(.leaveDialog(.dismiss))
-        rig.store.send(.revertAllTapped)
-        await Self.settle { !editor.navigationItem.hidesBackButton }
-        #expect(!editor.navigationItem.hidesBackButton)
-        #expect(editor.navigationItem.leftBarButtonItem == nil)
+        #expect(rig.navigation.topViewController === editor)
     }
 
     @Test func anEditorPoppedWhileDirtyComesBackWithItsEdits() async throws {

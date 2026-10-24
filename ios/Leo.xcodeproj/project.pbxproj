@@ -65,6 +65,7 @@
 		D3BAB2D4681490832C6470C8 /* StatsStyleViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B49401DB8C7296CBD9D8EC /* StatsStyleViewController.swift */; };
 		D40FC2D15D3B36995C075597 /* ChatsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */; };
 		D53BEAE86E41AC0D887D17D4 /* ChatPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED896422B42A4AB6BD982529 /* ChatPresentation.swift */; };
+		D880CE673551A008F8CAF71C /* NoHistoryBackBarButtonItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */; };
 		DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57636A050F83D8C255CD37DB /* PushClientLive.swift */; };
 		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E092B1F2FD246F8984A737F6 /* MachineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C6F25CCCD87641CD218A9C /* MachineCell.swift */; };
@@ -150,6 +151,7 @@
 		6B48EC9D98C80D8F978F2F0A /* LeoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E33C69E01DC3265B930EAB6 /* MachinesFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesFixture.swift; sourceTree = "<group>"; };
 		79366C4E5F3E01AFDCC19AA8 /* NameEntryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameEntryViewController.swift; sourceTree = "<group>"; };
+		7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoHistoryBackBarButtonItem.swift; sourceTree = "<group>"; };
 		7DF3E4D91083291F99E925A1 /* SettingsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixture.swift; sourceTree = "<group>"; };
 		814B887B4D27ECED43048979 /* ServiceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceViewController.swift; sourceTree = "<group>"; };
 		8489DDAE52EDC6E8AF2BF84B /* SchemaFieldEditorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldEditorViewController.swift; sourceTree = "<group>"; };
@@ -316,6 +318,7 @@
 				1C40E03637E8C2B8531F2901 /* ConfigCollectionViewController.swift */,
 				20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */,
 				79366C4E5F3E01AFDCC19AA8 /* NameEntryViewController.swift */,
+				7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */,
 				7450F2FA08971B82F8D06563 /* Form */,
 			);
 			path = Config;
@@ -692,6 +695,7 @@
 				F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */,
 				49DFFA476CDBDD3A17C8E741 /* MeterLineView.swift in Sources */,
 				380DADB3D9B64EF127F2E3F2 /* NameEntryViewController.swift in Sources */,
+				D880CE673551A008F8CAF71C /* NoHistoryBackBarButtonItem.swift in Sources */,
 				2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */,
 				DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */,
 				E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */,

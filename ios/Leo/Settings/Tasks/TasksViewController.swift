@@ -44,6 +44,7 @@ final class TasksViewController: UIViewController, UICollectionViewDelegate {
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .never
+        navigationItem.backBarButtonItem = NoHistoryBackBarButtonItem()
         addButton.primaryAction = UIAction(image: UIImage(systemName: "plus")) { [store] _ in store.send(.collection(.addTapped)) }
         addButton.accessibilityIdentifier = "tasks.add"
         addButton.accessibilityLabel = String(localized: "Add")

@@ -13,9 +13,6 @@ final class TaskPromptViewController: UIViewController, UITextViewDelegate {
     private let textView = UITextView()
     private let saveButton = UIBarButtonItem(title: String(localized: "Save"), style: .done, target: nil, action: nil)
     private let revertButton = UIBarButtonItem(image: UIImage(systemName: "arrow.uturn.backward"), style: .plain, target: nil, action: nil)
-    private lazy var backButton = UIBarButtonItem(image: UIImage(systemName: "chevron.backward"), primaryAction: UIAction(
-        title: String(localized: "Back"), image: UIImage(systemName: "chevron.backward")
-    ) { [store] _ in store.send(.promptBackTapped) })
 
     init(store: StoreOf<TaskSettings>) {
         self.store = store
@@ -65,12 +62,16 @@ final class TaskPromptViewController: UIViewController, UITextViewDelegate {
 
         present(item: $store.scope(state: \.promptDialog, action: \.promptDialog)) { [weak self] store in
             let dialog = UIAlertController(store: store)
-            dialog.popoverPresentationController?.barButtonItem = self?.saveButton
+            // Anchored to the system back button's corner of the bar.
+            if let bar = self?.navigationController?.navigationBar {
+                dialog.popoverPresentationController?.sourceView = bar
+                dialog.popoverPresentationController?.sourceRect = CGRect(x: bar.layoutMargins.left, y: bar.bounds.midY, width: 44, height: 0)
+            }
             return dialog
         }
         present(item: $store.scope(state: \.promptLeave, action: \.promptLeave)) { [weak self] store in
             let dialog = UIAlertController(store: store)
-            dialog.popoverPresentationController?.barButtonItem = self?.navigationItem.leftBarButtonItem ?? self?.saveButton
+            dialog.popoverPresentationController?.barButtonItem = self?.saveButton
             return dialog
         }
         observe { [weak self] in self?.render() }
@@ -96,8 +97,6 @@ final class TaskPromptViewController: UIViewController, UITextViewDelegate {
         saveButton.isEnabled = prompt.canWrite
         revertButton.isEnabled = isDirty && !prompt.isSaving
         navigationController?.interactivePopGestureRecognizer?.isEnabled = !isDirty
-        navigationItem.hidesBackButton = isDirty
-        navigationItem.leftBarButtonItem = isDirty ? backButton : nil
         title = prompt.document?.file.split(separator: "/").last.map(String.init) ?? String(localized: "Prompt")
         banners.show(banners(for: prompt))
 

@@ -105,12 +105,16 @@ struct TaskScreensTests {
         await Self.openPrompt(rig)
         let prompt = try #require(rig.navigation.topViewController as? TaskPromptViewController)
         rig.store.send(.promptTextChanged("typed"))
-        await Self.settle { prompt.navigationItem.hidesBackButton }
+        await Self.settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
 
-        #expect(prompt.navigationItem.hidesBackButton)
-        #expect(rig.navigation.interactivePopGestureRecognizer?.isEnabled == false)
-        let back = try #require(prompt.navigationItem.leftBarButtonItem)
-        back.primaryAction?.performWithSender(nil, target: nil)
+        // The system back button stays: nothing hides it or stands in for it.
+        #expect(!prompt.navigationItem.hidesBackButton)
+        #expect(prompt.navigationItem.leftBarButtonItems == nil)
+        let detail = try #require(rig.navigation.viewControllers.first { $0 is ConfigItemViewController })
+        #expect(detail.navigationItem.backBarButtonItem is NoHistoryBackBarButtonItem)
+        #expect(rig.list.navigationItem.backBarButtonItem is NoHistoryBackBarButtonItem)
+        let backAction = try #require(prompt.navigationItem.backAction)
+        backAction.performWithSender(nil, target: nil)
         await Self.settle { rig.store.promptLeave != nil }
 
         #expect(rig.store.promptLeave != nil)

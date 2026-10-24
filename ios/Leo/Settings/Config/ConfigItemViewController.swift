@@ -49,9 +49,6 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
     private var webLink: URL?
     private var openEditor: (path: String, controller: any SchemaFieldEditorViewController)?
     private let saveButton = UIBarButtonItem(title: String(localized: "Save"), style: .done, target: nil, action: nil)
-    private lazy var backButton = UIBarButtonItem(image: UIImage(systemName: "chevron.backward"), primaryAction: UIAction(
-        title: String(localized: "Back"), image: UIImage(systemName: "chevron.backward")
-    ) { [store] _ in store.send(.backTapped) })
     private let revertButton = UIBarButtonItem(image: UIImage(systemName: "arrow.uturn.backward"), style: .plain, target: nil, action: nil)
 
     private lazy var handlers = SchemaFieldHandlers(
@@ -77,7 +74,11 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .never
+        // The system back button asks through `backAction`; the one this
+        // screen's own back button would show for what's pushed on top has no
+        // history menu, which would jump past the question.
         navigationItem.backAction = UIAction { [store] _ in store.send(.backTapped) }
+        navigationItem.backBarButtonItem = NoHistoryBackBarButtonItem()
         saveButton.primaryAction = UIAction(title: String(localized: "Save")) { [store] _ in store.send(.saveTapped) }
         saveButton.accessibilityIdentifier = "config.save"
         revertButton.primaryAction = UIAction(image: UIImage(systemName: "arrow.uturn.backward")) { [store] _ in
@@ -107,7 +108,11 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
 
         present(item: $store.scope(state: \.leaveDialog, action: \.leaveDialog)) { [weak self] store in
             let dialog = UIAlertController(store: store)
-            dialog.popoverPresentationController?.barButtonItem = self?.navigationItem.leftBarButtonItem ?? self?.saveButton
+            // Anchored to the system back button's corner of the bar.
+            if let bar = self?.navigationController?.navigationBar {
+                dialog.popoverPresentationController?.sourceView = bar
+                dialog.popoverPresentationController?.sourceRect = CGRect(x: bar.layoutMargins.left, y: bar.bounds.midY, width: 44, height: 0)
+            }
             return dialog
         }
         observe { [weak self] in self?.render() }
@@ -140,11 +145,6 @@ final class ConfigItemViewController: UIViewController, UICollectionViewDelegate
         saveButton.isEnabled = core.canSave
         revertButton.isEnabled = core.isDirty && !core.isBusy
         navigationController?.interactivePopGestureRecognizer?.isEnabled = !isDirty
-        // The system back button offers a history menu that jumps past the
-        // question, so while there are unsaved edits it is replaced by one
-        // that doesn't.
-        navigationItem.hidesBackButton = isDirty
-        navigationItem.leftBarButtonItem = isDirty ? backButton : nil
         banners.show(ConfigBanners.banners(store, restart: restart))
         currentExtras = extras?() ?? ConfigItemExtras()
 

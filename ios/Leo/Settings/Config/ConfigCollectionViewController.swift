@@ -38,6 +38,7 @@ final class ConfigCollectionViewController: UIViewController, UICollectionViewDe
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .never
+        navigationItem.backBarButtonItem = NoHistoryBackBarButtonItem()
         addButton.primaryAction = UIAction(image: UIImage(systemName: "plus")) { [store] _ in store.send(.addTapped) }
         addButton.accessibilityIdentifier = "config.add"
         addButton.accessibilityLabel = String(localized: "Add")

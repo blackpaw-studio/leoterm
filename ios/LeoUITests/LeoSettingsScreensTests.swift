@@ -53,7 +53,13 @@ final class LeoSettingsScreensTests: XCTestCase {
         openTemplate("coder")
         editModel()
         XCTAssertTrue(app.buttons["config.save"].waitForExistence(timeout: 5))
+        // Back, Revert and Save: the system back button is the only one.
+        XCTAssertEqual(app.navigationBars.buttons.count, 3)
         capture("template-dirty")
+
+        // Its long-press history menu would skip the Save/Discard question.
+        app.navigationBars.buttons.element(boundBy: 0).press(forDuration: 1.5)
+        XCTAssertFalse(app.menus.firstMatch.waitForExistence(timeout: 2), "the back button still offers its history menu")
     }
 
     func testStaleSaveShowsTheConflictBanner() {
