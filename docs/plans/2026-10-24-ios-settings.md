@@ -392,6 +392,7 @@ Already shared, and used as-is: models, `LeoConfigHTTPClient`, `LeoWebDaemonClie
   - `drainPollsDontSpendBudget`
   - `newPidEndsWait`
   - `deadlineGivesUpWithAgentsMessage`
+  - `deadlineChecksBeforeEveryPoll` (**review note, K3**): `LeoRestartWait.expiry(at:)` is separate from `record(_:)`, so the reducer must call it before every poll. Same-pid polls never spend the unreachable budget, so without that call only the poll budget ends the wait. With a `TestClock` and `date` dependency and a daemon that keeps answering with the old pid, advance past the 12-minute deadline and assert the wait gives up with `.gaveUp(afterDown: false)` and sends no further poll.
   - `unreachableBudgetGivesUp`
   - `inProgressCountsAsStarted`
   - `restartAllSummary`
