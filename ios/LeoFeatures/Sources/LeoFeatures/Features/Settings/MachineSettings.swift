@@ -98,6 +98,9 @@ public struct MachineSettings {
         case linkUpdated(MachineLink)
         case reconnectTapped
         case rowTapped(Row)
+        /// The app went to the background or came back. Drafts stay in
+        /// memory either way; the Service screen stops reading its log.
+        case scenePhaseChanged(isActive: Bool)
 
         @CasePathable
         public enum Delegate: Equatable {
@@ -130,6 +133,10 @@ public struct MachineSettings {
 
             case .restart:
                 return .none
+
+            case .scenePhaseChanged(let isActive):
+                guard case .service? = state.destination else { return .none }
+                return .send(.destination(.presented(.service(.machine(.scenePhaseChanged(isActive: isActive))))))
 
             case .linkUpdated(let link):
                 let wasConnected = state.link.connection.isConnected

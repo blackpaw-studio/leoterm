@@ -183,7 +183,10 @@ public struct AppFeature {
                         ? .none
                         : .send(.detail(.destination(.presented(.terminal(.scenePhaseChanged(isActive: isActive))))))
                     let pushCheck: Effect<Action> = isActive ? push(.becameActive, state: &state) : .none
-                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck)
+                    let settings: Effect<Action> = state.daemons.machine == nil
+                        ? .none
+                        : .send(.daemons(.machine(.presented(.scenePhaseChanged(isActive: isActive)))))
+                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck, settings)
 
                 case .settingsButtonTapped:
                     state.isShowingSettings = true
