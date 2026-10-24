@@ -135,8 +135,9 @@ public struct MachineSettings {
                 return .none
 
             case .scenePhaseChanged(let isActive):
-                guard case .service? = state.destination else { return .none }
-                return .send(.destination(.presented(.service(.machine(.scenePhaseChanged(isActive: isActive))))))
+                let restart: Effect<Action> = .send(.restart(.scenePhaseChanged(isActive: isActive)))
+                guard case .service? = state.destination else { return restart }
+                return .merge(restart, .send(.destination(.presented(.service(.machine(.scenePhaseChanged(isActive: isActive)))))))
 
             case .linkUpdated(let link):
                 let wasConnected = state.link.connection.isConnected

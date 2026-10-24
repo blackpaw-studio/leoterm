@@ -144,6 +144,14 @@ struct MachineSettingsTests {
         await store.receive(\.destination.presented.service.refreshRequested)
     }
 
+    @Test func theScenePhaseReachesTheMachineRestart() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+
+        await store.send(.scenePhaseChanged(isActive: false))
+
+        await store.receive(\.restart.scenePhaseChanged, false)
+    }
+
     @Test func reconnectTapAsksTheFleetToRetry() async throws {
         let store = try Self.store(MachineSettings.State(link: Self.link(.offline)))
 

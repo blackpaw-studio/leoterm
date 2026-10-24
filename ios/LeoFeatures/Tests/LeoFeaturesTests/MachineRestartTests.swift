@@ -81,7 +81,7 @@ struct MachineRestartTests {
         await harness.store.receive(\.statusChecked)
         let daemonAlert = try #require(harness.state.alert)
         #expect(String(state: daemonAlert.title) == "Restart leo on Dionysus?")
-        #expect(daemonAlert.message.map { String(state: $0) } == "Running agents keep their tmux sessions.")
+        #expect(daemonAlert.message.map { String(state: $0) } == "2 running agents keep their tmux sessions.")
         #expect(await harness.statusReads() == 2)
     }
 
@@ -210,8 +210,88 @@ struct MachineRestartTests {
         await harness.store.send(.requested(.agents))
         await harness.store.send(.reloadRequested)
 
-        #expect(harness.state.alert == nil)
+        let alert = try #require(harness.state.alert)
+        #expect(String(state: alert.title) == "A restart is already in progress")
+        #expect(alert.message.map { String(state: $0) } == "leo on Dionysus is already restarting.")
+        #expect(harness.state.phase == .restarting(waitingOnAgents: false))
         #expect(await harness.fake.calls.contains(.reloadConfig) == false)
+    }
+
+    @Test func aRestartAskedWhileAnotherIsBeingAskedSaysSoToo() async throws {
+        let connection = DaemonConnection(daemon: .dionysus, secrets: DaemonSecrets(token: "t"))
+        var checking = MachineRestart.State(machine: "Dionysus", connection: connection)
+        checking.phase = .checking
+        let store = TestStore(initialState: checking) { MachineRestart() }
+
+        await store.send(.requested(.daemon)) {
+            $0.alert = AlertState {
+                TextState("A restart is already in progress")
+            } actions: {
+                ButtonState(role: .cancel) { TextState("OK") }
+            } message: {
+                TextState("leo on Dionysus is already restarting.")
+            }
+        }
+    }
+
+    @Test func aDaemonRestartWithOneAgentSaysAgentNotAgents() async throws {
+        let harness = try await Self.harness(running: ["zeus"])
+
+        await harness.store.send(.requested(.daemon))
+        await harness.store.receive(\.statusChecked)
+
+        #expect(harness.state.alert?.message.map { String(state: $0) } == "1 running agent keeps its tmux sessions.")
+    }
+
+    // MARK: the app leaving the foreground
+
+    @Test func theWaitStopsInTheBackgroundAndAFreshOneReadsANewPid() async throws {
+        let harness = try await Self.harness()
+        await harness.startDaemonRestart()
+        let readsBefore = await harness.statusReads()
+
+        await harness.store.send(.scenePhaseChanged(isActive: false))
+        // Thirteen minutes pass, the daemon restarts meanwhile.
+        await harness.fake.finishServiceRestart()
+        harness.now.withValue { $0 = $0.addingTimeInterval(13 * 60) }
+        await harness.clock.advance(by: .seconds(13 * 60))
+        #expect(harness.state.phase == .restarting(waitingOnAgents: false))
+        #expect(harness.state.errorMessage == nil)
+        #expect(await harness.statusReads() == readsBefore)
+
+        await harness.store.send(.scenePhaseChanged(isActive: true))
+        await harness.tick()
+        await harness.store.receive(\.waitEnded)
+
+        #expect(harness.state.phase == .idle)
+        #expect(harness.state.notice == "leo restarted on Dionysus.")
+        #expect(harness.state.errorMessage == nil)
+    }
+
+    @Test func theOldPidAfterResumeDoesNotReadAsRestarted() async throws {
+        let harness = try await Self.harness()
+        await harness.startDaemonRestart()
+        await harness.store.send(.scenePhaseChanged(isActive: false))
+        harness.now.withValue { $0 = $0.addingTimeInterval(13 * 60) }
+        await harness.clock.advance(by: .seconds(13 * 60))
+
+        await harness.store.send(.scenePhaseChanged(isActive: true))
+        await harness.tick()
+        await harness.store.receive(\.waitProgress)
+
+        #expect(harness.state.phase == .restarting(waitingOnAgents: true))
+        #expect(harness.state.notice == nil)
+        #expect(harness.state.errorMessage == nil)
+    }
+
+    @Test func comingToTheForegroundWithNothingRestartingDoesNothing() async throws {
+        let harness = try await Self.harness()
+
+        await harness.store.send(.scenePhaseChanged(isActive: true))
+        await harness.store.send(.scenePhaseChanged(isActive: false))
+
+        #expect(harness.state.phase == .idle)
+        #expect(await harness.statusReads() == 0)
     }
 
     @Test func reloadSaysSo() async throws {

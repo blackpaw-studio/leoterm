@@ -40,6 +40,10 @@ public struct MachineRestart {
         public var notice: String?
         public var errorMessage: String?
         public var agentsSummary: String?
+        /// The process the daemon was before the restart it is waiting out.
+        var restartPrevious: LeoServiceStatus?
+        /// The wait was stopped because the app left the foreground.
+        var isWaitSuspended = false
         @Presents public var alert: AlertState<Action.Alert>?
 
         public init(machine: String, connection: DaemonConnection? = nil) {
@@ -73,6 +77,8 @@ public struct MachineRestart {
         case agentsRestarted(Result<LeoAgentsRestartResult, Error>)
         case reloaded(Result<LeoConfigReload, Error>)
         case dismissMessages
+        /// The app left or returned to the foreground.
+        case scenePhaseChanged(isActive: Bool)
         case delegate(Delegate)
 
         /// The buttons carry what the question was asked about: the alert has
@@ -125,6 +131,8 @@ public struct MachineRestart {
             case .restartAccepted(let previous, let alreadyRunning):
                 state.notice = alreadyRunning ? "A restart is already in progress on \(state.machine)." : nil
                 state.phase = .restarting(waitingOnAgents: false)
+                state.restartPrevious = previous
+                state.isWaitSuspended = false
                 return wait(state, previous: previous)
             case .requestFailed(let message):
                 state.phase = .idle
@@ -137,6 +145,8 @@ public struct MachineRestart {
                 return .none
             case .waitEnded(let outcome):
                 state.phase = .idle
+                state.restartPrevious = nil
+                state.isWaitSuspended = false
                 switch outcome {
                 case .restarted:
                     state.notice = "leo restarted on \(state.machine)."
@@ -176,11 +186,36 @@ public struct MachineRestart {
             case .dismissMessages:
                 Self.clearMessages(&state)
                 return .none
+            case .scenePhaseChanged(let isActive):
+                return scenePhaseChanged(&state, isActive: isActive)
             case .delegate:
                 return .none
             }
         }
         .ifLet(\.$alert, action: \.alert)
+    }
+
+    private static func daemonRestartMessage(running: Int?) -> String {
+        switch running {
+        case nil: "Running agents keep their tmux sessions."
+        case 1?: "1 running agent keeps its tmux sessions."
+        case let count?: "\(count) running agents keep their tmux sessions."
+        }
+    }
+
+    /// The wait doesn't run in the background: the deadline is wall-clock, and
+    /// a poll that fails because the app was suspended says nothing about the
+    /// daemon. It stops there (the restart stays "under way", with the process
+    /// it is told apart from) and starts again, with a full deadline, on return.
+    private func scenePhaseChanged(_ state: inout State, isActive: Bool) -> Effect<Action> {
+        guard state.isRestarting else { return .none }
+        if !isActive {
+            state.isWaitSuspended = true
+            return .cancel(id: CancelID.wait)
+        }
+        guard state.isWaitSuspended else { return .none }
+        state.isWaitSuspended = false
+        return wait(state, previous: state.restartPrevious)
     }
 
     /// What an operation ended with, for screens that can't show it inline.
@@ -204,7 +239,11 @@ public struct MachineRestart {
 
     /// Reads the status the question is about, then asks it.
     private func check(_ state: inout State, _ kind: Kind) -> Effect<Action> {
-        guard !state.isBusy, let client = client(state) else { return .none }
+        guard !state.isBusy else {
+            state.alert = Self.result("A restart is already in progress", "leo on \(state.machine) is already restarting.")
+            return .none
+        }
+        guard let client = client(state) else { return .none }
         state.phase = .checking
         Self.clearMessages(&state)
         return .run { send in
@@ -225,7 +264,7 @@ public struct MachineRestart {
                 ButtonState(role: .destructive, action: .restartDaemon(previous: status)) { TextState("Restart") }
                 ButtonState(role: .cancel) { TextState("Cancel") }
             } message: {
-                TextState("Running agents keep their tmux sessions.")
+                TextState(Self.daemonRestartMessage(running: status?.runningAgentCount))
             }
         case .agents:
             AlertState {
