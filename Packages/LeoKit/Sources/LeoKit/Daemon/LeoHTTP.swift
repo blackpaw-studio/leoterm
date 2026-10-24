@@ -6,22 +6,52 @@ public struct LeoHTTPRequest: Equatable, Sendable {
     public let body: Data?
     /// The body's media type; nil means JSON.
     public let contentType: String?
+    /// Extra request headers, such as `If-Match`. Names and values are
+    /// checked when the request is built (`validatedHeaders()`).
+    public let headers: [String: String]
 
-    public init(method: String, path: String, body: Data? = nil, contentType: String? = nil) {
+    public init(method: String, path: String, body: Data? = nil, contentType: String? = nil, headers: [String: String] = [:]) {
         self.method = method
         self.path = path
         self.body = body
         self.contentType = contentType
+        self.headers = headers
     }
 
-    public func serialized() -> Data {
-        var headers = "\(method) \(path) HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n"
-        if let body {
-            headers += "Content-Type: \(contentType ?? "application/json")\r\nContent-Length: \(body.count)\r\n"
+    /// The headers in a stable order. Throws on a name that isn't an HTTP
+    /// token or a value with a control character, so a revision or other
+    /// caller-supplied string can never split the request.
+    public func validatedHeaders() throws -> [(name: String, value: String)] {
+        try headers.sorted { $0.key < $1.key }.map { name, value in
+            guard Self.isToken(name) else { throw LeoDaemonError.decoding("Invalid HTTP header name \(name.debugDescription)") }
+            guard !value.unicodeScalars.contains(where: Self.isControl) else {
+                throw LeoDaemonError.decoding("Invalid value for HTTP header \(name)")
+            }
+            return (name, value)
         }
-        var result = Data((headers + "\r\n").utf8)
+    }
+
+    public func serialized() throws -> Data {
+        var head = "\(method) \(path) HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n"
+        if let body {
+            head += "Content-Type: \(contentType ?? "application/json")\r\nContent-Length: \(body.count)\r\n"
+        }
+        for (name, value) in try validatedHeaders() { head += "\(name): \(value)\r\n" }
+        var result = Data((head + "\r\n").utf8)
         if let body { result.append(body) }
         return result
+    }
+
+    private static let tokenCharacters = CharacterSet(charactersIn: "!#$%&'*+-.^_`|~")
+        .union(CharacterSet(charactersIn: "a"..."z")).union(CharacterSet(charactersIn: "A"..."Z"))
+        .union(CharacterSet(charactersIn: "0"..."9"))
+
+    private static func isToken(_ name: String) -> Bool {
+        !name.isEmpty && name.unicodeScalars.allSatisfy(tokenCharacters.contains)
+    }
+
+    private static func isControl(_ scalar: Unicode.Scalar) -> Bool {
+        scalar.value < 0x20 && scalar != "\t" || scalar.value == 0x7F
     }
 }
 

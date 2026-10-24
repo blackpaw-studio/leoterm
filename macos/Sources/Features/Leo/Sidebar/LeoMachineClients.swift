@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import LeoKit
 
@@ -17,4 +18,12 @@ import LeoKit
     func generation(for host: LeoHostID) -> Int
     /// The saved configuration of a remote `host`; nil for This Mac.
     func configuration(for host: LeoHostID) -> LeoHostConfiguration?
+    /// Fires with a host whenever its client is bound or dropped, so a view
+    /// waiting on a connection that is up but whose client isn't built yet
+    /// (the Settings window) can look again.
+    var clientChanges: AnyPublisher<LeoHostID, Never> { get }
+}
+
+extension LeoMachineClientResolving {
+    var clientChanges: AnyPublisher<LeoHostID, Never> { Empty().eraseToAnyPublisher() }
 }
