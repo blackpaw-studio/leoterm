@@ -112,7 +112,7 @@ private final class NeverKeyWindow: NSWindow {
     )
     private static let timeout: Duration = .seconds(5)
 
-    init(selecting selected: LeoSidebarReturnKeyTests.Selected?, window: NSWindow = ReturnKeyHarness.makeWindow()) async throws {
+    init(selecting selected: LeoSidebarReturnKeyTests.Selected?, window: NSWindow? = nil) async throws {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [Self.worker], connectivity: .connected, generation: 1))
         let terminals = LeoWindowTerminals()
         let terminal = UUID()
@@ -125,6 +125,7 @@ private final class NeverKeyWindow: NSWindow {
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemon: ReturnKeyDaemon()), cli: .recordingForTests(), model: model,
             processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let window = window ?? Self.makeWindow()
         self.window = window
         window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: LeoWindowID(), actions: actions, terminals: terminals))
 

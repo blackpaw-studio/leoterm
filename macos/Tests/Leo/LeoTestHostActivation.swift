@@ -115,7 +115,7 @@ struct LeoFocusProbe {
 
 extension Trait where Self == ConditionTrait {
     static var requiresActiveHost: Self {
-        enabled(LeoFocusProbe.unavailableReason) {
+        enabled(Comment(rawValue: LeoFocusProbe.unavailableReason)) {
             await LeoFocusProbe.live().runLoggingSkip() == .available
         }
     }
