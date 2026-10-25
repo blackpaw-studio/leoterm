@@ -1,3 +1,4 @@
+import UIKit
 import XCTest
 
 /// Back from a chat or an agent returns to the Agents list on iPhone, with
@@ -81,6 +82,26 @@ final class LeoNavStackTests: XCTestCase {
         XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5), "back to Chats")
         back(app)
         assertAtAgentsList(app, "back-to-agents-after-new-chat")
+    }
+
+    /// Regular width: the list stays beside the secondary column while the
+    /// selection moves from an agent to its chat and to another agent.
+    func testSplitViewKeepsTheListBesideTheSelection() throws {
+        try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "regular width only")
+        let app = launch()
+        app.cells["agent.agent-0"].tap()
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
+        attach(app, "ipad-detail")
+        app.cells["agent.chat"].tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+        for agent in agents {
+            XCTAssertTrue(app.cells["agent.\(agent)"].exists, "ipad chat: row \(agent)")
+        }
+        attach(app, "ipad-chat")
+        app.cells["agent.agent-1"].tap()
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.collectionViews["chat.thread"].exists)
+        attach(app, "ipad-second-agent")
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {
