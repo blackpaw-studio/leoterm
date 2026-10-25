@@ -68,6 +68,17 @@ Lane: B-154
   Call: `sidePaneHeaderTopInset` is now a constant in every style, so titled styles no longer keep their own flush rows; hidden style gets the same value as before — D-536, P1
   Call: Mac only (side-pane headers are Mac UI) — Mac/iOS rule
 
+Lane: B-155
+  Branch: autopilot-lane/B-155
+  Base: 2e1fcf00610bf608425c28d5eea91e270a47ab87
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-25T20:11:53Z
+
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 Finished 3: B-154 landed 7cf96fdd534cbe70448d88dd636360f04e91d060 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
@@ -80,3 +91,4 @@ Progress:
 - B-298 landed 7ac647da7 (1 commit, 0 fix rounds, no calls). Runner saw one load flake (~37 load): LeoRuntimeMachinesTests.chatShowsNotConnectedOnlyWhileItsMachineIsDownAndReloadsOnReconnect asserts right after show(); passed on rerun.
 - B-154 runner dispatched: d-56e91fa74a15 (implement → claude/sonnet, tier light).
 - B-154 landed 7cf96fdd5 (1 commit, 0 fix rounds). D-542..D-545; D-543 extends the fix to the editor pane header (veto candidate). Load flakes seen: renameSetsTheRowTitleAndSticks (3 of 4 suite runs, passes in isolation, pre-existing since 10-22), anEmptyNameRestoresTheLiveTitle, chatShowsNotConnected…. Verifier started/stopped autopilot-scratch; debug-bundle sidebar pin may be left set.
+- B-155 runner dispatched: d-88b9db607e98 (implement → claude/sonnet, tier light).
