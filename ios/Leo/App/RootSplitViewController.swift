@@ -20,6 +20,10 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
     /// onto `agentsNavigation` whole, so its absence there means the user
     /// popped back to the list.
     private var secondaryNavigation: UINavigationController?
+    /// Rotations and window resizes in flight. Crossing the size class makes
+    /// the split view take the secondary off the iPhone stack before
+    /// `isCollapsed` flips, which is not the user popping back.
+    private var transitionsInFlight = 0
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -83,11 +87,26 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
         agentsNavigation.popToViewController(stack[index - 1], animated: true)
     }
 
+    override func willTransition(to newCollection: UITraitCollection, with coordinator: any UIViewControllerTransitionCoordinator) {
+        super.willTransition(to: newCollection, with: coordinator)
+        trackTransition(coordinator)
+    }
+
+    override func viewWillTransition(to size: CGSize, with coordinator: any UIViewControllerTransitionCoordinator) {
+        super.viewWillTransition(to: size, with: coordinator)
+        trackTransition(coordinator)
+    }
+
+    private func trackTransition(_ coordinator: any UIViewControllerTransitionCoordinator) {
+        transitionsInFlight += 1
+        coordinator.animate(alongsideTransition: nil) { [weak self] _ in self?.transitionsInFlight -= 1 }
+    }
+
     // On iPhone the selection lasts as long as its screen is on the stack:
     // popping back to the list clears it, so selecting the same agent again
     // shows it again.
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
-        guard isCollapsed else { return }
+        guard isCollapsed, transitionsInFlight == 0 else { return }
         dropReplacedSecondaries(from: navigationController)
         guard shownDetail != nil, let secondaryNavigation,
               !navigationController.viewControllers.contains(secondaryNavigation) else { return }

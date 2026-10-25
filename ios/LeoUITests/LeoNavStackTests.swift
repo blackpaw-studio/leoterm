@@ -104,6 +104,29 @@ final class LeoNavStackTests: XCTestCase {
         attach(app, "ipad-second-agent")
     }
 
+    /// A Pro Max-class iPhone is regular width in landscape: the split view
+    /// expands (pulling the secondary off the stack) and collapses again.
+    /// Neither may read as the user popping back.
+    func testRotatingAcrossTheSizeClassKeepsTheOpenChat() throws {
+        try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPhone only")
+        let app = launch()
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+        app.cells["agent.agent-0"].tap()
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
+        app.cells["agent.chat"].tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5), "landscape: chat stays")
+        attach(app, "rotate-landscape")
+        XCUIDevice.shared.orientation = .portrait
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5), "portrait again: chat stays")
+        attach(app, "rotate-portrait")
+        XCTAssertFalse(app.staticTexts["No Agent Selected"].exists, "placeholder")
+        back(app)
+        assertAtAgentsList(app, "back-after-rotation")
+    }
+
     private func attach(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
