@@ -72,7 +72,7 @@ Lane: B-155
   Branch: autopilot-lane/B-155
   Base: 2e1fcf00610bf608425c28d5eea91e270a47ab87
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -82,6 +82,7 @@ Lane: B-155
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 Finished 3: B-154 landed 7cf96fdd534cbe70448d88dd636360f04e91d060 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
+Finished 4: B-155 landed aa5535eecbd4440597e0a05fe3590cdebe52e387 · not visually verified
 
 Progress:
 - Preflight: merged origin/main (791f4631b) into autopilot; applied 6 inbox entries (B-297 bug, B-298 add, B-299..B-302 ideas).
@@ -92,3 +93,4 @@ Progress:
 - B-154 runner dispatched: d-56e91fa74a15 (implement → claude/sonnet, tier light).
 - B-154 landed 7cf96fdd5 (1 commit, 0 fix rounds). D-542..D-545; D-543 extends the fix to the editor pane header (veto candidate). Load flakes seen: renameSetsTheRowTitleAndSticks (3 of 4 suite runs, passes in isolation, pre-existing since 10-22), anEmptyNameRestoresTheLiveTitle, chatShowsNotConnected…. Verifier started/stopped autopilot-scratch; debug-bundle sidebar pin may be left set.
 - B-155 runner dispatched: d-88b9db607e98 (implement → claude/sonnet, tier light).
+- B-155 landed aa5535eec (1 commit, no calls). Flakes again: renameSetsTheRowTitleAndSticks, chatShowsNotConnected… (green on 3rd run).

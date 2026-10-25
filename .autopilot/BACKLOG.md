@@ -919,11 +919,13 @@ Source: autopilot polish (B-100)
 Done: b013eb120
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
 
-## B-155 · LeoLaunchFocusTests #require message wording   [ready]
+## B-155 · LeoLaunchFocusTests #require message wording   [done]
 Issue: #159
 Why: LeoLaunchFocusTests.swift:60 says "wasn't built when the loop was rebuilt" but the check runs one turn after the rebuild; reword to "doesn't exist after the rebuild turn"
 Accept: LeoLaunchFocusTests.swift:60 says "wasn't built when the loop was rebuilt" but the check runs one turn after the rebuild; reword to "doesn't exist after the rebuild turn"
 Source: autopilot polish (B-101)
+Done: 0bef9d921
+Verified: not visually verified — test message string only; suite 3592/3592
 
 ## B-156 · waitForSearchField counts turns instead of sleeping   [ready]
 Issue: #160
