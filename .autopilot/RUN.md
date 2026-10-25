@@ -79,6 +79,16 @@ Lane: B-155
   Reviewed-tip: 1f8d39fa5847a0fb7b6767e2dd85a56bfd08b217
   Dispatched: 2026-10-25T20:11:53Z
 
+Lane: B-156
+  Branch: autopilot-lane/B-156
+  Base: 294c8bdd0c0115e4b62a6c5b0d90b49cc005f713
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 Finished 3: B-154 landed 7cf96fdd534cbe70448d88dd636360f04e91d060 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
