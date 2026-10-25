@@ -57,7 +57,7 @@ struct LeoLaunchFocusTests {
         defer { fixture.close() }
         await nextMainTurn()
 
-        let field = try #require(fixture.searchField, "the search field wasn't built when the key view loop was rebuilt")
+        let field = try #require(fixture.searchField, "the search field doesn't exist after the rebuild turn")
         #expect(field.nextValidKeyView is NSTableView, "after the field: \(String(describing: field.nextValidKeyView))")
         fixture.window.selectNextKeyView(nil)
         #expect(fixture.hasFocus(field), "Tab from the start screen: \(fixture.describeFirstResponder())")
