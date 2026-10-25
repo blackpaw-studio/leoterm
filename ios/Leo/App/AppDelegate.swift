@@ -13,6 +13,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         prepareDependencies { $0.deviceName = deviceName }
         #if DEBUG
         if MachinesFixture.isRequested { prepareDependencies { MachinesFixture.prepare(&$0) } }
+        if NavFixture.isRequested { prepareDependencies { NavFixture.prepare(&$0) } }
         #endif
         return Store(initialState: AppFeature.State()) { AppFeature() }
     }()

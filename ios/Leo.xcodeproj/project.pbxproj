@@ -29,6 +29,7 @@
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
 		85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */; };
+		8B81C9A92523833C6243FBEE /* NavFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */; };
 		8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */; };
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
@@ -44,6 +45,7 @@
 		DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57636A050F83D8C255CD37DB /* PushClientLive.swift */; };
 		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E092B1F2FD246F8984A737F6 /* MachineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C6F25CCCD87641CD218A9C /* MachineCell.swift */; };
+		E4AD252ED3954D152BA5D5B4 /* LeoNavStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */; };
 		E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38482350857C026362E8F7EE /* QRScannerViewController.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
 		F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 650EBAD07E75A2D3EA0F60F3 /* MeterAppearance.swift */; };
@@ -129,7 +131,9 @@
 		F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBodyTextView.swift; sourceTree = "<group>"; };
 		F6C700243A7DF9C889D0C17F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
+		FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoNavStackTests.swift; sourceTree = "<group>"; };
 		FD0798F4619AB2A887324F77 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavFixture.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -199,6 +203,7 @@
 			isa = PBXGroup;
 			children = (
 				FD0798F4619AB2A887324F77 /* AppDelegate.swift */,
+				FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */,
 				14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */,
 				CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */,
 			);
@@ -244,6 +249,7 @@
 			children = (
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
 				ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */,
+				FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */,
 				0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */,
 				D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */,
 				4259E396F6B6491459936938 /* LeoUITests.swift */,
@@ -476,6 +482,7 @@
 			files = (
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
 				674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */,
+				E4AD252ED3954D152BA5D5B4 /* LeoNavStackTests.swift in Sources */,
 				35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */,
 				FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */,
 				B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */,
@@ -508,6 +515,7 @@
 				6F30D471A3E498B502EE95B7 /* MachinesFixture.swift in Sources */,
 				F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */,
 				49DFFA476CDBDD3A17C8E741 /* MeterLineView.swift in Sources */,
+				8B81C9A92523833C6243FBEE /* NavFixture.swift in Sources */,
 				2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */,
 				DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */,
 				E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */,
