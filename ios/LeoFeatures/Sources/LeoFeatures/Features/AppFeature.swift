@@ -300,7 +300,9 @@ extension AppFeature.State {
         guard let session = fleet.sessions[id: ref.daemonID] else { return }
         pendingChat = nil
         pendingAgent = nil
-        if !overDetail { detail = nil }
+        // Re-opening the chat already shown over its detail leaves that detail be.
+        let isShownOverItsDetail = chat?.ref == ref && detail?.ref == ref
+        if !overDetail, !isShownOverItsDetail { detail = nil }
         chats.threads[ref.daemonID]?[id: ref.name]?.unread = 0
         guard chat?.ref != ref else { return }
         parkChatDrafts()

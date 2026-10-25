@@ -61,6 +61,15 @@ struct AppFeatureChatTests {
         }
     }
 
+    @Test func reopeningTheChatAlreadyOverItsDetailKeepsTheDetail() async {
+        var state = Self.connected()
+        state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        state.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus")]
+        let store = TestStore(initialState: state) { AppFeature() }
+        await store.send(\.chats.rowTapped, Self.zeus)
+    }
+
     @Test func poppingTheChatOverTheDetailLeavesTheDetailAndParksDrafts() async throws {
         let draft = LeoChatQuestionsDraft(questions: ChatThreadQuestionsTests.questions).choosing("Swift", question: "q1")
         var state = Self.connected()
