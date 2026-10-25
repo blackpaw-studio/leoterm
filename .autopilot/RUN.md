@@ -68,6 +68,16 @@ Lane: B-154
   Call: `sidePaneHeaderTopInset` is now a constant in every style, so titled styles no longer keep their own flush rows; hidden style gets the same value as before — D-536, P1
   Call: Mac only (side-pane headers are Mac UI) — Mac/iOS rule
 
+Lane: B-155
+  Branch: autopilot-lane/B-155
+  Base: 2e1fcf00610bf608425c28d5eea91e270a47ab87
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 Finished 3: B-154 landed 7cf96fdd534cbe70448d88dd636360f04e91d060 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
