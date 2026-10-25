@@ -100,6 +100,7 @@ Lane: B-157
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-25T22:19:20Z
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
@@ -119,3 +120,5 @@ Progress:
 - B-155 landed aa5535eec (1 commit, no calls). Flakes again: renameSetsTheRowTitleAndSticks, chatShowsNotConnected… (green on 3rd run).
 - B-156 runner dispatched: d-60d648fc921b (implement → claude/sonnet, tier light).
 - B-156 landed 40ac82662 (1 commit, D-546). Neither verify run fully green at load 31–47: renameSetsTheRowTitleAndSticks, anEmptyNameRestoresTheLiveTitle, nonAttachSurfaceKeepsGhosttysTitle (none in changed file, none repeated).
+- Interim digest 1–5 posted (session + Leo Chat). Owner bug queued to inbox 20261025T213107017865Z-399ff898 (iOS Machines: tap does nothing, stats animation) for next run.
+- B-157 runner dispatched: d-99afd52cf12c (implement → claude/sonnet, tier light).
