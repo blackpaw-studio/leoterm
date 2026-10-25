@@ -63,6 +63,18 @@ struct LeoFocusProbe {
         return .unavailable(reason: Self.unavailableReason)
     }
 
+    /// Marker line `check-test-log.sh` turns into a CI warning. Swift Testing's
+    /// own skip line carries no reason, and other suites skip too.
+    static let skipLogMarker = "focus-gate-skip:"
+
+    func runLoggingSkip() async -> Outcome {
+        let outcome = await run()
+        if case .unavailable(let reason) = outcome {
+            FileHandle.standardError.write(Data("\(Self.skipLogMarker) \(reason)\n".utf8))
+        }
+        return outcome
+    }
+
     static func live() -> LeoFocusProbe {
         let probe = ProbeWindow()
         return LeoFocusProbe(
@@ -104,7 +116,7 @@ struct LeoFocusProbe {
 extension Trait where Self == ConditionTrait {
     static var requiresActiveHost: Self {
         enabled(LeoFocusProbe.unavailableReason) {
-            await LeoFocusProbe.live().run() == .available
+            await LeoFocusProbe.live().runLoggingSkip() == .available
         }
     }
 }

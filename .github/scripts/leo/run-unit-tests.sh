@@ -12,6 +12,7 @@ set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
 readonly TEST_TIMEOUT_SECONDS=900
+export TEST_TIMEOUT_SECONDS
 log="${LOG:-${RUNNER_TEMP:-/tmp}/leo-tests.log}"
 cd "$(git rev-parse --show-toplevel)/macos"
 
@@ -39,28 +40,4 @@ timeout "$TEST_TIMEOUT_SECONDS" env \
 rc=$?
 set -e
 
-summary="$(grep -E 'Test run with [0-9]+ tests' "$log" | tail -1 || true)"
-echo "${summary:-no test summary found}"
-if [[ $rc -eq 124 ]]; then
-  echo "::error::Test run timed out after ${TEST_TIMEOUT_SECONDS}s"
-  grep -E '◇ Test .* started' "$log" | tail -5 || true
-  exit 1
-fi
-if [[ -z "$summary" ]]; then
-  tail -40 "$log"
-  echo "::error::Test runner exited ($rc) without a summary"
-  exit 1
-fi
-if [[ $rc -ne 0 ]]; then
-  grep -E '^✘' "$log" | head -60
-  echo "::error::Test runner exited with status $rc"
-  exit 1
-fi
-
-failed="$(grep -E '^✘ Test ' "$log" || true)"
-if [[ -n "$failed" ]]; then
-  echo "$failed" | head -60
-  echo "::error::Test failures reported despite a zero exit status"
-  exit 1
-fi
-echo "All tests passed"
+"$(dirname "${BASH_SOURCE[0]}")/check-test-log.sh" "$log" "$rc"
