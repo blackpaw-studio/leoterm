@@ -30,14 +30,12 @@ enum LeoTitlebarInsets {
     }
 
     /// Where the side panes' (the workspace browser's and the editor's)
-    /// header rows start below the split's top edge, for a split that
-    /// ignores `edges` (`splitIgnoredEdges`, B-100). Running to the
-    /// window's top edge, they take the sidebar header's inset, so all
-    /// three headers share one line. Nil under a titlebar: the headers keep
-    /// their own rows there, flush under it.
-    static func sidePaneHeaderTopInset(splitIgnoring edges: Edge.Set) -> CGFloat? {
-        edges.contains(.top) ? LeoSidebarChromeMetrics.topInset : nil
-    }
+    /// header rows start below the split's top edge: the sidebar header's
+    /// inset, so all three headers share one line (D-258). The split's top
+    /// edge is the window's under the hidden style (B-100) and the
+    /// titlebar's bottom edge under the titled ones, so the one inset puts
+    /// the close glyphs the same room under either (B-154).
+    static var sidePaneHeaderTopInset: CGFloat { LeoSidebarChromeMetrics.topInset }
 
     /// Centres `control`, one of `pane`'s header controls, on a sidebar
     /// header row (`LeoSidebarChromeMetrics.headerRowHeight`) starting

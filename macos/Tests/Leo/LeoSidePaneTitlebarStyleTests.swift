@@ -7,8 +7,8 @@ import Testing
 /// B-100: the side panes' header rows (the workspace browser's and the
 /// editor's) against the window's top edge. In the hidden titlebar style
 /// the split runs to the window's top edge (B-074, D-169), so their headers
-/// take the sidebar header's top inset and centre on its line; in the
-/// titled styles they stay where they were, flush under the titlebar.
+/// take the sidebar header's top inset and centre on its line; the titled
+/// styles take the same inset under the titlebar (B-154).
 ///
 /// Builds the window the way `LeoSidebarTitlebarStyleTests` does (a real
 /// `TerminalController` on a config that sets only the style) and shows
@@ -70,18 +70,36 @@ struct LeoSidePaneTitlebarStyleTests {
         }
     }
 
-    /// The titled styles keep the panes as they were: the header row starts
-    /// at the split's top edge, under the titlebar.
+    /// B-154: under a titlebar the side panes' close glyphs sit on the
+    /// sidebar header's line (D-258), their centre the chrome's top inset
+    /// plus half a header row under the titlebar's bottom edge, not tight
+    /// under it (the browser's was 8 pt short). The
+    /// sidebar + (measured before the panes open) is the reference; the
+    /// absolute figure pins both, so a shift in the two together still fails.
     @Test(arguments: [TitlebarStyle.native, .transparent, .tabs])
-    func titledStylesKeepTheSidePaneHeadersUnderTheTitlebar(_ style: TitlebarStyle) async throws {
+    func titledStylesCentreTheSidePaneCloseGlyphsOnTheSidebarHeaderLine(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }
+        let sidebarView = try #require(fixture.split.sidebarItem?.viewController.view, "no sidebar view")
+        let plus = try #require(
+            InkBounds.measure(sidebarView, in: sidebarView.convert(fixture.accessory, from: nil).insetBy(dx: -3, dy: -3)),
+            "the sidebar + button draws nothing")
+        let sidebarLine = fixture.titlebarBottom - plus.midY
         let panes = try await SidePaneHeaders.measure(in: fixture, size: Self.windowSize)
+        let expectedLine = LeoSidebarChromeMetrics.topInset + LeoSidebarChromeMetrics.headerRowHeight / 2
         let splitTop = fixture.split.splitView.convert(fixture.split.splitView.bounds, to: nil).maxY
 
         #expect(splitTop == fixture.titlebarBottom, "\(style): \(fixture.diagnostics)")
+        #expect(
+            abs(sidebarLine - expectedLine) <= Self.centreTolerance,
+            "\(style): the sidebar + centres \(sidebarLine) pt under the titlebar, not \(expectedLine); \(panes)"
+        )
         for pane in panes.all {
-            #expect(pane.row.maxY == splitTop, "\(style): the \(pane.name) header row moved off the split's top edge; \(panes)")
+            let line = fixture.titlebarBottom - pane.glyph.midY
+            #expect(
+                abs(line - sidebarLine) <= Self.centreTolerance,
+                "\(style): the \(pane.name) close glyph centres \(line) pt under the titlebar, the sidebar + \(sidebarLine); \(panes)"
+            )
         }
     }
 }
