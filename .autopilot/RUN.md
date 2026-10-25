@@ -88,6 +88,7 @@ Lane: B-156
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-25T21:07:47Z
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
@@ -104,3 +105,4 @@ Progress:
 - B-154 landed 7cf96fdd5 (1 commit, 0 fix rounds). D-542..D-545; D-543 extends the fix to the editor pane header (veto candidate). Load flakes seen: renameSetsTheRowTitleAndSticks (3 of 4 suite runs, passes in isolation, pre-existing since 10-22), anEmptyNameRestoresTheLiveTitle, chatShowsNotConnected…. Verifier started/stopped autopilot-scratch; debug-bundle sidebar pin may be left set.
 - B-155 runner dispatched: d-88b9db607e98 (implement → claude/sonnet, tier light).
 - B-155 landed aa5535eec (1 commit, no calls). Flakes again: renameSetsTheRowTitleAndSticks, chatShowsNotConnected… (green on 3rd run).
+- B-156 runner dispatched: d-60d648fc921b (implement → claude/sonnet, tier light).
