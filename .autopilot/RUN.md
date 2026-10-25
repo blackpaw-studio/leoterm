@@ -35,6 +35,8 @@ Lane: B-297
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-25T16:57:03Z
 
 Progress:
 - Preflight: merged origin/main (791f4631b) into autopilot; applied 6 inbox entries (B-297 bug, B-298 add, B-299..B-302 ideas).
+- B-297 runner dispatched: d-ea20172624fe (leo_dispatch implement → claude/sonnet, tier full). Brief passed as a file path (scratchpad brief-B-297.md).
