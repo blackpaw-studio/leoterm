@@ -3874,3 +3874,31 @@ Chose: Log checker keys on a `focus-gate-skip:` stderr marker, not Swift Testing
 Why: other suites also skip.
 Commit: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
 Veto: [ ]
+
+## D-542 · 2026-10-25 · Titled-style side-pane close glyphs centre on the sidebar header's line (sidebar + at 18 pt under t…
+Context: B-154 (runner call).
+Chose: Titled-style side-pane close glyphs centre on the sidebar header's line (sidebar + at 18 pt under the titlebar)
+Why: D-258, P1.
+Commit: b013eb120
+Veto: [ ]
+
+## D-543 · 2026-10-25 · The editor pane moves to the same line (14.5→18.5 pt), so the adjacent panes' glyphs align; this go…
+Context: B-154 (runner call).
+Chose: The editor pane moves to the same line (14.5→18.5 pt), so the adjacent panes' glyphs align; this goes beyond the browser-only acceptance text and is easy to revert
+Why: D-258, P1.
+Commit: b013eb120
+Veto: [ ]
+
+## D-544 · 2026-10-25 · `sidePaneHeaderTopInset` is now a constant in every style, so titled styles no longer keep their ow…
+Context: B-154 (runner call).
+Chose: `sidePaneHeaderTopInset` is now a constant in every style, so titled styles no longer keep their own flush rows; hidden style gets the same value as before
+Why: D-536, P1.
+Commit: b013eb120
+Veto: [ ]
+
+## D-545 · 2026-10-25 · Mac only (side-pane headers are Mac UI)
+Context: B-154 (runner call).
+Chose: Mac only (side-pane headers are Mac UI)
+Why: Mac/iOS rule.
+Commit: b013eb120
+Veto: [ ]

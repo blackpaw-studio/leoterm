@@ -910,12 +910,14 @@ Inbox: 20261013T181025588654Z-dca5aa50#1
 Done: 1c93f4ab7
 Verified: not visually verified — logic swap behind unchanged UI; iOS swift test 328/328, Mac suite 3592/3592
 
-## B-154 · Titled styles: browser header close glyph tight under the titlebar   [ready]
+## B-154 · Titled styles: browser header close glyph tight under the titlebar   [done]
 Issue: #158
 Why: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Accept: B-100 verify: in titled styles the workspace-browser header's close glyph sits about 3 pt under the titlebar
 Update (2026-10-11): run stopped mid-build; one unreviewed, unverified commit 719b7b14d is on autopilot-shelved/B-154 for reference. Next run starts it fresh.
 Source: autopilot polish (B-100)
+Done: b013eb120
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
 
 ## B-155 · LeoLaunchFocusTests #require message wording   [ready]
 Issue: #159
