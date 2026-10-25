@@ -29,6 +29,20 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
+               BlueprintIdentifier = "F897C341C358D6B3DC09BD2F"
+               BuildableName = "LeoTests.xctest"
+               BlueprintName = "LeoTests"
+               ReferencedContainer = "container:Leo.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
                BlueprintIdentifier = "5779400518906C88E18166B0"
                BuildableName = "LeoUITests.xctest"
                BlueprintName = "LeoUITests"
@@ -53,6 +67,16 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "F897C341C358D6B3DC09BD2F"
+               BuildableName = "LeoTests.xctest"
+               BlueprintName = "LeoTests"
+               ReferencedContainer = "container:Leo.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
          <TestableReference
             skipped = "NO">
             <BuildableReference

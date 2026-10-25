@@ -157,7 +157,8 @@ import Testing
         let runtime = LeoRuntime(
             daemon: daemon, cli: .recordingForTests(),
             activitySource: .init(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
-            defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), wakeNotifications: center
+            defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), wakeNotifications: center,
+            chatClient: FakeChatClient()
         )
         let session = runtime.makeWindowSession()
         session.setSidebarVisible(true)

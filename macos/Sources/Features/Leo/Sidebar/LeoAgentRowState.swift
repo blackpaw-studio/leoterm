@@ -7,7 +7,7 @@ import Foundation
 struct LeoAgentRowState: Equatable {
     /// In resolution order.
     enum State: Equatable {
-        case needsYou, error, done, starting, stopped, unknown, compacting, working, idle
+        case needsYou, error, done, starting, restoring, stopped, unknown, compacting, working, idle
     }
 
     let state: State
@@ -50,6 +50,8 @@ struct LeoAgentRowState: Equatable {
             self.init(.done, "checkmark.circle", .tint(.green), hasSecondLine: true, spoken: "Done")
         case (_, .starting, _, _):
             self.init(.starting, "ellipsis", .secondary, spoken: "Starting")
+        case (_, .restoring, _, _):
+            self.init(.restoring, "ellipsis", .secondary, trailing: (LeoStatusPresentation.restoringTitle, .secondary), spoken: "Restoring")
         case (_, .stopped, _, _):
             self.init(.stopped, "stop.fill", .tertiary, isNameDimmed: true, spoken: "Stopped")
         case (_, .unknown, _, _):

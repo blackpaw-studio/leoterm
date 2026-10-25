@@ -298,8 +298,9 @@ import LeoKit
     }
 
     private static func message(_ error: Error) -> String {
-        if case let LeoDaemonError.daemon(_, message, _) = error { return message }
-        return error.localizedDescription
+        // `LeoDaemonError.daemon` describes itself with the daemon's own message,
+        // except where LeoKit words a known code (`daemon_restoring`) better.
+        error.localizedDescription
     }
 
     private static func code(_ error: Error) -> String? {

@@ -10,7 +10,7 @@ import LeoKit
 ///
 /// Every call to a feed goes through that feed's own ordered queue, so its
 /// start, its connection phases and visibility changes land in the order
-/// they were made. Only This Mac's feed forwards Leo Chat.
+/// they were made. Every feed forwards Leo Chat, tagged with its machine.
 @MainActor final class LeoMachineFeeds {
     /// What every feed shares.
     struct Dependencies {
@@ -22,8 +22,9 @@ import LeoKit
         var now: @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
         var onManualRefresh: @MainActor @Sendable () -> Void = {}
         var onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in }
-        /// This Mac's `chat.*` events and resyncs, in stream order.
-        var onChat: @Sendable (LeoChatFeedSignal) -> Void = { _ in }
+        /// Each machine's `chat.*` events and resyncs, in that machine's stream
+        /// order, tagged with the machine.
+        var onChat: @Sendable (LeoHostID, LeoChatFeedSignal) -> Void = { _, _ in }
         /// Every snapshot of a shown machine's current feed.
         var onSnapshot: @MainActor (LeoHostID, LeoSidebarSnapshot) -> Void = { _, _ in }
     }
@@ -134,7 +135,7 @@ import LeoKit
             now: dependencies.now,
             onManualRefresh: dependencies.onManualRefresh,
             onAttentionTransitions: dependencies.onAttentionTransitions,
-            onChat: { from, signal in if isLocal, from == .local { onChat(signal) } },
+            onChat: { from, signal in if from == host { onChat(host, signal) } },
             sink: { [weak self] snapshot in self?.deliver(snapshot, from: host, feed: id) }
         )
         let entry = Entry(id: id, feed: feed, commands: LeoOrderedRelay { command in await command(feed) })

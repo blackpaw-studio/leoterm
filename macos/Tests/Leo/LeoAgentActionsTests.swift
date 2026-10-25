@@ -71,6 +71,21 @@ import Testing
         #expect(model.rowErrors[row.id] == "nope")
     }
 
+    @Test func startWhileTheDaemonIsRestoringShowsTheFriendlyRowError() async {
+        let model = LeoSidebarModel()
+        let restoring = LeoDaemonError.daemon(code: "daemon_restoring", message: "daemon is still restoring agents: \"alpha\"", matches: [])
+        let actions = LeoAgentActions(
+            clients: FakeMachineClients(daemon: ActionDaemon(error: restoring)), cli: testCLI(), model: model,
+            processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let row = testRow()
+
+        actions.start(row) { _ in }
+        await awaitCondition { await MainActor.run { model.rowErrors[row.id] != nil } }
+
+        #expect(model.rowErrors[row.id] == "leo is still restoring agents — try again in a moment")
+        #expect(model.rowErrorCodes[row.id] == "daemon_restoring")
+    }
+
     @Test func rowErrorsPersistUntilSuccessfulListRefresh() async {
         let daemon = ActionDaemon(error: .daemon(code: "bad", message: "nope", matches: []))
         let model = LeoSidebarModel()

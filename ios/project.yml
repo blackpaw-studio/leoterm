@@ -107,12 +107,31 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.uitests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: Leo
+  # Hosted in the app so cells and view controllers run as they do on a device.
+  LeoTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoTests
+    dependencies:
+      - target: Leo
+      - package: LeoKit
+        product: LeoKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Leo.app/Leo
+        BUNDLE_LOADER: $(TEST_HOST)
 schemes:
   Leo:
     build:
       targets:
         Leo: all
+        LeoTests: [test]
         LeoUITests: [test]
     test:
       targets:
+        - LeoTests
         - LeoUITests

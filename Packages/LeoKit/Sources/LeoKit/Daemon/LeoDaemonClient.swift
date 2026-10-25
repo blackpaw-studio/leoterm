@@ -37,6 +37,9 @@ public protocol LeoDaemonClient: Sendable {
     func setEnvironments(_ name: String, names: [String]) async throws
     /// One CPU, memory and disk sample of the daemon's machine (`machine_stats`).
     func machineStats() async throws -> LeoMachineStats
+    /// The daemon's JSON config API (`config_api`), when this client can
+    /// reach it. Nil for a client with no such route.
+    func configClient() -> (any LeoConfigClient)?
 }
 
 /// Default host-scoped implementations: every daemon socket now represents
@@ -58,6 +61,7 @@ extension LeoDaemonClient {
     public func environmentCatalog() async throws -> LeoEnvironmentCatalog { throw LeoDaemonError.transport("Environments are unavailable") }
     public func setEnvironments(_ name: String, names: [String]) async throws { throw LeoDaemonError.transport("Environments are unavailable") }
     public func machineStats() async throws -> LeoMachineStats { throw LeoDaemonError.transport("Machine stats are unavailable") }
+    public func configClient() -> (any LeoConfigClient)? { nil }
 
     private func requireLocal(_ host: LeoHostID) throws {
         guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable") }
@@ -144,6 +148,13 @@ public struct LeoSocketDaemonClient: LeoDaemonClient {
 
     public func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
     public func machineStats() async throws -> LeoMachineStats { try await value("GET", "/machine") }
+    public func configClient() -> (any LeoConfigClient)? {
+        LeoConfigHTTPClient(
+            prefix: LeoConfigHTTPClient.socketPrefix,
+            transport: LeoSocketChatTransport(socketPath: socketPath, transport: transport),
+            defaultTimeout: defaultTimeout, mutationTimeout: mutationTimeout
+        )
+    }
 
     public func environmentCatalog() async throws -> LeoEnvironmentCatalog {
         let names = try await checked("GET", LeoEnvironmentsWire.catalogRoute)

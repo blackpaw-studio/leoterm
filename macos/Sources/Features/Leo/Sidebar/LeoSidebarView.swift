@@ -56,6 +56,7 @@ enum LeoSidebarSectioning {
         switch status {
         case .running: "running"
         case .starting: "starting"
+        case .restoring: "restoring"
         case .stopped: "stopped"
         case .unknown(let raw): "unknown:\(raw)"
         }
@@ -65,6 +66,7 @@ enum LeoSidebarSectioning {
         switch key {
         case "running": return "Running"
         case "starting": return "Starting"
+        case "restoring": return LeoStatusPresentation.restoringTitle
         case "stopped": return "Stopped"
         default:
             guard key.hasPrefix("unknown:") else { return key.capitalized }
@@ -125,7 +127,7 @@ struct LeoSidebarView: View {
         self.windowID = windowID
         self.actions = actions
         self.terminals = terminals
-        _unread = ObservedObject(wrappedValue: unread ?? .detached())
+        _unread = ObservedObject(wrappedValue: unread ?? LeoChatUnreadStore())
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions

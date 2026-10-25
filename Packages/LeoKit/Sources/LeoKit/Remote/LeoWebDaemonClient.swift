@@ -31,6 +31,15 @@ public struct LeoWebDaemonClient: Sendable {
         try LeoDaemonEnvelope<LeoMachineStats>.decode(try await request("GET", "/api/v1/machine").body).value()
     }
 
+    /// The daemon's JSON config API over `/api/v1`. An operator route: it
+    /// answers only a device or API token the daemon accepts for it.
+    public func configClient() -> any LeoConfigClient {
+        LeoConfigHTTPClient(
+            prefix: LeoConfigHTTPClient.webPrefix, transport: transport,
+            defaultTimeout: defaultTimeout, mutationTimeout: mutationTimeout
+        )
+    }
+
     /// One `/api/v1/events` connection, decoded. Undecodable events are
     /// dropped; gap handling and reconnecting are the caller's.
     public func events() -> AsyncThrowingStream<LeoObserveEvent, any Error> {

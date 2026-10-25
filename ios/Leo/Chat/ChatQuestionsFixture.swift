@@ -9,7 +9,8 @@ import UIKit
 /// daemon is needed. `all` shows every state in one thread; `reuse` is three
 /// compact open cards, for checking drafts across cell reuse; `reveal` is two
 /// tall ones; `yank` adds a third below them and a button that times the
-/// first one out.
+/// first one out. `sender` is an agent message and a `leo client` post, for
+/// the "via <name>" caption.
 enum ChatQuestionsFixture {
     static let launchKey = "questionsCardFixture"
 
@@ -80,6 +81,15 @@ enum ChatQuestionsFixture {
     ])
 
     static func messages(for name: String) -> [LeoChatMessage] {
+        if name == "sender" {
+            return [
+                LeoChatMessage(id: "agent", agent: agent, direction: .outbound, kind: .text, text: "Deploy finished. Want the logs?", ts: baseTime),
+                LeoChatMessage(
+                    id: "client", agent: agent, direction: .outbound, kind: .text, text: "Yes, post them in the channel.",
+                    ts: baseTime.addingTimeInterval(60), sender: "client:laptop"
+                )
+            ]
+        }
         if name == "long" { return [card("long", long: true)] }
         let isAll = ["all", "reveal", "yank"].contains(name)
         let order = name == "reuse" ? reuseOrder : stateNames

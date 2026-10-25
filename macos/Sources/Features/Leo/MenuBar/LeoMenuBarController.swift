@@ -106,6 +106,7 @@ import LeoKit
         case (true, _): ("exclamationmark.circle.fill", .systemOrange)
         case (_, .running): ("circle.fill", .systemGreen)
         case (_, .starting): ("circle.dotted", .systemYellow)
+        case (_, .restoring): ("circle.dotted", .secondaryLabelColor)
         case (_, .stopped): ("circle", .secondaryLabelColor)
         case (_, .other): ("questionmark.circle", .secondaryLabelColor)
         }

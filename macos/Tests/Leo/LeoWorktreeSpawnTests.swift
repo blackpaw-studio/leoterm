@@ -17,6 +17,14 @@ import Testing
         #expect(LeoRowActionAvailability(status: status, isPending: false, repo: "blackpaw-studio/website").newWorktree)
     }
 
+    @Test func restoringRowOffersNoStartOrOtherLifecycleActions() {
+        let restoring = LeoRowActionAvailability(status: .restoring, isPending: false)
+        #expect(!restoring.start)
+        #expect(!restoring.stop)
+        #expect(!restoring.restart)
+        #expect(!restoring.delete)
+    }
+
     @Test func worktreeModelPrefillsFromSourceRow() {
         let model = worktreeModel(source: sourceRow(host: .remote("work")))
         #expect(model.isWorktree)

@@ -64,6 +64,9 @@ public struct LeoHTTPSTransport: LeoWebTransport {
             urlRequest.setValue(access.clientID, forHTTPHeaderField: "CF-Access-Client-Id")
             urlRequest.setValue(access.clientSecret, forHTTPHeaderField: "CF-Access-Client-Secret")
         }
+        for (name, value) in try request.validatedHeaders() {
+            urlRequest.setValue(value, forHTTPHeaderField: name)
+        }
         if let body = request.body {
             urlRequest.httpBody = body
             urlRequest.setValue(request.contentType ?? "application/json", forHTTPHeaderField: "Content-Type")

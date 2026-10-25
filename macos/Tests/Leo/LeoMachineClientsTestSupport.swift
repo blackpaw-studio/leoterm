@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 @testable import Ghostty
 @testable import LeoKit
@@ -34,6 +35,12 @@ import Foundation
         daemons[host] = nil
         generations[host, default: 0] += 1
     }
+
+    private let changes = PassthroughSubject<LeoHostID, Never>()
+    var clientChanges: AnyPublisher<LeoHostID, Never> { changes.eraseToAnyPublisher() }
+
+    /// `host`'s client was bound or dropped.
+    func announceClientChange(_ host: LeoHostID) { changes.send(host) }
 
     func configure(_ configuration: LeoHostConfiguration) { configurations[.remote(configuration.name)] = configuration }
 }

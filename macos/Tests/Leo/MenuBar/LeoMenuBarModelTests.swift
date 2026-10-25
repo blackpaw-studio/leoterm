@@ -65,6 +65,13 @@ struct LeoMenuBarModelTests {
         ]))
     }
 
+    @Test func restoringAgentsGetTheirOwnMenuState() {
+        let items = LeoMenuBarModel.items(Self.inputs(rows: [Self.row("bob", status: .restoring)]))
+        #expect(items[1] == .agents(title: "Agents", isEnabled: true, agents: [
+            LeoMenuBarAgent(id: Self.row("bob").id, name: "bob", state: .restoring, needsAttention: false),
+        ]))
+    }
+
     @Test func noAgentsOrNoConnectionDisablesTheSubmenu() {
         #expect(LeoMenuBarModel.items(Self.inputs())[1] == .agents(title: "No Agents", isEnabled: false, agents: []))
         let items = LeoMenuBarModel.items(Self.inputs(.disconnected(reason: "eof", isRetrying: false), rows: [Self.row("a")]))

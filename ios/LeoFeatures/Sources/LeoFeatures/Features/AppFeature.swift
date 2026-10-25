@@ -134,9 +134,15 @@ public struct AppFeature {
 
                 case .daemons(.delegate(.forget(let id))):
                     if state.detail?.daemon.id == id { state.detail = nil }
+                    if state.daemons.machine?.id == id { state.daemons.machine = nil }
                     guard let daemon = state.fleet.sessions[id: id]?.daemon else { return fleet(.daemonRemoved(id), state: &state) }
                     // Push reads the daemon's token before the removal deletes it.
                     return .concatenate(push(.daemonForgotten(daemon), state: &state), fleet(.daemonRemoved(id), state: &state))
+
+                case .daemons(.delegate(.openMachine(let id))):
+                    guard let session = state.fleet.sessions[id: id] else { return .none }
+                    state.daemons.machine = MachineSettings.State(link: MachineLink(session: session))
+                    return .none
 
                 case .daemons(.delegate(.retry(let id))):
                     return fleet(.retryButtonTapped(id), state: &state)
@@ -190,7 +196,10 @@ public struct AppFeature {
                         ? .none
                         : .send(.detail(.destination(.presented(.terminal(.scenePhaseChanged(isActive: isActive))))))
                     let pushCheck: Effect<Action> = isActive ? push(.becameActive, state: &state) : .none
-                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck)
+                    let settings: Effect<Action> = state.daemons.machine == nil
+                        ? .none
+                        : .send(.daemons(.machine(.presented(.scenePhaseChanged(isActive: isActive)))))
+                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck, settings)
 
                 case .secondaryPopped:
                     state.parkChatDrafts()
@@ -217,11 +226,12 @@ public struct AppFeature {
                 state.openPendingChat()
                 state.syncDetail()
                 state.syncChat()
+                let machine = state.machineLinkUpdate()
                 // The terminal opens and closes its socket as the agent starts
                 // and stops, so that change is an action, not a state edit.
                 guard let terminal = state.detail?.destination?.terminal, let agent = state.detail?.agent,
-                      terminal.isAgentRunning == agent.isStopped else { return .none }
-                return .send(.detail(.destination(.presented(.terminal(.agentRunningChanged(!agent.isStopped))))))
+                      terminal.isAgentRunning == agent.isStopped else { return machine }
+                return .merge(machine, .send(.detail(.destination(.presented(.terminal(.agentRunningChanged(!agent.isStopped)))))))
             }
         }
     }
@@ -334,6 +344,14 @@ extension AppFeature.State {
         let agent = session.agents[id: ref.name]
         if chat?.agent != agent { chat?.agent = agent }
         if chat?.daemon != session.daemon { chat?.daemon = session.daemon }
+    }
+
+    /// The open machine's settings follow the fleet through an action, so the
+    /// settings can tell a pane that its machine reconnected.
+    func machineLinkUpdate() -> Effect<AppFeature.Action> {
+        guard let machine = daemons.machine, let session = fleet.sessions[id: machine.id] else { return .none }
+        let link = MachineLink(session: session)
+        return link == machine.link ? .none : .send(.daemons(.machine(.presented(.linkUpdated(link)))))
     }
 
     /// Keeps the open detail in step with the live fleet.

@@ -14,7 +14,8 @@ struct LeoChatMessageRow: View {
     private var isMine: Bool { message.direction == .inbound }
     private var bubbleShape: LeoChatBubbleShape { LeoChatBubbleShape(side: isMine ? .trailing : .leading, position: position) }
     private var endsGroup: Bool { position == .single || position == .last }
-    /// The time closes a group; a delivery problem shows wherever it happens.
+    /// The time (and a client sender's "via" caption) closes a group; a
+    /// delivery problem shows wherever it happens.
     private var showsFooter: Bool { endsGroup || message.isFailed || message.isPending }
 
     var body: some View {
@@ -74,6 +75,10 @@ struct LeoChatMessageRow: View {
                 Text("Not delivered")
             } else if message.isPending {
                 Text("Sending…")
+            }
+            if endsGroup, let caption = message.senderCaption {
+                Text(caption).accessibilityIdentifier("chat.sender")
+                Text("·").accessibilityHidden(true)
             }
             if endsGroup { Text(message.ts, format: .dateTime.hour().minute()) }
         }

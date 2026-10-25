@@ -34,8 +34,9 @@ enum LeoSidebarReducers {
         switch row.status {
         case .running: row.activity == .working ? 0 : 1
         case .starting: 2
-        case .stopped: 3
-        case .unknown: 4
+        case .restoring: 3
+        case .stopped: 4
+        case .unknown: 5
         }
     }
 }

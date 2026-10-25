@@ -47,6 +47,9 @@ final class DaemonsViewController: UIViewController, UICollectionViewDelegate {
         present(item: $store.scope(state: \.alert, action: \.alert)) { store in
             UIAlertController(store: store)
         }
+        navigationDestination(item: $store.scope(state: \.machine, action: \.machine)) { [fleet] store in
+            MachineSettingsViewController(store: store, fleet: fleet)
+        }
 
         observe { [weak self] in
             guard let self else { return }
@@ -90,7 +93,7 @@ final class DaemonsViewController: UIViewController, UICollectionViewDelegate {
         let cell = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [weak self] cell, _, id in
             guard let self, let session = sessions.first(where: { $0.id == id }) else { return }
             cell.contentConfiguration = MachineCellConfiguration(session: session, style: statsStyle)
-            cell.accessories = []
+            cell.accessories = [.disclosureIndicator()]
             cell.accessibilityIdentifier = "daemon.\(session.daemon.name)"
         }
         let footer = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionFooter) { [weak self] view, _, _ in
@@ -156,5 +159,8 @@ final class DaemonsViewController: UIViewController, UICollectionViewDelegate {
         })
     }
 
-    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool { false }
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        collectionView.deselectItem(at: indexPath, animated: true)
+        if let session = session(at: indexPath) { store.send(.machineTapped(session.id)) }
+    }
 }

@@ -47,6 +47,17 @@ struct LeoChatTranscriptTests {
         #expect(tags == ["H", "a:single", "b:single"])
     }
 
+    @Test func aDifferentSenderSplitsAGroupSoEachCaptionStaysWithItsBubble() {
+        func post(_ id: String, at offset: TimeInterval, sender: String?) -> LeoChatMessage {
+            LeoChatMessage(id: id, agent: "zeus", direction: .outbound, kind: .text, text: id, ts: Self.base.addingTimeInterval(offset), sender: sender)
+        }
+        let tags = Self.tags([
+            post("agent", at: 0, sender: nil), post("laptop1", at: 5, sender: "client:laptop"),
+            post("laptop2", at: 8, sender: "client:laptop"), post("phone", at: 9, sender: "client:phone"),
+        ])
+        #expect(tags == ["H", "agent:single", "laptop1:first", "laptop2:last", "phone:single"])
+    }
+
     @Test func fiftyNineSecondsGroupsAndSixtySplits() {
         #expect(Self.tags([Self.message("a", at: 0), Self.message("b", at: 59)]) == ["H", "a:first", "b:last"])
         #expect(Self.tags([Self.message("a", at: 0), Self.message("b", at: 60)]) == ["H", "a:single", "b:single"])

@@ -6,8 +6,9 @@ import LeoKit
 /// merged by id with live `chat.*` events, reloaded after a reconnect or a
 /// sequence gap), read marks while the pane is on screen, answers to `ask`
 /// and `permission` prompts, attachment downloads, and a draft per agent
-/// whose send keeps it on failure. Bound to the selected host's daemon by
-/// `LeoRuntime`, like `LeoAgentControlModel`.
+/// whose send keeps it on failure. It talks to each agent's own machine:
+/// `LeoRuntime` binds a client per machine as its daemon connects and unbinds
+/// it when the connection drops.
 @MainActor final class LeoChatPaneModel: ObservableObject {
     static let pageSize = 50
     /// The longest voice note: ten minutes.
@@ -44,8 +45,7 @@ import LeoKit
     /// A failed send or answer, or a microphone problem.
     @Published private(set) var notice: String?
 
-    private var client: any LeoChatClient
-    private var host: LeoHostID
+    private var clients: [LeoHostID: any LeoChatClient]
     private let recorder: any LeoChatVoiceRecording
     private let attachmentDirectory: URL
     private let maximumUploadBytes: Int
@@ -59,12 +59,11 @@ import LeoKit
     private var lastRead: String?
 
     init(
-        client: any LeoChatClient, host: LeoHostID, recorder: any LeoChatVoiceRecording, attachmentDirectory: URL,
+        clients: [LeoHostID: any LeoChatClient], recorder: any LeoChatVoiceRecording, attachmentDirectory: URL,
         maximumUploadBytes: Int = LeoChatUpload.maximumBytes, readFile: @escaping FileReader = LeoChatPaneModel.readFromDisk,
         onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }
     ) {
-        self.client = client
-        self.host = host
+        self.clients = clients
         self.recorder = recorder
         self.attachmentDirectory = attachmentDirectory
         self.maximumUploadBytes = maximumUploadBytes
@@ -72,11 +71,35 @@ import LeoKit
         self.onRead = onRead
     }
 
-    /// The selected connection's daemon changed. Events and resyncs from
-    /// any other host are ignored from now on.
-    func updateClient(_ client: any LeoChatClient, host: LeoHostID) {
-        self.client = client
-        self.host = host
+    /// `host`'s daemon connected. Nothing loads here: the runtime's resync
+    /// for the machine reloads the shown thread if it is on it.
+    func bind(_ client: any LeoChatClient, host: LeoHostID) {
+        clients[host] = client
+    }
+
+    /// `host`'s connection dropped. Its events are ignored from now on and a
+    /// page in flight is dropped. If the shown agent lives there, the thread
+    /// reads as it does when selecting an agent on a machine that is down;
+    /// drafts stay, and reconnecting reloads it.
+    func unbind(_ host: LeoHostID) {
+        clients[host] = nil
+        guard agent?.host == host else { return }
+        timeline = LeoChatTimeline(taskFilter: timeline.taskFilter)
+        lastRead = nil
+        isLoading = false
+        isLoadingOlder = false
+        loadToken += 1
+        loadError = NotConnected(host: host).errorDescription
+    }
+
+    private struct NotConnected: LocalizedError {
+        let host: LeoHostID
+        var errorDescription: String? { "\(host.displayName) isn't connected." }
+    }
+
+    private func connectedClient(for host: LeoHostID) throws -> any LeoChatClient {
+        guard let client = clients[host] else { throw NotConnected(host: host) }
+        return client
     }
 
     var isOnScreen: Bool { visibleCount > 0 }
@@ -113,7 +136,7 @@ import LeoKit
 
     func receive(_ event: LeoChatEvent, host: LeoHostID) async {
         let message = event.message
-        guard host == self.host, let agent, agent.host == host, timeline.admits(message, agent: agent.name) else { return }
+        guard clients[host] != nil, let agent, agent.host == host, timeline.admits(message, agent: agent.name) else { return }
         if case .updated = event, timeline.message(id: message.id) == nil { return }
         timeline.mergeLive(message, isFetching: isLoading || isLoadingOlder)
         guard case .message = event else { return }
@@ -123,7 +146,7 @@ import LeoKit
     /// Events from `host` may have been lost (a reconnect or a sequence
     /// gap): the shown thread reloads its newest page and merges it by id.
     func resync(host: LeoHostID) async {
-        guard host == self.host, let agent, agent.host == host else { return }
+        guard clients[host] != nil, let agent, agent.host == host else { return }
         await loadNewest()
     }
 
@@ -151,8 +174,8 @@ import LeoKit
 
     private func loadNewest() async {
         guard let agent else { return }
-        guard agent.host == host else {
-            loadError = "\(agent.host.displayName) isn't connected."
+        guard clients[agent.host] != nil else {
+            loadError = NotConnected(host: agent.host).errorDescription
             return
         }
         isLoading = true
@@ -171,9 +194,9 @@ import LeoKit
         loadToken += 1
         let token = loadToken
         timeline.beginFetch()
-        let client = client
         let result: Result<LeoChatPage, any Error>
         do {
+            let client = try connectedClient(for: agent.host)
             result = .success(try await client.messages(agent: agent.name, query: query))
         } catch {
             result = .failure(error)
@@ -196,7 +219,7 @@ import LeoKit
     /// Best effort, and only for the unfiltered thread on screen: a failure
     /// only leaves the unread count up. `onRead` hears of successes only.
     private func markRead(_ id: String) async {
-        guard isOnScreen, timeline.taskFilter == nil, let agent, agent.host == host, id != lastRead else { return }
+        guard isOnScreen, timeline.taskFilter == nil, let agent, let client = clients[agent.host], id != lastRead else { return }
         lastRead = id
         do {
             try await client.markRead(agent: agent.name, upTo: id)
@@ -244,9 +267,9 @@ import LeoKit
     /// thread; any other refusal says why and keeps the draft.
     func answer(messageID: String, _ answer: LeoChatAnswer) async {
         guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
-        let client = client
         defer { answering.remove(messageID) }
         do {
+            let client = try connectedClient(for: agent.host)
             let updated = try await client.answer(agent: agent.name, messageID: messageID, answer: answer)
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
@@ -310,7 +333,7 @@ import LeoKit
         questionsErrors[messageID] = nil
         defer { answering.remove(messageID) }
         do {
-            let updated = try await request(client, agent.name)
+            let updated = try await request(try connectedClient(for: agent.host), agent.name)
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])
@@ -354,8 +377,8 @@ import LeoKit
               let index = timeline.messages.firstIndex(where: { $0.id == messageID }),
               index + 1 < timeline.messages.count else { return }
         let query = LeoChatPageQuery(before: timeline.messages[index + 1].id, limit: 1, task: timeline.taskFilter)
-        let client = client
-        guard let page = try? await client.messages(agent: agent.name, query: query), agent == self.agent else { return }
+        guard let client = try? connectedClient(for: agent.host),
+              let page = try? await client.messages(agent: agent.name, query: query), agent == self.agent else { return }
         timeline.merge(page.messages.filter { $0.id == messageID && timeline.admits($0, agent: agent.name) })
     }
 
@@ -388,6 +411,10 @@ import LeoKit
     }
 
     private func download(_ attachment: LeoChatAttachment) async {
+        guard let shown = agent else {
+            attachmentFiles[attachment.id] = .failed("Open a chat to download attachments.")
+            return
+        }
         let folderName = LeoChatPresentation.safeFilename(attachment.id, fallback: "attachment")
         let folder = attachmentDirectory.appending(path: folderName)
         guard let url = LeoChatPresentation.contained(
@@ -397,8 +424,8 @@ import LeoKit
             return
         }
         attachmentFiles[attachment.id] = .loading
-        let client = client
         do {
+            let client = try connectedClient(for: shown.host)
             let data = try await client.download(attachmentID: attachment.id)
             try await Task.detached {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -465,12 +492,13 @@ import LeoKit
     /// Uploads the draft's files, then sends; clears only what was sent.
     /// One send per agent at a time; a failure keeps the draft.
     private func send(_ agent: LeoAgentID) async {
-        guard agent.host == host, sending[agent] == nil, let outgoing = draft(for: agent).outgoing else { return }
+        guard clients[agent.host] != nil, sending[agent] == nil, let outgoing = draft(for: agent).outgoing else { return }
         sending[agent] = outgoing
         notice = nil
         defer { sending[agent] = nil }
-        let (client, readFile) = (client, readFile)
+        let readFile = readFile
         do {
+            let client = try connectedClient(for: agent.host)
             var ids: [String] = []
             for file in outgoing.files {
                 ids.append(try await client.upload(try await readFile(file)).id)
@@ -525,7 +553,7 @@ import LeoKit
     }
 
     private func startRecording() async {
-        guard let agent, agent.host == host else { return }
+        guard let agent, clients[agent.host] != nil else { return }
         recording = .requesting
         notice = nil
         guard await recorder.requestPermission() else {

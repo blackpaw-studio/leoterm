@@ -20,6 +20,16 @@ struct LeoAgentRowStateTests {
         return LeoAgentRowState(row: row, error: error, inWorkingSection: inWorkingSection)
     }
 
+    @Test func restoringIsANeutralEllipsisWithARestoringWord() {
+        let restoring = resolve(status: .restoring)
+        #expect(restoring.state == .restoring)
+        #expect(restoring.symbolName == "ellipsis")
+        #expect(restoring.symbolInk == .secondary)
+        #expect(restoring.trailingWord == "Restoring…")
+        #expect(restoring.accessibilityLabel == "Restoring")
+        #expect(!restoring.isNameDimmed)
+    }
+
     // MARK: What each state draws
 
     @Test func needsYouIsOrangeWithTheReasonSymbolAndAnOrangeSecondLine() {

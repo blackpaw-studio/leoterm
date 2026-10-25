@@ -33,7 +33,8 @@ struct LeoRuntimeFileDropTests {
                     return state.accesses.removeFirst()
                 },
                 insertText: { _, text in state.inserted.append(text) }
-            )
+            ),
+            chatClient: FakeChatClient()
         )
     }
 

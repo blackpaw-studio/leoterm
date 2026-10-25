@@ -17,6 +17,9 @@ enum LeoStatusPresentation {
         let accessibilityLabel: String
     }
 
+    /// How a restoring agent (the daemon is still starting its agents up) reads.
+    static let restoringTitle = "Restoring…"
+
     /// The activity dot in the agent palette.
     ///
     /// `.unknown` means "no activity data yet" (the row hasn't received a

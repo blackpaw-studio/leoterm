@@ -2,51 +2,50 @@ import Combine
 import Foundation
 import LeoKit
 
-/// Unread agent messages per agent on the selected host, for the sidebar
-/// rows and the Chat switch. The daemon's read mark is the truth: every
-/// resync (hello, gap, snapshot) re-seeds from `threads()`, live agent
-/// messages add to it, and a successful read clears an agent. Fed by
-/// `LeoRuntime`'s chat relay, upstream of the chat pane's agent guard, so
-/// agents that aren't on screen count too.
+/// Unread agent messages per agent on every connected machine, for the
+/// sidebar rows and the Chat switch. Each machine's daemon read mark is the
+/// truth: every resync (hello, gap, snapshot) re-seeds that machine from its
+/// own `threads()`, live agent messages add to it, and a successful read
+/// clears an agent. Fed by `LeoRuntime`'s chat relay, upstream of the chat
+/// pane's agent guard, so agents that aren't on screen count too. A machine
+/// counts only while bound: the runtime binds it when its daemon connects and
+/// unbinds it when the connection drops, which also drops its counts.
 @MainActor final class LeoChatUnreadStore: ObservableObject {
     @Published private(set) var counts = LeoChatUnreadCounts()
     /// The kind of each agent's latest agent-sent message: seeded from the
     /// threads' `lastMessage`, then kept current by live messages.
     private var latestKinds: [LeoAgentID: LeoChatMessage.Kind] = [:]
-    /// Kinds that arrived live since the latest seed began: the seed's
-    /// answer may predate them, so they win when it lands.
+    /// Kinds that arrived live since their machine's latest seed began: the
+    /// seed's answer may predate them, so they win when it lands.
     private var liveKindsSinceSeedBegan: [LeoAgentID: LeoChatMessage.Kind] = [:]
 
-    private var client: any LeoChatClient
-    private var host: LeoHostID
-    private var seedTask: Task<Void, Never>?
-    /// Identifies the seed whose answer still counts.
-    private var seedToken = 0
-    /// Agents read since the latest seed began: its answer may predate the
-    /// read, so they stay at 0 when it lands.
+    private var clients: [LeoHostID: any LeoChatClient] = [:]
+    private var seedTasks: [LeoHostID: Task<Void, Never>] = [:]
+    /// Identifies each machine's seed whose answer still counts. Never reset,
+    /// so a seed from before an unbind can't count after a rebind.
+    private var seedTokens: [LeoHostID: Int] = [:]
+    /// Agents read since their machine's latest seed began: its answer may
+    /// predate the read, so they stay at 0 when it lands.
     private var readSinceSeedBegan: Set<LeoAgentID> = []
 
-    init(client: any LeoChatClient, host: LeoHostID) {
-        self.client = client
-        self.host = host
+    /// Starts counting `host` from its daemon's client. It does not seed:
+    /// the machine's next resync does. A seed still in flight for the host's
+    /// previous client is dropped.
+    func bind(_ client: any LeoChatClient, host: LeoHostID) {
+        invalidateSeed(host)
+        clients[host] = client
     }
 
-    /// The selected connection's daemon changed. Signals from any other
-    /// host are ignored from now on, and a seed still in flight is dropped.
-    func updateClient(_ client: any LeoChatClient, host: LeoHostID) {
-        self.client = client
-        self.host = host
-        seedTask?.cancel()
-        seedTask = nil
-        seedToken += 1
+    /// Stops counting `host`: its signals are ignored from now on, a seed in
+    /// flight is dropped, and its counts and kinds go away.
+    func unbind(_ host: LeoHostID) {
+        invalidateSeed(host)
+        clients[host] = nil
+        counts = counts.seeding([], host: host)
+        latestKinds = latestKinds.filter { $0.key.host != host }
     }
 
-    /// A store no daemon feeds, for views built without a runtime (tests).
-    static func detached() -> LeoChatUnreadStore {
-        LeoChatUnreadStore(
-            client: LeoChatPaneModel.makeClient(socketPath: "/dev/null", transport: LeoUnixSocketTransport()), host: .local
-        )
-    }
+    func isBound(_ host: LeoHostID) -> Bool { clients[host] != nil }
 
     func count(for agent: LeoAgentID) -> Int { counts[agent] }
 
@@ -60,7 +59,8 @@ import LeoKit
 
     /// `isOnScreen` says whether an agent's chat is being read right now.
     func receive(_ delivery: LeoChatFeedDelivery, isOnScreen: (LeoAgentID) -> Bool) {
-        guard delivery.host == host else { return }
+        let host = delivery.host
+        guard clients[host] != nil else { return }
         switch delivery.signal {
         case .event(let event):
             let agent = LeoAgentID(host: host, name: event.message.agent)
@@ -70,24 +70,34 @@ import LeoKit
             }
             counts = counts.receiving(event, host: host, isOnScreen: isOnScreen(agent))
         case .resync:
-            seed()
+            seed(host)
         }
     }
 
-    /// Returns once the seed in flight (if any) has landed or been dropped.
-    func settled() async { await seedTask?.value }
+    /// Returns once the seeds in flight (if any) have landed or been dropped.
+    func settled() async {
+        for task in Array(seedTasks.values) { await task.value }
+    }
+
+    /// Drops `host`'s seed in flight and the read and live-kind notes it
+    /// would have reconciled against.
+    private func invalidateSeed(_ host: LeoHostID) {
+        seedTasks[host]?.cancel()
+        seedTasks[host] = nil
+        seedTokens[host, default: 0] += 1
+        readSinceSeedBegan = readSinceSeedBegan.filter { $0.host != host }
+        liveKindsSinceSeedBegan = liveKindsSinceSeedBegan.filter { $0.key.host != host }
+    }
 
     /// Its own task, so a slow `threads()` never stalls the ordered relay.
     /// A failed fetch keeps the counts as they are.
-    private func seed() {
-        seedTask?.cancel()
-        seedToken += 1
-        readSinceSeedBegan = []
-        liveKindsSinceSeedBegan = [:]
-        let (token, client, host) = (seedToken, client, host)
-        seedTask = Task { [weak self] in
+    private func seed(_ host: LeoHostID) {
+        guard let client = clients[host] else { return }
+        invalidateSeed(host)
+        let token = seedTokens[host, default: 0]
+        seedTasks[host] = Task { [weak self] in
             guard let threads = try? await client.threads() else { return }
-            guard let self, token == self.seedToken else { return }
+            guard let self, token == self.seedTokens[host] else { return }
             let unreadAfterReads = threads.map { thread in
                 var thread = thread
                 if readSinceSeedBegan.contains(LeoAgentID(host: host, name: thread.agent)) { thread.unread = 0 }

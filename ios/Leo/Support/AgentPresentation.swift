@@ -54,6 +54,7 @@ extension Agent {
         case .starting: String(localized: "Starting")
         case .running: String(localized: "Running")
         case .stopped: String(localized: "Stopped")
+        case .restoring: String(localized: "Restoring…")
         case .unknown(let raw): raw.capitalized
         case nil: String(localized: "Unknown")
         }
