@@ -3839,3 +3839,38 @@ Chose: In hidden style only, the side-pane close button gets an explicit header-
 Why: D-258, P1.
 Commit: c670650c9
 Veto: [ ]
+
+## D-537 · 2026-10-25 · In CI, skip and annotate instead of failing when no plain window can become key
+Context: B-297 (runner call).
+Chose: In CI, skip and annotate instead of failing when no plain window can become key
+Why: AUTONOMY test-infra rule; P1 kept because a plain-window probe separates environment from regression.
+Commit: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
+Veto: [ ]
+
+## D-538 · 2026-10-25 · Don't force the runner active from inside the tests; runner setup is left as a follow-up
+Context: B-297 (runner call).
+Chose: Don't force the runner active from inside the tests; runner setup is left as a follow-up
+Why: AUTONOMY test-infra rule.
+Commit: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
+Veto: [ ]
+
+## D-539 · 2026-10-25 · Keep the name `.requiresActiveHost` and its 5 call sites
+Context: B-297 (runner call).
+Chose: Keep the name `.requiresActiveHost` and its 5 call sites
+Why: smaller churn.
+Commit: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
+Veto: [ ]
+
+## D-540 · 2026-10-25 · Mac only
+Context: B-297 (runner call).
+Chose: Mac only
+Why: Mac/iOS rule (stated in commit messages).
+Commit: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
+Veto: [ ]
+
+## D-541 · 2026-10-25 · Log checker keys on a `focus-gate-skip:` stderr marker, not Swift Testing's skip line
+Context: B-297 (runner call).
+Chose: Log checker keys on a `focus-gate-skip:` stderr marker, not Swift Testing's skip line
+Why: other suites also skip.
+Commit: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
+Veto: [ ]

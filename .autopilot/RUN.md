@@ -30,7 +30,7 @@ Lane: B-297
   Branch: autopilot-lane/B-297
   Base: e07d5ea238a4883d67df74b92f44c986a9161ae4
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -42,6 +42,9 @@ Lane: B-297
   Call: Mac only — Mac/iOS rule (stated in commit messages)
   Call: Log checker keys on a `focus-gate-skip:` stderr marker, not Swift Testing's skip line — other suites also skip
 
+Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
+
 Progress:
 - Preflight: merged origin/main (791f4631b) into autopilot; applied 6 inbox entries (B-297 bug, B-298 add, B-299..B-302 ideas).
 - B-297 runner dispatched: d-ea20172624fe (leo_dispatch implement → claude/sonnet, tier full). Brief passed as a file path (scratchpad brief-B-297.md).
+- B-297 landed 764fb1960 (6 commits, full review, 0 fix rounds). Decisions D-537..D-541. Follow-up outside repo: CI runner console setup so focus tests run instead of skipping.

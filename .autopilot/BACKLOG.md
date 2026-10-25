@@ -890,13 +890,15 @@ Source: autopilot polish (B-100)
 Done: c670650c9
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-153-7.png (test at 0.5 pt from the window top (red 1.0 pt spread → 0); GUI 1x: +, browser close and editor close within 0.32 pt; suite 2696/0)
 
-## B-297 · Mac CI focus suites fail when the runner window can't become key   [ready]
+## B-297 · Mac CI focus suites fail when the runner window can't become key   [done]
 Issue: #282
 Type: bug
 Report: Mac CI (Leo CI test-macos) fails on and off with 17 issues in 4 keyboard-focus suites: GhosttyAttachContentHostFocusTests (:85 focusChanged), LeoContentFocusTests (:142/:167 panel.isKeyWindow), LeoSidebarReturnKeyTests (:117 isKey, 12 issues) and LeoTerminalControlCTests (isKeyWindow && firstResponder). The same 17 failures appear on main 60e80df75 (run on 2026-10-11) and 86e53dc7f (run 38243981954), while 01e0ac9bd passed, so the cause is the runner's window state (it can't become key when the screen is locked or another app is in front), not code. They fail locally in a non-frontmost agent session too. Fix: make these suites reliable. Either skip them with a clear reason when the app can't become key/active, or make the test host reliably get key-window status on the self-hosted runner. Don't weaken the assertions when focus is actually available. Accept: 3 consecutive Leo CI runs on main pass with no focus-suite failures, and when focus isn't available the suites report skipped with a reason, not failed.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-25)
 Inbox: 20261012T164107273433Z-4b0cdde2#1
+Done: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
+Verified: not visually verified — no UI change (tests and CI scripts only); full suite 3592 tests pass; CI acceptance (3 green main runs) only checkable after merge
 
 ## B-298 · iOS: adopt LeoChatUnreadCounts in ChatList   [ready]
 Issue: #283
