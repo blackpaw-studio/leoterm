@@ -11,6 +11,8 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
     private enum Secondary: Equatable {
         case chat(AgentRef)
         case detail(AgentRef)
+        /// A chat opened from its agent's detail, pushed over it.
+        case chatOverDetail(AgentRef)
     }
 
     @UIBindable private var store: StoreOf<AppFeature>
@@ -52,19 +54,21 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
 
         observe { [weak self] in
             guard let self else { return }
-            let secondary: Secondary? = store.chat.map { .chat($0.ref) } ?? store.detail.map { .detail($0.ref) }
-            guard secondary != shownDetail else { return }
-            shownDetail = secondary
-            let root: UIViewController
-            if case .chat = secondary, let chatStore = store.scope(state: \.chat, action: \.chat) {
-                root = ChatThreadViewController(store: chatStore)
-            } else if let detailStore = store.scope(state: \.detail, action: \.detail) {
-                root = AgentDetailViewController(store: detailStore)
-            } else {
-                root = NoSelectionViewController()
+            let secondary: Secondary? = switch (store.chat, store.detail) {
+            case (let chat?, let detail?) where chat.ref == detail.ref: .chatOverDetail(chat.ref)
+            case (let chat?, _): .chat(chat.ref)
+            case (nil, let detail?): .detail(detail.ref)
+            case (nil, nil): nil
             }
+            guard secondary != shownDetail else { return }
+            let previousSecondary = shownDetail
+            shownDetail = secondary
+            if let secondaryNavigation, moveWithinSecondary(secondaryNavigation, from: previousSecondary, to: secondary) { return }
             let previous = secondaryNavigation
-            let navigation = UINavigationController(rootViewController: root)
+            previous?.delegate = nil
+            let navigation = UINavigationController()
+            navigation.setViewControllers(makeSecondaryStack(secondary), animated: false)
+            navigation.delegate = self
             secondaryNavigation = navigation
             setViewController(navigation, for: .secondary)
             if secondary != nil {
@@ -74,6 +78,39 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
             } else {
                 show(.primary)
             }
+        }
+    }
+
+    /// The screens of the secondary column, bottom first.
+    private func makeSecondaryStack(_ secondary: Secondary?) -> [UIViewController] {
+        let detail = store.scope(state: \.detail, action: \.detail).map(AgentDetailViewController.init(store:))
+        let chat = store.scope(state: \.chat, action: \.chat).map(ChatThreadViewController.init(store:))
+        let stack: [UIViewController?] = switch secondary {
+        case .chat: [chat]
+        case .detail: [detail]
+        case .chatOverDetail: [detail, chat]
+        case nil: []
+        }
+        let screens = stack.compactMap { $0 }
+        return screens.isEmpty ? [NoSelectionViewController()] : screens
+    }
+
+    /// Opening a detail's chat pushes it over the detail, and closing it pops
+    /// back, inside the column that is already showing. A user's Back has
+    /// popped it already, and an existing chat is not pushed twice. Anything
+    /// else replaces the column.
+    private func moveWithinSecondary(_ navigation: UINavigationController, from previous: Secondary?, to secondary: Secondary?) -> Bool {
+        switch (previous, secondary) {
+        case (.detail(let from), .chatOverDetail(let to)) where from == to:
+            guard !navigation.viewControllers.contains(where: { $0 is ChatThreadViewController }),
+                  let chatStore = store.scope(state: \.chat, action: \.chat) else { return false }
+            navigation.pushViewController(ChatThreadViewController(store: chatStore), animated: true)
+            return true
+        case (.chatOverDetail(let from), .detail(let to)) where from == to:
+            navigation.popToRootViewController(animated: true)
+            return true
+        default:
+            return false
         }
     }
 
@@ -106,7 +143,15 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
     // popping back to the list clears it, so selecting the same agent again
     // shows it again.
     func navigationController(_ navigationController: UINavigationController, didShow viewController: UIViewController, animated: Bool) {
-        guard isCollapsed, transitionsInFlight == 0 else { return }
+        guard transitionsInFlight == 0 else { return }
+        if navigationController === secondaryNavigation {
+            // Back from a detail's chat leaves the detail selected.
+            if case .chatOverDetail = shownDetail, !navigationController.viewControllers.contains(where: { $0 is ChatThreadViewController }) {
+                store.send(.chatPopped)
+            }
+            return
+        }
+        guard isCollapsed else { return }
         dropReplacedSecondaries(from: navigationController)
         guard shownDetail != nil, let secondaryNavigation,
               !navigationController.viewControllers.contains(secondaryNavigation) else { return }

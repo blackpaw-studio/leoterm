@@ -1,8 +1,8 @@
 import UIKit
 import XCTest
 
-/// Back from a chat or an agent returns to the Agents list on iPhone, with
-/// the list intact, against the scripted `-navFixture` (no daemon needed).
+/// Back from a chat or an agent returns one level at a time on iPhone (a chat
+/// opened from a detail returns to it first), with the list intact, against the scripted `-navFixture` (no daemon needed).
 final class LeoNavStackTests: XCTestCase {
     private let agents = ["agent-0", "agent-1", "agent-2"]
 
@@ -33,7 +33,11 @@ final class LeoNavStackTests: XCTestCase {
         app.cells["agent.chat"].tap()
         XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
         back(app)
-        assertAtAgentsList(app, "back-from-chat-via-detail")
+        attach(app, "back-from-chat-to-detail")
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "Back from the chat lands on the detail")
+        XCTAssertFalse(app.collectionViews["chat.thread"].exists, "chat popped")
+        back(app)
+        assertAtAgentsList(app, "back-from-detail-after-chat")
     }
 
     func testBackFromDetailReturnsToTheList() throws {
@@ -98,6 +102,16 @@ final class LeoNavStackTests: XCTestCase {
             XCTAssertTrue(app.cells["agent.\(agent)"].exists, "ipad chat: row \(agent)")
         }
         attach(app, "ipad-chat")
+        // Back from the chat returns to its detail, beside the list.
+        back(app)
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "ipad: Back lands on the detail")
+        XCTAssertFalse(app.collectionViews["chat.thread"].exists, "ipad: chat popped")
+        for agent in agents {
+            XCTAssertTrue(app.cells["agent.\(agent)"].exists, "ipad detail: row \(agent)")
+        }
+        attach(app, "ipad-back-to-detail")
+        app.cells["agent.chat"].tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
         app.cells["agent.agent-1"].tap()
         XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.collectionViews["chat.thread"].exists)
@@ -123,6 +137,9 @@ final class LeoNavStackTests: XCTestCase {
         XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5), "portrait again: chat stays")
         attach(app, "rotate-portrait")
         XCTAssertFalse(app.staticTexts["No Agent Selected"].exists, "placeholder")
+        back(app)
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "Back after rotation lands on the detail")
+        XCTAssertFalse(app.collectionViews["chat.thread"].exists, "chat popped")
         back(app)
         assertAtAgentsList(app, "back-after-rotation")
     }

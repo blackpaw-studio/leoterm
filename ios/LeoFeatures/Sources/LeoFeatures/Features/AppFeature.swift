@@ -8,13 +8,15 @@ import LeoKit
 public struct AppFeature {
     @ObservableState
     public struct State: Equatable {
-        /// The selected chat thread; exclusive with `detail` (both fill the
-        /// secondary column).
+        /// The selected chat thread. Without a `detail` it fills the secondary
+        /// column; with one (the same agent's, opened from its detail screen)
+        /// it sits over the detail, which Back returns to.
         public var chat: ChatThread.State?
         public var chats = ChatList.State()
         public var daemons = Daemons.State()
         /// The selected agent. Selection, not presentation: on iPhone the
-        /// split view collapses it onto the list's navigation stack.
+        /// split view collapses it onto the list's navigation stack. Stays
+        /// set under `chat` when the chat was opened from it.
         public var detail: AgentDetail.State?
         public var fleet = Fleet.State()
         public var isShowingChats = false
@@ -46,6 +48,9 @@ public struct AppFeature {
         /// A tapped chat notification (the app may have just launched for it).
         case chatNotificationOpened(AgentRef)
         case chatOpened(AgentRef)
+        /// The user popped a chat opened from an agent's detail back to it
+        /// (the detail stays selected).
+        case chatPopped
         case chats(ChatList.Action)
         case chatsButtonTapped
         /// The Agents list showed its Chats entry: start keeping unread
@@ -106,6 +111,11 @@ public struct AppFeature {
 
                 case .chatOpened(let ref), .chats(.newChatPicked(let ref)), .chats(.rowTapped(let ref)):
                     state.openChat(ref)
+                    return .none
+
+                case .chatPopped:
+                    state.parkChatDrafts()
+                    state.chat = nil
                     return .none
 
                 case .chatsButtonTapped:
@@ -172,7 +182,7 @@ public struct AppFeature {
                     return .none
 
                 case .detail(.chatButtonTapped):
-                    if let ref = state.detail?.ref { state.openChat(ref) }
+                    if let ref = state.detail?.ref { state.openChat(ref, overDetail: true) }
                     return .none
 
                 case .scenePhaseChanged(let isActive):
@@ -270,6 +280,8 @@ extension AppFeature.State {
         }
         if let agent = session.agents[id: ref.name] {
             pendingAgent = nil
+            parkChatDrafts()
+            chat = nil
             if detail?.ref != ref { detail = AgentDetail.State(daemon: session.daemon, agent: agent, connection: session.connection) }
         } else if session.connection.isConnected {
             pendingAgent = nil
@@ -282,12 +294,13 @@ extension AppFeature.State {
         chat?.ref == ref && chat?.isOnScreen == true
     }
 
-    /// Shows `ref`'s thread in place of any agent detail.
-    mutating func openChat(_ ref: AgentRef) {
+    /// Shows `ref`'s thread in place of any agent detail, or over it when it
+    /// was opened from that detail.
+    mutating func openChat(_ ref: AgentRef, overDetail: Bool = false) {
         guard let session = fleet.sessions[id: ref.daemonID] else { return }
         pendingChat = nil
         pendingAgent = nil
-        detail = nil
+        if !overDetail { detail = nil }
         chats.threads[ref.daemonID]?[id: ref.name]?.unread = 0
         guard chat?.ref != ref else { return }
         parkChatDrafts()

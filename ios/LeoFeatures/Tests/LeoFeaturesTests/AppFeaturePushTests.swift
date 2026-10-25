@@ -116,6 +116,21 @@ struct AppFeaturePushTests {
         }
     }
 
+    @Test func aTapOpensTheAgentInPlaceOfTheOpenChat() async {
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.fleet.sessions[0].agents = [Agent(.make("zeus")), Agent(.make("hera"))]
+        initial.fleet.sessions[0].connection = .connected
+        initial.hasLoadedDaemons = true
+        initial.chat = ChatThread.State(daemon: .dionysus, agent: "hera", live: Agent(.make("hera")))
+        let store = TestStore(initialState: initial) { AppFeature() }
+
+        await store.send(.notificationOpened(Self.zeus)) {
+            $0.chat = nil
+            $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        }
+    }
+
     @Test func aTapThatLaunchedTheAppOpensTheAgentOnceItLoads() async {
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()
