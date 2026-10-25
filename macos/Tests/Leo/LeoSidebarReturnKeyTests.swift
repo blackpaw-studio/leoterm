@@ -72,6 +72,33 @@ struct LeoSidebarReturnKeyTests {
         #expect(!claimed, "the sidebar claimed \(key.name)")
         #expect(harness.activations.isEmpty, "\(key.name) opened a row")
     }
+
+    /// B-297: Return reaches the sidebar through the key-equivalent pass, which
+    /// needs no key status; a window that can't become key (screen locked,
+    /// another app in front) still activates the selection.
+    @Test func returnActivatesTheSelectionInAWindowThatCannotBecomeKey() async throws {
+        let harness = try await ReturnKeyHarness(selecting: .terminal, window: NeverKeyWindow.make())
+        defer { harness.close() }
+
+        let claimed = try harness.press(.return)
+
+        #expect(!harness.window.canBecomeKey)
+        #expect(claimed, "the sidebar let Return through")
+        #expect(harness.activations == ["show terminal"])
+    }
+}
+
+/// A window the window server never gives key status, as on a locked screen.
+private final class NeverKeyWindow: NSWindow {
+    override var canBecomeKey: Bool { false }
+
+    static func make() -> NSWindow {
+        let window = NeverKeyWindow(
+            contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        return window
+    }
 }
 
 // MARK: - Harness
@@ -85,7 +112,7 @@ struct LeoSidebarReturnKeyTests {
     )
     private static let timeout: Duration = .seconds(5)
 
-    init(selecting selected: LeoSidebarReturnKeyTests.Selected?) async throws {
+    init(selecting selected: LeoSidebarReturnKeyTests.Selected?, window: NSWindow? = nil) async throws {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [Self.worker], connectivity: .connected, generation: 1))
         let terminals = LeoWindowTerminals()
         let terminal = UUID()
@@ -98,10 +125,8 @@ struct LeoSidebarReturnKeyTests {
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemon: ReturnKeyDaemon()), cli: .recordingForTests(), model: model,
             processRunner: LeoRecordingTemplateRunner(), refresh: {})
-        window = NSWindow(
-            contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),
-            styleMask: [.titled], backing: .buffered, defer: false)
-        window.isReleasedWhenClosed = false
+        let window = window ?? Self.makeWindow()
+        self.window = window
         window.contentView = NSHostingView(rootView: LeoSidebarView(model: model, windowID: LeoWindowID(), actions: actions, terminals: terminals))
 
         terminals.showRequested = { [weak self] _ in self?.activations.append("show terminal") }
@@ -119,6 +144,14 @@ struct LeoSidebarReturnKeyTests {
             return window.contentView.map(Self.containsReturnKeyView) ?? false
         }
         try #require(hasReturnKeyView, "the sidebar's Return key view never joined the window")
+    }
+
+    static func makeWindow() -> NSWindow {
+        let window = NSWindow(
+            contentRect: NSRect(x: 120, y: 120, width: 320, height: 480),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        return window
     }
 
     private static func containsReturnKeyView(_ view: NSView) -> Bool {
