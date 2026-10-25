@@ -64,6 +64,42 @@ struct LeoLaunchFocusTests {
         #expect(!fixture.window.isKeyWindow, "the test's window took key status")
     }
 
+    /// B-157: Tab walks what is on screen after a sidebar or pane is toggled
+    /// while the window stays key, without the loop being rebuilt. The loop
+    /// is built (sidebar hidden) before the toggle and keeps the collapsed
+    /// panes' views, which `nextValidKeyView` skips while they are hidden,
+    /// so showing one needs no rebuild.
+    @Test func tabReachesTheSearchFieldOfASidebarShownWhileTheWindowStaysKey() async throws {
+        let fixture = try await LaunchWindowFixture.make(becomingKey: true, sidebarVisible: false)
+        defer { fixture.close() }
+        await nextMainTurn()
+
+        fixture.session.setSidebarVisible(true)
+        let field = try await fixture.waitForSearchField()
+        let reached = await fixture.waitUntil { fixture.tabReaches(field) }
+        #expect(reached, "Tab after showing the sidebar: \(fixture.describeFirstResponder())")
+        #expect(field.nextValidKeyView is NSTableView, "after the field: \(String(describing: field.nextValidKeyView))")
+    }
+
+    /// Same for a side pane: the browser's outline is in the loop once the
+    /// pane is shown, and Tab can't land on it once it is hidden again.
+    @Test func tabReachesAPaneShownWhileTheWindowStaysKeyAndNotOnceItIsHidden() async throws {
+        let fixture = try await LaunchWindowFixture.make(becomingKey: true)
+        defer { fixture.close() }
+        _ = try await fixture.waitForSearchField()
+        await nextMainTurn()
+        let pane = try #require(fixture.browserPaneItem, "the split has no browser pane")
+        let outline = try #require(fixture.browserOutline, "the browser pane has no outline")
+
+        pane.isCollapsed = false
+        let shown = await fixture.waitUntil { fixture.tabReaches(outline) }
+        #expect(shown, "Tab after showing the browser pane never reached its outline")
+
+        pane.isCollapsed = true
+        let hidden = await fixture.waitUntil { !fixture.tabReaches(outline) }
+        #expect(hidden, "Tab after hiding the browser pane still reached its outline")
+    }
+
     /// When the window goes on screen after it is made.
     enum Presentation: CaseIterable, Sendable {
         /// On the next turn, from a plain main-queue block, as
@@ -122,6 +158,45 @@ private struct LaunchWindowFixture {
         throw FixtureError.noSearchField
     }
 
+    var session: LeoWindowSession { controller.leoSession! }
+
+    /// The window's split controller, found from its split view.
+    var splitController: LeoSplitViewController? {
+        window.contentView.flatMap(Self.findSplitView).flatMap { $0.delegate as? LeoSplitViewController }
+    }
+
+    var browserPaneItem: NSSplitViewItem? {
+        splitController?.splitViewItems.first {
+            ($0.viewController as? LeoRowPaneContainerViewController)?.role == .browser
+        }
+    }
+
+    var browserOutline: NSView? {
+        browserPaneItem.flatMap { Self.findView(in: $0.viewController.view) { $0 is LeoWorkspaceOutlineView } }
+    }
+
+    /// True if Tab from the window's own first responder -- the start
+    /// screen -- walks the loop to `view` within a loop's length.
+    func tabReaches(_ view: NSView) -> Bool {
+        var current: NSView? = window.contentView
+        for _ in 0 ..< 200 {
+            current = current?.nextValidKeyView
+            if current === view { return true }
+            if current == nil || current === window.contentView { return false }
+        }
+        return false
+    }
+
+    /// Waits on run-loop turns (D-178, D-254) until `condition` holds.
+    func waitUntil(turnLimit: Int = searchFieldTurnLimit, _ condition: () -> Bool) async -> Bool {
+        for _ in 0 ..< turnLimit {
+            if condition() { return true }
+            window.contentView?.layoutSubtreeIfNeeded()
+            await nextMainTurn()
+        }
+        return condition()
+    }
+
     func close() {
         controller.closeTabImmediately(registerRedo: false)
     }
@@ -129,7 +204,9 @@ private struct LaunchWindowFixture {
     /// `becomingKey` delivers what `makeKeyAndOrderFront` does as it
     /// returns -- the window's did-become-key, in the same turn as the
     /// order-in -- without taking key status from the other suites.
-    static func make(_ presentation: LeoLaunchFocusTests.Presentation = .nextTurn, becomingKey: Bool = false) async throws -> LaunchWindowFixture {
+    static func make(
+        _ presentation: LeoLaunchFocusTests.Presentation = .nextTurn, becomingKey: Bool = false, sidebarVisible: Bool = true
+    ) async throws -> LaunchWindowFixture {
         try #require((NSApp.delegate as? AppDelegate)?.leoRuntime != nil, "the test host has no LeoRuntime")
         let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "the test host has no Ghostty.App")
         try #require(ghostty.readiness == .ready, "the test host's Ghostty.App isn't ready")
@@ -138,7 +215,7 @@ private struct LaunchWindowFixture {
             controller.closeTabImmediately(registerRedo: false)
             throw FixtureError.noLeoWindow
         }
-        session.isSidebarVisible = true
+        session.isSidebarVisible = sidebarVisible
         let present = {
             window.orderFront(nil)
             if becomingKey {
@@ -157,6 +234,18 @@ private struct LaunchWindowFixture {
             }
         }
         return LaunchWindowFixture(controller: controller, window: window)
+    }
+
+    private static func findView(in view: NSView, where matches: (NSView) -> Bool) -> NSView? {
+        if matches(view) { return view }
+        for subview in view.subviews {
+            if let found = findView(in: subview, where: matches) { return found }
+        }
+        return nil
+    }
+
+    private static func findSplitView(_ view: NSView) -> NSSplitView? {
+        findView(in: view) { ($0 as? NSSplitView)?.delegate is LeoSplitViewController } as? NSSplitView
     }
 
     private static func findSearchField(_ view: NSView) -> NSTextField? {

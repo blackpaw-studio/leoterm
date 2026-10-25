@@ -22,9 +22,11 @@ extension TerminalController {
     /// time the window becomes key, on the next turn. Ordering the window
     /// in builds the sidebar, so its search field is in the loop at launch
     /// (`LeoLaunchFocusTests`); the turn is margin. This never moves the
-    /// first responder. It is rebuilt only then: a sidebar or pane shown
-    /// or hidden while the window stays key keeps the loop from the last
-    /// time it became key.
+    /// first responder. It is rebuilt only then, and a sidebar or pane shown
+    /// or hidden while the window stays key needs no rebuild (B-157): the
+    /// loop keeps collapsed panes' views and Tab skips them while hidden
+    /// (`LeoLaunchFocusTests`). Only a view created after the rebuild is
+    /// missing until the window is next key.
     func leoRebuildKeyViewLoop() {
         DispatchQueue.main.async { [weak self] in
             self?.window?.recalculateKeyViewLoop()
