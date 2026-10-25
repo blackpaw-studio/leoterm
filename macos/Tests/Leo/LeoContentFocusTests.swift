@@ -139,7 +139,7 @@ private struct FocusFixture {
     func presentPalette() async throws -> LeoAgentPalettePanel {
         let panel = LeoAgentPalettePanel()
         panel.present(parent: window, model: LeoAgentPaletteModel(), onCommit: { _ in }, onRetry: { _ in }, onResignKey: {})
-        try #require(await eventually { panel.isKeyWindow }, "the palette never became key")
+        try #require(await eventually { panel.isKeyWindow }, "the palette never became key \(LeoTestHostActivation.focusDiagnostic())")
         return panel
     }
 
@@ -162,7 +162,7 @@ private struct FocusFixture {
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
         presentation.present(request: request)
-        try #require(await eventually { panel.isKeyWindow }, "the palette never became key")
+        try #require(await eventually { panel.isKeyWindow }, "the palette never became key \(LeoTestHostActivation.focusDiagnostic())")
         return PresentedPalette(presentation: presentation, panel: panel)
     }
 
@@ -207,7 +207,7 @@ private struct FocusFixture {
     private func describe() -> String {
         let responder = window.firstResponder.map { "\(type(of: $0))" } ?? "nil"
         let panes = controller.surfaceTree.map { "\($0.id.uuidString.prefix(4)) focused=\($0.focused)" }
-        return "key=\(window.isKeyWindow) firstResponder=\(responder) panes=\(panes)"
+        return "key=\(window.isKeyWindow) firstResponder=\(responder) panes=\(panes) \(LeoTestHostActivation.focusDiagnostic())"
     }
 
     enum FixtureError: Error {

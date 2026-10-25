@@ -15,6 +15,13 @@ import Testing
 /// skips as warnings (`check-test-log.sh`) so a runner without focus stays visible.
 @MainActor
 enum LeoTestHostActivation {
+    /// What the host's focus looked like, for failure messages: focus lost
+    /// mid-test then reads as environment, not as a regression.
+    static func focusDiagnostic() -> String {
+        let front = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"
+        return "[app active=\(NSApp.isActive) frontmost=\(front)]"
+    }
+
     /// Asks again for the foreground; for the waits of a test that needs key
     /// status, where another app may take it back after the gate passed.
     static func requestForeground() {

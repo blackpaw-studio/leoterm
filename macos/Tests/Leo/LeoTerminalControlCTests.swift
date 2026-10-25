@@ -87,7 +87,7 @@ struct LeoTerminalControlCTests {
 
         window.makeKeyAndOrderFront(nil)
         try #require(await sidebarIsShown(in: window), "the window's sidebar never showed")
-        try #require(await eventually { window.isKeyWindow && window.firstResponder === surface }, "never key with the shell focused")
+        try #require(await eventually { window.isKeyWindow && window.firstResponder === surface }, "never key with the shell focused \(LeoTestHostActivation.focusDiagnostic())")
 
         try #require(await eventually { FileManager.default.fileExists(atPath: markers.ready.path) }, "the shell never started")
         try press(key, in: window)
