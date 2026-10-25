@@ -62,6 +62,7 @@ Lane: B-154
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-25T19:00:21Z
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
@@ -72,3 +73,4 @@ Progress:
 - B-297 landed 764fb1960 (6 commits, full review, 0 fix rounds). Decisions D-537..D-541. Follow-up outside repo: CI runner console setup so focus tests run instead of skipping.
 - B-298 runner dispatched: d-d119a1ad868f (implement → claude/sonnet, tier light).
 - B-298 landed 7ac647da7 (1 commit, 0 fix rounds, no calls). Runner saw one load flake (~37 load): LeoRuntimeMachinesTests.chatShowsNotConnectedOnlyWhileItsMachineIsDownAndReloadsOnReconnect asserts right after show(); passed on rerun.
+- B-154 runner dispatched: d-56e91fa74a15 (implement → claude/sonnet, tier light).
