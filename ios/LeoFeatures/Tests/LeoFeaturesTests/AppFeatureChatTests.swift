@@ -31,6 +31,7 @@ struct AppFeatureChatTests {
         await store.receive(\.chats.refresh)
         await store.receive(\.chats.threadsResponse) {
             $0.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus", unread: 2)]
+            $0.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "zeus", unread: 2)], host: .remote(Self.zeus.daemonID))
         }
     }
 
@@ -38,12 +39,13 @@ struct AppFeatureChatTests {
         var state = Self.connected()
         state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
         state.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus", unread: 3)]
+        state.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "zeus", unread: 3)], host: .remote(Self.zeus.daemonID))
         let store = TestStore(initialState: state) { AppFeature() }
 
         await store.send(\.chats.rowTapped, Self.zeus) {
             $0.detail = nil
             $0.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
-            $0.chats.threads[Self.zeus.daemonID]?[id: "zeus"]?.unread = 0
+            $0.chats.unreadCounts = LeoChatUnreadCounts()
         }
         // Selecting an agent replaces the chat.
         await store.send(.agentTapped(Self.zeus)) {
@@ -159,7 +161,8 @@ struct AppFeatureChatTests {
         let message = LeoChatMessage.make("01", "hi", agent: "hera")
         await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .chat(seq: 3, .message(message))))
         await store.receive(\.chats.chatEvent) {
-            $0.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "hera", lastMessage: message, unread: 1)]
+            $0.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "hera", lastMessage: message)]
+            $0.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "hera", unread: 1)], host: .remote(Self.zeus.daemonID))
         }
     }
 

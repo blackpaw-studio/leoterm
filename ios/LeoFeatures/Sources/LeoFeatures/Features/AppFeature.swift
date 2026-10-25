@@ -313,7 +313,7 @@ extension AppFeature.State {
         // Re-opening the chat already shown over its detail leaves that detail be.
         let isShownOverItsDetail = chat?.ref == ref && detail?.ref == ref
         if !overDetail, !isShownOverItsDetail { detail = nil }
-        chats.threads[ref.daemonID]?[id: ref.name]?.unread = 0
+        chats.unreadCounts = chats.unreadCounts.clearing(ref.leoAgentID)
         guard chat?.ref != ref else { return }
         parkChatDrafts()
         var thread = ChatThread.State(daemon: session.daemon, agent: ref.name, live: session.agents[id: ref.name])

@@ -56,7 +56,7 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate {
 
         observe { [weak self] in
             guard let self else { return }
-            render(ChatList.rows(threads: store.chats.threads, sessions: store.fleet.sessions), selection: store.chat?.ref)
+            render(ChatList.rows(threads: store.chats.threads, unread: store.chats.unreadCounts, sessions: store.fleet.sessions), selection: store.chat?.ref)
         }
     }
 
