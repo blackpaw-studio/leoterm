@@ -46,7 +46,7 @@ Lane: B-298
   Branch: autopilot-lane/B-298
   Base: 8b7365c47fbf56f060627099c69eede4fab77d96
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -54,9 +54,11 @@ Lane: B-298
   Dispatched: 2026-10-25T18:09:58Z
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
+Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 
 Progress:
 - Preflight: merged origin/main (791f4631b) into autopilot; applied 6 inbox entries (B-297 bug, B-298 add, B-299..B-302 ideas).
 - B-297 runner dispatched: d-ea20172624fe (leo_dispatch implement → claude/sonnet, tier full). Brief passed as a file path (scratchpad brief-B-297.md).
 - B-297 landed 764fb1960 (6 commits, full review, 0 fix rounds). Decisions D-537..D-541. Follow-up outside repo: CI runner console setup so focus tests run instead of skipping.
 - B-298 runner dispatched: d-d119a1ad868f (implement → claude/sonnet, tier light).
+- B-298 landed 7ac647da7 (1 commit, 0 fix rounds, no calls). Runner saw one load flake (~37 load): LeoRuntimeMachinesTests.chatShowsNotConnectedOnlyWhileItsMachineIsDownAndReloadsOnReconnect asserts right after show(); passed on rerun.

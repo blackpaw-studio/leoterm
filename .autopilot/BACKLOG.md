@@ -900,13 +900,15 @@ Inbox: 20261012T164107273433Z-4b0cdde2#1
 Done: 87fefad56 6c08efddd 1ed53253b ceae35203 95a4c1193 961b4874d
 Verified: not visually verified — no UI change (tests and CI scripts only); full suite 3592 tests pass; CI acceptance (3 green main runs) only checkable after merge
 
-## B-298 · iOS: adopt LeoChatUnreadCounts in ChatList   [ready]
+## B-298 · iOS: adopt LeoChatUnreadCounts in ChatList   [done]
 Issue: #283
 Why: one unread rule for both apps; shared logic lives in LeoKit (Mac/iOS parity rule in AGENTS.md). Spec: docs/superpowers/specs/2026-10-13-mac-chat-unread-badge.md
 Accept: ChatList unread comes from LeoKit's LeoChatUnreadCounts (seeded from threads(), counts agent messages only, cleared on read); existing ChatListTests still pass; chat list row badges and the Chats tab badge look the same as now
 Out: any iOS UI change; auto-open on iOS
 Source: owner (/feature, 2026-10-25)
 Inbox: 20261013T181025588654Z-dca5aa50#1
+Done: 1c93f4ab7
+Verified: not visually verified — logic swap behind unchanged UI; iOS swift test 328/328, Mac suite 3592/3592
 
 ## B-154 · Titled styles: browser header close glyph tight under the titlebar   [ready]
 Issue: #158
