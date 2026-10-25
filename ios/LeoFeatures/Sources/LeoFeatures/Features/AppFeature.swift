@@ -61,6 +61,9 @@ public struct AppFeature {
         case pairing(PresentationAction<Pairing.Action>)
         case push(PushNotifications.Action)
         case scenePhaseChanged(isActive: Bool)
+        /// The user popped the agent or chat back to the list (iPhone):
+        /// nothing is selected any more.
+        case secondaryPopped
         case settingsButtonTapped
         /// Settings > Stats style.
         case statsStyleSelected(LeoStatsStyle)
@@ -178,6 +181,12 @@ public struct AppFeature {
                         : .send(.detail(.destination(.presented(.terminal(.scenePhaseChanged(isActive: isActive))))))
                     let pushCheck: Effect<Action> = isActive ? push(.becameActive, state: &state) : .none
                     return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck)
+
+                case .secondaryPopped:
+                    state.parkChatDrafts()
+                    state.chat = nil
+                    state.detail = nil
+                    return .none
 
                 case .settingsButtonTapped:
                     state.isShowingSettings = true

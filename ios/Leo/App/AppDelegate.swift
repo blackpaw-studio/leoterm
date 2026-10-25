@@ -115,17 +115,8 @@ extension AppDelegate: @preconcurrency UNUserNotificationCenterDelegate {
         let ref = AgentRef(daemonID: target.daemonID, name: target.agent)
         if LeoPushNotification.isChat(userInfo: userInfo) {
             Self.store.send(.chatNotificationOpened(ref))
-            if Self.store.chat?.ref == ref { Self.rootViewController?.showSelectedAgent() }
             return
         }
         Self.store.send(.notificationOpened(ref))
-        // Already the selection: on iPhone, bring it back on screen.
-        if Self.store.detail?.ref == ref { Self.rootViewController?.showSelectedAgent() }
-    }
-
-    private static var rootViewController: RootSplitViewController? {
-        UIApplication.shared.connectedScenes
-            .compactMap { ($0 as? UIWindowScene)?.keyWindow?.rootViewController as? RootSplitViewController }
-            .first
     }
 }

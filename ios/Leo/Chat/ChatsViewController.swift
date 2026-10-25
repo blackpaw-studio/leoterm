@@ -148,7 +148,6 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.chats(.rowTapped(ref)))
-        (splitViewController as? RootSplitViewController)?.showSelectedAgent()
     }
 }
 
@@ -186,6 +185,7 @@ final class NewChatViewController: UIViewController, UICollectionViewDelegate {
             guard let agent = self?.sections.first(where: { $0.id == ref.daemonID })?.agents.first(where: { $0.name == ref.name }) else { return }
             var content = UIListContentConfiguration.subtitleCell()
             content.text = agent.name
+            cell.accessibilityIdentifier = "newChat.\(agent.name)"
             content.secondaryText = agent.statusText
             content.secondaryTextProperties.color = .secondaryLabel
             content.image = UIImage(systemName: agent.badge.symbol)
@@ -228,9 +228,6 @@ final class NewChatViewController: UIViewController, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.chats(.newChatPicked(ref)))
-        // Dismissing the sheet first, then showing the thread.
-        let split = presentingViewController?.splitViewController as? RootSplitViewController
-        split?.showSelectedAgent()
     }
 }
 

@@ -52,6 +52,29 @@ struct AppFeatureChatTests {
         }
     }
 
+    @Test func poppingBackToTheListClearsTheSelectedAgent() async {
+        var state = Self.connected()
+        state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        let store = TestStore(initialState: state) { AppFeature() }
+        await store.send(.secondaryPopped) { $0.detail = nil }
+        // Nothing selected: nothing to clear.
+        await store.send(.secondaryPopped)
+    }
+
+    @Test func poppingBackToTheListClearsTheOpenChatAndParksItsDrafts() async throws {
+        let draft = LeoChatQuestionsDraft(questions: ChatThreadQuestionsTests.questions).choosing("Swift", question: "q1")
+        var state = Self.connected()
+        var thread = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        thread.messages = [try ChatThreadQuestionsTests.questionsCard()]
+        thread.questionsDrafts["01"] = draft
+        state.chat = thread
+        let store = TestStore(initialState: state) { AppFeature() }
+        await store.send(.secondaryPopped) {
+            $0.chat = nil
+            $0.parkedQuestionsDrafts[Self.zeus] = ["01": draft]
+        }
+    }
+
     @Test func theNewChatPickerOpensTheThread() async {
         var state = Self.connected()
         state.chats.isShowingNewChat = true

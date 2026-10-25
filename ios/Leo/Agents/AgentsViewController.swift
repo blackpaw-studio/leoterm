@@ -194,6 +194,5 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.agentTapped(ref))
-        (splitViewController as? RootSplitViewController)?.showSelectedAgent()
     }
 }

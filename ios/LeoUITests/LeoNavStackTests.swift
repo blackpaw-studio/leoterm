@@ -30,7 +30,7 @@ final class LeoNavStackTests: XCTestCase {
         app.cells["agent.agent-0"].tap()
         XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
         app.cells["agent.chat"].tap()
-        XCTAssertTrue(app.otherElements["chat.thread"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
         back(app)
         assertAtAgentsList(app, "back-from-chat-via-detail")
     }
@@ -60,12 +60,27 @@ final class LeoNavStackTests: XCTestCase {
         app.navigationBars["Agents"].buttons["Chats"].tap()
         XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5))
         app.cells["chat.agent-1"].tap()
-        XCTAssertTrue(app.otherElements["chat.thread"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
         back(app)
         attach(app, "back-to-chats")
         XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5))
         back(app)
         assertAtAgentsList(app, "back-to-agents")
+    }
+
+    func testBackFromAChatStartedFromTheNewChatPickerReturnsToChats() throws {
+        let app = launch()
+        app.navigationBars["Agents"].buttons["Chats"].tap()
+        XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5))
+        app.buttons["New Chat"].tap()
+        let pick = app.cells["newChat.agent-2"]
+        XCTAssertTrue(pick.waitForExistence(timeout: 5))
+        pick.tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+        back(app)
+        XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5), "back to Chats")
+        back(app)
+        assertAtAgentsList(app, "back-to-agents-after-new-chat")
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {
