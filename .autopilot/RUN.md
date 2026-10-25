@@ -83,12 +83,13 @@ Lane: B-156
   Branch: autopilot-lane/B-156
   Base: 294c8bdd0c0115e4b62a6c5b0d90b49cc005f713
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 770bc7f1ad4c6bbf433ccb76111c88304dcbdcde
   Dispatched: 2026-10-25T21:07:47Z
+  Call: Turn limit of 200 `nextMainTurn()` hops, to match the headroom of the old 1 s of sleeps — D-178/D-254, AUTONOMY test-infra rule
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
