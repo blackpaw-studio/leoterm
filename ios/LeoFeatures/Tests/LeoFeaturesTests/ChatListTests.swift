@@ -9,6 +9,13 @@ import Testing
 struct ChatListTests {
     static let daemon = PairedDaemon.dionysus.id
 
+    static let host = LeoHostID.remote(daemon)
+
+    static func counts(zeus: Int = 0, hera: Int = 0) -> LeoChatUnreadCounts {
+        LeoChatUnreadCounts().seeding(
+            [LeoChatThread(agent: "zeus", unread: zeus), LeoChatThread(agent: "hera", unread: hera)], host: host)
+    }
+
     static func session(_ daemon: PairedDaemon = .dionysus, agents: [Agent]) -> DaemonSession {
         var session = DaemonSession(daemon: daemon)
         session.agents = IdentifiedArray(uniqueElements: agents)
@@ -27,7 +34,9 @@ struct ChatListTests {
             Agent(name: "athena", status: .running),
         ])]
 
-        let rows = ChatList.rows(threads: [Self.daemon: threads], sessions: sessions)
+        let unread = LeoChatUnreadCounts().seeding(Array(threads), host: Self.host)
+
+        let rows = ChatList.rows(threads: [Self.daemon: threads], unread: unread, sessions: sessions)
 
         #expect(rows.map(\.ref.name) == ["assistant", "rocket", "hera", "zeus", "apollo", "athena"])
         #expect(rows.map(\.section) == [.pinned, .pinned, .recent, .recent, .running, .running])
@@ -59,6 +68,7 @@ struct ChatListTests {
         await store.skipReceivedActions()
         store.assert {
             $0.threads[Self.daemon] = [LeoChatThread(agent: "zeus", unread: 1)]
+            $0.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "zeus", unread: 1)], host: Self.host)
             $0.errors[PairedDaemon.hestia.id] = ChatConnectionError.missingCredentials.localizedDescription
         }
     }
@@ -69,7 +79,8 @@ struct ChatListTests {
         let store = TestStore(initialState: state) { ChatList() }
 
         await store.send(.chatEvent(Self.daemon, .message(.make("02", "hi", second: 2)), isOpen: false)) {
-            $0.threads[Self.daemon]?[id: "zeus"] = LeoChatThread(agent: "zeus", lastMessage: .make("02", "hi", second: 2), unread: 1)
+            $0.threads[Self.daemon]?[id: "zeus"]?.lastMessage = .make("02", "hi", second: 2)
+            $0.unreadCounts = Self.counts(zeus: 1)
         }
         // Inbound (what this device sent) and an open thread don't count.
         await store.send(.chatEvent(Self.daemon, .message(.make("03", direction: .inbound, second: 3)), isOpen: false)) {
@@ -83,13 +94,15 @@ struct ChatListTests {
     @Test func aFirstMessageStartsAThread() async {
         let store = TestStore(initialState: ChatList.State()) { ChatList() }
         await store.send(.chatEvent(Self.daemon, .message(.make("01", agent: "hera")), isOpen: false)) {
-            $0.threads[Self.daemon] = [LeoChatThread(agent: "hera", lastMessage: .make("01", agent: "hera"), unread: 1)]
+            $0.threads[Self.daemon] = [LeoChatThread(agent: "hera", lastMessage: .make("01", agent: "hera"))]
+            $0.unreadCounts = Self.counts(hera: 1)
         }
     }
 
     @Test func anUpdateRefreshesTheLastMessageOnly() async {
         var state = ChatList.State()
-        state.threads[Self.daemon] = [LeoChatThread(agent: "zeus", lastMessage: .make("02", second: 2), unread: 1)]
+        state.threads[Self.daemon] = [LeoChatThread(agent: "zeus", lastMessage: .make("02", second: 2))]
+        state.unreadCounts = Self.counts(zeus: 1)
         let store = TestStore(initialState: state) { ChatList() }
         await store.send(.chatEvent(Self.daemon, .updated(.make("01", "old", second: 1)), isOpen: false))
         await store.send(.chatEvent(Self.daemon, .updated(.make("02", "transcribed", second: 2)), isOpen: false)) {
@@ -100,16 +113,39 @@ struct ChatListTests {
     @Test func openingAThreadClearsItsUnread() async {
         var state = ChatList.State()
         state.threads[Self.daemon] = [LeoChatThread(agent: "zeus", unread: 4)]
+        state.unreadCounts = Self.counts(zeus: 4)
         let store = TestStore(initialState: state) { ChatList() }
         await store.send(.threadRead(AgentRef(daemonID: Self.daemon, name: "zeus"))) {
-            $0.threads[Self.daemon]?[id: "zeus"]?.unread = 0
+            $0.unreadCounts = LeoChatUnreadCounts()
         }
     }
 
     @Test func theUnreadTotalSumsEveryDaemon() {
         var state = ChatList.State()
         state.threads = [Self.daemon: [LeoChatThread(agent: "a", unread: 2)], "other": [LeoChatThread(agent: "b", unread: 3)]]
+        state.unreadCounts = LeoChatUnreadCounts()
+            .seeding([LeoChatThread(agent: "a", unread: 2)], host: Self.host)
+            .seeding([LeoChatThread(agent: "b", unread: 3)], host: .remote("other"))
         #expect(state.unreadTotal == 5)
+    }
+
+    @Test func aFreshLoadReplacesLiveCountsWithTheDaemonsOwn() async {
+        var state = ChatList.State()
+        state.threads[Self.daemon] = [LeoChatThread(agent: "zeus", lastMessage: .make("01"))]
+        state.unreadCounts = Self.counts(zeus: 3)
+        let store = TestStore(initialState: state) { ChatList() }
+        let fresh = [LeoChatThread(agent: "zeus", lastMessage: .make("01"), unread: 1)]
+        await store.send(.threadsResponse(Self.daemon, .success(fresh))) {
+            $0.threads[Self.daemon] = IdentifiedArray(uniqueElements: fresh)
+            $0.unreadCounts = Self.counts(zeus: 1)
+        }
+    }
+
+    @Test func aMessageFromAnOlderPointDoesNotCountAsUnread() async {
+        var state = ChatList.State()
+        state.threads[Self.daemon] = [LeoChatThread(agent: "zeus", lastMessage: .make("05", second: 5))]
+        let store = TestStore(initialState: state) { ChatList() }
+        await store.send(.chatEvent(Self.daemon, .message(.make("02", second: 2)), isOpen: false))
     }
 
     @Test func theNewChatPicker() async {

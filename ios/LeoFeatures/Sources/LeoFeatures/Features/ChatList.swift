@@ -2,6 +2,10 @@ import ComposableArchitecture
 import Foundation
 import LeoKit
 
+extension AgentRef {
+    var leoAgentID: LeoAgentID { LeoAgentID(host: .remote(daemonID), name: name) }
+}
+
 /// One row of the Chats list.
 public struct ChatRow: Equatable, Identifiable, Sendable {
     public enum Section: Int, Comparable, Sendable {
@@ -36,10 +40,17 @@ public struct ChatList {
         public var isShowingNewChat = false
         /// Each daemon's threads, by daemon id.
         public var threads: [String: IdentifiedArrayOf<LeoChatThread>] = [:]
+        /// Unread agent messages: seeded from each load, bumped by live
+        /// events, cleared on read. A daemon id is its `LeoHostID.remote` name.
+        public var unreadCounts = LeoChatUnreadCounts()
 
         public init() {}
 
-        public var unreadTotal: Int { threads.values.reduce(0) { $0 + $1.reduce(0) { $0 + $1.unread } } }
+        public var unreadTotal: Int {
+            threads.reduce(0) { total, daemon in
+                total + daemon.value.reduce(0) { $0 + unreadCounts[LeoAgentID(host: .remote(daemon.key), name: $1.agent)] }
+            }
+        }
     }
 
     public enum Action: BindableAction {
@@ -85,12 +96,13 @@ public struct ChatList {
                 })
 
             case .threadRead(let ref):
-                state.threads[ref.daemonID]?[id: ref.name]?.unread = 0
+                state.unreadCounts = state.unreadCounts.clearing(ref.leoAgentID)
                 return .none
 
             case .threadsResponse(let daemonID, .success(let threads)):
                 state.errors[daemonID] = nil
                 state.threads[daemonID] = IdentifiedArray(threads, uniquingIDsWith: { $1 })
+                state.unreadCounts = state.unreadCounts.seeding(threads, host: .remote(daemonID))
                 return .none
 
             case .threadsResponse(let daemonID, .failure(let error)):
@@ -108,7 +120,7 @@ public struct ChatList {
         case .message:
             if let last = thread.lastMessage, (last.ts, last.id) > (message.ts, message.id) { return }
             thread.lastMessage = message
-            if message.direction == .outbound, !isOpen { thread.unread += 1 }
+            state.unreadCounts = state.unreadCounts.receiving(event, host: .remote(daemonID), isOnScreen: isOpen)
         case .updated:
             guard thread.lastMessage?.id == message.id else { return }
             thread.lastMessage = message
@@ -119,7 +131,7 @@ public struct ChatList {
 
     /// Pinned threads (each daemon's assistant first), then the rest by
     /// latest message, then running agents with no thread yet.
-    public static func rows(threads: [String: IdentifiedArrayOf<LeoChatThread>], sessions: IdentifiedArrayOf<DaemonSession>) -> [ChatRow] {
+    public static func rows(threads: [String: IdentifiedArrayOf<LeoChatThread>], unread: LeoChatUnreadCounts = LeoChatUnreadCounts(), sessions: IdentifiedArrayOf<DaemonSession>) -> [ChatRow] {
         let isMultiDaemon = sessions.count > 1
         let rows = sessions.flatMap { session -> [ChatRow] in
             let daemonThreads = threads[session.id] ?? []
@@ -127,7 +139,7 @@ public struct ChatList {
             let threadRows = daemonThreads.map { thread in
                 ChatRow(
                     ref: AgentRef(daemonID: session.id, name: thread.agent), daemonName: daemonName, lastMessage: thread.lastMessage,
-                    unread: thread.unread, isRunning: session.agents[id: thread.agent].map { !$0.isStopped } ?? false,
+                    unread: unread[LeoAgentID(host: .remote(session.id), name: thread.agent)], isRunning: session.agents[id: thread.agent].map { !$0.isStopped } ?? false,
                     section: thread.isPinned ? .pinned : .recent
                 )
             }
