@@ -72,11 +72,11 @@ Lane: B-155
   Branch: autopilot-lane/B-155
   Base: 2e1fcf00610bf608425c28d5eea91e270a47ab87
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1f8d39fa5847a0fb7b6767e2dd85a56bfd08b217
   Dispatched: 2026-10-25T20:11:53Z
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
