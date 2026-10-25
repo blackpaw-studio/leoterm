@@ -83,7 +83,7 @@ Lane: B-156
   Branch: autopilot-lane/B-156
   Base: 294c8bdd0c0115e4b62a6c5b0d90b49cc005f713
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -95,6 +95,7 @@ Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visuall
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 Finished 3: B-154 landed 7cf96fdd534cbe70448d88dd636360f04e91d060 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
 Finished 4: B-155 landed aa5535eecbd4440597e0a05fe3590cdebe52e387 · not visually verified
+Finished 5: B-156 landed 40ac8266201a37bedbfebb3845f82edce1ba4c78 · not visually verified
 
 Progress:
 - Preflight: merged origin/main (791f4631b) into autopilot; applied 6 inbox entries (B-297 bug, B-298 add, B-299..B-302 ideas).
@@ -107,3 +108,4 @@ Progress:
 - B-155 runner dispatched: d-88b9db607e98 (implement → claude/sonnet, tier light).
 - B-155 landed aa5535eec (1 commit, no calls). Flakes again: renameSetsTheRowTitleAndSticks, chatShowsNotConnected… (green on 3rd run).
 - B-156 runner dispatched: d-60d648fc921b (implement → claude/sonnet, tier light).
+- B-156 landed 40ac82662 (1 commit, D-546). Neither verify run fully green at load 31–47: renameSetsTheRowTitleAndSticks, anEmptyNameRestoresTheLiveTitle, nonAttachSurfaceKeepsGhosttysTitle (none in changed file, none repeated).

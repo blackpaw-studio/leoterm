@@ -927,11 +927,13 @@ Source: autopilot polish (B-101)
 Done: 0bef9d921
 Verified: not visually verified — test message string only; suite 3592/3592
 
-## B-156 · waitForSearchField counts turns instead of sleeping   [ready]
+## B-156 · waitForSearchField counts turns instead of sleeping   [done]
 Issue: #160
 Why: LeoLaunchFocusTests.swift:110-117 still polls with Task.sleep(20ms); D-178/D-254 prefer nextMainTurn() turn counting
 Accept: LeoLaunchFocusTests.swift:110-117 still polls with Task.sleep(20ms); D-178/D-254 prefer nextMainTurn() turn counting
 Source: autopilot polish (B-101)
+Done: fc5794270
+Verified: not visually verified — test helper only; LeoLaunchFocusTests green in every run
 
 ## B-157 · Rebuild the key view loop after a sidebar or pane toggle   [ready]
 Issue: #161

@@ -3902,3 +3902,10 @@ Chose: Mac only (side-pane headers are Mac UI)
 Why: Mac/iOS rule.
 Commit: b013eb120
 Veto: [ ]
+
+## D-546 · 2026-10-25 · Turn limit of 200 `nextMainTurn()` hops, to match the headroom of the old 1 s of sleeps
+Context: B-156 (runner call).
+Chose: Turn limit of 200 `nextMainTurn()` hops, to match the headroom of the old 1 s of sleeps
+Why: D-178/D-254, AUTONOMY test-infra rule.
+Commit: fc5794270
+Veto: [ ]
