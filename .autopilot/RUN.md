@@ -57,12 +57,16 @@ Lane: B-154
   Branch: autopilot-lane/B-154
   Base: e8a81054f89faeaa09582ec3dad82797310bdf56
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 5903b8213f54ca906d1a20f27e7b6bc07feed5ed
   Dispatched: 2026-10-25T19:00:21Z
+  Call: Titled-style side-pane close glyphs centre on the sidebar header's line (sidebar + at 18 pt under the titlebar) — D-258, P1
+  Call: The editor pane moves to the same line (14.5→18.5 pt), so the adjacent panes' glyphs align; this goes beyond the browser-only acceptance text and is easy to revert — D-258, P1
+  Call: `sidePaneHeaderTopInset` is now a constant in every style, so titled styles no longer keep their own flush rows; hidden style gets the same value as before — D-536, P1
+  Call: Mac only (side-pane headers are Mac UI) — Mac/iOS rule
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
