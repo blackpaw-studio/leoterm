@@ -53,6 +53,16 @@ Lane: B-298
   Reviewed-tip: 4238419053afa5dfb17bb50b0c8bbdf8fb96d9d8
   Dispatched: 2026-10-25T18:09:58Z
 
+Lane: B-154
+  Branch: autopilot-lane/B-154
+  Base: e8a81054f89faeaa09582ec3dad82797310bdf56
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified
 
