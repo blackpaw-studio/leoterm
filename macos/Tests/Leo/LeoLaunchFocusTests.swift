@@ -107,12 +107,17 @@ private struct LaunchWindowFixture {
         return "\(type(of: responder))"
     }
 
-    /// The sidebar's search field, once the split view has built it.
-    func waitForSearchField() async throws -> NSTextField {
-        for _ in 0 ..< 50 {
+    /// The most main-queue turns `waitForSearchField` lets SwiftUI take.
+    static let searchFieldTurnLimit = 200
+
+    /// The sidebar's search field, once the split view has built it. Counts
+    /// run-loop turns rather than wall-clock time (D-178, D-254): the field
+    /// appears after however many turns SwiftUI needs, however slow the host.
+    func waitForSearchField(turnLimit: Int = searchFieldTurnLimit) async throws -> NSTextField {
+        for _ in 0 ..< turnLimit {
             if let field = searchField { return field }
             window.contentView?.layoutSubtreeIfNeeded()
-            try? await Task.sleep(for: .milliseconds(20))
+            await nextMainTurn()
         }
         throw FixtureError.noSearchField
     }
