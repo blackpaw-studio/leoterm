@@ -8,15 +8,13 @@ import Testing
 /// machine where something else runs windowed (a browser, a game capture) the
 /// window never becomes key whatever the test does.
 ///
-/// Such a test takes `.requiresActiveHost`, which skips it visibly when the host
-/// can't be activated rather than failing on a precondition it doesn't own. A
-/// CI run (`GITHUB_ACTIONS`) never skips: the runner has to be able to activate
-/// the host, so a regression there fails the test.
+/// Such a test takes `.requiresActiveHost`, which skips it visibly when a plain
+/// probe window can't become key (`LeoFocusProbe`), CI included: a runner that
+/// can't take focus is an environment fault, not a regression. When the plain
+/// window can take key and Leo's can't, the test runs and fails. CI surfaces the
+/// skips as warnings (`check-test-log.sh`) so a runner without focus stays visible.
 @MainActor
 enum LeoTestHostActivation {
-    private static let timeout: Duration = .seconds(3)
-    private static let retryInterval: Duration = .milliseconds(100)
-
     /// Asks again for the foreground; for the waits of a test that needs key
     /// status, where another app may take it back after the gate passed.
     static func requestForeground() {
@@ -25,15 +23,6 @@ enum LeoTestHostActivation {
         NSRunningApplication.current.activate(options: [.activateAllWindows])
     }
 
-    static func isAvailable(environment: [String: String] = ProcessInfo.processInfo.environment) async -> Bool {
-        guard environment["GITHUB_ACTIONS"] == nil else { return true }
-        let deadline = ContinuousClock.now + timeout
-        while !NSApp.isActive, ContinuousClock.now < deadline {
-            requestForeground()
-            try? await Task.sleep(for: retryInterval)
-        }
-        return NSApp.isActive
-    }
 }
 
 /// Whether a window can take key status on this host, decided by a plain
@@ -49,7 +38,6 @@ struct LeoFocusProbe {
     static let unavailableReason =
         "needs a key window: a plain probe window couldn't become key (screen locked or another app holds the foreground)"
 
-    var environment: [String: String] = ProcessInfo.processInfo.environment
     var activate: () -> Void
     var orderProbeKey: () -> Void
     var isProbeKey: () -> Bool
@@ -59,7 +47,6 @@ struct LeoFocusProbe {
 
     func run() async -> Outcome {
         defer { closeProbe() }
-        guard environment["GITHUB_ACTIONS"] == nil else { return .available }
         for attempt in 0..<attempts {
             activate()
             orderProbeKey()
@@ -109,8 +96,8 @@ struct LeoFocusProbe {
 
 extension Trait where Self == ConditionTrait {
     static var requiresActiveHost: Self {
-        enabled("needs the test host to be the active app; another app holds the foreground") {
-            await LeoTestHostActivation.isAvailable()
+        enabled(LeoFocusProbe.unavailableReason) {
+            await LeoFocusProbe.live().run() == .available
         }
     }
 }

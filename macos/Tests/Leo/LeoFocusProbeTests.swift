@@ -13,9 +13,8 @@ struct LeoFocusProbeTests {
 
         init(becomesKeyOn: Int?) { self.becomesKeyOn = becomesKeyOn }
 
-        func probe(attempts: Int = 3, environment: [String: String] = [:]) -> LeoFocusProbe {
+        func probe(attempts: Int = 3) -> LeoFocusProbe {
             LeoFocusProbe(
-                environment: environment,
                 activate: { self.activations += 1 },
                 orderProbeKey: {},
                 isProbeKey: {
@@ -26,14 +25,6 @@ struct LeoFocusProbeTests {
                 pause: {},
                 attempts: attempts)
         }
-    }
-
-    @Test func ciDoesNotForceFocusAvailability() async {
-        let host = FakeHost(becomesKeyOn: nil)
-
-        let outcome = await host.probe(environment: ["GITHUB_ACTIONS": "true"]).run()
-
-        #expect(outcome == .unavailable(reason: LeoFocusProbe.unavailableReason))
     }
 
     @Test func aWindowThatNeverBecomesKeyIsUnavailableWithAReason() async {
