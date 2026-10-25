@@ -42,6 +42,16 @@ Lane: B-297
   Call: Mac only — Mac/iOS rule (stated in commit messages)
   Call: Log checker keys on a `focus-gate-skip:` stderr marker, not Swift Testing's skip line — other suites also skip
 
+Lane: B-298
+  Branch: autopilot-lane/B-298
+  Base: 8b7365c47fbf56f060627099c69eede4fab77d96
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 
 Progress:
