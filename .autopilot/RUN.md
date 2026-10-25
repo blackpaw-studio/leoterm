@@ -46,11 +46,11 @@ Lane: B-298
   Branch: autopilot-lane/B-298
   Base: 8b7365c47fbf56f060627099c69eede4fab77d96
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 4238419053afa5dfb17bb50b0c8bbdf8fb96d9d8
   Dispatched: 2026-10-25T18:09:58Z
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
