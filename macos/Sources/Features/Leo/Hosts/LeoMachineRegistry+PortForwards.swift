@@ -25,7 +25,8 @@ extension LeoMachineRegistry {
             makeProcess: {
                 LeoProcessForwardRunner(
                     host: host, command: command, sshExecutable: environment.sshExecutable, prober: prober,
-                    makeTunnel: environment.makeTunnel
+                    makeTunnel: environment.makeTunnel,
+                    orphans: LeoForwardOrphans(store: environment.orphanStore, directory: environment.controlSocketDirectory)
                 )
             }
         )

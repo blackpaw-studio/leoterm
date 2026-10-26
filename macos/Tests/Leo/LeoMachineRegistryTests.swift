@@ -549,6 +549,25 @@ import Testing
         #expect(tunnels.all.allSatisfy { $0.hasExited })
     }
 
+    @Test func shutdownWaitsForTheTeardownsItIsHandedUnderTheSameBound() {
+        let gate = DispatchSemaphore(value: 0)
+        // Something else closing at quit, e.g. a machine's port forwards.
+        let closing = Task.detached { gate.wait() }
+        let waits = LeoLockedLog<Bool>()
+        let registry = LeoMachineRegistry.isolatedForTesting { teardown, bound in
+            waits.append(LeoMachineRegistry.blockingWait(for: teardown, upTo: .milliseconds(50)))
+            gate.signal()
+            let finished = LeoMachineRegistry.blockingWait(for: teardown, upTo: bound)
+            waits.append(finished)
+            return finished
+        }
+
+        let finished = registry.shutdown(alsoAwaiting: [closing])
+
+        #expect(finished)
+        #expect(waits.values == [false, true])
+    }
+
     @Test func nothingConnectsAfterShutdown() async throws {
         let defaults = LeoInMemoryDefaults()
         try Support.save([Support.host("a")], to: defaults)

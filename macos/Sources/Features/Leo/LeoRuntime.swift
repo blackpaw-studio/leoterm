@@ -547,8 +547,7 @@ import LeoKit
     func shutdown() {
         isShutDown = true
         cancelTerminalFileDrops()
-        machines.shutdown()
-        agentBrowsers.shutdown()
+        machines.shutdown(alsoAwaiting: [agentBrowsers.shutdown()])
         feeds.stop()
         statsPoller.stop()
     }

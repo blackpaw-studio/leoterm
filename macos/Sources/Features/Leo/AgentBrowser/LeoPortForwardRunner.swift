@@ -116,6 +116,19 @@ final class LeoMuxForwardRunner: LeoPortForwardRunning, @unchecked Sendable {
     }
 }
 
+/// Where forward processes are recorded, beside the tunnels, so a launch
+/// after a crash -- or after a quit whose teardown ran out of time -- reaps
+/// them (`LeoTunnelOrphanStore.reapAtLaunch`). The store keys records by
+/// socket path; a forward's is a name in `directory` that is never a file.
+struct LeoForwardOrphans: Sendable {
+    let store: LeoTunnelOrphanStore
+    let directory: URL
+
+    func name(local: Int) -> String {
+        directory.appendingPathComponent("forward-127.0.0.1-\(local)").path
+    }
+}
+
 /// One `ssh -N -L` process per forward, built on the tunnel's process
 /// lifecycle (`LeoTunnelFactory`): readiness is the forwarded port accepting
 /// connections, and a dead process makes `isOpen` false.
@@ -128,21 +141,24 @@ final class LeoProcessForwardRunner: LeoPortForwardRunning, @unchecked Sendable 
     private let sshExecutable: URL
     private let prober: any LeoPortProbing
     private let makeTunnel: LeoTunnelFactory
+    private let orphans: LeoForwardOrphans?
     private let lock = NSLock()
-    private var processes: [Int: any LeoTunnelProcess] = [:]
+    private var processes: [Int: (process: any LeoTunnelProcess, orphan: LeoTunnelOrphanBox)] = [:]
 
     init(
         host: LeoHostID,
         command: LeoSSHCommand,
         sshExecutable: URL,
         prober: any LeoPortProbing,
-        makeTunnel: @escaping LeoTunnelFactory = LeoMachineConnectionEnvironment.realTunnel
+        makeTunnel: @escaping LeoTunnelFactory = LeoMachineConnectionEnvironment.realTunnel,
+        orphans: LeoForwardOrphans? = nil
     ) {
         self.host = host
         self.command = command
         self.sshExecutable = sshExecutable
         self.prober = prober
         self.makeTunnel = makeTunnel
+        self.orphans = orphans
     }
 
     func open(local: Int, remotePort: Int) async throws {
@@ -177,26 +193,58 @@ final class LeoProcessForwardRunner: LeoPortForwardRunning, @unchecked Sendable 
             localSocketPath: "127.0.0.1:\(local)",
             healthProbe: { _ in prober.isListening(local) }
         ))
+        let orphan = record(process, local: local)
         do {
             try await process.start()
-        } catch LeoTunnelError.exitedBeforeReady(let status, let stderrTail) {
-            if addresses.contains(.ipv6), isIPv6Unavailable(stderrTail) { throw LeoPortForwardError.ipv6Unavailable }
-            throw status == Self.busyStatus ? LeoPortForwardError.portBusy : .failed(stderrTail)
-        } catch LeoTunnelError.notReady(let stderrTail) {
-            throw LeoPortForwardError.failed(stderrTail)
         } catch {
-            throw LeoPortForwardError.failed(String(describing: error))
+            forget(orphan)
+            throw Self.openError(error, addresses: addresses)
         }
-        lock.withLock { processes[local] = process }
+        lock.withLock { processes[local] = (process, orphan) }
+    }
+
+    /// Records `process` in the orphan store from launch until it exits.
+    private func record(_ process: any LeoTunnelProcess, local: Int) -> LeoTunnelOrphanBox {
+        let orphan = LeoTunnelOrphanBox()
+        guard let orphans else { return orphan }
+        let name = orphans.name(local: local)
+        let store = orphans.store
+        process.onLaunch = { pid, startTime in
+            let record = LeoTunnelOrphanRecord(pid: pid, startTime: startTime, socketPath: name)
+            orphan.value = record
+            store.record(record)
+        }
+        process.onExit = { _ in
+            if let record = orphan.value { store.clear(matching: record) }
+        }
+        return orphan
+    }
+
+    private func forget(_ orphan: LeoTunnelOrphanBox) {
+        guard let orphans, let record = orphan.value else { return }
+        orphans.store.clear(matching: record)
+    }
+
+    private static func openError(_ error: any Error, addresses: [LeoLoopbackAddress]) -> LeoPortForwardError {
+        switch error {
+        case LeoTunnelError.exitedBeforeReady(let status, let stderrTail):
+            if addresses.contains(.ipv6), isIPv6Unavailable(stderrTail) { return .ipv6Unavailable }
+            return status == busyStatus ? .portBusy : .failed(stderrTail)
+        case LeoTunnelError.notReady(let stderrTail):
+            return .failed(stderrTail)
+        default:
+            return .failed(String(describing: error))
+        }
     }
 
     func close(local: Int, remotePort _: Int) async {
-        guard let process = lock.withLock({ processes.removeValue(forKey: local) }) else { return }
+        guard let (process, orphan) = lock.withLock({ processes.removeValue(forKey: local) }) else { return }
         // terminateAndWait blocks up to a second; keep it off the caller's actor.
         await Task.detached { process.terminateAndWait() }.value
+        forget(orphan)
     }
 
     func isOpen(local: Int) -> Bool {
-        lock.withLock { processes[local].map { !$0.hasExited } ?? false }
+        lock.withLock { processes[local].map { !$0.process.hasExited } ?? false }
     }
 }

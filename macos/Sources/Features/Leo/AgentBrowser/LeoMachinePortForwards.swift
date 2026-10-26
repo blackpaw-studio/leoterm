@@ -23,7 +23,7 @@ import LeoKit
     /// on. A connection it still had is dropped first.
     func connected(_ host: LeoHostID) {
         guard host != .local else { return }
-        if let previous = current.removeValue(forKey: host) { Task { await previous.releaseAll() } }
+        current.removeValue(forKey: host)?.releaseAll()
         current[host] = makeForwards(host)
     }
 
@@ -31,8 +31,18 @@ import LeoKit
     /// connects again, and every forward on it closes in the returned task.
     @discardableResult
     func disconnected(_ host: LeoHostID) -> Task<Void, Never>? {
-        guard let gone = current.removeValue(forKey: host) else { return nil }
-        return Task { await gone.releaseAll() }
+        current.removeValue(forKey: host)?.releaseAll()
+    }
+
+    /// The app is quitting: every machine's forwards close in the returned
+    /// task, which never needs the main actor -- the quit blocks it while
+    /// it waits.
+    func shutdown() -> Task<Void, Never> {
+        let closing = current.values.map { $0.releaseAll() }
+        current = [:]
+        return Task.detached {
+            for task in closing { await task.value }
+        }
     }
 
     /// The URL mapping for `key`'s browser.

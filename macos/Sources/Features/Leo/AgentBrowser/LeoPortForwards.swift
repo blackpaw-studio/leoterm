@@ -98,13 +98,21 @@ final class LeoPortForwards {
         await close(orphans)
     }
 
-    /// Machine disconnected (or app quitting): cancel everything.
-    func releaseAll() async {
+    /// Machine disconnected (or app quitting): cancel everything. The
+    /// closes run off the main actor, so a quit that blocks the main thread
+    /// can wait on the returned task.
+    @discardableResult
+    func releaseAll() -> Task<Void, Never> {
         epoch += 1
         let closing = forwards.map { (remote: $0.key, local: $0.value.local) }
         forwards = [:]
         pending = [:]
-        await close(closing)
+        let runner = runner
+        return Task.detached {
+            for (remote, local) in closing {
+                await runner.close(local: local, remotePort: remote)
+            }
+        }
     }
 
     private func close(_ closing: [(remote: Int, local: Int)]) async {

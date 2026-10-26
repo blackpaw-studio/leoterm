@@ -61,6 +61,19 @@ struct LeoMachinePortForwardsTests {
         #expect(try await mapping.toLocal(url("https://example.com/")) == url("https://example.com/"))
     }
 
+    @Test func quittingClosesEveryMachinesForwardsWithoutTheMainActor() async throws {
+        let connections = Connections()
+        let machines = machines(connections)
+        machines.connected(Self.remote)
+        _ = try await machines.mapping(for: Self.alice).toLocal(url("http://localhost:5173/"))
+
+        // The quit blocks the main thread while it waits, as the app's does.
+        let finished = LeoMachineRegistry.blockingWait(for: machines.shutdown(), upTo: .seconds(2))
+
+        #expect(finished)
+        #expect(connections.runners.first?.closes.map(\.remote) == [5173])
+    }
+
     @Test func aDropClosesEveryForwardAndTheNextConnectionCarriesOn() async throws {
         let connections = Connections()
         let machines = machines(connections)

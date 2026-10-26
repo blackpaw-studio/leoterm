@@ -84,10 +84,14 @@ import LeoKit
         browsers.agentsListed(on: host, statuses: statuses, dispatches: dispatches)
     }
 
-    /// The app is quitting.
-    func shutdown() {
+    /// The app is quitting: every stream stops, and every machine's
+    /// forwards close in the returned task, which the quit waits on with the
+    /// machines' own teardown (it needs no main actor).
+    @discardableResult
+    func shutdown() -> Task<Void, Never> {
         sessions.values.forEach { $0.stop() }
         sessions = [:]
+        return forwards.shutdown()
     }
 
     // MARK: - Setting

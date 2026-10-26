@@ -166,7 +166,7 @@ struct LeoPortForwardsTests {
         let manager = forwards(runner: runner)
         _ = try await manager.acquire(url("http://localhost:5173/"), browser: "alice")
         _ = try await manager.acquire(url("http://localhost:3000/"), browser: "bob")
-        await manager.releaseAll()
+        await manager.releaseAll().value
         #expect(Set(runner.closes.map(\.remote)) == [5173, 3000])
     }
 
@@ -197,7 +197,7 @@ struct LeoPortForwardsTests {
         let target = try url("http://localhost:5173/")
         let pending = Task { try await manager.acquire(target, browser: "alice") }
         while runner.opens.isEmpty { await Task.yield() }
-        await manager.releaseAll()
+        await manager.releaseAll().value
         runner.openGate()
         await #expect(throws: CancellationError.self) { try await pending.value }
         #expect(runner.closes.map(\.remote) == [5173])

@@ -90,14 +90,28 @@ struct LeoPortForwardRunnerTests {
 
     // MARK: - Process fallback
 
-    private func process(_ tunnels: LeoFakeTunnels, ipv6: Bool = true) -> LeoProcessForwardRunner {
+    private func process(_ tunnels: LeoFakeTunnels, ipv6: Bool = true, orphans: LeoForwardOrphans? = nil) -> LeoProcessForwardRunner {
         LeoProcessForwardRunner(
             host: .remote("Build"),
             command: Self.command,
             sshExecutable: Self.ssh,
             prober: FakePortProber(listening: [5173], ipv6Available: ipv6),
-            makeTunnel: tunnels.factory
+            makeTunnel: tunnels.factory,
+            orphans: orphans
         )
+    }
+
+    @Test func processRunnerRecordsEachForwardUntilItCloses() async throws {
+        let tunnels = LeoFakeTunnels()
+        let store = LeoTunnelOrphanStore(defaults: LeoInMemoryDefaults())
+        let runner = process(tunnels, orphans: LeoForwardOrphans(store: store, directory: URL(fileURLWithPath: "/tmp/leo-forwards")))
+
+        try await runner.open(local: 49_200, remotePort: 5173)
+
+        let tunnel = try #require(tunnels.all.first)
+        #expect(store.records().map(\.pid) == [tunnel.fakePID])
+        await runner.close(local: 49_200, remotePort: 5173)
+        #expect(store.records().isEmpty)
     }
 
     @Test func processRunnerLaunchesOneSSHPerForward() async throws {
