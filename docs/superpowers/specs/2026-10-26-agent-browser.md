@@ -8,7 +8,7 @@ A browser inside the Leo Mac app that a Leo agent drives through MCP tools and
 that Evan can watch and take over. A dev server on a remote agent's
 `localhost` opens in it through a port forward on that machine's ssh connection.
 
-Platform call: **Mac only** for v1. The request protocol client and the
+Platform call: **Mac only** for v1. The client-tools protocol client and the
 snapshot script live in LeoKit so iOS can adopt them; the iOS executor is
 deferred to the autopilot backlog.
 
@@ -18,71 +18,99 @@ deferred to the autopilot backlog.
 - Engine: `WKWebView` in the Mac app. No Chromium, no CDP.
 - Cookies/storage: one persistent store per agent.
 - Multiple tabs per agent are in scope.
+- Exposure: the daemon gets a **generic client-tools relay** and knows nothing
+  about browsers. Connected apps declare tools; agents see them only while a
+  providing app is connected. Terminal-only users see no new tools and pay no
+  context cost.
 
 ## Architecture
 
 Two repos change:
 
-1. **leo daemon** (`~/.leo/agents/leo`, Go). Adds MCP tools and a generic
-   "client request" channel. Ships as a PR reviewed and merged by the `leo` agent.
-2. **Leo Mac app** (this repo). Adds the browser pane, the executor that
-   serves requests, and the port-forward manager.
+1. **leo daemon** (`~/.leo/agents/leo`, Go): the client-tools relay. Ships as a
+   PR reviewed and merged by the `leo` agent.
+2. **Leo Mac app** (this repo): declares the browser tools, and adds the
+   executor that serves them, the browser pane, and the port-forward manager.
 
-Flow: agent calls `browser_*` → stdio MCP server → daemon parks the call →
-daemon publishes `browser.request` on the SSE bus → the owning Mac app runs it
-against the agent's `WKWebView` → app POSTs the result → daemon settles the
-parked call → tool returns.
+Flow: app connects → registers its tool definitions → each agent's MCP server
+sends `tools/list_changed` → agent calls `browser_*` → daemon parks the call
+→ publishes `client_tool.request` on the SSE bus → the owning app runs it
+→ posts the result → daemon settles the parked call → tool returns.
 
-## Daemon
+## Daemon: client-tools relay
 
-### Client request channel
+### Registration
 
-- `POST /api/agent/{name}/browser` (from the MCP server) with `{op, tab?, args}`.
-  The daemon creates a request `{id, agent, op, tab, args, owner}`, keeps it in
-  memory (not SQLite), publishes `browser.request`, and blocks until it is settled
-  or times out.
-- Capability: an SSE subscriber opts in with `?capabilities=browser`. The
-  daemon assigns each subscription a `client_id` (returned in `hello`).
-- Ownership: each agent's browser has at most one owner client. The first
-  browser-capable client to claim a request (`POST /api/v1/browser/requests/{id}/claim`)
-  becomes the owner for that agent. Later requests for that agent carry
-  `owner`, and only the owner may claim them (others get 409). Ownership is
-  released when the owner's SSE subscription closes.
-- Result: `POST /api/v1/browser/requests/{id}/result` with `{ok, value?, error?}`.
-  Only the claimant may post; a second result gets 409.
-- Recovery: `GET /api/v1/browser/requests?pending=1` lists unsettled requests so
-  a client that reconnects (or saw `gap`) can pick them up.
-- No browser-capable client subscribed when a request arrives → fail
-  immediately with `no_browser_client` ("No Leo app with a browser is connected").
-- Timeouts: 30 s default per op; `browser_wait` capped at 30 s; `browser_handoff`
-  has no timeout. Any parked request is cancelled when the agent's MCP call is
-  cancelled or the agent stops.
+- An app subscribes to the event stream with `?client_tools=1`. The daemon
+  assigns the subscription a `client_id`, returned in `hello`.
+- `POST /api/v1/client-tools` `{client_id, group, tools:[{name, description,
+  input_schema, timeout_s}]}` registers a group of tools (here `group: "browser"`).
+  `timeout_s: 0` means no timeout.
+- Registrations live only as long as the subscription. When it closes, its tools
+  are withdrawn.
+- Validation: names must match `^[a-z][a-z0-9_]{0,63}$` and must not collide with
+  a built-in leo tool or another client's group. Collisions are rejected with 409.
+  Schemas must be valid JSON Schema objects. At most 64 tools per daemon.
+- When two clients register the same group with identical tool definitions,
+  the tools are listed once and both clients are providers.
 
-### MCP tools
+### Exposure to agents
+
+- Each agent's `leo mcp-server` lists the built-in tools plus every currently
+  registered client tool. It watches for `client_tools.changed` and sends MCP
+  `notifications/tools/list_changed` when the set changes.
+- Agent harnesses that ignore `list_changed` see the set that existed when
+  they connected. Accepted.
+- Registered client tools count as known tools for leo's permission allowlist
+  (`leotools.IsKnownTool`) while registered.
+
+### Calls
+
+- `POST /api/agent/{name}/client-tools/call` `{tool, args}` (from the MCP server).
+  The daemon creates `{id, agent, group, tool, args, owner}`, keeps it in memory
+  (not SQLite), publishes `client_tool.request`, and blocks until it settles or
+  times out.
+- Ownership is per (agent, group): the first provider to claim
+  (`POST /api/v1/client-tools/requests/{id}/claim`) owns that agent's group.
+  Later requests carry `owner`, and only the owner may claim them; others get 409.
+  Ownership is released when the owner's subscription closes.
+- `POST /api/v1/client-tools/requests/{id}/result` with `{ok, content?, error?}`.
+  `content` is a list of MCP content blocks (text, image), passed through
+  unchanged. Only the claimant may post, and a second result gets 409.
+- `GET /api/v1/client-tools/requests?pending=1` lists unsettled requests so a
+  reconnecting client (or one that saw `gap`) can pick them up.
+- The tool was withdrawn, or no provider is connected → fail immediately with
+  `no_client` ("No connected Leo app provides this tool").
+- A parked request is cancelled when its timeout elapses, the agent's MCP call is
+  cancelled, or the agent stops.
+
+## Mac app
+
+### Browser tools (declared by the app, group `browser`)
 
 All take optional `tab` (tab id; default = active tab) except where noted.
+Timeout is 30 s unless noted.
 
 | Tool | Args | Returns |
 |---|---|---|
-| `browser_navigate` | `url` | final URL, title (waits for load, ≤30 s) |
+| `browser_navigate` | `url` | final URL, title (waits for load) |
 | `browser_back` / `browser_forward` / `browser_reload` | — | URL, title |
 | `browser_snapshot` | — | text tree of the page with element refs, truncated at 50 000 chars with a note |
 | `browser_click` | `ref` | ok |
 | `browser_type` | `ref`, `text`, `submit?` | ok |
 | `browser_press` | `key` (e.g. `Enter`, `Escape`, `Meta+a`) | ok |
-| `browser_screenshot` | `full_page?` | PNG as MCP image content, max 1600 px wide |
-| `browser_wait` | `text?` or `ms?` | ok / timeout |
+| `browser_screenshot` | `full_page?` | PNG image block, max 1600 px wide |
+| `browser_wait` | `text?` or `ms?` (≤ 25 000) | ok / timeout |
 | `browser_eval` | `js` | JSON-serialised result |
 | `browser_console` | `since?` | console messages captured since last call |
 | `browser_tabs` | — (no `tab`) | list `{id, url, title, active}` |
 | `browser_tab_new` | `url?` | new tab id (becomes active) |
 | `browser_tab_select` | `tab` (required) | ok |
 | `browser_tab_close` | `tab` (required) | ok |
-| `browser_handoff` | `message` (no `tab`) | `done` or `declined`; blocks until Evan answers |
+| `browser_handoff` | `message` (no `tab`); timeout 0 | `done` or `declined`; blocks until Evan answers |
 
-Tool names are added to `leotools.IsKnownTool`.
-
-## Mac app
+The app registers this group with every connected machine's daemon. The
+browser feature can be switched off in Settings, which withdraws the group.
 
 ### Agent browser
 
@@ -119,8 +147,8 @@ Tool names are added to `leotools.IsKnownTool`.
 
 ### Executor
 
-- Subscribes with `capabilities=browser` on each machine's event stream, claims
-  `browser.request` events for agents on that machine, runs them, and posts results.
+- Claims `client_tool.request` events in group `browser` for agents on that
+  machine, runs them, and posts results.
 - `snapshot`: an injected script walks the DOM (role, accessible name, value,
   visible interactive elements) and tags each element with a ref. Refs stay
   valid until the next snapshot or navigation in that tab; a stale ref fails
@@ -152,10 +180,13 @@ Tool names are added to `leotools.IsKnownTool`.
 ## Out of scope (v1)
 
 iOS executor (backlog), downloads/uploads, network-request logs, deleting a
-pruned agent's data store, file:// URLs, a browser on the daemon host.
+pruned agent's data store, file:// URLs, a browser on the daemon host, other
+client-tool groups.
 
 ## Security
 
+- Only authenticated daemon clients (the existing socket/bearer auth) can
+  register tools or post results.
 - `browser_eval` runs arbitrary JS, but only in that agent's own isolated store.
 - Agent identity comes from the MCP server's `LEO_PROCESS_NAME`, the same as the
   existing chat tools; an agent able to spoof it could drive another agent's
@@ -164,9 +195,11 @@ pruned agent's data store, file:// URLs, a browser on the daemon host.
 
 ## Testing
 
-- Daemon (Go): park/settle, timeout, `no_browser_client`, ownership + 409 on
-  second claimant and on second result, release on subscriber disconnect,
-  pending-list recovery, cancellation on agent stop.
+- Daemon (Go): registration validation and collisions; withdrawal on disconnect;
+  `list_changed` emitted on change; park/settle; per-tool timeout and timeout 0;
+  `no_client`; ownership + 409 on a second claimant and on a second result;
+  release on subscriber disconnect; pending-list recovery; cancellation on agent
+  stop; image content pass-through.
 - Mac (Swift Testing): executor op mapping and error codes against a fake web
   view protocol; takeover state machine; tab cap and popup → tab; forward
   manager against a fake ssh runner (same-port, fallback port, URL rewrite both
@@ -178,11 +211,15 @@ pruned agent's data store, file:// URLs, a browser on the daemon host.
 
 ## Success criteria
 
-1. An agent on Dionysus opens its own `localhost:5173` dev server in the pane
+1. With no Mac app connected, an agent's tool list contains no `browser_*`
+   tools. Connecting the app makes them appear in a running Claude Code agent
+   without a restart.
+2. An agent on Dionysus opens its own `localhost:5173` dev server in the pane
    and clicks through it using snapshot refs.
-2. Evan clicks into the page; the agent's next click returns `user_has_control`;
+3. Evan clicks into the page; the agent's next click returns `user_has_control`;
    Give back restores it.
-3. `browser_handoff("Log in please")` blocks until Evan presses Done.
-4. Two tabs: the agent lists, switches and closes them; a `target=_blank` link
+4. `browser_handoff("Log in please")` blocks until Evan presses Done.
+5. Two tabs: the agent lists, switches and closes them; a `target=_blank` link
    lands as a new tab.
-5. With no Mac app connected, a browser tool fails immediately with `no_browser_client`.
+6. Quitting the app while an agent holds the tools makes the next call fail
+   with `no_client` and withdraws the tools.
