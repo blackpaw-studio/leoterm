@@ -64,6 +64,8 @@ final class LeoRowPaneContainerViewController: NSViewController {
         adopt(next)
         guard isViewLoaded else { return }
         embed(next.view)
+        // A row's pane made now isn't in the window's key view loop.
+        view.window?.leoRebuildKeyViewLoop()
         // Room is made as for any pane shown (D-036); its width is the one
         // the item had, not a fresh half-width opening (D-038).
         setLeoSplitItemCollapsed(!next.isPaneOpen)
