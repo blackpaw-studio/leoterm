@@ -20,20 +20,71 @@ enum LeoRowKey: Hashable, Sendable {
     }
 }
 
-/// One row's editor tabs and workspace browser. The browser opens files in
-/// this row's editor, never another's.
-@MainActor final class LeoRowPane {
+/// One row's editor tabs, workspace browser and, while its agent has one,
+/// the agent's web browser. The workspace browser opens files in this row's
+/// editor, never another's. The editor pane shows one of two contents: the
+/// editor tabs, or the agent browser (`content`).
+@MainActor final class LeoRowPane: ObservableObject {
+    enum Content: Equatable {
+        case editor
+        case agentBrowser
+    }
+
     let tabs: LeoEditorTabs
     let browser: LeoWorkspaceBrowserModel
+    /// The row's agent's browser while it has one.
+    @Published private(set) var agentBrowser: (any LeoAgentBrowserPaneSource)?
+    /// Asks whoever owns the browsers to close this row's (wired by `LeoRowPanes`).
+    var requestCloseAgentBrowser: () -> Void = {}
+    /// The user (or the lack of open files) put the browser in front of the editor.
+    @Published private var showsAgentBrowser = false
+    private var tabsSubscription: AnyCancellable?
 
     init(tabs: LeoEditorTabs, browser: LeoWorkspaceBrowserModel) {
         self.tabs = tabs
         self.browser = browser
+        // The last file closing leaves the browser as the pane's content, and
+        // it stays there when a file opens behind it.
+        tabsSubscription = tabs.$tabs.sink { [weak self] tabs in
+            if tabs.isEmpty, self?.agentBrowser != nil { self?.showsAgentBrowser = true }
+        }
     }
 
     convenience init(makeAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess) {
         let tabs = LeoEditorTabs(makeAccess: makeAccess)
         self.init(tabs: tabs, browser: LeoWorkspaceBrowserModel(makeAccess: makeAccess, openFile: { try await tabs.open($0) }))
+    }
+
+    var isAgentBrowserOpen: Bool { agentBrowser != nil }
+    var content: Content { agentBrowser != nil && showsAgentBrowser ? .agentBrowser : .editor }
+
+    /// The agent started a browser. It comes to the front only when no file
+    /// is open; otherwise it opens behind what the user is editing, as a file
+    /// an agent surfaces does.
+    func attachAgentBrowser(_ source: any LeoAgentBrowserPaneSource) {
+        guard agentBrowser !== source else { return }
+        agentBrowser = source
+        showsAgentBrowser = tabs.tabs.isEmpty
+    }
+
+    func detachAgentBrowser() {
+        guard agentBrowser != nil else { return }
+        agentBrowser = nil
+        showsAgentBrowser = false
+    }
+
+    func showAgentBrowser() {
+        if agentBrowser != nil { showsAgentBrowser = true }
+    }
+
+    func showEditor() {
+        showsAgentBrowser = false
+    }
+
+    /// Closes the browser (the Browser tab's close, the toolbar's); its data store stays.
+    func closeAgentBrowser() {
+        requestCloseAgentBrowser()
+        detachAgentBrowser()
     }
 
     var isOpen: Bool { tabs.isOpen || browser.isOpen }
@@ -80,22 +131,32 @@ enum LeoRowKey: Hashable, Sendable {
     private var orphans: [LeoRowPane] = []
     private let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     private let confirm: Confirm
+    /// Which agent browsers exist, for the rows' panes to show; nil for none.
+    private let presence: (any LeoAgentBrowserPresence)?
+    private var stopObservingPresence: (() -> Void)?
 
-    init(makeAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess, confirm: @escaping Confirm) {
+    init(
+        makeAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess, confirm: @escaping Confirm,
+        presence: (any LeoAgentBrowserPresence)? = nil
+    ) {
         self.makeAccess = makeAccess
         self.confirm = confirm
+        self.presence = presence
         let startScreen = LeoRowPane(makeAccess: makeAccess)
         active = startScreen
         insert(startScreen, for: .startScreen)
+        observePresence()
     }
 
     /// One pane standing in for a window's (a split built around a given
     /// editor and browser): it keeps its own prompt.
-    init(startScreen pane: LeoRowPane) {
+    init(startScreen pane: LeoRowPane, presence: (any LeoAgentBrowserPresence)? = nil) {
         makeAccess = LeoWindowSession.noFileAccess
         confirm = { _, _ in .cancel }
+        self.presence = presence
         active = pane
         insert(pane, for: .startScreen, installingPrompt: false)
+        observePresence()
     }
 
     /// Every pane, the one on screen first, then the rest as made, then
@@ -168,6 +229,7 @@ enum LeoRowKey: Hashable, Sendable {
         remove(old)
         insert(pane, for: new)
         if activeKey == old { activeKey = new }
+        syncAgentBrowser(of: pane, for: new)
     }
 
     /// `host`'s list, fetched while connected, no longer has these agents
@@ -204,11 +266,36 @@ enum LeoRowKey: Hashable, Sendable {
     private func insert(_ pane: LeoRowPane, for key: LeoRowKey, installingPrompt: Bool = true) {
         panes[key] = pane
         order.append(key)
+        pane.requestCloseAgentBrowser = { [weak self, weak pane] in
+            guard let self, let browserKey = self.key(holding: pane)?.agentBrowserKey else { return }
+            presence?.closeBrowser(for: browserKey)
+        }
+        syncAgentBrowser(of: pane, for: key)
         guard installingPrompt else { return }
         pane.tabs.confirmUnsaved = { [weak self, weak pane] document in
             guard let self else { return .cancel }
             let isOnScreen = pane === active
             return await confirm(document, isOnScreen ? nil : rowName(self.key(holding: pane) ?? .startScreen))
+        }
+    }
+
+    private func observePresence() {
+        stopObservingPresence = presence?.observe { [weak self] change in
+            guard let self else { return }
+            let key: LeoAgentBrowserKey = switch change {
+            case .opened(let key), .closed(let key): key
+            }
+            for (rowKey, pane) in panes where rowKey.agentBrowserKey == key { syncAgentBrowser(of: pane, for: rowKey) }
+        }
+    }
+
+    /// `pane` shows its agent's browser while the presence has one.
+    private func syncAgentBrowser(of pane: LeoRowPane, for key: LeoRowKey) {
+        guard let presence, let browserKey = key.agentBrowserKey else { return }
+        if let source = presence.browser(for: browserKey) {
+            pane.attachAgentBrowser(source)
+        } else {
+            pane.detachAgentBrowser()
         }
     }
 
