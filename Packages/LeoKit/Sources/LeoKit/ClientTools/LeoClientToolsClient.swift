@@ -171,10 +171,14 @@ public actor LeoClientToolsClient {
     private func send<Response: Decodable & Sendable>(_ method: String, _ path: String, body: (some Encodable)?) async throws -> Response {
         let encoded = try body.map { try JSONEncoder().encode($0) }
         let response = try await transport.send(LeoHTTPRequest(method: method, path: path, body: encoded), socketPath: socketPath, timeout: callTimeout)
-        guard let envelope = try? LeoDaemonEnvelope<Response>.decode(response.body) else {
+        // A failure's `data` (name_conflict's `{tool}`) is not the success
+        // shape, so the outcome is read before `data` is typed.
+        if let failure = try? LeoDaemonEnvelope<LeoClientToolEmpty>.decode(response.body), !failure.ok {
+            throw LeoClientToolsError(envelope: failure, rawBody: response.body)
+        }
+        guard let envelope = try? LeoDaemonEnvelope<Response>.decode(response.body), envelope.ok else {
             throw LeoDaemonError.transport("Client tools endpoint returned HTTP \(response.status)")
         }
-        guard envelope.ok else { throw LeoClientToolsError(envelope: envelope, rawBody: response.body) }
         return try envelope.value()
     }
 }
