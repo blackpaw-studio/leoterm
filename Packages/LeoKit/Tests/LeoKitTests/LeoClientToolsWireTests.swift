@@ -114,10 +114,12 @@ struct LeoClientToolsWireTests {
 
     @Test func pendingResponseFlattensRequestFieldsWithClaimant() throws {
         let pending = try Self.decodeAndRoundTrip(LeoClientToolPendingList.self, data: try Self.envelopeData("pending-response"))
-        #expect(pending.requests.map(\.request.tool) == ["browser_click", "browser_snapshot"])
-        #expect(pending.requests.map(\.claimedBy) == ["", "ct_01JC8Z3K4M5N6P7Q8R9S0T1V3X"])
+        let owner = "ct_01JC8Z3K4M5N6P7Q8R9S0T1V2W"
+        #expect(pending.requests.map(\.request.tool) == ["browser_click", "browser_snapshot", "browser_snapshot"])
+        // Claimed: the claimant owns the group. Unclaimed under the same owner. Unowned.
+        #expect(pending.requests.map(\.claimedBy) == [owner, "", ""])
+        #expect(pending.requests.map(\.request.owner) == [owner, owner, ""])
         #expect(pending.requests[1].request.args == .object([:]))
-        #expect(pending.requests[1].request.owner == "")
     }
 
     // MARK: - Error envelopes

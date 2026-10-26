@@ -131,7 +131,7 @@ struct LeoClientToolsClientTests {
 
         let pending = try await client.pending()
 
-        #expect(pending.map(\.request.tool) == ["browser_click", "browser_snapshot"])
+        #expect(pending.map(\.request.tool) == ["browser_click", "browser_snapshot", "browser_snapshot"])
         let sent = try #require(transport.requests.first)
         #expect(sent.method == "GET")
         #expect(sent.path == "/api/v1/client-tools/requests?pending=1")
