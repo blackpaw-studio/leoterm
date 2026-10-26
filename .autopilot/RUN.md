@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-10-25T16:54:31Z
 Budget: 20 items, until 2026-10-26T04:54:31Z
 Stop: requested 2026-10-26T00:08:00Z (in session)

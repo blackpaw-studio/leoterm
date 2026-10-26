@@ -511,3 +511,42 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-25T16:54:31Z
+
+🛠 leoterm autopilot — 1 fixed, 5 shipped, 0 blocked
+Stopped at your request (2026-10-26T00:08:00Z)
+Fixed
+• B-297 Mac CI focus suites fail when the runner can't become key — focus tests probe a plain window and skip with a ::warning:: instead of failing (not visually verified) · full
+Shipped
+• B-298 iOS ChatList uses LeoKit's LeoChatUnreadCounts — logic swap, badges unchanged (not visually verified) · light
+• B-154 Titled-style side-pane close glyph — centred on the sidebar header line in all 4 styles (verified: screenshot) · light
+• B-155 LeoLaunchFocusTests #require message reworded (not visually verified) · light
+• B-156 waitForSearchField counts run-loop turns, no sleeps (not visually verified) · light
+• B-157 Key view loop rebuilt when a row's pane is first shown (not visually verified: debug window never became key) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-537–D-541 CI focus tests skip+annotate; runner setup left to you; Mac only
+• D-542–D-545 side-pane glyph alignment; D-543 also moves the editor pane header (beyond the item)
+• D-546 200-turn limit in waitForSearchField
+• D-547 rebuild the key loop only when a pane view is first built, not on every toggle
+Needs you
+• Flaky Mac tests under load slow every item: renameSetsTheRowTitleAndSticks, anEmptyNameRestoresTheLiveTitle, nonAttachSurfaceKeepsGhosttysTitle, chatShowsNotConnected… — worth a /issue
+• B-297 acceptance (3 green CI runs on main) checkable only after merge; the CI runner needs an unlocked console or the 5 focus tests always skip
+• Lanes left unlanded: B-058, B-143 (held), B-233. Untracked-left: default.profraw, scratchpad/
+• Debug bundle: a sidebar pin may be left set (B-154 verify)
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area
+• B-180 Terminals row context menu shows key equivalents
+• B-181 Rename Terminal sheet hangs from the title bar
+• B-182 Clearing a custom name after restore restores the live title
+• B-184 Drive row-menu Split in GUI verification
+• +48 more
+Self-filed
+• B-303 idea (from B-157) — Incremental builds can drop the bundled tmux-256color terminfo
+Next up: B-158, B-159, B-160 (and your iOS Machines bug, queued for next preflight)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$20.55 est. — B-297 ≈$4.90, B-298 ≈$2.09, B-154 ≈$4.18, B-155 ≈$2.16, B-156 ≈$1.76, B-157 ≈$5.46
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
