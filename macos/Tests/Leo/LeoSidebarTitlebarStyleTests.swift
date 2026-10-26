@@ -81,9 +81,14 @@ struct LeoSidebarTitlebarStyleTests {
         let frames = HeaderProbe()
         try #require(await frames.settledHeader(probing: sidebar) != nil, "the probe never reported")
 
+        // Shrink to the minimum when there is room (always under the
+        // window's cap, whatever width the shared defaults stored); else grow.
+        let before = sidebar.view.bounds.width
+        let minimum = LeoSidebarSplitMetrics.minimumWidth
         sidebar.rootView = unprobed
-        fixture.split.applyProgrammaticWidth(sidebar.view.bounds.width + 40)
+        fixture.split.applyProgrammaticWidth(before > minimum + 40 ? minimum : before + 40)
         fixture.window.contentView?.layoutSubtreeIfNeeded()
+        try #require(sidebar.view.bounds.width != before, "the sidebar stayed \(before) pt wide; the resize never happened")
 
         let settled = try #require(await frames.settledHeader(probing: sidebar, timeout: .seconds(3)), "\(frames)")
         #expect(settled.maxX <= sidebar.view.bounds.width, "\(settled) in \(sidebar.view.bounds)")
