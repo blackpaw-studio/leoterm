@@ -5,6 +5,13 @@ enum LeoSSHCommandError: Error, Equatable, Sendable {
     case invalidConfiguration([LeoHostValidationError])
     case invalidSocketPath
     case invalidControlPath
+    case invalidPort
+}
+
+/// What a mux client asks the ControlMaster to do with a port forward.
+enum LeoForwardOperation: String, Sendable {
+    case forward
+    case cancel
 }
 
 struct LeoSSHCommand: Sendable {
@@ -69,16 +76,65 @@ struct LeoSSHCommand: Sendable {
         return arguments
     }
 
+    /// `ssh -O forward|cancel -L 127.0.0.1:<local>:localhost:<remotePort>` as
+    /// a mux client of the tunnel's master at `controlPath`: the forward
+    /// lives and dies with that one connection. The SFTP client's overrides
+    /// minus `ClearAllForwardings=yes`, which would clear the very `-L`
+    /// being requested. The local side binds loopback only.
+    func forwardArguments(controlPath: String, local: Int, remotePort: Int, op: LeoForwardOperation) throws -> [String] {
+        let spec = try forwardSpec(local: local, remotePort: remotePort)
+        var arguments = try muxClientArguments(controlPath: controlPath, clearsForwardings: false, isSession: false)
+        arguments += ["-O", op.rawValue, "-L", spec, target]
+        return arguments
+    }
+
+    /// Fallback when there is no ControlMaster to multiplex over (a nil
+    /// `multiplexingControlPath`): one `ssh -N -L` process per forward,
+    /// carrying the tunnel's flags without a master of its own.
+    func forwardProcessArguments(local: Int, remotePort: Int) throws -> [String] {
+        try validateConfiguration()
+        let spec = try forwardSpec(local: local, remotePort: remotePort)
+        var arguments = [
+            "-n", "-N",
+            "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=yes",
+            "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=15",
+            "-o", "ServerAliveCountMax=3",
+            "-o", "ControlMaster=no", "-o", "ControlPath=none"
+        ]
+        appendIdentityAndPort(to: &arguments)
+        arguments += ["-L", spec, target]
+        return arguments
+    }
+
+    private func forwardSpec(local: Int, remotePort: Int) throws -> String {
+        guard Self.validForwardPorts.contains(local), Self.validForwardPorts.contains(remotePort) else {
+            throw LeoSSHCommandError.invalidPort
+        }
+        return "127.0.0.1:\(local):localhost:\(remotePort)"
+    }
+
+    private static let validForwardPorts = 1...65_535
+
     private func sftpClientArguments(controlPath: String) throws -> [String] {
+        try muxClientArguments(controlPath: controlPath, clearsForwardings: true, isSession: true)
+    }
+
+    /// `isSession`: an SFTP session needs `-T` (a pty would corrupt the binary
+    /// protocol); a control request has no session to configure.
+    private func muxClientArguments(controlPath: String, clearsForwardings: Bool, isSession: Bool) throws -> [String] {
         try validateConfiguration()
         try validateControlPath(controlPath)
-        var arguments = [
-            "-T",
+        var arguments = isSession ? ["-T"] : []
+        arguments += [
             "-o", "BatchMode=yes",
             "-o", "ControlMaster=no",
             "-o", "ControlPath=\(controlPath)",
-            "-o", "ProxyCommand=/usr/bin/false",
-            "-o", "ClearAllForwardings=yes",
+            "-o", "ProxyCommand=/usr/bin/false"
+        ]
+        if clearsForwardings { arguments += ["-o", "ClearAllForwardings=yes"] }
+        arguments += [
             "-o", "RemoteCommand=none",
             "-o", "ForwardAgent=no",
             "-o", "ForwardX11=no",
