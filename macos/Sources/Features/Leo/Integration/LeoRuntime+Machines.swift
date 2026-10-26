@@ -36,6 +36,7 @@ extension LeoRuntime {
         gone.forEach {
             clients.unbind($0)
             chatMachineDisconnected($0)
+            agentBrowsers.machineDisconnected($0)
         }
     }
 
@@ -74,10 +75,12 @@ extension LeoRuntime {
         switch state {
         case .connecting:
             chatMachineDisconnected(host)
+            agentBrowsers.machineDisconnected(host)
             feeds.updateConnection(host: host, generation: generation, phase: .connecting)
             statsPoller.reconcile()
         case .failed(let message, _):
             chatMachineDisconnected(host)
+            agentBrowsers.machineDisconnected(host)
             feeds.updateConnection(host: host, generation: generation, phase: .failed(message: message))
             statsPoller.reconcile()
         case .connected(let socketPath):
@@ -103,6 +106,7 @@ extension LeoRuntime {
         clients.bind(connected.daemon, host: host, generation: generation)
         actions.hostConnected(host)
         chatMachineConnected(host, connected.chat)
+        agentBrowsers.machineConnected(host, socketPath: socketPath)
         feeds.updateConnection(
             host: host, generation: generation, phase: .connected(daemon: connected.daemon, activitySource: connected.activitySource)
         )

@@ -68,7 +68,7 @@ struct LeoMachinePortForwardsTests {
         let mapping = machines.mapping(for: Self.alice)
         _ = try await mapping.toLocal(url("http://localhost:5173/"))
 
-        await machines.disconnected(Self.remote)
+        await machines.disconnected(Self.remote)?.value
 
         #expect(connections.runners.first?.closes.map(\.remote) == [5173])
         await #expect(throws: LeoBrowserError.self) { try await mapping.toLocal(self.url("http://localhost:5173/")) }

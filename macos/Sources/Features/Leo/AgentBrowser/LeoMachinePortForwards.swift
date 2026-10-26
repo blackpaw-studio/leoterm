@@ -27,10 +27,12 @@ import LeoKit
         current[host] = makeForwards(host)
     }
 
-    /// `host` dropped (or went): every forward on it closes, and loopback
-    /// URLs fail until it connects again.
-    func disconnected(_ host: LeoHostID) async {
-        await current.removeValue(forKey: host)?.releaseAll()
+    /// `host` dropped (or went): loopback URLs fail from now until it
+    /// connects again, and every forward on it closes in the returned task.
+    @discardableResult
+    func disconnected(_ host: LeoHostID) -> Task<Void, Never>? {
+        guard let gone = current.removeValue(forKey: host) else { return nil }
+        return Task { await gone.releaseAll() }
     }
 
     /// The URL mapping for `key`'s browser.
