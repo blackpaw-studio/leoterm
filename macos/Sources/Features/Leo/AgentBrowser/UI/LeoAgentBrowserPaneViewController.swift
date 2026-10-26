@@ -90,7 +90,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         toolbar.onForward = { [model] in model.goForward() }
         toolbar.onReload = { [model] in model.reload() }
         toolbar.onNewTab = { [model] in model.newTab() }
-        toolbar.onSubmitURL = { [model] in model.submitURL($0) }
+        toolbar.onSubmitURL = { [weak self] in self?.submitURL($0) }
         toolbar.onPill = { [model] in model.pillClicked() }
         toolbar.onGiveBack = { [model] in model.giveBack() }
         banner.onDone = { [model] in model.done() }
@@ -104,6 +104,15 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
             guard let self, model.tabItems.indices.contains(index) else { return }
             model.closeTab(id: model.tabItems[index].id)
         }
+    }
+
+    /// A good address ends editing, so the bar follows the page again --
+    /// redirects and the agent's own loads; a bad one stays to be fixed.
+    private func submitURL(_ text: String) {
+        model.submitURL(text)
+        guard model.urlError == nil else { return }
+        if toolbar.urlField.currentEditor() != nil { view.window?.makeFirstResponder(nil) }
+        refresh()
     }
 
     /// Where Return answers the handoff banner: focus is in the pane but not in
