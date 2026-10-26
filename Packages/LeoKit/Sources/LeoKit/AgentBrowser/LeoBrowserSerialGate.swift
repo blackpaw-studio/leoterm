@@ -4,12 +4,17 @@ import Foundation
 /// A body waiting its turn can be cancelled and then never runs.
 @MainActor
 final class LeoBrowserSerialGate {
-    private var isBusy = false
+    private(set) var isBusy = false
     private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, any Error>)] = []
+
+    var waitingCount: Int { waiters.count }
 
     func run<T>(_ body: () async throws -> T) async throws -> T {
         try await acquire()
         defer { release() }
+        // A waiter cancelled after it was handed the turn is resumed normally;
+        // it must not run.
+        try Task.checkCancellation()
         return try await body()
     }
 

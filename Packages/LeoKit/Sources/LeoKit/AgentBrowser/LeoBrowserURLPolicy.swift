@@ -2,10 +2,17 @@ import Foundation
 
 /// Which URLs an agent browser may load: `http`, `https` and `about:blank`.
 public enum LeoBrowserURLPolicy {
+    /// `localhost:3000/path`: a host and port with no scheme, which URL parsing
+    /// would otherwise read as scheme `localhost`.
+    private static let hostAndPort = #"^[A-Za-z0-9.\-]+:\d{1,5}(?:[/?#].*)?$"#
+
     /// Parses an agent-supplied URL. Throws `scheme_not_allowed` for any other
     /// scheme (or none), `invalid_args` for text that isn't a URL.
     public static func validate(_ text: String) throws -> URL {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.range(of: hostAndPort, options: .regularExpression) != nil {
+            throw LeoBrowserError(.schemeNotAllowed, "URL is missing http:// or https://. Use a full URL such as http://\(trimmed)")
+        }
         guard !trimmed.isEmpty, let url = URL(string: trimmed) else {
             throw LeoBrowserError.invalidArgs("Not a valid URL: \(text.debugDescription)")
         }
