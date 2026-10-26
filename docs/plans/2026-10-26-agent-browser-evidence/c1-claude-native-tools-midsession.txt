@@ -1,0 +1,50 @@
+
+  ⎿  SessionStart:startup hook error
+  ⎿  Failed with non-blocking status code: Error: Bun not found. Please install Bun: https://bun.sh
+
+› Prompt from the leo-bridge plugin
+❯ You are a scratch E2E test agent. Reply 'ready' and wait for instructions.
+  ⎿  UserPromptSubmit hook error
+  ⎿  Failed with non-blocking status code: Error: Bun not found. Please install Bun: https://bun.sh
+
+⏺ ready
+
+⏺ Ran 3 stop hooks
+  ⎿  Stop hook error: Failed with non-blocking status code: Error: Bun not found. Please install Bun: https://bun.sh
+  After installation, restart your terminal.
+
+✻ Baked for 2s · done 5:05 PM
+
+⏺ leo-bridge: bridge stream ended: exit 0; reconnecting
+
+⏺ leo-bridge: bridge stream ended: exit 0; reconnecting
+
+❯ Use ToolSearch with query 'select:mcp__leo__browser_navigate,mcp__leo__browser_tabs' and report exactly what it returns.
+  ⎿  UserPromptSubmit hook error
+  ⎿  Failed with non-blocking status code: Error: Bun not found. Please install Bun: https://bun.sh
+  ⎿  PostToolUse:ToolSearch hook error
+  ⎿  Failed with non-blocking status code: Error: Bun not found. Please install Bun: https://bun.sh
+
+⏺ ToolSearch returned two tool definitions, both now loaded:
+
+  - mcp__leo__browser_navigate: "Load a URL in the browser and wait for the page to finish loading. Only http, https and about:blank are allowed." Parameters: url (required, string, including http://
+    or https://) and tab (optional integer, a tab id from browser_tabs, defaulting to the active tab).
+  - mcp__leo__browser_tabs: "List the browser's tabs as {id, url, title, active}." It takes no parameters.
+
+⏺ Ran 3 stop hooks
+  ⎿  Stop hook error: Failed with non-blocking status code: Error: Bun not found. Please install Bun: https://bun.sh
+  After installation, restart your terminal.
+
+✻ Cooked for 4s · done 5:06 PM
+
+─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── e2e-claude ─
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)
+
+  model   Sonnet 5.5  ·  thinking medium
+  where   /p/t/c/l/app  ·  no git  ·  no PR
+  context ▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆  6.7%
+          sys 2.9k  tools 40k  mem 11k  chat 14k  · 933k free  · compact 37%
+  limits  session 8% resets 3h 53m  ·  $0.18
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
