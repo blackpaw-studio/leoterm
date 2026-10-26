@@ -230,7 +230,9 @@ client-tool groups.
    contains no `browser_*` or `leo_app_*` tools. Connecting the app makes the
    browser usable in an already running agent on each of Claude Code, Codex and
    opencode, with no restart: natively where the harness honors `list_changed`,
-   via `leo_app_call` otherwise.
+   via `leo_app_call` otherwise. Exception: the very first registration on a
+   daemon, for a harness that ignores `list_changed`, needs one agent restart
+   (its fixed list was sampled before the flag existed).
 2. An agent on Dionysus opens its own `localhost:5173` dev server in the pane
    and clicks through it using snapshot refs.
 3. Evan clicks into the page; the agent's next click returns `user_has_control`;
