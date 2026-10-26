@@ -18,6 +18,7 @@ public struct LeoDaemonFeatures: Equatable, Sendable {
         case agentEnvironments = "agent_environments"
         case machineStats = "machine_stats"
         case configAPI = "config_api"
+        case clientTools = "client_tools"
     }
 
     public static let none = LeoDaemonFeatures([])
