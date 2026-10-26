@@ -262,18 +262,28 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
         post(id, outcome, on: stream)
     }
 
+    /// Posts `outcome`, and after a transient failure posts it again with
+    /// the stream's backoff while the claim is still held on `stream` (the
+    /// daemon still has this Mac as the claimant). Once that stream drops,
+    /// the request's re-claim on the next one posts it instead.
     private func post(_ id: String, _ outcome: LeoClientToolOutcome, on stream: Int) {
         Task {
-            do {
-                try await client.postResult(id, outcome)
-                inFlight[id] = nil
-            } catch {
-                Self.logger.error("clientTools: result failed id=\(id, privacy: .public) error=\(String(describing: error), privacy: .public)")
-                if Self.isTaken(error) {
+            var failures = 0
+            while true {
+                do {
+                    try await client.postResult(id, outcome)
                     inFlight[id] = nil
-                } else if case .held(stream) = inFlight[id]?.claim {
-                    inFlight[id]?.claim = .released
+                    return
+                } catch {
+                    Self.logger.error("clientTools: result failed id=\(id, privacy: .public) error=\(String(describing: error), privacy: .public)")
+                    if Self.isTaken(error) {
+                        inFlight[id] = nil
+                        return
+                    }
                 }
+                failures += 1
+                do { try await sleep(.seconds(Self.backoff(after: failures))) } catch { return }
+                guard liveGeneration == stream, case .held(stream) = inFlight[id]?.claim else { return }
             }
         }
     }

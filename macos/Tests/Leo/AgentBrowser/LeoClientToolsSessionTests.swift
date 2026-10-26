@@ -36,7 +36,16 @@ import Testing
         return request
     }
 
+    /// Posts that fail with a transient error before one lands.
+    var failingPosts = 0
+    private(set) var postAttempts = 0
+
     func postResult(_ requestID: String, _ outcome: LeoClientToolOutcome) async throws {
+        postAttempts += 1
+        if failingPosts > 0 {
+            failingPosts -= 1
+            throw LeoClientToolsError.other(code: nil, message: "connection reset")
+        }
         results.append((requestID, outcome))
     }
 
@@ -200,6 +209,23 @@ struct LeoClientToolsSessionTests {
 
         client.send(.hello(clientID: "ct_2"))
         await until { client.results.count == 1 }
+        #expect(executor.started == ["ctr_1"])
+    }
+
+    @Test func aResultWhosePostFailsIsPostedAgainOnTheSameStream() async {
+        let session = session()
+        defer { session.stop() }
+        await connected(session)
+        client.pendingRequests = [LeoClientToolPending(request: Self.request("ctr_1"), claimedBy: "")]
+        client.failingPosts = 2
+
+        client.send(.request(Self.request("ctr_1")))
+        await until { executor.started == ["ctr_1"] }
+        executor.finish("ctr_1")
+
+        await until { client.results.count == 1 }
+        #expect(client.postAttempts == 3)
+        #expect(client.claims == ["ctr_1"])
         #expect(executor.started == ["ctr_1"])
     }
 
