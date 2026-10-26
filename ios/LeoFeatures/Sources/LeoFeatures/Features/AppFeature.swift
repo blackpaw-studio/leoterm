@@ -214,6 +214,14 @@ public struct AppFeature {
                 case .task:
                     return fleet(.task, state: &state)
 
+                case .binding(\.isShowingDaemons):
+                    // A pop that skips the Machines list (the back button's
+                    // menu, a stack reset) never reports the machine above it
+                    // closed; left set, the next tap on its row presents
+                    // nothing because the item is unchanged.
+                    if !state.isShowingDaemons { state.daemons.machine = nil }
+                    return .none
+
                 case .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .pairing, .push:
                     return .none
                 }

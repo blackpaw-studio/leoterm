@@ -45,8 +45,16 @@ private final class MachineCellContentView: UIView, UIContentView {
     private let meterLine = MeterLineView()
     private let text = UIStackView()
 
+    /// UIKit sets the configuration again on every cell state change (each
+    /// highlight, selection, focus), not only when the data changed. Rebuilding
+    /// the meters then restarts their layers inside the state change's
+    /// animation, so they flash and the fills jump; an equal one is a no-op.
     var configuration: any UIContentConfiguration {
-        didSet { apply() }
+        didSet {
+            guard let new = configuration as? MachineCellConfiguration,
+                  new != oldValue as? MachineCellConfiguration else { return }
+            apply()
+        }
     }
 
     init(configuration: MachineCellConfiguration) {
