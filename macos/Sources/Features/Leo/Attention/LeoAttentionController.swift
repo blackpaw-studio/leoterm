@@ -26,11 +26,7 @@ struct LeoAttentionNotification: Equatable, Sendable {
         case .working, .errored, .unknown: return nil
         }
         let id = transition.id
-        let hostKey = switch id.host {
-        case .local: "local"
-        case .remote(let name): "remote.\(name)"
-        }
-        identifier = "\(Self.identifierPrefix)\(hostKey).\(id.name).\(transition.bootID ?? "-").\(transition.revision)"
+        identifier = "\(Self.identifierPrefix)\(Self.identifierHostKey(id.host)).\(id.name).\(transition.bootID ?? "-").\(transition.revision)"
         title = "\(id.name) · \(id.host.displayName)"
         userInfo = [Self.hostKey: Self.encode(id.host), Self.agentKey: id.name]
     }
@@ -40,6 +36,13 @@ struct LeoAttentionNotification: Equatable, Sendable {
     static func agent(fromUserInfo userInfo: [AnyHashable: Any]) -> LeoAgentRow.ID? {
         guard let host = userInfo[hostKey] as? String, let name = userInfo[agentKey] as? String else { return nil }
         return LeoAgentRow.ID(host: host.isEmpty ? .local : .remote(host), name: name)
+    }
+
+    fileprivate static func identifierHostKey(_ host: LeoHostID) -> String {
+        switch host {
+        case .local: "local"
+        case .remote(let name): "remote.\(name)"
+        }
     }
 
     private static func encode(_ host: LeoHostID) -> String {
@@ -147,5 +150,21 @@ struct LeoAttentionNotification: Equatable, Sendable {
         } catch {
             Self.logger.error("attention notifications: post failed: \(error.localizedDescription, privacy: .public)")
         }
+    }
+}
+
+extension LeoAttentionNotification {
+    /// The longest handoff message a notification shows.
+    private static let handoffBodyLimit = 200
+
+    /// An agent's `browser_handoff`: its own message is the body, so Evan can
+    /// tell what it wants without opening the pane. Clicking it opens the
+    /// agent's row, like the attention ones.
+    init(handoffFrom id: LeoAgentRow.ID, requestID: String, message: String) {
+        identifier = "\(Self.identifierPrefix)handoff.\(Self.identifierHostKey(id.host)).\(id.name).\(requestID)"
+        title = "\(id.name) · \(id.host.displayName)"
+        let collapsed = message.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        body = collapsed.isEmpty ? "Needs your help in the browser" : String(collapsed.prefix(Self.handoffBodyLimit))
+        userInfo = [Self.hostKey: Self.encode(id.host), Self.agentKey: id.name]
     }
 }
