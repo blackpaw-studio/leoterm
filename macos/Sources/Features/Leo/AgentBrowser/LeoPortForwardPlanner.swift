@@ -30,8 +30,14 @@ struct LeoPortForwardPlanner: Sendable {
     /// The remote port `url` needs forwarded, or nil when it needs no
     /// forward: a local machine, a non-loopback host, or a non-web scheme.
     func remotePort(for url: URL) -> Int? {
-        guard isRemote, Self.isLoopback(url), let port = Self.effectivePort(of: url) else { return nil }
-        return Self.validPorts.contains(port) ? port : nil
+        isRemote ? Self.loopbackPort(of: url) : nil
+    }
+
+    /// The port a remote machine's `url` would need forwarded: its port
+    /// when it names a loopback host over a web scheme, else nil.
+    static func loopbackPort(of url: URL) -> Int? {
+        guard isLoopback(url), let port = effectivePort(of: url) else { return nil }
+        return validPorts.contains(port) ? port : nil
     }
 
     /// The same port as the remote when it's free (so origin, cookies and
