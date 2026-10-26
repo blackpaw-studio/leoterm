@@ -4,11 +4,18 @@ import AppKit
 /// borderless window outside every screen. The view stays in a window, so
 /// it keeps rendering and takes synthesized input, but no one can see,
 /// click or focus it, and it never shows in the Windows menu or the
-/// window cycle.
+/// window cycle. It moves when the screens change, so none ever reaches
+/// it.
 final class LeoAgentBrowserParkingWindow: NSWindow {
-    init(size: CGSize, screens: [NSRect] = NSScreen.screens.map(\.frame)) {
+    private let screens: () -> [NSRect]
+
+    init(
+        size: CGSize, screens: @escaping () -> [NSRect] = { NSScreen.screens.map(\.frame) },
+        notificationCenter: NotificationCenter = .default
+    ) {
+        self.screens = screens
         super.init(
-            contentRect: Self.frame(size: size, screens: screens),
+            contentRect: Self.frame(size: size, screens: screens()),
             styleMask: .borderless, backing: .buffered, defer: false)
         isReleasedWhenClosed = false
         ignoresMouseEvents = true
@@ -18,6 +25,8 @@ final class LeoAgentBrowserParkingWindow: NSWindow {
         animationBehavior = .none
         contentView = NSView(frame: NSRect(origin: .zero, size: size))
         orderBack(nil)
+        notificationCenter.addObserver(
+            self, selector: #selector(screensDidChange), name: NSApplication.didChangeScreenParametersNotification, object: nil)
     }
 
     override var canBecomeKey: Bool { false }
@@ -27,6 +36,10 @@ final class LeoAgentBrowserParkingWindow: NSWindow {
     static func frame(size: CGSize, screens: [NSRect]) -> NSRect {
         let bounds = screens.reduce(NSRect.zero) { $0.union($1) }
         return NSRect(origin: CGPoint(x: bounds.maxX + 1_000, y: bounds.maxY + 1_000), size: size)
+    }
+
+    @objc private func screensDidChange(_ notification: Notification) {
+        setFrameOrigin(Self.frame(size: frame.size, screens: screens()).origin)
     }
 
     /// Moves `view` in, filling the window, as its first responder.
