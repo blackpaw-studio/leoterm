@@ -30,6 +30,18 @@ struct LeoBrowserURLPolicyTests {
         } catch { Issue.record("unexpected \(error)") }
     }
 
+    @Test(arguments: ["localhost:3000", "localhost:3000/app?x=1", "127.0.0.1:5173"])
+    func aSchemelessHostAndPortSaysTheURLIsMissingItsScheme(_ text: String) {
+        do {
+            _ = try LeoBrowserURLPolicy.validate(text)
+            Issue.record("\(text) should be rejected")
+        } catch let error as LeoBrowserError {
+            #expect(error.code == .schemeNotAllowed)
+            #expect(error.message.contains("Use a full URL such as http://\(text)"))
+            #expect(!error.message.contains("Scheme"))
+        } catch { Issue.record("unexpected \(error)") }
+    }
+
     @Test(arguments: ["", "   ", "http://", "https:///path", "http://exa mple.com"])
     func malformedURLsAreInvalidArgs(_ text: String) {
         do {

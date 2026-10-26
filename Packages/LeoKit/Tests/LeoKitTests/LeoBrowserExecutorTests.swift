@@ -359,6 +359,23 @@ struct LeoBrowserExecutorTests {
         #expect(h.page.calls == ["snapshot"])
     }
 
+    @Test func aQueuedPageChangeFailsIfTheUserTakesControlBeforeItsTurn() async {
+        let h = harness()
+        let latch = Latch()
+        h.page.snapshotGate = latch
+        let snapshot = Task { await run(h, "browser_snapshot", id: "a") }
+        await settle { h.page.calls == ["snapshot"] }
+        let click = Task { await run(h, "browser_click", ["ref": .string("e1")], id: "b") }
+        for _ in 0..<20 { await Task.yield() }
+
+        h.control.send(.userInput)
+        latch.open()
+
+        #expect(errorCode(await click.value) == "user_has_control")
+        _ = await snapshot.value
+        #expect(h.page.calls == ["snapshot"])
+    }
+
     @Test func aHandoffIsNotQueuedBehindARunningOperation() async {
         let h = harness()
         let latch = Latch()
@@ -388,7 +405,7 @@ struct LeoBrowserExecutorTests {
 // MARK: - Fakes
 
 @MainActor
-private final class Latch {
+final class Latch {
     private var continuation: CheckedContinuation<Void, Never>?
     private var isOpen = false
 
