@@ -60,9 +60,12 @@ import LeoKit
     var keys: Set<LeoAgentBrowserKey> { Set(browsers.keys) }
     func browser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)? { browsers[key] }
 
+    /// False stands for a Mac that can't run the browser.
+    var canOpen = true
+
     func openBrowser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)? {
         openRequests.append(key)
-        return open(key)
+        return canOpen ? open(key) : nil
     }
 
     @discardableResult

@@ -116,6 +116,54 @@ struct LeoRowPaneAgentBrowserTests {
     }
 
     @Test
+    func openBrowserMakesTheRowsBrowserAndShowsIt() {
+        let panes = makePanes()
+        let pane = panes.pane(for: Self.agentA)
+
+        #expect(panes.openAgentBrowser(for: Self.agentA))
+
+        #expect(presence.openRequests == [Self.keyA])
+        #expect(pane.agentBrowser != nil)
+        #expect(pane.content == .agentBrowser)
+    }
+
+    @Test
+    func openBrowserBringsTheBrowserInFrontOfTheEditor() {
+        let panes = makePanes()
+        let pane = panes.pane(for: Self.agentA)
+        let source = presence.open(Self.keyA)
+        pane.showEditor()
+
+        #expect(panes.openAgentBrowser(for: Self.agentA))
+
+        #expect(pane.agentBrowser === source)
+        #expect(pane.content == .agentBrowser)
+    }
+
+    @Test
+    func openBrowserOpensADispatchRowsOwnBrowser() {
+        let panes = makePanes()
+        let row = LeoRowKey.agent(host: .local, name: "alpha", dispatchID: "d1")
+
+        #expect(panes.openAgentBrowser(for: row))
+
+        #expect(presence.openRequests == [.dispatch(host: .local, id: "d1")])
+        #expect(panes.pane(for: row).content == .agentBrowser)
+    }
+
+    @Test
+    func openBrowserDoesNothingWithoutAnAgentOrABrowser() {
+        let panes = makePanes()
+        #expect(!panes.openAgentBrowser(for: .terminal(UUID())))
+        #expect(!panes.openAgentBrowser(for: .startScreen))
+        #expect(presence.openRequests.isEmpty)
+
+        presence.canOpen = false
+        #expect(!panes.openAgentBrowser(for: Self.agentA))
+        #expect(panes.pane(for: Self.agentA).agentBrowser == nil)
+    }
+
+    @Test
     func closingTheBrowserClosesIt() {
         let panes = makePanes()
         let pane = panes.pane(for: Self.agentA)

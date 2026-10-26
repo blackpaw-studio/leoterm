@@ -181,6 +181,18 @@ enum LeoRowKey: Hashable, Sendable {
         return pane
     }
 
+    /// The row's Open Browser: finds or makes `key`'s agent browser (on a
+    /// blank page) and puts it in front in the row's pane. False for a row
+    /// with no agent, or when this Mac can't run the browser.
+    @discardableResult
+    func openAgentBrowser(for key: LeoRowKey) -> Bool {
+        guard let presence, let browserKey = key.agentBrowserKey, presence.openBrowser(for: browserKey) != nil else { return false }
+        let pane = pane(for: key)
+        syncAgentBrowser(of: pane, for: key)
+        pane.showAgentBrowser()
+        return true
+    }
+
     /// The window now shows `key`'s row: its pane goes on screen.
     func activate(_ key: LeoRowKey) {
         let pane = pane(for: key)

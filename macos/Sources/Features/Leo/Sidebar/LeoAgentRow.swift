@@ -142,6 +142,7 @@ struct LeoAgentRowView: View {
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
+        Button("Open Browser") { openBrowser() }
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
@@ -216,6 +217,16 @@ struct LeoAgentRowView: View {
             return
         }
         controller.browseLeoFiles(forRow: row)
+    }
+
+    /// Shows this agent's browser -- on a blank page if it has none -- in
+    /// the window whose sidebar was clicked.
+    private func openBrowser() {
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController else {
+            actions.setRowError("No terminal window available", for: row)
+            return
+        }
+        controller.openLeoAgentBrowser(forRow: row)
     }
 
     private func viewLogs() {
