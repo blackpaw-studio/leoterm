@@ -97,7 +97,7 @@ Lane: B-157
   Branch: autopilot-lane/B-157
   Base: ea23525ec1516f0ca997e798831810761d1e17ef
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -110,6 +110,7 @@ Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visuall
 Finished 3: B-154 landed 7cf96fdd534cbe70448d88dd636360f04e91d060 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-154-1.png
 Finished 4: B-155 landed aa5535eecbd4440597e0a05fe3590cdebe52e387 · not visually verified
 Finished 5: B-156 landed 40ac8266201a37bedbfebb3845f82edce1ba4c78 · not visually verified
+Finished 6: B-157 landed cab7e9bcaec18fd01964c2481fbd6833ee1fa2ac · not visually verified
 
 Progress:
 - Preflight: merged origin/main (791f4631b) into autopilot; applied 6 inbox entries (B-297 bug, B-298 add, B-299..B-302 ideas).
@@ -125,3 +126,4 @@ Progress:
 - B-156 landed 40ac82662 (1 commit, D-546). Neither verify run fully green at load 31–47: renameSetsTheRowTitleAndSticks, anEmptyNameRestoresTheLiveTitle, nonAttachSurfaceKeepsGhosttysTitle (none in changed file, none repeated).
 - Interim digest 1–5 posted (session + Leo Chat). Owner bug queued to inbox 20261025T213107017865Z-399ff898 (iOS Machines: tap does nothing, stats animation) for next run.
 - B-157 runner dispatched: d-99afd52cf12c (implement → claude/sonnet, tier light).
+- B-157 landed cab7e9bca (2 commits, 1 fix round, D-547). Self-filed B-303 (stale terminfo on incremental builds). Suite failures: known flakes + tmux256Color* (environment, stale build).

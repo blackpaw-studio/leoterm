@@ -3909,3 +3909,10 @@ Chose: Turn limit of 200 `nextMainTurn()` hops, to match the headroom of the old
 Why: D-178/D-254, AUTONOMY test-infra rule.
 Commit: fc5794270
 Veto: [ ]
+
+## D-547 · 2026-10-25 · Key view loop rebuilds only when a row's pane view is first built, not on every toggle
+Context: B-157 (runner call).
+Chose: Plain sidebar/pane collapse and expand needs no rebuild (the views already exist and the loop skips them while hidden); rebuild only where a pane view is first built, in `LeoRowPaneContainerViewController.show(_:)` after `embed`; D-175's next-turn rebuild moved into `NSWindow.leoRebuildKeyViewLoop()`, shared with `windowDidBecomeKey`
+Why: AUTONOMY (reversible, no speculative code), P1, D-175.
+Commit: b897a09a4 de1ada5f1
+Veto: [ ]

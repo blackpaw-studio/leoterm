@@ -935,11 +935,13 @@ Source: autopilot polish (B-101)
 Done: fc5794270
 Verified: not visually verified — test helper only; LeoLaunchFocusTests green in every run
 
-## B-157 · Rebuild the key view loop after a sidebar or pane toggle   [ready]
+## B-157 · Rebuild the key view loop after a sidebar or pane toggle   [done]
 Issue: #161
 Why: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
 Accept: while the window stays key, Tab uses the old loop after a sidebar/pane toggle until the window becomes key again (documented in B-101's comment); rebuild it on toggle
 Source: autopilot polish (B-101)
+Done: b897a09a4 de1ada5f1
+Verified: not visually verified — debug window never became key so Tab couldn't be sent; 3 B-157 Tab unit tests pass (row-switch test red before fix)
 
 ## B-158 · Document LeoMenuXib's ignored modifier flags   [ready]
 Issue: #162
