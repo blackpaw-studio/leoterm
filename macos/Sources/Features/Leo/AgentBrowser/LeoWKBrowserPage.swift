@@ -55,8 +55,9 @@ import WebKit
     /// Full-page screenshots stop here, in CSS pixels, to bound memory.
     static let maxFullPageHeight = 16_384.0
 
-    let webView: WKWebView
+    let webView: LeoAgentWebView
 
+    private let input: LeoSyntheticInput
     private let allowsURL: (URL) -> Bool
     private let clock: any Clock<Duration>
     /// Bumped by every snapshot and committed navigation; a ref names the
@@ -67,12 +68,18 @@ import WebKit
     private var consoleCursor = 0
     private var navigations: [ObjectIdentifier: CheckedContinuation<Void, any Error>] = [:]
 
-    init(configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool, clock: any Clock<Duration> = ContinuousClock()) {
+    init(
+        configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
+        input: LeoSyntheticInput? = nil, clock: any Clock<Duration> = ContinuousClock()
+    ) {
+        let input = input ?? LeoSyntheticInput()
         let configuration = configuration.copy() as? WKWebViewConfiguration ?? configuration
         let controller = WKUserContentController()
         controller.addUserScript(WKUserScript(source: LeoBrowserScripts.console, injectionTime: .atDocumentStart, forMainFrameOnly: true, in: .page))
         configuration.userContentController = controller
-        webView = WKWebView(frame: .zero, configuration: configuration)
+        webView = LeoAgentWebView(frame: .zero, configuration: configuration)
+        webView.isSynthetic = { [weak input] in input?.isSynthetic($0) ?? false }
+        self.input = input
         self.allowsURL = allowsURL
         self.clock = clock
         super.init()
@@ -212,6 +219,51 @@ import WebKit
             guard waited < limit else { throw Failure.timeout("\"\(text)\" did not appear on the page.") }
             try await clock.sleep(for: Self.waitPollInterval)
             waited += Self.waitPollInterval
+        }
+    }
+
+    // MARK: Input
+
+    /// Clicks the centre of `ref`'s element with real mouse events.
+    func click(ref: String) async throws {
+        try requireWindow()
+        let point = try await locate(ref: ref)
+        try await deliver(input.click(at: point, in: webView))
+    }
+
+    /// Focuses `ref`'s element and types `text` over its contents with real
+    /// key events; `submit` then presses Enter.
+    func type(ref: String, text: String, submit: Bool) async throws {
+        try requireWindow()
+        _ = try await locate(ref: ref)
+        let focus = try await run(LeoBrowserScripts.focusRef, ["ref": ref], in: Self.agentWorld) as? [String: Any]
+        guard let focus, focus["stale"] == nil else { throw Failure.staleRef(ref) }
+        try await deliver(input.type(text, in: webView))
+        if submit { try await press(LeoSyntheticKey(key: "Enter")) }
+    }
+
+    /// Presses `key` in whatever has focus.
+    func press(_ key: LeoSyntheticKey) async throws {
+        try requireWindow()
+        guard let events = input.press(key, in: webView) else {
+            throw Failure(code: "invalid_args", message: "There is no key called \"\(key.key)\".")
+        }
+        try await deliver(events)
+    }
+
+    /// Synthesized events carry their window's number.
+    private func requireWindow() throws {
+        guard webView.window == nil else { return }
+        throw Failure(code: "no_such_tab", message: "The tab is not open in a window.")
+    }
+
+    /// Hands each event to the web view, then waits for a script round trip:
+    /// it reaches the web content process after the input already sent, so
+    /// the page has handled each event before the next one.
+    private func deliver(_ events: [NSEvent]) async throws {
+        for event in events {
+            input.deliver(event, to: webView)
+            _ = try await run("return 0", [:], in: Self.agentWorld)
         }
     }
 
