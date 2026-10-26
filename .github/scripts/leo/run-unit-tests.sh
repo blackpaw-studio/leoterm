@@ -14,6 +14,8 @@ set -euo pipefail
 readonly TEST_TIMEOUT_SECONDS=900
 export TEST_TIMEOUT_SECONDS
 log="${LOG:-${RUNNER_TEMP:-/tmp}/leo-tests.log}"
+# Resolved before the cd below; BASH_SOURCE is relative when CI runs the script by path.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)/macos"
 
 echo "::group::build-for-testing"
@@ -40,4 +42,4 @@ timeout "$TEST_TIMEOUT_SECONDS" env \
 rc=$?
 set -e
 
-"$(dirname "${BASH_SOURCE[0]}")/check-test-log.sh" "$log" "$rc"
+"$script_dir/check-test-log.sh" "$log" "$rc"
