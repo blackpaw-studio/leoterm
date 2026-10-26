@@ -203,7 +203,8 @@ client-tool groups.
 - Agent identity comes from the MCP server's `LEO_PROCESS_NAME`, the same as the
   existing chat tools; an agent able to spoof it could drive another agent's
   browser. Accepted, consistent with chat.
-- The forward binds to `127.0.0.1` only.
+- The forward binds to loopback only: `127.0.0.1` and `[::1]` (both, so `localhost`
+  resolves to the forward whichever family the OS picks).
 
 ## Testing
 
