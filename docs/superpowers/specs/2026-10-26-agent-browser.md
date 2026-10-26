@@ -1,6 +1,6 @@
 # Agent Browser — spec
 
-Date: 2026-10-26 · Status: draft, awaiting approval
+Date: 2026-10-26 · Status: approved by Evan 2026-10-26
 
 ## Goal
 
