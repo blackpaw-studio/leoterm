@@ -4,12 +4,23 @@ import LeoKit
 
 @testable import Ghostty
 
-/// The browser toolbar: the address bar goes back to showing the page's
-/// address after the user submits one.
+/// The browser toolbar: the control pill draws once per change, not in a
+/// loop, and the address bar goes back to showing the page's address after
+/// the user submits one.
 @MainActor
 struct LeoAgentBrowserToolbarTests {
     private final class KeyWindow: NSWindow {
         override var isKeyWindow: Bool { true }
+    }
+
+    /// Counts the pill's layer updates.
+    private final class CountingPill: LeoControlPill {
+        private(set) var layerUpdates = 0
+
+        override func updateLayer() {
+            layerUpdates += 1
+            super.updateLayer()
+        }
     }
 
     private static func window(showing view: NSView) -> NSWindow {
@@ -17,6 +28,37 @@ struct LeoAgentBrowserToolbarTests {
         window.isReleasedWhenClosed = false
         window.contentView = view
         return window
+    }
+
+    /// One display pass as the run loop makes it: views marked, then the
+    /// transaction committed, which is when layers update.
+    private static func displayPass(_ window: NSWindow) {
+        window.displayIfNeeded()
+        CATransaction.flush()
+    }
+
+    /// The pill paints its capsule only in display passes -- so in the
+    /// window's appearance, not the app's -- and an idle pill doesn't repaint.
+    @Test func thePillPaintsInDisplayPassesUnderTheWindowsAppearance() throws {
+        let pill = CountingPill()
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
+        pill.frame = NSRect(x: 10, y: 10, width: 140, height: 18)
+        container.addSubview(pill)
+        let window = Self.window(showing: container)
+        let isAppDark = NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+        let appearance = try #require(NSAppearance(named: isAppDark ? .aqua : .darkAqua))
+        window.appearance = appearance
+        Self.displayPass(window)
+        let before = pill.layerUpdates
+
+        pill.show(LeoAgentBrowserPaneModel(source: FakePaneSource()).pill)
+        #expect(pill.layerUpdates == before)
+        for _ in 0..<5 { Self.displayPass(window) }
+
+        #expect(pill.layerUpdates == before + 1)
+        var capsule: CGColor?
+        appearance.performAsCurrentDrawingAppearance { capsule = NSColor.labelColor.withAlphaComponent(0.08).cgColor }
+        #expect(pill.layer?.backgroundColor == capsule)
     }
 
     @Test func submittingAnAddressEndsEditingSoTheBarFollowsThePage() async throws {

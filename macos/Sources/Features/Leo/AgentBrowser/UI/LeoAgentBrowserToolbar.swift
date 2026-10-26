@@ -144,7 +144,8 @@ final class LeoAgentBrowserToolbar: NSView {
 
 /// The control pill: a compact capsule saying who is driving. Neutral while
 /// the agent drives (clicking it takes control), accented while the user does.
-final class LeoControlPill: NSButton {
+/// Not final: a test counts its layer updates.
+class LeoControlPill: NSButton {
     var onClick: () -> Void = {}
     /// Shows the icon alone; the words stay in the tooltip and for VoiceOver.
     var isCompact = false {
@@ -180,13 +181,18 @@ final class LeoControlPill: NSButton {
         refreshTitle()
     }
 
+    /// Title and tint live here: setting them marks the button for display,
+    /// so `updateLayer` must never do it.
     private func refreshTitle() {
         guard let current else { return }
-        title = isCompact ? "" : " \(current.title)"
         imagePosition = isCompact ? .imageOnly : .imageLeading
-        needsDisplay = true
+        contentTintColor = current.isAgentDriving ? .secondaryLabelColor : .controlAccentColor
+        attributedTitle = NSAttributedString(string: isCompact ? "" : " \(current.title)", attributes: [
+            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize - 1, weight: .medium),
+            .foregroundColor: current.isAgentDriving ? NSColor.secondaryLabelColor : NSColor.labelColor,
+        ])
         invalidateIntrinsicContentSize()
-        updateLayer()
+        needsDisplay = true
     }
 
     override var intrinsicContentSize: NSSize {
@@ -196,16 +202,12 @@ final class LeoControlPill: NSButton {
 
     override var wantsUpdateLayer: Bool { true }
 
+    /// Only the capsule. AppKit calls this with the view's own appearance
+    /// current, so the colours resolve for this window, not the app.
     override func updateLayer() {
         let isAgentDriving = current?.isAgentDriving ?? true
         layer?.cornerRadius = 9
         layer?.backgroundColor = (isAgentDriving ? NSColor.labelColor.withAlphaComponent(0.08) : NSColor.controlAccentColor.withAlphaComponent(0.2)).cgColor
-        let ink: NSColor = isAgentDriving ? .secondaryLabelColor : .labelColor
-        contentTintColor = isAgentDriving ? .secondaryLabelColor : .controlAccentColor
-        attributedTitle = NSAttributedString(string: title, attributes: [
-            .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize - 1, weight: .medium),
-            .foregroundColor: ink,
-        ])
     }
 
     @objc private func clicked(_ sender: Any?) { onClick() }
