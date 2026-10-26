@@ -54,7 +54,12 @@ struct LeoAgentInputDeliveryTests {
         let parking = LeoAgentBrowserParkingWindow(size: Harness.size)
         let visible: NSWindow
         let other: NSWindow
+        /// Takes key without ever being main.
+        let panel: NSPanel
         private(set) var userInputs = 0
+        /// The host's own windows, ordered out while a test needs no main
+        /// window; never sent input.
+        private var hostWindows: [NSWindow] = []
 
         init() {
             let screen = NSScreen.main?.visibleFrame ?? .zero
@@ -64,7 +69,10 @@ struct LeoAgentInputDeliveryTests {
             other = NSWindow(
                 contentRect: NSRect(x: screen.minX + 80, y: screen.minY + 40, width: 240, height: 120),
                 styleMask: [.titled], backing: .buffered, defer: false)
-            for window in [visible, other] {
+            panel = NSPanel(
+                contentRect: NSRect(x: screen.minX + 80, y: screen.minY + 200, width: 240, height: 120),
+                styleMask: [.titled, .utilityWindow], backing: .buffered, defer: false)
+            for window in [visible, other, panel] {
                 window.isReleasedWhenClosed = false
                 window.title = "LeoAgentInputDeliveryTests"
             }
@@ -92,20 +100,40 @@ struct LeoAgentInputDeliveryTests {
             try requireNoForeignFocus()
         }
 
-        /// Activates the test host so a window can be key.
         private func makeOtherWindowKey() async throws {
+            try await makeKey(other)
+        }
+
+        /// Activates the test host so `window` can be key and main.
+        func makeKey(_ window: NSWindow) async throws {
             NSApp.activate(ignoringOtherApps: true)
-            other.makeKeyAndOrderFront(nil)
-            for _ in 0..<50 where !(other.isKeyWindow && other.isMainWindow) {
+            window.makeKeyAndOrderFront(nil)
+            for _ in 0..<50 where !(window.isKeyWindow && window.isMainWindow) {
                 try await Task.sleep(for: .milliseconds(20))
             }
-            print("C4-MEASURE other window key: \(other.isKeyWindow), main: \(other.isMainWindow), app active: \(NSApp.isActive)")
+            print("C4-MEASURE window key: \(window.isKeyWindow), main: \(window.isMainWindow), app active: \(NSApp.isActive)")
+        }
+
+        /// Leaves the app with no main window, only this test's panel key.
+        /// The host's launch window could be main, so it steps aside until
+        /// `close`.
+        func dropMainWindow() async throws {
+            let ours = [visible, other, panel, parking].map(ObjectIdentifier.init)
+            hostWindows = NSApp.windows.filter { $0.isVisible && $0.canBecomeMain && !ours.contains(ObjectIdentifier($0)) }
+            for window in [visible, other] + hostWindows { window.orderOut(nil) }
+            panel.makeKeyAndOrderFront(nil)
+            for _ in 0..<50 where NSApp.mainWindow != nil || !panel.isKeyWindow {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let shown = NSApp.windows.filter(\.isVisible).map { "\($0.title) main-capable: \($0.canBecomeMain)" }
+            print("C4-MEASURE no main window: key \(NSApp.keyWindow?.title ?? "none"), main \(NSApp.mainWindow?.title ?? "none"), shown \(shown)")
+            try #require(panel.isKeyWindow && NSApp.mainWindow == nil)
         }
 
         /// Synthesized keys WebKit doesn't handle are re-sent through
         /// `NSApp.sendEvent`; only this test's windows may be key or main.
         func requireNoForeignFocus() throws {
-            let ours = [visible, other, parking].map(ObjectIdentifier.init)
+            let ours = [visible, other, panel, parking].map(ObjectIdentifier.init)
             for window in [NSApp.keyWindow, NSApp.mainWindow].compactMap({ $0 }) {
                 try #require(ours.contains(ObjectIdentifier(window)), "\"\(window.title)\" is key or main; not synthesizing input")
             }
@@ -122,7 +150,8 @@ struct LeoAgentInputDeliveryTests {
 
         func close() {
             page.webView.removeFromSuperview()
-            for window in [visible, other, parking] { window.close() }
+            for window in [visible, other, panel, parking] { window.close() }
+            for window in hostWindows { window.orderFront(nil) }
         }
     }
 
@@ -229,32 +258,70 @@ struct LeoAgentInputDeliveryTests {
         """)
         print("C4-MEASURE rAF \(placement): \(latency) ms (-1 = none within 3 s); setTimeout(0), (50): \(timers) ms")
         let ms = try #require(Int(latency))
-        // A view parked from the start gets no rAF; one re-parented from a
-        // visible window usually keeps it for a while.
-        withKnownIssue(
-            "WebKit suspends rAF while the view is parked off screen; the mitigation is Evan's call",
-            isIntermittent: placement == .reparentedWhileAnotherIsKey
-        ) {
-            #expect(ms >= 0 && ms < 500)
-        } when: {
-            placement != .visibleNonKey
+        #expect(ms >= 0 && ms < 500)
+    }
+
+    enum MainWindow: String, CaseIterable, CustomTestStringConvertible {
+        case present
+        /// Leo in the background: the app's own key monitor then offers
+        /// every key to its keybindings and the main menu.
+        case absent
+
+        var testDescription: String { rawValue }
+    }
+
+    /// WebKit re-sends a key the page leaves unhandled through
+    /// `NSApp.sendEvent`. None may reach an event monitor -- the app's
+    /// shortcuts and keybindings are one -- a key equivalent, a menu or a
+    /// window. Harmless keys go first, and each must vanish before the
+    /// next is sent.
+    @available(macOS 14, *)
+    @Test(arguments: MainWindow.allCases)
+    func resentKeysNeverReachTheAppOrItsWindows(_ main: MainWindow) async throws {
+        // Monitors run in an unspecified order: probe on both sides of any
+        // the page's input might install.
+        let early = KeyProbe()
+        defer { early.remove() }
+        let harness = Harness()
+        defer { harness.close() }
+        let late = KeyProbe()
+        defer { late.remove() }
+        try await harness.setUp(.parked)
+        if main == .absent { try await harness.dropMainWindow() }
+        let keyWindow = try #require(NSApp.keyWindow)
+        let recorder = KeyRecorder(frame: keyWindow.contentView!.bounds)
+        keyWindow.contentView!.addSubview(recorder)
+        keyWindow.makeFirstResponder(recorder)
+        try harness.requireNoForeignFocus()
+
+        let keys: [LeoSyntheticKey] = [
+            .init(key: "F19"), .init(key: "Escape"), .init(key: "F19", modifiers: [.command, .control, .option]),
+            .init(key: "a", modifiers: .command), .init(key: "w", modifiers: .command),
+            .init(key: "q", modifiers: .command), .init(key: ",", modifiers: .command),
+        ]
+        for key in keys {
+            try await harness.page.press(key)
+            let reached = early.received + late.received + recorder.received
+            try #require(reached.isEmpty, "\(key.key) (modifiers \(key.modifiers.rawValue)) reached \(reached)")
         }
     }
 
-    @available(macOS 14, *)
-    @Test func unhandledSyntheticKeysNeverReachTheKeyWindow() async throws {
-        let harness = Harness()
-        defer { harness.close() }
-        try await harness.setUp(.parked)
-        let recorder = KeyRecorder(frame: harness.other.contentView!.bounds)
-        harness.other.contentView!.addSubview(recorder)
-        harness.other.makeFirstResponder(recorder)
+    /// A local key monitor that records and swallows every key it sees.
+    @MainActor private final class KeyProbe {
+        private(set) var received: [String] = []
+        private var monitor: Any?
 
-        try await harness.page.press(LeoSyntheticKey(key: "F19"))
-        try await harness.page.press(LeoSyntheticKey(key: "F19", modifiers: [.command, .control, .option]))
-        try await harness.page.press(LeoSyntheticKey(key: "a", modifiers: .command))
+        init() {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                MainActor.assumeIsolated { self?.received.append("monitor \(event.keyCode)") }
+                return nil
+            }
+        }
 
-        #expect(recorder.received.isEmpty)
+        func remove() {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+        }
     }
 
     /// Records the keys that reach it, and swallows key equivalents so none
@@ -271,6 +338,76 @@ struct LeoAgentInputDeliveryTests {
         override func performKeyEquivalent(with event: NSEvent) -> Bool {
             received.append("performKeyEquivalent \(event.keyCode)")
             return true
+        }
+    }
+
+    /// Every event stays the agent's until the page has handled it, however
+    /// much it types.
+    @available(macOS 14, *)
+    @Test func longTypingDoesNotTakeOver() async throws {
+        let harness = Harness()
+        defer { harness.close() }
+        try await harness.setUp(.parked)
+        let started = ContinuousClock.now
+
+        try await harness.page.type(ref: harness.ref(#"textbox "Field""#), text: String(repeating: "abcdefghij", count: 100), submit: false)
+
+        print("C4-MEASURE typed 1000 characters in \(ContinuousClock.now - started)")
+        #expect(harness.userInputs == 0)
+        #expect(try await harness.page.eval("return document.getElementById('field').value.length") == "1000")
+    }
+
+    @available(macOS 14, *)
+    @Test func cancellingTypeStopsFurtherCharacters() async throws {
+        let harness = Harness()
+        defer { harness.close() }
+        try await harness.setUp(.parked)
+        let ref = try await harness.ref(#"textbox "Field""#)
+        let length = "return document.getElementById('field').value.length"
+        let typing = Task { try await harness.page.type(ref: ref, text: String(repeating: "x", count: 200), submit: false) }
+        for _ in 0..<500 {
+            if try await Int(harness.page.eval(length)) ?? 0 >= 5 { break }
+        }
+
+        typing.cancel()
+        let result = await typing.result
+
+        let typed = try #require(Int(try await harness.page.eval(length)))
+        _ = try await harness.page.eval("return 0")
+        #expect(throws: CancellationError.self) { try result.get() }
+        #expect(typed < 200)
+        #expect(try await Int(harness.page.eval(length)) == typed)
+    }
+
+    /// Focus the agent moves stays in the page: Tab into a control asks
+    /// for the web view to become first responder, and Tab past the last
+    /// one hands focus to the window's next key view. Either would take it
+    /// from the user's terminal beside the browser pane.
+    @available(macOS 14, *)
+    @Test func agentTabNeverMovesFocusOutOfTheWebView() async throws {
+        let harness = Harness()
+        defer { harness.close() }
+        try await harness.setUp(.visibleNonKey)
+        let content = harness.visible.contentView!
+        let third = content.bounds.width / 3
+        harness.page.webView.frame = NSRect(x: 0, y: 0, width: third, height: content.bounds.height)
+        let nextField = NSTextField(frame: NSRect(x: third, y: 0, width: third, height: 24))
+        let textView = NSTextView(frame: NSRect(x: 2 * third, y: 0, width: third, height: content.bounds.height))
+        for view in [nextField, textView] { content.addSubview(view) }
+        // The key view loop runs browser, field, the user's view.
+        harness.page.webView.nextKeyView = nextField
+        nextField.nextKeyView = textView
+        textView.nextKeyView = harness.page.webView
+        try await harness.makeKey(harness.visible)
+        harness.visible.makeFirstResponder(textView)
+        try harness.requireNoForeignFocus()
+        print("C4-MEASURE before Tab: window first responder \(String(describing: harness.visible.firstResponder))")
+
+        for press in 1...4 {
+            try await harness.page.press(LeoSyntheticKey(key: "Tab"))
+            let active = try await harness.page.eval("return document.activeElement?.id ?? null")
+            print("C4-MEASURE Tab \(press): page focus \(active), window first responder \(String(describing: harness.visible.firstResponder))")
+            #expect(harness.visible.firstResponder === textView, "after Tab \(press)")
         }
     }
 

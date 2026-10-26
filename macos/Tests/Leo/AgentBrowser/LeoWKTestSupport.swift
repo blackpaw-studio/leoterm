@@ -16,6 +16,14 @@ enum LeoWKTestHost {
 
     /// A plain borderless window off every screen, for tests that only
     /// need the web view to sit in a window.
+    /// The test host is the app, so its `NSApp` is Leo's.
+    @MainActor static var application: LeoApplication {
+        guard let application = NSApp as? LeoApplication else {
+            fatalError("The test host's NSApp is a \(type(of: NSApp)), not a LeoApplication")
+        }
+        return application
+    }
+
     @MainActor static func offscreenWindow(size: CGSize) -> NSWindow {
         let window = NSWindow(contentRect: offscreenFrame(size: size), styleMask: .borderless, backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -60,9 +68,10 @@ extension LeoWKBrowserPage {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.setURLSchemeHandler(LeoWKFixtureServer(pages), forURLScheme: LeoWKFixtureServer.scheme)
-        return LeoWKBrowserPage(configuration: configuration, allowsURL: { url in
-            [LeoWKFixtureServer.scheme, "http", "https", "about"].contains(url.scheme ?? "")
-        })
+        return LeoWKBrowserPage(
+            configuration: configuration,
+            allowsURL: { url in [LeoWKFixtureServer.scheme, "http", "https", "about"].contains(url.scheme ?? "") },
+            input: LeoSyntheticInput(application: LeoWKTestHost.application))
     }
 
     /// The error code `body` failed with, or nil when it succeeded.

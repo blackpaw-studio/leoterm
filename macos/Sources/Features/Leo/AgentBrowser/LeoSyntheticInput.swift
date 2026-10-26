@@ -15,16 +15,16 @@ struct LeoSyntheticKey: Equatable {
 /// key or not on screen, and no other window can receive them. WebKit
 /// turns them into `isTrusted` DOM events.
 ///
-/// Every event is recorded in a ledger keyed by (type, timestamp), so the
-/// web view can tell them from the user's input.
+/// An event is the agent's, by (type, timestamp), from just before it
+/// reaches the view until the page has handled it, so the web view can
+/// tell it from the user's input however much the agent sends.
 ///
 /// WebKit re-sends a key the page didn't handle through `NSApp.sendEvent`,
-/// where AppKit would offer Command and function-key events to the key
-/// window's views and the main menu -- the user's terminal, or Quit. A
-/// local monitor drops every re-sent event of ours, applying the standard
-/// editing key equivalents (select all, copy, ...) to its own web view
-/// instead, which is how `Meta+a` selects all while the view is not in the
-/// key window.
+/// where event monitors, key equivalents, menus and the key window would
+/// see it -- the user's terminal, or Quit. `LeoApplication` hands each of
+/// ours back here before any of them; the standard editing key
+/// equivalents (select all, copy, ...) go to its own web view, which is
+/// how `Meta+a` selects all while the view is not in the key window.
 @MainActor final class LeoSyntheticInput {
     private struct Stamp: Hashable {
         let type: UInt
@@ -48,26 +48,18 @@ struct LeoSyntheticKey: Equatable {
         "x": #selector(NSText.cut(_:)), "v": #selector(NSText.paste(_:)),
         "z": Selector(("undo:")), "Z": Selector(("redo:")),
     ]
-    private static let ledgerCapacity = 512
 
-    private var ledger: [Stamp: WeakView] = [:]
-    private var order: [Stamp] = []
+    /// The events in flight, each with the view it was delivered to.
+    private var pending: [Stamp: WeakView] = [:]
     private var lastTimestamp: TimeInterval = 0
     private var eventNumber = 0
-    private nonisolated(unsafe) var monitor: Any?
 
-    init() {
-        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            MainActor.assumeIsolated { self?.absorbResent(event) == true ? nil : event }
-        }
-    }
-
-    deinit {
-        if let monitor { NSEvent.removeMonitor(monitor) }
+    init(application: LeoApplication) {
+        application.routeResentKeys(to: self)
     }
 
     func isSynthetic(_ event: NSEvent) -> Bool {
-        ledger[Stamp(event)] != nil
+        pending[Stamp(event)] != nil
     }
 
     /// Hover, press and release at `point` in `view`'s coordinates.
@@ -75,10 +67,10 @@ struct LeoSyntheticKey: Equatable {
         let location = view.convert(point, to: nil)
         let windowNumber = view.window?.windowNumber ?? 0
         return [NSEvent.EventType.mouseMoved, .leftMouseDown, .leftMouseUp].compactMap { type in
-            record(NSEvent.mouseEvent(
+            NSEvent.mouseEvent(
                 with: type, location: location, modifierFlags: [], timestamp: nextTimestamp(),
                 windowNumber: windowNumber, context: nil, eventNumber: nextEventNumber(),
-                clickCount: type == .mouseMoved ? 0 : 1, pressure: type == .leftMouseDown ? 1 : 0), for: view)
+                clickCount: type == .mouseMoved ? 0 : 1, pressure: type == .leftMouseDown ? 1 : 0)
         }
     }
 
@@ -89,10 +81,10 @@ struct LeoSyntheticKey: Equatable {
         let characters = modifiers.contains(.control) ? Self.controlCharacter(spec.characters) : spec.characters
         let windowNumber = view.window?.windowNumber ?? 0
         return [NSEvent.EventType.keyDown, .keyUp].compactMap { type in
-            record(NSEvent.keyEvent(
+            NSEvent.keyEvent(
                 with: type, location: .zero, modifierFlags: modifiers, timestamp: nextTimestamp(),
                 windowNumber: windowNumber, context: nil, characters: characters,
-                charactersIgnoringModifiers: spec.characters, isARepeat: false, keyCode: spec.keyCode), for: view)
+                charactersIgnoringModifiers: spec.characters, isARepeat: false, keyCode: spec.keyCode)
         }
     }
 
@@ -101,8 +93,36 @@ struct LeoSyntheticKey: Equatable {
         text.flatMap { press(LeoSyntheticKey(key: String($0)), in: view) ?? [] }
     }
 
-    /// Hands `event` to `view` the way its window would.
-    func deliver(_ event: NSEvent, to view: NSView) {
+    /// Hands each event to `view` the way its window would, then waits for
+    /// `settle` to confirm the page has handled it. Once the task is
+    /// cancelled it sends nothing more and throws `CancellationError`.
+    func deliver(_ events: [NSEvent], to view: NSView, settle: () async throws -> Void) async throws {
+        for event in events {
+            try Task.checkCancellation()
+            let stamp = Stamp(event)
+            pending[stamp] = WeakView(view)
+            defer { pending[stamp] = nil }
+            dispatch(event, to: view)
+            try await settle()
+            try Task.checkCancellation()
+        }
+    }
+
+    /// True when `event` is one of ours coming back from WebKit, after
+    /// applying its editing key equivalent, if any, to its own web view.
+    func absorbResent(_ event: NSEvent) -> Bool {
+        guard event.type == .keyDown, let entry = pending[Stamp(event)] else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags.subtracting(.shift) == .command,
+           let key = event.charactersIgnoringModifiers,
+           let action = Self.editingActions[flags.contains(.shift) ? key.uppercased() : key],
+           let view = entry.view, view.responds(to: action) {
+            NSApp.sendAction(action, to: view, from: nil)
+        }
+        return true
+    }
+
+    private func dispatch(_ event: NSEvent, to view: NSView) {
         switch event.type {
         case .mouseMoved: view.mouseMoved(with: event)
         case .leftMouseDown: view.mouseDown(with: event)
@@ -113,18 +133,7 @@ struct LeoSyntheticKey: Equatable {
         }
     }
 
-    // MARK: Ledger
-
-    private func record(_ event: NSEvent?, for view: NSView) -> NSEvent? {
-        guard let event else { return nil }
-        let stamp = Stamp(event)
-        ledger[stamp] = WeakView(view)
-        order.append(stamp)
-        if order.count > Self.ledgerCapacity {
-            ledger.removeValue(forKey: order.removeFirst())
-        }
-        return event
-    }
+    // MARK: Identity
 
     private func nextTimestamp() -> TimeInterval {
         lastTimestamp = max(ProcessInfo.processInfo.systemUptime, lastTimestamp.nextUp)
@@ -134,20 +143,6 @@ struct LeoSyntheticKey: Equatable {
     private func nextEventNumber() -> Int {
         eventNumber += 1
         return eventNumber
-    }
-
-    /// True when `event` is one of ours coming back from WebKit, after
-    /// applying its editing key equivalent, if any, to its own web view.
-    private func absorbResent(_ event: NSEvent) -> Bool {
-        guard event.type == .keyDown, let entry = ledger[Stamp(event)] else { return false }
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if flags.subtracting(.shift) == .command,
-           let key = event.charactersIgnoringModifiers,
-           let action = Self.editingActions[flags.contains(.shift) ? key.uppercased() : key],
-           let view = entry.view, view.responds(to: action) {
-            NSApp.sendAction(action, to: view, from: nil)
-        }
-        return true
     }
 
     // MARK: Keys
