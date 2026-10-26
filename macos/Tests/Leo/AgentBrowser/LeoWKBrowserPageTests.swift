@@ -152,6 +152,51 @@ struct LeoWKBrowserPageTests {
         #expect(page.console(since: 0).count == 3)
     }
 
+    /// A page can post to the console handler directly, past the hook's own
+    /// limits.
+    @available(macOS 14, *)
+    @Test func consoleCapsEachMessageAndTheBufferSize() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("other"))
+        let post = "const post = (level, text) => webkit.messageHandlers.leoConsole.postMessage({level, text});\n"
+
+        _ = try await page.eval(post + "post('log', 'x'.repeat(100000)); post('z'.repeat(100000), 'odd level')")
+        _ = try await page.eval("return 0")
+        let huge = page.console()
+
+        #expect(huge.count == 2)
+        #expect(huge.first.map { $0.text.utf8.count <= 8 * 1_024 + 64 && $0.text.contains("[truncated") } == true)
+        #expect(huge.last.map { $0.level == "log" && $0.text == "odd level" } == true)
+
+        _ = try await page.eval(post + "for (let i = 0; i < 200; i++) post('log', i + ':' + 'y'.repeat(8000)); post('log', 'last')")
+        _ = try await page.eval("return 0")
+        let buffered = page.console(since: 0)
+
+        #expect(buffered.reduce(0) { $0 + $1.level.utf8.count + $1.text.utf8.count } <= 1_024 * 1_024)
+        #expect(!buffered.contains { $0.text.hasPrefix("0:") })
+        #expect(buffered.contains { $0.text.hasPrefix("199:") })
+        #expect(buffered.last?.text == "last")
+    }
+
+    /// Allowed navigations never open another app through a universal
+    /// link, and `file:` is refused in every frame. (A stub
+    /// `WKNavigationAction` or `WKFrameInfo` crashes WebKit, so this asks
+    /// the policy the delegate answers with.)
+    @available(macOS 14, *)
+    @Test func navigationPolicySkipsAppLinksAndRefusesFileURLsInEveryFrame() {
+        let page = LeoWKBrowserPage.fixture([:])
+        let web = URL(string: "https://example.com/")!
+        let file = URL(string: "file:///etc/hosts")!
+        let allowWithoutAppLink = WKNavigationActionPolicy.allow.rawValue + 2
+
+        for isSubframe in [false, true] {
+            #expect(page.navigationPolicy(for: web, isSubframe: isSubframe).rawValue == allowWithoutAppLink, "subframe: \(isSubframe)")
+            #expect(page.navigationPolicy(for: file, isSubframe: isSubframe) == .cancel, "subframe: \(isSubframe)")
+        }
+    }
+
     @available(macOS 14, *)
     @Test func fullPageScreenshotIsTallerThanTheViewportAndAtMost1600PixelsWide() async throws {
         let fixture = LeoWKPageFixture(Self.pages)

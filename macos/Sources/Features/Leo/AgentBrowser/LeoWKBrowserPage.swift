@@ -13,6 +13,8 @@ import WebKit
 /// kept here, so it survives navigations. Each page gets its own copy of
 /// the configuration with a fresh user content controller, so tabs never
 /// share message handlers; a copy keeps a popup's opener relationship.
+/// Console messages are capped in number and size: the page can post to
+/// the handler directly.
 @available(macOS 14, *)
 @MainActor final class LeoWKBrowserPage: NSObject {
     struct Failure: Error, Equatable {
@@ -42,6 +44,8 @@ import WebKit
         let seq: Int
         let level: String
         let text: String
+
+        fileprivate var bytes: Int { level.utf8.count + text.utf8.count }
     }
 
     /// Where snapshot refs live.
@@ -54,6 +58,13 @@ import WebKit
     static let maxScreenshotWidth = 1_600
     /// Full-page screenshots stop here, in CSS pixels, to bound memory.
     static let maxFullPageHeight = 16_384.0
+    /// What every allowed navigation gets. Plain `.allow` first offers the
+    /// URL to any app that claims it as a universal link, which would open
+    /// that app. This is WebKit's
+    /// `_WKNavigationActionPolicyAllowWithoutTryingAppLink` (allow + 2,
+    /// `WKNavigationDelegatePrivate.h`), there since macOS 10.11, so every
+    /// OS this runs on has it and there is nothing to detect at run time.
+    static let allowWithoutAppLinks = WKNavigationActionPolicy(rawValue: WKNavigationActionPolicy.allow.rawValue + 2) ?? .cancel
 
     let webView: LeoAgentWebView
 
@@ -64,21 +75,25 @@ import WebKit
     /// one it was made under.
     private var generation = 0
     private var consoleLog: [ConsoleEntry] = []
+    /// UTF-8 bytes of the levels and texts in `consoleLog`.
+    private var consoleBytes = 0
     private var consoleSeq = 0
     private var consoleCursor = 0
     private var navigations: [ObjectIdentifier: CheckedContinuation<Void, any Error>] = [:]
+    /// Input operations under way; they can overlap.
+    private var inputsUnderWay = 0
 
     init(
         configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
-        input: LeoSyntheticInput? = nil, clock: any Clock<Duration> = ContinuousClock()
+        input: LeoSyntheticInput, clock: any Clock<Duration> = ContinuousClock()
     ) {
-        let input = input ?? LeoSyntheticInput()
         let configuration = configuration.copy() as? WKWebViewConfiguration ?? configuration
         let controller = WKUserContentController()
         controller.addUserScript(WKUserScript(source: LeoBrowserScripts.console, injectionTime: .atDocumentStart, forMainFrameOnly: true, in: .page))
         configuration.userContentController = controller
         webView = LeoAgentWebView(frame: .zero, configuration: configuration)
         webView.isSynthetic = { [weak input] in input?.isSynthetic($0) ?? false }
+        webView.keepAnimatingWhileParked()
         self.input = input
         self.allowsURL = allowsURL
         self.clock = clock
@@ -226,29 +241,46 @@ import WebKit
 
     /// Clicks the centre of `ref`'s element with real mouse events.
     func click(ref: String) async throws {
-        try requireWindow()
-        let point = try await locate(ref: ref)
-        try await deliver(input.click(at: point, in: webView))
+        try await driving {
+            try requireWindow()
+            let point = try await locate(ref: ref)
+            try await deliver(input.click(at: point, in: webView))
+        }
     }
 
     /// Focuses `ref`'s element and types `text` over its contents with real
     /// key events; `submit` then presses Enter.
     func type(ref: String, text: String, submit: Bool) async throws {
-        try requireWindow()
-        _ = try await locate(ref: ref)
-        let focus = try await run(LeoBrowserScripts.focusRef, ["ref": ref], in: Self.agentWorld) as? [String: Any]
-        guard let focus, focus["stale"] == nil else { throw Failure.staleRef(ref) }
-        try await deliver(input.type(text, in: webView))
-        if submit { try await press(LeoSyntheticKey(key: "Enter")) }
+        try await driving {
+            try requireWindow()
+            _ = try await locate(ref: ref)
+            let focus = try await run(LeoBrowserScripts.focusRef, ["ref": ref], in: Self.agentWorld) as? [String: Any]
+            guard let focus, focus["stale"] == nil else { throw Failure.staleRef(ref) }
+            try await deliver(input.type(text, in: webView))
+            if submit { try await press(LeoSyntheticKey(key: "Enter")) }
+        }
     }
 
     /// Presses `key` in whatever has focus.
     func press(_ key: LeoSyntheticKey) async throws {
-        try requireWindow()
-        guard let events = input.press(key, in: webView) else {
-            throw Failure(code: "invalid_args", message: "There is no key called \"\(key.key)\".")
+        try await driving {
+            try requireWindow()
+            guard let events = input.press(key, in: webView) else {
+                throw Failure(code: "invalid_args", message: "There is no key called \"\(key.key)\".")
+            }
+            try await deliver(events)
         }
-        try await deliver(events)
+    }
+
+    /// Runs one input operation with the web view in the agent's hands.
+    private func driving(_ operation: () async throws -> Void) async throws {
+        inputsUnderWay += 1
+        webView.isAgentDriving = true
+        defer {
+            inputsUnderWay -= 1
+            webView.isAgentDriving = inputsUnderWay > 0
+        }
+        try await operation()
     }
 
     /// Synthesized events carry their window's number.
@@ -261,8 +293,7 @@ import WebKit
     /// it reaches the web content process after the input already sent, so
     /// the page has handled each event before the next one.
     private func deliver(_ events: [NSEvent]) async throws {
-        for event in events {
-            input.deliver(event, to: webView)
+        try await input.deliver(events, to: webView) {
             _ = try await run("return 0", [:], in: Self.agentWorld)
         }
     }
@@ -320,8 +351,16 @@ import WebKit
 @available(macOS 14, *)
 extension LeoWKBrowserPage: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-        guard navigationAction.targetFrame?.isMainFrame != false, let url = navigationAction.request.url else { return .allow }
-        return allowsURL(url) ? .allow : .cancel
+        navigationPolicy(for: navigationAction.request.url, isSubframe: navigationAction.targetFrame?.isMainFrame == false)
+    }
+
+    /// What a navigation to `url` gets in a subframe, or else in the main
+    /// frame or a new window. The scheme rule is about where the agent
+    /// goes: a subframe may hold any web content, but never a local file.
+    func navigationPolicy(for url: URL?, isSubframe: Bool) -> WKNavigationActionPolicy {
+        guard let url else { return .cancel }
+        let isAllowed = isSubframe ? !url.isFileURL : allowsURL(url)
+        return isAllowed ? Self.allowWithoutAppLinks : .cancel
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -352,14 +391,15 @@ extension LeoWKBrowserPage: WKNavigationDelegate {
 @available(macOS 14, *)
 extension LeoWKBrowserPage: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard
-            let body = message.body as? [String: Any],
-            let level = body["level"] as? String,
-            let text = body["text"] as? String
-        else { return }
+        guard let body = message.body as? [String: Any], let text = body["text"] as? String else { return }
+        let level = (body["level"] as? String).flatMap { LeoBrowserScripts.consoleLevels.contains($0) ? $0 : nil } ?? "log"
         consoleSeq += 1
-        consoleLog.append(ConsoleEntry(seq: consoleSeq, level: level, text: text))
-        consoleLog.removeFirst(max(0, consoleLog.count - LeoBrowserScripts.consoleCapacity))
+        let entry = ConsoleEntry(seq: consoleSeq, level: level, text: LeoBrowserScripts.consoleText(text))
+        consoleLog.append(entry)
+        consoleBytes += entry.bytes
+        while consoleLog.count > LeoBrowserScripts.consoleCapacity || consoleBytes > LeoBrowserScripts.consoleBufferLimit {
+            consoleBytes -= consoleLog.removeFirst().bytes
+        }
     }
 }
 
