@@ -100,6 +100,11 @@ import LeoKit
 
     // MARK: - Agents stopping
 
+    /// `host` was removed from Settings: every browser on it closes.
+    func machineRemoved(_ host: LeoHostID) {
+        browsers.keys.filter { $0.host == host }.forEach(closeBrowser)
+    }
+
     /// The agent stopped: its browser closes.
     func agentStopped(_ key: LeoAgentBrowserKey) {
         closeBrowser(for: key)

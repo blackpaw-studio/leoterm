@@ -36,7 +36,7 @@ extension LeoRuntime {
         gone.forEach {
             clients.unbind($0)
             chatMachineDisconnected($0)
-            agentBrowsers.machineDisconnected($0)
+            agentBrowsers.machineRemoved($0)
         }
     }
 

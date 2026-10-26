@@ -112,6 +112,20 @@ struct LeoAgentBrowserRuntimeTests {
         #expect(runtime.browsers.keys == [Self.alpha])
     }
 
+    @Test func removingAMachineEndsItsStreamAndClosesItsBrowsers() async {
+        let runtime = runtime()
+        defer { runtime.shutdown() }
+        await connected(runtime)
+        let local = LeoAgentBrowserKey(host: .local, agent: "alpha")
+        _ = runtime.browsers.openBrowser(for: Self.alpha)
+        _ = runtime.browsers.openBrowser(for: local)
+
+        runtime.machineRemoved(Self.dionysus)
+
+        #expect(runtime.browsers.keys == [local])
+        await until { client.endedStreams == 1 }
+    }
+
     @Test func aListingClosesTheBrowsersOfAgentsThatWent() async {
         let runtime = runtime()
         defer { runtime.shutdown() }

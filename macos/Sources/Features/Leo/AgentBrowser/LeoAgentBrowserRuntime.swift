@@ -84,6 +84,14 @@ import LeoKit
         browsers.agentsListed(on: host, statuses: statuses, dispatches: dispatches)
     }
 
+    /// `host` was removed from Settings: as a disconnect, and its browsers
+    /// close with it (their stores stay).
+    func machineRemoved(_ host: LeoHostID) {
+        machineDisconnected(host)
+        advertised[host] = nil
+        browsers.machineRemoved(host)
+    }
+
     /// The app is quitting: every stream stops, and every machine's
     /// forwards close in the returned task, which the quit waits on with the
     /// machines' own teardown (it needs no main actor).
