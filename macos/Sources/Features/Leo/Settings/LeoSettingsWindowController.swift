@@ -38,6 +38,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     private let registry: LeoMachineRegistry
     private let clients: any LeoMachineClientResolving
     private let statsStyle: LeoStatsStyleSetting
+    private let agentBrowser: LeoAgentBrowserSetting
     /// The machine of the agent selected in the sidebar, if any.
     private let selectedHost: () -> LeoHostID?
     private let prompting: any LeoSettingsPrompting
@@ -46,13 +47,14 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
 
     init(
         registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
-        prompting: (any LeoSettingsPrompting)? = nil
+        agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil
     ) {
         self.prompting = prompting ?? LeoAlertPrompting()
         self.registry = registry
         self.clients = clients
         self.selectedHost = selectedHost
         statsStyle = LeoStatsStyleSetting(defaults: defaults)
+        self.agentBrowser = agentBrowser ?? LeoAgentBrowserSetting(defaults: defaults)
         super.init(window: nil)
     }
 
@@ -79,7 +81,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
             statuses: registry.machineStatuses, reconnect: { registry.reconnect($0) }, initialHost: selectedHost()
         )
         self.target = target
-        let content = LeoSettingsView(model: model, target: target, statsStyle: statsStyle, registry: registry)
+        let content = LeoSettingsView(model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry)
         let window = NSWindow(contentViewController: NSHostingController(rootView: content))
         window.title = "Leo Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -176,11 +178,12 @@ private struct LeoSettingsView: View {
     @ObservedObject var model: LeoMachinesSettingsModel
     @ObservedObject var target: LeoSettingsTargetModel
     @ObservedObject var statsStyle: LeoStatsStyleSetting
+    let agentBrowser: LeoAgentBrowserSetting
     @ObservedObject var registry: LeoMachineRegistry
 
     var body: some View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
-            LeoMachinesSettingsView(model: model, statsStyle: statsStyle, registry: registry)
+            LeoMachinesSettingsView(model: model, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry)
                 .tabItem { Label("Machines", systemImage: "server.rack") }
                 .tag(LeoSettingsTab.machines)
             LeoTemplatesSettingsView(target: target)

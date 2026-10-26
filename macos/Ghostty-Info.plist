@@ -4,6 +4,11 @@
 <dict>
 	<key>NSPrincipalClass</key>
 	<string>LeoApplication</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
 	<key>NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac</key>
 	<true/>
 	<key>NSDockTilePlugIn</key>
