@@ -3,7 +3,8 @@ Started: 2026-10-25T16:54:31Z
 Budget: 20 items, until 2026-10-26T04:54:31Z
 Stop: requested 2026-10-26T00:08:00Z (in session)
 Digested-through: 5
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-157 → B-303 idea — Incremental builds can drop the bundled tmux-256color terminfo
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -96,12 +97,13 @@ Lane: B-157
   Branch: autopilot-lane/B-157
   Base: ea23525ec1516f0ca997e798831810761d1e17ef
   Tier: light
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 37fc256972adf9fde4cc8dcd45f815c85707fea0
   Dispatched: 2026-10-25T22:19:20Z
+  Call: Plain sidebar/pane collapse and expand needs no rebuild (the views already exist and the loop skips them while hidden); rebuild only where a pane view is first built, in `LeoRowPaneContainerViewController.show(_:)` after `embed`; D-175's next-turn rebuild moved into `NSWindow.leoRebuildKeyViewLoop()`, shared with `windowDidBecomeKey` — AUTONOMY (reversible, no speculative code), P1
 
 Finished 1: B-297 landed 764fb1960d915550a38e77ad3431d9164c799b9d · not visually verified
 Finished 2: B-298 landed 7ac647da70fd40ab12aa3a82bc7b04615613b9b6 · not visually verified

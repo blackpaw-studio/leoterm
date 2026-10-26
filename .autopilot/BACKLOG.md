@@ -2138,3 +2138,7 @@ Inbox: 20261024T234539191498Z-19a9386a#1
 Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
 Source: owner (/idea, 2026-10-25)
 Inbox: 20261024T234539423483Z-b13bef15#1
+
+## B-303 · Incremental builds can drop the bundled tmux-256color terminfo   [idea]
+Note: the "Leo tmux terminfo" script phase is skipped as up to date after "Resources" re-syncs `terminfo/`, so tmux256ColorEntryIsBundled and tmux256ColorEntryUsesTheLegacyFormat fail on a stale build (CI/test-infra only; no user-visible effect)
+Source: autopilot polish (B-157)
