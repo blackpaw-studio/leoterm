@@ -10,12 +10,12 @@ import Combine
 /// `viewHost` moves it there and back to the parking window (E5).
 final class LeoAgentBrowserPaneViewController: NSViewController {
     let model: LeoAgentBrowserPaneModel
-    /// Closes the browser (the toolbar's button, and the Browser item's close).
-    var onCloseBrowser: () -> Void = {}
-    private let toolbar = LeoAgentBrowserToolbar()
+    let toolbar = LeoAgentBrowserToolbar()
     private let separator = NSBox()
-    /// The browser's own tabs; the pane's file tabs use `LeoEditorTabBar` too.
-    let pageTabBar = LeoEditorTabBar(accessibilityLabel: "Browser tabs")
+    /// The browser's own tabs, under the row pane's strip (`install(tabBar:)`)
+    /// and visibly subordinate to it.
+    let pageTabBar = LeoEditorTabBar(style: .pages, accessibilityLabel: "Browser tabs")
+    private var topSpacer: NSView?
     let banner = LeoHandoffBanner()
     let pageSlot = LeoAgentBrowserSlot()
     private let emptyLabel = NSTextField(labelWithString: "Waiting for the agent to open a page.")
@@ -52,7 +52,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         pageSlot.setAccessibilityElement(false)
         pageSlot.setContentHuggingPriority(.defaultLow, for: .vertical)
 
-        let rows: [NSView] = [toolbar, separator, pageTabBar, banner, pageSlot]
+        // Top to bottom: the row pane's strip (installed above these), the
+        // browser's tabs, the toolbar, the handoff banner, the page.
+        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, pageSlot]
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.spacing = 0
@@ -61,19 +63,25 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         stack.setAccessibilityLabel("Browser pane")
         NSLayoutConstraint.activate(rows.map { $0.widthAnchor.constraint(equalTo: stack.widthAnchor) })
         if let headerTopInset {
-            LeoTitlebarInsets.insetHeader(of: stack, at: headerTopInset, centring: toolbar.closeButton)
+            // Clears the window controls when the titlebar is hidden, as the
+            // editor's header does.
+            let spacer = NSView()
+            spacer.setAccessibilityElement(false)
+            stack.insertArrangedSubview(spacer, at: 0)
+            spacer.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+            spacer.heightAnchor.constraint(equalToConstant: headerTopInset).isActive = true
+            topSpacer = spacer
         }
         view = stack
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: LeoEditorPaneViewController.minimumWidth).isActive = true
         refresh()
     }
 
-    /// Puts the pane's tab strip under the header, as the editor does.
+    /// Puts the row pane's tab strip at the top of the pane.
     func install(tabBar: NSView) {
-        guard let stack = view as? NSStackView, tabBar.superview !== stack,
-              let index = stack.arrangedSubviews.firstIndex(of: separator) else { return }
+        guard let stack = view as? NSStackView, tabBar.superview !== stack else { return }
         tabBar.removeFromSuperview()
-        stack.insertArrangedSubview(tabBar, at: index + 1)
+        stack.insertArrangedSubview(tabBar, at: topSpacer == nil ? 0 : 1)
         tabBar.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
 
@@ -85,9 +93,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         toolbar.onSubmitURL = { [model] in model.submitURL($0) }
         toolbar.onPill = { [model] in model.pillClicked() }
         toolbar.onGiveBack = { [model] in model.giveBack() }
-        toolbar.onClose = { [weak self] in self?.onCloseBrowser() }
         banner.onDone = { [model] in model.done() }
         banner.onDecline = { [model] in model.decline() }
+        banner.doneButton.isFocusInPane = { [weak self] responder in self?.isFocusOnPaneChrome(responder) ?? false }
         pageTabBar.onSelect = { [weak self] index in
             guard let self, model.tabItems.indices.contains(index) else { return }
             model.selectTab(id: model.tabItems[index].id)
@@ -96,6 +104,15 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
             guard let self, model.tabItems.indices.contains(index) else { return }
             model.closeTab(id: model.tabItems[index].id)
         }
+    }
+
+    /// Where Return answers the handoff banner: focus is in the pane but not in
+    /// the page, a text field being edited or Decline -- the user's typing,
+    /// a login included, is never taken for an answer.
+    private func isFocusOnPaneChrome(_ responder: NSResponder?) -> Bool {
+        guard let responder, !(responder is NSText), responder !== banner.declineButton,
+              let responderView = responder as? NSView else { return false }
+        return responderView.isDescendant(of: view) && !responderView.isDescendant(of: pageSlot)
     }
 
     private func refresh() {

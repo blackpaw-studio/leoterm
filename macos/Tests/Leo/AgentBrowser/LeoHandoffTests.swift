@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 
@@ -167,5 +168,43 @@ struct LeoHandoffTests {
         #expect(poster.posted.isEmpty)
         source.control.send(.done(requestID: "ctr_1"))
         _ = await answer.value
+    }
+
+    // MARK: - Banner layout
+
+    /// The banner's height at `width` for `message`, laid out in a window.
+    private func bannerHeight(_ message: String, width: CGFloat) -> CGFloat {
+        let banner = LeoHandoffBanner()
+        banner.show(LeoAgentBrowserPaneModel.Handoff(requestID: "r", message: message))
+        let column = NSStackView(views: [banner])
+        column.orientation = .vertical
+        column.alignment = .width
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = column
+        column.frame = NSRect(x: 0, y: 0, width: width, height: 300)
+        column.layoutSubtreeIfNeeded()
+        return banner.fittingSize.height
+    }
+
+    @Test
+    func aLongMessageWrapsToThreeLinesOnANarrowPane() {
+        let short = bannerHeight("Log in", width: 420)
+        let long = bannerHeight(String(repeating: "Log in to GitHub for me, then press Done. ", count: 3), width: 420)
+        let veryLong = bannerHeight(String(repeating: "Log in to GitHub for me, then press Done. ", count: 30), width: 420)
+
+        #expect(long >= short + 12, "the message wraps instead of truncating on one line")
+        #expect(veryLong > long)
+        #expect(veryLong <= short + 3 * 16, "three lines at most, then an ellipsis")
+    }
+
+    @Test
+    func theWholeMessageIsInTheTooltip() {
+        let banner = LeoHandoffBanner()
+        let message = String(repeating: "Log in to GitHub. ", count: 20)
+
+        banner.show(LeoAgentBrowserPaneModel.Handoff(requestID: "r", message: message))
+
+        #expect(banner.toolTipForMessage == message)
     }
 }
