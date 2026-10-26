@@ -59,8 +59,20 @@ sends `tools/list_changed` → agent calls `browser_*` → daemon parks the call
 - Each agent's `leo mcp-server` lists the built-in tools plus every currently
   registered client tool. It watches for `client_tools.changed` and sends MCP
   `notifications/tools/list_changed` when the set changes.
-- Agent harnesses that ignore `list_changed` see the set that existed when
-  they connected. Accepted.
+- **Harness parity is required.** Every harness Leo spawns (Claude Code, Codex,
+  opencode) must be able to use client tools that appear mid-session.
+- Plan step 0 is an empirical probe: a test MCP server that registers a tool
+  after connect and sends `list_changed`, run against the installed version of
+  each harness. The result is recorded per harness in the daemon
+  (`honorsToolListChanged`).
+- Harnesses that honor it get native tools, as above.
+- Harnesses that don't get two fixed fallback tools instead: `leo_app_tools`
+  (lists the currently registered client tools with their descriptions and
+  schemas) and `leo_app_call {tool, args}` (same call path and result content as
+  a native call). Their tool list never changes mid-session.
+- The fallback tools are listed only once any app has registered client tools
+  with this daemon at least once (a persisted flag), so terminal-only users
+  never see them.
 - Registered client tools count as known tools for leo's permission allowlist
   (`leotools.IsKnownTool`) while registered.
 
@@ -199,7 +211,10 @@ client-tool groups.
   `list_changed` emitted on change; park/settle; per-tool timeout and timeout 0;
   `no_client`; ownership + 409 on a second claimant and on a second result;
   release on subscriber disconnect; pending-list recovery; cancellation on agent
-  stop; image content pass-through.
+  stop; image content pass-through; native vs fallback listing chosen by
+  harness; fallback hidden until the first registration, shown after it (persisted).
+- Harness probe (step 0) re-runnable as a script, so a harness upgrade can be
+  rechecked.
 - Mac (Swift Testing): executor op mapping and error codes against a fake web
   view protocol; takeover state machine; tab cap and popup → tab; forward
   manager against a fake ssh runner (same-port, fallback port, URL rewrite both
@@ -211,9 +226,11 @@ client-tool groups.
 
 ## Success criteria
 
-1. With no Mac app connected, an agent's tool list contains no `browser_*`
-   tools. Connecting the app makes them appear in a running Claude Code agent
-   without a restart.
+1. On a daemon that has never had an app register tools, an agent's tool list
+   contains no `browser_*` or `leo_app_*` tools. Connecting the app makes the
+   browser usable in an already running agent on each of Claude Code, Codex and
+   opencode, with no restart: natively where the harness honors `list_changed`,
+   via `leo_app_call` otherwise.
 2. An agent on Dionysus opens its own `localhost:5173` dev server in the pane
    and clicks through it using snapshot refs.
 3. Evan clicks into the page; the agent's next click returns `user_has_control`;
