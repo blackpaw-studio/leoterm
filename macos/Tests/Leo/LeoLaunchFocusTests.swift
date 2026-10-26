@@ -81,23 +81,49 @@ struct LeoLaunchFocusTests {
         #expect(field.nextValidKeyView is NSTableView, "after the field: \(String(describing: field.nextValidKeyView))")
     }
 
-    /// Same for a side pane: the browser's outline is in the loop once the
-    /// pane is shown, and Tab can't land on it once it is hidden again.
+    /// Same for a side pane, through the toggle's own path. The pane's view
+    /// loads when it is first shown, after the window's loop was built, so
+    /// it is looked up only afterwards.
     @Test func tabReachesAPaneShownWhileTheWindowStaysKeyAndNotOnceItIsHidden() async throws {
         let fixture = try await LaunchWindowFixture.make(becomingKey: true)
         defer { fixture.close() }
         _ = try await fixture.waitForSearchField()
         await nextMainTurn()
-        let pane = try #require(fixture.browserPaneItem, "the split has no browser pane")
-        let outline = try #require(fixture.browserOutline, "the browser pane has no outline")
+        let browser = try #require(fixture.session.browserContainer?.activeChild, "the split has no browser pane")
 
-        pane.isCollapsed = false
-        let shown = await fixture.waitUntil { fixture.tabReaches(outline) }
+        browser.setLeoSplitItemCollapsed(false)
+        let shown = await fixture.waitUntil { fixture.browserOutline.map(fixture.tabReaches) ?? false }
         #expect(shown, "Tab after showing the browser pane never reached its outline")
 
-        pane.isCollapsed = true
-        let hidden = await fixture.waitUntil { !fixture.tabReaches(outline) }
+        browser.setLeoSplitItemCollapsed(true)
+        let hidden = await fixture.waitUntil { !(fixture.browserOutline.map(fixture.tabReaches) ?? false) }
         #expect(hidden, "Tab after hiding the browser pane still reached its outline")
+    }
+
+    /// B-157: switching to a row never shown builds its pane's views after
+    /// the loop was built; Tab still reaches the new pane's outline.
+    @Test func tabReachesTheOpenPaneOfARowShownForTheFirstTimeWhileTheWindowStaysKey() async throws {
+        let fixture = try await LaunchWindowFixture.make(becomingKey: true)
+        defer { fixture.close() }
+        _ = try await fixture.waitForSearchField()
+        await nextMainTurn()
+        // The browser pane is on screen for the start screen first, so its
+        // container has loaded its view and a switch embeds the next row's.
+        let first = try #require(fixture.session.browserContainer?.activeChild, "the split has no browser pane")
+        first.setLeoSplitItemCollapsed(false)
+        let startScreenOutline = try #require(await fixture.waitUntilValue { fixture.browserOutline })
+        await nextMainTurn()
+        let panes = fixture.session.panes
+        let row = LeoRowKey.agent(host: .local, name: "b157-row", dispatchID: nil)
+        let pane = panes.pane(for: row)
+        await pane.browser.open(LeoEditorAgentContext(host: .local, name: "b157-row", workspace: "/var/empty"))
+        #expect(pane.browser.isOpen)
+
+        panes.activate(row)
+        let reached = await fixture.waitUntil {
+            fixture.browserOutline.map { $0 !== startScreenOutline && fixture.tabReaches($0) } ?? false
+        }
+        #expect(reached, "Tab after switching to a new row never reached its browser outline")
     }
 
     /// When the window goes on screen after it is made.
@@ -171,8 +197,10 @@ private struct LaunchWindowFixture {
         }
     }
 
+    /// The browser pane's outline, once its view exists (looking it up
+    /// never loads the view).
     var browserOutline: NSView? {
-        browserPaneItem.flatMap { Self.findView(in: $0.viewController.view) { $0 is LeoWorkspaceOutlineView } }
+        browserPaneItem.flatMap { $0.viewController.isViewLoaded ? $0 : nil }.flatMap { Self.findView(in: $0.viewController.view) { $0 is LeoWorkspaceOutlineView } }
     }
 
     /// True if Tab from the window's own first responder -- the start
@@ -195,6 +223,16 @@ private struct LaunchWindowFixture {
             await nextMainTurn()
         }
         return condition()
+    }
+
+    /// Waits on run-loop turns until `value` returns something.
+    func waitUntilValue<Value>(turnLimit: Int = searchFieldTurnLimit, _ value: () -> Value?) async -> Value? {
+        var found: Value?
+        _ = await waitUntil(turnLimit: turnLimit) {
+            found = value()
+            return found != nil
+        }
+        return found
     }
 
     func close() {
