@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 import WebKit
 
 @testable import Ghostty
@@ -79,8 +80,8 @@ extension LeoWKBrowserPage {
         do {
             _ = try await body(self)
             return nil
-        } catch let failure as LeoWKBrowserPage.Failure {
-            return failure.code
+        } catch let failure as LeoBrowserError {
+            return failure.code.rawValue
         } catch {
             return "unexpected: \(error)"
         }

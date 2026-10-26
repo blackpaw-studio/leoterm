@@ -17,23 +17,6 @@ import WebKit
 /// the handler directly.
 @available(macOS 14, *)
 @MainActor final class LeoWKBrowserPage: NSObject {
-    struct Failure: Error, Equatable {
-        let code: String
-        let message: String
-
-        static func staleRef(_ ref: String) -> Self {
-            .init(code: "stale_ref", message: "Ref \(ref) is not from the latest snapshot of this page; take a new snapshot.")
-        }
-
-        static func javaScript(_ message: String) -> Self { .init(code: "js_error", message: message) }
-        static func navigationFailed(_ message: String) -> Self { .init(code: "navigation_failed", message: message) }
-        static func timeout(_ message: String) -> Self { .init(code: "timeout", message: message) }
-
-        static func schemeNotAllowed(_ url: URL) -> Self {
-            .init(code: "scheme_not_allowed", message: "Only http, https and about:blank pages can be opened, not \(url.scheme ?? "this URL").")
-        }
-    }
-
     struct Location: Equatable {
         let url: URL?
         let title: String
@@ -82,6 +65,10 @@ import WebKit
     private var navigations: [ObjectIdentifier: CheckedContinuation<Void, any Error>] = [:]
     /// Input operations under way; they can overlap.
     private var inputsUnderWay = 0
+    /// Where the last navigation the page waited for ended, until the web
+    /// view's own title catches up.
+    private var lastLocation: Location?
+    private var titleObservation: NSKeyValueObservation?
 
     init(
         configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
@@ -100,6 +87,9 @@ import WebKit
         super.init()
         controller.add(LeoWeakScriptMessageHandler(self), contentWorld: .page, name: LeoBrowserScripts.consoleHandlerName)
         webView.navigationDelegate = self
+        titleObservation = webView.observe(\.title) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.lastLocation = nil }
+        }
     }
 
     /// The page's URL and title. The title comes from the document:
@@ -112,26 +102,30 @@ import WebKit
     // MARK: Navigation
 
     func navigate(to url: URL) async throws -> Location {
-        guard allowsURL(url) else { throw Failure.schemeNotAllowed(url) }
-        try await settle(webView.load(URLRequest(url: url)))
-        return await location()
+        guard allowsURL(url) else { throw LeoBrowserError.schemeNotAllowed(url) }
+        return try await settled(webView.load(URLRequest(url: url)))
     }
 
     func back() async throws -> Location {
-        guard webView.canGoBack else { throw Failure.navigationFailed("There is no previous page.") }
-        try await settle(webView.goBack())
-        return await location()
+        guard webView.canGoBack else { throw LeoBrowserError.navigationFailed("There is no previous page.") }
+        return try await settled(webView.goBack())
     }
 
     func forward() async throws -> Location {
-        guard webView.canGoForward else { throw Failure.navigationFailed("There is no next page.") }
-        try await settle(webView.goForward())
-        return await location()
+        guard webView.canGoForward else { throw LeoBrowserError.navigationFailed("There is no next page.") }
+        return try await settled(webView.goForward())
     }
 
-    func reload() async throws -> Location {
-        try await settle(webView.reload())
-        return await location()
+    func reloadPage() async throws -> Location {
+        try await settled(webView.reload())
+    }
+
+    /// Waits for `navigation`, then keeps the document's title for `title`.
+    private func settled(_ navigation: WKNavigation?) async throws -> Location {
+        try await settle(navigation)
+        let location = await location()
+        lastLocation = location
+        return location
     }
 
     /// Waits for `navigation` to finish, fail, time out or be cancelled.
@@ -140,7 +134,7 @@ import WebKit
         let key = ObjectIdentifier(navigation)
         let timer = Task { [clock] in
             try await clock.sleep(for: Self.navigationDeadline)
-            self.finish(key, .failure(Failure.timeout("The page did not finish loading in time.")))
+            self.finish(key, .failure(LeoBrowserError.timeout("The page did not finish loading in time.")))
         }
         defer { timer.cancel() }
         try await withTaskCancellationHandler {
@@ -162,19 +156,19 @@ import WebKit
         guard
             let result = try await run(LeoBrowserScripts.snapshot, arguments, in: Self.agentWorld) as? [String: Any],
             let text = result["text"] as? String
-        else { throw Failure.javaScript("The snapshot script returned nothing.") }
+        else { throw LeoBrowserError.javaScript("The snapshot script returned nothing.") }
         return LeoBrowserScripts.snapshotText(text, truncated: result["truncated"] as? Bool ?? false)
     }
 
     /// Scrolls `ref`'s element into view and returns its centre in the web
     /// view's coordinates.
     func locate(ref: String) async throws -> CGPoint {
-        guard Self.generation(of: ref) == generation else { throw Failure.staleRef(ref) }
+        guard Self.generation(of: ref) == generation else { throw LeoBrowserError.staleRef(ref) }
         guard
             let box = try await run(LeoBrowserScripts.locateRef, ["ref": ref], in: Self.agentWorld) as? [String: Any],
             let x = box["x"] as? Double, let y = box["y"] as? Double,
             let width = box["width"] as? Double, let height = box["height"] as? Double
-        else { throw Failure.staleRef(ref) }
+        else { throw LeoBrowserError.staleRef(ref) }
         let zoom = webView.pageZoom
         let center = CGPoint(x: (x + width / 2) * zoom, y: (y + height / 2) * zoom)
         return webView.isFlipped ? center : CGPoint(x: center.x, y: webView.bounds.height - center.y)
@@ -200,7 +194,7 @@ import WebKit
         let configuration = WKSnapshotConfiguration()
         if fullPage {
             let size = try await run("return [scrollX, scrollY, document.documentElement.scrollHeight]", [:], in: Self.agentWorld) as? [Double]
-            guard let size, size.count == 3 else { throw Failure.javaScript("Could not measure the page.") }
+            guard let size, size.count == 3 else { throw LeoBrowserError.javaScript("Could not measure the page.") }
             let zoom = webView.pageZoom
             configuration.rect = CGRect(
                 x: -size[0] * zoom, y: -size[1] * zoom,
@@ -213,7 +207,7 @@ import WebKit
                 if let image {
                     continuation.resume(returning: image)
                 } else {
-                    continuation.resume(throwing: Failure.javaScript(error?.localizedDescription ?? "The screenshot failed."))
+                    continuation.resume(throwing: LeoBrowserError.javaScript(error?.localizedDescription ?? "The screenshot failed."))
                 }
             }
         }
@@ -231,7 +225,7 @@ import WebKit
         let probe = "return !!document.body && document.body.innerText.includes(text)"
         var waited = Duration.zero
         while try await run(probe, ["text": text], in: Self.agentWorld) as? Bool != true {
-            guard waited < limit else { throw Failure.timeout("\"\(text)\" did not appear on the page.") }
+            guard waited < limit else { throw LeoBrowserError.timeout("\"\(text)\" did not appear on the page.") }
             try await clock.sleep(for: Self.waitPollInterval)
             waited += Self.waitPollInterval
         }
@@ -255,7 +249,7 @@ import WebKit
             try requireWindow()
             _ = try await locate(ref: ref)
             let focus = try await run(LeoBrowserScripts.focusRef, ["ref": ref], in: Self.agentWorld) as? [String: Any]
-            guard let focus, focus["stale"] == nil else { throw Failure.staleRef(ref) }
+            guard let focus, focus["stale"] == nil else { throw LeoBrowserError.staleRef(ref) }
             try await deliver(input.type(text, in: webView))
             if submit { try await press(LeoSyntheticKey(key: "Enter")) }
         }
@@ -266,7 +260,7 @@ import WebKit
         try await driving {
             try requireWindow()
             guard let events = input.press(key, in: webView) else {
-                throw Failure(code: "invalid_args", message: "There is no key called \"\(key.key)\".")
+                throw LeoBrowserError.invalidArgs("There is no key called \"\(key.key)\".")
             }
             try await deliver(events)
         }
@@ -286,7 +280,7 @@ import WebKit
     /// Synthesized events carry their window's number.
     private func requireWindow() throws {
         guard webView.window == nil else { return }
-        throw Failure(code: "no_such_tab", message: "The tab is not open in a window.")
+        throw LeoBrowserError(.noSuchTab, "The tab is not open in a window.")
     }
 
     /// Hands each event to the web view, then waits for a script round trip:
@@ -317,13 +311,13 @@ import WebKit
     private nonisolated static func scriptFailure(_ error: any Error) -> any Error {
         let error = error as NSError
         let message = error.userInfo["WKJavaScriptExceptionMessage"] as? String ?? error.localizedDescription
-        return Failure.javaScript(message)
+        return LeoBrowserError.javaScript(message)
     }
 
     /// PNG of `image`, scaled down to at most `maxWidth` pixels wide.
     static func png(_ image: NSImage, maxWidth: Int) throws -> Data {
         guard let source = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-            throw Failure.javaScript("The screenshot had no bitmap.")
+            throw LeoBrowserError.javaScript("The screenshot had no bitmap.")
         }
         let scale = min(1, Double(maxWidth) / Double(source.width))
         let width = Int((Double(source.width) * scale).rounded(.down))
@@ -332,17 +326,60 @@ import WebKit
             let context = CGContext(
                 data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
                 space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-        else { throw Failure.javaScript("Could not scale the screenshot.") }
+        else { throw LeoBrowserError.javaScript("Could not scale the screenshot.") }
         context.interpolationQuality = .high
         context.draw(source, in: CGRect(x: 0, y: 0, width: width, height: height))
         let data = NSMutableData()
         guard
             let scaled = context.makeImage(),
             let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)
-        else { throw Failure.javaScript("Could not encode the screenshot.") }
+        else { throw LeoBrowserError.javaScript("Could not encode the screenshot.") }
         CGImageDestinationAddImage(destination, scaled, nil)
-        guard CGImageDestinationFinalize(destination) else { throw Failure.javaScript("Could not encode the screenshot.") }
+        guard CGImageDestinationFinalize(destination) else { throw LeoBrowserError.javaScript("Could not encode the screenshot.") }
         return data as Data
+    }
+}
+
+// MARK: - LeoBrowserPage
+
+/// What the executor drives. Failures are already `LeoBrowserError`s, so
+/// the agent sees the page's own codes.
+@available(macOS 14, *)
+extension LeoWKBrowserPage: LeoBrowserPage {
+    var url: URL? { webView.url }
+
+    /// The document's title from the last navigation waited for, until the
+    /// web view's own title changes.
+    var title: String {
+        if let lastLocation, lastLocation.url == webView.url { return lastLocation.title }
+        return webView.title ?? ""
+    }
+
+    func load(_ url: URL) async throws { _ = try await navigate(to: url) }
+    func goBack() async throws { _ = try await back() }
+    func goForward() async throws { _ = try await forward() }
+    func reload() async throws { _ = try await reloadPage() }
+    func press(_ combo: LeoBrowserKeyCombo) async throws { try await press(LeoSyntheticKey(combo)) }
+
+    func waitForText(_ text: String, timeoutMilliseconds: Int) async throws {
+        try await wait(for: text, ms: timeoutMilliseconds)
+    }
+
+    func evaluate(_ js: String) async throws -> String { try await eval(js) }
+
+    func consoleMessages(since: Int?) -> LeoBrowserConsoleBatch {
+        let entries = console(since: since)
+        return LeoBrowserConsoleBatch(entries: entries.map { LeoBrowserConsoleEntry(level: $0.level, text: $0.text) }, cursor: consoleSeq)
+    }
+}
+
+extension LeoBrowserError {
+    fileprivate static func javaScript(_ message: String) -> Self { Self(.jsError, message) }
+    fileprivate static func navigationFailed(_ message: String) -> Self { Self(.navigationFailed, message) }
+    fileprivate static func timeout(_ message: String) -> Self { Self(.timeout, message) }
+
+    fileprivate static func schemeNotAllowed(_ url: URL) -> Self {
+        Self(.schemeNotAllowed, "Only http, https and about:blank pages can be opened, not \(url.scheme ?? "this URL").")
     }
 }
 
@@ -372,16 +409,16 @@ extension LeoWKBrowserPage: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-        finish(ObjectIdentifier(navigation), .failure(Failure.navigationFailed(error.localizedDescription)))
+        finish(ObjectIdentifier(navigation), .failure(LeoBrowserError.navigationFailed(error.localizedDescription)))
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-        finish(ObjectIdentifier(navigation), .failure(Failure.navigationFailed(error.localizedDescription)))
+        finish(ObjectIdentifier(navigation), .failure(LeoBrowserError.navigationFailed(error.localizedDescription)))
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         for key in navigations.keys {
-            finish(key, .failure(Failure.navigationFailed("The page's web content process stopped.")))
+            finish(key, .failure(LeoBrowserError.navigationFailed("The page's web content process stopped.")))
         }
     }
 }

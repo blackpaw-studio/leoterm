@@ -1,12 +1,22 @@
 import AppKit
 import Carbon.HIToolbox
+import LeoKit
 
 /// A key to press: a DOM key name (`Enter`, `ArrowUp`, `F5`) or a single
-/// character, plus modifiers. Stand-in for LeoKit's parsed key combo
-/// until the executor is wired to this adapter.
+/// character, plus modifiers.
 struct LeoSyntheticKey: Equatable {
     let key: String
     var modifiers: NSEvent.ModifierFlags = []
+}
+
+extension LeoSyntheticKey {
+    /// An agent's chord (`Meta+a`) as AppKit keys: Meta is Command, Alt is Option.
+    init(_ combo: LeoBrowserKeyCombo) {
+        let flags: [(LeoBrowserKeyCombo.Modifiers, NSEvent.ModifierFlags)] = [
+            (.shift, .shift), (.control, .control), (.alt, .option), (.meta, .command),
+        ]
+        self.init(key: combo.key, modifiers: NSEvent.ModifierFlags(flags.filter { combo.modifiers.contains($0.0) }.map(\.1)))
+    }
 }
 
 /// Builds the real `NSEvent`s the agent's clicks and keys become, and
