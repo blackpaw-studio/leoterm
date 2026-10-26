@@ -20,9 +20,19 @@ import LeoKit
     /// Nil when this Mac can't run one (macOS 13).
     typealias MakeBrowser = @MainActor (LeoAgentBrowserKey) -> (any LeoAgentBrowserModel)?
 
+    /// A tool call running on a browser: answered by its run, or by the
+    /// browser closing first.
+    private struct Call {
+        let run: Task<LeoClientToolOutcome, Never>
+        let answer: CheckedContinuation<LeoClientToolOutcome, Never>
+    }
+
+    private static let closedError = LeoClientToolError(code: "cancelled", message: "The agent's browser was closed")
+
     private let makeBrowser: MakeBrowser
     private let onClosed: @MainActor (LeoAgentBrowserKey) -> Void
     private var browsers: [LeoAgentBrowserKey: any LeoAgentBrowserModel] = [:]
+    private var calls: [LeoAgentBrowserKey: [UUID: Call]] = [:]
     private var handlers: [UUID: @MainActor (LeoAgentBrowserPresenceChange) -> Void] = [:]
 
     /// `onClosed` runs after a browser goes (its port forwards are released there).
@@ -43,8 +53,14 @@ import LeoKit
         return browser
     }
 
+    /// Every call still running on the browser is stopped and answered
+    /// `cancelled` -- a pending handoff included -- so no agent is left waiting.
     func closeBrowser(for key: LeoAgentBrowserKey) {
         guard let browser = browsers.removeValue(forKey: key) else { return }
+        calls.removeValue(forKey: key)?.values.forEach { call in
+            call.run.cancel()
+            call.answer.resume(returning: .failure(Self.closedError))
+        }
         browser.close()
         notify(.closed(key))
         onClosed(key)
@@ -59,10 +75,27 @@ import LeoKit
     // MARK: - Requests
 
     func execute(_ request: LeoClientToolRequest, on host: LeoHostID) async -> LeoClientToolOutcome {
-        guard let browser = browserMaking(LeoAgentBrowserKey(host: host, agent: request.agent)) else {
+        let key = LeoAgentBrowserKey(host: host, agent: request.agent)
+        guard let browser = browserMaking(key) else {
             return .failure(LeoBrowserError(.navigationFailed, "This Mac can't run the agent browser (it needs macOS 14)").clientToolError)
         }
-        return await browser.execute(request)
+        let id = UUID()
+        let run = Task { await browser.execute(request) }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { answer in
+                calls[key, default: [:]][id] = Call(run: run, answer: answer)
+                Task { self.answer(id, on: key, with: await run.value) }
+            }
+        } onCancel: {
+            run.cancel()
+        }
+    }
+
+    /// A no-op once the browser closed: its close already answered.
+    private func answer(_ id: UUID, on key: LeoAgentBrowserKey, with outcome: LeoClientToolOutcome) {
+        guard let call = calls[key]?.removeValue(forKey: id) else { return }
+        if calls[key]?.isEmpty == true { calls[key] = nil }
+        call.answer.resume(returning: outcome)
     }
 
     // MARK: - Agents stopping

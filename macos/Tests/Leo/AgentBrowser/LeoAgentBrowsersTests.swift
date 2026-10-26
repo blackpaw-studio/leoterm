@@ -26,9 +26,28 @@ import Testing
     func openBlankTab() {}
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
 
+    /// Requests wait until cancelled, like a page load that never finishes;
+    /// `browser_handoff` waits on the real control model.
+    var parksRequests = false
+    private(set) var cancelledRuns: [String] = []
+    private var parked: [String: CheckedContinuation<LeoClientToolOutcome, Never>] = [:]
+
     func execute(_ request: LeoClientToolRequest) async -> LeoClientToolOutcome {
         executed.append(request.id)
-        return .success([.text("ok")])
+        guard parksRequests else { return .success([.text("ok")]) }
+        let id = request.id
+        if request.tool == "browser_handoff" {
+            let answer = await control.requestHandoff(requestID: id, message: "Log in please")
+            return answer.map { .success([.text("\($0)")]) } ?? .failure(LeoClientToolError(code: "cancelled", message: ""))
+        }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { parked[id] = $0 }
+        } onCancel: {
+            Task { @MainActor in
+                self.cancelledRuns.append(id)
+                self.parked.removeValue(forKey: id)?.resume(returning: .failure(LeoClientToolError(code: "cancelled", message: "")))
+            }
+        }
     }
 
     func openBlankTabIfEmpty() { blankTabsOpened += 1 }
@@ -45,6 +64,11 @@ struct LeoAgentBrowsersTests {
     private final class Made {
         var browsers: [LeoAgentBrowserKey: FakeBrowserModel] = [:]
         var closed: [LeoAgentBrowserKey] = []
+
+        @MainActor func browserOpened(by registry: LeoAgentBrowsers, for key: LeoAgentBrowserKey) -> FakeBrowserModel? {
+            _ = registry.openBrowser(for: key)
+            return browsers[key]
+        }
     }
 
     private func registry(_ made: Made, canMake: Bool = true) -> LeoAgentBrowsers {
@@ -59,8 +83,29 @@ struct LeoAgentBrowsersTests {
         )
     }
 
-    private static func request(_ id: String, agent: String) -> LeoClientToolRequest {
-        LeoClientToolRequest(id: id, agent: agent, group: "browser", tool: "browser_tabs", args: .object([:]), timeoutSeconds: 30)
+    private static func request(_ id: String, agent: String, tool: String = "browser_tabs") -> LeoClientToolRequest {
+        LeoClientToolRequest(id: id, agent: agent, group: "browser", tool: tool, args: .object([:]), timeoutSeconds: 30)
+    }
+
+    /// Where a call's answer lands; never awaited, so a call left hanging fails the test instead of hanging it.
+    private final class Answer {
+        var outcome: LeoClientToolOutcome?
+    }
+
+    private func call(_ browsers: LeoAgentBrowsers, _ request: LeoClientToolRequest) -> Answer {
+        let answer = Answer()
+        Task { answer.outcome = await browsers.execute(request, on: Self.dionysus) }
+        return answer
+    }
+
+    private func until(_ condition: () -> Bool, sourceLocation: SourceLocation = #_sourceLocation) async {
+        for _ in 0..<1_000 where !condition() { await Task.yield() }
+        #expect(condition(), sourceLocation: sourceLocation)
+    }
+
+    private static func code(of outcome: LeoClientToolOutcome?) -> String? {
+        guard case .failure(let error)? = outcome else { return nil }
+        return error.code
     }
 
     @Test func theFirstRequestMakesTheBrowserAndLaterOnesReuseIt() async throws {
@@ -137,6 +182,38 @@ struct LeoAgentBrowsersTests {
         )
 
         #expect(browsers.keys == Set([keys[0], keys[3], keys[4], elsewhere]))
+    }
+
+    @Test func closingTheBrowserAnswersItsInFlightCallAndStopsIt() async throws {
+        let made = Made()
+        let browsers = registry(made)
+        let key = LeoAgentBrowserKey(host: Self.dionysus, agent: "alpha")
+        let browser = try #require(made.browserOpened(by: browsers, for: key))
+        browser.parksRequests = true
+
+        let answer = call(browsers, Self.request("ctr_1", agent: "alpha", tool: "browser_navigate"))
+        await until { browser.executed == ["ctr_1"] }
+        browsers.closeBrowser(for: key)
+
+        await until { answer.outcome != nil }
+        #expect(Self.code(of: answer.outcome) == "cancelled")
+        await until { browser.cancelledRuns == ["ctr_1"] }
+    }
+
+    @Test func closingTheBrowserSettlesAPendingHandoff() async throws {
+        let made = Made()
+        let browsers = registry(made)
+        let key = LeoAgentBrowserKey(host: Self.dionysus, agent: "alpha")
+        let browser = try #require(made.browserOpened(by: browsers, for: key))
+        browser.parksRequests = true
+
+        let answer = call(browsers, Self.request("ctr_1", agent: "alpha", tool: "browser_handoff"))
+        await until { browser.control.state.pendingHandoff != nil }
+        browsers.agentStopped(key)
+
+        await until { answer.outcome != nil }
+        #expect(Self.code(of: answer.outcome) == "cancelled")
+        await until { browser.control.state.pendingHandoff == nil }
     }
 
     @Test func aHostThatDoesNotListDispatchesKeepsTheirBrowsers() {
