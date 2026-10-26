@@ -26,6 +26,7 @@ import LeoKit
 @MainActor final class FakePaneSource: LeoAgentBrowserPaneSource {
     let fakeTabs = FakeBrowserTabs()
     let control = LeoBrowserControlModel()
+    let viewHost = LeoAgentBrowserHost()
     var tabs: any LeoBrowserTabs { fakeTabs }
     var activeView: NSView?
     var activeRemoteURL: URL?
@@ -54,9 +55,15 @@ import LeoKit
     private var browsers: [LeoAgentBrowserKey: FakePaneSource] = [:]
     private var handlers: [UUID: @MainActor (LeoAgentBrowserPresenceChange) -> Void] = [:]
     private(set) var closeRequests: [LeoAgentBrowserKey] = []
+    private(set) var openRequests: [LeoAgentBrowserKey] = []
 
     var keys: Set<LeoAgentBrowserKey> { Set(browsers.keys) }
     func browser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)? { browsers[key] }
+
+    func openBrowser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)? {
+        openRequests.append(key)
+        return open(key)
+    }
 
     @discardableResult
     func open(_ key: LeoAgentBrowserKey) -> FakePaneSource {

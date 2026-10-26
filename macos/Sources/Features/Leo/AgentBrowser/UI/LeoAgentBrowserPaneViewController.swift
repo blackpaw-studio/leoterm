@@ -6,8 +6,8 @@ import Combine
 /// the pane opens when the agent starts a browser, and only the user's own
 /// click goes into the page or the address bar.
 ///
-/// Hosts `source.activeView` directly; moving the web views between this pane
-/// and the parking window (E5) will replace that.
+/// The page shows in `pageSlot` while the pane is on screen; the browser's
+/// `viewHost` moves it there and back to the parking window (E5).
 final class LeoAgentBrowserPaneViewController: NSViewController {
     let model: LeoAgentBrowserPaneModel
     /// Closes the browser (the toolbar's button, and the Browser item's close).
@@ -17,9 +17,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     /// The browser's own tabs; the pane's file tabs use `LeoEditorTabBar` too.
     let pageTabBar = LeoEditorTabBar(accessibilityLabel: "Browser tabs")
     let banner = LeoHandoffBanner()
-    private let pageHost = NSView()
+    let pageSlot = LeoAgentBrowserSlot()
     private let emptyLabel = NSTextField(labelWithString: "Waiting for the agent to open a page.")
-    private weak var hostedView: NSView?
     private let headerTopInset: CGFloat?
     private var subscription: AnyCancellable?
 
@@ -29,6 +28,10 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         self.headerTopInset = headerTopInset
         super.init(nibName: nil, bundle: nil)
         wire()
+        pageSlot.onVisibilityChange = { [source, weak pageSlot] isVisible in
+            guard let pageSlot else { return }
+            if isVisible { source.viewHost.show(source, in: pageSlot) } else { source.viewHost.hide(pageSlot) }
+        }
         subscription = model.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.refresh() }
@@ -41,15 +44,15 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         emptyLabel.textColor = .secondaryLabelColor
         emptyLabel.font = .systemFont(ofSize: NSFont.systemFontSize)
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
-        pageHost.addSubview(emptyLabel)
+        pageSlot.addSubview(emptyLabel)
         NSLayoutConstraint.activate([
-            emptyLabel.centerXAnchor.constraint(equalTo: pageHost.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: pageHost.centerYAnchor),
+            emptyLabel.centerXAnchor.constraint(equalTo: pageSlot.centerXAnchor),
+            emptyLabel.centerYAnchor.constraint(equalTo: pageSlot.centerYAnchor),
         ])
-        pageHost.setAccessibilityElement(false)
-        pageHost.setContentHuggingPriority(.defaultLow, for: .vertical)
+        pageSlot.setAccessibilityElement(false)
+        pageSlot.setContentHuggingPriority(.defaultLow, for: .vertical)
 
-        let rows: [NSView] = [toolbar, separator, pageTabBar, banner, pageHost]
+        let rows: [NSView] = [toolbar, separator, pageTabBar, banner, pageSlot]
         let stack = NSStackView(views: rows)
         stack.orientation = .vertical
         stack.spacing = 0
@@ -103,22 +106,6 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
             LeoEditorTabBar.Item(title: $0.title, toolTip: $0.title, isDirty: false, isSelected: $0.isActive)
         })
         pageTabBar.isHidden = model.tabItems.count < 2
-        host(model.source.activeView)
-    }
-
-    private func host(_ pageView: NSView?) {
-        emptyLabel.isHidden = pageView != nil
-        guard pageView !== hostedView else { return }
-        hostedView?.removeFromSuperview()
-        hostedView = pageView
-        guard let pageView else { return }
-        pageView.translatesAutoresizingMaskIntoConstraints = false
-        pageHost.addSubview(pageView)
-        NSLayoutConstraint.activate([
-            pageView.leadingAnchor.constraint(equalTo: pageHost.leadingAnchor),
-            pageView.trailingAnchor.constraint(equalTo: pageHost.trailingAnchor),
-            pageView.topAnchor.constraint(equalTo: pageHost.topAnchor),
-            pageView.bottomAnchor.constraint(equalTo: pageHost.bottomAnchor),
-        ])
+        emptyLabel.isHidden = model.source.activeView != nil
     }
 }

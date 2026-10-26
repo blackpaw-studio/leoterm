@@ -430,6 +430,13 @@ extension LeoWKBrowserPage: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let text = body["text"] as? String else { return }
         let level = (body["level"] as? String).flatMap { LeoBrowserScripts.consoleLevels.contains($0) ? $0 : nil } ?? "log"
+        noteConsole(level: level, text: text)
+    }
+
+    /// Adds an entry to the page's console as if the page had logged it:
+    /// the browser reports what it refused to do for the page (a new window
+    /// past the tab cap) where the agent reads the page's own messages.
+    func noteConsole(level: String, text: String) {
         consoleSeq += 1
         let entry = ConsoleEntry(seq: consoleSeq, level: level, text: LeoBrowserScripts.consoleText(text))
         consoleLog.append(entry)

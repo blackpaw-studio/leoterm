@@ -23,7 +23,8 @@ struct LeoAgentBrowserKey: Hashable, Sendable {
 ///   changes, which `control.observe` reports. Calling the returned closure
 ///   removes the handler. Handlers may be called more often than needed.
 /// - `activeView` is the active tab's web view, or nil before the first tab.
-///   Hosting it (E5) is the pane's job; the source must not add it to a window.
+///   `viewHost` keeps every tab's view in a window (E5): the pane shows the
+///   active one through it and never adds a view to a window itself.
 /// - `activeRemoteURL` is the active tab's URL in the agent's (remote) terms,
 ///   already mapped back through `LeoBrowserURLMapping.toRemote`.
 /// - The user actions below come from the user's own clicks. The pane reports
@@ -38,6 +39,8 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     var isLoading: Bool { get }
     var canGoBack: Bool { get }
     var canGoForward: Bool { get }
+    /// Moves the browser's pages between panes and the parking window.
+    var viewHost: LeoAgentBrowserHost { get }
 
     func goBack()
     func goForward()
@@ -64,11 +67,14 @@ enum LeoAgentBrowserPresenceChange: Equatable {
 /// the registry changed, `.opened` once per new browser (never for a browser
 /// that already exists), `.closed` once when it goes (the agent stopped, or
 /// `closeBrowser`). `closeBrowser` for an unknown key does nothing; it keeps
-/// the agent's data store.
+/// the agent's data store. `openBrowser` (the row's Open Browser) is the one
+/// way the UI makes a browser: it returns the existing one or makes one,
+/// opening a blank tab when it has none, and nil when this Mac can't run one.
 @MainActor
 protocol LeoAgentBrowserPresence: AnyObject {
     var keys: Set<LeoAgentBrowserKey> { get }
     func browser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)?
+    func openBrowser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)?
     func closeBrowser(for key: LeoAgentBrowserKey)
     func observe(_ handler: @escaping @MainActor (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void
 }
