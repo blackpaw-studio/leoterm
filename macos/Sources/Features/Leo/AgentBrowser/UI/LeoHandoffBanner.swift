@@ -177,7 +177,7 @@ final class LeoHandoffDoneButton: NSButton {
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         guard !isHiddenOrHasHiddenAncestor, let window, window.isKeyWindow,
               event.type == .keyDown, event.keyCode == Self.returnKeyCode,
-              event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+              event.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask),
               isFocusInPane(window.firstResponder) else { return super.performKeyEquivalent(with: event) }
         performClick(nil)
         return true

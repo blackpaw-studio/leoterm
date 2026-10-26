@@ -365,9 +365,8 @@ struct LeoAgentInputDeliveryTests {
         let ref = try await harness.ref(#"textbox "Field""#)
         let length = "return document.getElementById('field').value.length"
         let typing = Task { try await harness.page.type(ref: ref, text: String(repeating: "x", count: 200), submit: false) }
-        for _ in 0..<500 {
-            if try await Int(harness.page.eval(length)) ?? 0 >= 5 { break }
-        }
+        var polls = 0
+        while polls < 500, try await Int(harness.page.eval(length)) ?? 0 < 5 { polls += 1 }
 
         typing.cancel()
         let result = await typing.result

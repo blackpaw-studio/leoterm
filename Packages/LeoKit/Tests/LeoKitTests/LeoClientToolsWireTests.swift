@@ -18,7 +18,7 @@ struct LeoClientToolsWireTests {
         let encoded = try JSONEncoder().encode(value)
         let lhs = try JSONSerialization.jsonObject(with: encoded, options: .fragmentsAllowed) as AnyObject
         let rhs = try JSONSerialization.jsonObject(with: golden, options: .fragmentsAllowed) as AnyObject
-        #expect(lhs.isEqual(rhs), "encoded \(String(decoding: encoded, as: UTF8.self))", sourceLocation: sourceLocation)
+        #expect(lhs.isEqual(rhs), "encoded \(String(bytes: encoded, encoding: .utf8) ?? "<non-utf8>")", sourceLocation: sourceLocation)
     }
 
     /// The `data` member of an enveloped fixture, as JSON.

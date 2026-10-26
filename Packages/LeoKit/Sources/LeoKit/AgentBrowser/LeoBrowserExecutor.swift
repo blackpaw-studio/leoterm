@@ -165,7 +165,7 @@ public final class LeoBrowserExecutor {
     private func json(_ value: LeoJSONValue) -> LeoClientToolContent {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        return .text((try? encoder.encode(value)).map { String(decoding: $0, as: UTF8.self) } ?? "null")
+        return .text((try? encoder.encode(value)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "null")
     }
 
     /// Browser errors and cancellation pass through; anything else gets the

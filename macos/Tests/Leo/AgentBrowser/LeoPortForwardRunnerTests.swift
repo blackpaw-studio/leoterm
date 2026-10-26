@@ -37,7 +37,7 @@ struct LeoPortForwardRunnerTests {
         try Self.command.forwardArguments(controlPath: "/tmp/cm-build", local: local, remotePort: remote, op: op, address: address)
     }
 
-    @Test func openForwardsBothLoopbacksThroughTheControlMaster() async throws {
+    @Test func openForwardsBothLoopbacksThroughTheControlSocket() async throws {
         let ssh = RecordingForwardSSH()
         try await mux(ssh).open(local: 5173, remotePort: 5173)
         #expect(await ssh.calls == [try argv(5173, .forward, .ipv4), try argv(5173, .forward, .ipv6)])

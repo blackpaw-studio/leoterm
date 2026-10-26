@@ -76,7 +76,7 @@ final class LeoMuxForwardRunner: LeoPortForwardRunning, @unchecked Sendable {
     /// caller keeps the IPv4 forward and logs. A busy port throws `.portBusy`.
     private func forward(_ address: LeoLoopbackAddress, local: Int, remotePort: Int) async throws -> Bool {
         let result = try await run(address, local: local, remotePort: remotePort, op: .forward)
-        let stderr = String(decoding: result.stderr, as: UTF8.self)
+        let stderr = String(bytes: result.stderr, encoding: .utf8) ?? ""
         switch result.status {
         case 0:
             return true

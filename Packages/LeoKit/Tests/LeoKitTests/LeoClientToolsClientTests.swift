@@ -8,7 +8,7 @@ struct LeoClientToolsClientTests {
 
     private static func compact(_ fixture: String) throws -> String {
         let object = try JSONSerialization.jsonObject(with: try LeoClientToolsWireTests.fixture(fixture))
-        return String(decoding: try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]), as: UTF8.self)
+        return try String(bytes: JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]), encoding: .utf8) ?? ""
     }
 
     private static func frame(_ name: String, _ fixture: String) throws -> String {

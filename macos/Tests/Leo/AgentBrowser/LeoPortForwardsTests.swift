@@ -208,11 +208,11 @@ struct LeoPortForwardsTests {
         let mux = FakeForwardRunner()
         let process = FakeForwardRunner()
         let planner = LeoPortForwardPlanner(isRemote: true, prober: FakePortProber())
-        let withMaster = LeoPortForwards(planner: planner, controlPath: "/tmp/cm", makeMux: { _ in mux }, makeProcess: { process })
-        let withoutMaster = LeoPortForwards(planner: planner, controlPath: nil, makeMux: { _ in mux }, makeProcess: { process })
-        _ = try await withMaster.acquire(url("http://localhost:5173/"), browser: "alice")
+        let withControlPath = LeoPortForwards(planner: planner, controlPath: "/tmp/cm", makeMux: { _ in mux }, makeProcess: { process })
+        let withoutControlPath = LeoPortForwards(planner: planner, controlPath: nil, makeMux: { _ in mux }, makeProcess: { process })
+        _ = try await withControlPath.acquire(url("http://localhost:5173/"), browser: "alice")
         #expect(mux.opens.count == 1 && process.opens.isEmpty)
-        _ = try await withoutMaster.acquire(url("http://localhost:3000/"), browser: "alice")
+        _ = try await withoutControlPath.acquire(url("http://localhost:3000/"), browser: "alice")
         #expect(mux.opens.count == 1 && process.opens.count == 1)
     }
 
