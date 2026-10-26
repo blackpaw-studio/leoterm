@@ -148,21 +148,21 @@ struct LeoAgentBrowserRuntimeTests {
     @Test func aHandoffNotifiesOnlyWhileAgentNotificationsAreOn() async throws {
         let runtime = runtime()
         defer { runtime.shutdown() }
-        let source = try #require(runtime.browsers.openBrowser(for: Self.alpha))
+        let beta = LeoAgentBrowserKey(host: Self.dionysus, agent: "beta")
+        let alpha = try #require(runtime.browsers.openBrowser(for: Self.alpha))
+        let betaSource = try #require(runtime.browsers.openBrowser(for: beta))
+        // The parked calls are never awaited, so a failure here can't hang the run.
         notifications.isOn = false
-
-        let quiet = Task { await source.control.requestHandoff(requestID: "ctr_1", message: "Log in please") }
+        let quiet = Task { await alpha.control.requestHandoff(requestID: "ctr_1", message: "Unheard") }
+        defer { quiet.cancel() }
         await settle()
         #expect(poster.posted.isEmpty)
-        source.control.send(.decline(requestID: "ctr_1"))
-        _ = await quiet.value
 
         notifications.isOn = true
-        let heard = Task { await source.control.requestHandoff(requestID: "ctr_2", message: "Log in please") }
+        let heard = Task { await betaSource.control.requestHandoff(requestID: "ctr_2", message: "Log in please") }
+        defer { heard.cancel() }
 
-        await until { poster.posted.count == 1 }
-        #expect(poster.posted.first?.body == "Log in please")
-        source.control.send(.done(requestID: "ctr_2"))
-        _ = await heard.value
+        await until { !poster.posted.isEmpty }
+        #expect(poster.posted.map(\.body) == ["Log in please"])
     }
 }
