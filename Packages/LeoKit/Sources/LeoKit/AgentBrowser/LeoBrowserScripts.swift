@@ -14,6 +14,28 @@ public enum LeoBrowserScripts {
     /// How many console messages a tab keeps.
     public static let consoleCapacity = 500
 
+    /// The most UTF-8 bytes a tab keeps of one console message.
+    public static let consoleMessageLimit = 8 * 1_024
+
+    /// The most UTF-8 bytes of console messages a tab keeps; the oldest go
+    /// first.
+    public static let consoleBufferLimit = 1_024 * 1_024
+
+    /// The levels the console hook posts; the page can post anything.
+    public static let consoleLevels: Set<String> = ["log", "info", "warn", "error", "debug"]
+
+    /// A console message as a tab keeps it: cut on a character boundary to
+    /// at most `limit` UTF-8 bytes, with a note when anything was left out.
+    public static func consoleText(_ text: String, limit: Int = consoleMessageLimit) -> String {
+        guard text.utf8.count > limit else { return text }
+        var used = 0
+        let kept = text.prefix { character in
+            used += character.utf8.count
+            return used <= limit
+        }
+        return kept + " [truncated at \(limit) bytes]"
+    }
+
     /// The text an agent gets from a snapshot's raw `text`: cut at the last
     /// line that fits in `limit` characters, with a note when anything was
     /// left out.
