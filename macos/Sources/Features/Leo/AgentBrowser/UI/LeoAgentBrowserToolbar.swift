@@ -7,7 +7,7 @@ import LeoKit
 /// room at the pane's minimum width. Drawn from `LeoAgentBrowserPaneModel`;
 /// every click goes back to it.
 final class LeoAgentBrowserToolbar: NSView {
-    static let rowHeight: CGFloat = LeoSidebarChromeMetrics.headerRowHeight
+    static let rowHeight: CGFloat = 30
     static let controlRowHeight: CGFloat = 28
 
     var onBack: () -> Void = {}
@@ -68,7 +68,14 @@ final class LeoAgentBrowserToolbar: NSView {
         return button
     }
 
+    override var wantsUpdateLayer: Bool { true }
+
+    override func updateLayer() {
+        layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    }
+
     private func build() {
+        wantsLayer = true
         setAccessibilityElement(false)
         wire(backButton, #selector(back(_:)))
         wire(forwardButton, #selector(forward(_:)))
@@ -172,7 +179,6 @@ final class LeoControlPill: NSButton {
         symbolConfiguration = .init(pointSize: NSFont.smallSystemFontSize - 1, weight: .semibold)
         toolTip = isAgentDriving ? "The agent is driving. Click to take control." : pill.canGiveBack ? "You are driving." : "The agent is waiting for you."
         setAccessibilityLabel(pill.title)
-        isEnabled = isAgentDriving
         needsDisplay = true
         needsLayout = true
         invalidateIntrinsicContentSize()
@@ -191,7 +197,6 @@ final class LeoControlPill: NSButton {
         layer?.cornerRadius = 10
         layer?.backgroundColor = tint.withAlphaComponent(0.16).cgColor
         contentTintColor = isAgentDriving ? .controlAccentColor : .systemGreen
-        // A disabled button greys its title; the pill stays legible either way.
         attributedTitle = NSAttributedString(string: title, attributes: [
             .font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .medium),
             .foregroundColor: NSColor.labelColor,
