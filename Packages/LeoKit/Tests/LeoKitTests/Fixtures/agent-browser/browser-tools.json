@@ -1,0 +1,306 @@
+[
+  {
+    "description" : "Load a URL in the browser and wait for the page to finish loading. Only http, https and about:blank are allowed.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        },
+        "url" : {
+          "description" : "The URL to load, including http:\/\/ or https:\/\/.",
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "url"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_navigate",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Go back one entry in the tab's history.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_back",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Go forward one entry in the tab's history.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_forward",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Reload the tab.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_reload",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Read the page as a text tree of roles, names and values with a ref (e.g. e12) on each visible interactive element. Refs stay valid until the next snapshot or navigation in that tab.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_snapshot",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Click an element by ref from the latest snapshot.",
+    "input_schema" : {
+      "properties" : {
+        "ref" : {
+          "description" : "Element ref from browser_snapshot.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "ref"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_click",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Type text into an element by ref from the latest snapshot.",
+    "input_schema" : {
+      "properties" : {
+        "ref" : {
+          "description" : "Element ref from browser_snapshot.",
+          "type" : "string"
+        },
+        "submit" : {
+          "description" : "Press Enter after typing.",
+          "type" : "boolean"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        },
+        "text" : {
+          "description" : "Text to type.",
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ref",
+        "text"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_type",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Press a key or chord, such as Enter, Escape, Tab, ArrowDown or Meta+a.",
+    "input_schema" : {
+      "properties" : {
+        "key" : {
+          "description" : "A key, optionally prefixed by modifiers joined with +: Shift, Control, Alt, Meta.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "key"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_press",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Take a PNG screenshot of the tab, at most 1600 px wide.",
+    "input_schema" : {
+      "properties" : {
+        "full_page" : {
+          "description" : "Capture the whole scrollable page instead of the viewport.",
+          "type" : "boolean"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_screenshot",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Wait until text appears on the page, or for a fixed time. Pass exactly one of text or ms.",
+    "input_schema" : {
+      "properties" : {
+        "ms" : {
+          "description" : "Wait this many milliseconds, at most 25000.",
+          "type" : "integer"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        },
+        "text" : {
+          "description" : "Wait until this text appears.",
+          "type" : "string"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_wait",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Evaluate JavaScript in the page and return the JSON-serialised result.",
+    "input_schema" : {
+      "properties" : {
+        "js" : {
+          "description" : "JavaScript expression or statements to evaluate.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "js"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_eval",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Return console messages (log, warn, error, unhandled rejections) captured in the tab since the last call.",
+    "input_schema" : {
+      "properties" : {
+        "since" : {
+          "description" : "Message cursor from an earlier call; omit to continue from the last call.",
+          "type" : "integer"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_console",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "List the browser's tabs as {id, url, title, active}.",
+    "input_schema" : {
+      "properties" : {
+
+      },
+      "type" : "object"
+    },
+    "name" : "browser_tabs",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs.",
+    "input_schema" : {
+      "properties" : {
+        "url" : {
+          "description" : "URL to load in the new tab.",
+          "type" : "string"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_tab_new",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Make a tab the active tab.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "tab"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_tab_select",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Close a tab.",
+    "input_schema" : {
+      "properties" : {
+        "tab" : {
+          "description" : "Tab id from browser_tabs.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "tab"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_tab_close",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Ask the user to take over the browser (to log in, solve a captcha). Blocks until they press Done or Decline; returns done or declined.",
+    "input_schema" : {
+      "properties" : {
+        "message" : {
+          "description" : "What you need the user to do.",
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "message"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_handoff",
+    "timeout_s" : 0
+  }
+]
