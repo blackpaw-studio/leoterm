@@ -7,7 +7,19 @@ final class LeoHandoffBanner: NSView {
     var onDone: () -> Void = {}
     var onDecline: () -> Void = {}
 
+    /// At this width and above the buttons sit beside the message; below it
+    /// they go under it, so the message gets the whole width to wrap in.
+    static let wideWidth: CGFloat = 640
+    private static let insets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 8)
+    private static let spacing: CGFloat = 8
+    private static let iconWidth: CGFloat = 14
+
     private let icon = NSImageView()
+    private let textRow = NSStackView()
+    private let content = NSStackView()
+    private let buttons = NSStackView()
+    private var textFillsWidth: NSLayoutConstraint?
+    private var isWide: Bool?
     private let label = NSTextField(wrappingLabelWithString: "")
     private(set) var handoff: LeoAgentBrowserPaneModel.Handoff?
     let doneButton = LeoHandoffDoneButton()
@@ -19,6 +31,9 @@ final class LeoHandoffBanner: NSView {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    /// The full message, for the tooltip.
+    var toolTipForMessage: String? { label.toolTip }
 
     func show(_ handoff: LeoAgentBrowserPaneModel.Handoff?) {
         guard handoff != self.handoff else { return }
@@ -45,7 +60,8 @@ final class LeoHandoffBanner: NSView {
         label.textColor = .labelColor
         // Long messages end in an ellipsis rather than pushing the buttons off.
         label.maximumNumberOfLines = 3
-        label.lineBreakMode = .byTruncatingTail
+        // Wraps; only the last of the three lines is cut short.
+        label.lineBreakMode = .byWordWrapping
         label.cell?.truncatesLastVisibleLine = true
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
@@ -55,24 +71,54 @@ final class LeoHandoffBanner: NSView {
         doneButton.toolTip = "Give the browser back to the agent"
         declineButton.toolTip = "Tell the agent you won't do this"
 
-        let buttons = NSStackView(views: [declineButton, doneButton])
+        buttons.setViews([declineButton, doneButton], in: .leading)
         buttons.orientation = .horizontal
         buttons.spacing = 6
         buttons.setContentHuggingPriority(.required, for: .horizontal)
 
-        let stack = NSStackView(views: [icon, label, buttons])
-        stack.orientation = .horizontal
-        stack.alignment = .centerY
-        stack.spacing = 8
-        stack.edgeInsets = NSEdgeInsets(top: 6, left: 10, bottom: 6, right: 8)
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(stack)
+        textRow.setViews([icon, label], in: .leading)
+        textRow.orientation = .horizontal
+        textRow.alignment = .top
+        textRow.spacing = Self.spacing
+
+        content.setViews([textRow, buttons], in: .leading)
+        content.spacing = Self.spacing
+        content.edgeInsets = Self.insets
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+        let fill = textRow.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -(Self.insets.left + Self.insets.right))
+        textFillsWidth = fill
         NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor),
+            content.topAnchor.constraint(equalTo: topAnchor),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+        arrange(wide: true)
+    }
+
+    /// Wide: message and buttons on one row. Narrow: the buttons, trailing,
+    /// under the message.
+    private func arrange(wide: Bool) {
+        guard wide != isWide else { return }
+        isWide = wide
+        content.orientation = wide ? .horizontal : .vertical
+        content.alignment = wide ? .centerY : .trailing
+        textFillsWidth?.isActive = !wide
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    }
+
+    /// A wrapping label only knows its height once told its width.
+    override func layout() {
+        super.layout()
+        arrange(wide: bounds.width >= Self.wideWidth)
+        let used = Self.insets.left + Self.insets.right + Self.iconWidth + Self.spacing
+        let beside = isWide == true ? buttons.fittingSize.width + Self.spacing : 0
+        let width = max(bounds.width - used - beside, 0)
+        guard abs(label.preferredMaxLayoutWidth - width) > 0.5 else { return }
+        label.preferredMaxLayoutWidth = width
+        label.invalidateIntrinsicContentSize()
+        super.layout()
     }
 
     private func configure(_ button: NSButton, title: String, action: Selector) {
@@ -129,7 +175,7 @@ final class LeoHandoffDoneButton: NSButton {
     var isFocusInPane: (NSResponder?) -> Bool = { _ in false }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard !isHidden, let window, window.isKeyWindow,
+        guard !isHiddenOrHasHiddenAncestor, let window, window.isKeyWindow,
               event.type == .keyDown, event.keyCode == Self.returnKeyCode,
               event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
               isFocusInPane(window.firstResponder) else { return super.performKeyEquivalent(with: event) }

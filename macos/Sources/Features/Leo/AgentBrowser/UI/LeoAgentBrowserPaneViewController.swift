@@ -10,14 +10,14 @@ import Combine
 /// and the parking window (E5) will replace that.
 final class LeoAgentBrowserPaneViewController: NSViewController {
     let model: LeoAgentBrowserPaneModel
-    private let toolbar = LeoAgentBrowserToolbar()
+    let toolbar = LeoAgentBrowserToolbar()
     private let separator = NSBox()
     /// The browser's own tabs, under the row pane's strip (`install(tabBar:)`)
     /// and visibly subordinate to it.
     let pageTabBar = LeoEditorTabBar(style: .pages, accessibilityLabel: "Browser tabs")
     private var topSpacer: NSView?
     let banner = LeoHandoffBanner()
-    private let pageHost = NSView()
+    let pageHost = NSView()
     private let emptyLabel = NSTextField(labelWithString: "Waiting for the agent to open a page.")
     private weak var hostedView: NSView?
     private let headerTopInset: CGFloat?
