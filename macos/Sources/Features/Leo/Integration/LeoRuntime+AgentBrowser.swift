@@ -4,14 +4,18 @@ import LeoKit
 /// The production agent browsers: WebKit browsers (macOS 14) driven through
 /// the app's own event routing, each remote machine's port forwards on its
 /// ssh connection, and a client-tools client on each machine's daemon socket.
+///
+/// A test host runs none of it: it talks to the user's real daemon, and
+/// registering there would hand it real agents' browser calls.
 extension LeoRuntime {
     static func makeAgentBrowsers(
         machines: LeoMachineRegistry, defaults: UserDefaults, poster: any LeoNotificationPosting,
         notificationsEnabled: @escaping () -> Bool
     ) -> LeoAgentBrowserRuntime {
         let forwards = LeoMachinePortForwards(makeForwards: { [weak machines] host in machines?.makePortForwards(for: host) })
+        let isSupported = LeoAgentBrowserSetting.isPlatformSupported && !LeoSingleInstance.isRunningAsTestHost()
         return LeoAgentBrowserRuntime(
-            setting: LeoAgentBrowserSetting(defaults: defaults), forwards: forwards,
+            setting: LeoAgentBrowserSetting(defaults: defaults, isSupported: isSupported), forwards: forwards,
             makeBrowser: makeWebKitBrowser(machines: machines, forwards: forwards),
             makeClient: { host, socketPath in
                 let transport: any LeoSocketActivityTransport = host == .local
@@ -23,7 +27,7 @@ extension LeoRuntime {
         )
     }
 
-    /// Nil before macOS 14, or outside the app (a test host).
+    /// Nil before macOS 14, or when `NSApp` is not the Leo application.
     private static func makeWebKitBrowser(machines: LeoMachineRegistry, forwards: LeoMachinePortForwards) -> LeoAgentBrowsers.MakeBrowser? {
         guard #available(macOS 14, *), let application = NSApp as? LeoApplication else { return nil }
         let factory = LeoAgentBrowserFactory(
