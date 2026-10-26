@@ -276,7 +276,7 @@ struct LeoAgentInputDeliveryTests {
     /// window. Harmless keys go first, and each must vanish before the
     /// next is sent.
     @available(macOS 14, *)
-    @Test(arguments: MainWindow.allCases)
+    @Test(.requiresActiveHost, arguments: MainWindow.allCases)
     func resentKeysNeverReachTheAppOrItsWindows(_ main: MainWindow) async throws {
         // Monitors run in an unspecified order: probe on both sides of any
         // the page's input might install.
