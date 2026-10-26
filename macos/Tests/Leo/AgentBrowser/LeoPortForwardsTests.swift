@@ -3,20 +3,24 @@ import Testing
 
 @testable import Ghostty
 
-/// A scripted forward runner: `busy` local ports refuse to open, `gate`
-/// parks every open until `openGate()`.
+/// A scripted forward runner: `busy` local ports refuse to open, `gated`
+/// parks every open until `openGate()`, `gatedCloses` parks every close
+/// until `openCloseGate()`.
 final class FakeForwardRunner: LeoPortForwardRunning, @unchecked Sendable {
     private let lock = NSLock()
     private var busy: Set<Int>
     private var dead: Set<Int> = []
     private var gated: Bool
+    private var gatedCloses: Bool
     private var parked: [CheckedContinuation<Void, Never>] = []
+    private var parkedCloses: [CheckedContinuation<Void, Never>] = []
     private var openCalls: [(local: Int, remote: Int)] = []
     private var closeCalls: [(local: Int, remote: Int)] = []
 
-    init(busy: Set<Int> = [], gated: Bool = false) {
+    init(busy: Set<Int> = [], gated: Bool = false, gatedCloses: Bool = false) {
         self.busy = busy
         self.gated = gated
+        self.gatedCloses = gatedCloses
     }
 
     var opens: [(local: Int, remote: Int)] { lock.withLock { openCalls } }
@@ -29,6 +33,15 @@ final class FakeForwardRunner: LeoPortForwardRunning, @unchecked Sendable {
             gated = false
             defer { parked = [] }
             return parked
+        }
+        waiting.forEach { $0.resume() }
+    }
+
+    func openCloseGate() {
+        let waiting = lock.withLock { () -> [CheckedContinuation<Void, Never>] in
+            gatedCloses = false
+            defer { parkedCloses = [] }
+            return parkedCloses
         }
         waiting.forEach { $0.resume() }
     }
@@ -47,7 +60,14 @@ final class FakeForwardRunner: LeoPortForwardRunning, @unchecked Sendable {
     }
 
     func close(local: Int, remotePort: Int) async {
-        lock.withLock { closeCalls.append((local, remotePort)) }
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            let shouldPark = lock.withLock { () -> Bool in
+                closeCalls.append((local, remotePort))
+                if gatedCloses { parkedCloses.append(continuation) }
+                return gatedCloses
+            }
+            if !shouldPark { continuation.resume() }
+        }
     }
 
     func isOpen(local: Int) -> Bool { lock.withLock { !dead.contains(local) } }
@@ -194,5 +214,73 @@ struct LeoPortForwardsTests {
         #expect(mux.opens.count == 1 && process.opens.isEmpty)
         _ = try await withoutMaster.acquire(url("http://localhost:3000/"), browser: "alice")
         #expect(mux.opens.count == 1 && process.opens.count == 1)
+    }
+
+    // MARK: - Ownership across suspension points
+
+    @Test func releasingABrowserDuringItsPendingOpenCancelsThatAcquire() async throws {
+        let runner = FakeForwardRunner(gated: true)
+        let manager = forwards(runner: runner)
+        let target = try url("http://localhost:5173/")
+        let pending = Task { try await manager.acquire(target, browser: "alice") }
+        while runner.opens.isEmpty { await Task.yield() }
+        await manager.release(browser: "alice")
+        runner.openGate()
+        await #expect(throws: CancellationError.self) { try await pending.value }
+        #expect(runner.closes.map(\.remote) == [5173], "nobody holds the forward, so it must not leak")
+        #expect(manager.toLocal(target) == target)
+    }
+
+    @Test func releasingOneOfTwoPendingBrowsersKeepsTheForwardForTheOther() async throws {
+        let runner = FakeForwardRunner(gated: true)
+        let manager = forwards(runner: runner)
+        let target = try url("http://localhost:5173/")
+        let alice = Task { try await manager.acquire(target, browser: "alice") }
+        while runner.opens.isEmpty { await Task.yield() }
+        let bob = Task { try await manager.acquire(target, browser: "bob") }
+        await Task.yield()
+        await manager.release(browser: "alice")
+        runner.openGate()
+        await #expect(throws: CancellationError.self) { try await alice.value }
+        #expect(try await bob.value == target)
+        #expect(runner.closes.isEmpty)
+        await manager.release(browser: "bob")
+        #expect(runner.closes.map(\.remote) == [5173])
+    }
+
+    @Test func aForwardAcquiredWhileAnotherBrowsersReleaseIsClosingSurvivesIt() async throws {
+        let runner = FakeForwardRunner(gatedCloses: true)
+        let manager = forwards(runner: runner)
+        _ = try await manager.acquire(url("http://localhost:5173/"), browser: "alice")
+        _ = try await manager.acquire(url("http://localhost:3000/"), browser: "alice")
+        let releasing = Task { await manager.release(browser: "alice") }
+        while runner.closes.isEmpty { await Task.yield() }
+        // The release is parked in its first close; its second forward is
+        // already out of state, so Bob opens a fresh one rather than joining it.
+        let bobURL = try await manager.acquire(url("http://localhost:3000/"), browser: "bob")
+        runner.openCloseGate()
+        await releasing.value
+        #expect(Set(runner.closes.map(\.remote)) == [5173, 3000], "each of alice's forwards closed once")
+        #expect(runner.closes.count == 2)
+        let bobLocal = try #require(bobURL.port)
+        #expect(!runner.closes.map(\.local).contains(bobLocal), "bob's forward was not torn down")
+        #expect(manager.toLocal(try url("http://localhost:3000/")) == bobURL)
+        #expect(manager.toRemote(bobURL).absoluteString == "http://localhost:3000/")
+    }
+
+    @Test func reopeningADeadForwardKeepsItsOtherOwners() async throws {
+        let runner = FakeForwardRunner()
+        let manager = forwards(runner: runner)
+        let target = try url("http://localhost:5173/")
+        _ = try await manager.acquire(target, browser: "alice")
+        _ = try await manager.acquire(target, browser: "bob")
+        runner.markDead(5173)
+        _ = try await manager.acquire(target, browser: "bob")
+        let closesAfterReopen = runner.closes.count
+        await manager.release(browser: "bob")
+        #expect(runner.closes.count == closesAfterReopen, "alice still holds the reopened forward")
+        #expect(manager.toLocal(target) == target)
+        await manager.release(browser: "alice")
+        #expect(runner.closes.count == closesAfterReopen + 1)
     }
 }

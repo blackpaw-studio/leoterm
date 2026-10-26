@@ -17,13 +17,28 @@ final class LeoPortForwards {
         var browsers: Set<String>
     }
 
+    /// An open in progress. `browsers` are everyone waiting on it; a release
+    /// removes a browser from here, and an open that finishes with nobody
+    /// left closes itself. `id` lets a finishing open tell its own entry from
+    /// a later one for the same port.
+    private struct Pending {
+        let id: Int
+        var browsers: Set<String>
+        var task: Task<Int, Error>?
+    }
+
     private let planner: LeoPortForwardPlanner
     private let runner: any LeoPortForwardRunning
     /// Remote port → forward.
     private var forwards: [Int: Forward] = [:]
-    private var inFlight: [Int: Task<Int, Error>] = [:]
+    /// Remote port → open in progress.
+    private var pending: [Int: Pending] = [:]
+    private var nextPendingID = 0
     /// Local ports claimed by opens that haven't finished.
     private var reservedLocals: Set<Int> = []
+    /// Local ports of forwards that left state but whose close hasn't
+    /// finished; a new forward must not reuse one while its cancel is in flight.
+    private var closingLocals: Set<Int> = []
     /// Bumped by `releaseAll()` so an open that finishes afterwards cleans up
     /// after itself.
     private var epoch = 0
@@ -41,11 +56,12 @@ final class LeoPortForwards {
 
     /// Ensures a forward for `url`'s remote port exists and holds it for
     /// `browser`. Returns the URL to load; `url` itself when it needs no
-    /// forward.
+    /// forward. Throws `CancellationError` when `browser` was released (or
+    /// the machine disconnected) before the forward came up.
     func acquire(_ url: URL, browser: String) async throws -> URL {
         guard let remote = planner.remotePort(for: url) else { return url }
-        _ = try await ensureForward(remote: remote)
-        forwards[remote]?.browsers.insert(browser)
+        try await hold(remote: remote, browser: browser)
+        guard forwards[remote]?.browsers.contains(browser) == true else { throw CancellationError() }
         return toLocal(url)
     }
 
@@ -60,47 +76,87 @@ final class LeoPortForwards {
         planner.toRemote(url, using: Dictionary(uniqueKeysWithValues: forwards.map { ($0.value.local, $0.key) }))
     }
 
-    /// Drops `browser`'s hold; forwards nobody else holds are cancelled.
+    /// Drops `browser`'s hold, including on opens still in progress; forwards
+    /// nobody else holds are cancelled. Every orphan leaves state before the
+    /// first close is awaited, so a concurrent acquire never joins a forward
+    /// that is about to be torn down.
     func release(browser: String) async {
-        let orphaned = forwards.filter { $0.value.browsers == [browser] }
-        for remote in forwards.keys {
-            forwards[remote]?.browsers.remove(browser)
+        for remote in pending.keys {
+            pending[remote]?.browsers.remove(browser)
         }
-        for (remote, forward) in orphaned {
-            forwards.removeValue(forKey: remote)
-            await runner.close(local: forward.local, remotePort: remote)
+        var orphans: [(remote: Int, local: Int)] = []
+        for (remote, forward) in forwards {
+            var remaining = forward.browsers
+            remaining.remove(browser)
+            if remaining.isEmpty {
+                orphans.append((remote, forward.local))
+                forwards.removeValue(forKey: remote)
+            } else {
+                forwards[remote] = Forward(local: forward.local, browsers: remaining)
+            }
         }
+        await close(orphans)
     }
 
     /// Machine disconnected (or app quitting): cancel everything.
     func releaseAll() async {
         epoch += 1
-        let closing = forwards
+        let closing = forwards.map { (remote: $0.key, local: $0.value.local) }
         forwards = [:]
-        for (remote, forward) in closing {
-            await runner.close(local: forward.local, remotePort: remote)
+        pending = [:]
+        await close(closing)
+    }
+
+    private func close(_ closing: [(remote: Int, local: Int)]) async {
+        closingLocals.formUnion(closing.map(\.local))
+        for (remote, local) in closing {
+            await runner.close(local: local, remotePort: remote)
+            closingLocals.remove(local)
         }
     }
 
     // MARK: - Opening
 
-    private func ensureForward(remote: Int) async throws -> Int {
+    private func hold(remote: Int, browser: String) async throws {
+        var owners: Set<String> = [browser]
+        var dead: Int?
         if let existing = forwards[remote] {
-            if runner.isOpen(local: existing.local) { return existing.local }
+            if runner.isOpen(local: existing.local) {
+                forwards[remote]?.browsers.insert(browser)
+                return
+            }
+            // The forward's process died: replace it, keeping everyone who held it.
             forwards.removeValue(forKey: remote)
+            owners.formUnion(existing.browsers)
+            dead = existing.local
         }
-        if let pending = inFlight[remote] { return try await pending.value }
-        let task = Task { try await self.openForward(remote: remote) }
-        inFlight[remote] = task
-        defer { inFlight.removeValue(forKey: remote) }
-        return try await task.value
+        if pending[remote] != nil {
+            pending[remote]?.browsers.formUnion(owners)
+        } else {
+            nextPendingID += 1
+            let id = nextPendingID
+            pending[remote] = Pending(id: id, browsers: owners, task: nil)
+            pending[remote]?.task = Task { try await self.openForward(remote: remote, id: id, replacing: dead) }
+        }
+        guard let task = pending[remote]?.task else { return }
+        _ = try await task.value
     }
 
-    private func openForward(remote: Int) async throws -> Int {
+    private func openForward(remote: Int, id: Int, replacing dead: Int?) async throws -> Int {
+        do {
+            return try await attemptOpen(remote: remote, id: id, replacing: dead)
+        } catch {
+            if pending[remote]?.id == id { pending.removeValue(forKey: remote) }
+            throw error
+        }
+    }
+
+    private func attemptOpen(remote: Int, id: Int, replacing dead: Int?) async throws -> Int {
         let startEpoch = epoch
+        if let dead { await runner.close(local: dead, remotePort: remote) }
         var busy: Set<Int> = []
         for _ in 0..<Self.maxAttempts {
-            let taken = Set(forwards.values.map(\.local)).union(reservedLocals).union(busy)
+            let taken = Set(forwards.values.map(\.local)).union(reservedLocals).union(closingLocals).union(busy)
             let local = try planner.localPort(forRemote: remote, avoiding: taken)
             reservedLocals.insert(local)
             defer { reservedLocals.remove(local) }
@@ -110,11 +166,15 @@ final class LeoPortForwards {
                 busy.insert(local)
                 continue
             }
-            guard epoch == startEpoch else {
-                await runner.close(local: local, remotePort: remote)
+            // Back on the main actor with no suspension until the install, so
+            // the owners checked here are the owners installed.
+            guard epoch == startEpoch, let entry = pending[remote], entry.id == id, !entry.browsers.isEmpty else {
+                if pending[remote]?.id == id { pending.removeValue(forKey: remote) }
+                await close([(remote, local)])
                 throw CancellationError()
             }
-            forwards[remote] = Forward(local: local, browsers: [])
+            forwards[remote] = Forward(local: local, browsers: entry.browsers)
+            pending.removeValue(forKey: remote)
             return local
         }
         throw LeoPortForwardError.portBusy
