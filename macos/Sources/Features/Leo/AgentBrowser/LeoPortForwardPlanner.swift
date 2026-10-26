@@ -3,12 +3,16 @@ import Foundation
 /// Asks the OS about loopback TCP ports. A seam so tests never bind a real
 /// port; `LeoLoopbackPortProber` is the real one.
 protocol LeoPortProbing: Sendable {
-    /// True when nothing is bound to `127.0.0.1:port`.
+    /// True when nothing is bound to `port` on 127.0.0.1 or, where the machine
+    /// has it, on ::1: a forward listens on both.
     func isFree(_ port: Int) -> Bool
+    /// False when the machine can't bind IPv6 loopback, so forwards go
+    /// IPv4-only.
+    func isIPv6LoopbackAvailable() -> Bool
     /// True when something accepts connections on `127.0.0.1:port`.
     func isListening(_ port: Int) -> Bool
-    /// A currently free ephemeral port (ssh rejects `-L` port 0, so the app
-    /// has to choose).
+    /// An ephemeral port currently free on both loopbacks (ssh rejects `-L`
+    /// port 0, so the app has to choose).
     func pickFreePort() throws -> Int
 }
 
@@ -74,13 +78,12 @@ struct LeoPortForwardPlanner: Sendable {
         }
     }
 
-    /// The forward listens on IPv4 loopback only, so an IPv6 host is
-    /// rewritten to `127.0.0.1`. A rewrite that changes nothing returns the
-    /// URL as given.
+    /// Only the port changes: the host stays, so the origin is preserved
+    /// (the forward listens on both loopbacks, so any loopback host reaches
+    /// it). A rewrite that changes nothing returns the URL as given.
     private static func rewrite(_ url: URL, port: Int) -> URL {
-        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
-        if let host = components.host, host == "::1" || host == "[::1]" { components.host = "127.0.0.1" }
-        if port != effectivePort(of: url) { components.port = port }
+        guard port != effectivePort(of: url), var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return url }
+        components.port = port
         return components.url ?? url
     }
 }

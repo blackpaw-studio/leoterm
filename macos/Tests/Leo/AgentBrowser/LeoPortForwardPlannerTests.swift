@@ -11,13 +11,17 @@ final class FakePortProber: LeoPortProbing, @unchecked Sendable {
     private var picks: [Int]
     private var listening: Set<Int>
 
-    init(busy: Set<Int> = [], picks: [Int] = [49_200, 49_201, 49_202], listening: Set<Int> = []) {
+    private let ipv6Available: Bool
+
+    init(busy: Set<Int> = [], picks: [Int] = [49_200, 49_201, 49_202], listening: Set<Int> = [], ipv6Available: Bool = true) {
+        self.ipv6Available = ipv6Available
         self.busy = busy
         self.picks = picks
         self.listening = listening
     }
 
     func isFree(_ port: Int) -> Bool { lock.withLock { !busy.contains(port) } }
+    func isIPv6LoopbackAvailable() -> Bool { ipv6Available }
     func isListening(_ port: Int) -> Bool { lock.withLock { listening.contains(port) } }
     func pickFreePort() throws -> Int {
         try lock.withLock {
@@ -101,8 +105,13 @@ struct LeoPortForwardPlannerTests {
         #expect(planner().toLocal(url, using: [5173: 49_200]) == url)
     }
 
-    @Test func anIPv6LoopbackURLIsReachableThroughTheIPv4OnlyForward() throws {
-        let url = try #require(URL(string: "http://[::1]:5173/a"))
-        #expect(planner().toLocal(url, using: [5173: 5173]).absoluteString == "http://127.0.0.1:5173/a")
+    /// The forward listens on both loopbacks, so an IPv6 URL keeps its host
+    /// (origin preserved) and round-trips exactly.
+    @Test func anIPv6LoopbackURLKeepsItsHostAndRoundTrips() throws {
+        let url = try #require(URL(string: "http://[::1]:5173/a?b=1#c"))
+        #expect(planner().toLocal(url, using: [5173: 5173]) == url)
+        let local = planner().toLocal(url, using: [5173: 49_200])
+        #expect(local.absoluteString == "http://[::1]:49200/a?b=1#c")
+        #expect(planner().toRemote(local, using: [49_200: 5173]) == url)
     }
 }

@@ -8,6 +8,14 @@ enum LeoSSHCommandError: Error, Equatable, Sendable {
     case invalidPort
 }
 
+/// A loopback address a forward listens on. Both are bound so `localhost`
+/// reaches the forward whichever family the web view resolves it to; nothing
+/// but loopback is ever bound.
+enum LeoLoopbackAddress: String, Sendable, CaseIterable {
+    case ipv4 = "127.0.0.1"
+    case ipv6 = "[::1]"
+}
+
 /// What a mux client asks the ControlMaster to do with a port forward.
 enum LeoForwardOperation: String, Sendable {
     case forward
@@ -76,13 +84,14 @@ struct LeoSSHCommand: Sendable {
         return arguments
     }
 
-    /// `ssh -O forward|cancel -L 127.0.0.1:<local>:localhost:<remotePort>` as
+    /// `ssh -O forward|cancel -L <address>:<local>:localhost:<remotePort>` as
     /// a mux client of the tunnel's master at `controlPath`: the forward
-    /// lives and dies with that one connection. The SFTP client's overrides
-    /// minus `ClearAllForwardings=yes`, which would clear the very `-L`
-    /// being requested. The local side binds loopback only.
-    func forwardArguments(controlPath: String, local: Int, remotePort: Int, op: LeoForwardOperation) throws -> [String] {
-        let spec = try forwardSpec(local: local, remotePort: remotePort)
+    /// lives and dies with that one connection. One call per loopback
+    /// `address`. The SFTP client's overrides minus
+    /// `ClearAllForwardings=yes`, which would clear the very `-L` being
+    /// requested.
+    func forwardArguments(controlPath: String, local: Int, remotePort: Int, op: LeoForwardOperation, address: LeoLoopbackAddress) throws -> [String] {
+        let spec = try forwardSpec(local: local, remotePort: remotePort, address: address)
         var arguments = try muxClientArguments(controlPath: controlPath, clearsForwardings: false, isSession: false)
         arguments += ["-O", op.rawValue, "-L", spec, target]
         return arguments
@@ -90,10 +99,11 @@ struct LeoSSHCommand: Sendable {
 
     /// Fallback when there is no ControlMaster to multiplex over (a nil
     /// `multiplexingControlPath`): one `ssh -N -L` process per forward,
-    /// carrying the tunnel's flags without a master of its own.
-    func forwardProcessArguments(local: Int, remotePort: Int) throws -> [String] {
+    /// carrying the tunnel's flags without a master of its own, listening on
+    /// each of `addresses`.
+    func forwardProcessArguments(local: Int, remotePort: Int, addresses: [LeoLoopbackAddress]) throws -> [String] {
         try validateConfiguration()
-        let spec = try forwardSpec(local: local, remotePort: remotePort)
+        let specs = try addresses.map { try forwardSpec(local: local, remotePort: remotePort, address: $0) }
         var arguments = [
             "-n", "-N",
             "-o", "BatchMode=yes",
@@ -104,15 +114,16 @@ struct LeoSSHCommand: Sendable {
             "-o", "ControlMaster=no", "-o", "ControlPath=none"
         ]
         appendIdentityAndPort(to: &arguments)
-        arguments += ["-L", spec, target]
+        arguments += specs.flatMap { ["-L", $0] }
+        arguments.append(target)
         return arguments
     }
 
-    private func forwardSpec(local: Int, remotePort: Int) throws -> String {
+    private func forwardSpec(local: Int, remotePort: Int, address: LeoLoopbackAddress) throws -> String {
         guard Self.validForwardPorts.contains(local), Self.validForwardPorts.contains(remotePort) else {
             throw LeoSSHCommandError.invalidPort
         }
-        return "127.0.0.1:\(local):localhost:\(remotePort)"
+        return "\(address.rawValue):\(local):localhost:\(remotePort)"
     }
 
     private static let validForwardPorts = 1...65_535
