@@ -12,6 +12,8 @@ final class LeoEditorTabBar: NSView {
         let toolTip: String
         let isDirty: Bool
         let isSelected: Bool
+        /// The leading item standing for the agent's browser, drawn with a globe.
+        var isBrowser = false
     }
 
     static let height: CGFloat = 26
@@ -26,6 +28,12 @@ final class LeoEditorTabBar: NSView {
     override init(frame: NSRect) {
         super.init(frame: frame)
         build()
+    }
+
+    /// A strip with its own VoiceOver name, for tabs that aren't the editor's.
+    convenience init(accessibilityLabel: String) {
+        self.init(frame: .zero)
+        setAccessibilityLabel(accessibilityLabel)
     }
 
     required init?(coder: NSCoder) { nil }
@@ -129,6 +137,7 @@ final class LeoEditorTabButton: NSView {
         didSet { refresh() }
     }
 
+    private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     let closeButton = NSButton()
     private var isHovered = false {
@@ -170,11 +179,13 @@ final class LeoEditorTabButton: NSView {
         titleLabel.stringValue = item.title
         titleLabel.textColor = item.isSelected ? .labelColor : .secondaryLabelColor
         toolTip = item.toolTip
+        iconView.isHidden = !item.isBrowser
+        closeButton.toolTip = item.isBrowser ? "Close Browser" : "Close Tab"
         // A dot while edited, the close button on hover or while selected.
         let showsDot = item.isDirty && !isHovered
         closeButton.image = NSImage(
             systemSymbolName: showsDot ? "circle.fill" : "xmark",
-            accessibilityDescription: showsDot ? "Edited — Close Tab" : "Close Tab"
+            accessibilityDescription: showsDot ? "Edited — Close Tab" : item.isBrowser ? "Close Browser" : "Close Tab"
         )
         closeButton.symbolConfiguration = .init(pointSize: showsDot ? 7 : NSFont.smallSystemFontSize - 1, weight: .semibold)
         closeButton.alphaValue = item.isSelected || isHovered || item.isDirty ? 1 : 0
@@ -187,6 +198,13 @@ final class LeoEditorTabButton: NSView {
         wantsLayer = true
         setAccessibilityElement(true)
         setAccessibilityRole(.radioButton)
+
+        iconView.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        iconView.symbolConfiguration = .init(pointSize: NSFont.smallSystemFontSize - 1, weight: .regular)
+        iconView.contentTintColor = .secondaryLabelColor
+        iconView.isHidden = true
+        iconView.setContentHuggingPriority(.required, for: .horizontal)
+        iconView.setAccessibilityElement(false)
 
         titleLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         titleLabel.lineBreakMode = .byTruncatingMiddle
@@ -202,7 +220,7 @@ final class LeoEditorTabButton: NSView {
         closeButton.refusesFirstResponder = true
         closeButton.setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        let stack = NSStackView(views: [titleLabel, closeButton])
+        let stack = NSStackView(views: [iconView, titleLabel, closeButton])
         stack.orientation = .horizontal
         stack.spacing = 4
         stack.edgeInsets = NSEdgeInsets(top: 0, left: 10, bottom: 0, right: 6)

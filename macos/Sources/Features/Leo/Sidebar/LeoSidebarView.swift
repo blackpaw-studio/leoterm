@@ -437,6 +437,7 @@ struct LeoSidebarView: View {
         if model.isDispatchSelectable(item.node.dispatch, host: row.host) {
             LeoDispatchRowView(
                 node: item.node,
+                host: row.host,
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
                 disclosure: disclosure,
                 endsGroup: endsGroup,
@@ -450,13 +451,14 @@ struct LeoSidebarView: View {
             // so never selected.
             LeoDispatchRowView(
                 node: item.node,
+                host: row.host,
                 click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
                 isSelectable: false,
                 disclosure: disclosure,
                 endsGroup: endsGroup
             )
         } else {
-            LeoDispatchRowView(node: item.node, disclosure: disclosure, endsGroup: endsGroup)
+            LeoDispatchRowView(node: item.node, host: row.host, disclosure: disclosure, endsGroup: endsGroup)
         }
     }
 

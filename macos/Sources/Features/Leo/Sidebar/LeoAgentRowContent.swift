@@ -42,6 +42,7 @@ struct LeoAgentRowContent: View {
                 .lineLimit(1)
                 .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
             Spacer(minLength: 4)
+            LeoAgentBrowserBadge(host: row.host, agent: row.name, isSelected: isSelected)
             trailing(presentation.state)
             LeoUnreadCountBadge(count: unreadCount, isOnSelection: isSelected)
         }

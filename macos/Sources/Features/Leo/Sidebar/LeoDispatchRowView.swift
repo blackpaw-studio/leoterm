@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import LeoKit
 
 /// One live dispatch under its agent row: indented by depth (no tree
 /// guides; the indent alone shows the hierarchy), dimmed and
@@ -11,6 +12,8 @@ struct LeoDispatchRowView: View {
     static let glyphSize: CGFloat = 12
 
     let node: LeoDispatchNode
+    /// The machine the dispatch runs on, for its browser's globe; nil shows none.
+    var host: LeoHostID?
     /// Set only for a clickable row: the click's modifiers and count.
     var click: ((NSEvent.ModifierFlags, Int) -> Void)?
     /// False for a row that is clicked but never selected (B-271).
@@ -75,6 +78,7 @@ struct LeoDispatchRowView: View {
                 .truncationMode(.tail)
                 .layoutPriority(1)
             Spacer(minLength: 4)
+            if let host { LeoAgentBrowserBadge(host: host, agent: "", dispatchID: node.id, isSelected: isSelected) }
         }
     }
 
