@@ -103,7 +103,6 @@ final class LeoEditorTabsViewController: NSViewController {
         let id = ObjectIdentifier(source)
         if let view = browserViews[id] { return view }
         let view = LeoAgentBrowserPaneViewController(source: source, headerTopInset: headerTopInset)
-        view.onCloseBrowser = { [weak self] in self?.rowPane?.closeAgentBrowser() }
         browserViews[id] = view
         return view
     }
@@ -147,7 +146,8 @@ final class LeoEditorTabsViewController: NSViewController {
             : []
         let items = browser + files
         tabBar.update(items)
-        tabBar.isHidden = items.count < 2
+        // A lone Browser item still shows: its close is the browser's only one.
+        tabBar.isHidden = items.count < 2 && !hasBrowserItem
     }
 
     // MARK: - Switching

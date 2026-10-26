@@ -16,7 +16,20 @@ final class LeoEditorTabBar: NSView {
         var isBrowser = false
     }
 
-    static let height: CGFloat = 26
+    /// The editor's own strip, or the subordinate one under it for an agent
+    /// browser's pages: smaller, with a rounded highlight instead of a filled
+    /// tab, like Safari's tab bar under its toolbar.
+    enum Style {
+        case editor
+        case pages
+
+        var height: CGFloat { self == .editor ? 26 : 24 }
+        var fontSize: CGFloat { self == .editor ? NSFont.smallSystemFontSize : NSFont.smallSystemFontSize - 1 }
+        var showsBorder: Bool { self == .editor }
+    }
+
+    static let height = Style.editor.height
+    let style: Style
 
     var onSelect: (Int) -> Void = { _ in }
     var onClose: (Int) -> Void = { _ in }
@@ -25,14 +38,10 @@ final class LeoEditorTabBar: NSView {
     private let stack = NSStackView()
     private(set) var items: [Item] = []
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    init(style: Style = .editor, accessibilityLabel: String = "Editor tabs") {
+        self.style = style
+        super.init(frame: .zero)
         build()
-    }
-
-    /// A strip with its own VoiceOver name, for tabs that aren't the editor's.
-    convenience init(accessibilityLabel: String) {
-        self.init(frame: .zero)
         setAccessibilityLabel(accessibilityLabel)
     }
 
@@ -58,7 +67,7 @@ final class LeoEditorTabBar: NSView {
     }
 
     private func addButton() -> LeoEditorTabButton {
-        let button = LeoEditorTabButton()
+        let button = LeoEditorTabButton(style: style)
         button.onSelect = { [weak self, weak button] in
             guard let self, let button else { return }
             onSelect(button.index)
@@ -81,10 +90,10 @@ final class LeoEditorTabBar: NSView {
         wantsLayer = true
         setAccessibilityElement(true)
         setAccessibilityRole(.tabGroup)
-        setAccessibilityLabel("Editor tabs")
 
         stack.orientation = .horizontal
-        stack.spacing = 0
+        stack.spacing = style == .pages ? 2 : 0
+        stack.edgeInsets = NSEdgeInsets(top: 0, left: style == .pages ? 6 : 0, bottom: 0, right: 0)
         stack.alignment = .centerY
         stack.translatesAutoresizingMaskIntoConstraints = false
 
@@ -102,11 +111,12 @@ final class LeoEditorTabBar: NSView {
 
         let border = NSBox()
         border.boxType = .separator
+        border.isHidden = !style.showsBorder
         border.translatesAutoresizingMaskIntoConstraints = false
         addSubview(border)
 
         NSLayoutConstraint.activate([
-            heightAnchor.constraint(equalToConstant: Self.height),
+            heightAnchor.constraint(equalToConstant: style.height),
             scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
             scrollView.topAnchor.constraint(equalTo: topAnchor),
@@ -144,8 +154,11 @@ final class LeoEditorTabButton: NSView {
         didSet { refresh() }
     }
 
-    override init(frame: NSRect) {
-        super.init(frame: frame)
+    private let style: LeoEditorTabBar.Style
+
+    init(style: LeoEditorTabBar.Style = .editor) {
+        self.style = style
+        super.init(frame: .zero)
         build()
     }
 
@@ -154,7 +167,13 @@ final class LeoEditorTabButton: NSView {
     override var wantsUpdateLayer: Bool { true }
 
     override func updateLayer() {
-        layer?.backgroundColor = item.isSelected ? NSColor.textBackgroundColor.cgColor : NSColor.clear.cgColor
+        switch style {
+        case .editor:
+            layer?.backgroundColor = item.isSelected ? NSColor.textBackgroundColor.cgColor : NSColor.clear.cgColor
+        case .pages:
+            layer?.cornerRadius = 5
+            layer?.backgroundColor = item.isSelected ? NSColor.labelColor.withAlphaComponent(0.1).cgColor : NSColor.clear.cgColor
+        }
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -206,7 +225,7 @@ final class LeoEditorTabButton: NSView {
         iconView.setContentHuggingPriority(.required, for: .horizontal)
         iconView.setAccessibilityElement(false)
 
-        titleLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        titleLabel.font = .systemFont(ofSize: style.fontSize)
         titleLabel.lineBreakMode = .byTruncatingMiddle
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         titleLabel.setAccessibilityElement(false)
@@ -231,7 +250,7 @@ final class LeoEditorTabButton: NSView {
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.topAnchor.constraint(equalTo: topAnchor),
             stack.bottomAnchor.constraint(equalTo: bottomAnchor),
-            heightAnchor.constraint(equalToConstant: LeoEditorTabBar.height - 1),
+            heightAnchor.constraint(equalToConstant: style.height - (style == .pages ? 5 : 1)),
             widthAnchor.constraint(lessThanOrEqualToConstant: Self.maximumWidth),
             closeButton.widthAnchor.constraint(equalToConstant: 16),
         ])
