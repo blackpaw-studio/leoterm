@@ -241,9 +241,11 @@ private final class RingShape: UIView {
     private let track = CAShapeLayer()
     private let arc = CAShapeLayer()
     private let fraction: Double?
+    private let arcColor: UIColor
 
     init(meter: MachineMeter) {
         fraction = meter.fraction
+        arcColor = MeterAppearance.color(meter.level)
         super.init(frame: .zero)
         for layer in [track, arc] {
             layer.fillColor = nil
@@ -251,7 +253,6 @@ private final class RingShape: UIView {
             self.layer.addSublayer(layer)
         }
         arc.lineCap = .round
-        arc.strokeColor = MeterAppearance.color(meter.level).cgColor
         arc.strokeEnd = CGFloat(fraction ?? 0)
         arc.isHidden = fraction == nil
         let value = UILabel()
@@ -290,5 +291,6 @@ private final class RingShape: UIView {
 
     private func updateColors() {
         track.strokeColor = MeterAppearance.track.resolvedColor(with: traitCollection).cgColor
+        arc.strokeColor = arcColor.resolvedColor(with: traitCollection).cgColor
     }
 }
