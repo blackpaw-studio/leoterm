@@ -974,7 +974,7 @@ Inbox: 20261026T234352454197Z-9f614201#1
 Done: fd099dc78
 Verified: not visually verified — description text only; LeoBrowserToolsTests 9/9, full suite 3776 green, client-tools fixture check passes
 
-## B-308 · when you test there's some clipping here of the elements   [ready]
+## B-308 · when you test there's some clipping here of the elements   [done]
 Issue: #289
 Type: bug
 Report: when you test there's some clipping here of the elements
@@ -982,6 +982,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234542094759Z-2d589a33#1
 Attachments: .autopilot/bugs/B-308/1.png
+Done: bfb80400f c00363c35
+Verified: not visually verified — Peekaboo bridge lacks Screen Recording/Accessibility on the host; layout test (form squeezed to 90/232 pt at 780×600 before the fix) and full suite 3777 pass
 
 ## B-309 · theres no spacing between rings stats   [ready]
 Issue: #290

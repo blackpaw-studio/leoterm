@@ -3979,3 +3979,17 @@ Chose: Regenerated the leoterm-only golden Fixtures/agent-browser/browser-tools.
 Why: AUTONOMY: test infrastructure.
 Commit: fd099dc78
 Veto: [ ]
+
+## D-557 · 2026-10-27 · Mac only: Settings ▸ Machines is a macOS view; the iOS Machines list is separate
+Context: B-308 (runner call).
+Chose: Mac only: Settings ▸ Machines is a macOS view; the iOS Machines list is separate
+Why: D-548; Mac + iOS parity rule.
+Commit: bfb80400f c00363c35
+Veto: [ ]
+
+## D-558 · 2026-10-27 · Machines detail form scrolls (footer pinned) instead of enlarging the minimum window
+Context: B-308 (runner call).
+Chose: Machines detail form scrolls (footer pinned) instead of enlarging the minimum window
+Why: AUTONOMY: layout/UX details; keeps the 780×600 minimum.
+Commit: bfb80400f c00363c35
+Veto: [ ]
