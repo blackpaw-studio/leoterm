@@ -228,8 +228,8 @@ struct LeoAppearancePreviewAgent: Equatable, Sendable {
     private static func source(_ appearance: LeoAgentAppearance?) -> String {
         guard let appearance else { return "No rule matches" }
         let parts = [
-            appearance.color.map { LeoAgentAppearanceModel.sourceText($0.displayName, source: appearance.colorSource, rules: nil) },
-            appearance.emoji.map { LeoAgentAppearanceModel.sourceText($0, source: appearance.emojiSource, rules: nil) },
+            appearance.color.map { LeoAppearanceText.sourceText($0.displayName, source: appearance.colorSource, rules: nil) },
+            appearance.emoji.map { LeoAppearanceText.sourceText($0, source: appearance.emojiSource, rules: nil) },
         ]
         return parts.compactMap { $0 }.joined(separator: "; ")
     }
