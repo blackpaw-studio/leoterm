@@ -292,11 +292,12 @@ Lane: B-171
   Branch: autopilot-lane/B-171
   Base: 3d4d5f9c85e8c727576267134a695a44bc1f7c2c
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 2d2ef1781f21db3ac530b709db601c4e8fa3446e
+  Tokens: 8.18M in (7.89M cache read), ≥35.5k out, 88 requests
   Dispatched: 2026-10-27T11:30:34Z
   Call: The B-106 late-focus-report bug was real (new test failed before the fix): fix plus test — root cause before fix; test-first
   Call: Mac only — sidebar view and window terminals are macOS-only; iOS has no terminal rows
@@ -321,6 +322,7 @@ Finished 16: B-166 landed 6cbe4c742251e3a98caa610892a4a3587e99a3b9 · not visual
 Finished 17: B-167 landed b406d21378b51ab30d9b7e00823cd4a557d0f10b · not visually verified
 Finished 18: B-168 landed 6444c7e447c458e8ce72f4209bb2962235fbfd8a · not visually verified
 Finished 19: B-170 landed 83cd3e58c16edd775c91ef7e0b9178cfd235b78d · not visually verified
+Finished 20: B-171 landed 749f83105287ec946c76af21ba78ac5285799caf · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.

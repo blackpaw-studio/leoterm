@@ -4182,3 +4182,31 @@ Chose: Mac only
 Why: no iOS counterpart
 Commit: 337dcaf5e
 Veto: [ ]
+
+## D-586 · 2026-10-27 · The B-106 late-focus-report bug was real (new test failed before the fix): fix plus test
+Context: B-171 (runner call).
+Chose: The B-106 late-focus-report bug was real (new test failed before the fix): fix plus test
+Why: root cause before fix; test-first
+Commit: 662eb7c63
+Veto: [ ]
+
+## D-587 · 2026-10-27 · Mac only
+Context: B-171 (runner call).
+Chose: Mac only
+Why: sidebar view and window terminals are macOS-only; iOS has no terminal rows
+Commit: 662eb7c63
+Veto: [ ]
+
+## D-588 · 2026-10-27 · Raise the focus-report fence whenever the window's terminal selection becomes nil (onReceive on $selection)
+Context: B-171 (runner call).
+Chose: Raise the focus-report fence whenever the window's terminal selection becomes nil (onReceive on $selection)
+Why: minimal change; that is the moment the list lands on the fallback agent
+Commit: 662eb7c63
+Veto: [ ]
+
+## D-589 · 2026-10-27 · A focus report sent after the row removal still moves the selection
+Context: B-171 (runner call).
+Chose: A focus report sent after the row removal still moves the selection
+Why: consistency with a click's fence (follow-focus rule)
+Commit: 662eb7c63
+Veto: [ ]

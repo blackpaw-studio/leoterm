@@ -1120,11 +1120,13 @@ Source: autopilot polish (B-106)
 Done: 4762b7290
 Verified: full suite 3782 tests passed, swiftlint clean at ebcb01307; Issue.record fires on a bad index (throwaway test); test-only
 
-## B-171 · A focus report after a shell closes could reselect another agent   [ready]
+## B-171 · A focus report after a shell closes could reselect another agent   [done]
 Issue: #175
 Why: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
 Accept: B-106 review (unconfirmed): after the last shell closes and the list lands, a late focus report could reselect a different agent a turn later; pin with a test through the real attach/focus path
 Source: autopilot polish (B-106)
+Done: 662eb7c63
+Verified: new test aFocusReportInFlightWhenTheLastRowClosesDoesNotReselectAnotherAgent; full suite 3783 tests passed, swiftlint clean at 2d2ef1781
 
 ## B-172 · Drain pending reconciles before a sidebar click selects   [ready]
 Issue: #176
