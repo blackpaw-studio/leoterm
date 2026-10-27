@@ -12,10 +12,10 @@ extension Ghostty {
     ///
     /// Returns nil if the trigger doesn't have an equivalent KeyboardShortcut. This is possible
     /// because Ghostty input triggers are a superset of what can be represented by a macOS
-    /// KeyboardShortcut. For example, macOS doesn't have any way to represent function keys
-    /// (F1, F2, ...) with a KeyboardShortcut. This doesn't represent a practical issue because input
-    /// handling for Ghostty is handled at a lower level (usually). This function should generally only
-    /// be used for things like NSMenu that only support keyboard shortcuts anyways.
+    /// KeyboardShortcut. For example, catch_all has no equivalent. Function keys (F1…F25) are
+    /// carried as AppKit's private-use function-key characters, which NSMenuItem understands.
+    /// Input handling for Ghostty is handled at a lower level (usually). This function should
+    /// generally only be used for things like NSMenu that only support keyboard shortcuts anyways.
     @MainActor static func keyboardShortcut(for trigger: ghostty_input_trigger_s) -> KeyboardShortcut? {
         let modifierFlags = Self.eventModifierFlags(mods: trigger.mods)
         let key: KeyEquivalent
@@ -112,7 +112,15 @@ extension Ghostty {
         GHOSTTY_KEY_TAB: .tab,
         GHOSTTY_KEY_BACKSPACE: .delete,
         GHOSTTY_KEY_SPACE: .space,
-    ]
+    ].merging(functionKeyEquivalents) { current, _ in current }
+
+    /// GHOSTTY_KEY_F1…F25 as AppKit's private-use NSF1FunctionKey… characters
+    /// (SwiftUI has no named F-key equivalents, but NSMenuItem reads these).
+    private static let functionKeyEquivalents: [ghostty_input_key_e: KeyEquivalent] =
+        (0..<25).reduce(into: [:]) { map, offset in
+            guard let scalar = UnicodeScalar(NSF1FunctionKey + offset) else { return }
+            map[ghostty_input_key_e(GHOSTTY_KEY_F1.rawValue + UInt32(offset))] = KeyEquivalent(Character(scalar))
+        }
 
     /// The contiguous W3C "Writing System Keys" § 3.1.1 key range.
     private static let writingSystemKeyRange =
