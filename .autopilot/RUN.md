@@ -119,6 +119,17 @@ Lane: B-311
   Call: Fix at the spawn site (clear the signal mask in Pty.childPreExec) as well as at the leak source — agent decides bug fixes (planned, not built)
   Call: Mac only; iOS spawns no local ptys — Mac + iOS parity rule
 
+Lane: B-158
+  Branch: autopilot-lane/B-158
+  Base: 2daa1d034daf327243239bc7454567c0cb9e8245
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T05:25:08Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
