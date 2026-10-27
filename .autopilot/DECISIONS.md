@@ -4091,3 +4091,10 @@ Chose: No new test for the helper (private to test files, no seam)
 Why: TDD exception: test infrastructure.
 Commit: 1a883ba23
 Veto: [ ]
+
+## D-573 · 2026-10-27 · Mac only: test comments only
+Context: B-163 (runner call).
+Chose: Mac only: test comments only
+Why: D-566/D-569; Mac + iOS parity rule.
+Commit: fa90acd7e
+Veto: [ ]

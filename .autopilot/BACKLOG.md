@@ -1057,11 +1057,13 @@ Source: autopilot polish (B-103)
 Done: 1a883ba23
 Verified: not visually verified — test helpers only; full suite 3779 pass, swiftlint clean
 
-## B-163 · Drop remaining project-history comments in LeoSidebarTerminalScrollTests   [ready]
+## B-163 · Drop remaining project-history comments in LeoSidebarTerminalScrollTests   [done]
 Issue: #167
 Why: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
 Accept: :256 ("before B-081"), :390 ("only wait on time (B-099)") and the retitle test's "B-078 (D-130)" opener: keep IDs as labels, drop the history
 Source: autopilot polish (B-103)
+Done: fa90acd7e
+Verified: not visually verified — test comments only; full suite 3779 pass, swiftlint clean
 
 ## B-164 · F-key config rebinds reach menu items and hints   [ready]
 Issue: #168
