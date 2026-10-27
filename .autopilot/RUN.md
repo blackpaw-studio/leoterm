@@ -251,11 +251,12 @@ Lane: B-167
   Branch: autopilot-lane/B-167
   Base: ecee4bf9d7d3d46f431b20be4b02ac9af96e7aa6
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 2fe58b7ff142ddfd7a66afd4c97b5aa70b489bf9
+  Tokens: 4.3M in (4.08M cache read), ≥23.1k out, 55 requests
   Dispatched: 2026-10-27T09:25:01Z
   Call: Pin the OS-provided macOS 13 hover "Hide" on the Terminals section rather than remove a Leo-built affordance — the section has no custom disclosure or persisted collapse state; collapse is an OS default, not a Leo feature
   Call: Mac only — ios/ has no Terminals section
@@ -275,6 +276,7 @@ Finished 13: B-163 landed b5f4818894a4e346d586e03e472716330e30270d · not visual
 Finished 14: B-164 landed 47ae6f289598941c371eb3b9237253e4ddb6e6eb · not visually verified
 Finished 15: B-165 landed c3ca374fca1dadf05b8364582cf9eccede1484b2 · not visually verified
 Finished 16: B-166 landed 6cbe4c742251e3a98caa610892a4a3587e99a3b9 · not visually verified
+Finished 17: B-167 landed b406d21378b51ab30d9b7e00823cd4a557d0f10b · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.

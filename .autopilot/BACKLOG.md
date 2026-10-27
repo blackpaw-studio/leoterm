@@ -1089,11 +1089,13 @@ Source: autopilot polish (B-104)
 Done: 2f77976dc 3b815fb29
 Verified: not visually verified — Peekaboo bridge lacks permissions; root-cause test fails before the fix, full suite 3782 pass, 6 cold launches logged the forced disconnect after the generation-1 connect
 
-## B-167 · Pin the Terminals section as non-collapsible   [ready]
+## B-167 · Pin the Terminals section as non-collapsible   [done]
 Issue: #171
 Why: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
 Accept: LeoSidebarView.swift:304's labels.count + 1 assumes the section is never natively collapsed; if a .sidebar List lets users hide it, last-N rows could include agent rows and land falsely — confirm or add .collapsible(false)
 Source: autopilot polish (B-105)
+Done: 621e3ffa0
+Verified: build OK, full suite 3782 tests passed, swiftlint --strict clean at 2fe58b7ff; not visually verified (change only observable on macOS 13; host lacks Screen Recording/Accessibility)
 
 ## B-169 · runtests.sh baseline message contradicts verify.md   [done]
 Issue: #173

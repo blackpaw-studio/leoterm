@@ -4154,3 +4154,17 @@ Chose: No test for arming while the feed is already connected
 Why: Production always arms before start.
 Commit: 2f77976dc 3b815fb29
 Veto: [ ]
+
+## D-582 · 2026-10-27 · Pin the OS-provided macOS 13 hover "Hide" on the Terminals section rather than remove a Leo-built affordance
+Context: B-167 (runner call).
+Chose: Pin the OS-provided macOS 13 hover "Hide" on the Terminals section rather than remove a Leo-built affordance
+Why: the section has no custom disclosure or persisted collapse state; collapse is an OS default, not a Leo feature
+Commit: 621e3ffa0
+Veto: [ ]
+
+## D-583 · 2026-10-27 · Mac only
+Context: B-167 (runner call).
+Chose: Mac only
+Why: ios/ has no Terminals section
+Commit: 621e3ffa0
+Veto: [ ]
