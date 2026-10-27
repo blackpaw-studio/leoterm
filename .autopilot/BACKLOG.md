@@ -2233,3 +2233,7 @@ Source: autopilot polish (B-307)
 ## B-315 · Consider renaming Leo browser tools to leo_browser_*   [idea]
 Note: removes any remaining Playwright ambiguity; changes the client-tools wire contract and needs the leo daemon side — revisit only if confusion persists
 Source: autopilot polish (B-307)
+
+## B-316 · Check a 100% Rings stat: "100" may sit tight against the stroke   [idea]
+Note: B-309 shrank the ring hole from 17.5pt to 15pt; unchecked by eye (no screenshot)
+Source: autopilot polish (B-309)
