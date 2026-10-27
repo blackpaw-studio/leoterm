@@ -164,7 +164,23 @@ struct AgentAppearancePresentationTests {
         await store.send(\.fleet.eventReceived, (PairedDaemon.dionysus.id, .agentAppearanceChanged(seq: 2, at: nil, agent: "zeus", appearance: Self.teal))) {
             $0.fleet.sessions[0].agents[id: "zeus"]?.appearance = Self.teal
             $0.appearance?.appearance = Self.teal
+            $0.appearance?.fleetAppearance = Self.teal
         }
+    }
+
+    @Test func anUnrelatedFleetEventDoesNotUndoTheDaemonsAnswer() async {
+        var state = initial(features: LeoDaemonFeatures(["agent_appearance"]))
+        state.appearance = AgentAppearance.State(daemon: .dionysus, agentName: "zeus", appearance: nil)
+        let store = TestStore(initialState: state) { AppFeature() }
+
+        // The write's answer lands before the event stream has restated it.
+        await store.send(.appearance(.presented(.writeFinished(.success(Self.teal))))) {
+            $0.appearance?.appearance = Self.teal
+        }
+        await store.send(\.fleet.eventReceived, (PairedDaemon.dionysus.id, .agentActivity(seq: 3, at: nil, agent: "zeus", activity: .working, currentAction: nil, attention: nil))) {
+            $0.fleet.sessions[0].agents[id: "zeus"]?.activity = .working
+        }
+        #expect(store.state.appearance?.appearance == Self.teal)
     }
 
     @Test func forgettingTheDaemonClosesTheSheet() async {

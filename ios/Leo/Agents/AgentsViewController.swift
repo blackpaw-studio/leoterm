@@ -212,6 +212,19 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         }
     }
 
+    /// Long press > Appearance, only on a daemon that can resolve it.
+    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let indexPath = indexPaths.first, let ref = dataSource.itemIdentifier(for: indexPath),
+              store.fleet.sessions[id: ref.daemonID]?.supportsAppearance == true else { return nil }
+        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+            let appearance = UIAction(title: String(localized: "Appearance…"), image: UIImage(systemName: "paintpalette")) { _ in
+                self?.store.send(.appearanceRequested(ref))
+            }
+            appearance.accessibilityIdentifier = "agent.appearance"
+            return UIMenu(children: [appearance])
+        })
+    }
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.agentTapped(ref))

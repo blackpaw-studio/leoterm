@@ -14,6 +14,8 @@ public struct AgentAppearance {
         public let agentName: String
         /// Kept live by the parent from `Fleet`.
         public var appearance: LeoAgentAppearance?
+        /// The fleet's value last seen, so only a change in it reaches the sheet.
+        public var fleetAppearance: LeoAgentAppearance?
         public var query = ""
         public var rules: [LeoAppearanceRule]?
         public var recents: [String] = []
@@ -25,6 +27,7 @@ public struct AgentAppearance {
             self.daemon = daemon
             self.agentName = agentName
             self.appearance = appearance
+            fleetAppearance = appearance
         }
 
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }

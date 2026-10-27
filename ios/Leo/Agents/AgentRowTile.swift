@@ -15,7 +15,9 @@ enum AgentRowTile {
     static func image(emoji: String, statusTint: UIColor) -> UIImage {
         let light = render(emoji: emoji, statusTint: statusTint, style: .light)
         let dark = render(emoji: emoji, statusTint: statusTint, style: .dark)
-        light.imageAsset?.register(dark, with: UITraitCollection(userInterfaceStyle: .dark))
+        // The scale is part of the match: without it the dark variant reads as 1x and draws oversized.
+        let darkTraits = UITraitCollection(traitsFrom: [UITraitCollection(userInterfaceStyle: .dark), UITraitCollection(displayScale: dark.scale)])
+        light.imageAsset?.register(dark, with: darkTraits)
         return light
     }
 

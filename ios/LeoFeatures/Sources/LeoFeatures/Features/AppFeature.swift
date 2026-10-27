@@ -390,7 +390,11 @@ extension AppFeature.State {
     mutating func syncAppearance() {
         guard let sheet = appearance, let session = fleet.sessions[id: sheet.daemon.id] else { return }
         let agent = session.agents[id: sheet.agentName]
-        if let agent, agent.appearance != sheet.appearance { appearance?.receive(agent.appearance) }
+        // Only a change in the fleet's value: its stale one must not undo a write's answer.
+        if let agent, agent.appearance != sheet.fleetAppearance {
+            appearance?.fleetAppearance = agent.appearance
+            appearance?.receive(agent.appearance)
+        }
         if sheet.daemon != session.daemon { appearance?.daemon = session.daemon }
     }
 }
