@@ -1073,11 +1073,13 @@ Source: autopilot polish (B-104)
 Done: 01c0243c0 0cc082de2
 Verified: not visually verified — Peekaboo bridge lacks Screen Recording/Accessibility on the host; mapping/spelling/.function tests + full suite 3781 pass
 
-## B-165 · Shortcut hint test helper takes a reconnect: parameter   [ready]
+## B-165 · Shortcut hint test helper takes a reconnect: parameter   [done]
 Issue: #169
 Why: LeoShortcutHintsTests.swift:351 passes the Reconnect item through the chooseAgent: parameter; give it its own parameter
 Accept: LeoShortcutHintsTests.swift:351 passes the Reconnect item through the chooseAgent: parameter; give it its own parameter
 Source: autopilot polish (B-104)
+Done: ebc8985de
+Verified: not visually verified — test-only change; full suite 3781 pass, swiftlint clean
 
 ## B-166 · LEO_FORCE_DISCONNECTED sometimes doesn't arm on first launch   [ready]
 Issue: #170

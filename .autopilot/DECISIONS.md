@@ -4119,3 +4119,10 @@ Chose: Mac only: menus and NSMenuItem equivalents don't exist on iOS
 Why: Mac + iOS parity rule.
 Commit: 01c0243c0 0cc082de2
 Veto: [ ]
+
+## D-577 · 2026-10-27 · Mac only (test-only); the Quick Terminal test's chooseAgent: use and the manual addItem in aSyncWithUnchangedShortcutsDoesNotPublish are left alone as out of scope
+Context: B-165 (runner call).
+Chose: Mac only (test-only); the Quick Terminal test's chooseAgent: use and the manual addItem in aSyncWithUnchangedShortcutsDoesNotPublish are left alone as out of scope
+Why: D-576; Mac + iOS parity rule; no mid-task scope growth.
+Commit: ebc8985de
+Veto: [ ]
