@@ -52,7 +52,8 @@ Lane: B-306
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-10-27T03:28:35Z
+  Dispatched: 2026-10-27T03:30:44Z
 
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
+Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
