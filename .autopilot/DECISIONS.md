@@ -3993,3 +3993,24 @@ Chose: Machines detail form scrolls (footer pinned) instead of enlarging the min
 Why: AUTONOMY: layout/UX details; keeps the 780×600 minimum.
 Commit: bfb80400f c00363c35
 Veto: [ ]
+
+## D-559 · 2026-10-27 · Mac only: iOS MeterLineView already draws Rings with 16pt spacing and no stroke overflow
+Context: B-309 (runner call).
+Chose: Mac only: iOS MeterLineView already draws Rings with 16pt spacing and no stroke overflow
+Why: Mac + iOS parity rule.
+Commit: 3efcf97ff
+Veto: [ ]
+
+## D-560 · 2026-10-27 · 5pt spacing between Rings stats (capsules stay 3pt); ring circle inset by half its line width
+Context: B-309 (runner call).
+Chose: 5pt spacing between Rings stats (capsules stay 3pt); ring circle inset by half its line width
+Why: AUTONOMY: layout details.
+Commit: 3efcf97ff
+Veto: [ ]
+
+## D-561 · 2026-10-27 · Close B-310 as fixed by B-309 rather than build it separately
+Context: B-310 (orchestrator call).
+Chose: Close B-310 as fixed by B-309 rather than build it separately
+Why: Same root cause (ring stroke spilled 1.25pt past its 20pt frame); B-309's ringsStayInsideTheClusterFrameSoNothingClips failed at ~2pt spill before the fix; reviewer checked it against B-310's screenshot. Reopen in review if the clip persists.
+Commit: 3efcf97ff
+Veto: [ ]

@@ -985,7 +985,7 @@ Attachments: .autopilot/bugs/B-308/1.png
 Done: bfb80400f c00363c35
 Verified: not visually verified — Peekaboo bridge lacks Screen Recording/Accessibility on the host; layout test (form squeezed to 90/232 pt at 780×600 before the fix) and full suite 3777 pass
 
-## B-309 · theres no spacing between rings stats   [ready]
+## B-309 · theres no spacing between rings stats   [done]
 Issue: #290
 Type: bug
 Report: theres no spacing between rings stats
@@ -993,8 +993,10 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234616027560Z-f525ae57#1
 Attachments: .autopilot/bugs/B-309/2.png
+Done: 3efcf97ff
+Verified: not visually verified — Peekaboo bridge lacks Screen Recording/Accessibility on the host; two geometry tests + full suite 3779 pass
 
-## B-310 · rings stats also clip (same Rings stats style as "theres no spacing…   [ready]
+## B-310 · rings stats also clip (same Rings stats style as "theres no spacing…   [done]
 Issue: #291
 Type: bug
 Report: rings stats also clip (same Rings stats style as "theres no spacing between rings stats", queued just before this — likely one fix)
@@ -1002,6 +1004,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234630732052Z-082e5202#1
 Attachments: .autopilot/bugs/B-310/3.png
+Done: no code change — fixed by B-309 (3efcf97ff): ring strokes now stay inside their frame (ringsStayInsideTheClusterFrameSoNothingClips)
+Verified: not visually verified — test evidence only, see B-309
 
 ## B-311 · LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess…   [ready]
 Issue: #292

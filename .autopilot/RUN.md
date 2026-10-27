@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-27T01:43:03Z
 Budget: 20 items, until 2026-10-27T13:43:03Z
-Digested-through: 0
+Digested-through: 6
 Filed: 0/3 bugs, 5/5 ideas
 Self-filed: B-304 → B-312 idea — Add an iOS simulator + fixture-daemon recipe to verify.md
 Self-filed: B-304 → B-313 idea — Update iOS Machines meters in place instead of rebuilding the row's meter line
@@ -94,11 +94,12 @@ Lane: B-309
   Branch: autopilot-lane/B-309
   Base: 81e7f33c655611fd58abfca868f0ace8841d40c6
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 03ca17caacc3e78dbfdb03f51a6033171b1cc766
+  Tokens: 6.59M in (6.32M cache read), ≥30k out, 78 requests
   Dispatched: 2026-10-27T04:25:09Z
   Call: Mac only (iOS MeterLineView draws Rings with 16pt spacing and no stroke overflow) — Mac + iOS parity rule
   Call: 5pt Rings spacing (capsules stay 3pt) — agent decides layout details
@@ -107,6 +108,8 @@ Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visuall
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
 Finished 4: B-308 landed 0c815dad1f43d1961a60d42261f3b417893b6b7c · not visually verified
+Finished 5: B-309 landed 63f8938afaf00b41dbde2c9a591b65153c9177e1 · not visually verified
+Finished 6: B-310 done (no code change)
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.
