@@ -58,6 +58,17 @@ Lane: B-306
   Call: Only browser_navigate auto-opens a tab; snapshot and other page tools with no tab still return no_such_tab — agent decides bug-fix scope
   Call: Tool names and wire shapes unchanged — shared client-tools contract
 
+Lane: B-307
+  Branch: autopilot-lane/B-307
+  Base: e93b628b691a25c439a9b1dcd716bcc03b309c81
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T03:45:17Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
