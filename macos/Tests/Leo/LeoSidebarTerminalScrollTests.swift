@@ -661,9 +661,14 @@ struct LeoSidebarTerminalScrollTests {
         table.enclosingScrollView?.contentView.bounds.minY
     }
 
-    /// No part of the row is within what the list shows.
+    /// No part of the row is within what the list shows. A row that isn't
+    /// in the list is a test bug, not "off screen": it fails loudly (and
+    /// answers false so a `#require` on it stops the test too).
     private func isOffScreen(row: Int, in table: NSTableView) -> Bool {
-        guard row >= 0, row < table.numberOfRows else { return true }
+        guard row >= 0, row < table.numberOfRows else {
+            Issue.record("row \(row) isn't in the list (numberOfRows \(table.numberOfRows))")
+            return false
+        }
         return !table.visibleRect.intersects(table.rect(ofRow: row))
     }
 
