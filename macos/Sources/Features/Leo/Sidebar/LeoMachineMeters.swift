@@ -11,7 +11,9 @@ extension LeoStatsStyle {
 private enum LeoMeterMetrics {
     static let capsuleSize = CGSize(width: 10, height: 20)
     static let ringDiameter: CGFloat = 20
-    static let clusterSpacing: CGFloat = 3
+    static let ringLineWidth: CGFloat = 2.5
+    static let capsuleSpacing: CGFloat = 3
+    static let ringSpacing: CGFloat = 5
     static let dimmedOpacity = 0.4
 }
 
@@ -58,7 +60,7 @@ struct LeoMachineMeterCluster: View {
 
     var body: some View {
         if let content = LeoMeterContent(meters), style == .capsules || style == .rings {
-            HStack(spacing: LeoMeterMetrics.clusterSpacing) {
+            HStack(spacing: style == .rings ? LeoMeterMetrics.ringSpacing : LeoMeterMetrics.capsuleSpacing) {
                 ForEach(content.meters) { meter in
                     Group {
                         if style == .capsules { LeoCapsuleMeter(meter: meter) } else { LeoRingMeter(meter: meter) }
@@ -152,12 +154,16 @@ private struct LeoRingMeter: View {
     let meter: LeoMachineHeaderPresentation.Meter
 
     var body: some View {
-        ZStack {
-            Circle().stroke(.secondary.opacity(0.3), lineWidth: 2.5)
+        // Strokes are centred on the path, so inset by half the line width to
+        // keep the ink inside the ring's frame (B-309, B-310).
+        let inset = LeoMeterMetrics.ringLineWidth / 2
+        return ZStack {
+            Circle().inset(by: inset).stroke(.secondary.opacity(0.3), lineWidth: LeoMeterMetrics.ringLineWidth)
             if let fraction = meter.fraction {
                 Circle()
+                    .inset(by: inset)
                     .trim(from: 0, to: fraction)
-                    .stroke(meter.level.fill, style: StrokeStyle(lineWidth: 2.5, lineCap: .butt))
+                    .stroke(meter.level.fill, style: StrokeStyle(lineWidth: LeoMeterMetrics.ringLineWidth, lineCap: .butt))
                     .rotationEffect(.degrees(-90))
             }
             Text(ringText).font(.system(size: 7, weight: .semibold)).monospacedDigit()
