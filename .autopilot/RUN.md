@@ -131,6 +131,18 @@ Lane: B-158
   Tokens: 2.63M in (2.43M cache read), ≥13.2k out, 36 requests
   Dispatched: 2026-10-27T05:25:08Z
   Call: Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equivalent — Mac + iOS parity rule (AGENTS.md).
+
+Lane: B-159
+  Branch: autopilot-lane/B-159
+  Base: a4418b477d7c87aa35ed749bb3a2a88bec832740
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T05:41:09Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
