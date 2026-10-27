@@ -47,12 +47,15 @@ Lane: B-306
   Branch: autopilot-lane/B-306
   Base: 890ee6df384a4931967c0926dbb891baa591ddba
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d68b956464451e69e42fda9f97388be2402d57d1
   Dispatched: 2026-10-27T03:30:44Z
+  Call: Mac only (iOS executor not built); fix is in shared LeoKit — Mac + iOS parity rule
+  Call: Only browser_navigate auto-opens a tab; snapshot and other page tools with no tab still return no_such_tab — agent decides bug-fix scope
+  Call: Tool names and wire shapes unchanged — shared client-tools contract
 
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
