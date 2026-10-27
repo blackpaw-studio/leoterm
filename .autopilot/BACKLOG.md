@@ -964,13 +964,15 @@ Inbox: 20261026T234352214275Z-86d339aa#1
 Done: d68b95646
 Verified: not visually verified — no UI change; LeoBrowserExecutorTests 35/35, full app suite 3776 green
 
-## B-307 · Agent browser: Leo's browser_* tools (mcp__leo__browser_*) can be…   [ready]
+## B-307 · Agent browser: Leo's browser_* tools (mcp__leo__browser_*) can be…   [done]
 Issue: #288
 Type: bug
 Report: Agent browser: Leo's browser_* tools (mcp__leo__browser_*) can be confused with Playwright MCP's mcp__playwright__browser_* tools in Claude agents that have both. Make Leo's tool descriptions say clearly that they drive the browser pane in the user's Leo app (shared and watchable, per-agent cookies, remote localhost via the forward); consider whether a rename is worth it (tool names are part of the client-tools wire contract — check fixtures). Code: LeoKit AgentBrowser/LeoBrowserTools. Seen in the 2026-10-26 E2E.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234352454197Z-9f614201#1
+Done: fd099dc78
+Verified: not visually verified — description text only; LeoBrowserToolsTests 9/9, full suite 3776 green, client-tools fixture check passes
 
 ## B-308 · when you test there's some clipping here of the elements   [ready]
 Issue: #289

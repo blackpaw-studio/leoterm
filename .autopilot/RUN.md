@@ -64,11 +64,12 @@ Lane: B-307
   Branch: autopilot-lane/B-307
   Base: e93b628b691a25c439a9b1dcd716bcc03b309c81
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 3555d87e77594f4f08a2beaa2beac667fa5e3e94
+  Tokens: 3.33M in (3.12M cache read), ≥17.6k out, 45 requests
   Dispatched: 2026-10-27T03:45:17Z
   Call: Description-only fix; tool names, schemas and wire shapes unchanged — D-553, shared client-tools contract
   Call: Mac only, code in shared LeoKit — D-551
@@ -76,5 +77,6 @@ Lane: B-307
 
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
+Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).

@@ -3958,3 +3958,24 @@ Chose: Tool names and wire shapes unchanged
 Why: Shared client-tools contract with the leo daemon.
 Commit: d68b95646
 Veto: [ ]
+
+## D-554 · 2026-10-26 · B-307 is a description-only fix: every Leo browser tool starts with "Leo app browser: "; no rename
+Context: B-307 (runner call).
+Chose: B-307 is a description-only fix: every Leo browser tool starts with "Leo app browser: "; no rename
+Why: D-553; shared client-tools contract (a rename needs the leo daemon side).
+Commit: fd099dc78
+Veto: [ ]
+
+## D-555 · 2026-10-26 · Mac only, code in shared LeoKit
+Context: B-307 (runner call).
+Chose: Mac only, code in shared LeoKit
+Why: D-551; Mac + iOS parity rule.
+Commit: fd099dc78
+Veto: [ ]
+
+## D-556 · 2026-10-26 · Regenerated the leoterm-only golden Fixtures/agent-browser/browser-tools.json; shared client-tools wire fixtures untouched
+Context: B-307 (runner call).
+Chose: Regenerated the leoterm-only golden Fixtures/agent-browser/browser-tools.json; shared client-tools wire fixtures untouched
+Why: AUTONOMY: test infrastructure.
+Commit: fd099dc78
+Veto: [ ]
