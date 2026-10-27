@@ -22,6 +22,9 @@ struct LeoAgentAppearancePopover: View {
 
 private struct LeoAgentAppearanceEditor: View {
     static let width: CGFloat = 320
+    /// The popover's padding on all four sides; the sections share the
+    /// `width - 2 × inset` column inside it.
+    static let inset: CGFloat = 14
     static let gridColumns = Array(repeating: GridItem(.flexible(minimum: 24), spacing: 2), count: 8)
 
     let row: LeoAgentRow
@@ -59,8 +62,11 @@ private struct LeoAgentAppearanceEditor: View {
             .buttonStyle(.link)
             .font(.callout)
         }
-        .padding(14)
-        .frame(width: Self.width)
+        // Fix the column, then pad it: a row wider than the column can no
+        // longer widen the content past the popover and shift every
+        // section off its inset.
+        .frame(width: Self.width - 2 * Self.inset)
+        .padding(Self.inset)
         .task { await model.load() }
         .onChange(of: row.appearance) { model.receive($0) }
     }
@@ -167,10 +173,14 @@ private struct LeoAgentAppearanceEditor: View {
                 }
             }
             .foregroundStyle(.secondary)
-            // None plus ten swatches fit the popover: 11 × 21 + 10 × 5.
-            HStack(spacing: 5) {
+            // None plus ten swatches are 11 × 24 wide, so they fit the
+            // 292 pt column with the slack spread between them.
+            HStack(spacing: 0) {
                 swatch(nil)
-                ForEach(LeoAppearanceColor.allCases, id: \.self) { swatch($0) }
+                ForEach(LeoAppearanceColor.allCases, id: \.self) { color in
+                    Spacer(minLength: 2)
+                    swatch(color)
+                }
             }
         }
     }
@@ -184,8 +194,8 @@ private struct LeoAgentAppearanceEditor: View {
                     Image(systemName: "line.diagonal").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 18, height: 18)
-            .padding(1.5)
+            .frame(width: 20, height: 20)
+            .padding(2)
             .overlay(Circle().strokeBorder(isCurrent ? Color.primary : .clear, lineWidth: 1.5))
             .contentShape(Circle())
         }
