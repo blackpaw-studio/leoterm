@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-27T01:43:03Z
 Budget: 20 items, until 2026-10-27T13:43:03Z
-Digested-through: 6
+Digested-through: 11
 Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-304 → B-312 idea — Add an iOS simulator + fixture-daemon recipe to verify.md
 Self-filed: B-304 → B-313 idea — Update iOS Machines meters in place instead of rebuilding the row's meter line
@@ -173,6 +173,18 @@ Lane: B-161
   Call: Mac only: the retitle pixel probe is an AppKit test with no iOS counterpart — Mac + iOS parity rule.
   Call: settledDrawingEnd returns the title's drawn end only once two consecutive turns agree; before and after both use it — AUTONOMY: test infrastructure, flake fixes.
   Call: The after measurement must settle on an end != the old one, dropping the dependency on "vim notes.md" drawing wider than "Terminal" — AUTONOMY: test infrastructure; removes a font/fixture dependency.
+
+Lane: B-162
+  Branch: autopilot-lane/B-162
+  Base: c86c925abe54eb26b07392c05c93669d65135632
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T06:40:04Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
