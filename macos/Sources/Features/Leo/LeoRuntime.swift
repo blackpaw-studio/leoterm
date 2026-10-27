@@ -34,7 +34,7 @@ import LeoKit
     /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
     private(set) lazy var settingsWindow = LeoSettingsWindowController(
         registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
-        agentBrowser: agentBrowsers.setting
+        agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] }
     )
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
