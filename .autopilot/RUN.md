@@ -287,6 +287,18 @@ Lane: B-170
   Reviewed-tip: ebcb01307c450646e67485a91b1761570eacf014
   Tokens: 4.65M in (4.42M cache read), ≥15.8k out, 58 requests
   Dispatched: 2026-10-27T10:50:25Z
+
+Lane: B-171
+  Branch: autopilot-lane/B-171
+  Base: 3d4d5f9c85e8c727576267134a695a44bc1f7c2c
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T11:30:34Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
