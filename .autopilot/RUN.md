@@ -163,11 +163,12 @@ Lane: B-161
   Branch: autopilot-lane/B-161
   Base: cb278b1237a566182479a33e0901953fa0c12b50
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: cf0811912b911d9fa88c25afe5c83656ea66b3ec
+  Tokens: 3.67M in (3.45M cache read), ≥18.8k out, 49 requests
   Dispatched: 2026-10-27T06:27:21Z
   Call: Mac only: the retitle pixel probe is an AppKit test with no iOS counterpart — Mac + iOS parity rule.
   Call: settledDrawingEnd returns the title's drawn end only once two consecutive turns agree; before and after both use it — AUTONOMY: test infrastructure, flake fixes.
@@ -182,6 +183,7 @@ Finished 7: B-311 blocked
 Finished 8: B-158 landed 41fbcdc17f1c8f58cfd2cb4ef334d041283ded70 · not visually verified
 Finished 9: B-159 landed bb8256e4b1afe7414ac134c927a9573650e882af · not visually verified
 Finished 10: B-160 landed b4d57be051f3861b77302513cae0ceafef653134 · not visually verified
+Finished 11: B-161 landed 39aa42ae7db920b969e927bbb99a0f11a53f1d32 · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.

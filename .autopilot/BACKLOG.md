@@ -1041,11 +1041,13 @@ Source: autopilot polish (B-102)
 Done: f67a60cbd
 Verified: not visually verified — test-only change; full suite 3779 pass, swiftlint clean (new assertion not seen failing)
 
-## B-161 · Retitle signal: wait for a stable measurement   [ready]
+## B-161 · Retitle signal: wait for a stable measurement   [done]
 Issue: #165
 Why: the pixel-width retitle signal could pass on a half-laid-out first render; measure until two consecutive turns agree or require titleEnd past icon+gap; it also depends on "vim notes.md" drawing wider than "Terminal" (fragile if fonts or the fixture change)
 Accept: the pixel-width retitle signal could pass on a half-laid-out first render; measure until two consecutive turns agree or require titleEnd past icon+gap; it also depends on "vim notes.md" drawing wider than "Terminal" (fragile if fonts or the fixture change)
 Source: autopilot polish (B-103)
+Done: 60baa7fe7
+Verified: not visually verified — test-only change; full suite 3779 pass, swiftlint clean
 
 ## B-162 · turns(limit:until:) stops when the condition holds and gets a clearer name   [ready]
 Issue: #166

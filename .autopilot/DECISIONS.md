@@ -4042,3 +4042,24 @@ Chose: Mac only; the change stays in the same menu-shortcut test file
 Why: D-562/D-563/D-564; Mac + iOS parity rule.
 Commit: f67a60cbd
 Veto: [ ]
+
+## D-566 · 2026-10-27 · Mac only: the retitle pixel probe is an AppKit test with no iOS counterpart
+Context: B-161 (runner call).
+Chose: Mac only: the retitle pixel probe is an AppKit test with no iOS counterpart
+Why: Mac + iOS parity rule.
+Commit: 60baa7fe7
+Veto: [ ]
+
+## D-567 · 2026-10-27 · settledDrawingEnd returns the title's drawn end only once two consecutive turns agree; before and after both use it
+Context: B-161 (runner call).
+Chose: settledDrawingEnd returns the title's drawn end only once two consecutive turns agree; before and after both use it
+Why: AUTONOMY: test infrastructure, flake fixes.
+Commit: 60baa7fe7
+Veto: [ ]
+
+## D-568 · 2026-10-27 · The after measurement must settle on an end != the old one, dropping the dependency on "vim notes.md" drawing wider than "Terminal"
+Context: B-161 (runner call).
+Chose: The after measurement must settle on an end != the old one, dropping the dependency on "vim notes.md" drawing wider than "Terminal"
+Why: AUTONOMY: test infrastructure; removes a font/fixture dependency.
+Commit: 60baa7fe7
+Veto: [ ]
