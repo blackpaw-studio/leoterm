@@ -81,6 +81,12 @@ public enum LeoAppearanceWire {
         return appearance(in: nested)
     }
 
+    /// A bare appearance object (a debug fixture's), read the same way.
+    public static func appearance(from decoder: any Decoder) -> LeoAgentAppearance? {
+        guard let container = try? decoder.container(keyedBy: LeoEnvironmentsWire.Key.self) else { return nil }
+        return appearance(in: container)
+    }
+
     /// An `agent_appearance_changed` payload. Nil when it is malformed (no
     /// agent, or an appearance that is neither an object nor null), so the
     /// caller keeps only its sequence and never clears on a bad event.
