@@ -50,6 +50,29 @@ struct LeoAgentAppearanceModelTests {
         #expect(model.appearance == nil)
     }
 
+    @Test func noneSelectsTheAgentsOwnPickAndNamesTheRuleColor() async {
+        let client = await fake(manual: LeoAppearanceManual(emoji: nil, color: .purple))
+        let model = model(client, appearance: LeoAgentAppearance(emoji: "🎩", color: .purple, emojiSource: .rule(1), colorSource: .manual))
+        await model.load()
+        #expect(model.colorPick == .purple)
+        #expect(model.noneColorLabel == "None, use the rules")
+
+        // None clears the hand-set color; the homelab rule's teal shows.
+        await model.pickColor(nil)
+        #expect(await client.calls.last == .setAgentAppearance(name: "olympus", emoji: .unchanged, color: .cleared))
+        #expect(model.appearance?.color == .teal)
+        #expect(model.colorPick == nil, "None is selected: nothing is set on this agent")
+        #expect(model.noneColorLabel == "None, Teal from rule 1")
+    }
+
+    @Test func noneIsPlainWhenNoRuleGivesAColor() async {
+        let client = await fake(rules: [])
+        let model = model(client, appearance: nil)
+        await model.load()
+        #expect(model.colorPick == nil)
+        #expect(model.noneColorLabel == "None")
+    }
+
     @Test func clearEmojiSendsNull() async {
         let client = await fake(rules: [], manual: LeoAppearanceManual(emoji: "🏛️", color: nil))
         let model = model(client, appearance: LeoAgentAppearance(emoji: "🏛️", color: nil, emojiSource: .manual))

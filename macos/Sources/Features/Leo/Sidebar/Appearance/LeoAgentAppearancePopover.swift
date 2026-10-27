@@ -158,8 +158,17 @@ private struct LeoAgentAppearanceEditor: View {
 
     private var colorRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Color").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            HStack(spacing: 6) {
+            HStack {
+                Text("Color").font(.caption.weight(.semibold))
+                Spacer()
+                // None picked, yet a rule's color shows: say whose.
+                if model.colorPick == nil, model.appearance?.color != nil {
+                    Text(model.noneColorLabel).font(.caption).lineLimit(1)
+                }
+            }
+            .foregroundStyle(.secondary)
+            // None plus ten swatches fit the popover: 11 × 21 + 10 × 5.
+            HStack(spacing: 5) {
                 swatch(nil)
                 ForEach(LeoAppearanceColor.allCases, id: \.self) { swatch($0) }
             }
@@ -167,7 +176,7 @@ private struct LeoAgentAppearanceEditor: View {
     }
 
     private func swatch(_ color: LeoAppearanceColor?) -> some View {
-        let isCurrent = color == model.appearance?.color
+        let isCurrent = color == model.colorPick
         return Button { Task { await model.pickColor(color) } } label: {
             ZStack {
                 Circle().fill(color?.swiftUIColor ?? Color.secondary.opacity(0.15))
@@ -175,14 +184,14 @@ private struct LeoAgentAppearanceEditor: View {
                     Image(systemName: "line.diagonal").font(.caption).foregroundStyle(.secondary)
                 }
             }
-            .frame(width: 20, height: 20)
-            .padding(2)
+            .frame(width: 18, height: 18)
+            .padding(1.5)
             .overlay(Circle().strokeBorder(isCurrent ? Color.primary : .clear, lineWidth: 1.5))
             .contentShape(Circle())
         }
         .buttonStyle(.plain)
-        .help(color?.displayName ?? "None")
-        .accessibilityLabel(color?.displayName ?? "None")
+        .help(color?.displayName ?? model.noneColorLabel)
+        .accessibilityLabel(color?.displayName ?? model.noneColorLabel)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
         .disabled(model.isSaving)
     }

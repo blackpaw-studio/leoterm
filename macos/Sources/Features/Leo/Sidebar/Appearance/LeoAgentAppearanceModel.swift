@@ -59,6 +59,24 @@ import LeoKit
         }
     }
 
+    /// The swatch for this agent's own pick: None unless its color is set
+    /// by hand, even while a rule's color shows.
+    var colorPick: LeoAppearanceColor? { appearance?.colorSource == .manual ? appearance?.color : nil }
+
+    /// None clears this agent's pick and falls back to the rules, so it
+    /// says what that gives: the rule's color when one shows, else "use the
+    /// rules" while a hand-set color hides whether a rule would.
+    var noneColorLabel: String {
+        switch appearance?.colorSource {
+        case .rule(let index):
+            return "None, \(appearance?.color?.displayName ?? "") from rule \(index + 1)"
+        case .manual where rules?.contains(where: { $0.color != nil }) ?? true:
+            return "None, use the rules"
+        case .manual, nil:
+            return "None"
+        }
+    }
+
     /// Reset only means something while a value is set by hand.
     var canReset: Bool { appearance?.emojiSource == .manual || appearance?.colorSource == .manual }
 
