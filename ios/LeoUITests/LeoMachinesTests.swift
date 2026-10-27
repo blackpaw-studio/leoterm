@@ -27,6 +27,26 @@ final class LeoMachinesTests: XCTestCase {
         attach(app, "machines-numbers")
     }
 
+    /// The back button's long-press menu pops past the Machines list while a
+    /// machine is open. Opening Machines again must show the list, and its
+    /// rows must still open a machine.
+    func testMachinesListStaysUsableAfterPoppingStraightBackToAgents() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-machinesFixture", "-statsStyle", "capsules"]
+        app.launch()
+        let row = app.cells["daemon.Dionysus"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        row.tap()
+        XCTAssertTrue(app.navigationBars["Dionysus"].waitForExistence(timeout: 5))
+        app.navigationBars["Dionysus"].buttons.element(boundBy: 0).press(forDuration: 1.2)
+        app.buttons["Agents"].firstMatch.tap()
+        app.navigationBars["Agents"].buttons["Machines"].tap()
+        XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: 5))
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.tap()
+        XCTAssertTrue(app.navigationBars["Dionysus"].waitForExistence(timeout: 5))
+    }
+
     private func attach(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

@@ -33,12 +33,15 @@ import LeoKit
     let machines: LeoMachineRegistry
     /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
     private(set) lazy var settingsWindow = LeoSettingsWindowController(
-        registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host }
+        registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
+        agentBrowser: agentBrowsers.setting
     )
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
+    /// Agents' browsers, and each machine's client tools that drive them.
+    let agentBrowsers: LeoAgentBrowserRuntime
     /// One sidebar feed per shown machine.
     let feeds: LeoMachineFeeds
     /// Whether remote machines are fed (and so shown): every one, unless a
@@ -206,6 +209,10 @@ import LeoKit
             }
         )
         self.machines = machines
+        agentBrowsers = Self.makeAgentBrowsers(
+            machines: machines, defaults: defaults, poster: notificationCenter,
+            notificationsEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false }
+        )
         let resolveExecutable = {
             let override = defaults.string(forKey: "leo.executablePath")
             return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
@@ -374,6 +381,7 @@ import LeoKit
                 weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
                 weakSelf?.feedSnapshotLanded(snapshot, for: host)
+                weakSelf?.agentBrowsers.snapshotLanded(snapshot, for: host)
                 // A hello may have added or dropped `machine_stats`.
                 weakSelf?.statsPoller.reconcile()
             }
@@ -539,7 +547,7 @@ import LeoKit
     func shutdown() {
         isShutDown = true
         cancelTerminalFileDrops()
-        machines.shutdown()
+        machines.shutdown(alsoAwaiting: [agentBrowsers.shutdown()])
         feeds.stop()
         statsPoller.stop()
     }
@@ -554,7 +562,8 @@ import LeoKit
                 #else
                 return access
                 #endif
-            }
+            },
+            agentBrowsers: agentBrowsers.browsers
         )
         // Captures `sessionID` (a value), not `session` itself -- `session`
         // owns this closure, so capturing `session` here would be a

@@ -139,6 +139,22 @@ struct AppFeatureTests {
         #expect(store.state.daemons.machine?.id == PairedDaemon.dionysus.id)
     }
 
+    /// A machine left in `daemons.machine` after the Machines screen is gone
+    /// makes the next tap on its row a no-op: the navigation sees the same
+    /// item already presented and pushes nothing.
+    @Test func leavingTheMachinesScreenClosesTheOpenMachine() async {
+        var initial = AppFeature.State()
+        initial.fleet = Fleet.State(daemons: [.dionysus])
+        initial.isShowingDaemons = true
+        initial.daemons.machine = MachineSettings.State(link: MachineLink(session: initial.fleet.sessions[0]))
+        let store = TestStore(initialState: initial) { AppFeature() }
+        store.exhaustivity = .off
+
+        await store.send(.binding(.set(\.isShowingDaemons, false)))
+
+        #expect(store.state.daemons.machine == nil)
+    }
+
     @Test func forgettingTheOpenMachineClosesItsSettings() async {
         var initial = AppFeature.State()
         initial.fleet = Fleet.State(daemons: [.dionysus])

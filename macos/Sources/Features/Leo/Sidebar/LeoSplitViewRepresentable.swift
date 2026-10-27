@@ -186,10 +186,10 @@ enum LeoSplitViewControllerFactory {
         }
         if let panes = sidePanes.panes, sidePanes.hasEditor {
             let editorItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .editor, panes: panes) {
-                LeoEditorTabsViewController(tabs: $0.tabs, headerTopInset: sidePaneHeaderTopInset)
+                LeoEditorTabsViewController(tabs: $0.tabs, rowPane: $0, headerTopInset: sidePaneHeaderTopInset)
             })
             editorItem.canCollapse = true
-            editorItem.isCollapsed = !panes.active.tabs.isOpen
+            editorItem.isCollapsed = !(panes.active.tabs.isOpen || panes.active.isAgentBrowserOpen)
             editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
             editorItem.minimumThickness = LeoEditorPaneViewController.minimumWidth
             controller.addSplitViewItem(editorItem)

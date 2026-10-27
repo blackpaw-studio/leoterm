@@ -221,7 +221,9 @@ struct LeoSidebarSplit<Terminal: View>: View {
                 model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread,
                 searchFocusRequest: session.searchFocusRequest,
                 shortcutHints: shortcutHints, buttonActions: buttonActions
-            ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
+            )
+            .environment(\.leoAgentBrowserBadges, session.agentBrowserBadges)
+            .ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
             sidePaneHeaderTopInset: LeoTitlebarInsets.sidePaneHeaderTopInset,
             panes: session.panes,

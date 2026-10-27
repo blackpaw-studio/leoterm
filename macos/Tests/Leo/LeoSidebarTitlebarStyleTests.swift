@@ -67,6 +67,32 @@ struct LeoSidebarTitlebarStyleTests {
             "\(style): the header sits \(gap) pt under the titlebar; \(fixture.diagnostics)"
         )
     }
+
+    /// The split applies the sidebar's stored width after the first layout,
+    /// and the representable reassigns the sidebar's root view on every
+    /// SwiftUI update, which drops the probe. A probe that reported at the
+    /// old width then holds a stale host forever: `settledHeader` has to
+    /// notice and re-probe, not time out (CI, B-154's batch).
+    @Test func theProbeSurvivesTheSidebarResizingAfterItReported() async throws {
+        let fixture = try await StyledWindowFixture.make(.native)
+        defer { fixture.close() }
+        let sidebar = try #require(fixture.split.sidebarItem?.viewController as? NSHostingController<AnyView>)
+        let unprobed = sidebar.rootView
+        let frames = HeaderProbe()
+        try #require(await frames.settledHeader(probing: sidebar) != nil, "the probe never reported")
+
+        // Shrink to the minimum when there is room (always under the
+        // window's cap, whatever width the shared defaults stored); else grow.
+        let before = sidebar.view.bounds.width
+        let minimum = LeoSidebarSplitMetrics.minimumWidth
+        sidebar.rootView = unprobed
+        fixture.split.applyProgrammaticWidth(before > minimum + 40 ? minimum : before + 40)
+        fixture.window.contentView?.layoutSubtreeIfNeeded()
+        try #require(sidebar.view.bounds.width != before, "the sidebar stayed \(before) pt wide; the resize never happened")
+
+        let settled = try #require(await frames.settledHeader(probing: sidebar, timeout: .seconds(3)), "\(frames)")
+        #expect(settled.maxX <= sidebar.view.bounds.width, "\(settled) in \(sidebar.view.bounds)")
+    }
 }
 
 /// A `macos-titlebar-style` value, plus the pre-Tahoe tabs window, which
@@ -225,7 +251,8 @@ private enum StyleConfig {
 /// global space.
 @MainActor
 private final class HeaderProbe: CustomStringConvertible {
-    /// Polls between re-probes while nothing has reported.
+    /// Polls between re-probes while there is no reading that matches the
+    /// hosting view's size (nothing reported, or the report went stale).
     private static let reprobeInterval = 10
 
     /// The sidebar root's frame grown by its safe-area insets: the hosting
@@ -257,15 +284,19 @@ private final class HeaderProbe: CustomStringConvertible {
     /// top-left corner, once it has held still for a few polls. Nil if that
     /// never happens, or if the measured host isn't the hosting view's size
     /// (the reference would be wrong).
+    /// Re-probes while the reading is missing or stale: the split reassigns
+    /// the sidebar's root view on every SwiftUI update, which drops the
+    /// probe, so a report from before the sidebar's width settled never
+    /// refreshes by itself.
     func settledHeader(probing sidebar: NSHostingController<AnyView>, timeout: Duration = .seconds(10)) async -> CGRect? {
         let deadline = ContinuousClock.now + timeout
         var last: CGRect?
         var stablePolls = 0
         var polls = 0
         while ContinuousClock.now < deadline {
-            if relativeHeader == nil, polls % Self.reprobeInterval == 0 { probe(sidebar) }
-            polls += 1
             let current = relativeHeader.flatMap { host?.size == sidebar.view.bounds.size ? $0 : nil }
+            if current == nil, polls % Self.reprobeInterval == 0 { probe(sidebar) }
+            polls += 1
             stablePolls = (current != nil && current == last) ? stablePolls + 1 : 0
             if stablePolls >= 3 { return current }
             last = current

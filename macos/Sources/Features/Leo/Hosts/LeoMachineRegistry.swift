@@ -225,18 +225,20 @@ import LeoKit
     }
 
     /// The quit hook: tears every tunnel down at once (and waits on any
-    /// still retiring from a Settings edit), blocking until they are all
-    /// confirmed gone, bounded by `teardownBound` in total (never per
-    /// machine). Returns false when the bound ran out first; a child still
-    /// exiting then clears its own reap record when it does exit.
+    /// still retiring from a Settings edit, and on `extra` -- the agent
+    /// browsers' port forwards), blocking until they are all confirmed gone,
+    /// bounded by `teardownBound` in total (never per machine). `extra` must
+    /// not need the main actor, which this blocks. Returns false when the
+    /// bound ran out first; a child still exiting then clears its own reap
+    /// record when it does exit.
     @discardableResult
-    func shutdown() -> Bool {
+    func shutdown(alsoAwaiting extra: [Task<Void, Never>] = []) -> Bool {
         guard !isShutDown else { return true }
         isShutDown = true
         pendingRetries.values.forEach { $0.cancel() }
         pendingRetries = [:]
         let retiring = Array(connections.values)
-        let barriers = retiring.map { $0.shutdown() } + retiredTeardowns.values
+        let barriers = retiring.map { $0.shutdown() } + retiredTeardowns.values + extra
         retiring.forEach { generations[$0.host] = nextGeneration() }
         let teardown = Task.detached(priority: .userInitiated) {
             for barrier in barriers { await barrier.value }

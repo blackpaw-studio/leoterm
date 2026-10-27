@@ -3,10 +3,12 @@ import LeoKit
 import SwiftUI
 
 /// Settings ▸ Machines: the machine list with enable toggles, the edit form
-/// with Test Connection, Revert and Save, and the Stats style control.
+/// with Test Connection, Revert and Save, the Stats style control and the
+/// Agent browser switch.
 struct LeoMachinesSettingsView: View {
     @ObservedObject var model: LeoMachinesSettingsModel
     @ObservedObject var statsStyle: LeoStatsStyleSetting
+    let agentBrowser: LeoAgentBrowserSetting
     /// Observed only so the list's status dots follow the live connections.
     @ObservedObject var registry: LeoMachineRegistry
 
@@ -19,6 +21,8 @@ struct LeoMachinesSettingsView: View {
             }
             Divider()
             LeoStatsStyleSection(setting: statsStyle)
+            Divider()
+            LeoAgentBrowserSection(setting: agentBrowser)
         }
         .frame(minWidth: 780, minHeight: 600)
     }

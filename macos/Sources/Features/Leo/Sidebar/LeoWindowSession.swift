@@ -105,6 +105,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
     /// The window's plain shells, its sidebar's Terminals section (B-057).
     let terminals = LeoWindowTerminals()
+    /// The sidebar rows' globes; nil when the app runs no agent browsers.
+    let agentBrowserBadges: LeoAgentBrowserBadges?
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).
@@ -142,15 +144,21 @@ struct LeoWindowVisibilityState: Equatable {
         window: NSWindow? = nil,
         defaults: UserDefaults = .standard,
         makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess,
+        agentBrowsers: (any LeoAgentBrowserPresence)? = nil,
         onPollabilityChanged: @escaping () -> Void = {}
     ) {
         self.id = id
         self.defaults = defaults
         let windowBox = LeoWeakWindow(window)
-        panes = LeoRowPanes(makeAccess: makeFileAccess) { document, row in
-            guard let window = windowBox.window else { return .cancel }
-            return await LeoEditorAlerts.confirmUnsavedChanges(to: document.displayName, in: row, on: window)
-        }
+        panes = LeoRowPanes(
+            makeAccess: makeFileAccess,
+            confirm: { document, row in
+                guard let window = windowBox.window else { return .cancel }
+                return await LeoEditorAlerts.confirmUnsavedChanges(to: document.displayName, in: row, on: window)
+            },
+            presence: agentBrowsers
+        )
+        agentBrowserBadges = agentBrowsers.map(LeoAgentBrowserBadges.init)
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
         // Fresh installs start with the sidebar hidden -- a persisted user
@@ -470,9 +478,12 @@ struct LeoWindowVisibilityState: Equatable {
         window: NSWindow? = nil,
         controller: TerminalController? = nil,
         defaults: UserDefaults = .standard,
-        makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess
+        makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess,
+        agentBrowsers: (any LeoAgentBrowserPresence)? = nil
     ) -> LeoWindowSession {
-        let session = LeoWindowSession(window: window, defaults: defaults, makeFileAccess: makeFileAccess) { [weak self] in self?.report() }
+        let session = LeoWindowSession(
+            window: window, defaults: defaults, makeFileAccess: makeFileAccess, agentBrowsers: agentBrowsers
+        ) { [weak self] in self?.report() }
         entries[session.id] = Entry(session, controller: controller)
         report()
         return session

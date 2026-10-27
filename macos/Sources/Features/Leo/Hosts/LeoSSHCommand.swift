@@ -5,6 +5,21 @@ enum LeoSSHCommandError: Error, Equatable, Sendable {
     case invalidConfiguration([LeoHostValidationError])
     case invalidSocketPath
     case invalidControlPath
+    case invalidPort
+}
+
+/// A loopback address a forward listens on. Both are bound so `localhost`
+/// reaches the forward whichever family the web view resolves it to; nothing
+/// but loopback is ever bound.
+enum LeoLoopbackAddress: String, Sendable, CaseIterable {
+    case ipv4 = "127.0.0.1"
+    case ipv6 = "[::1]"
+}
+
+/// What a mux client asks the ControlMaster to do with a port forward.
+enum LeoForwardOperation: String, Sendable {
+    case forward
+    case cancel
 }
 
 struct LeoSSHCommand: Sendable {
@@ -69,16 +84,68 @@ struct LeoSSHCommand: Sendable {
         return arguments
     }
 
+    /// `ssh -O forward|cancel -L <address>:<local>:localhost:<remotePort>` as
+    /// a mux client of the tunnel's master at `controlPath`: the forward
+    /// lives and dies with that one connection. One call per loopback
+    /// `address`. The SFTP client's overrides minus
+    /// `ClearAllForwardings=yes`, which would clear the very `-L` being
+    /// requested.
+    func forwardArguments(controlPath: String, local: Int, remotePort: Int, op: LeoForwardOperation, address: LeoLoopbackAddress) throws -> [String] {
+        let spec = try forwardSpec(local: local, remotePort: remotePort, address: address)
+        var arguments = try muxClientArguments(controlPath: controlPath, clearsForwardings: false, isSession: false)
+        arguments += ["-O", op.rawValue, "-L", spec, target]
+        return arguments
+    }
+
+    /// Fallback when there is no ControlMaster to multiplex over (a nil
+    /// `multiplexingControlPath`): one `ssh -N -L` process per forward,
+    /// carrying the tunnel's flags without a master of its own, listening on
+    /// each of `addresses`.
+    func forwardProcessArguments(local: Int, remotePort: Int, addresses: [LeoLoopbackAddress]) throws -> [String] {
+        try validateConfiguration()
+        let specs = try addresses.map { try forwardSpec(local: local, remotePort: remotePort, address: $0) }
+        var arguments = [
+            "-n", "-N",
+            "-o", "BatchMode=yes",
+            "-o", "StrictHostKeyChecking=yes",
+            "-o", "ExitOnForwardFailure=yes",
+            "-o", "ServerAliveInterval=15",
+            "-o", "ServerAliveCountMax=3",
+            "-o", "ControlMaster=no", "-o", "ControlPath=none"
+        ]
+        appendIdentityAndPort(to: &arguments)
+        arguments += specs.flatMap { ["-L", $0] }
+        arguments.append(target)
+        return arguments
+    }
+
+    private func forwardSpec(local: Int, remotePort: Int, address: LeoLoopbackAddress) throws -> String {
+        guard Self.validForwardPorts.contains(local), Self.validForwardPorts.contains(remotePort) else {
+            throw LeoSSHCommandError.invalidPort
+        }
+        return "\(address.rawValue):\(local):localhost:\(remotePort)"
+    }
+
+    private static let validForwardPorts = 1...65_535
+
     private func sftpClientArguments(controlPath: String) throws -> [String] {
+        try muxClientArguments(controlPath: controlPath, clearsForwardings: true, isSession: true)
+    }
+
+    /// `isSession`: an SFTP session needs `-T` (a pty would corrupt the binary
+    /// protocol); a control request has no session to configure.
+    private func muxClientArguments(controlPath: String, clearsForwardings: Bool, isSession: Bool) throws -> [String] {
         try validateConfiguration()
         try validateControlPath(controlPath)
-        var arguments = [
-            "-T",
+        var arguments = isSession ? ["-T"] : []
+        arguments += [
             "-o", "BatchMode=yes",
             "-o", "ControlMaster=no",
             "-o", "ControlPath=\(controlPath)",
-            "-o", "ProxyCommand=/usr/bin/false",
-            "-o", "ClearAllForwardings=yes",
+            "-o", "ProxyCommand=/usr/bin/false"
+        ]
+        if clearsForwardings { arguments += ["-o", "ClearAllForwardings=yes"] }
+        arguments += [
             "-o", "RemoteCommand=none",
             "-o", "ForwardAgent=no",
             "-o", "ForwardX11=no",

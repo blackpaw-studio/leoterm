@@ -255,6 +255,7 @@ import Testing
         defer { runtime.shutdown() }
         start(runtime)
         try await until { @MainActor in rows(runtime, "a") == ["a-agent"] }
+        await runtime.chatRelay.settled()
 
         await runtime.chat.show(Self.aAgent)
 
@@ -290,6 +291,10 @@ import Testing
         defer { runtime.shutdown() }
         start(runtime)
         try await until { @MainActor in rows(runtime, "a") == ["a-agent"] && runtime.unread.count(for: Self.bAgent) == 7 }
+        // Each machine's connect-time resync reloads the shown thread: let
+        // them all go by first, or a's lands after `show` and its extra page
+        // request (the fake has no second page) replaces the thread with [].
+        await runtime.chatRelay.settled()
         await runtime.chat.show(Self.aAgent)
         #expect(runtime.chat.timeline.messages.map(\.id) == ["m1"])
         let bThreadRequests = await b.threadRequestCount
