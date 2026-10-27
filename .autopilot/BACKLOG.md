@@ -2221,3 +2221,11 @@ Source: autopilot polish (B-304)
 ## B-313 · Update iOS Machines meters in place instead of rebuilding the row's meter line   [idea]
 Note: less churn on each stats refresh on a busy host
 Source: autopilot polish (B-304)
+
+## B-314 · Full Leo-browser explanation on browser_tabs and browser_snapshot too   [idea]
+Note: an agent whose first call is one of those sees the shared/cookies/remote-localhost context (Everything through Leo)
+Source: autopilot polish (B-307)
+
+## B-315 · Consider renaming Leo browser tools to leo_browser_*   [idea]
+Note: removes any remaining Playwright ambiguity; changes the client-tools wire contract and needs the leo daemon side — revisit only if confusion persists
+Source: autopilot polish (B-307)

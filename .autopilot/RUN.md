@@ -2,9 +2,11 @@ Status: running
 Started: 2026-10-27T01:43:03Z
 Budget: 20 items, until 2026-10-27T13:43:03Z
 Digested-through: 0
-Filed: 0/3 bugs, 2/5 ideas
+Filed: 0/3 bugs, 4/5 ideas
 Self-filed: B-304 → B-312 idea — Add an iOS simulator + fixture-daemon recipe to verify.md
 Self-filed: B-304 → B-313 idea — Update iOS Machines meters in place instead of rebuilding the row's meter line
+Self-filed: B-307 → B-314 idea — Full Leo-browser explanation on browser_tabs and browser_snapshot too
+Self-filed: B-307 → B-315 idea — Consider renaming Leo browser tools to leo_browser_*
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -62,12 +64,15 @@ Lane: B-307
   Branch: autopilot-lane/B-307
   Base: e93b628b691a25c439a9b1dcd716bcc03b309c81
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3555d87e77594f4f08a2beaa2beac667fa5e3e94
   Dispatched: 2026-10-27T03:45:17Z
+  Call: Description-only fix; tool names, schemas and wire shapes unchanged — D-553, shared client-tools contract
+  Call: Mac only, code in shared LeoKit — D-551
+  Call: Regenerated leoterm-only golden Fixtures/agent-browser/browser-tools.json; shared client-tools wire fixtures untouched — agent decides test infrastructure
 
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
