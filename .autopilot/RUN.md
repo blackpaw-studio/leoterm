@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-27T01:43:03Z
 Budget: 20 items, until 2026-10-27T13:43:03Z
-Digested-through: 11
+Digested-through: 16
 Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-304 → B-312 idea — Add an iOS simulator + fixture-daemon recipe to verify.md
 Self-filed: B-304 → B-313 idea — Update iOS Machines meters in place instead of rebuilding the row's meter line
