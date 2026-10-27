@@ -235,6 +235,7 @@ actor TurnActivity {
     private let continuation: AsyncStream<LeoObserveEvent>.Continuation
     private var usage: LeoAgentUsage?
     private var environments: LeoAgentEnvironments?
+    private var appearance: LeoAgentAppearance?
     private(set) var fetchCount = 0
 
     init(usage: LeoAgentUsage?) {
@@ -246,12 +247,13 @@ actor TurnActivity {
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
     func setUsage(_ usage: LeoAgentUsage?) { self.usage = usage }
     func setEnvironments(_ environments: LeoAgentEnvironments?) { self.environments = environments }
+    func setAppearance(_ appearance: LeoAgentAppearance?) { self.appearance = appearance }
 
     func fetchState() -> LeoObservedState {
         fetchCount += 1
         return LeoObservedState(agents: [
             LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil, startedAt: "t1", usage: usage,
-                             environments: environments)
+                             environments: environments, appearance: appearance)
         ])
     }
 }

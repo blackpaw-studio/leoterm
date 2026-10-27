@@ -9,10 +9,12 @@ import LeoKit
 /// landing late is dropped), only within the generation that asked, and
 /// attach to rows by `started_at` (see `LeoAgentMetadataIndex`).
 extension LeoSidebarFeed {
-    /// What the rows show: metadata and environments overlaid (attention
-    /// goes on top in `emit`).
+    /// What the rows show: metadata, environments and appearance overlaid
+    /// (attention goes on top in `emit`).
     var displayedSnapshot: LeoSidebarSnapshot {
-        snapshot.overlayingMetadata(metadata).overlayingEnvironments(environments, features: daemonFeatures)
+        snapshot.overlayingMetadata(metadata)
+            .overlayingEnvironments(environments, features: daemonFeatures)
+            .overlayingAppearance(appearance, features: daemonFeatures)
     }
 
     /// Asks for a fresh snapshot. A no-op while recovering or while a
@@ -42,6 +44,7 @@ extension LeoSidebarFeed {
         metadataAppliedSeq = request
         metadata = LeoAgentMetadataIndex(state: state, previous: metadata)
         environments = LeoAgentEnvironmentsIndex(state: state)
+        appearance = LeoAgentAppearanceIndex(state: state)
         return true
     }
 
@@ -56,6 +59,7 @@ extension LeoSidebarFeed {
         metadataAppliedSeq = metadataRequestSeq
         metadata = .empty
         environments = .empty
+        appearance = .empty
     }
 
     private func startMetadataFetch() {
