@@ -189,6 +189,21 @@ struct LeoBrowserExecutorTests {
         #expect(errorCode(await run(empty, "browser_snapshot")) == "no_such_tab")
     }
 
+    @Test func navigateWithNoTabsOpensOneAtTheMappedURL() async {
+        let h = harness(pageCount: 0)
+        let outcome = await run(h, "browser_navigate", ["url": .string("http://localhost:5173/app")])
+        #expect(h.tabs.opened == ["http://localhost:49152/app"])
+        #expect(h.tabs.tabs.count == 1)
+        #expect(json(outcome)["url"] != nil)
+    }
+
+    @Test func navigateWithNoTabsStillValidatesTheURLAndHonorsAnExplicitTab() async {
+        let h = harness(pageCount: 0)
+        #expect(errorCode(await run(h, "browser_navigate", ["url": .string("file:///etc/passwd")])) == "scheme_not_allowed")
+        #expect(errorCode(await run(h, "browser_navigate", ["url": .string("http://localhost:5173/"), "tab": .int(7)])) == "no_such_tab")
+        #expect(h.tabs.opened.isEmpty)
+    }
+
     @Test func tabsListsIdUrlTitleAndActiveInRemoteTerms() async {
         let h = harness(pageCount: 2)
         h.tabs.pages[2]!.currentURL = URL(string: "http://localhost:49152/two")

@@ -67,10 +67,20 @@ public final class LeoBrowserExecutor {
             try await sleep(.milliseconds(milliseconds))
         case .handoff:
             throw LeoBrowserError.invalidArgs("browser_handoff cannot be queued")
+        case .navigate(let url) where command.tab == nil && tabs.tabs.isEmpty:
+            return try await navigateInNewTab(url: url)
         default:
             return try await perform(command.action, on: try page(command.tab))
         }
         return [Self.ok]
+    }
+
+    /// `browser_navigate` with no tab open: open one at the URL instead of
+    /// making the agent call `browser_tab_new` first.
+    private func navigateInNewTab(url: String) async throws -> [LeoClientToolContent] {
+        let opened = try await openTab(url: url)
+        guard let page = tabs.page(forTab: nil) else { return opened }
+        return [report(page)]
     }
 
     private func perform(_ action: LeoBrowserAction, on page: any LeoBrowserPage) async throws -> [LeoClientToolContent] {
