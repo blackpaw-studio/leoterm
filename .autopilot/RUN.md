@@ -163,13 +163,15 @@ Lane: B-161
   Branch: autopilot-lane/B-161
   Base: cb278b1237a566182479a33e0901953fa0c12b50
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: cf0811912b911d9fa88c25afe5c83656ea66b3ec
   Dispatched: 2026-10-27T06:27:21Z
-
+  Call: Mac only: the retitle pixel probe is an AppKit test with no iOS counterpart — Mac + iOS parity rule.
+  Call: settledDrawingEnd returns the title's drawn end only once two consecutive turns agree; before and after both use it — AUTONOMY: test infrastructure, flake fixes.
+  Call: The after measurement must settle on an end != the old one, dropping the dependency on "vim notes.md" drawing wider than "Terminal" — AUTONOMY: test infrastructure; removes a font/fixture dependency.
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
