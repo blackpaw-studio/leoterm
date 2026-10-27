@@ -10,8 +10,16 @@ public enum LeoBrowserTools {
     /// on the user (0 = no timeout).
     public static let defaultTimeoutSeconds = 30
 
+    /// Leads every description so these tools are never mistaken for another
+    /// browser tool set (e.g. Playwright MCP's `browser_*`) in the same agent.
+    static let descriptionPrefix = "Leo app browser: "
+
+    /// What the entry-point tools (the ones an agent calls first) add: whose
+    /// browser this is and what that means.
+    private static let about = " This drives the browser pane in the user's Leo app, not a headless or Playwright browser: the user can watch it live and take over. Each agent has its own tabs and persistent cookies and logins. On a remote machine, localhost URLs reach that machine's own ports through a forward Leo sets up."
+
     public static let definitions: [LeoClientToolDefinition] = [
-        tool("browser_navigate", "Load a URL in the browser and wait for the page to finish loading. Only http, https and about:blank are allowed.",
+        tool("browser_navigate", "Load a URL in the browser and wait for the page to finish loading. Only http, https and about:blank are allowed." + about,
              ["url": string("The URL to load, including http:// or https://.")], required: ["url"]),
         tool("browser_back", "Go back one entry in the tab's history.", [:]),
         tool("browser_forward", "Go forward one entry in the tab's history.", [:]),
@@ -33,7 +41,7 @@ public enum LeoBrowserTools {
         tool("browser_console", "Return console messages (log, warn, error, unhandled rejections) captured in the tab since the last call.",
              ["since": integer("Message cursor from an earlier call; omit to continue from the last call.")]),
         tool("browser_tabs", "List the browser's tabs as {id, url, title, active}.", [:], pageTool: false),
-        tool("browser_tab_new", "Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs.",
+        tool("browser_tab_new", "Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs." + about,
              ["url": string("URL to load in the new tab.")], pageTool: false),
         tool("browser_tab_select", "Make a tab the active tab.", ["tab": integer("Tab id from browser_tabs.")], required: ["tab"], pageTool: false),
         tool("browser_tab_close", "Close a tab.", ["tab": integer("Tab id from browser_tabs.")], required: ["tab"], pageTool: false),
@@ -51,7 +59,7 @@ public enum LeoBrowserTools {
         if pageTool { properties["tab"] = tabProperty }
         var schema: [String: LeoJSONValue] = ["type": .string("object"), "properties": .object(properties)]
         if !required.isEmpty { schema["required"] = .array(required.map(LeoJSONValue.string)) }
-        return LeoClientToolDefinition(name: name, description: description, inputSchema: .object(schema), timeoutSeconds: timeoutSeconds)
+        return LeoClientToolDefinition(name: name, description: descriptionPrefix + description, inputSchema: .object(schema), timeoutSeconds: timeoutSeconds)
     }
 
     private static func string(_ description: String) -> LeoJSONValue { property("string", description) }

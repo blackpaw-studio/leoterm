@@ -1,6 +1,6 @@
 [
   {
-    "description" : "Load a URL in the browser and wait for the page to finish loading. Only http, https and about:blank are allowed.",
+    "description" : "Leo app browser: Load a URL in the browser and wait for the page to finish loading. Only http, https and about:blank are allowed. This drives the browser pane in the user's Leo app, not a headless or Playwright browser: the user can watch it live and take over. Each agent has its own tabs and persistent cookies and logins. On a remote machine, localhost URLs reach that machine's own ports through a forward Leo sets up.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -21,7 +21,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Go back one entry in the tab's history.",
+    "description" : "Leo app browser: Go back one entry in the tab's history.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -35,7 +35,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Go forward one entry in the tab's history.",
+    "description" : "Leo app browser: Go forward one entry in the tab's history.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -49,7 +49,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Reload the tab.",
+    "description" : "Leo app browser: Reload the tab.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -63,7 +63,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Read the page as a text tree of roles, names and values with a ref (e.g. e12) on each visible interactive element. Refs stay valid until the next snapshot or navigation in that tab.",
+    "description" : "Leo app browser: Read the page as a text tree of roles, names and values with a ref (e.g. e12) on each visible interactive element. Refs stay valid until the next snapshot or navigation in that tab.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -77,7 +77,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Click an element by ref from the latest snapshot.",
+    "description" : "Leo app browser: Click an element by ref from the latest snapshot.",
     "input_schema" : {
       "properties" : {
         "ref" : {
@@ -98,7 +98,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Type text into an element by ref from the latest snapshot.",
+    "description" : "Leo app browser: Type text into an element by ref from the latest snapshot.",
     "input_schema" : {
       "properties" : {
         "ref" : {
@@ -128,7 +128,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Press a key or chord, such as Enter, Escape, Tab, ArrowDown or Meta+a.",
+    "description" : "Leo app browser: Press a key or chord, such as Enter, Escape, Tab, ArrowDown or Meta+a.",
     "input_schema" : {
       "properties" : {
         "key" : {
@@ -149,7 +149,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Take a PNG screenshot of the tab, at most 1600 px wide.",
+    "description" : "Leo app browser: Take a PNG screenshot of the tab, at most 1600 px wide.",
     "input_schema" : {
       "properties" : {
         "full_page" : {
@@ -167,7 +167,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Wait until text appears on the page, or for a fixed time. Pass exactly one of text or ms.",
+    "description" : "Leo app browser: Wait until text appears on the page, or for a fixed time. Pass exactly one of text or ms.",
     "input_schema" : {
       "properties" : {
         "ms" : {
@@ -189,7 +189,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Evaluate JavaScript in the page and return the JSON-serialised result.",
+    "description" : "Leo app browser: Evaluate JavaScript in the page and return the JSON-serialised result.",
     "input_schema" : {
       "properties" : {
         "js" : {
@@ -210,7 +210,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Return console messages (log, warn, error, unhandled rejections) captured in the tab since the last call.",
+    "description" : "Leo app browser: Return console messages (log, warn, error, unhandled rejections) captured in the tab since the last call.",
     "input_schema" : {
       "properties" : {
         "since" : {
@@ -228,7 +228,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "List the browser's tabs as {id, url, title, active}.",
+    "description" : "Leo app browser: List the browser's tabs as {id, url, title, active}.",
     "input_schema" : {
       "properties" : {
 
@@ -239,7 +239,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs.",
+    "description" : "Leo app browser: Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs. This drives the browser pane in the user's Leo app, not a headless or Playwright browser: the user can watch it live and take over. Each agent has its own tabs and persistent cookies and logins. On a remote machine, localhost URLs reach that machine's own ports through a forward Leo sets up.",
     "input_schema" : {
       "properties" : {
         "url" : {
@@ -253,7 +253,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Make a tab the active tab.",
+    "description" : "Leo app browser: Make a tab the active tab.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -270,7 +270,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Close a tab.",
+    "description" : "Leo app browser: Close a tab.",
     "input_schema" : {
       "properties" : {
         "tab" : {
@@ -287,7 +287,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Ask the user to take over the browser (to log in, solve a captcha). Blocks until they press Done or Decline; returns done or declined.",
+    "description" : "Leo app browser: Ask the user to take over the browser (to log in, solve a captcha). Blocks until they press Done or Decline; returns done or declined.",
     "input_schema" : {
       "properties" : {
         "message" : {
