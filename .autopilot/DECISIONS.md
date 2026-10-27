@@ -4035,3 +4035,10 @@ Chose: Case table, private ShortcutCase struct and xibDocument helper stay in th
 Why: AUTONOMY: test infrastructure; matches surrounding code.
 Commit: f1ba7ff2d
 Veto: [ ]
+
+## D-565 · 2026-10-27 · Mac only; the change stays in the same menu-shortcut test file
+Context: B-160 (runner call).
+Chose: Mac only; the change stays in the same menu-shortcut test file
+Why: D-562/D-563/D-564; Mac + iOS parity rule.
+Commit: f67a60cbd
+Veto: [ ]

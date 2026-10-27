@@ -1033,11 +1033,13 @@ Source: autopilot polish (B-102)
 Done: f1ba7ff2d
 Verified: not visually verified — test-only change; liveShortcutsDecodeLikeTheXib + full suite 3779 pass, swiftlint clean
 
-## B-160 · Live ⌘O check can pass vacuously   [ready]
+## B-160 · Live ⌘O check can pass vacuously   [done]
 Issue: #164
 Why: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
 Accept: chooseAgentIsCommandO's live check passes if the live walk returns nothing; assert the walk finds Choose Agent… on "⌘o"
 Source: autopilot polish (B-102)
+Done: f67a60cbd
+Verified: not visually verified — test-only change; full suite 3779 pass, swiftlint clean (new assertion not seen failing)
 
 ## B-161 · Retitle signal: wait for a stable measurement   [ready]
 Issue: #165
