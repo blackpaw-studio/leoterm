@@ -41,7 +41,7 @@ public enum LeoConfigAPI {
 /// and `/api/v1`. Every write names the revision it was based on; a stale one
 /// throws `LeoConfigError.conflict`. `resource` is a schema resource key and
 /// `name` an item of a collection resource.
-public protocol LeoConfigClient: LeoTaskAPI, LeoDelegationAPI, LeoServiceAPI {
+public protocol LeoConfigClient: LeoTaskAPI, LeoDelegationAPI, LeoServiceAPI, LeoAppearanceAPI {
     func versionInfo() async throws -> LeoDaemonVersionInfo
     func schema() async throws -> LeoConfigSchema
     /// A singleton resource (`defaults`, `web`, `client`).
