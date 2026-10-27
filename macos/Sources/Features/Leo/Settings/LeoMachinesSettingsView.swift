@@ -78,16 +78,22 @@ struct LeoMachinesSettingsView: View {
 
     @ViewBuilder private var detail: some View {
         if let host = model.selectedHost {
-            VStack(alignment: .leading, spacing: 16) {
-                form(for: host)
-                LeoConnectionTestSection(
-                    isTesting: model.isTesting, report: model.testReport,
-                    canTest: model.errors(for: host).isEmpty, test: { Task { await model.testSelected() } }
-                )
-                Spacer(minLength: 0)
-                footer
+            // The form and the Test Connection box scroll when the pane is short
+            // (a finished test adds rows); squeezing them clipped the form. The
+            // footer stays pinned below.
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        form(for: host)
+                        LeoConnectionTestSection(
+                            isTesting: model.isTesting, report: model.testReport,
+                            canTest: model.errors(for: host).isEmpty, test: { Task { await model.testSelected() } }
+                        )
+                    }
+                    .padding(20)
+                }
+                footer.padding(20)
             }
-            .padding(20)
         } else {
             VStack {
                 Spacer()
