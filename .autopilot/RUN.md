@@ -235,13 +235,16 @@ Lane: B-166
   Branch: autopilot-lane/B-166
   Base: 368cacc471487f2a5094cdc917028d19ad860bdc
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8ba251969b37cad5e1aabc29bdffcc49dcfae3e1
   Dispatched: 2026-10-27T08:44:24Z
-
+  Call: Arm LEO_FORCE_DISCONNECTED inside the feed, keyed on registry generations (>0), instead of delaying the local feed's early start — AUTONOMY: bug fixes; production launch behaviour unchanged.
+  Call: Mac-only fix, no iOS fixture — Mac + iOS parity rule: iOS and LeoKit never read the variable.
+  Call: On the forced path the list handler returns right after emit(), skipping state fetch, metadata refresh and onManualRefresh (DEBUG only) — AUTONOMY: test infrastructure; fixture stays out of release builds.
+  Call: No test for arming while the feed is already connected — Production always arms before start.
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
