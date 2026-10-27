@@ -61,8 +61,12 @@ public struct MachineSettings {
         case unavailable(ConnectionStatus)
     }
 
+    /// Deliberately not `Identifiable`: the Machines list binds its destination
+    /// once, while no machine is open. A pop is turned into a dismissal only when
+    /// the open state's identity equals the one the binding captured, so an
+    /// `Identifiable` state is never dismissed and the next tap does nothing.
     @ObservableState
-    public struct State: Equatable, Identifiable {
+    public struct State: Equatable {
         public var link: MachineLink
         /// Restarting the daemon, its agents, and reloading its config: here
         /// rather than in a pane, so a restart outlives the screen that asked.
