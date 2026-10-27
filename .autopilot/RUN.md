@@ -194,13 +194,13 @@ Lane: B-163
   Branch: autopilot-lane/B-163
   Base: ab1af110c7e5bed576b25c60830eb6a156faf283
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 66832d3e9fd46bdc32c3fb092198eb9c2e1483f3
   Dispatched: 2026-10-27T06:51:38Z
-
+  Call: Mac only: test comments only — D-566/D-569; Mac + iOS parity rule.
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
