@@ -550,3 +550,33 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-27 (started 2026-10-27T01:43:03Z, finished 2026-10-27T12:01:11Z)
+🛠 leoterm autopilot — 5 fixed, 13 shipped, 1 blocked
+Fixed
+• B-304 iOS Machines: taps open the machine, gauges animate in place (not visually verified) · full
+• B-306 browser_navigate with no tab opens one (not visually verified) · light
+• B-307 browser_* tool descriptions name the Leo browser (not visually verified) · light
+• B-308 Machines detail form scrolls instead of clipping (not visually verified) · light
+• B-309 Rings stats spaced and unclipped; B-310 fixed by it (not visually verified) · light
+Shipped
+• B-158–B-163, B-165, B-168, B-170 test/helper tidy-ups, no user-visible change · light
+• B-164 F1–F25 config binds show on menus and hints (not visually verified) · light
+• B-166 LEO_FORCE_DISCONNECTED arms on first launch (debug only) · full
+• B-167 Terminals section can't be collapsed (macOS 13 only) · light
+• B-171 late focus report no longer reselects another agent; real bug, test-first · light
+Calls I made — reply "veto D-0xx" to undo
+• D-548–D-589 (42 calls; highlights in interim updates). New since: D-582 disable macOS 13 hover Hide; D-584 drop dead branches; D-586–589 B-171 fence on selection→nil
+Needs you
+• B-311 shelved on autopilot-shelved/B-311 — ⌃C key-window test can't run while Dionysus system prompts hold focus; filed B-317
+• Screenshots: Peekaboo.app (4.9.7) bridge down/unpermissioned; CLI 4.3.4 needs Xcode 27 CLT to upgrade
+• Lanes unlanded: B-058, B-143 (held), B-233. Untracked-left: default.profraw, scratchpad/
+• Local main is stale vs origin/main (merged origin/main into autopilot mid-run)
+• Ideas cap 5/5 hit; one polish dropped
+Self-filed: B-312–B-316 ideas, B-317 bug; dropped (from B-167) — macOS 13 duplicate fold controls — over cap
+Next up: B-172, B-173, B-174, B-175
+Spend (estimated, lower bound · prices 2026-10-09): ≈$53.83 est. — largest B-166 ≈$9.24, B-304 ≈$7.02, B-311 ≈$6.15
+Interim updates: 3 posted, through item 16
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
