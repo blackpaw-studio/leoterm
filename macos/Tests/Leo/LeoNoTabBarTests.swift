@@ -69,8 +69,13 @@ import Testing
         let xib = try LeoMenuXib.shortcuts()
         #expect(xib.contains { $0.action == "chooseLeoAgent:" && $0.shortcut == "⌘o" })
         #expect(Self.commandOIntruders(xib).map(\.title) == [], "no xib item but Choose Agent… binds ⌘O, and none binds a bare O")
+        let live = LeoMenuXib.shortcuts(in: NSApp.mainMenu)
         #expect(
-            Self.commandOIntruders(LeoMenuXib.shortcuts(in: NSApp.mainMenu)).map(\.title) == [],
+            live.contains { $0.action == "chooseLeoAgent:" && $0.title == "Choose Agent…" && $0.shortcut == "⌘o" },
+            "the live menu walk finds Choose Agent… on ⌘O (an empty walk must not pass the intruder check)"
+        )
+        #expect(
+            Self.commandOIntruders(live).map(\.title) == [],
             "no live menu item but Choose Agent… binds ⌘O, and none binds a bare O"
         )
     }
