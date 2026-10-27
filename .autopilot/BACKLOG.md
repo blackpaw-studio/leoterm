@@ -944,6 +944,7 @@ Done: b897a09a4 de1ada5f1
 Verified: not visually verified — debug window never became key so Tab couldn't be sent; 3 B-157 Tab unit tests pass (row-switch test red before fix)
 
 ## B-304 · iOS Machines screen (recording attached): Idk how I got to this state…   [ready]
+Issue: #286
 Type: bug
 Report: iOS Machines screen (recording attached): Idk how I got to this state but tapping does nothing and there's a weird animation on the stats. [Recording: tapping the Dionysus row highlights it but never opens the machine; the CPU/MEM/DSK gauges jump and the CPU gauge flips blue→red between refreshes.]
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -952,6 +953,7 @@ Inbox: 20261025T213107017865Z-399ff898#1
 Attachments: .autopilot/bugs/B-304/30ca6815-ScreenRecording_10-25-2026_17-28-47_1.mp4
 
 ## B-306 · Agent browser: browser_navigate on an agent with no open tab fails…   [ready]
+Issue: #287
 Type: bug
 Report: Agent browser: browser_navigate on an agent with no open tab fails with `no_such_tab: ... call browser_tab_new` — it should open a tab and navigate (agents recover, but it costs a round trip). Seen in the 2026-10-26 E2E (docs/plans/2026-10-26-agent-browser-evidence/). Code: LeoKit AgentBrowser/LeoBrowserExecutor. Mac only (iOS executor not built yet).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -959,6 +961,7 @@ Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234352214275Z-86d339aa#1
 
 ## B-307 · Agent browser: Leo's browser_* tools (mcp__leo__browser_*) can be…   [ready]
+Issue: #288
 Type: bug
 Report: Agent browser: Leo's browser_* tools (mcp__leo__browser_*) can be confused with Playwright MCP's mcp__playwright__browser_* tools in Claude agents that have both. Make Leo's tool descriptions say clearly that they drive the browser pane in the user's Leo app (shared and watchable, per-agent cookies, remote localhost via the forward); consider whether a rename is worth it (tool names are part of the client-tools wire contract — check fixtures). Code: LeoKit AgentBrowser/LeoBrowserTools. Seen in the 2026-10-26 E2E.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -966,6 +969,7 @@ Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234352454197Z-9f614201#1
 
 ## B-308 · when you test there's some clipping here of the elements   [ready]
+Issue: #289
 Type: bug
 Report: when you test there's some clipping here of the elements
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -974,6 +978,7 @@ Inbox: 20261026T234542094759Z-2d589a33#1
 Attachments: .autopilot/bugs/B-308/1.png
 
 ## B-309 · theres no spacing between rings stats   [ready]
+Issue: #290
 Type: bug
 Report: theres no spacing between rings stats
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -982,6 +987,7 @@ Inbox: 20261026T234616027560Z-f525ae57#1
 Attachments: .autopilot/bugs/B-309/2.png
 
 ## B-310 · rings stats also clip (same Rings stats style as "theres no spacing…   [ready]
+Issue: #291
 Type: bug
 Report: rings stats also clip (same Rings stats style as "theres no spacing between rings stats", queued just before this — likely one fix)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -990,6 +996,7 @@ Inbox: 20261026T234630732052Z-082e5202#1
 Attachments: .autopilot/bugs/B-310/3.png
 
 ## B-311 · LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess…   [ready]
+Issue: #292
 Type: bug
 Report: LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess fails deterministically in the full injected macOS suite (CI mode) since the agent-browser merge (04d50cd80) but passes alone and with every merge-added suite; disabled in 812e5a9c4 on fix/ci-after-agent-browser. Findings so far: ⌃C reaches the focused surface, LeoApplication doesn't absorb it, shell alive in the tty foreground pgrp with ISIG on, its INT trap never fires. Unchecked: inherited ignored/blocked SIGINT from an earlier suite. Merge adds no signal-handling code. Root-cause, fix, re-enable the test, and verify ⌃C in a terminal row of the real app.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
