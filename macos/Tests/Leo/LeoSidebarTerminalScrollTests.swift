@@ -253,11 +253,12 @@ struct LeoSidebarTerminalScrollTests {
         // change too, and the identity check below names it.
         let list = { tables(in: window.contentView).first }
         if change == "a retitle" {
-            let titleEnd = try #require(drawingEnd(ofRow: selectedRow, in: table), "the row draws its title")
+            let titleEnd = try #require(await settledDrawingEnd(ofRow: selectedRow) { table }, "the row draws its title")
             terminals.retitle(selected, to: "vim notes.md")
-            // The new title is longer, so the row draws further right.
-            let drawnEnd = { list().flatMap { drawingEnd(ofRow: selectedRow, in: $0) } ?? 0 }
-            try #require(await turns { drawnEnd() > titleEnd }, "the row draws its new title: it ended at \(titleEnd), now \(drawnEnd())")
+            // The new title draws to a different end than the old one, once
+            // the row has laid it out.
+            try #require(await settledDrawingEnd(ofRow: selectedRow, differingFrom: titleEnd, in: list) != nil,
+                         "the row draws its new title: it ended at \(titleEnd) and never settled elsewhere")
         } else {
             // One more agent, so the refresh shows in the list.
             model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2), for: .local)
@@ -581,6 +582,27 @@ struct LeoSidebarTerminalScrollTests {
 
     private func nextTurn() async {
         await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
+    }
+
+    /// `drawingEnd` of `row` once two consecutive turns agree on it (a
+    /// half-laid-out first render doesn't pass for the title) and it
+    /// differs from `previous`, if given; `nil` if it never does. `table`
+    /// names the list afresh each turn, as a rebuilt one shows the change too.
+    private func settledDrawingEnd(
+        ofRow row: Int,
+        differingFrom previous: CGFloat? = nil,
+        in table: () -> NSTableView?
+    ) async -> CGFloat? {
+        var last: CGFloat?
+        var settled: CGFloat?
+        _ = await turns {
+            let end = table().flatMap { drawingEnd(ofRow: row, in: $0) }
+            defer { last = end }
+            guard let end, end == last, end != previous else { return false }
+            settled = end
+            return true
+        }
+        return settled
     }
 
     /// How far right `row`'s drawing reaches, in points: for a terminal
