@@ -3937,3 +3937,24 @@ Chose: Drop `Identifiable` from `MachineSettings.State` (keeps its `id` property
 Why: AUTONOMY: bug fixes; it kept the pop→dismiss path from firing after one open and back.
 Commit: af11697d3 f95863101
 Veto: [ ]
+
+## D-551 · 2026-10-26 · Mac only (iOS executor not built); the fix is in shared LeoKit
+Context: B-306 (runner call).
+Chose: Mac only (iOS executor not built); the fix is in shared LeoKit
+Why: Mac + iOS parity rule (AGENTS.md).
+Commit: d68b95646
+Veto: [ ]
+
+## D-552 · 2026-10-26 · Only browser_navigate auto-opens a tab; snapshot and other page tools with no tab still return no_such_tab
+Context: B-306 (runner call).
+Chose: Only browser_navigate auto-opens a tab; snapshot and other page tools with no tab still return no_such_tab
+Why: AUTONOMY: bug-fix scope; matches the report.
+Commit: d68b95646
+Veto: [ ]
+
+## D-553 · 2026-10-26 · Tool names and wire shapes unchanged
+Context: B-306 (runner call).
+Chose: Tool names and wire shapes unchanged
+Why: Shared client-tools contract with the leo daemon.
+Commit: d68b95646
+Veto: [ ]

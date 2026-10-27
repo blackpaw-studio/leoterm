@@ -954,13 +954,15 @@ Attachments: .autopilot/bugs/B-304/30ca6815-ScreenRecording_10-25-2026_17-28-47_
 Done: af11697d3 f95863101
 Verified: not visually verified — verify.md has no iOS simulator/fixture-daemon recipe; iOS LeoTests 58, LeoFeatures 328, LeoKit 783 pass
 
-## B-306 · Agent browser: browser_navigate on an agent with no open tab fails…   [ready]
+## B-306 · Agent browser: browser_navigate on an agent with no open tab fails…   [done]
 Issue: #287
 Type: bug
 Report: Agent browser: browser_navigate on an agent with no open tab fails with `no_such_tab: ... call browser_tab_new` — it should open a tab and navigate (agents recover, but it costs a round trip). Seen in the 2026-10-26 E2E (docs/plans/2026-10-26-agent-browser-evidence/). Code: LeoKit AgentBrowser/LeoBrowserExecutor. Mac only (iOS executor not built yet).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261026T234352214275Z-86d339aa#1
+Done: d68b95646
+Verified: not visually verified — no UI change; LeoBrowserExecutorTests 35/35, full app suite 3776 green
 
 ## B-307 · Agent browser: Leo's browser_* tools (mcp__leo__browser_*) can be…   [ready]
 Issue: #288
