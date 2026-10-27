@@ -261,6 +261,18 @@ Lane: B-167
   Dispatched: 2026-10-27T09:25:01Z
   Call: Pin the OS-provided macOS 13 hover "Hide" on the Terminals section rather than remove a Leo-built affordance — the section has no custom disclosure or persisted collapse state; collapse is an OS default, not a Leo feature
   Call: Mac only — ios/ has no Terminals section
+
+Lane: B-168
+  Branch: autopilot-lane/B-168
+  Base: 7cb5b5672f81499235daf94f9c0af3e8279747cf
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T10:28:48Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
