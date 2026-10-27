@@ -943,7 +943,7 @@ Source: autopilot polish (B-101)
 Done: b897a09a4 de1ada5f1
 Verified: not visually verified — debug window never became key so Tab couldn't be sent; 3 B-157 Tab unit tests pass (row-switch test red before fix)
 
-## B-304 · iOS Machines screen (recording attached): Idk how I got to this state…   [ready]
+## B-304 · iOS Machines screen (recording attached): Idk how I got to this state…   [done]
 Issue: #286
 Type: bug
 Report: iOS Machines screen (recording attached): Idk how I got to this state but tapping does nothing and there's a weird animation on the stats. [Recording: tapping the Dionysus row highlights it but never opens the machine; the CPU/MEM/DSK gauges jump and the CPU gauge flips blue→red between refreshes.]
@@ -951,6 +951,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261025T213107017865Z-399ff898#1
 Attachments: .autopilot/bugs/B-304/30ca6815-ScreenRecording_10-25-2026_17-28-47_1.mp4
+Done: af11697d3 f95863101
+Verified: not visually verified — verify.md has no iOS simulator/fixture-daemon recipe; iOS LeoTests 58, LeoFeatures 328, LeoKit 783 pass
 
 ## B-306 · Agent browser: browser_navigate on an agent with no open tab fails…   [ready]
 Issue: #287

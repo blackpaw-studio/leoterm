@@ -32,12 +32,16 @@ Lane: B-304
   Branch: autopilot-lane/B-304
   Base: a7b1c1819c701c3da306e7a178a6b7959424e995
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: f95863101be4e1158c3b5966ada9caa34c596bbe
+  Tokens: 29.8M in (29.2M cache read), ≥100k out, 234 requests
   Dispatched: 2026-10-27T01:44:55Z
   Call: iOS only (the Mac list is a different view; no LeoKit change) — Mac + iOS parity rule
   Call: leave the CPU gauge blue→red flip unchanged; it reflects real data (≥0.9 is `.critical`), and smoothing or hysteresis would be a product call — never invent a state the daemon didn't report
   Call: drop `Identifiable` from `MachineSettings.State` (keeps its `id` property) — agent decides bug fixes
+
+Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
+Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.

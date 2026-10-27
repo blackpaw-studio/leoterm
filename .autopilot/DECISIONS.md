@@ -3916,3 +3916,24 @@ Chose: Plain sidebar/pane collapse and expand needs no rebuild (the views alread
 Why: AUTONOMY (reversible, no speculative code), P1, D-175.
 Commit: b897a09a4 de1ada5f1
 Veto: [ ]
+
+## D-548 · 2026-10-26 · iOS only (the Mac list is a different view; no LeoKit change)
+Context: B-304 (runner call).
+Chose: iOS only (the Mac list is a different view; no LeoKit change)
+Why: Mac + iOS parity rule (AGENTS.md).
+Commit: af11697d3 f95863101
+Veto: [ ]
+
+## D-549 · 2026-10-26 · Leave the CPU gauge blue→red flip unchanged; it reflects real data (≥0.9 is `.critical`)
+Context: B-304 (runner call).
+Chose: Leave the CPU gauge blue→red flip unchanged; it reflects real data (≥0.9 is `.critical`)
+Why: P2: never invent a state the daemon didn't report; smoothing or hysteresis would be a product call.
+Commit: af11697d3 f95863101
+Veto: [ ]
+
+## D-550 · 2026-10-26 · Drop `Identifiable` from `MachineSettings.State` (keeps its `id` property)
+Context: B-304 (runner call).
+Chose: Drop `Identifiable` from `MachineSettings.State` (keeps its `id` property)
+Why: AUTONOMY: bug fixes; it kept the pop→dismiss path from firing after one open and back.
+Commit: af11697d3 f95863101
+Veto: [ ]
