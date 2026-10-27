@@ -127,4 +127,14 @@ struct KeyboardShortcutTranslationTests {
         #expect(shortcut.key.character == Character(scalar))
         #expect(shortcut.modifiers == .command)
     }
+
+    /// The palette, key-sequence overlay and goto_tab hints print `keyList`;
+    /// an F-key must read "F1", not the private-use glyph AppKit uses.
+    @Test(arguments: [1, 12, 25])
+    func functionKeysAreSpelledInShortcutText(number: Int) throws {
+        let scalar = try #require(UnicodeScalar(NSF1FunctionKey + number - 1))
+        let shortcut = KeyboardShortcut(KeyEquivalent(Character(scalar)), modifiers: [.shift, .command])
+        #expect(shortcut.keyList == ["⇧", "⌘", "F\(number)"])
+        #expect(shortcut.description == "⇧⌘F\(number)")
+    }
 }
