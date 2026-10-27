@@ -222,13 +222,13 @@ Lane: B-165
   Branch: autopilot-lane/B-165
   Base: 36d4d57e7f9b12d7759dd1141579f3101a2d371f
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b5350e74eaaf8b1cf628155d36ff55f7d899cf0d
   Dispatched: 2026-10-27T08:16:48Z
-
+  Call: Mac only (test-only); the Quick Terminal test's chooseAgent: use and the manual addItem in aSyncWithUnchangedShortcutsDoesNotPublish are left alone as out of scope — D-576; Mac + iOS parity rule; no mid-task scope growth.
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
