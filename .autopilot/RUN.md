@@ -89,6 +89,17 @@ Lane: B-308
   Call: Mac only: Settings ▸ Machines is a macOS view; iOS Machines list is separate (D-548) — Mac + iOS parity rule
   Call: Scroll the Machines detail form instead of enlarging the minimum window — agent decides layout/UX details
 
+Lane: B-309
+  Branch: autopilot-lane/B-309
+  Base: 81e7f33c655611fd58abfca868f0ace8841d40c6
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T04:25:09Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
