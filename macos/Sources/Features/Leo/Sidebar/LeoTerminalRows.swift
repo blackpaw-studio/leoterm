@@ -37,6 +37,9 @@ struct LeoTerminalList: Equatable, Sendable {
 
     func contains(_ id: UUID) -> Bool { rows.contains { $0.id == id } }
 
+    /// The rows' surfaces, in order: what a retitle leaves alone.
+    var ids: [UUID] { rows.map(\.id) }
+
     /// `row` last; a row already listed stays as it is.
     func adding(_ row: LeoTerminalRow) -> Self {
         contains(row.id) ? self : Self(rows: rows + [row])
@@ -78,7 +81,16 @@ struct LeoTerminalList: Equatable, Sendable {
 /// window's `LeoWindowSession`; the attach host adds, retitles and removes
 /// rows as their surfaces come and go.
 @MainActor final class LeoWindowTerminals: ObservableObject {
-    @Published private(set) var list = LeoTerminalList()
+    /// The rows, oldest first. The window's rows change (`objectWillChange`)
+    /// only when a row comes, goes or carries on as another shell; a
+    /// retitle reaches `titles` alone. So what observes the rows for what
+    /// is listed and selected (the sidebar, the content area) doesn't
+    /// redraw as a terminal retitles itself, ~10 times a second for a
+    /// spinner in its title.
+    private(set) var list = LeoTerminalList()
+    /// The rows' labels, as their terminals retitle: what the Terminals
+    /// section draws.
+    let titles = LeoTerminalTitles()
     /// The terminal row this window's sidebar selects; `nil` when an agent
     /// row (or nothing) is selected there.
     @Published private(set) var selection: UUID?
@@ -168,9 +180,22 @@ struct LeoTerminalList: Equatable, Sendable {
     }
 
     /// Publishes only real changes: a title the terminal sets again
-    /// redraws nothing.
+    /// redraws nothing, and a new title only its row's label.
     private func update(_ updated: LeoTerminalList) {
         guard updated != list else { return }
+        if updated.ids != list.ids { objectWillChange.send() }
         list = updated
+        titles.show(updated.labels)
+    }
+}
+
+/// A window's Terminals rows as they read (`LeoTerminalList.labels`):
+/// what the Terminals section draws.
+@MainActor final class LeoTerminalTitles: ObservableObject {
+    @Published private(set) var labels: [LeoTerminalRowLabel] = []
+
+    fileprivate func show(_ labels: [LeoTerminalRowLabel]) {
+        guard labels != self.labels else { return }
+        self.labels = labels
     }
 }

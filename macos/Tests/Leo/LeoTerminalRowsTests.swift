@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Testing
 
@@ -189,6 +190,40 @@ import Testing
         terminals.retitle(a, to: "~/src")
 
         #expect(terminals.rows.map(\.title) == ["~/src"])
+    }
+
+    /// A terminal retitling itself (a spinner in its title, ~10/s) reaches
+    /// only its row's label: views that observe the window's rows for what
+    /// is listed and selected -- the whole sidebar, the content area --
+    /// don't redraw for it.
+    @Test func retitlingPublishesTheLabelsButNotTheRows() {
+        let terminals = LeoWindowTerminals()
+        terminals.add(a, title: "zsh")
+        var rowChanges = 0
+        var labelChanges = 0
+        let rowsSubscription = terminals.objectWillChange.sink { rowChanges += 1 }
+        let labelsSubscription = terminals.titles.objectWillChange.sink { labelChanges += 1 }
+
+        terminals.retitle(a, to: "~/src")
+
+        #expect(rowChanges == 0)
+        #expect(labelChanges == 1)
+        #expect(terminals.titles.labels.map(\.text) == ["~/src"])
+        _ = (rowsSubscription, labelsSubscription)
+    }
+
+    @Test func addingRemovingAndReplacingRowsPublishTheRows() {
+        let terminals = LeoWindowTerminals()
+        var rowChanges = 0
+        let subscription = terminals.objectWillChange.sink { rowChanges += 1 }
+
+        terminals.add(a, title: "zsh")
+        terminals.replace(a, with: b, title: "zsh")
+        terminals.remove(b)
+
+        #expect(rowChanges == 3)
+        #expect(terminals.titles.labels.isEmpty)
+        _ = subscription
     }
 
     @Test func activatingSelectsAndShows() {
