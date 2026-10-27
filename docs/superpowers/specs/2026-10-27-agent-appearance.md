@@ -69,3 +69,7 @@ Any agent can have an optional emoji, an optional color, or both. Each can be se
 1. A daemon PR in the leo repo. The `leo` agent reviews and merges it; I never merge it myself.
 2. LeoKit plus Mac.
 3. iOS.
+
+## Amendment 2026-10-27
+
+- In the picker, "None" clears this agent's own pick, and the agent falls back to the rules, which is the same as Reset to rules for that field. v1 has no way to turn a rule's color off for one agent. Adding an explicit `"none"` value to the daemon is a possible follow-up.
