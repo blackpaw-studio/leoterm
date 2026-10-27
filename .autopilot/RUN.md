@@ -9,6 +9,7 @@ Self-filed: B-307 → B-314 idea — Full Leo-browser explanation on browser_tab
 Self-filed: B-307 → B-315 idea — Consider renaming Leo browser tools to leo_browser_*
 Self-filed: B-309 → B-316 idea — Check a 100% Rings stat: "100" may sit tight against the stroke
 Self-filed: B-311 → B-317 bug — Key-window tests all skip on Dionysus while two system prompts hold the foreground
+Self-filed: B-167 → dropped (over cap) — macOS 13 machine sections show native hover Hide beside the D-073 fold control
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
