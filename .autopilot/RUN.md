@@ -280,11 +280,12 @@ Lane: B-170
   Branch: autopilot-lane/B-170
   Base: 5c0fb188f21548424884ea64eb764432217028c8
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: ebcb01307c450646e67485a91b1761570eacf014
+  Tokens: 4.65M in (4.42M cache read), ≥15.8k out, 58 requests
   Dispatched: 2026-10-27T10:50:25Z
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
@@ -304,6 +305,7 @@ Finished 15: B-165 landed c3ca374fca1dadf05b8364582cf9eccede1484b2 · not visual
 Finished 16: B-166 landed 6cbe4c742251e3a98caa610892a4a3587e99a3b9 · not visually verified
 Finished 17: B-167 landed b406d21378b51ab30d9b7e00823cd4a557d0f10b · not visually verified
 Finished 18: B-168 landed 6444c7e447c458e8ce72f4209bb2962235fbfd8a · not visually verified
+Finished 19: B-170 landed 83cd3e58c16edd775c91ef7e0b9178cfd235b78d · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.

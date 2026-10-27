@@ -1112,11 +1112,13 @@ Source: autopilot polish (B-105)
 Done: 337dcaf5e
 Verified: full suite 3782 tests passed, swiftlint clean, LeoTerminalsViewportTests 7/7 at bf8d175fe; no UI change
 
-## B-170 · isOffScreen fails loudly on a bad row index   [ready]
+## B-170 · isOffScreen fails loudly on a bad row index   [done]
 Issue: #174
 Why: LeoSidebarTerminalScrollTests.swift:543 returns true for a row that doesn't exist, so a bad index would pass the off-screen precondition silently
 Accept: LeoSidebarTerminalScrollTests.swift:543 returns true for a row that doesn't exist, so a bad index would pass the off-screen precondition silently
 Source: autopilot polish (B-106)
+Done: 4762b7290
+Verified: full suite 3782 tests passed, swiftlint clean at ebcb01307; Issue.record fires on a bad index (throwaway test); test-only
 
 ## B-171 · A focus report after a shell closes could reselect another agent   [ready]
 Issue: #175
