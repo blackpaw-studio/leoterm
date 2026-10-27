@@ -46,6 +46,10 @@ final class LeoSpinningSymbolNSView: NSView {
 
     override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric) }
 
+    /// Clicks and right-clicks go through to the row beneath: its
+    /// selection, its click catcher and its context menu.
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
     func update(symbolName: String, color: NSColor, period: Double) {
         let redraws = symbolName != self.symbolName || color != self.color
         let respins = period != self.period
