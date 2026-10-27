@@ -136,13 +136,14 @@ Lane: B-159
   Branch: autopilot-lane/B-159
   Base: a4418b477d7c87aa35ed749bb3a2a88bec832740
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d267723f6a85dd119f6a4711e004d91328d7c008
   Dispatched: 2026-10-27T05:41:09Z
-
+  Call: Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equivalent — D-562; Mac + iOS parity rule.
+  Call: Case table, private ShortcutCase struct and xibDocument helper stay in the same test file — AUTONOMY: test infrastructure; matches surrounding code.
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
