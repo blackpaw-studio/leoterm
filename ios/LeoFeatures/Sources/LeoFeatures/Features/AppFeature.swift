@@ -18,6 +18,8 @@ public struct AppFeature {
         /// split view collapses it onto the list's navigation stack. Stays
         /// set under `chat` when the chat was opened from it.
         public var detail: AgentDetail.State?
+        /// The Appearance sheet, opened by a long press on an agent row.
+        @Presents public var appearance: AgentAppearance.State?
         public var fleet = Fleet.State()
         public var isShowingChats = false
         public var isShowingDaemons = false
@@ -41,6 +43,10 @@ public struct AppFeature {
 
     public enum Action: BindableAction {
         case agentTapped(AgentRef)
+        case appearance(PresentationAction<AgentAppearance.Action>)
+        /// Long press > Appearance. Ignored for a daemon that doesn't
+        /// advertise `agent_appearance`.
+        case appearanceRequested(AgentRef)
         case binding(BindingAction<State>)
         case chat(ChatThread.Action)
         case chatNotificationAction(LeoChatNotificationResponse)
@@ -102,6 +108,12 @@ public struct AppFeature {
                     }
                     return .none
 
+                case .appearanceRequested(let ref):
+                    guard let session = state.fleet.sessions[id: ref.daemonID], session.supportsAppearance,
+                          let agent = session.agents[id: ref.name] else { return .none }
+                    state.appearance = AgentAppearance.State(daemon: session.daemon, agentName: ref.name, appearance: agent.appearance)
+                    return .none
+
                 case .chatNotificationAction(let response):
                     return perform(response)
 
@@ -134,6 +146,7 @@ public struct AppFeature {
 
                 case .daemons(.delegate(.forget(let id))):
                     if state.detail?.daemon.id == id { state.detail = nil }
+                    if state.appearance?.daemon.id == id { state.appearance = nil }
                     if state.daemons.machine?.id == id { state.daemons.machine = nil }
                     guard let daemon = state.fleet.sessions[id: id]?.daemon else { return fleet(.daemonRemoved(id), state: &state) }
                     // Push reads the daemon's token before the removal deletes it.
@@ -222,17 +235,19 @@ public struct AppFeature {
                     if !state.isShowingDaemons { state.daemons.machine = nil }
                     return .none
 
-                case .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .pairing, .push:
+                case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .pairing, .push:
                     return .none
                 }
             }
             .ifLet(\.$pairing, action: \.pairing) { Pairing() }
+            .ifLet(\.$appearance, action: \.appearance) { AgentAppearance() }
             .ifLet(\.detail, action: \.detail) { AgentDetail() }
             .ifLet(\.chat, action: \.chat) { ChatThread() }
             Reduce { state, _ in
                 state.openPendingAgent()
                 state.openPendingChat()
                 state.syncDetail()
+                state.syncAppearance()
                 state.syncChat()
                 let machine = state.machineLinkUpdate()
                 // The terminal opens and closes its socket as the agent starts
@@ -369,5 +384,13 @@ extension AppFeature.State {
         if detail?.agent != agent { detail?.agent = agent }
         if detail?.connection != session.connection { detail?.connection = session.connection }
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
+    }
+
+    /// Keeps the open Appearance sheet in step with the live fleet.
+    mutating func syncAppearance() {
+        guard let sheet = appearance, let session = fleet.sessions[id: sheet.daemon.id] else { return }
+        let agent = session.agents[id: sheet.agentName]
+        if let agent, agent.appearance != sheet.appearance { appearance?.receive(agent.appearance) }
+        if sheet.daemon != session.daemon { appearance?.daemon = session.daemon }
     }
 }
