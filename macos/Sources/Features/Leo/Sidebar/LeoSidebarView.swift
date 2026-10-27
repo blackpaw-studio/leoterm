@@ -377,6 +377,12 @@ struct LeoSidebarView: View {
         .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
     }
 
+    /// Never collapsible (B-167): `sidebarList` reads this section as its
+    /// header plus one row per terminal (`labels.count + 1`), so a hidden
+    /// section would count agent rows as terminals. A plain sidebar
+    /// `Section` collapses on hover under macOS 13 (the deployment
+    /// target); macOS 14+ only does so with `isExpanded:`, which this
+    /// section never passes, so `collapsible(false)` is a no-op there.
     private var terminalSection: some View {
         Section(header: Text("Terminals")) {
             ForEach(terminals.list.labels) { label in
@@ -387,6 +393,7 @@ struct LeoSidebarView: View {
                     .id(LeoSidebarItemID.terminal(label.id))
             }
         }
+        .collapsible(false)
     }
 
     /// The window's selection: its terminal row, else the app-wide agent.
