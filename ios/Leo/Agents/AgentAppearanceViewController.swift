@@ -18,8 +18,18 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
         case noEmoji, noColor
         case swatch(LeoAppearanceColor)
         case emoji(section: String, emoji: String)
+
+        /// Rows that start a write.
+        var isPick: Bool {
+            switch self {
+            case .reset, .noEmoji, .noColor: true
+            default: false
+            }
+        }
     }
 
+    /// The picks dim while a write is in flight; only one runs at a time.
+    private static let savingAlpha: CGFloat = 0.4
     private static let catalog = LeoEmojiCatalog.standard
     private static let frequentTitle = String(localized: "Frequently Used")
     private static let resultsTitle = String(localized: "Results")
@@ -75,11 +85,11 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
         ])
         configureDataSource()
 
-        var previous: LeoAgentAppearance?
+        var previous: (appearance: LeoAgentAppearance?, isSaving: Bool) = (nil, false)
         observe { [weak self] in
             guard let self else { return }
-            render(previousAppearance: previous)
-            previous = store.appearance
+            render(previousAppearance: previous.appearance, isSavingChanged: previous.isSaving != store.isSaving)
+            previous = (store.appearance, store.isSaving)
         }
         store.send(.task)
     }
@@ -161,13 +171,16 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
             cell.contentConfiguration = content
             cell.accessories = accessories
             cell.backgroundConfiguration = .listCell()
+            if item.isPick { cell.contentView.alpha = store.isSaving ? Self.savingAlpha : 1 }
         }
         let swatch = UICollectionView.CellRegistration<SwatchCell, LeoAppearanceColor> { [weak self] cell, _, color in
             cell.configure(color: color, isPicked: self?.store.colorPick == color)
+            cell.contentView.alpha = self?.store.isSaving == true ? Self.savingAlpha : 1
         }
         let emoji = UICollectionView.CellRegistration<EmojiCell, String> { [weak self] cell, _, emoji in
             guard let self, let entry = Self.catalog.entry(for: emoji) else { return }
             cell.configure(entry: entry, isPicked: store.appearance?.emoji == emoji)
+            cell.contentView.alpha = store.isSaving ? Self.savingAlpha : 1
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] view, _, indexPath in
             guard let self, case .emoji(let title) = dataSource.sectionIdentifier(for: indexPath.section) else { return }
@@ -189,7 +202,7 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
 
     // MARK: Rendering
 
-    private func render(previousAppearance: LeoAgentAppearance?) {
+    private func render(previousAppearance: LeoAgentAppearance?, isSavingChanged: Bool) {
         var snapshot = NSDiffableDataSourceSnapshot<Section, Item>()
         snapshot.appendSections([.info, .noColor, .colors, .noEmoji])
         snapshot.appendItems([.emojiSource, .colorSource] + (store.error == nil ? [] : [Item.error]) + (store.canReset ? [Item.reset] : []), toSection: .info)
@@ -203,7 +216,7 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
         let touched = Set([previousAppearance?.emoji, store.appearance?.emoji].compactMap { $0 })
         let reconfigured = snapshot.itemIdentifiers.filter { item in
             switch item {
-            case .emoji(_, let emoji): touched.contains(emoji)
+            case .emoji(_, let emoji): isSavingChanged || touched.contains(emoji)
             default: true
             }
         }
@@ -223,7 +236,7 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         switch dataSource.itemIdentifier(for: indexPath) {
         case .emojiSource, .colorSource, .error, nil: false
-        default: true
+        default: !store.isSaving
         }
     }
 

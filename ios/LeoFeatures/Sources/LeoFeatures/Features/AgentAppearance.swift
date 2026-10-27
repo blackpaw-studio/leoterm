@@ -69,6 +69,8 @@ public struct AgentAppearance {
     public var body: some ReducerOf<Self> {
         BindingReducer()
         Reduce { state, action in
+            // One write at a time: its answer is the base for the next pick.
+            if state.isSaving, action.startsWrite { return .none }
             switch action {
             case .binding:
                 return .none
@@ -137,5 +139,14 @@ public struct AgentAppearance {
     private static func connection(_ daemon: PairedDaemon, secrets: SecretsClient) throws -> DaemonConnection {
         guard let saved = try secrets.load(daemon.id) else { throw MissingToken(daemonName: daemon.name) }
         return DaemonConnection(daemon: daemon, secrets: saved)
+    }
+}
+
+private extension AgentAppearance.Action {
+    var startsWrite: Bool {
+        switch self {
+        case .emojiPicked, .emojiCleared, .colorPicked, .resetTapped: true
+        case .binding, .doneTapped, .rulesLoaded, .task, .writeFinished: false
+        }
     }
 }

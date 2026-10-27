@@ -99,6 +99,67 @@ struct AgentAppearanceTests {
         }
     }
 
+    @Test func picksAndResetAreIgnoredWhileAWriteIsInFlight() async {
+        let gate = AsyncStream<Void>.makeStream()
+        let calls = LockIsolated<Int>(0)
+        let store = store(Self.fromRule, set: { _, _, _ in
+            calls.withValue { $0 += 1 }
+            for await _ in gate.stream { break }
+            return Self.manual
+        })
+        await store.send(.colorPicked(.red)) {
+            $0.isSaving = true
+            $0.appearanceBeforeWrite = Self.fromRule
+            $0.appearance = LeoAgentAppearance(emoji: nil, color: .red, emojiSource: nil, colorSource: .manual)
+        }
+        // Not one of these changes anything, and none reaches the daemon.
+        await store.send(.emojiPicked("🦊"))
+        await store.send(.emojiCleared)
+        await store.send(.colorPicked(nil))
+        await store.send(.resetTapped)
+        #expect(store.state.recents.isEmpty, "an ignored pick isn't remembered")
+
+        gate.continuation.yield()
+        await store.receive(\.writeFinished) {
+            $0.isSaving = false
+            $0.appearanceBeforeWrite = nil
+            $0.appearance = Self.manual
+        }
+        #expect(calls.value == 1)
+    }
+
+    @Test func aFailedWriteRevertsToTheValueFromBeforeThatWrite() async {
+        let fail = LockIsolated(false)
+        let store = store(Self.fromRule, set: { _, _, _ in
+            if fail.value { throw Refused() }
+            return Self.manual
+        })
+        await store.send(.emojiPicked("🏛️")) {
+            $0.isSaving = true
+            $0.appearanceBeforeWrite = Self.fromRule
+            $0.appearance = LeoAgentAppearance(emoji: "🏛️", color: .teal, emojiSource: .manual, colorSource: .rule(0))
+            $0.recents = ["🏛️"]
+        }
+        await store.receive(\.writeFinished) {
+            $0.isSaving = false
+            $0.appearanceBeforeWrite = nil
+            $0.appearance = Self.manual
+        }
+
+        fail.setValue(true)
+        await store.send(.colorPicked(.red)) {
+            $0.isSaving = true
+            $0.appearanceBeforeWrite = Self.manual
+            $0.appearance = LeoAgentAppearance(emoji: "🏛️", color: .red, emojiSource: .manual, colorSource: .manual)
+        }
+        await store.receive(\.writeFinished) {
+            $0.isSaving = false
+            $0.appearanceBeforeWrite = nil
+            $0.appearance = Self.manual
+            $0.error = "emoji must be a single emoji"
+        }
+    }
+
     @Test func resetClearsBothAndIsOnlyOfferedForHandSetValues() async {
         let calls = LockIsolated<[String]>([])
         let store = store(Self.manual, set: { _, emoji, color in
