@@ -498,6 +498,44 @@ struct LeoSidebarTerminalScrollTests {
         #expect(abs(landed - launched) <= 0.5, "the list is back where it launched")
     }
 
+    /// B-171 (from B-106): the last row closes while selected, with a focus
+    /// report from the attach host still in flight (another agent's surface
+    /// took focus). Once the list has landed on the agent the window fell
+    /// back to, that report -- handled a turn later -- doesn't reselect a
+    /// different agent. Driven through a real coordinator, the attach host
+    /// fake, the model's link wiring and the real list.
+    @Test func aFocusReportInFlightWhenTheLastRowClosesDoesNotReselectAnotherAgent() async throws {
+        let terminals = LeoWindowTerminals()
+        let (window, model) = try makeWindowAndModel(terminals: terminals)
+        defer { window.close() }
+        let table = try await settledTable(in: window)
+        let host = FakeAttachContentHost()
+        let coordinator = LeoAttachCoordinator(
+            host: host, executable: { "/leo" }, report: { _ in },
+            lifecycleEventHandled: { host.acknowledge($0) },
+            linkStateChanged: { [weak model] in model?.receiveAttachLinks($0) }
+        )
+        model.latestFocusReport = { [weak coordinator] in coordinator?.latestFocusReport ?? 0 }
+        let origin = LeoWindowID()
+        let fallback = LeoAgentIdentity(host: .local, name: "agent-0")
+        let other = LeoAgentIdentity(host: .local, name: "agent-1")
+        await coordinator.attach(identity: fallback, from: origin, disposition: .content)
+        await coordinator.attach(identity: other, from: origin, disposition: .newWindow)
+        await host.emitAndWait(.focusChanged(host.handles[0]))
+        let fallbackID = LeoAgentRow.ID(host: .local, name: "agent-0")
+        try #require(model.selection == fallbackID, "the fallback agent is the selection")
+        let shell = try await revealedLastRow(in: table, terminals: terminals)
+        await host.emitAndWait(.focusChanged(nil))
+
+        host.emit(.focusChanged(host.handles[1]))
+        terminals.remove(shell)
+        await afterPendingUpdates()
+        await host.emitAndWait(.viewingChanged(nil))
+
+        #expect(model.selection == fallbackID, "the late report leaves the fallback agent selected")
+        #expect(table.selectedRowIndexes == [2], "the list still selects the fallback agent's row")
+    }
+
     /// A new terminal row, selected and revealed at the bottom of the list
     /// (as ⌘T leaves it).
     private func revealedLastRow(in table: NSTableView, terminals: LeoWindowTerminals) async throws -> UUID {

@@ -278,6 +278,15 @@ struct LeoSidebarView: View {
                 terminalsWillChange: terminals.objectWillChange,
                 proxy: proxy
             )
+            // B-171: the window's own terminal selection going (its row
+            // closed) lands the list on the agent it falls back to. That
+            // landing is a decision like a click: a focus report already
+            // in flight doesn't reselect another agent over it. Synchronous
+            // with the change, so the fence is set before such a report
+            // is handled.
+            .onReceive(terminals.$selection.dropFirst().filter { $0 == nil }) { _ in
+                model.fenceInFlightFocusReports()
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             // A key equivalent, so it sees Return before the search
