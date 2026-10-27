@@ -79,12 +79,14 @@ Lane: B-308
   Branch: autopilot-lane/B-308
   Base: 81bf8c3187859bb0b4099e4e9736fdee7fb15be5
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: c00363c356eec757eb1466d11cfea33fa652f554
   Dispatched: 2026-10-27T03:58:20Z
+  Call: Mac only: Settings ▸ Machines is a macOS view; iOS Machines list is separate (D-548) — Mac + iOS parity rule
+  Call: Scroll the Machines detail form instead of enlarging the minimum window — agent decides layout/UX details
 
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
