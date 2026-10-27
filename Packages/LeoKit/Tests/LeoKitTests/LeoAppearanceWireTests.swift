@@ -18,7 +18,7 @@ struct LeoAppearanceWireTests {
     private func observed(_ json: String) throws -> LeoObservedAgent { try observed(Data(json.utf8)) }
 
     private func event(_ data: Data, type: String = "agent_appearance_changed") -> LeoObserveEvent? {
-        LeoActivityClient.decode(LeoSSEEvent(name: type, data: String(decoding: data, as: UTF8.self), id: nil))
+        LeoActivityClient.decode(LeoSSEEvent(name: type, data: String(bytes: data, encoding: .utf8) ?? "", id: nil))
     }
 
     @Test func decodesFullAppearance() throws {

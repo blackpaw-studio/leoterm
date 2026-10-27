@@ -13,7 +13,7 @@ struct LeoAppearanceAPITests {
         let object = try #require(try JSONSerialization.jsonObject(with: try LeoAppearanceWireTests.fixture(name)) as? [String: Any])
         let status = try #require(object["status"] as? Int)
         let body = try JSONSerialization.data(withJSONObject: try #require(object["body"]))
-        return ConfigRecordingTransport(body: String(decoding: body, as: UTF8.self), status: status)
+        return ConfigRecordingTransport(body: String(bytes: body, encoding: .utf8) ?? "", status: status)
     }
 
     private static func json(_ request: LeoHTTPRequest) throws -> NSDictionary {

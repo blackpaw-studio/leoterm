@@ -87,33 +87,33 @@ public enum LeoAppearanceWire {
         return appearance(in: container)
     }
 
+    struct EventPayload: Decodable {
+        let seq: Int
+        let at: String?
+        let agent: String
+        let appearance: LeoAgentAppearance?
+
+        init(from decoder: any Decoder) throws {
+            let container = try decoder.container(keyedBy: LeoEnvironmentsWire.Key.self)
+            seq = try container.decode(Int.self, forKey: .init(stringValue: "seq"))
+            at = try? container.decodeIfPresent(String.self, forKey: .init(stringValue: "at"))
+            agent = try container.decode(String.self, forKey: .init(stringValue: "agent"))
+            let appearanceKey = LeoEnvironmentsWire.Key(stringValue: LeoAppearanceWire.key)
+            if try container.decodeNil(forKey: appearanceKey) {
+                appearance = nil
+            } else {
+                appearance = LeoAppearanceWire.appearance(
+                    in: try container.nestedContainer(keyedBy: LeoEnvironmentsWire.Key.self, forKey: appearanceKey)
+                )
+            }
+        }
+    }
+
     /// An `agent_appearance_changed` payload. Nil when it is malformed (no
     /// agent, or an appearance that is neither an object nor null), so the
     /// caller keeps only its sequence and never clears on a bad event.
-    static func event(_ data: Data) -> (seq: Int, at: String?, agent: String, appearance: LeoAgentAppearance?)? {
-        struct Payload: Decodable {
-            let seq: Int
-            let at: String?
-            let agent: String
-            let appearance: LeoAgentAppearance?
-
-            init(from decoder: any Decoder) throws {
-                let container = try decoder.container(keyedBy: LeoEnvironmentsWire.Key.self)
-                seq = try container.decode(Int.self, forKey: .init(stringValue: "seq"))
-                at = try? container.decodeIfPresent(String.self, forKey: .init(stringValue: "at"))
-                agent = try container.decode(String.self, forKey: .init(stringValue: "agent"))
-                let appearanceKey = LeoEnvironmentsWire.Key(stringValue: LeoAppearanceWire.key)
-                if try container.decodeNil(forKey: appearanceKey) {
-                    appearance = nil
-                } else {
-                    appearance = LeoAppearanceWire.appearance(
-                        in: try container.nestedContainer(keyedBy: LeoEnvironmentsWire.Key.self, forKey: appearanceKey)
-                    )
-                }
-            }
-        }
-        guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return nil }
-        return (payload.seq, payload.at, payload.agent, payload.appearance)
+    static func event(_ data: Data) -> EventPayload? {
+        try? JSONDecoder().decode(EventPayload.self, from: data)
     }
 
     private static func appearance(in container: KeyedDecodingContainer<LeoEnvironmentsWire.Key>) -> LeoAgentAppearance? {

@@ -95,7 +95,7 @@ struct LeoAppearanceResolverTests {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
         let rule = LeoAppearanceRule(field: "name", op: "is", value: "a", color: "red")
-        #expect(String(decoding: try encoder.encode(rule), as: UTF8.self) == #"{"color":"red","when":{"field":"name","op":"is","value":"a"}}"#)
+        #expect(String(bytes: try encoder.encode(rule), encoding: .utf8) == #"{"color":"red","when":{"field":"name","op":"is","value":"a"}}"#)
     }
 
     @Test func summaryReadsAsASentence() {

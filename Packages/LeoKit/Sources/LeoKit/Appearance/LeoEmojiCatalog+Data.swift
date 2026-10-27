@@ -7,6 +7,9 @@
 extension LeoEmojiCatalog {
     static let generatedUnicodeVersion = "15.1"
 
+    // Empty keyword fields leave a tab at the end of a line inside the
+    // literal; it is part of the format, so the rule is off around it.
+    // swiftlint:disable trailing_whitespace
     static let generatedData = #"""
 G	Smileys & Emotion
 E	😀	grinning face	face|grin
@@ -3791,4 +3794,5 @@ E	🏴󠁧󠁢󠁥󠁮󠁧󠁿	flag: England
 E	🏴󠁧󠁢󠁳󠁣󠁴󠁿	flag: Scotland	
 E	🏴󠁧󠁢󠁷󠁬󠁳󠁿	flag: Wales	
 """#
+    // swiftlint:enable trailing_whitespace
 }

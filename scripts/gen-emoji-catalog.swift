@@ -106,9 +106,13 @@ let source = """
 extension LeoEmojiCatalog {
     static let generatedUnicodeVersion = "\(unicodeVersion)"
 
+    // Empty keyword fields leave a tab at the end of a line inside the
+    // literal; it is part of the format, so the rule is off around it.
+    // swiftlint:disable trailing_whitespace
     static let generatedData = #\"\"\"
 \(body)
 \"\"\"#
+    // swiftlint:enable trailing_whitespace
 }
 
 """
