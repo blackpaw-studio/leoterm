@@ -112,4 +112,19 @@ struct KeyboardShortcutTranslationTests {
         #expect(shortcut.modifiers.contains(.option))
         #expect(shortcut.modifiers.contains(.command))
     }
+
+    /// B-164: AppKit spells F1…F25 as the private-use NSF<n>FunctionKey
+    /// characters; a `super+f1=new_tab` rebind must reach the menu item.
+    @Test(arguments: 1...25)
+    func functionKeysMapToAppKitFunctionKeyCharacters(number: Int) throws {
+        var trigger = ghostty_input_trigger_s()
+        trigger.tag = GHOSTTY_TRIGGER_PHYSICAL
+        trigger.key.physical = ghostty_input_key_e(GHOSTTY_KEY_F1.rawValue + UInt32(number - 1))
+        trigger.mods = GHOSTTY_MODS_SUPER
+
+        let shortcut = try #require(Ghostty.keyboardShortcut(for: trigger))
+        let scalar = try #require(UnicodeScalar(NSF1FunctionKey + number - 1))
+        #expect(shortcut.key.character == Character(scalar))
+        #expect(shortcut.modifiers == .command)
+    }
 }
