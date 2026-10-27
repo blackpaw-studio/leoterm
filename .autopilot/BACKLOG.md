@@ -1065,11 +1065,13 @@ Source: autopilot polish (B-103)
 Done: fa90acd7e
 Verified: not visually verified — test comments only; full suite 3779 pass, swiftlint clean
 
-## B-164 · F-key config rebinds reach menu items and hints   [ready]
+## B-164 · F-key config rebinds reach menu items and hints   [done]
 Issue: #168
 Why: map GHOSTTY_KEY_F1…F25 in Ghostty.keyToEquivalent / keyboardShortcut(for:) so a binding like super+f1=new_tab shows on the menu item and the start-screen hint (B-104 left it: upstream drops F-keys)
 Accept: map GHOSTTY_KEY_F1…F25 in Ghostty.keyToEquivalent / keyboardShortcut(for:) so a binding like super+f1=new_tab shows on the menu item and the start-screen hint (B-104 left it: upstream drops F-keys)
 Source: autopilot polish (B-104)
+Done: 01c0243c0 0cc082de2
+Verified: not visually verified — Peekaboo bridge lacks Screen Recording/Accessibility on the host; mapping/spelling/.function tests + full suite 3781 pass
 
 ## B-165 · Shortcut hint test helper takes a reconnect: parameter   [ready]
 Issue: #169

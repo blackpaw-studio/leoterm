@@ -4098,3 +4098,24 @@ Chose: Mac only: test comments only
 Why: D-566/D-569; Mac + iOS parity rule.
 Commit: fa90acd7e
 Veto: [ ]
+
+## D-574 · 2026-10-27 · Map F1–F25 only in Ghostty.keyToEquivalent (AppKit NSF<n>FunctionKey equivalents)
+Context: B-164 (runner call).
+Chose: Map F1–F25 only in Ghostty.keyToEquivalent (AppKit NSF<n>FunctionKey equivalents)
+Why: AUTONOMY: keep the upstream-shaped diff minimal.
+Commit: 01c0243c0 0cc082de2
+Veto: [ ]
+
+## D-575 · 2026-10-27 · Spell F-keys "F<n>" in KeyboardShortcut.keyList; functionKeyName lives in a KeyEquivalent extension shared with LeoShortcutHints
+Context: B-164 (runner call).
+Chose: Spell F-keys "F<n>" in KeyboardShortcut.keyList; functionKeyName lives in a KeyEquivalent extension shared with LeoShortcutHints
+Why: One source of truth; fixes raw private-use glyphs in the palette, key-sequence overlay and goto_tab tooltips.
+Commit: 01c0243c0 0cc082de2
+Veto: [ ]
+
+## D-576 · 2026-10-27 · Mac only: menus and NSMenuItem equivalents don't exist on iOS
+Context: B-164 (runner call).
+Chose: Mac only: menus and NSMenuItem equivalents don't exist on iOS
+Why: Mac + iOS parity rule.
+Commit: 01c0243c0 0cc082de2
+Veto: [ ]

@@ -207,11 +207,12 @@ Lane: B-164
   Branch: autopilot-lane/B-164
   Base: 5afbc36bcb5e2a2588a7de722178798ea717fb36
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 0cc082de2eb0e917fbf46cc12bf2562123eb67bb
+  Tokens: 10.9M in (10.5M cache read), ≥45.4k out, 128 requests
   Dispatched: 2026-10-27T07:01:46Z
   Call: Map F1–F25 only in Ghostty.keyToEquivalent (AppKit NSF<n>FunctionKey equivalents) — AUTONOMY: keep the upstream-shaped diff minimal.
   Call: Spell F-keys "F<n>" in KeyboardShortcut.keyList; functionKeyName lives in a KeyEquivalent extension shared with LeoShortcutHints — One source of truth; fixes raw private-use glyphs in the palette, key-sequence overlay and goto_tab tooltips.
@@ -229,6 +230,7 @@ Finished 10: B-160 landed b4d57be051f3861b77302513cae0ceafef653134 · not visual
 Finished 11: B-161 landed 39aa42ae7db920b969e927bbb99a0f11a53f1d32 · not visually verified
 Finished 12: B-162 landed d9ac81ce56062a46b73357887d1c93c82e5e223a · not visually verified
 Finished 13: B-163 landed b5f4818894a4e346d586e03e472716330e30270d · not visually verified
+Finished 14: B-164 landed 47ae6f289598941c371eb3b9237253e4ddb6e6eb · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.
