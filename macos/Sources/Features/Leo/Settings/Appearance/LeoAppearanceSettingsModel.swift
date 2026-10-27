@@ -68,7 +68,7 @@ struct LeoAppearancePreviewAgent: Equatable, Sendable {
     @Published private(set) var refusal: (rowID: UUID, reason: String)?
     @Published private(set) var harnessByTemplate: [String: String] = [:]
 
-    private let client: any LeoConfigClient
+    private var client: any LeoConfigClient
     private let revisions: LeoConfigRevisionTracker
     private let agents: () -> [LeoAppearancePreviewAgent]
 
@@ -87,7 +87,11 @@ struct LeoAppearancePreviewAgent: Equatable, Sendable {
     var hasUnsavedChanges: Bool { isDirty }
     func discardChanges() { revert() }
 
+    /// A reconnect hands over the machine's new client; every later read
+    /// and save goes through it. A pane that never got ready loads again.
     func reload(using client: any LeoConfigClient) async {
+        self.client = client
+        guard saved != nil, phase == .ready else { return await load() }
         guard let document = try? await client.appearanceRules() else { return }
         adopt(document, keepingDraft: isDirty)
     }
@@ -169,10 +173,10 @@ struct LeoAppearancePreviewAgent: Equatable, Sendable {
             let document = try await client.setAppearanceRules(sent.map(\.rule), ifMatch: base)
             revisions.recordWrite(from: base, to: document.revision)
             self.saved = document
-            // Keep row identities across the save; the daemon echoes the order.
-            if document.rules == sent.map(\.rule), rows == sent {
-                rows = sent
-            } else {
+            // Edits made while the save was in flight stay, dirty against
+            // what landed. Otherwise row identities survive the daemon's
+            // echo unless it changed the rules.
+            if rows == sent, document.rules != sent.map(\.rule) {
                 rows = document.rules.map { Row(id: UUID(), rule: $0) }
             }
             saveError = nil

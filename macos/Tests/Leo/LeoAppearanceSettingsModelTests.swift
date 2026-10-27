@@ -9,6 +9,7 @@ import Testing
 /// its index), the config API's 409 flow, and a preview of every agent on
 /// the machine resolved against the draft.
 @MainActor
+@Suite(.timeLimit(.minutes(1)))
 struct LeoAppearanceSettingsModelTests {
     private static let prod = LeoAppearanceRule(field: "environments", op: "contains", value: "prod", color: "red")
     private static let alfred = LeoAppearanceRule(field: "name", op: "glob", value: "alfred-*", color: "pink", emoji: "🎩")
@@ -18,13 +19,20 @@ struct LeoAppearanceSettingsModelTests {
         LeoAppearancePreviewAgent(name: "rocket", environments: [], template: "assistant", manual: nil),
     ]
 
-    private func loaded(
+    private static func seeded(
         rules: [LeoAppearanceRule] = [prod, alfred], capabilities: [String] = [LeoConfigAPI.capability, "agent_appearance"]
-    ) async -> (LeoAppearanceSettingsModel, LeoFakeConfigClient) {
+    ) async -> LeoFakeConfigClient {
         let fake = LeoFakeConfigClient(
             schema: LeoConfigSchema(resources: []), version: LeoDaemonVersionInfo(version: "0.70.0", capabilities: capabilities)
         )
         await fake.seedAppearance(agents: [LeoAppearanceFacts(name: "olympus", environments: ["prod"], template: "ops", harness: "")], rules: rules)
+        return fake
+    }
+
+    private func loaded(
+        rules: [LeoAppearanceRule] = [prod, alfred], capabilities: [String] = [LeoConfigAPI.capability, "agent_appearance"]
+    ) async -> (LeoAppearanceSettingsModel, LeoFakeConfigClient) {
+        let fake = await Self.seeded(rules: rules, capabilities: capabilities)
         let model = LeoAppearanceSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), agents: { Self.agents })
         await model.load()
         return (model, fake)
@@ -141,5 +149,43 @@ struct LeoAppearanceSettingsModelTests {
         _ = try? await fake.setAppearanceRules([Self.alfred], ifMatch: model.revision ?? "")
         await model.reload(using: fake)
         #expect(model.rows.map(\.rule) == [Self.alfred])
+    }
+    @Test func reloadSavesThroughTheNewClient() async {
+        let (model, old) = await loaded()
+        // The machine reconnected: the pane gets a fresh client for it.
+        let fresh = await Self.seeded()
+        await model.reload(using: fresh)
+        let revision = model.revision
+        model.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        await model.save()
+        let write = LeoFakeConfigCall.setAppearanceRules([Self.alfred, Self.prod], ifMatch: revision ?? "")
+        #expect(await fresh.calls.last == write)
+        #expect(await !old.calls.contains(write))
+        #expect(!model.isDirty)
+    }
+
+    @Test func reloadRecoversAFailedPane() async {
+        let fake = await Self.seeded()
+        await fake.failNextRead(with: URLError(.cannotConnectToHost))
+        let model = LeoAppearanceSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), agents: { Self.agents })
+        await model.load()
+        guard case .failed = model.phase else { Issue.record("expected .failed, got \(model.phase)"); return }
+        await model.reload(using: fake)
+        #expect(model.phase == .ready)
+        #expect(model.rows.map(\.rule) == [Self.prod, Self.alfred])
+    }
+
+    @Test func editsMadeDuringASaveSurviveIt() async throws {
+        let (model, fake) = await loaded()
+        model.move(fromOffsets: IndexSet(integer: 1), toOffset: 0)
+        await fake.holdWrites()
+        let saving = Task { await model.save() }
+        try await until { await fake.heldWriteCount == 1 }
+        model.delete(model.rows[0].id)
+        await fake.releaseWrites()
+        await saving.value
+        #expect(model.saved?.rules == [Self.alfred, Self.prod])
+        #expect(model.rows.map(\.rule) == [Self.prod], "the edit made mid-save is kept")
+        #expect(model.isDirty)
     }
 }
