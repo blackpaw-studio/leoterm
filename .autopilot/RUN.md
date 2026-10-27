@@ -25,3 +25,14 @@ Lane: B-143
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
+
+Lane: B-304
+  Branch: autopilot-lane/B-304
+  Base: a7b1c1819c701c3da306e7a178a6b7959424e995
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T01:44:55Z
