@@ -195,29 +195,95 @@ import Testing
         #expect(!LeoForcedDisconnectFixture.isForced(.connected))
     }
 
-    @Test func theForcedDisconnectFixtureDisconnectsOnceAfterTheFirstList() async throws {
+    /// B-166: This Mac's feed can list on its own before the registry's
+    /// first connect (generation 0). The force must wait for a registry
+    /// connection's list: forced on the early one, that first connect reads
+    /// as a Retry and reconnects, and the banner never shows.
+    @Test func theForcedDisconnectHoldsWhenTheEarlyListLandsBeforeTheFirstConnect() async throws {
+        let daemon = WakeDaemon(failAfter: .max)
+        let (model, feeds, delivered) = Self.forcedFeeds(daemon: daemon)
+        LeoForcedDisconnectFixture.arm(feeds: feeds, reason: LeoForcedDisconnectFixture.forcedReason)
+        feeds.start(pollable: false)
+        let feed = try #require(feeds.feed(for: .local))
+
+        feeds.refresh()
+        await awaitCondition { @MainActor in delivered.values.contains(.connected) }
+        feeds.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemon, activitySource: Self.silentActivity()))
+        await awaitCondition { await daemon.listCallCount == 2 }
+        await awaitCondition { Self.isSettled(await feed.snapshot.connectivity) }
+        await feed.drainEmissions()
+
+        #expect(model.snapshot(for: .local)?.connectivity == Self.forcedDown)
+    }
+
+    @Test func theForcedDisconnectFiresOnceOnTheFirstConnectsListAndRetryReconnects() async throws {
+        let daemon = WakeDaemon(failAfter: .max)
+        let (model, feeds, delivered) = Self.forcedFeeds(daemon: daemon)
+        LeoForcedDisconnectFixture.arm(feeds: feeds, reason: LeoForcedDisconnectFixture.forcedReason)
+        feeds.start(pollable: false)
+        let feed = try #require(feeds.feed(for: .local))
+
+        feeds.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemon, activitySource: Self.silentActivity()))
+        await awaitCondition { await daemon.listCallCount == 1 }
+        await awaitCondition { await feed.snapshot.connectivity == Self.forcedDown }
+        await feed.drainEmissions()
+        #expect(model.snapshot(for: .local)?.connectivity == Self.forcedDown)
+
+        // The header's Reconnect: the registry's next generation.
+        feeds.updateConnection(host: .local, generation: 2, phase: .connected(daemon: daemon, activitySource: Self.silentActivity()))
+        await awaitCondition { await daemon.listCallCount == 2 }
+        await awaitCondition { await feed.snapshot.connectivity == .connected }
+        await feed.drainEmissions()
+
+        #expect(model.snapshot(for: .local)?.connectivity == .connected)
+        #expect(delivered.forcedDrops == 1, "forced down once, not again on the Retry")
+    }
+
+    nonisolated private static let forcedDown = LeoConnectivity.disconnected(reason: LeoForcedDisconnectFixture.forcedReason, isRetrying: false)
+
+    /// A list has landed on the connection: up, or forced down by it.
+    nonisolated private static func isSettled(_ connectivity: LeoConnectivity) -> Bool {
+        connectivity == .connected || connectivity == forcedDown
+    }
+
+    /// This Mac's feed wired to a sidebar model the way `LeoRuntime` wires
+    /// it, not yet started, and every connectivity the model was handed.
+    private static func forcedFeeds(daemon: any LeoDaemonClient) -> (LeoSidebarModel, LeoMachineFeeds, DeliveredConnectivity) {
         let model = LeoSidebarModel()
-        let requests = ForcedRequests()
-        let arming = LeoForcedDisconnectFixture.arm(model: model, reason: "Forced") { reason in
-            Task { await requests.append(reason) }
-        }
+        model.setMachines([.local])
+        let delivered = DeliveredConnectivity()
+        let feeds = LeoMachineFeeds(dependencies: .init(
+            localDaemon: daemon, localActivity: silentActivity(),
+            onSnapshot: { host, snapshot in
+                model.receive(snapshot, for: host)
+                delivered.values.append(snapshot.connectivity)
+            }
+        ))
+        feeds.setMachines([.local])
+        return (model, feeds, delivered)
+    }
 
-        model.receive(LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 1), for: .local)
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2), for: .local)
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 3), for: .local)
-
-        await awaitCondition { await requests.values == ["Forced"] }
-        for _ in 0..<20 { await Task.yield() }
-        #expect(await requests.values == ["Forced"], "only the first live list is forced down")
-        withExtendedLifetime(arming) {}
+    /// An activity stream that never sends and stays open.
+    nonisolated private static func silentActivity() -> LeoSidebarActivitySource {
+        LeoSidebarActivitySource(events: { AsyncStream { _ in } }, fetchState: { [] })
     }
     #endif
 }
 
-private actor ForcedRequests {
-    private(set) var values: [String] = []
-    func append(_ value: String) { values.append(value) }
+#if DEBUG
+/// Every connectivity a sidebar model was handed, in order.
+@MainActor private final class DeliveredConnectivity {
+    var values: [LeoConnectivity] = []
+
+    /// How many times the fixture's drop was entered from any other state.
+    var forcedDrops: Int {
+        zip([nil] + values.map(Optional.some), values).filter { previous, value in
+            value == LeoConnectivity.disconnected(reason: LeoForcedDisconnectFixture.forcedReason, isRetrying: false)
+                && !(previous.map(LeoForcedDisconnectFixture.isForced) ?? false)
+        }.count
+    }
 }
+#endif
 
 /// Lists `alpha` for the first `failAfter` calls, then times out.
 private actor WakeDaemon: LeoDaemonClient {

@@ -137,6 +137,11 @@ actor LeoSidebarFeed {
     /// Bumped each time a refresh starts; lets a stale refresh whose
     /// cancellation lost a race recognize it no longer owns bookkeeping.
     private var currentRefreshToken = 0
+    #if DEBUG
+    /// The armed `LEO_FORCE_DISCONNECTED` drop's reason, until it fires --
+    /// see `LeoSidebarFeed+Disconnect.swift`.
+    var forcedDisconnectReason: String?
+    #endif
 
     init(
         daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource,
@@ -390,6 +395,10 @@ actor LeoSidebarFeed {
             // reset `listRefreshSucceeded` back to its `false` default.
             snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: true)
             emit()
+            #if DEBUG
+            // The drop stops everything this list would start next.
+            if forceDisconnectIfDue() { return }
+            #endif
             if isManual { await onManualRefresh() }
             if fetchState {
                 stateFetchStarted = true

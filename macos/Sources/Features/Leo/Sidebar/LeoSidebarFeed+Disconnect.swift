@@ -10,8 +10,9 @@ import Foundation
 extension LeoSidebarFeed {
     var isDisconnected: Bool { snapshot.connectivity.isDisconnected }
 
-    /// Enters the disconnected state with `reason`. Also the entry point
-    /// for the DEBUG `LEO_FORCE_DISCONNECTED` fixture.
+    /// Enters the disconnected state with `reason`. The DEBUG
+    /// `LEO_FORCE_DISCONNECTED` fixture enters it through
+    /// `forceDisconnectAfterFirstList`.
     func disconnect(reason: String) {
         guard running else { return }
         Self.logger.log("disconnect: reason=\(reason, privacy: .public)")
@@ -94,3 +95,34 @@ extension LeoSidebarFeed {
         if case .failure(let error) = result { disconnect(reason: error.localizedDescription) }
     }
 }
+
+#if DEBUG
+/// The `LEO_FORCE_DISCONNECTED` fixture (B-166): armed in the feed so it
+/// fires in order with the feed's own connections, however their phases
+/// and lists interleave.
+extension LeoSidebarFeed {
+    /// A connection `LeoMachineRegistry` handed out: its generations start
+    /// at 1. Generation 0 is This Mac's feed from launch, listing on its own
+    /// before the registry's first connect. Forced down there, that connect
+    /// would read as the user's Retry and reconnect, and the banner would
+    /// never show.
+    var isRegistryConnection: Bool { connectionGeneration > 0 }
+
+    /// Disconnects with `reason` once, when a list lands on a registry
+    /// connection -- at once if the current one has listed already.
+    func forceDisconnectAfterFirstList(reason: String) {
+        forcedDisconnectReason = reason
+        forceDisconnectIfDue()
+    }
+
+    /// Fires the armed drop if a list has landed on this registry
+    /// connection. Returns whether it fired.
+    @discardableResult
+    func forceDisconnectIfDue() -> Bool {
+        guard let reason = forcedDisconnectReason, running, isRegistryConnection, snapshot.connectivity == .connected else { return false }
+        forcedDisconnectReason = nil
+        disconnect(reason: reason)
+        return true
+    }
+}
+#endif

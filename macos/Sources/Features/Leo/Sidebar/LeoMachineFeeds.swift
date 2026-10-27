@@ -115,6 +115,15 @@ import LeoKit
         entries[host]?.send { await $0.disconnect(reason: reason) }
     }
 
+    #if DEBUG
+    /// The `LEO_FORCE_DISCONNECTED` fixture: `host`'s feed drops once its
+    /// first registry connection's list lands, in order with every other
+    /// call to it.
+    func forceDisconnectAfterFirstList(_ host: LeoHostID, reason: String) {
+        entries[host]?.send { await $0.forceDisconnectAfterFirstList(reason: reason) }
+    }
+    #endif
+
     private func start(_ entry: Entry) {
         let pollable = isPollable
         entry.send { feed in

@@ -101,7 +101,6 @@ import LeoKit
     var managedStartup: (@MainActor () async -> Void)?
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
-    private var forcedDisconnect: AnyObject?
     private var machinesFixture: AnyObject?
     #endif
 
@@ -487,7 +486,7 @@ import LeoKit
         #if DEBUG
         if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
         if let reason = LeoForcedDisconnectFixture.reason() {
-            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, feeds: feeds, reason: reason)
+            LeoForcedDisconnectFixture.arm(feeds: feeds, reason: reason)
         }
         #endif
     }
