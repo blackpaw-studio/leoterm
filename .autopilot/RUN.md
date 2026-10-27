@@ -246,6 +246,18 @@ Lane: B-166
   Call: Mac-only fix, no iOS fixture — Mac + iOS parity rule: iOS and LeoKit never read the variable.
   Call: On the forced path the list handler returns right after emit(), skipping state fetch, metadata refresh and onManualRefresh (DEBUG only) — AUTONOMY: test infrastructure; fixture stays out of release builds.
   Call: No test for arming while the feed is already connected — Production always arms before start.
+
+Lane: B-167
+  Branch: autopilot-lane/B-167
+  Base: ecee4bf9d7d3d46f431b20be4b02ac9af96e7aa6
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T09:25:01Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
