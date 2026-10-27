@@ -189,6 +189,18 @@ Lane: B-162
   Call: Renamed to turnsUntil(limit:_:) (not (_:limit:)) so trailing-closure callers resolve cleanly — AUTONOMY: naming, test infrastructure.
   Call: Fixed all three private copies of the helper (LeoTerminalRowsIntegrationTests, LeoSidebarTerminalScrollTests, Editor/LeoRowPaneCloseTests) and ~50 callers — AUTONOMY: test infrastructure; update every caller.
   Call: No new test for the helper (private to test files, no seam) — TDD exception: test infrastructure.
+
+Lane: B-163
+  Branch: autopilot-lane/B-163
+  Base: ab1af110c7e5bed576b25c60830eb6a156faf283
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T06:51:38Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
