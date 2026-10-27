@@ -190,12 +190,36 @@ struct LeoTerminalList: Equatable, Sendable {
 }
 
 /// A window's Terminals rows as they read (`LeoTerminalList.labels`):
-/// what the Terminals section draws.
+/// what the Terminals section draws. The section observes `rows`, which
+/// changes only when a terminal comes, goes or moves; each row observes
+/// its own `LeoTerminalTitle`. A List reconfigures every visible row
+/// whenever what it lists changes, so a retitle stays within its row.
 @MainActor final class LeoTerminalTitles: ObservableObject {
-    @Published private(set) var labels: [LeoTerminalRowLabel] = []
+    @Published private(set) var rows: [LeoTerminalTitle] = []
+
+    var labels: [LeoTerminalRowLabel] { rows.map(\.label) }
 
     fileprivate func show(_ labels: [LeoTerminalRowLabel]) {
-        guard labels != self.labels else { return }
-        self.labels = labels
+        if labels.map(\.id) != rows.map(\.id) {
+            let shown = Dictionary(rows.map { ($0.id, $0) }) { first, _ in first }
+            rows = labels.map { shown[$0.id] ?? LeoTerminalTitle($0) }
+        }
+        zip(rows, labels).forEach { $0.show($1) }
+    }
+}
+
+/// One Terminals row's label, observed by that row alone.
+@MainActor final class LeoTerminalTitle: ObservableObject, Identifiable {
+    let id: UUID
+    @Published private(set) var label: LeoTerminalRowLabel
+
+    init(_ label: LeoTerminalRowLabel) {
+        id = label.id
+        self.label = label
+    }
+
+    fileprivate func show(_ label: LeoTerminalRowLabel) {
+        guard label != self.label else { return }
+        self.label = label
     }
 }

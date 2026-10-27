@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The sidebar's Terminals section: this window's shells under their
-/// titles. It observes the titles itself, so a terminal retitling redraws
-/// this section and not the sidebar above it (see `LeoWindowTerminals.list`).
+/// titles. It observes the rows itself, and each row its own title, so a
+/// terminal retitling redraws its row and not the section or the sidebar
+/// above it (see `LeoWindowTerminals.list`, `LeoTerminalTitles`).
 ///
 /// Never collapsible (B-167): `sidebarList` reads this section as its
 /// header plus one row per terminal (`labels.count + 1`), so a hidden
@@ -17,14 +18,25 @@ struct LeoTerminalsSection: View {
 
     var body: some View {
         Section(header: Text("Terminals")) {
-            ForEach(titles.labels) { label in
-                LeoTerminalRowView(label: label, terminals: terminals)
+            ForEach(titles.rows) { title in
+                LeoTerminalTitleRow(title: title, terminals: terminals)
                     .frame(minHeight: LeoDispatchRowMetrics.terminalRowHeight)
                     .listRowInsets(EdgeInsets())
-                    .tag(Optional(LeoSidebarItemID.terminal(label.id)))
-                    .id(LeoSidebarItemID.terminal(label.id))
+                    .tag(Optional(LeoSidebarItemID.terminal(title.id)))
+                    .id(LeoSidebarItemID.terminal(title.id))
             }
         }
         .collapsible(false)
+    }
+}
+
+/// A Terminals row that observes its own title, so a retitle redraws it
+/// and not the List around it (see `LeoTerminalTitles`).
+private struct LeoTerminalTitleRow: View {
+    @ObservedObject var title: LeoTerminalTitle
+    let terminals: LeoWindowTerminals
+
+    var body: some View {
+        LeoTerminalRowView(label: title.label, terminals: terminals)
     }
 }

@@ -195,35 +195,45 @@ import Testing
     /// A terminal retitling itself (a spinner in its title, ~10/s) reaches
     /// only its row's label: views that observe the window's rows for what
     /// is listed and selected -- the whole sidebar, the content area --
-    /// don't redraw for it.
-    @Test func retitlingPublishesTheLabelsButNotTheRows() {
+    /// don't redraw for it, and neither does the Terminals section, whose
+    /// List reconfigures every visible row when what it lists changes.
+    @Test func retitlingPublishesOnlyItsRowsLabel() {
         let terminals = LeoWindowTerminals()
         terminals.add(a, title: "zsh")
+        terminals.add(b, title: "vim")
         var rowChanges = 0
-        var labelChanges = 0
+        var sectionChanges = 0
+        var titleChanges: [UUID: Int] = [:]
         let rowsSubscription = terminals.objectWillChange.sink { rowChanges += 1 }
-        let labelsSubscription = terminals.titles.objectWillChange.sink { labelChanges += 1 }
+        let sectionSubscription = terminals.titles.objectWillChange.sink { sectionChanges += 1 }
+        let titleSubscriptions = terminals.titles.rows.map { title in
+            title.objectWillChange.sink { titleChanges[title.id, default: 0] += 1 }
+        }
 
         terminals.retitle(a, to: "~/src")
 
         #expect(rowChanges == 0)
-        #expect(labelChanges == 1)
-        #expect(terminals.titles.labels.map(\.text) == ["~/src"])
-        _ = (rowsSubscription, labelsSubscription)
+        #expect(sectionChanges == 0)
+        #expect(titleChanges == [a: 1])
+        #expect(terminals.titles.labels.map(\.text) == ["~/src", "vim"])
+        _ = (rowsSubscription, sectionSubscription, titleSubscriptions)
     }
 
     @Test func addingRemovingAndReplacingRowsPublishTheRows() {
         let terminals = LeoWindowTerminals()
         var rowChanges = 0
-        let subscription = terminals.objectWillChange.sink { rowChanges += 1 }
+        var sectionChanges = 0
+        let rowsSubscription = terminals.objectWillChange.sink { rowChanges += 1 }
+        let sectionSubscription = terminals.titles.objectWillChange.sink { sectionChanges += 1 }
 
         terminals.add(a, title: "zsh")
         terminals.replace(a, with: b, title: "zsh")
         terminals.remove(b)
 
         #expect(rowChanges == 3)
+        #expect(sectionChanges == 3)
         #expect(terminals.titles.labels.isEmpty)
-        _ = subscription
+        _ = (rowsSubscription, sectionSubscription)
     }
 
     @Test func activatingSelectsAndShows() {
