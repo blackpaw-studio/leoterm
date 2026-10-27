@@ -80,12 +80,15 @@ struct LeoAgentRowView: View {
     var newWorktreeAgent: () -> Void = {}
     /// B-283: the row's host advertised `agent_environments`.
     var environmentsSupported = false
+    /// The row's host advertised `agent_appearance`.
+    var appearanceSupported = false
     /// Whether the row sits in the Working section (grouped by attention).
     var inWorkingSection = false
     /// Unread chat messages from the agent.
     var unreadCount = 0
     @State private var showingRename = false
     @State private var showingDelete = false
+    @State private var showingAppearance = false
 
     private var availability: LeoRowActionAvailability {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo)
@@ -113,6 +116,9 @@ struct LeoAgentRowView: View {
         .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
+        .popover(isPresented: $showingAppearance, arrowEdge: .trailing) {
+            LeoAgentAppearancePopover(row: row, client: actions.appearanceClient(for: row.host)) { editAppearanceRules() }
+        }
         .sheet(isPresented: $showingDelete) {
             LeoDeleteAgentSheet(row: row, actions: actions, error: error, errorCode: errorCode)
         }
@@ -138,6 +144,9 @@ struct LeoAgentRowView: View {
                 .disabled(!availability.setTemplate)
             Menu(LeoEnvironmentSwitchMenu.title) { switchItems }
                 .disabled(!availability.setTemplate)
+        }
+        if appearanceSupported {
+            Button("Appearance…") { showingAppearance = true }
         }
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
@@ -207,6 +216,12 @@ struct LeoAgentRowView: View {
                 EmptyView()
             }
         }
+    }
+
+    /// Leo Settings' Appearance tab on this agent's machine.
+    private func editAppearanceRules() {
+        showingAppearance = false
+        (NSApp.delegate as? AppDelegate)?.leoRuntime.presentAppearanceRules(for: row.host)
     }
 
     /// Opens the workspace browser (B-005) on this agent in the window
