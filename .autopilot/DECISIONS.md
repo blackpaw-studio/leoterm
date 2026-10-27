@@ -4126,3 +4126,31 @@ Chose: Mac only (test-only); the Quick Terminal test's chooseAgent: use and the 
 Why: D-576; Mac + iOS parity rule; no mid-task scope growth.
 Commit: ebc8985de
 Veto: [ ]
+
+## D-578 · 2026-10-27 · Arm LEO_FORCE_DISCONNECTED inside the feed, keyed on registry generations (>0), instead of delaying the local feed's early start
+Context: B-166 (runner call).
+Chose: Arm LEO_FORCE_DISCONNECTED inside the feed, keyed on registry generations (>0), instead of delaying the local feed's early start
+Why: AUTONOMY: bug fixes; production launch behaviour unchanged.
+Commit: 2f77976dc 3b815fb29
+Veto: [ ]
+
+## D-579 · 2026-10-27 · Mac-only fix, no iOS fixture
+Context: B-166 (runner call).
+Chose: Mac-only fix, no iOS fixture
+Why: Mac + iOS parity rule: iOS and LeoKit never read the variable.
+Commit: 2f77976dc 3b815fb29
+Veto: [ ]
+
+## D-580 · 2026-10-27 · On the forced path the list handler returns right after emit(), skipping state fetch, metadata refresh and onManualRefresh (DEBUG only)
+Context: B-166 (runner call).
+Chose: On the forced path the list handler returns right after emit(), skipping state fetch, metadata refresh and onManualRefresh (DEBUG only)
+Why: AUTONOMY: test infrastructure; fixture stays out of release builds.
+Commit: 2f77976dc 3b815fb29
+Veto: [ ]
+
+## D-581 · 2026-10-27 · No test for arming while the feed is already connected
+Context: B-166 (runner call).
+Chose: No test for arming while the feed is already connected
+Why: Production always arms before start.
+Commit: 2f77976dc 3b815fb29
+Veto: [ ]

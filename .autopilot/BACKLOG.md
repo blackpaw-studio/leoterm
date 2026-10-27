@@ -1081,11 +1081,13 @@ Source: autopilot polish (B-104)
 Done: ebc8985de
 Verified: not visually verified — test-only change; full suite 3781 pass, swiftlint clean
 
-## B-166 · LEO_FORCE_DISCONNECTED sometimes doesn't arm on first launch   [ready]
+## B-166 · LEO_FORCE_DISCONNECTED sometimes doesn't arm on first launch   [done]
 Issue: #170
 Why: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
 Accept: B-104 verify: the DEBUG fixture didn't take effect on the first launch; a relaunch worked — possible arming race
 Source: autopilot polish (B-104)
+Done: 2f77976dc 3b815fb29
+Verified: not visually verified — Peekaboo bridge lacks permissions; root-cause test fails before the fix, full suite 3782 pass, 6 cold launches logged the forced disconnect after the generation-1 connect
 
 ## B-167 · Pin the Terminals section as non-collapsible   [ready]
 Issue: #171
