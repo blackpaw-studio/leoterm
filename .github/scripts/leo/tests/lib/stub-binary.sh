@@ -28,6 +28,7 @@ int main(int argc, char **argv) {
   return 2;
 }
 EOF
-  xcrun clang "${archs[@]}" -mmacosx-version-min=13.0 "${cflags[@]+"${cflags[@]}"}" -o "$out" "$src"
+  # --sdk macosx: bare `xcrun clang` falls back to the CLT SDK even under DEVELOPER_DIR.
+  xcrun --sdk macosx clang "${archs[@]}" -mmacosx-version-min=13.0 "${cflags[@]+"${cflags[@]}"}" -o "$out" "$src"
   rm -rf "$(dirname "$src")"
 }
