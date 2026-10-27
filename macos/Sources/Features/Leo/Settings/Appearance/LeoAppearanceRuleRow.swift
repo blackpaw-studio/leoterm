@@ -11,21 +11,29 @@ struct LeoAppearanceRuleRow: View {
     let update: (LeoAppearanceRule) -> Void
     let delete: () -> Void
 
+    /// The number column; the "then" line and the problem indent past it.
+    private static let numberWidth: CGFloat = 18
+    private static let spacing: CGFloat = 6
+
+    // Two lines, "when" over "then": one line overflows the rules column
+    // beside the preview at the window's default width.
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
+            HStack(spacing: Self.spacing) {
                 Text("\(number)")
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(width: 18, alignment: .trailing)
+                    .frame(width: Self.numberWidth, alignment: .trailing)
                 fieldPicker
                 opPicker
                 TextField("Value", text: binding(\.when.value) { rule, value in
                     LeoAppearanceRule(field: rule.when.field, op: rule.when.op, value: value, color: rule.color, emoji: rule.emoji)
                 })
                 .textFieldStyle(.roundedBorder)
-                .frame(minWidth: 90)
-                Image(systemName: "arrow.right").foregroundStyle(.tertiary).accessibilityHidden(true)
+                .frame(minWidth: 90, maxWidth: .infinity)
+            }
+            HStack(spacing: Self.spacing) {
+                Image(systemName: "arrow.turn.down.right").foregroundStyle(.tertiary).accessibilityHidden(true)
                 colorMenu
                 TextField("Emoji", text: binding(\.emojiText) { rule, emoji in
                     LeoAppearanceRule(field: rule.when.field, op: rule.when.op, value: rule.when.value, color: rule.color, emoji: emoji)
@@ -33,23 +41,24 @@ struct LeoAppearanceRuleRow: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 52)
                 .help("An emoji; Edit ▸ Emoji & Symbols opens the picker.")
+                Spacer(minLength: 8)
                 Text(matchCount == 1 ? "1 agent" : "\(matchCount) agents")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
-                    .frame(width: 58, alignment: .trailing)
                 Button(action: delete) { Image(systemName: "minus.circle") }
                     .buttonStyle(.borderless)
                     .help("Delete Rule")
                     .accessibilityLabel("Delete Rule \(number)")
             }
+            .padding(.leading, Self.numberWidth + Self.spacing)
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
-                    .padding(.leading, 24)
+                    .padding(.leading, Self.numberWidth + Self.spacing)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, 4)
     }
 
     private var fieldPicker: some View {
