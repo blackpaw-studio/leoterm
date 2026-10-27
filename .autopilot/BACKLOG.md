@@ -1025,11 +1025,13 @@ Source: autopilot polish (B-102)
 Done: 94e27ce24
 Verified: not visually verified — no UI change (comment only); full suite 3779 pass, swiftlint clean
 
-## B-159 · liveShortcutsDecodeLikeTheXib compares against the xib decoder   [ready]
+## B-159 · liveShortcutsDecodeLikeTheXib compares against the xib decoder   [done]
 Issue: #163
 Why: it compares hard-coded strings rather than the xib decoder's output; add a bare "T" (→ "⇧t") case so the name holds
 Accept: it compares hard-coded strings rather than the xib decoder's output; add a bare "T" (→ "⇧t") case so the name holds
 Source: autopilot polish (B-102)
+Done: f1ba7ff2d
+Verified: not visually verified — test-only change; liveShortcutsDecodeLikeTheXib + full suite 3779 pass, swiftlint clean
 
 ## B-160 · Live ⌘O check can pass vacuously   [ready]
 Issue: #164

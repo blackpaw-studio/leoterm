@@ -4021,3 +4021,17 @@ Chose: Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equi
 Why: Mac + iOS parity rule (AGENTS.md).
 Commit: 94e27ce24
 Veto: [ ]
+
+## D-563 · 2026-10-27 · Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equivalent
+Context: B-159 (runner call).
+Chose: Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equivalent
+Why: D-562; Mac + iOS parity rule.
+Commit: f1ba7ff2d
+Veto: [ ]
+
+## D-564 · 2026-10-27 · Case table, private ShortcutCase struct and xibDocument helper stay in the same test file
+Context: B-159 (runner call).
+Chose: Case table, private ShortcutCase struct and xibDocument helper stay in the same test file
+Why: AUTONOMY: test infrastructure; matches surrounding code.
+Commit: f1ba7ff2d
+Veto: [ ]
