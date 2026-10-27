@@ -149,7 +149,8 @@ struct LeoPollScheduler {
             guard !pendingSSERefresh else { return [] }
             pendingSSERefresh = true
             return [.scheduleSSERefresh(after: Self.sseCoalesceInterval)]
-        case .agentActivity, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .other:
+        case .agentActivity, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction,
+             .agentAppearanceChanged, .chat, .other:
             return []
         }
     }

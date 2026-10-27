@@ -31,13 +31,18 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// (`claude`, `codex`, ...); nil when the daemon omits them.
     public let template: String?
     public let harness: String?
+    /// The resolved emoji and color (`agent_appearance`); nil when nothing
+    /// is set. Decoded by `LeoAppearanceWire`.
+    public let appearance: LeoAgentAppearance?
 
     public init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
                 currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
                 startedAt: String? = nil, usage: LeoAgentUsage? = nil,
-                environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil) {
+                environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil,
+                appearance: LeoAgentAppearance? = nil) {
         self.template = template
         self.harness = harness
+        self.appearance = appearance
         self.name = name
         self.host = host
         self.status = status
@@ -74,6 +79,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         environments = LeoEnvironmentsWire.agent(from: decoder)
         template = (try? container.decodeIfPresent(String.self, forKey: .template)) ?? nil
         harness = (try? container.decodeIfPresent(String.self, forKey: .harness)) ?? nil
+        appearance = LeoAppearanceWire.agent(from: decoder)
     }
 
 }
@@ -138,6 +144,9 @@ public enum LeoObserveEvent: Equatable, Sendable {
     case agentUsage(seq: Int, agent: String, usage: LeoAgentUsage)
     /// A bridged agent's context compaction began or ended (`agent_compaction`).
     case agentCompaction(seq: Int, compaction: LeoCompactionEvent)
+    /// An agent's resolved appearance changed (`agent_appearance`); nil
+    /// means nothing is set any more.
+    case agentAppearanceChanged(seq: Int, at: String?, agent: String, appearance: LeoAgentAppearance?)
     /// A Leo Chat message was posted or changed (`chat.message`,
     /// `chat.updated`).
     case chat(seq: Int, LeoChatEvent)
@@ -345,6 +354,10 @@ public actor LeoActivityClient {
             }
             leoActivityClientLogger.debug("activityClient: malformed agent_compaction kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case LeoAppearanceWire.eventType:
+            if let p = LeoAppearanceWire.event(data) { return .agentAppearanceChanged(seq: p.seq, at: p.at, agent: p.agent, appearance: p.appearance) }
+            leoActivityClientLogger.debug("activityClient: malformed agent_appearance_changed kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         case "chat.message", "chat.updated":
             struct Payload: Decodable { let seq: Int }
             if let p = try? decoder.decode(Payload.self, from: data), let message = chatMessage(in: data) {
@@ -413,7 +426,7 @@ extension LeoObserveEvent {
              .agentStateChanged(let seq, _, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _),
-             .chat(let seq, _): return seq
+             .agentAppearanceChanged(let seq, _, _, _), .chat(let seq, _): return seq
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }
