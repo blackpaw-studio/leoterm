@@ -266,11 +266,12 @@ Lane: B-168
   Branch: autopilot-lane/B-168
   Base: 7cb5b5672f81499235daf94f9c0af3e8279747cf
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: bf8d175fe5dee9784e600f53230568ecac3c029f
+  Tokens: 4.33M in (4.11M cache read), ≥18.7k out, 57 requests
   Dispatched: 2026-10-27T10:28:48Z
   Call: Drop the non-flipped branches in LeoTerminalsViewport rather than test them — item allows either; minimal change, NSTableView is always flipped
   Call: Mac only — no iOS counterpart
@@ -291,6 +292,7 @@ Finished 14: B-164 landed 47ae6f289598941c371eb3b9237253e4ddb6e6eb · not visual
 Finished 15: B-165 landed c3ca374fca1dadf05b8364582cf9eccede1484b2 · not visually verified
 Finished 16: B-166 landed 6cbe4c742251e3a98caa610892a4a3587e99a3b9 · not visually verified
 Finished 17: B-167 landed b406d21378b51ab30d9b7e00823cd4a557d0f10b · not visually verified
+Finished 18: B-168 landed 6444c7e447c458e8ce72f4209bb2962235fbfd8a · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.

@@ -4168,3 +4168,17 @@ Chose: Mac only
 Why: ios/ has no Terminals section
 Commit: 621e3ffa0
 Veto: [ ]
+
+## D-584 · 2026-10-27 · Drop the non-flipped branches in LeoTerminalsViewport rather than test them
+Context: B-168 (runner call).
+Chose: Drop the non-flipped branches in LeoTerminalsViewport rather than test them
+Why: item allows either; minimal change, NSTableView is always flipped
+Commit: 337dcaf5e
+Veto: [ ]
+
+## D-585 · 2026-10-27 · Mac only
+Context: B-168 (runner call).
+Chose: Mac only
+Why: no iOS counterpart
+Commit: 337dcaf5e
+Veto: [ ]

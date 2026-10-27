@@ -1104,11 +1104,13 @@ Accept: runtests.sh still labels ConfigTests/errorsEmptyForValidConfig "an expec
 Source: autopilot polish (B-147)
 Done: no code change — already satisfied by B-114 (a5e1b3de8), same as B-137.
 
-## B-168 · Drop dead non-flipped branches in LeoTerminalsViewport   [ready]
+## B-168 · Drop dead non-flipped branches in LeoTerminalsViewport   [done]
 Issue: #172
 Why: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Accept: scrollToTop/unobscuredBounds (LeoTerminalsViewport.swift:68,:78) have untested, unreachable non-flipped branches (NSTableView is flipped) — drop or test them
 Source: autopilot polish (B-105)
+Done: 337dcaf5e
+Verified: full suite 3782 tests passed, swiftlint clean, LeoTerminalsViewportTests 7/7 at bf8d175fe; no UI change
 
 ## B-170 · isOffScreen fails loudly on a bad row index   [ready]
 Issue: #174
