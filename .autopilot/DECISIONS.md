@@ -4014,3 +4014,10 @@ Chose: Close B-310 as fixed by B-309 rather than build it separately
 Why: Same root cause (ring stroke spilled 1.25pt past its 20pt frame); B-309's ringsStayInsideTheClusterFrameSoNothingClips failed at ~2pt spill before the fix; reviewer checked it against B-310's screenshot. Reopen in review if the clip persists.
 Commit: 3efcf97ff
 Veto: [ ]
+
+## D-562 · 2026-10-27 · Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equivalent
+Context: B-158 (runner call).
+Chose: Mac only: menu shortcut test helper lives in macos/Tests; iOS has no equivalent
+Why: Mac + iOS parity rule (AGENTS.md).
+Commit: 94e27ce24
+Veto: [ ]

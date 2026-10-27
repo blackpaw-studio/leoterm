@@ -1017,11 +1017,13 @@ Inbox: 20261027T012438668718Z-50f1c1ad#1
 Question: couldn't reproduce — the re-enabled test skips on Dionysus ("needs a key window") in the full suite (3779 passed); a key-free probe at the same suite position found main-thread mask 0x0, default SIGINT, shell blocked=0 pending=0, so the blocked-SIGINT theory has no support; a standalone WKWebView + key-send check leaked no signal state. Next lead: LeoAgentInputDeliveryTests.resentKeysNeverReachTheAppOrItsWindows (bbf1b5094) adds local key monitors via LeoApplication.routeResentKeys. Commit 893d72b3b re-enables the test with a signal-state diagnostic (one keyed run names the branch; do not merge it as is); unapplied mask-theory test + childPreExec diff are in b311-unapplied/. Reply "B-311: close" to close it, or "B-311: <more detail>" to retry (e.g. once the Dionysus prompts are cleared, or with a CI run of 893d72b3b). Work kept on autopilot-shelved/B-311.
 Answer:
 
-## B-158 · Document LeoMenuXib's ignored modifier flags   [ready]
+## B-158 · Document LeoMenuXib's ignored modifier flags   [done]
 Issue: #162
 Why: LeoMenuXib.swift:52-56: the live encoder ignores .function/.numericPad/.capsLock; the old exact-.command check was dropped silently — document it
 Accept: LeoMenuXib.swift:52-56: the live encoder ignores .function/.numericPad/.capsLock; the old exact-.command check was dropped silently — document it
 Source: autopilot polish (B-102)
+Done: 94e27ce24
+Verified: not visually verified — no UI change (comment only); full suite 3779 pass, swiftlint clean
 
 ## B-159 · liveShortcutsDecodeLikeTheXib compares against the xib decoder   [ready]
 Issue: #163
