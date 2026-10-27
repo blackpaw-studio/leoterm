@@ -75,6 +75,17 @@ Lane: B-307
   Call: Mac only, code in shared LeoKit — D-551
   Call: Regenerated leoterm-only golden Fixtures/agent-browser/browser-tools.json; shared client-tools wire fixtures untouched — agent decides test infrastructure
 
+Lane: B-308
+  Branch: autopilot-lane/B-308
+  Base: 81bf8c3187859bb0b4099e4e9736fdee7fb15be5
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T03:58:20Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
