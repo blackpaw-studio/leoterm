@@ -65,8 +65,9 @@ import Testing
         fixture.controller.closeTabImmediately(registerRedo: false)
     }
 
-    private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
-        for _ in 0 ..< limit where !condition() {
+    private func turnsUntil(limit: Int = 50, _ condition: () -> Bool) async -> Bool {
+        for _ in 0 ..< limit {
+            if condition() { return true }
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
         }
         return condition()
@@ -101,7 +102,7 @@ import Testing
 
             // ⌘W on the row's shell, then Close on its menu.
             #expect(fixture.controller.leoDeferCloseOfLastSplit { Issue.record("Cancel must not close") })
-            #expect(await turns { prompts.asked.count == 1 })
+            #expect(await turnsUntil { prompts.asked.count == 1 })
             await fixture.host.closeTerminalFromMenu(shell)
 
             #expect(prompts.asked == ["a.txt", "a.txt"])
@@ -111,7 +112,7 @@ import Testing
             prompts.answer = .discard
             var retried = false
             #expect(fixture.controller.leoDeferCloseOfLastSplit { retried = true })
-            #expect(await turns { retried })
+            #expect(await turnsUntil { retried })
             #expect(fixture.panes.existingPane(for: .terminal(shell.surfaceID)) == nil)
             await tearDown(fixture)
         }
@@ -132,7 +133,7 @@ import Testing
             let node = try #require(fixture.controller.surfaceTree.root?.node(view: view))
 
             fixture.controller.closeSurface(node, withConfirmation: true)
-            #expect(await turns { prompts.asked.count == 1 })
+            #expect(await turnsUntil { prompts.asked.count == 1 })
 
             #expect(prompts.asked == ["a.txt"])
             #expect(fixture.controller.surfaceTree.contains(view), "Cancel keeps the row's shell")
@@ -141,7 +142,7 @@ import Testing
 
             prompts.answer = .discard
             fixture.controller.closeSurface(node, withConfirmation: true)
-            #expect(await turns { fixture.panes.existingPane(for: .terminal(shell.surfaceID)) == nil })
+            #expect(await turnsUntil { fixture.panes.existingPane(for: .terminal(shell.surfaceID)) == nil })
             #expect(pane.tabs.document == nil, "closed through its prompt, not kept as an orphan")
             if let window = fixture.controller.window, let sheet = window.attachedSheet { window.endSheet(sheet) }
             await tearDown(fixture)
@@ -160,7 +161,7 @@ import Testing
             #expect(fixture.controller.leoHasUnsavedEdits)
             var goesAhead: Bool?
             #expect(TerminalController.leoDeferClose(of: [window]) { goesAhead = true })
-            #expect(await turns { !prompts.asked.isEmpty })
+            #expect(await turnsUntil { !prompts.asked.isEmpty })
 
             #expect(prompts.asked == ["a.txt"])
             #expect(goesAhead == nil, "Cancel keeps the window")
