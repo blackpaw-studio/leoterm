@@ -1,7 +1,8 @@
 import SwiftUI
 import LeoKit
 
-/// An agent row: a leading state symbol, then the name line (the name and
+/// An agent row: the agent's color bar (or a blank slot of the same
+/// width), a leading state symbol, then the name line (the emoji, the name and
 /// the last-active time, a state word, or a spinner while an action is
 /// pending) and, for states that have one, a detail line aligned with the
 /// name. Each line is pinned to a fixed height and whether there is a
@@ -30,23 +31,45 @@ struct LeoAgentRowContent: View {
                 if presentation.state.hasSecondLine { detailLine(presentation) }
             }
         }
+        // The bar spans the row's lines without adding to its height.
+        .padding(.leading, LeoAgentRowMetrics.colorBarSlot)
+        .background(alignment: .leading) { colorBar(presentation.barColor) }
         .padding(.vertical, LeoAgentRowMetrics.verticalPadding)
         .help(presentation.help)
     }
 
     private func nameLine(_ presentation: LeoAgentRowPresentation) -> some View {
         HStack(spacing: 6) {
-            nameText
-                .fontWeight(.medium)
-                .foregroundStyle(presentation.isNameDimmed ? .secondary : .primary)
-                .lineLimit(1)
-                .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
+            HStack(spacing: LeoAgentRowMetrics.emojiSpacing) {
+                if let emoji = presentation.leadingEmoji {
+                    // Its own Text, so name highlights still index the name.
+                    Text(emoji)
+                        .font(.callout)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .accessibilityHidden(true)
+                }
+                nameText
+                    .fontWeight(.medium)
+                    .foregroundStyle(presentation.isNameDimmed ? .secondary : .primary)
+                    .lineLimit(1)
+                    .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
+            }
             Spacer(minLength: 4)
             LeoAgentBrowserBadge(host: row.host, agent: row.name, isSelected: isSelected)
             trailing(presentation.state)
             LeoUnreadCountBadge(count: unreadCount, isOnSelection: isSelected)
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
+    }
+
+    @ViewBuilder private func colorBar(_ color: LeoAppearanceColor?) -> some View {
+        if let color {
+            RoundedRectangle(cornerRadius: LeoAgentRowMetrics.colorBarWidth / 2)
+                .fill(color.swiftUIColor)
+                .frame(width: LeoAgentRowMetrics.colorBarWidth)
+                .accessibilityHidden(true)
+        }
     }
 
     private var nameText: Text {
