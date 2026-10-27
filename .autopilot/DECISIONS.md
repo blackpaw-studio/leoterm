@@ -4063,3 +4063,31 @@ Chose: The after measurement must settle on an end != the old one, dropping the 
 Why: AUTONOMY: test infrastructure; removes a font/fixture dependency.
 Commit: 60baa7fe7
 Veto: [ ]
+
+## D-569 · 2026-10-27 · Mac only: test-helper change
+Context: B-162 (runner call).
+Chose: Mac only: test-helper change
+Why: D-566/D-568; Mac + iOS parity rule.
+Commit: 1a883ba23
+Veto: [ ]
+
+## D-570 · 2026-10-27 · Renamed to turnsUntil(limit:_:) (not (_:limit:)) so trailing-closure callers resolve cleanly
+Context: B-162 (runner call).
+Chose: Renamed to turnsUntil(limit:_:) (not (_:limit:)) so trailing-closure callers resolve cleanly
+Why: AUTONOMY: naming, test infrastructure.
+Commit: 1a883ba23
+Veto: [ ]
+
+## D-571 · 2026-10-27 · Fixed all three private copies of the helper (LeoTerminalRowsIntegrationTests, LeoSidebarTerminalScrollTests, Editor/LeoRowPaneCloseTests) and ~50 callers
+Context: B-162 (runner call).
+Chose: Fixed all three private copies of the helper (LeoTerminalRowsIntegrationTests, LeoSidebarTerminalScrollTests, Editor/LeoRowPaneCloseTests) and ~50 callers
+Why: AUTONOMY: test infrastructure; update every caller.
+Commit: 1a883ba23
+Veto: [ ]
+
+## D-572 · 2026-10-27 · No new test for the helper (private to test files, no seam)
+Context: B-162 (runner call).
+Chose: No new test for the helper (private to test files, no seam)
+Why: TDD exception: test infrastructure.
+Commit: 1a883ba23
+Veto: [ ]

@@ -1049,11 +1049,13 @@ Source: autopilot polish (B-103)
 Done: 60baa7fe7
 Verified: not visually verified — test-only change; full suite 3779 pass, swiftlint clean
 
-## B-162 · turns(limit:until:) stops when the condition holds and gets a clearer name   [ready]
+## B-162 · turns(limit:until:) stops when the condition holds and gets a clearer name   [done]
 Issue: #166
 Why: it keeps evaluating condition() after it turns true (up to ~50 extra renders) — use a while loop; rename to e.g. turnsUntil(_:limit:) to avoid confusion with afterPendingUpdates' turns:
 Accept: it keeps evaluating condition() after it turns true (up to ~50 extra renders) — use a while loop; rename to e.g. turnsUntil(_:limit:) to avoid confusion with afterPendingUpdates' turns:
 Source: autopilot polish (B-103)
+Done: 1a883ba23
+Verified: not visually verified — test helpers only; full suite 3779 pass, swiftlint clean
 
 ## B-163 · Drop remaining project-history comments in LeoSidebarTerminalScrollTests   [ready]
 Issue: #167
