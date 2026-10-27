@@ -38,6 +38,10 @@ struct LeoAgentRowPresentation: Equatable {
     let lastActiveSpoken: String?
     /// The row's hover: the template, then the usage numbers. May be empty.
     let help: String
+    /// The agent's emoji, drawn before the name; nil when none is set.
+    let leadingEmoji: String?
+    /// The leading color bar's palette color; nil leaves the slot blank.
+    let barColor: LeoAppearanceColor?
 
     /// What the fallback says when there is neither a template nor any spend.
     static let emptyFallback = "No activity yet"
@@ -58,6 +62,8 @@ struct LeoAgentRowPresentation: Equatable {
         lastActiveSpoken = active.map { LeoRelativeTime.spokenLabel(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         let environments = Self.overrideNames(row.environments)
         help = [template, environments.map { "Environments: \($0)" }, usage.map(LeoUsageFormat.tooltip)].compactMap { $0 }.joined(separator: "\n")
+        leadingEmoji = row.appearance?.emoji
+        barColor = row.appearance?.color
     }
 
     /// The detail line's ink: the state's, except that the "No activity yet"
@@ -72,7 +78,9 @@ struct LeoAgentRowPresentation: Equatable {
 
     /// "alpha, Needs Permission, Bash": the name's label, which carries the
     /// state the (hidden) symbol draws.
-    func accessibilityLabel(name: String) -> String { "\(name), \(state.accessibilityLabel)" }
+    func accessibilityLabel(name: String) -> String {
+        ["\(name), \(state.accessibilityLabel)", barColor?.displayName].compactMap { $0 }.joined(separator: ", ")
+    }
 
     private static func detail(row: LeoAgentRow, error: String?, template: String?, usage: LeoAgentUsage?) -> Detail {
         let metadata = row.metadata

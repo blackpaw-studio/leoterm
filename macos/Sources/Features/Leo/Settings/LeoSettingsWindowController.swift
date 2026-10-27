@@ -41,15 +41,19 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     private let agentBrowser: LeoAgentBrowserSetting
     /// The machine of the agent selected in the sidebar, if any.
     private let selectedHost: () -> LeoHostID?
+    /// A machine's agents as the sidebar shows them, for the Appearance preview.
+    private let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
     private let prompting: any LeoSettingsPrompting
     private(set) var model: LeoMachinesSettingsModel?
     private(set) var target: LeoSettingsTargetModel?
 
     init(
         registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
-        agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil
+        agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil,
+        agents: @escaping @MainActor (LeoHostID) -> [LeoAgentRow] = { _ in [] }
     ) {
         self.prompting = prompting ?? LeoAlertPrompting()
+        self.agents = agents
         self.registry = registry
         self.clients = clients
         self.selectedHost = selectedHost
@@ -72,6 +76,16 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    /// Shows the window on a config `tab` editing `host`. Either move still
+    /// asks first when the pane being left has unsaved edits.
+    func show(target host: LeoHostID, tab: LeoSettingsTab) {
+        _ = model ?? makeWindowAndModel()
+        target?.requestSwitch(to: host)
+        target?.requestTab(tab)
+        window?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     private func makeWindowAndModel() -> LeoMachinesSettingsModel {
         let model = registry.makeSettingsModel()
         self.model = model
@@ -81,7 +95,9 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
             statuses: registry.machineStatuses, reconnect: { registry.reconnect($0) }, initialHost: selectedHost()
         )
         self.target = target
-        let content = LeoSettingsView(model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry)
+        let content = LeoSettingsView(
+            model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry, agents: agents
+        )
         let window = NSWindow(contentViewController: NSHostingController(rootView: content))
         window.title = "Leo Settings"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
@@ -180,6 +196,7 @@ private struct LeoSettingsView: View {
     @ObservedObject var statsStyle: LeoStatsStyleSetting
     let agentBrowser: LeoAgentBrowserSetting
     @ObservedObject var registry: LeoMachineRegistry
+    let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
 
     var body: some View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
@@ -198,6 +215,9 @@ private struct LeoSettingsView: View {
             LeoDelegationSettingsView(target: target)
                 .tabItem { Label("Delegation", systemImage: "arrow.triangle.branch") }
                 .tag(LeoDelegationSettingsView.tab)
+            LeoAppearanceSettingsView(target: target, agents: agents)
+                .tabItem { Label("Appearance", systemImage: "paintpalette") }
+                .tag(LeoAppearanceSettingsView.tab)
             LeoDefaultsSettingsView(target: target)
                 .tabItem { Label("Defaults", systemImage: "slider.horizontal.3") }
                 .tag(LeoDefaultsSettingsView.tab)

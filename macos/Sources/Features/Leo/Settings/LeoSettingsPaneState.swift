@@ -123,6 +123,16 @@ struct LeoDisconnectedPaneNotice: View {
 struct LeoTooOldPaneNotice: View {
     let machine: String
     let running: String?
+    /// A pane that needs more than the config API says what it needs.
+    var customHeadline: String?
+    var customDetail: String?
+
+    init(machine: String, running: String?, headline: String? = nil, detail: String? = nil) {
+        self.machine = machine
+        self.running = running
+        customHeadline = headline
+        customDetail = detail
+    }
 
     var body: some View {
         VStack(spacing: 8) {
@@ -136,11 +146,12 @@ struct LeoTooOldPaneNotice: View {
     }
 
     private var headline: String {
-        LeoConfigAPI.minimumVersion.map { "Requires leo ≥ \($0.major).\($0.minor).\($0.patch)" } ?? "Update leo on \(machine)"
+        if let customHeadline { return customHeadline }
+        return LeoConfigAPI.minimumVersion.map { "Requires leo ≥ \($0.major).\($0.minor).\($0.patch)" } ?? "Update leo on \(machine)"
     }
 
     private var detail: String {
         let current = running.map { " It is running leo \($0)." } ?? ""
-        return "\(machine)’s leo can’t edit its settings from the app yet.\(current)"
+        return (customDetail ?? "\(machine)’s leo can’t edit its settings from the app yet.") + current
     }
 }

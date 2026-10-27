@@ -28,8 +28,10 @@ import LeoKit
 /// viewer moving between background and visible can be watched (B-272).
 /// Reserved `"environments"` (B-283, see `LeoEnvironmentsFixture.swift`)
 /// overlays named environments, answers their routes locally and
-/// advertises `agent_environments`. Only named
-/// agents change; nothing is sent anywhere.
+/// advertises `agent_environments`. Reserved `"appearance"` (agent name ->
+/// the wire's `{"emoji", "color", "emoji_source", "color_source"}`)
+/// overlays agent appearance on `/state` and advertises `agent_appearance`.
+/// Only named agents change; nothing is sent anywhere.
 enum LeoAttentionFixture {
     static let environmentKey = "LEO_ATTENTION_FIXTURE"
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
@@ -44,6 +46,7 @@ enum LeoAttentionFixture {
         static let controlKey = "control"
         static let dispatchMovesKey = "dispatch_moves"
         static let environmentsKey = "environments"
+        static let appearanceKey = "appearance"
 
         let attention: [String: LeoAttentionSignal]
         let dispatches: [LeoDispatch]
@@ -55,6 +58,13 @@ enum LeoAttentionFixture {
         /// Replayed in file order, not sorted.
         let dispatchMoves: [LeoDispatch]
         let environments: LeoEnvironmentsFixture?
+        /// Agent name -> appearance, read by the app's one wire decoder.
+        let appearance: [String: LeoAgentAppearance]
+
+        private struct FixtureAppearance: Decodable, Sendable {
+            let value: LeoAgentAppearance?
+            init(from decoder: any Decoder) throws { value = LeoAppearanceWire.appearance(from: decoder) }
+        }
 
         private struct FixtureCompaction: Decodable, Sendable {
             let phase: LeoCompactionPhase?
@@ -90,6 +100,7 @@ enum LeoAttentionFixture {
             var control: LeoControlFixtureMode?
             var dispatchMoves: [LeoDispatch] = []
             var environments: LeoEnvironmentsFixture?
+            var appearance: [String: LeoAgentAppearance] = [:]
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
@@ -98,6 +109,8 @@ enum LeoAttentionFixture {
                     dispatchMoves = (try? container.decode(LeoLenientDispatches.self, forKey: key))?.dispatches ?? []
                 } else if key.stringValue == Self.environmentsKey {
                     environments = try? container.decode(LeoEnvironmentsFixture.self, forKey: key)
+                } else if key.stringValue == Self.appearanceKey {
+                    appearance = LeoAttentionFixture.lenientEntries(container, key, as: FixtureAppearance.self).compactMapValues(\.value)
                 } else if key.stringValue == Self.usageKey {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
                 } else if key.stringValue == Self.actionsKey {
@@ -131,6 +144,7 @@ enum LeoAttentionFixture {
             self.control = control
             self.dispatchMoves = dispatchMoves
             self.environments = environments
+            self.appearance = appearance
             self.dispatches = dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
         }
     }
@@ -161,25 +175,29 @@ enum LeoAttentionFixture {
         _ source: LeoSidebarActivitySource, overlay: [String: LeoAttentionSignal], dispatches: [LeoDispatch] = [],
         usage: [String: LeoAgentUsage] = [:], turns: [String: LeoTurnCompletion] = [:],
         actions: [String: LeoCurrentAction] = [:], compactions: [String: [LeoCompactionEvent]] = [:],
-        control: LeoControlFixtureMode? = nil, dispatchMoves: [LeoDispatch] = [], environments: LeoEnvironmentsFixture? = nil
+        control: LeoControlFixtureMode? = nil, dispatchMoves: [LeoDispatch] = [], environments: LeoEnvironmentsFixture? = nil,
+        appearance: [String: LeoAgentAppearance] = [:]
     ) -> LeoSidebarActivitySource {
         let environmentOverlay = environments?.agents ?? [:]
         return LeoSidebarActivitySource(events: {
             await advertising(
                 await source.events(), usage: !usage.isEmpty, turns: turns, compactions: compactions, control: control != nil,
-                dispatchTree: !dispatches.isEmpty, dispatchMoves: dispatchMoves, environments: environments != nil
+                dispatchTree: !dispatches.isEmpty, dispatchMoves: dispatchMoves, environments: environments != nil,
+                appearance: !appearance.isEmpty
             )
         }, observedState: {
             let state = try await source.fetchState()
             let agents = state.agents.map { agent in
-                guard overlay[agent.name] != nil || usage[agent.name] != nil || actions[agent.name] != nil || environmentOverlay[agent.name] != nil else {
+                guard overlay[agent.name] != nil || usage[agent.name] != nil || actions[agent.name] != nil || environmentOverlay[agent.name] != nil
+                    || appearance[agent.name] != nil else {
                     return agent
                 }
                 return LeoObservedAgent(
                     name: agent.name, host: agent.host, status: agent.status, activity: agent.activity,
                     currentAction: actions[agent.name] ?? agent.currentAction, lastActivityAt: agent.lastActivityAt, attention: overlay[agent.name] ?? agent.attention,
                     startedAt: agent.startedAt,
-                    usage: usage[agent.name] ?? agent.usage, environments: environmentOverlay[agent.name] ?? agent.environments
+                    usage: usage[agent.name] ?? agent.usage, environments: environmentOverlay[agent.name] ?? agent.environments,
+                    template: agent.template, harness: agent.harness, appearance: appearance[agent.name] ?? agent.appearance
                 )
             }
             let fixtureIDs = Set(dispatches.map(\.id))
@@ -201,13 +219,14 @@ enum LeoAttentionFixture {
     static func advertising(
         _ events: AsyncStream<LeoObserveEvent>, usage: Bool, turns: [String: LeoTurnCompletion],
         compactions: [String: [LeoCompactionEvent]] = [:], control: Bool = false, dispatchTree: Bool = false,
-        dispatchMoves: [LeoDispatch] = [], environments: Bool = false, replayDelay: UInt64 = turnReplayDelay, firstMoveSeq: @escaping @Sendable () -> Int = currentMoveSeq
+        dispatchMoves: [LeoDispatch] = [], environments: Bool = false, appearance: Bool = false, replayDelay: UInt64 = turnReplayDelay, firstMoveSeq: @escaping @Sendable () -> Int = currentMoveSeq
     ) -> AsyncStream<LeoObserveEvent> {
         let moving = !dispatchMoves.isEmpty
-        guard usage || !turns.isEmpty || !compactions.isEmpty || control || dispatchTree || moving || environments else { return events }
+        guard usage || !turns.isEmpty || !compactions.isEmpty || control || dispatchTree || moving || environments || appearance else { return events }
         let flagged: [(Bool, [String])] = [
             (dispatchTree || moving, ["dispatch_tree"]), (usage, ["agent_usage"]), (!turns.isEmpty, ["bridge_turns"]),
             (control, ["agent_control"]), (moving, ["dispatch_attach", "dispatch_placement_live"]), (environments, ["agent_environments"]),
+            (appearance, ["agent_appearance"]),
         ]
         let extra = flagged.filter(\.0).flatMap(\.1)
         return AsyncStream { continuation in

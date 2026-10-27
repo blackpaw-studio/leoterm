@@ -428,6 +428,7 @@ struct LeoSidebarView: View {
                 togglePin: { model.togglePin(row.id) },
                 newWorktreeAgent: { worktreeSource = row },
                 environmentsSupported: model.features(for: row.host).contains(.agentEnvironments),
+                appearanceSupported: model.features(for: row.host).contains(.agentAppearance),
                 inWorkingSection: section.id == LeoSidebarLayout.workingSectionID,
                 unreadCount: unread.count(for: row.id)
             )

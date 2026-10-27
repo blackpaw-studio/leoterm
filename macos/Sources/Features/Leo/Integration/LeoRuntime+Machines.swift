@@ -22,6 +22,11 @@ extension LeoRuntime {
         settingsWindow.show(selecting: host)
     }
 
+    /// Opens Leo Settings on the Appearance tab for `host`'s rules.
+    func presentAppearanceRules(for host: LeoHostID) {
+        settingsWindow.show(target: host, tab: LeoAppearanceSettingsView.tab)
+    }
+
     /// The registry's machines changed (launch, or Settings saved). The
     /// model learns them before their feeds can deliver; a machine that
     /// left, or was disabled, loses its feed and client.

@@ -26,6 +26,9 @@ public enum LeoFakeConfigCall: Equatable, Sendable {
     case restartAgents
     case serviceLog(lines: Int)
     case reloadConfig
+    case appearanceRules
+    case setAppearanceRules([LeoAppearanceRule], ifMatch: String)
+    case setAgentAppearance(name: String, emoji: LeoAppearanceChange<String>, color: LeoAppearanceChange<LeoAppearanceColor>)
 }
 
 /// What a fake daemon knows about its tasks beyond their config: run history
@@ -78,6 +81,7 @@ public actor LeoFakeConfigClient: LeoConfigClient {
     var delegationState: LeoFakeDelegationState?
     var serviceState = LeoFakeServiceState()
     var isRestartingService = false
+    var appearanceState = LeoFakeAppearanceState()
 
     public internal(set) var calls: [LeoFakeConfigCall] = []
 

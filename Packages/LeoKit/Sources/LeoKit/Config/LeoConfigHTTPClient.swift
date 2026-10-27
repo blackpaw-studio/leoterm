@@ -106,11 +106,37 @@ public struct LeoConfigHTTPClient: LeoConfigClient {
     }
 
     private struct FailureBody: Decodable {
-        struct Current: Decodable { let revision: String? }
+        /// `revision` on a 409; `index`/`field` and `reason` on an appearance
+        /// 400. Each is read on its own, so an odd one never hides the rest.
+        struct Current: Decodable {
+            let revision: String?
+            let index: Int?
+            let field: String?
+            let reason: String?
+
+            enum CodingKeys: String, CodingKey { case revision, index, field, reason }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                revision = (try? container.decodeIfPresent(String.self, forKey: .revision)) ?? nil
+                index = (try? container.decodeIfPresent(Int.self, forKey: .index)) ?? nil
+                field = (try? container.decodeIfPresent(String.self, forKey: .field)) ?? nil
+                reason = (try? container.decodeIfPresent(String.self, forKey: .reason)) ?? nil
+            }
+        }
         let error: String?
         let code: String?
         let data: Current?
         let errors: [LeoConfigFieldError]?
+    }
+
+    private static func appearanceFailure(_ body: FailureBody?) -> LeoAppearanceError? {
+        guard let reason = body?.data?.reason else { return nil }
+        switch body?.code {
+        case "invalid_appearance_rule": return body?.data?.index.map { .invalidRule(index: $0, reason: reason) }
+        case "invalid_appearance": return .invalidValue(field: body?.data?.field ?? "", reason: reason)
+        default: return nil
+        }
     }
 
     /// Maps a non-2xx to the config API's own errors, else to a daemon error
@@ -118,6 +144,8 @@ public struct LeoConfigHTTPClient: LeoConfigClient {
     private static func failure(_ response: LeoHTTPResponse) -> Error {
         let body = try? JSONDecoder().decode(FailureBody.self, from: response.body)
         switch response.status {
+        case 400:
+            if let error = appearanceFailure(body) { return error }
         case 409:
             if let revision = body?.data?.revision { return LeoConfigError.conflict(currentRevision: revision) }
         case 422:

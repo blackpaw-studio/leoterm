@@ -111,6 +111,8 @@ actor LeoSidebarFeed {
     var compactions = LeoCompactions.empty
     /// Effective environment names (B-283) -- see `LeoSidebarFeed+Environments.swift`.
     var environments = LeoAgentEnvironmentsIndex.empty
+    /// Resolved emoji and colors -- see `LeoSidebarFeed+Appearance.swift`.
+    var appearance = LeoAgentAppearanceIndex.empty
     var running = false
     var needsState = true
     var recovering = false
@@ -280,6 +282,9 @@ actor LeoSidebarFeed {
         case .agentUsage:
             receiveUsageEvent()
             return
+        case .agentAppearanceChanged(_, _, let agent, let appearance):
+            receiveAppearance(agent, appearance)
+            return
         case .hello(_, _, _, _, let bootID, let features):
             receiveFeatures(bootID: bootID, features: features)
             observeCompactionBoot(bootID)
@@ -330,7 +335,7 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .chat:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .chat:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")

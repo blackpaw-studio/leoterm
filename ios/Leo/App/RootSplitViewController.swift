@@ -52,6 +52,19 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
             return navigation
         }
 
+        present(item: $store.scope(state: \.appearance, action: \.appearance)) { store in
+            let navigation = UINavigationController(rootViewController: AgentAppearanceViewController(store: store))
+            navigation.modalPresentationStyle = .pageSheet
+            if let sheet = navigation.sheetPresentationController {
+                sheet.detents = [.medium(), .large()]
+                sheet.prefersGrabberVisible = true
+                #if DEBUG
+                if AppearanceFixture.prefersLargeSheet { sheet.selectedDetentIdentifier = .large }
+                #endif
+            }
+            return navigation
+        }
+
         observe { [weak self] in
             guard let self else { return }
             let secondary: Secondary? = switch (store.chat, store.detail) {

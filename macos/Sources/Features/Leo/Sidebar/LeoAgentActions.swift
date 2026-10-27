@@ -160,6 +160,11 @@ import LeoKit
     func setEnvironments(_ row: LeoAgentRow, names: [String]) {
         run(row) { daemon in try await daemon.setEnvironments(row.name, names: names) }
     }
+    /// The machine's appearance routes (on its config client); nil while
+    /// it isn't connected.
+    func appearanceClient(for host: LeoHostID) -> (any LeoAppearanceAPI)? {
+        clients.daemon(for: host)?.configClient()
+    }
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
     /// B-274: closes `row`'s editor panes in every window before it's
     /// deleted, asking about unsaved edits; `false` on Cancel. Wired by

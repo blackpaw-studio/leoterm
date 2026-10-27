@@ -1,5 +1,6 @@
 import ComposableArchitecture
 import LeoFeatures
+import LeoKit
 import UIKit
 import UIKitNavigation
 
@@ -99,9 +100,17 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             guard let agent = self?.agent(ref) else { return }
             var content = UIListContentConfiguration.subtitleCell()
             let badge = agent.badge
-            content.image = UIImage(systemName: badge.symbol)
-            content.imageProperties.tintColor = badge.tint
-            content.imageProperties.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2)
+            let style = agent.rowStyle
+            switch style.leading {
+            case .status(let symbol, let tint):
+                content.image = UIImage(systemName: symbol)
+                content.imageProperties.tintColor = tint
+                content.imageProperties.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .title2)
+            case .tile(let emoji, let statusTint):
+                content.image = AgentRowTile.image(emoji: emoji, statusTint: statusTint)
+            }
+            // With any tile on screen every row's image gets the tile's width, so names stay aligned.
+            if self?.showsTiles == true { content.imageProperties.reservedLayoutSize = AgentRowTile.size }
             content.text = agent.name
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
             content.secondaryText = agent.summary
@@ -115,6 +124,12 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             }
             cell.accessories = accessories
             cell.accessibilityIdentifier = "agent.\(agent.name)"
+            cell.accessibilityValue = style.bar?.displayName
+            cell.configurationUpdateHandler = { cell, state in
+                var background = UIBackgroundConfiguration.listCell().updated(for: state)
+                background.customView = style.bar.map { AgentRowBackground(barColor: $0.uiColor) }
+                cell.backgroundConfiguration = background
+            }
         }
         let header = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] view, _, indexPath in
             guard let self, let id = dataSource.sectionIdentifier(for: indexPath.section),
@@ -139,6 +154,11 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         }
     }
 
+    /// Whether any row shows an emoji tile, which is wider than the status symbol.
+    private var showsTiles: Bool {
+        sections.contains { $0.agents.contains { $0.appearance?.emoji != nil } }
+    }
+
     private func agent(_ ref: AgentRef) -> Agent? {
         sections.first { $0.id == ref.daemonID }?.agents.first { $0.name == ref.name }
     }
@@ -157,7 +177,8 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
                 return old == agent ? nil : AgentRef(daemonID: section.id, name: agent.name)
             }
         }
-        snapshot.reconfigureItems(changed.filter { snapshot.itemIdentifiers.contains($0) })
+        let tilesChanged = previous.contains { $0.agents.contains { $0.appearance?.emoji != nil } } != showsTiles
+        snapshot.reconfigureItems((tilesChanged ? snapshot.itemIdentifiers : changed).filter { snapshot.itemIdentifiers.contains($0) })
         let headersChanged = previous.map(\.connection) != newSections.map(\.connection) || previous.map(\.id) != newSections.map(\.id)
         if headersChanged { snapshot.reloadSections(newSections.map(\.id).filter { previous.map(\.id).contains($0) }) }
         dataSource.apply(snapshot, animatingDifferences: !previous.isEmpty)
@@ -189,6 +210,19 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         } else {
             contentUnavailableConfiguration = nil
         }
+    }
+
+    /// Long press > Appearance, only on a daemon that can resolve it.
+    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let indexPath = indexPaths.first, let ref = dataSource.itemIdentifier(for: indexPath),
+              store.fleet.sessions[id: ref.daemonID]?.supportsAppearance == true else { return nil }
+        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
+            let appearance = UIAction(title: String(localized: "Appearance…"), image: UIImage(systemName: "paintpalette")) { _ in
+                self?.store.send(.appearanceRequested(ref))
+            }
+            appearance.accessibilityIdentifier = "agent.appearance"
+            return UIMenu(children: [appearance])
+        })
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {

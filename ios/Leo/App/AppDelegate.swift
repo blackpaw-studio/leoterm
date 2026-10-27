@@ -14,6 +14,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #if DEBUG
         if MachinesFixture.isRequested { prepareDependencies { MachinesFixture.prepare(&$0) } }
         if NavFixture.isRequested { prepareDependencies { NavFixture.prepare(&$0) } }
+        if AppearanceFixture.isRequested { prepareDependencies { AppearanceFixture.prepare(&$0) } }
         if SettingsFixture.isRequested { prepareDependencies { SettingsFixture.prepare(&$0) } }
         #endif
         return Store(initialState: AppFeature.State()) { AppFeature() }
@@ -34,6 +35,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #if DEBUG
         if MachinesFixture.isRequested { MachinesFixture.openMachines(Self.store) }
         if SettingsFixture.isRequested { SettingsFixture.openMachines(Self.store) }
+        if AppearanceFixture.isRequested { AppearanceFixture.open(Self.store) }
         #endif
         return true
     }

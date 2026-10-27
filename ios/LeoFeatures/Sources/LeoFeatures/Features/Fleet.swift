@@ -30,6 +30,9 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
         connection.isConnected && features.contains(.machineStats) && !isStatsUnavailable
     }
 
+    /// Whether the daemon can set and resolve agent appearance (leo >= 0.60).
+    public var supportsAppearance: Bool { features.contains(.agentAppearance) }
+
     /// The meters to draw, or `nil` when there are none (old daemon, 503,
     /// no sample yet, disconnected).
     public var meters: [MachineMeter]? {
@@ -456,6 +459,9 @@ extension DaemonSession {
                 agent.activity = .unknown
                 agent.currentAction = nil
             }
+
+        case .agentAppearanceChanged(_, _, let name, let appearance):
+            update(name) { $0.appearance = appearance }
 
         case .snapshot(let observed):
             applySnapshot(LeoObservedState(agents: observed))

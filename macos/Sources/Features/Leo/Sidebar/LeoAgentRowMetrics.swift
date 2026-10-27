@@ -16,10 +16,18 @@ enum LeoAgentRowMetrics {
     /// The leading symbol's column, and the gap between it and the name.
     static let symbolColumnWidth: CGFloat = 16
     static let symbolSpacing: CGFloat = 6
+    /// The agent's color bar on the leading edge (option C), and the gap
+    /// between it and the symbol. A row with no color keeps the slot blank
+    /// so every name stays aligned.
+    static let colorBarWidth: CGFloat = 3
+    static let colorBarSpacing: CGFloat = 4
+    static var colorBarSlot: CGFloat { colorBarWidth + colorBarSpacing }
+    /// The emoji before the name, and the gap after it.
+    static let emojiSpacing: CGFloat = 4
 
     /// Where the name starts, from the row's leading edge. A dispatch row's
     /// glyph sits on this column.
-    static var nameColumnInset: CGFloat { symbolColumnWidth + symbolSpacing }
+    static var nameColumnInset: CGFloat { colorBarSlot + symbolColumnWidth + symbolSpacing }
 
     /// The name's line (`.body`).
     static var nameLineHeight: CGFloat { lineHeight(.body) }

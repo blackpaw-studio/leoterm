@@ -20,8 +20,29 @@ struct AgentBadge: Equatable {
     }
 }
 
+/// How an Agents list row draws the agent's look: the leading image, and
+/// the leading-edge bar when a color is set.
+struct AgentRowStyle: Equatable {
+    enum Leading: Equatable {
+        /// Today's status symbol, for an agent with no emoji.
+        case status(symbol: String, tint: UIColor)
+        /// A neutral tile with the emoji and the status dot on its corner.
+        case tile(emoji: String, statusTint: UIColor)
+    }
+
+    let leading: Leading
+    let bar: LeoAppearanceColor?
+}
+
 extension Agent {
     var badge: AgentBadge { AgentBadge(priority) }
+
+    var rowStyle: AgentRowStyle {
+        let badge = badge
+        let leading: AgentRowStyle.Leading = appearance?.emoji.map { .tile(emoji: $0, statusTint: badge.tint) }
+            ?? .status(symbol: badge.symbol, tint: badge.tint)
+        return AgentRowStyle(leading: leading, bar: appearance?.color)
+    }
 
     /// Why a needs-input agent is waiting, when the daemon said.
     var attentionDetail: String? {
