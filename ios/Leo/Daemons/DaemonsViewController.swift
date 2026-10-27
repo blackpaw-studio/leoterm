@@ -10,6 +10,7 @@ final class DaemonsViewController: UIViewController, UICollectionViewDelegate {
     @UIBindable private var store: StoreOf<Daemons>
     private let fleet: StoreOf<Fleet>
     private var sessions: [DaemonSession] = []
+    private var rows: [String: MachineCellConfiguration] = [:]
     private var statsStyle = LeoStatsStyle.default
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
@@ -91,10 +92,10 @@ final class DaemonsViewController: UIViewController, UICollectionViewDelegate {
 
     private func configureDataSource() {
         let cell = UICollectionView.CellRegistration<UICollectionViewListCell, String> { [weak self] cell, _, id in
-            guard let self, let session = sessions.first(where: { $0.id == id }) else { return }
-            cell.contentConfiguration = MachineCellConfiguration(session: session, style: statsStyle)
+            guard let self, let row = rows[id] else { return }
+            cell.contentConfiguration = row
             cell.accessories = [.disclosureIndicator()]
-            cell.accessibilityIdentifier = "daemon.\(session.daemon.name)"
+            cell.accessibilityIdentifier = "daemon.\(row.name)"
         }
         let footer = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionFooter) { [weak self] view, _, _ in
             var content = UIListContentConfiguration.footer()
@@ -116,19 +117,30 @@ final class DaemonsViewController: UIViewController, UICollectionViewDelegate {
         dataSource.itemIdentifier(for: indexPath).flatMap { id in sessions.first { $0.id == id } }
     }
 
+    /// The fleet changes with every agent event; only a row whose own content
+    /// changed is reconfigured, so a touch on an untouched row is not disturbed.
     private func render(_ newSessions: [DaemonSession], style: LeoStatsStyle) {
         let styleChanged = style != statsStyle
+        let previousRows = rows
+        let newRows = Dictionary(uniqueKeysWithValues: newSessions.map { ($0.id, MachineCellConfiguration(session: $0, style: style)) })
+        let ids = newSessions.map(\.id)
+        let isSameList = ids == sessions.map(\.id)
         sessions = newSessions
+        rows = newRows
         statsStyle = style
-        var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
-        if !newSessions.isEmpty {
-            snapshot.appendSections([0])
-            snapshot.appendItems(newSessions.map(\.id))
-            snapshot.reconfigureItems(newSessions.map(\.id))
-            // The footer's text depends on the style.
-            if styleChanged { snapshot.reloadSections([0]) }
+        let changedIDs = ids.filter { previousRows[$0] != newRows[$0] }
+        if !isSameList || styleChanged || !changedIDs.isEmpty {
+            var snapshot = NSDiffableDataSourceSnapshot<Int, String>()
+            if !newSessions.isEmpty {
+                snapshot.appendSections([0])
+                snapshot.appendItems(ids)
+                snapshot.reconfigureItems(changedIDs)
+                // The footer's text depends on the style.
+                if styleChanged { snapshot.reloadSections([0]) }
+            }
+            // A content-only update is not an insertion or removal: no animation.
+            dataSource.apply(snapshot, animatingDifferences: !isSameList)
         }
-        dataSource.apply(snapshot, animatingDifferences: true)
 
         if newSessions.isEmpty {
             var configuration = UIContentUnavailableConfiguration.empty()

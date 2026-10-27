@@ -6,6 +6,7 @@ import UIKit
 /// one of the Stats styles. Metrics follow the approved iOS mockup.
 final class MeterLineView: UIView {
     private let content = UIStackView()
+    private var drawn: (meters: [MachineMeter], style: LeoStatsStyle)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -24,6 +25,9 @@ final class MeterLineView: UIView {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func configure(meters: [MachineMeter], style: LeoStatsStyle) {
+        // Rebuilding redraws every gauge from scratch; an unchanged line stays put.
+        guard drawn?.meters != meters || drawn?.style != style else { return }
+        drawn = (meters, style)
         content.arrangedSubviews.forEach { $0.removeFromSuperview() }
         content.axis = .horizontal
         content.alignment = .center
