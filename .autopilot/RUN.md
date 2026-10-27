@@ -178,13 +178,16 @@ Lane: B-162
   Branch: autopilot-lane/B-162
   Base: c86c925abe54eb26b07392c05c93669d65135632
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e91c542ba7eda475fc44a81b4741d7283eaa7de4
   Dispatched: 2026-10-27T06:40:04Z
-
+  Call: Mac only: test-helper change — D-566/D-568; Mac + iOS parity rule.
+  Call: Renamed to turnsUntil(limit:_:) (not (_:limit:)) so trailing-closure callers resolve cleanly — AUTONOMY: naming, test infrastructure.
+  Call: Fixed all three private copies of the helper (LeoTerminalRowsIntegrationTests, LeoSidebarTerminalScrollTests, Editor/LeoRowPaneCloseTests) and ~50 callers — AUTONOMY: test infrastructure; update every caller.
+  Call: No new test for the helper (private to test files, no seam) — TDD exception: test infrastructure.
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
