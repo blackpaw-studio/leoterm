@@ -22,6 +22,8 @@ public struct Agent: Equatable, Identifiable, Sendable {
     public var template: String?
     public var harness: String?
     public var environments: LeoAgentEnvironments?
+    /// The resolved emoji and color (`agent_appearance`); nil when none is set.
+    public var appearance: LeoAgentAppearance?
     public var startedAt: String?
 
     public var id: String { name }
@@ -29,7 +31,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
     public init(
         name: String, status: LeoAgentStatus? = nil, activity: LeoActivity? = nil, currentAction: LeoCurrentAction? = nil,
         attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
-        environments: LeoAgentEnvironments? = nil, startedAt: String? = nil
+        environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil
     ) {
         self.name = name
         self.status = status
@@ -39,6 +41,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         self.template = template
         self.harness = harness
         self.environments = environments
+        self.appearance = appearance
         self.startedAt = startedAt
     }
 
@@ -46,7 +49,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         self.init(
             name: observed.name, status: observed.status, activity: observed.activity, currentAction: observed.currentAction,
             attention: observed.attention, template: observed.template, harness: observed.harness,
-            environments: observed.environments, startedAt: observed.startedAt
+            environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt
         )
     }
 

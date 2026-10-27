@@ -457,11 +457,14 @@ extension DaemonSession {
                 agent.currentAction = nil
             }
 
+        case .agentAppearanceChanged(_, _, let name, let appearance):
+            update(name) { $0.appearance = appearance }
+
         case .snapshot(let observed):
             applySnapshot(LeoObservedState(agents: observed))
 
         case .connected, .disconnected, .hello, .gap, .dispatchChanged, .dispatchRemoved,
-             .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .chat, .other:
+             .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .other:
             return
         }
     }
