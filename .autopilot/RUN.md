@@ -2,7 +2,9 @@ Status: running
 Started: 2026-10-27T01:43:03Z
 Budget: 20 items, until 2026-10-27T13:43:03Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 2/5 ideas
+Self-filed: B-304 → B-312 idea — Add an iOS simulator + fixture-daemon recipe to verify.md
+Self-filed: B-304 → B-313 idea — Update iOS Machines meters in place instead of rebuilding the row's meter line
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -30,9 +32,12 @@ Lane: B-304
   Branch: autopilot-lane/B-304
   Base: a7b1c1819c701c3da306e7a178a6b7959424e995
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f95863101be4e1158c3b5966ada9caa34c596bbe
   Dispatched: 2026-10-27T01:44:55Z
+  Call: iOS only (the Mac list is a different view; no LeoKit change) — Mac + iOS parity rule
+  Call: leave the CPU gauge blue→red flip unchanged; it reflects real data (≥0.9 is `.critical`), and smoothing or hysteresis would be a product call — never invent a state the daemon didn't report
+  Call: drop `Identifiable` from `MachineSettings.State` (keeps its `id` property) — agent decides bug fixes

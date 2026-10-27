@@ -2209,3 +2209,11 @@ Source: autopilot polish (B-157)
 Note: iOS agent-browser executor — serve the `browser` client-tools group from Leo iOS (WKWebView pane, per-agent data store, takeover/handoff UI) using LeoKit's LeoBrowserTools/LeoBrowserExecutor/ClientTools client; Mac shipped 04d50cd80, spec docs/superpowers/specs/2026-10-26-agent-browser.md (plan F5). iOS differences: backgrounding suspends the executor (relinquish claims), touch input, no ssh port forward (needs another route to remote localhost)
 Source: owner (/idea, 2026-10-26)
 Inbox: 20261026T232735230091Z-feeac761#1
+
+## B-312 · Add an iOS simulator + fixture-daemon recipe to verify.md   [idea]
+Note: iOS UI changes can't be visually verified, so fixes like B-304 ship on tests alone
+Source: autopilot polish (B-304)
+
+## B-313 · Update iOS Machines meters in place instead of rebuilding the row's meter line   [idea]
+Note: less churn on each stats refresh on a busy host
+Source: autopilot polish (B-304)
