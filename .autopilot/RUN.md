@@ -202,6 +202,18 @@ Lane: B-163
   Tokens: 2.72M in (2.52M cache read), ≥13.7k out, 38 requests
   Dispatched: 2026-10-27T06:51:38Z
   Call: Mac only: test comments only — D-566/D-569; Mac + iOS parity rule.
+
+Lane: B-164
+  Branch: autopilot-lane/B-164
+  Base: 5afbc36bcb5e2a2588a7de722178798ea717fb36
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T07:01:46Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
