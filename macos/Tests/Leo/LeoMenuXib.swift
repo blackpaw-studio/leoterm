@@ -70,6 +70,10 @@ enum LeoMenuXib {
         }
     }
 
+    /// Encodes only ⌃⌥⇧⌘. `.function`, `.numericPad` and `.capsLock` are
+    /// ignored on purpose, so a mask carrying them still matches by its
+    /// four real modifiers; this is a mask-based match, not an exact
+    /// `== .command` comparison.
     private static func shortcut(_ key: String, _ flags: NSEvent.ModifierFlags) -> String {
         let shift = flags.contains(.shift) || key != key.lowercased()
         return (flags.contains(.control) ? "⌃" : "") + (flags.contains(.option) ? "⌥" : "")
