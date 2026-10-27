@@ -228,7 +228,9 @@ struct LeoSidebarTerminalScrollTests {
     /// B-078 (D-130): with the selected terminal row scrolled away (the
     /// user went up to the agents), its shell retitling or the agent list
     /// refreshing leaves the list where the user put it: the same list, at
-    /// the same offset. Parked mid-list, so a jump to the top shows too.
+    /// the same offset. Parked mid-list, so a jump to the top shows too. The
+    /// retitle counts only once the row's drawn title end has settled at a
+    /// new value, so the check runs against the laid-out title.
     @Test(arguments: ["a retitle", "an agent refresh"])
     func aRetitleOrRefreshLeavesTheScrollOffsetAlone(_ change: String) async throws {
         let terminals = LeoWindowTerminals()
@@ -339,7 +341,8 @@ struct LeoSidebarTerminalScrollTests {
 
     /// B-081 (D-130): a selected agent that's already on screen once the
     /// section goes keeps its place: the list doesn't move to it or to
-    /// the top. A guard: the list already stayed put before B-081.
+    /// the top. A guard on B-081's reveal: it only moves a selection that's
+    /// off screen.
     @Test func closingTheLastRowLeavesASelectionOnScreenWhereItIs() async throws {
         let terminals = LeoWindowTerminals()
         let (window, model) = try makeWindowAndModel(terminals: terminals)
