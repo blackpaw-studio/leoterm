@@ -292,13 +292,16 @@ Lane: B-171
   Branch: autopilot-lane/B-171
   Base: 3d4d5f9c85e8c727576267134a695a44bc1f7c2c
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 2d2ef1781f21db3ac530b709db601c4e8fa3446e
   Dispatched: 2026-10-27T11:30:34Z
-
+  Call: The B-106 late-focus-report bug was real (new test failed before the fix): fix plus test — root cause before fix; test-first
+  Call: Mac only — sidebar view and window terminals are macOS-only; iOS has no terminal rows
+  Call: Raise the focus-report fence whenever the window's terminal selection becomes nil (onReceive on $selection) — minimal change; that is the moment the list lands on the fallback agent
+  Call: A focus report sent after the row removal still moves the selection — consistency with a click's fence (follow-focus rule)
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
