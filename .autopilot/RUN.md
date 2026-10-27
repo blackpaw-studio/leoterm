@@ -275,6 +275,18 @@ Lane: B-168
   Dispatched: 2026-10-27T10:28:48Z
   Call: Drop the non-flipped branches in LeoTerminalsViewport rather than test them — item allows either; minimal change, NSTableView is always flipped
   Call: Mac only — no iOS counterpart
+
+Lane: B-170
+  Branch: autopilot-lane/B-170
+  Base: 5c0fb188f21548424884ea64eb764432217028c8
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T10:50:25Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
