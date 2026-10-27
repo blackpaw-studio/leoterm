@@ -48,6 +48,23 @@ struct LeoBrowserToolsTests {
         }
     }
 
+    @Test func everyDescriptionNamesTheLeoAppBrowserSoItIsNotMistakenForPlaywright() {
+        for tool in LeoBrowserTools.definitions {
+            #expect(tool.description.hasPrefix("Leo app browser: "), "\(tool.name)")
+        }
+    }
+
+    @Test func entryPointsExplainWhoSeesTheBrowserWhereItsCookiesLiveAndHowLocalhostWorks() {
+        for name in ["browser_navigate", "browser_tab_new"] {
+            let description = LeoBrowserTools.definitions.first { $0.name == name }?.description ?? ""
+            #expect(description.contains("browser pane in the user's Leo app"), "\(name)")
+            #expect(description.contains("not a headless or Playwright browser"), "\(name)")
+            #expect(description.contains("user can watch"), "\(name)")
+            #expect(description.contains("cookies"), "\(name)")
+            #expect(description.contains("localhost"), "\(name)")
+        }
+    }
+
     @Test func registrationMatchesTheGoldenFixture() throws {
         let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/agent-browser/browser-tools.json")
         let golden = try Data(contentsOf: url)
