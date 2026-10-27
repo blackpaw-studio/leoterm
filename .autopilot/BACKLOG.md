@@ -1007,13 +1007,15 @@ Attachments: .autopilot/bugs/B-310/3.png
 Done: no code change — fixed by B-309 (3efcf97ff): ring strokes now stay inside their frame (ringsStayInsideTheClusterFrameSoNothingClips)
 Verified: not visually verified — test evidence only, see B-309
 
-## B-311 · LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess…   [ready]
+## B-311 · LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess…   [blocked]
 Issue: #292
 Type: bug
 Report: LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess fails deterministically in the full injected macOS suite (CI mode) since the agent-browser merge (04d50cd80) but passes alone and with every merge-added suite; disabled in 812e5a9c4 on fix/ci-after-agent-browser. Findings so far: ⌃C reaches the focused surface, LeoApplication doesn't absorb it, shell alive in the tty foreground pgrp with ISIG on, its INT trap never fires. Unchecked: inherited ignored/blocked SIGINT from an earlier suite. Merge adds no signal-handling code. Root-cause, fix, re-enable the test, and verify ⌃C in a terminal row of the real app.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261027T012438668718Z-50f1c1ad#1
+Question: couldn't reproduce — the re-enabled test skips on Dionysus ("needs a key window") in the full suite (3779 passed); a key-free probe at the same suite position found main-thread mask 0x0, default SIGINT, shell blocked=0 pending=0, so the blocked-SIGINT theory has no support; a standalone WKWebView + key-send check leaked no signal state. Next lead: LeoAgentInputDeliveryTests.resentKeysNeverReachTheAppOrItsWindows (bbf1b5094) adds local key monitors via LeoApplication.routeResentKeys. Commit 893d72b3b re-enables the test with a signal-state diagnostic (one keyed run names the branch; do not merge it as is); unapplied mask-theory test + childPreExec diff are in b311-unapplied/. Reply "B-311: close" to close it, or "B-311: <more detail>" to retry (e.g. once the Dionysus prompts are cleared, or with a CI run of 893d72b3b). Work kept on autopilot-shelved/B-311.
+Answer:
 
 ## B-158 · Document LeoMenuXib's ignored modifier flags   [ready]
 Issue: #162
@@ -2241,3 +2243,9 @@ Source: autopilot polish (B-307)
 ## B-316 · Check a 100% Rings stat: "100" may sit tight against the stroke   [idea]
 Note: B-309 shrank the ring hole from 17.5pt to 15pt; unchecked by eye (no screenshot)
 Source: autopilot polish (B-309)
+
+## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [ready (next run)]
+Type: bug
+Report: Key-window tests all skip on Dionysus while system prompts hold the foreground — ⌃C and other key-window tests skip on the CI runner host while a modal UserNotificationCenter alert and universalAccessAuthWarn hold the foreground, so CI never exercises them (found in B-311).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-311)

@@ -2,12 +2,13 @@ Status: running
 Started: 2026-10-27T01:43:03Z
 Budget: 20 items, until 2026-10-27T13:43:03Z
 Digested-through: 6
-Filed: 0/3 bugs, 5/5 ideas
+Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-304 → B-312 idea — Add an iOS simulator + fixture-daemon recipe to verify.md
 Self-filed: B-304 → B-313 idea — Update iOS Machines meters in place instead of rebuilding the row's meter line
 Self-filed: B-307 → B-314 idea — Full Leo-browser explanation on browser_tabs and browser_snapshot too
 Self-filed: B-307 → B-315 idea — Consider renaming Leo browser tools to leo_browser_*
 Self-filed: B-309 → B-316 idea — Check a 100% Rings stat: "100" may sit tight against the stroke
+Self-filed: B-311 → B-317 bug — Key-window tests all skip on Dionysus while two system prompts hold the foreground
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -108,12 +109,15 @@ Lane: B-311
   Branch: autopilot-lane/B-311
   Base: 1f12415b47a3571e8486a547ff8ac845ac946d6e
   Tier: full
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Tokens: 11.5M in (11.2M cache read), ≥92k out, 105 requests
   Dispatched: 2026-10-27T04:53:32Z
+  Call: Fix at the spawn site (clear the signal mask in Pty.childPreExec) as well as at the leak source — agent decides bug fixes (planned, not built)
+  Call: Mac only; iOS spawns no local ptys — Mac + iOS parity rule
 
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
@@ -121,6 +125,7 @@ Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visuall
 Finished 4: B-308 landed 0c815dad1f43d1961a60d42261f3b417893b6b7c · not visually verified
 Finished 5: B-309 landed 63f8938afaf00b41dbde2c9a591b65153c9177e1 · not visually verified
 Finished 6: B-310 done (no code change)
+Finished 7: B-311 blocked
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
 Note: 2026-10-27T03:30:44Z preflight sync merged stale local main (c55687eca); origin/main (812e5a9c4, leo-v0.25.0 with the agent browser) merged into autopilot as 724583189 after the B-306 runner found no agent-browser code. B-306 redispatched (not a fix attempt).
 Note: B-308 verifier: Peekaboo bridge lacks Screen Recording and Accessibility permissions on Dionysus — GUI verification unavailable this run.
