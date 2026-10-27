@@ -39,6 +39,7 @@
 		6AD426790811463F508E8740 /* ConfigBanners.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8CB022F0DC686D52A30AFFA /* ConfigBanners.swift */; };
 		6B3F6C3A8FDF1D872BB68026 /* AttachmentPickerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
+		6C0CFFCCD79DEAEE655FE64B /* MachinesListChurnTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3318E7331B25361E819F7BF7 /* MachinesListChurnTests.swift */; };
 		6F18F0E5564F090690F5D3EA /* ServiceViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814B887B4D27ECED43048979 /* ServiceViewController.swift */; };
 		6F30D471A3E498B502EE95B7 /* MachinesFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E33C69E01DC3265B930EAB6 /* MachinesFixture.swift */; };
 		7224AF18FDB286110FFD8309 /* LeoSettingsScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D3C9F892F834E02CE81A74 /* LeoSettingsScreensTests.swift */; };
@@ -138,6 +139,7 @@
 		2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoSettingsE2ETests.swift; sourceTree = "<group>"; };
 		2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogAnchorTests.swift; sourceTree = "<group>"; };
 		2E5F3AE843078FDC58DA8289 /* SchemaFieldHandlers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldHandlers.swift; sourceTree = "<group>"; };
+		3318E7331B25361E819F7BF7 /* MachinesListChurnTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesListChurnTests.swift; sourceTree = "<group>"; };
 		36770E26AC7E79990AFA6F96 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		38482350857C026362E8F7EE /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
 		3D066856306A48A2C49D8EB4 /* ConfigGolden.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGolden.swift; sourceTree = "<group>"; };
@@ -298,6 +300,7 @@
 				3D066856306A48A2C49D8EB4 /* ConfigGolden.swift */,
 				2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */,
 				A367FE1B657DE5E681571E6F /* KeyValueRowsTests.swift */,
+				3318E7331B25361E819F7BF7 /* MachinesListChurnTests.swift */,
 				87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */,
 				4AF76CE70071EA3957056747 /* SchemaFormTestSupport.swift */,
 				9FF7947A4DAF1A52A076FEFD /* ServiceScreenTests.swift */,
@@ -651,6 +654,7 @@
 				22CFEEF91B2AC9283F168F37 /* ConfigGolden.swift in Sources */,
 				8EA25F32175AB6CB49437F95 /* DialogAnchorTests.swift in Sources */,
 				6789F4305E1CE53DF0968B75 /* KeyValueRowsTests.swift in Sources */,
+				6C0CFFCCD79DEAEE655FE64B /* MachinesListChurnTests.swift in Sources */,
 				AC0BFDF8CC92DE3B580B7EAC /* SchemaFormCellTests.swift in Sources */,
 				2BC71F157DD346713AA024CB /* SchemaFormTestSupport.swift in Sources */,
 				D33749F58A6F39A2F0CE3162 /* ServiceScreenTests.swift in Sources */,
