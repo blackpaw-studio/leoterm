@@ -17,6 +17,32 @@ struct LeoOrderedRelayTests {
         #expect(await received.values == sent)
         #expect(await received.values.last == sent.last, "the feed ends up with the last value sent")
     }
+
+    /// The runtime's tests need "everything sent so far has been handled"
+    /// without ending the relay: a late delivery must not land mid-assertion.
+    @Test func settledReturnsOnceEverythingAlreadySentHasBeenHandled() async {
+        let received = Received()
+        let relay = LeoOrderedRelay<Int?> {
+            await Task.yield()
+            await received.append($0)
+        }
+
+        for value in 0..<50 { relay.send(value) }
+        await relay.settled()
+
+        #expect(await received.values.count == 50)
+
+        relay.send(50)
+        await relay.settled()
+        #expect(await received.values.last == 50, "the relay keeps delivering after a settle")
+    }
+
+    @Test func settledAfterFinishReturnsInsteadOfWaitingForever() async {
+        let relay = LeoOrderedRelay<Int?> { _ in }
+        await relay.finish()
+
+        await relay.settled()
+    }
 }
 
 private actor Received {
