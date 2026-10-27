@@ -73,3 +73,4 @@ Any agent can have an optional emoji, an optional color, or both. Each can be se
 ## Amendment 2026-10-27
 
 - In the picker, "None" clears this agent's own pick, and the agent falls back to the rules, which is the same as Reset to rules for that field. v1 has no way to turn a rule's color off for one agent. Adding an explicit `"none"` value to the daemon is a possible follow-up.
+- On the Mac, the leading slot is always 7pt: a 3pt bar plus a 4pt gap. It is reserved even on daemons that don't support appearance, so names stay aligned when the sidebar mixes machines. Every row moves 7pt to the right.
