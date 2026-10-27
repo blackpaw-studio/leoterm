@@ -262,7 +262,7 @@ struct LeoSidebarTerminalScrollTests {
         } else {
             // One more agent, so the refresh shows in the list.
             model.receive(LeoSidebarSnapshot(rows: Self.agents(count: Self.agentCount + 1), connectivity: .connected, generation: 2), for: .local)
-            try #require(await turns { (list()?.numberOfRows ?? 0) > rowsBefore }, "the refresh lists")
+            try #require(await turnsUntil { (list()?.numberOfRows ?? 0) > rowsBefore }, "the refresh lists")
         }
         await afterPendingUpdates()
 
@@ -575,8 +575,11 @@ struct LeoSidebarTerminalScrollTests {
     /// Lets the main run loop turn until `condition` holds, at most
     /// `limit` times: for a change that has a sign of its own to wait for.
     /// Counts turns, not time.
-    private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
-        for _ in 0 ..< limit where !condition() { await nextTurn() }
+    private func turnsUntil(limit: Int = 50, _ condition: () -> Bool) async -> Bool {
+        for _ in 0 ..< limit {
+            if condition() { return true }
+            await nextTurn()
+        }
         return condition()
     }
 
@@ -595,7 +598,7 @@ struct LeoSidebarTerminalScrollTests {
     ) async -> CGFloat? {
         var last: CGFloat?
         var settled: CGFloat?
-        _ = await turns {
+        _ = await turnsUntil {
             let end = table().flatMap { drawingEnd(ofRow: row, in: $0) }
             defer { last = end }
             guard let end, end == last, end != previous else { return false }
@@ -675,7 +678,7 @@ struct LeoSidebarTerminalScrollTests {
     /// it counts turns of its own, laying the window out on each: the fill
     /// is a main-queue hop and a layout pass away, never real time.
     private func settledTable(in window: NSWindow, moreThan rows: Int = Self.agentCount) async throws -> NSTableView {
-        let filled = await turns(limit: Self.firstPopulationTurns) {
+        let filled = await turnsUntil(limit: Self.firstPopulationTurns) {
             window.layoutIfNeeded()
             return tables(in: window.contentView).first.map { $0.numberOfRows > rows } ?? false
         }

@@ -129,7 +129,7 @@ import Testing
     /// Polls `condition` for up to `timeout` of wall time: for what waits
     /// on a timer, a process, SwiftUI or an object's release. What only
     /// waits on main-queue hops (a close's reconcile, an event's delivery)
-    /// uses `turns`: a main-thread stall past this deadline ends the poll
+    /// uses `turnsUntil`: a main-thread stall past this deadline ends the poll
     /// before the queued hop has run (B-204).
     private func eventually(_ timeout: Duration = .seconds(3), _ condition: () -> Bool) async -> Bool {
         let deadline = ContinuousClock.now + timeout
@@ -141,8 +141,11 @@ import Testing
 
     /// Lets the main run loop turn until `condition` holds, at most
     /// `limit` times: counts turns, not time (D-178).
-    private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
-        for _ in 0 ..< limit where !condition() { await nextTurn() }
+    private func turnsUntil(limit: Int = 50, _ condition: () -> Bool) async -> Bool {
+        for _ in 0 ..< limit {
+            if condition() { return true }
+            await nextTurn()
+        }
         return condition()
     }
 
@@ -276,7 +279,7 @@ import Testing
         #expect(fixture.shown().first === neighbour, "the neighbour's own surface")
         #expect(fixture.terminals.rows.map(\.id) == [first.surfaceID])
         #expect(fixture.terminals.selection == first.surfaceID)
-        #expect(await turns { fixture.events.events.contains(.closed(closing)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(closing)) })
         #expect(await eventually { gone.view == nil }, "its surface and pty are freed")
         #expect(!fixture.closes.windowClosed)
     }
@@ -388,7 +391,7 @@ import Testing
 
         fixture.controller.closeSurface(root, withConfirmation: false)
 
-        #expect(await turns { !fixture.terminals.contains(closing.surfaceID) })
+        #expect(await turnsUntil { !fixture.terminals.contains(closing.surfaceID) })
         #expect(fixture.shown().map(\.id) == [neighbour?.surfaceID].compactMap { $0 })
         try? await Task.sleep(for: .milliseconds(100))
         #expect(!fixture.closes.windowClosed)
@@ -410,9 +413,9 @@ import Testing
         fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root), withConfirmation: false)
         #expect(fixture.host.reveal(neighbour), "in the same turn, before the close lands")
 
-        #expect(await turns { !fixture.terminals.contains(closing.surfaceID) }, "its row goes")
+        #expect(await turnsUntil { !fixture.terminals.contains(closing.surfaceID) }, "its row goes")
         #expect(!fixture.host.isOpen(closing), "nothing keeps it hidden for a row that's gone")
-        #expect(await turns { fixture.events.events.contains(.closed(closing)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(closing)) })
         #expect(await eventually { gone.view == nil }, "its surface and pty are freed")
         #expect(fixture.shown().first === neighbourView, "what the reveal showed stays")
         #expect(fixture.terminals.selection == neighbour.surfaceID)
@@ -439,7 +442,7 @@ import Testing
         #expect(!fixture.host.isOpen(closing))
         #expect(fixture.shown().count == 1 && fixture.shown().first === shownView, "what the window shows is untouched")
         #expect(fixture.terminals.selection == selected.surfaceID, "the selection doesn't move")
-        #expect(await turns { fixture.events.events.contains(.closed(closing)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(closing)) })
         #expect(await eventually { gone.view == nil }, "its surface and pty are freed")
     }
 
@@ -458,7 +461,7 @@ import Testing
             NotificationCenter.default.post(
                 name: Ghostty.Notification.ghosttyCloseSurface, object: closingView, userInfo: ["process_alive": false]
             )
-            #expect(await turns { !fixture.terminals.contains(closing.surfaceID) })
+            #expect(await turnsUntil { !fixture.terminals.contains(closing.surfaceID) })
         }
 
         fixture.host.closeTerminal(closing)
@@ -468,7 +471,7 @@ import Testing
         #expect(fixture.shown().map(\.id) == [other.surfaceID])
         #expect(fixture.terminals.selection == other.surfaceID)
         #expect(!fixture.host.isOpen(closing))
-        #expect(await turns { fixture.events.events.contains(.closed(closing)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(closing)) })
         try? await Task.sleep(for: .milliseconds(100))
         #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
         #expect(!fixture.closes.windowClosed)
@@ -493,11 +496,11 @@ import Testing
         )
         #expect(fixture.host.reveal(ending), "in the same turn, before the close request is handled")
 
-        #expect(await turns { !fixture.terminals.contains(ending.surfaceID) }, "its row goes")
+        #expect(await turnsUntil { !fixture.terminals.contains(ending.surfaceID) }, "its row goes")
         #expect(!fixture.host.isOpen(ending))
         #expect(fixture.shown().count == 1 && fixture.shown().first === neighbourView, "its neighbour shows instead")
         #expect(fixture.terminals.selection == neighbour.surfaceID)
-        #expect(await turns { fixture.events.events.contains(.closed(ending)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(ending)) })
         #expect(!fixture.closes.windowClosed)
     }
 
@@ -546,7 +549,7 @@ import Testing
         #expect(!fixture.terminals.contains(ended.surfaceID), "its row goes")
         #expect(!fixture.host.isOpen(ended))
         #expect(!fixture.host.hiddenSurfaces(in: fixture.windowID).contains { $0 === endedView })
-        #expect(await turns { fixture.events.events.contains(.closed(ended)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(ended)) })
     }
 
     /// Closing the shown row passes over a neighbour whose shell ended --
@@ -619,7 +622,7 @@ import Testing
         #expect(!fixture.host.isOpen(row))
         #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID], "the shell beside it carries the row on")
         #expect(fixture.terminals.selection == split.surfaceID)
-        #expect(await turns { fixture.events.events.contains(.closed(row)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) })
         #expect(!fixture.events.events.contains(.closed(split)))
         #expect(!fixture.closes.windowClosed)
     }
@@ -640,12 +643,12 @@ import Testing
 
         try closePane(fixture, row)
 
-        #expect(await turns { fixture.terminals.rows.map(\.id) == [older.surfaceID, split.surfaceID] }, "in the row's slot")
+        #expect(await turnsUntil { fixture.terminals.rows.map(\.id) == [older.surfaceID, split.surfaceID] }, "in the row's slot")
         #expect(fixture.terminals.selection == split.surfaceID)
         #expect(fixture.shown().count == 1 && fixture.shown().first === splitView)
         #expect(fixture.host.isOpen(split) && fixture.host.isOpen(older))
         #expect(!fixture.host.isOpen(row))
-        #expect(await turns { fixture.events.events.contains(.closed(row)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) })
         #expect(!fixture.events.events.contains(.closed(split)))
         #expect(!fixture.closes.windowClosed)
     }
@@ -659,7 +662,7 @@ import Testing
         let split = try openSplit(fixture, beside: row)
         let splitView = try #require(fixture.view(split))
         try closePane(fixture, row)
-        try #require(await turns { !fixture.terminals.contains(row.surfaceID) }, "the pane's close landed")
+        try #require(await turnsUntil { !fixture.terminals.contains(row.surfaceID) }, "the pane's close landed")
 
         let new = try newShell(fixture)
 
@@ -699,7 +702,7 @@ import Testing
 
         try closePane(fixture, row)
 
-        #expect(await turns { !fixture.terminals.contains(row.surfaceID) })
+        #expect(await turnsUntil { !fixture.terminals.contains(row.surfaceID) })
         #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, expected.id], "one takes the row's slot")
         #expect(fixture.terminals.selection == expected.id)
         #expect(fixture.shown().map(\.id) == survivors.map(\.id), "the other stays split beside it")
@@ -763,7 +766,7 @@ import Testing
 
         try closePane(fixture, row)
 
-        #expect(await turns { !fixture.terminals.contains(row.surfaceID) })
+        #expect(await turnsUntil { !fixture.terminals.contains(row.surfaceID) })
         #expect(fixture.terminals.rows.map(\.id) == [heir.id], "the pane focused next, not the first")
         #expect(fixture.terminals.selection == heir.id)
         // The heir's focus move retries on a timer while the close
@@ -813,7 +816,7 @@ import Testing
         let expected = via == "reveal" ? [older.surfaceID, split.surfaceID] : [older.surfaceID, split.surfaceID, shown.surfaceID]
         #expect(fixture.terminals.rows.map(\.id) == expected, "in the row's slot")
         #expect(fixture.terminals.selection == shown.surfaceID)
-        #expect(await turns { fixture.events.events.contains(.closed(row)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) })
         #expect(!fixture.events.events.contains(.closed(split)))
     }
 
@@ -854,7 +857,7 @@ import Testing
 
         try closePane(fixture, row)
 
-        #expect(await turns { fixture.events.events.contains(.closed(row)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) })
         #expect(fixture.terminals.rows.isEmpty)
         #expect(fixture.terminals.selection == nil)
         #expect(fixture.shown().map(\.id) == [agent.surfaceID])
@@ -873,7 +876,7 @@ import Testing
 
         try closePane(fixture, row)
 
-        #expect(await turns { fixture.events.events.contains(.closed(row)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) })
         #expect(fixture.terminals.rows.isEmpty, "the named split is not handed the row")
         #expect(fixture.terminals.selection == nil)
         #expect(fixture.shown().map(\.id) == [split.surfaceID])
@@ -888,7 +891,7 @@ import Testing
 
         fixture.controller.window?.close()
 
-        #expect(await turns { fixture.events.events.contains(.closed(row)) && fixture.events.events.contains(.closed(split)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) && fixture.events.events.contains(.closed(split)) })
         #expect(fixture.terminals.rows.isEmpty)
         #expect(fixture.terminals.selection == nil)
         fixture.events.task?.cancel()
@@ -905,12 +908,12 @@ import Testing
         let agent = try attachAgent(fixture)
         let split = try openSplit(fixture, beside: agent)
         try closePane(fixture, agent)
-        try #require(await turns { fixture.events.events.contains(.closed(agent)) })
+        try #require(await turnsUntil { fixture.events.events.contains(.closed(agent)) })
         try #require(fixture.shown().map(\.id) == [split.surfaceID])
 
         fixture.host.closeTerminal(hidden)
 
-        #expect(await turns { fixture.events.events.contains(.closed(hidden)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(hidden)) })
         #expect(fixture.terminals.rows.isEmpty, "the shell beside the agent was never the hidden row's")
         #expect(fixture.terminals.selection == nil)
         #expect(fixture.host.isShown(split))
@@ -924,12 +927,12 @@ import Testing
         let row = try newShell(fixture)
         let split = try openSplit(fixture, beside: row)
         try closePane(fixture, row)
-        try #require(await turns { !fixture.terminals.contains(row.surfaceID) })
+        try #require(await turnsUntil { !fixture.terminals.contains(row.surfaceID) })
 
         // `exit`, or ⌘W once its confirm is answered.
         fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root), withConfirmation: false)
 
-        #expect(await turns { !fixture.terminals.contains(split.surfaceID) && fixture.controller.surfaceTree.isEmpty })
+        #expect(await turnsUntil { !fixture.terminals.contains(split.surfaceID) && fixture.controller.surfaceTree.isEmpty })
         try? await Task.sleep(for: .milliseconds(100))
         #expect(!fixture.closes.windowClosed, "the window and its sidebar stay")
     }
@@ -943,7 +946,7 @@ import Testing
         let row = try newShell(fixture)
         let split = try openSplit(fixture, beside: row, isUndoable: false)
         try closePane(fixture, row)
-        try #require(await turns { !fixture.terminals.contains(row.surfaceID) })
+        try #require(await turnsUntil { !fixture.terminals.contains(row.surfaceID) })
 
         undoManager.undo()
 
@@ -973,7 +976,7 @@ import Testing
             ? undoManager.leoInOwnUndoGroup { try openSplit(fixture, beside: row) }
             : openSplit(fixture, beside: row, isUndoable: false)
         try undoManager.leoInOwnUndoGroup { try closePane(fixture, row) }
-        try #require(await turns { !fixture.terminals.contains(row.surfaceID) }, "the split carries the row on")
+        try #require(await turnsUntil { !fixture.terminals.contains(row.surfaceID) }, "the split carries the row on")
 
         undoManager.leoUndoLastGroup()
 
@@ -991,7 +994,7 @@ import Testing
 
         let (row, _, split) = try await rowPaneClosedThenUndone(fixture, undoManager, isSplitUndoable: false)
 
-        #expect(await turns { fixture.host.isOpen(row) }, "its handle is back")
+        #expect(await turnsUntil { fixture.host.isOpen(row) }, "its handle is back")
         #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID])
         #expect(fixture.terminals.selection == split.surfaceID)
     }
@@ -1008,10 +1011,10 @@ import Testing
         undoManager.leoUndoLastGroup()
 
         #expect(fixture.shown().count == 1 && fixture.shown().first === rowView, "upstream's undo of New Split")
-        #expect(await turns { fixture.terminals.rows.map(\.id) == [row.surfaceID] }, "the restored pane carries the row on")
+        #expect(await turnsUntil { fixture.terminals.rows.map(\.id) == [row.surfaceID] }, "the restored pane carries the row on")
         #expect(fixture.terminals.selection == row.surfaceID)
         #expect(fixture.host.isOpen(row))
-        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(split)) })
     }
 
     /// Redo of New Split puts the split back with its handle; the restored
@@ -1022,12 +1025,12 @@ import Testing
         let undoManager = try freshUndo(fixture)
         let (row, _, split) = try await rowPaneClosedThenUndone(fixture, undoManager, isSplitUndoable: true)
         undoManager.leoUndoLastGroup()
-        try #require(await turns { fixture.terminals.rows.map(\.id) == [row.surfaceID] })
+        try #require(await turnsUntil { fixture.terminals.rows.map(\.id) == [row.surfaceID] })
 
         undoManager.redo()
 
         #expect(Set(fixture.shown().map(\.id)) == [row.surfaceID, split.surfaceID], "upstream's redo")
-        #expect(await turns { fixture.host.isOpen(split) }, "its handle is back")
+        #expect(await turnsUntil { fixture.host.isOpen(split) }, "its handle is back")
         #expect(fixture.terminals.rows.map(\.id) == [row.surfaceID])
         #expect(fixture.host.isOpen(row))
     }
@@ -1050,7 +1053,7 @@ import Testing
             try closePane(fixture, split)
         }
 
-        #expect(await turns { fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID] }, "in the row's slot")
+        #expect(await turnsUntil { fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID] }, "in the row's slot")
         #expect(fixture.shown().count == 1 && fixture.shown().first === rowView)
         #expect(fixture.terminals.selection == row.surfaceID)
         #expect(fixture.host.isOpen(row))
@@ -1076,7 +1079,7 @@ import Testing
         #expect(fixture.shown().count == 1 && fixture.shown().first === rowView)
         #expect(fixture.terminals.selection == row.surfaceID)
         #expect(fixture.host.isOpen(row))
-        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(split)) })
         #expect(fixture.terminals.rows.map(\.id) == [older.surfaceID, row.surfaceID], "still, once the host's hop ran")
         #expect(!fixture.closes.windowClosed)
     }
@@ -1091,14 +1094,14 @@ import Testing
         let agent = try attachAgent(fixture)
         let split = try openSplit(fixture, beside: agent, isUndoable: false)
         try undoManager.leoInOwnUndoGroup { try closePane(fixture, agent) }
-        try #require(await turns { fixture.events.events.contains(.closed(agent)) })
+        try #require(await turnsUntil { fixture.events.events.contains(.closed(agent)) })
         undoManager.leoUndoLastGroup()
         try #require(Set(fixture.shown().map(\.id)) == [agent.surfaceID, split.surfaceID])
         await nextTurn()
 
         try closePane(fixture, split)
 
-        #expect(await turns { fixture.events.events.contains(.closed(split)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(split)) })
         #expect(fixture.shown().map(\.id) == [agent.surfaceID])
         #expect(!fixture.host.isOpen(agent), "no handle for the agent pane")
         #expect(fixture.terminals.rows.isEmpty, "no row invented")
@@ -1248,7 +1251,7 @@ import Testing
         undoManager.undo()
 
         #expect(fixture.shown().map(\.id) == [row.surfaceID, split.surfaceID])
-        #expect(await turns { fixture.host.isOpen(split) }, "its handle is back (B-108)")
+        #expect(await turnsUntil { fixture.host.isOpen(split) }, "its handle is back (B-108)")
     }
 
     // MARK: Selection
@@ -1404,7 +1407,7 @@ import Testing
         fixture.controller.window?.close()
 
         #expect(await eventually { alive.view == nil })
-        #expect(await turns { fixture.events.events.contains(.closed(shell)) })
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(shell)) })
         fixture.events.task?.cancel()
         fixture.closes.observer.map(NotificationCenter.default.removeObserver)
     }
