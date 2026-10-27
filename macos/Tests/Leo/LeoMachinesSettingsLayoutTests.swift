@@ -43,12 +43,12 @@ struct LeoMachinesSettingsLayoutTests {
     /// The grouped form's own scroll view: it holds the "Remote Socket Path" row.
     private static func formScrollView(in root: NSView) -> NSScrollView? {
         var found: NSScrollView?
+        func isFormScrollView(_ scroll: NSScrollView) -> Bool {
+            guard let document = scroll.documentView else { return false }
+            return String(describing: type(of: document)) == "DocumentView" && scroll.frame.width > 400
+        }
         func visit(_ view: NSView) {
-            if let scroll = view as? NSScrollView, scroll.documentView.map({ String(describing: type(of: $0)) == "DocumentView" }) == true,
-                scroll.frame.width > 400
-            {
-                found = scroll
-            }
+            if let scroll = view as? NSScrollView, isFormScrollView(scroll) { found = scroll }
             view.subviews.forEach(visit)
         }
         visit(root)

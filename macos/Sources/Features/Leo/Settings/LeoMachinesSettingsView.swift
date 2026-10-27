@@ -92,7 +92,7 @@ struct LeoMachinesSettingsView: View {
                     }
                     .padding(20)
                 }
-                footer.padding(20)
+                footer.padding([.horizontal, .bottom], 20)
             }
         } else {
             VStack {
