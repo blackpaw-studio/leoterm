@@ -17,7 +17,7 @@ Any agent can have an optional emoji, an optional color, or both. Each can be se
 ## Data model (daemon, `leo.yaml`)
 
 - Palette: `red`, `orange`, `yellow`, `green`, `teal`, `blue`, `indigo`, `purple`, `pink`, `gray`. Each app maps a name to its own light and dark shade.
-- Manual settings go on the agent's own config entry: `appearance: { emoji?: "🏛️", color?: teal }`.
+- Manual settings go on the agent's record in the agent store (`state/agents.json`, `agentstore.Record.Appearance`), next to the environments override: `{ emoji?: "🏛️", color?: teal }`. A rename carries them along and a delete removes them. They are not stored in `leo.yaml` (Evan, 2026-10-27, plan option A).
 - Rules go in a top-level list:
   ```yaml
   appearance_rules:
