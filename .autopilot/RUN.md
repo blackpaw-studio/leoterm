@@ -104,6 +104,17 @@ Lane: B-309
   Call: Mac only (iOS MeterLineView draws Rings with 16pt spacing and no stroke overflow) — Mac + iOS parity rule
   Call: 5pt Rings spacing (capsules stay 3pt) — agent decides layout details
 
+Lane: B-311
+  Branch: autopilot-lane/B-311
+  Base: 1f12415b47a3571e8486a547ff8ac845ac946d6e
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T04:53:32Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Finished 2: B-306 landed 99a867a7ed078dfb6c4e172bd9c174c646a825e1 · not visually verified
 Finished 3: B-307 landed 7897c4422dfb50e8fff1288d5a1de2b0ac80c328 · not visually verified
