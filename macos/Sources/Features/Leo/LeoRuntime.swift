@@ -487,9 +487,7 @@ import LeoKit
         #if DEBUG
         if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
         if let reason = LeoForcedDisconnectFixture.reason() {
-            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feeds] reason in
-                feeds?.disconnect(.local, reason: reason)
-            }
+            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, feeds: feeds, reason: reason)
         }
         #endif
     }

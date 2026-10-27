@@ -21,6 +21,13 @@ enum LeoForcedDisconnectFixture {
         return false
     }
 
+    /// Forces This Mac's feed down once, the first time `model` shows a
+    /// connected list. The returned object holds the subscription; release
+    /// it to disarm.
+    @MainActor static func arm(model: LeoSidebarModel, feeds: LeoMachineFeeds, reason: String) -> AnyObject {
+        arm(model: model, reason: reason) { [weak feeds] reason in feeds?.disconnect(.local, reason: reason) }
+    }
+
     /// Calls `disconnect` once, the first time `model` shows a connected
     /// list. The returned object holds the subscription; release it to
     /// disarm.
