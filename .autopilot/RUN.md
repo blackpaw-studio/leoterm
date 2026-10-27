@@ -43,5 +43,16 @@ Lane: B-304
   Call: leave the CPU gauge blue→red flip unchanged; it reflects real data (≥0.9 is `.critical`), and smoothing or hysteresis would be a product call — never invent a state the daemon didn't report
   Call: drop `Identifiable` from `MachineSettings.State` (keeps its `id` property) — agent decides bug fixes
 
+Lane: B-306
+  Branch: autopilot-lane/B-306
+  Base: 890ee6df384a4931967c0926dbb891baa591ddba
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-27T03:28:35Z
+
 Finished 1: B-304 landed 31af2cd81a240f9aee424078b60cdb2b89754b0c · not visually verified
 Note: B-304 lane had build churn in ios/LeoFeatures/Package.resolved (xcodebuild/swift test); restored before land.
