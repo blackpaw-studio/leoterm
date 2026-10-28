@@ -2059,6 +2059,7 @@ extension TerminalController {
     override func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if let enabled = validateLeoEditorMenuItem(item) { return enabled }
         if let enabled = validateLeoEditorTabMenuItem(item) { return enabled }
+        if let enabled = validateLeoRowMenuItem(item) { return enabled }
         if let enabled = validateLeoBrowserMenuItem(item) { return enabled }
         switch item.action {
         // MARK: Leo

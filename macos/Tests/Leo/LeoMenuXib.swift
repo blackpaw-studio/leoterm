@@ -12,7 +12,7 @@ enum LeoMenuXib {
     }
 
     /// MainMenu.xib's source, next to the test sources.
-    private static var xibURL: URL {
+    static var xibURL: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/App/MainMenu.xib")

@@ -248,9 +248,7 @@ struct LeoSidebarView: View {
 
     /// The Terminals section hides when the window has no shells, and
     /// while the filter (which searches agents) has text.
-    private var showsTerminals: Bool {
-        hasTerminals && !LeoSidebarLayout.isFiltering(model.query)
-    }
+    private var showsTerminals: Bool { model.showsTerminals(hasTerminals: hasTerminals) }
 
     /// Each machine's section, then this window's Terminals. An offline
     /// machine folds to its header and a card saying why; the terminals
@@ -315,15 +313,10 @@ struct LeoSidebarView: View {
                 offlineCard(machine.host, presentation)
             } else if machine.connectivity == .loading {
                 machineNote("Loading agents…", showsProgress: true)
-            } else if !isMachineFolded(presentation) {
+            } else if !model.isMachineFolded(machine) {
                 machineRows(machine)
             }
         }
-    }
-
-    /// The filter shows every match, so it opens a folded machine.
-    private func isMachineFolded(_ presentation: LeoMachineHeaderPresentation) -> Bool {
-        presentation.isCollapsed && !LeoSidebarLayout.isFiltering(model.query)
     }
 
     private func machineHeader(_ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation) -> some View {
