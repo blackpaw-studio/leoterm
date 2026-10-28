@@ -116,9 +116,6 @@ private struct LeoAppearancePane: View {
             Text("Preview").font(.headline).padding(12)
             List(model.preview) { entry in
                 HStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(entry.appearance?.color?.swiftUIColor ?? .clear)
-                        .frame(width: LeoAgentRowMetrics.colorBarWidth, height: 28)
                     VStack(alignment: .leading, spacing: 1) {
                         HStack(spacing: LeoAgentRowMetrics.emojiSpacing) {
                             if let emoji = entry.appearance?.emoji { Text(emoji).font(.callout) }
@@ -126,6 +123,10 @@ private struct LeoAppearancePane: View {
                         }
                         Text(entry.source).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                     }
+                    Spacer(minLength: 0)
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(entry.appearance?.color?.swiftUIColor ?? .clear)
+                        .frame(width: LeoAgentRowMetrics.colorBarWidth, height: 28)
                 }
                 .accessibilityElement(children: .combine)
             }
