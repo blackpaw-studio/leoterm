@@ -29,6 +29,17 @@ struct LeoObservedStateDecodingTests {
         #expect(state.agents.map(\.movedTo) == ["nas", nil])
     }
 
+    @Test func movedAtDecodesNextToMovedTo() throws {
+        let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha","moved_to":"nas","moved_at":"2026-10-28T17:00:00Z"},{"name":"beta"}]}}"#)
+        #expect(state.agents.map(\.movedAt) == ["2026-10-28T17:00:00Z", nil])
+    }
+
+    @Test func anUnreadableMovedAtReadsAsAbsent() throws {
+        let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha","moved_to":"nas","moved_at":7}]}}"#)
+        #expect(state.agents.map(\.movedTo) == ["nas"])
+        #expect(state.agents.map(\.movedAt) == [nil])
+    }
+
     @Test func absentDispatchesReadAsNone() throws {
         let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha"}]}}"#)
         #expect(state.agents.map(\.name) == ["alpha"])
