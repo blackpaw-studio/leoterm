@@ -71,12 +71,15 @@ Lane: B-322
   Branch: autopilot-lane/B-322
   Base: ffd1217db72bda7e6b3bbefcc957138bf1b6da36
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 7302c56887e654b3fb39278daf86a5d2e92139f9
   Dispatched: 2026-10-28T04:54:36Z
+  Call: Gate test-host daemon isolation on the existing isRunningAsTestHost() rather than an env var, so plain xcodebuild and Xcode runs are isolated too — test infrastructure
+  Call: The test host gets an unreachable socket (/dev/null/leo-test-host.sock) and no legacy :8370 web config, rather than a scratch daemon — test infrastructure
+  Call: B-322 is Mac only; iOS has no local unix socket and LeoKit is unchanged — AGENTS.md Mac+iOS rule
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
