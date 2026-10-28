@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What an agent row's state draws: the leading symbol and its ink, whether
 /// the row has a second line, and what trails the name in place of the time.
