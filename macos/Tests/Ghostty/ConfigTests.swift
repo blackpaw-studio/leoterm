@@ -181,6 +181,29 @@ struct ConfigTests {
         #expect(config.loaded == true)
     }
 
+    // MARK: - Leo defaults
+
+    @Test func undoTimeoutDefaultsToThirtySeconds() throws {
+        let config = try TemporaryConfig("")
+        #expect(config.undoTimeout == .seconds(30))
+    }
+
+    @Test func undoTimeoutExplicitValueWins() throws {
+        let config = try TemporaryConfig("undo-timeout = 90s")
+        #expect(config.undoTimeout == .seconds(90))
+    }
+
+    @Test func undoTimeoutExplicitUpstreamDefaultStillWins() throws {
+        let config = try TemporaryConfig("undo-timeout = 5s")
+        #expect(config.undoTimeout == .seconds(5))
+    }
+
+    @Test func undoTimeoutKeepsLeoDefaultAcrossReload() throws {
+        let config = try TemporaryConfig("undo-timeout = 90s")
+        try config.reload("")
+        #expect(config.undoTimeout == .seconds(30))
+    }
+
     @Test func reloadConfig() throws {
         let config = try TemporaryConfig("background-opacity = 0.5")
         #expect(config.backgroundOpacity == 0.5)

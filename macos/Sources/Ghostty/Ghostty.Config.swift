@@ -64,6 +64,11 @@ extension Ghostty {
                 return nil
             }
 
+            // Leo's defaults go first so every later source overrides them.
+            if let defaults = LeoConfigDefaults.writeFile() {
+                ghostty_config_load_file(cfg, defaults)
+            }
+
             // Load our configuration from files, CLI args, and then any referenced files.
             if let path {
                 ghostty_config_load_file(cfg, path)
@@ -621,7 +626,7 @@ extension Ghostty {
         }
 
         var undoTimeout: Duration {
-            guard let config = self.config else { return .seconds(5) }
+            guard let config = self.config else { return LeoConfigDefaults.undoTimeout }
             var v: UInt = 0
             let key = "undo-timeout"
             _ = ghostty_config_get(config, &v, key, UInt(key.lengthOfBytes(using: .utf8)))
