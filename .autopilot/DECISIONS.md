@@ -4301,3 +4301,10 @@ Chose: B-173 is Mac only (AppKit focus mechanism), no LeoKit/iOS change
 Why: AGENTS.md Mac+iOS rule
 Commit: 14d7e1c3e b05763dac 2d62ef55f
 Veto: [ ]
+
+## D-603 · 2026-10-28 · Leo's Close Terminal undo window defaults to 30 s
+Context: B-174 (orchestrator call at Decide).
+Chose: Leo uses a 30 s default undo window for Close Terminal (long enough to reach Edit ▸ Undo or ⌘Z by hand); an explicit user `undo-timeout` in the Ghostty config still wins.
+Why: Mac-native (undo should be reachable from the menu like a first-party app); calm by default; reversible.
+Commit:
+Veto: [ ]

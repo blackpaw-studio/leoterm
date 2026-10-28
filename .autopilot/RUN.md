@@ -112,6 +112,17 @@ Lane: B-173
   Call: Stall-mid-chain gap accepted and documented in the commit body — contrived coincidence under the severity bar
   Call: B-173 is Mac only (AppKit focus mechanism), no LeoKit/iOS change — AGENTS.md Mac+iOS rule
 
+Lane: B-174
+  Branch: autopilot-lane/B-174
+  Base: 1ffc47d323181a3f43029c6a8603a7fb5fe6c303
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T08:07:04Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
