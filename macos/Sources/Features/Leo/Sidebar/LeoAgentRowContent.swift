@@ -1,11 +1,11 @@
 import SwiftUI
 import LeoKit
 
-/// An agent row: the agent's color bar (or a blank slot of the same
-/// width), a leading state symbol, then the name line (the emoji, the name and
-/// the last-active time, a state word, or a spinner while an action is
-/// pending) and, for states that have one, a detail line aligned with the
-/// name. Each line is pinned to a fixed height and whether there is a
+/// An agent row: a leading state symbol, then the name line (the emoji, the
+/// name and the last-active time, a state word, or a spinner while an action
+/// is pending) and, for states that have one, a detail line aligned with the
+/// name, then the agent's color bar (or a blank slot of the same width) on
+/// the trailing edge. Each line is pinned to a fixed height and whether there is a
 /// second line is fixed per state, so the row never resizes as its content
 /// changes.
 struct LeoAgentRowContent: View {
@@ -32,8 +32,8 @@ struct LeoAgentRowContent: View {
             }
         }
         // The bar spans the row's lines without adding to its height.
-        .padding(.leading, LeoAgentRowMetrics.colorBarSlot)
-        .background(alignment: .leading) { colorBar(presentation.barColor) }
+        .padding(.trailing, LeoAgentRowMetrics.colorBarSlot)
+        .background(alignment: .trailing) { colorBar(presentation.barColor) }
         .padding(.vertical, LeoAgentRowMetrics.verticalPadding)
         .help(presentation.help)
     }

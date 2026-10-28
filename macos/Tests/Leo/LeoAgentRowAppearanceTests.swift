@@ -5,9 +5,8 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// Option C on the Mac row: a 3pt color bar (or a blank slot of the same
-/// width) before the unchanged status symbol, and the emoji before the
-/// name. The sizes are logic; the drawing is a TDD exception.
+/// The Mac row: a 3pt color bar (or a blank slot of the same width) on the
+/// trailing edge, after the name line, and the emoji before the name. The sizes are logic; the drawing is a TDD exception.
 struct LeoAgentRowAppearanceTests {
     private func row(_ appearance: LeoAgentAppearance?, name: String = "olympus", status: LeoAgentStatus = .running) -> LeoAgentRow {
         LeoAgentRow(
@@ -15,11 +14,11 @@ struct LeoAgentRowAppearanceTests {
         )
     }
 
-    @Test func nameColumnInsetIncludesTheBarSlot() {
+    @Test func nameColumnInsetExcludesTheTrailingBarSlot() {
         #expect(LeoAgentRowMetrics.colorBarWidth == 3)
         #expect(LeoAgentRowMetrics.colorBarSlot == LeoAgentRowMetrics.colorBarWidth + LeoAgentRowMetrics.colorBarSpacing)
         #expect(LeoAgentRowMetrics.nameColumnInset
-            == LeoAgentRowMetrics.colorBarSlot + LeoAgentRowMetrics.symbolColumnWidth + LeoAgentRowMetrics.symbolSpacing)
+            == LeoAgentRowMetrics.symbolColumnWidth + LeoAgentRowMetrics.symbolSpacing)
     }
 
     @Test func oneLineRowIsStill24pt() {
