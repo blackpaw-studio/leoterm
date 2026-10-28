@@ -4392,3 +4392,17 @@ Chose: Keep Zig untouched: the guard sits in the Leo-owned leoSetUserTitle
 Why: AUTONOMY keep Zig changes minimal
 Commit: f310bee07
 Veto: [ ]
+
+## D-616 · 2026-10-28 · Fix the successor symbols (hostSelectionRunner/LeoHostSelection were…
+Context: B-194 (runner call).
+Chose: Fix the successor symbols (hostSelectionRunner/LeoHostSelection were deleted in a87b3b0db): LeoRuntime.init's machineRunner and LeoMachineConnectionEnvironment.init's runner lose their LeoProcessRunner() defaults, so a test that forgets either fails to compile
+Why: test infrastructure
+Commit: 647e19821
+Veto: [ ]
+
+## D-617 · 2026-10-28 · B-194 is Mac only: iOS has no LeoRuntime or…
+Context: B-194 (runner call).
+Chose: B-194 is Mac only: iOS has no LeoRuntime or LeoMachineConnectionEnvironment
+Why: AGENTS.md Mac+iOS rule
+Commit: 647e19821
+Veto: [ ]

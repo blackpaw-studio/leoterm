@@ -190,11 +190,12 @@ Lane: B-194
   Branch: autopilot-lane/B-194
   Base: bf6814a87e3535682c70553b027a3d67f9d6c0d7
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: e56d40b287955c7aa69e5ca8b856da549097de26
+  Tokens: 5.23M in (4.97M cache read), ≥24.6k out, 62 requests
   Dispatched: 2026-10-28T10:51:14Z
   Call: Fix the successor symbols (hostSelectionRunner/LeoHostSelection were deleted in a87b3b0db): LeoRuntime.init's machineRunner and LeoMachineConnectionEnvironment.init's runner lose their LeoProcessRunner() defaults, so a test that forgets either fails to compile — test infrastructure
   Call: B-194 is Mac only: iOS has no LeoRuntime or LeoMachineConnectionEnvironment — AGENTS.md Mac+iOS rule
@@ -228,3 +229,4 @@ Finished 10: B-183 landed 1dc53327c · not visually verified
 - B-188 runner: leo dispatch d-96c02afe603b (implement role).
 Finished 11: B-188 done (no code change)
 - B-194 runner: leo dispatch d-d13d78c89fb2 (implement role).
+Finished 12: B-194 landed 1e566664b · not visually verified

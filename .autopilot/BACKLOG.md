@@ -1803,11 +1803,13 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-194 · Host-selection runner has no real-runner default   [ready]
+## B-194 · Host-selection runner has no real-runner default   [done]
 Issue: #198
 Why: B-112 note: LeoRuntime.hostSelectionRunner and LeoHostSelection.init still default to the real runner (host-selection ssh); inject it like the template runner
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-112)
+Done: 647e19821
+Verified: not visually verified — no UI change (default parameter values only); full suite 3872 pass
 
 ## B-195 · closingAHiddenRowGivesNothingOnScreenItsSlot flakes under load   [dropped]
 Issue: #199
