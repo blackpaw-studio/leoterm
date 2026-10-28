@@ -108,14 +108,14 @@ import LeoKit
     /// socket path. Kept free of runtime/async state so it can be constructed
     /// and tested without spinning up detection.
     nonisolated static func makeClient(
-        socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+        socketPath: String = LeoLocalDaemon.socketPath,
         transport: any LeoDaemonTransport = LeoUnixSocketTransport()
     ) -> LeoSocketDaemonClient {
         LeoSocketDaemonClient(socketPath: socketPath, transport: transport)
     }
 
     convenience init(defaults: UserDefaults = .ghostty) {
-        let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
+        let socketPath = LeoLocalDaemon.socketPath
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
         var transport: any LeoDaemonTransport = LeoUnixSocketTransport()
         #if DEBUG
@@ -325,7 +325,7 @@ import LeoKit
         // `feeds` (weakly, see below).
         let actionsBox = LeoAgentActionsBox()
         let localChatClient = chatClient ?? LeoChatPaneModel.makeClient(
-            socketPath: NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath, transport: LeoUnixSocketTransport()
+            socketPath: LeoLocalDaemon.socketPath, transport: LeoUnixSocketTransport()
         )
         self.localChatClient = localChatClient
         // Nothing is bound until a machine connects (`LeoRuntime+Machines`).
@@ -525,7 +525,7 @@ import LeoKit
             // B5: set up or adopt the local daemon before anything asks it
             // for its flavor or connects to it.
             await managedStartup?()
-            let flavor = await LeoSocketDaemonClient.detectFlavor()
+            let flavor = await LeoSocketDaemonClient.detectFlavor(socketPath: LeoLocalDaemon.socketPath)
             Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public)")
             feeds.start(pollable: registry.hasPollableSidebar)
             statsPoller.setSidebarPollable(registry.hasPollableSidebar)
@@ -729,7 +729,10 @@ import LeoKit
         }
     }
 
-    private nonisolated static func makeSocketOrLegacyActivitySource(socketPath: String) -> LeoSidebarActivitySource {
+    nonisolated static func makeSocketOrLegacyActivitySource(
+        socketPath: String,
+        observeConfig: @escaping @Sendable () -> LeoObserveConfig? = LeoLocalDaemon.observeConfig
+    ) -> LeoSidebarActivitySource {
         LeoSidebarActivitySource(
             events: {
                 AsyncStream { continuation in
@@ -740,7 +743,7 @@ import LeoKit
                             continuation.finish()
                             return
                         }
-                        let config = await Task.detached { LeoObserveConfigLoader.load() }.value
+                        let config = await Task.detached { observeConfig() }.value
                         guard let config else { continuation.finish(); return }
                         let client = LeoActivityClient(config: config)
                         for await event in await client.events() {
@@ -756,7 +759,7 @@ import LeoKit
                 if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .socketEvents {
                     return try await LeoSocketActivityClient(socketPath: socketPath).fetchState()
                 }
-                let config = await Task.detached { LeoObserveConfigLoader.load() }.value
+                let config = await Task.detached { observeConfig() }.value
                 guard let config else { return LeoObservedState(agents: []) }
                 return try await LeoActivityClient(config: config).fetchState()
             }
