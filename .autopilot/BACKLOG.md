@@ -2307,7 +2307,7 @@ Source: autopilot polish (B-307)
 Note: B-309 shrank the ring hole from 17.5pt to 15pt; unchecked by eye (no screenshot)
 Source: autopilot polish (B-309)
 
-## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [ready (next run)]
+## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [ready]
 Issue: #293
 Type: bug
 Report: Key-window tests all skip on Dionysus while system prompts hold the foreground — ⌃C and other key-window tests skip on the CI runner host while a modal UserNotificationCenter alert and universalAccessAuthWarn hold the foreground, so CI never exercises them (found in B-311).
