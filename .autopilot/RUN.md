@@ -186,6 +186,17 @@ Lane: B-188
   Tokens: 4.44M in (4.22M cache read), ≥16.2k out, 58 requests
   Dispatched: 2026-10-28T10:23:48Z
 
+Lane: B-194
+  Branch: autopilot-lane/B-194
+  Base: bf6814a87e3535682c70553b027a3d67f9d6c0d7
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T10:51:14Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
@@ -214,3 +225,4 @@ Finished 9: B-059 landed 7ace88fd6 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 10: B-183 landed 1dc53327c · not visually verified
 - B-188 runner: leo dispatch d-96c02afe603b (implement role).
 Finished 11: B-188 done (no code change)
+- B-194 runner: leo dispatch d-d13d78c89fb2 (implement role).
