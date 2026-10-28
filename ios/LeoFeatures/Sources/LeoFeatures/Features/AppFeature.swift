@@ -21,6 +21,11 @@ public struct AppFeature {
         /// The Appearance sheet, opened by a long press on an agent row.
         @Presents public var appearance: AgentAppearance.State?
         public var fleet = Fleet.State()
+        /// The open move, copy or duplicate flow (B-324); its prompts and
+        /// alerts are shown over everything.
+        @Presents public var move: AgentMove.State?
+        /// Each daemon's move hosts, read when it connects with `agent_move`.
+        public var moveDestinations: [DaemonSession.ID: LeoMoveDestinations] = [:]
         public var isShowingChats = false
         public var isShowingDaemons = false
         public var isShowingSettings = false
@@ -66,6 +71,11 @@ public struct AppFeature {
         case daemonsButtonTapped
         case detail(AgentDetail.Action)
         case fleet(Fleet.Action)
+        case move(PresentationAction<AgentMove.Action>)
+        /// Move To, Copy To or Duplicate on an agent: opens the flow. Ignored
+        /// for a daemon without `agent_move` and for an agent that moved away.
+        case moveRequested(AgentRef, AgentMove.Intent)
+        case moveHostsLoaded(DaemonSession.ID, LeoMoveDestinations)
         /// A tapped notification (the app may have just launched for it).
         case notificationOpened(AgentRef)
         case pairButtonTapped
@@ -83,6 +93,7 @@ public struct AppFeature {
 
     @Dependency(\.chatClient) var chatClient
     @Dependency(\.chatNotifier) var chatNotifier
+    @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.pairedDaemons) var pairedDaemons
     @Dependency(\.secrets) var secrets
 
@@ -147,6 +158,8 @@ public struct AppFeature {
                 case .daemons(.delegate(.forget(let id))):
                     if state.detail?.daemon.id == id { state.detail = nil }
                     if state.appearance?.daemon.id == id { state.appearance = nil }
+                    if state.move?.daemon.id == id { state.move = nil }
+                    state.moveDestinations[id] = nil
                     if state.daemons.machine?.id == id { state.daemons.machine = nil }
                     guard let daemon = state.fleet.sessions[id: id]?.daemon else { return fleet(.daemonRemoved(id), state: &state) }
                     // Push reads the daemon's token before the removal deletes it.
@@ -174,7 +187,31 @@ public struct AppFeature {
                     // Chats load only once the user has seen their entry.
                     let daemon = state.chats.isActive ? state.fleet.sessions[id: id]?.daemon : nil
                     let refresh: Effect<Action> = daemon.map { .send(.chats(.refresh([$0]))) } ?? .none
-                    return .merge(push(.daemonReconnected(id), state: &state), refresh, resyncChat(on: id, state: state))
+                    return .merge(
+                        push(.daemonReconnected(id), state: &state), refresh, resyncChat(on: id, state: state), loadMoveHosts(id, state: state)
+                    )
+
+                case .move(.presented(.delegate(.completed))):
+                    // The flow stays up while it has an alert to show.
+                    let id = state.move?.daemon.id
+                    if state.move?.alert == nil { state.move = nil }
+                    return id.map { fleet(.refreshRequested($0), state: &state) } ?? .none
+
+                case .move(.presented(.delegate(.dismissed))):
+                    state.move = nil
+                    return .none
+
+                case .moveHostsLoaded(let id, let destinations):
+                    state.moveDestinations[id] = destinations
+                    return .none
+
+                case .moveRequested(let ref, let intent):
+                    state.openMove(ref, intent)
+                    return .none
+
+                case .detail(.moveRequested(let intent)):
+                    if let ref = state.detail?.ref { state.openMove(ref, intent) }
+                    return .none
 
                 case .fleet(.sequenceGap(let id)):
                     return resyncChat(on: id, state: state)
@@ -235,12 +272,13 @@ public struct AppFeature {
                     if !state.isShowingDaemons { state.daemons.machine = nil }
                     return .none
 
-                case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .pairing, .push:
+                case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .move, .pairing, .push:
                     return .none
                 }
             }
             .ifLet(\.$pairing, action: \.pairing) { Pairing() }
             .ifLet(\.$appearance, action: \.appearance) { AgentAppearance() }
+            .ifLet(\.$move, action: \.move) { AgentMove() }
             .ifLet(\.detail, action: \.detail) { AgentDetail() }
             .ifLet(\.chat, action: \.chat) { ChatThread() }
             Reduce { state, _ in
@@ -263,6 +301,19 @@ public struct AppFeature {
     /// gap): the open thread on it reloads.
     private func resyncChat(on daemonID: DaemonSession.ID, state: State) -> Effect<Action> {
         state.chat?.daemon.id == daemonID ? .send(.chat(.resync)) : .none
+    }
+
+    /// Reads a connected daemon's move hosts, when it can move agents at all.
+    private func loadMoveHosts(_ id: DaemonSession.ID, state: State) -> Effect<Action> {
+        guard let session = state.fleet.sessions[id: id], session.supportsMove else { return .none }
+        let (daemon, daemonClient, secrets) = (session.daemon, daemonClient, secrets)
+        return .run { send in
+            guard let saved = try? secrets.load(daemon.id) else {
+                await send(.moveHostsLoaded(id, .unavailable))
+                return
+            }
+            await send(.moveHostsLoaded(id, await daemonClient.moveHosts(DaemonConnection(daemon: daemon, secrets: saved))))
+        }
     }
 
     private func fleet(_ action: Fleet.Action, state: inout State) -> Effect<Action> {
@@ -302,6 +353,19 @@ public struct AppFeature {
 }
 
 extension AppFeature.State {
+    /// What `daemonID`'s agents' Move menus offer.
+    public func moveAvailability(for daemonID: DaemonSession.ID) -> MoveAvailability {
+        MoveAvailability(supportsMove: fleet.sessions[id: daemonID]?.supportsMove == true, destinations: moveDestinations[daemonID])
+    }
+
+    /// Opens the move flow for `ref`, unless its daemon can't move agents or
+    /// the agent already lives elsewhere.
+    mutating func openMove(_ ref: AgentRef, _ intent: AgentMove.Intent) {
+        guard let session = fleet.sessions[id: ref.daemonID], session.supportsMove,
+              let agent = session.agents[id: ref.name], agent.canMove else { return }
+        move = AgentMove.State(daemon: session.daemon, agentName: ref.name, intent: intent)
+    }
+
     /// Opens a tapped notification's agent as soon as its daemon has
     /// reported it; gives up once the paired daemons are known and its
     /// daemon isn't one, or the daemon is connected and the agent is gone.
@@ -384,6 +448,8 @@ extension AppFeature.State {
         if detail?.agent != agent { detail?.agent = agent }
         if detail?.connection != session.connection { detail?.connection = session.connection }
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
+        let moves = moveAvailability(for: ref.daemonID)
+        if detail?.moves != moves { detail?.moves = moves }
     }
 
     /// Keeps the open Appearance sheet in step with the live fleet.

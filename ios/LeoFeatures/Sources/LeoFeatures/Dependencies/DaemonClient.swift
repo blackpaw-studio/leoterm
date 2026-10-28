@@ -35,6 +35,13 @@ public struct DaemonClient: Sendable {
     public var setPush: @Sendable (_ connection: DaemonConnection, _ deviceID: String, _ registration: LeoPushRegistration) async throws -> Void
     /// `DELETE /api/v1/devices/{id}/push`.
     public var deletePush: @Sendable (_ connection: DaemonConnection, _ deviceID: String) async throws -> Void
+    /// B-324 (`agent_move`): the hosts the daemon can move an agent to, from its
+    /// config; `.unavailable` when they can't be read.
+    public var moveHosts: @Sendable (_ connection: DaemonConnection) async -> LeoMoveDestinations = { _ in .unavailable }
+    /// B-324 (`agent_move`): starts a move or copy and follows its job (`POST
+    /// /api/agent/{name}/move`, then `GET /api/agent/moves/{id}`) to its
+    /// outcome. A refusal at start throws.
+    public var move: @Sendable (_ connection: DaemonConnection, _ agent: String, _ request: LeoMoveRequest) async throws -> LeoAgentMoveOutcome
 }
 
 /// A stats sample is polled every few seconds, so a slow daemon is skipped
@@ -51,6 +58,9 @@ extension DaemonClient: DependencyKey {
             return timeout.map { LeoWebDaemonClient(transport: transport, defaultTimeout: $0) } ?? LeoWebDaemonClient(transport: transport)
         }
         @Sendable func appearance(_ connection: DaemonConnection) -> any LeoAppearanceAPI {
+            LeoConfigHTTPClient(prefix: LeoConfigHTTPClient.webPrefix, transport: LeoHTTPSTransport(endpoint: connection.endpoint, session: session))
+        }
+        @Sendable func hosts(_ connection: DaemonConnection) -> any LeoConfigClient {
             LeoConfigHTTPClient(prefix: LeoConfigHTTPClient.webPrefix, transport: LeoHTTPSTransport(endpoint: connection.endpoint, session: session))
         }
         return DaemonClient(
@@ -77,7 +87,13 @@ extension DaemonClient: DependencyKey {
             },
             machineStats: { try await client($0, timeout: machineStatsTimeout).machineStats() },
             setPush: { connection, deviceID, registration in try await client(connection).registerPush(deviceID: deviceID, registration) },
-            deletePush: { connection, deviceID in try await client(connection).unregisterPush(deviceID: deviceID) }
+            deletePush: { connection, deviceID in try await client(connection).unregisterPush(deviceID: deviceID) },
+            moveHosts: { connection in
+                await LeoMoveDestinations.load { try await hosts(connection).collection("hosts").items.map(\.name) }
+            },
+            move: { connection, agent, request in
+                try await LeoAgentMover(client: client(connection)).run(agent, request)
+            }
         )
     }
 }

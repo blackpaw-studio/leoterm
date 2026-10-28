@@ -33,6 +33,9 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
     /// Whether the daemon can set and resolve agent appearance (leo >= 0.60).
     public var supportsAppearance: Bool { features.contains(.agentAppearance) }
 
+    /// Whether the daemon can move, copy and duplicate agents (`agent_move`).
+    public var supportsMove: Bool { features.contains(.agentMove) }
+
     /// The meters to draw, or `nil` when there are none (old daemon, 503,
     /// no sample yet, disconnected).
     public var meters: [MachineMeter]? {
@@ -124,6 +127,9 @@ public struct Fleet {
         case daemonRemoved(DaemonSession.ID)
         case daemonsLoaded([PairedDaemon])
         case eventReceived(DaemonSession.ID, LeoObserveEvent)
+        /// Refetches one daemon's `/state`, after something (a move) changed it
+        /// in a way no event reports.
+        case refreshRequested(DaemonSession.ID)
         case retryButtonTapped(DaemonSession.ID)
         /// The event stream skipped a sequence number: events were lost, so
         /// anything kept from events (chat threads) should reload.
@@ -203,6 +209,15 @@ public struct Fleet {
             case .eventReceived(let id, let event):
                 state.sessions[id: id]?.apply(event)
                 return .none
+
+            case .refreshRequested(let id):
+                guard let daemon = state.sessions[id: id]?.daemon else { return .none }
+                let (daemonClient, secrets) = (daemonClient, secrets)
+                return .run { send in
+                    guard let saved = try secrets.load(daemon.id) else { return }
+                    let snapshot = try await daemonClient.fetchState(DaemonConnection(daemon: daemon, secrets: saved))
+                    await send(.snapshotLoaded(id, snapshot))
+                } catch: { _, _ in }
 
             case .retryButtonTapped(let id):
                 state.sessions[id: id]?.failures = 0

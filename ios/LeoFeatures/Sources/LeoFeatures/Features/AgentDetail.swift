@@ -23,6 +23,8 @@ public struct AgentDetail {
         public var connection: ConnectionStatus
         public var inFlight: AgentCommand?
         public var isLoadingEnvironments = false
+        /// What the Move section offers; kept live by the parent from the daemon's features and hosts.
+        public var moves = MoveAvailability.unsupported
         @Presents public var alert: AlertState<Never>?
         @Presents public var confirmation: ConfirmationDialogState<Action.Confirmation>?
         @Presents public var destination: Destination.State?
@@ -50,6 +52,8 @@ public struct AgentDetail {
         case destination(PresentationAction<Destination.Action>)
         case environmentsLoaded(AgentRef, Result<[String], any Error>)
         case interruptButtonTapped
+        /// Move, Copy or Duplicate: the parent opens the flow (`AgentMove`).
+        case moveRequested(AgentMove.Intent)
         case openInClaudeButtonTapped
         case restartButtonTapped
         case startButtonTapped
@@ -74,7 +78,7 @@ public struct AgentDetail {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
-            case .alert, .chatButtonTapped:
+            case .alert, .chatButtonTapped, .moveRequested:
                 return .none
 
             case .commandFinished(let ref, _, _), .environmentsLoaded(let ref, _):
@@ -88,7 +92,7 @@ public struct AgentDetail {
                 return .none
 
             case .terminalButtonTapped:
-                let isRunning = state.agent.map { !$0.isStopped } ?? false
+                let isRunning = state.agent?.canOpenTerminal ?? false
                 state.destination = .terminal(Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: isRunning))
                 return .none
 

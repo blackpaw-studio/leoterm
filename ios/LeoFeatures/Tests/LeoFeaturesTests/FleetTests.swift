@@ -410,4 +410,23 @@ struct FleetTests {
             $0.sessions = [DaemonSession(daemon: .hestia)]
         }
     }
+
+    @Test func aRefreshRequestRefetchesTheSnapshotOfOneDaemon() async {
+        var initial = Fleet.State(daemons: [.dionysus])
+        initial.sessions[0].agents = [Agent(.make("zeus"))]
+        let moved = LeoObservedAgent(
+            name: "zeus", status: .stopped, activity: nil, currentAction: nil, lastActivityAt: nil, movedTo: "nas"
+        )
+        let store = TestStore(initialState: initial) {
+            Fleet()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.fetchState = { connection in
+                #expect(connection.daemonID == PairedDaemon.dionysus.id)
+                return LeoObservedState(agents: [moved])
+            }
+        }
+        await store.send(.refreshRequested(PairedDaemon.dionysus.id))
+        await store.receive(\.snapshotLoaded) { $0.sessions[0].agents = [Agent(moved)] }
+    }
 }
