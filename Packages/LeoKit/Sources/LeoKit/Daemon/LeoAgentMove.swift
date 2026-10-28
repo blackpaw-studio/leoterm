@@ -97,6 +97,14 @@ public struct LeoMoveResult: Decodable, Equatable, Sendable {
     public let to: String?
     public let workspace: String?
     public let branch: String?
+
+    public init(name: String, host: String? = nil, to: String? = nil, workspace: String? = nil, branch: String? = nil) {
+        self.name = name
+        self.host = host
+        self.to = to
+        self.workspace = workspace
+        self.branch = branch
+    }
 }
 
 public struct LeoMoveJob: Decodable, Equatable, Sendable {
