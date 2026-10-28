@@ -186,6 +186,17 @@ Lane: B-188
   Tokens: 4.44M in (4.22M cache read), ≥16.2k out, 58 requests
   Dispatched: 2026-10-28T10:23:48Z
 
+Lane: B-194
+  Branch: autopilot-lane/B-194
+  Base: bf6814a87e3535682c70553b027a3d67f9d6c0d7
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T10:51:14Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
