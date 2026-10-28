@@ -6,7 +6,7 @@ import UIKitNavigation
 /// One agent: live state, environment, actions, and what's coming next.
 final class AgentDetailViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int, CaseIterable {
-        case header, claude, live, status, environment, actions
+        case header, claude, live, status, environment, move, actions
     }
 
     private enum Row: Hashable {
@@ -16,10 +16,25 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case switchEnvironment
         case command(Command)
         case chat, terminal
+        case move(MoveRow)
+    }
+
+    /// B-324: the Move section's rows.
+    private enum MoveRow: Hashable {
+        case moveTo, copyTo, duplicate
     }
 
     private enum Command: Hashable {
         case interrupt, restart, start, stop
+
+        init(_ command: AgentCommand) {
+            switch command {
+            case .interrupt: self = .interrupt
+            case .restart: self = .restart
+            case .start: self = .start
+            case .stop, .setEnvironments: self = .stop
+            }
+        }
 
         var agentCommand: AgentCommand {
             switch self {
@@ -87,7 +102,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         UICollectionViewCompositionalLayout { index, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             let section = Section(rawValue: index)
-            let titled: Set<Section> = [.status, .environment, .actions]
+            let titled: Set<Section> = [.status, .environment, .move, .actions]
             configuration.headerMode = section.map(titled.contains) == true ? .supplementary : .none
             let layout = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
             if section == .header {
@@ -112,6 +127,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             content.text = switch Section(rawValue: indexPath.section) {
             case .status: String(localized: "Status")
             case .environment: String(localized: "Environment")
+            case .move: String(localized: "Move")
             case .actions: String(localized: "Actions")
             default: nil
             }
@@ -176,28 +192,55 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             cell.contentConfiguration = content
             if store.inFlight == command.agentCommand { cell.accessories = [.spinner] }
             cell.accessibilityIdentifier = "agent.command.\(title.lowercased())"
+        case .move(let row):
+            var content = UIListContentConfiguration.cell()
+            let (title, symbol, id) = switch row {
+            case .moveTo: (String(localized: "Move To…"), "arrow.right.circle", "agent.move.to")
+            case .copyTo: (String(localized: "Copy To…"), "doc.on.doc", "agent.move.copyTo")
+            case .duplicate: (String(localized: "Duplicate…"), "plus.square.on.square", "agent.move.duplicate")
+            }
+            content.text = title
+            content.image = UIImage(systemName: symbol)
+            content.textProperties.color = store.isBusy ? .tertiaryLabel : .tintColor
+            content.imageProperties.tintColor = content.textProperties.color
+            cell.contentConfiguration = content
+            cell.accessibilityIdentifier = id
         case .chat:
             var content = UIListContentConfiguration.subtitleCell()
+            let moved = store.agent?.isMoved == true
             content.text = String(localized: "Chat")
-            content.secondaryText = String(localized: "Message \(store.agentName)")
+            content.secondaryText = moved ? String(localized: "Moved — message it on \(store.agent?.movedTo ?? "")") : String(localized: "Message \(store.agentName)")
             content.image = UIImage(systemName: "bubble.left.and.text.bubble.right")
             content.secondaryTextProperties.color = .secondaryLabel
+            if moved { Self.dim(&content) }
             cell.contentConfiguration = content
-            cell.accessories = [.disclosureIndicator()]
+            cell.accessories = moved ? [] : [.disclosureIndicator()]
             cell.accessibilityIdentifier = "agent.chat"
 
         case .terminal:
             var content = UIListContentConfiguration.subtitleCell()
             content.text = String(localized: "Terminal")
-            content.secondaryText = store.agent?.isStopped == true
-                ? String(localized: "Stopped — start the agent to watch it")
-                : String(localized: "Watch its tmux session live, read-only")
+            content.secondaryText = if let moved = store.agent?.movedTo {
+                String(localized: "Moved — it runs on \(moved)")
+            } else if store.agent?.isStopped == true {
+                String(localized: "Stopped — start the agent to watch it")
+            } else {
+                String(localized: "Watch its tmux session live, read-only")
+            }
             content.image = UIImage(systemName: "apple.terminal")
             content.secondaryTextProperties.color = .secondaryLabel
+            let moved = store.agent?.isMoved == true
+            if moved { Self.dim(&content) }
             cell.contentConfiguration = content
-            cell.accessories = [.disclosureIndicator()]
+            cell.accessories = moved ? [] : [.disclosureIndicator()]
             cell.accessibilityIdentifier = "agent.terminal"
         }
+    }
+
+    /// A moved agent's Chat and Terminal rows can't be opened here.
+    private static func dim(_ content: inout UIListContentConfiguration) {
+        content.textProperties.color = .tertiaryLabel
+        content.imageProperties.tintColor = .tertiaryLabel
     }
 
     private func render() {
@@ -232,21 +275,32 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
         snapshot.appendSections(Section.allCases)
         snapshot.appendItems([.header], toSection: .header)
-        if agent.opensInClaude { snapshot.appendItems([.openInClaude], toSection: .claude) }
+        if agent.opensInClaude, !agent.isMoved { snapshot.appendItems([.openInClaude], toSection: .claude) }
         snapshot.appendItems([.chat, .terminal], toSection: .live)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
-        snapshot.appendItems(environmentRows.map { .value($0.key) } + [.switchEnvironment], toSection: .environment)
-        let commands: [Command] = agent.isStopped ? [.start] : [.interrupt, .restart, .stop]
-        snapshot.appendItems(commands.map(Row.command), toSection: .actions)
+        snapshot.appendItems(environmentRows.map { .value($0.key) } + (agent.isMoved ? [] : [.switchEnvironment]), toSection: .environment)
+        snapshot.appendItems(moveRows(for: agent).map(Row.move), toSection: .move)
+        snapshot.appendItems(agent.availableCommands.map { Row.command(Command($0)) }, toSection: .actions)
+        // An empty section would still draw its header.
+        snapshot.deleteSections(snapshot.sectionIdentifiers.filter { snapshot.numberOfItems(inSection: $0) == 0 })
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
+    /// What the Move section offers this agent on its daemon.
+    private func moveRows(for agent: Agent) -> [MoveRow] {
+        guard agent.canMove, store.moves.offersDuplicate else { return [] }
+        return (store.moves.hosts.isEmpty ? [] : [.moveTo, .copyTo]) + [.duplicate]
+    }
+
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        let moved = store.agent?.isMoved == true
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .openInClaude, .chat, .terminal: true
-        case .switchEnvironment, .command: !store.isBusy
-        default: false
+        case .chat, .terminal: return !moved
+        case .openInClaude: return true
+        case .move: return !store.isBusy
+        case .switchEnvironment, .command: return !store.isBusy
+        default: return false
         }
     }
 
@@ -262,8 +316,27 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case .command(.stop): store.send(.stopButtonTapped)
         case .chat: store.send(.chatButtonTapped)
         case .terminal: store.send(.terminalButtonTapped)
+        case .move(.moveTo): pickHost(title: String(localized: "Move To"), at: indexPath) { self.store.send(.moveRequested(.move(to: $0))) }
+        case .move(.copyTo): pickHost(title: String(localized: "Copy To"), at: indexPath) { self.store.send(.moveRequested(.copy(to: $0))) }
+        case .move(.duplicate): store.send(.moveRequested(.duplicate))
         default: break
         }
+    }
+}
+
+extension AgentDetailViewController {
+    /// A sheet of the daemon's hosts; the choice starts the flow.
+    private func pickHost(title: String, at indexPath: IndexPath, choose: @escaping (String) -> Void) {
+        let sheet = UIAlertController(title: title, message: nil, preferredStyle: .actionSheet)
+        for host in store.moves.hosts {
+            sheet.addAction(UIAlertAction(title: host, style: .default) { _ in choose(host) })
+        }
+        sheet.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel))
+        if let popover = sheet.popoverPresentationController {
+            popover.sourceView = collectionView
+            popover.sourceRect = collectionView.cellForItem(at: indexPath)?.frame ?? CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+        }
+        present(sheet, animated: true)
     }
 }
 

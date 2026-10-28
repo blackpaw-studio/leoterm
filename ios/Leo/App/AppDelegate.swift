@@ -16,6 +16,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if NavFixture.isRequested { prepareDependencies { NavFixture.prepare(&$0) } }
         if AppearanceFixture.isRequested { prepareDependencies { AppearanceFixture.prepare(&$0) } }
         if SettingsFixture.isRequested { prepareDependencies { SettingsFixture.prepare(&$0) } }
+        if MoveFixture.isRequested { prepareDependencies { MoveFixture.prepare(&$0) } }
         #endif
         return Store(initialState: AppFeature.State()) { AppFeature() }
     }()

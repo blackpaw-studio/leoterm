@@ -22,6 +22,7 @@
 		35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */; };
 		377B2E9AEAA174DDF41C34A2 /* SchemaFieldHandlers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E5F3AE843078FDC58DA8289 /* SchemaFieldHandlers.swift */; };
 		380DADB3D9B64EF127F2E3F2 /* NameEntryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79366C4E5F3E01AFDCC19AA8 /* NameEntryViewController.swift */; };
+		393EF210D8EE2A9BED1930C4 /* MoveFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1CBEB41B43F59128C3247B5 /* MoveFixture.swift */; };
 		3E8CAAD59AE015ECC9520FDD /* ChatTimeHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */; };
 		47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */; };
 		494127E980DF78B990F8CD76 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 7C4CB7ED94C7DDF2894E56F5 /* LeoKit */; };
@@ -85,6 +86,7 @@
 		EB64EEED1BC1858429F218F1 /* TaskLogViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186DF50396BCA70A75DC69E1 /* TaskLogViewController.swift */; };
 		EF4A0166AFD67220A7139538 /* AgentPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
+		F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */; };
 		F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 650EBAD07E75A2D3EA0F60F3 /* MeterAppearance.swift */; };
 		F87675DB161359B673F1856D /* DialogAnchors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71B44191ECF376EEECB29058 /* DialogAnchors.swift */; };
 		FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */; };
@@ -179,6 +181,7 @@
 		87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFormCellTests.swift; sourceTree = "<group>"; };
 		93C6F25CCCD87641CD218A9C /* MachineCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineCell.swift; sourceTree = "<group>"; };
 		9FF7947A4DAF1A52A076FEFD /* ServiceScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceScreenTests.swift; sourceTree = "<group>"; };
+		A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoMoveTests.swift; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
 		A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewController.swift; sourceTree = "<group>"; };
 		A2CC89792C60C356D74344CD /* LeoUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -211,6 +214,7 @@
 		EABF66CB1EE1C883F7930FFD /* ChatBubbleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBubbleView.swift; sourceTree = "<group>"; };
 		ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoMachinesTests.swift; sourceTree = "<group>"; };
 		ED896422B42A4AB6BD982529 /* ChatPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatPresentation.swift; sourceTree = "<group>"; };
+		F1CBEB41B43F59128C3247B5 /* MoveFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoveFixture.swift; sourceTree = "<group>"; };
 		F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBodyTextView.swift; sourceTree = "<group>"; };
 		F6C700243A7DF9C889D0C17F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewController.swift; sourceTree = "<group>"; };
@@ -295,6 +299,7 @@
 			children = (
 				FD0798F4619AB2A887324F77 /* AppDelegate.swift */,
 				35CC91E2C136D84061F083BB /* AppearanceFixture.swift */,
+				F1CBEB41B43F59128C3247B5 /* MoveFixture.swift */,
 				FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */,
 				14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */,
 				CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */,
@@ -412,6 +417,7 @@
 				C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */,
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
 				ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */,
+				A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */,
 				FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */,
 				0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */,
 				D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */,
@@ -703,6 +709,7 @@
 				52AF27E75BC9A3FA5D427A81 /* LeoAppearanceTests.swift in Sources */,
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
 				674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */,
+				F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */,
 				E4AD252ED3954D152BA5D5B4 /* LeoNavStackTests.swift in Sources */,
 				35B2BA0207DD6269898734F2 /* LeoPushE2ETests.swift in Sources */,
 				FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */,
@@ -749,6 +756,7 @@
 				6F30D471A3E498B502EE95B7 /* MachinesFixture.swift in Sources */,
 				F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */,
 				49DFFA476CDBDD3A17C8E741 /* MeterLineView.swift in Sources */,
+				393EF210D8EE2A9BED1930C4 /* MoveFixture.swift in Sources */,
 				380DADB3D9B64EF127F2E3F2 /* NameEntryViewController.swift in Sources */,
 				8B81C9A92523833C6243FBEE /* NavFixture.swift in Sources */,
 				D880CE673551A008F8CAF71C /* NoHistoryBackBarButtonItem.swift in Sources */,

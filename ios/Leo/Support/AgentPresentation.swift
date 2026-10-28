@@ -20,6 +20,17 @@ struct AgentBadge: Equatable {
     }
 }
 
+extension AgentBadge {
+    /// B-324: an agent that moved to another host; this daemon keeps a dormant record.
+    static let moved = AgentBadge(symbol: "arrow.up.forward.square", tint: .systemGray, label: String(localized: "Moved"))
+
+    private init(symbol: String, tint: UIColor, label: String) {
+        self.symbol = symbol
+        self.tint = tint
+        self.label = label
+    }
+}
+
 /// How an Agents list row draws the agent's look: the leading image, and
 /// the leading-edge bar when a color is set.
 struct AgentRowStyle: Equatable {
@@ -35,7 +46,7 @@ struct AgentRowStyle: Equatable {
 }
 
 extension Agent {
-    var badge: AgentBadge { AgentBadge(priority) }
+    var badge: AgentBadge { isMoved ? .moved : AgentBadge(priority) }
 
     var rowStyle: AgentRowStyle {
         let badge = badge
@@ -65,13 +76,15 @@ extension Agent {
 
     /// The line under the name in the Agents list.
     var summary: String {
+        if let moved = movedText() { return moved }
         if let detail = attentionDetail { return detail }
         if priority == .working, let action = currentActionText { return action }
         return [badge.label, template].compactMap { $0 }.joined(separator: " · ")
     }
 
     var statusText: String {
-        switch status {
+        if let moved = movedText() { return moved }
+        return switch status {
         case .starting: String(localized: "Starting")
         case .running: String(localized: "Running")
         case .stopped: String(localized: "Stopped")

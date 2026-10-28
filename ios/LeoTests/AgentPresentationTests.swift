@@ -37,4 +37,20 @@ struct AgentPresentationTests {
     @Test func everyPaletteColorHasItsOwnSystemColor() {
         #expect(Set(LeoAppearanceColor.allCases.map(\.uiColor)).count == LeoAppearanceColor.allCases.count)
     }
+
+    /// B-324: a moved agent is a dormant record, and says where it went.
+    @Test func aMovedAgentReadsAsMovedWithItsDestination() {
+        var moved = Agent(name: "zeus", status: .stopped, activity: .unknown)
+        moved.movedTo = "nas"
+        #expect(moved.badge == AgentBadge.moved)
+        #expect(moved.badge.label == "Moved")
+        #expect(moved.summary == "Moved to nas")
+        #expect(moved.statusText == "Moved to nas")
+    }
+
+    @Test func anAgentThatLivesHereKeepsItsStatusBadge() {
+        let stopped = Agent(name: "zeus", status: .stopped, activity: .unknown)
+        #expect(stopped.badge == AgentBadge(.stopped))
+        #expect(stopped.statusText == "Stopped")
+    }
 }

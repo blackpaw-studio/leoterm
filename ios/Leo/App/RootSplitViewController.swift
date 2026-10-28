@@ -26,6 +26,7 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
     /// the split view take the secondary off the iPhone stack before
     /// `isCollapsed` flips, which is not the user popping back.
     private var transitionsInFlight = 0
+    private var isShowingNamePrompt = false
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -65,6 +66,17 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
             return navigation
         }
 
+        present(item: $store.scope(state: \.move?.confirmation, action: \.move.presented.confirmation)) { store in
+            UIAlertController(store: store)
+        }
+        present(item: $store.scope(state: \.move?.alert, action: \.move.presented.alert)) { store in
+            UIAlertController(store: store)
+        }
+        observe { [weak self] in
+            guard let self else { return }
+            presentNamePromptIfNeeded()
+        }
+
         observe { [weak self] in
             guard let self else { return }
             let secondary: Secondary? = switch (store.chat, store.detail) {
@@ -92,6 +104,33 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
                 show(.primary)
             }
         }
+    }
+
+    /// B-324: a copy asks for an optional name. A text field can't be an
+    /// `AlertState`, so the prompt is built here while the flow asks for it.
+    private func presentNamePromptIfNeeded() {
+        guard let flow = store.move, flow.isAskingName, !isShowingNamePrompt else { return }
+        isShowingNamePrompt = true
+        let prompt = UIAlertController(
+            title: flow.intent == .duplicate ? String(localized: "Duplicate \(flow.agentName)") : String(localized: "Copy \(flow.agentName)"),
+            message: String(localized: "Name the copy, or leave it blank to let the daemon pick one."),
+            preferredStyle: .alert
+        )
+        prompt.addTextField { field in
+            field.placeholder = "\(flow.agentName)-copy"
+            field.autocapitalizationType = .none
+            field.autocorrectionType = .no
+            field.accessibilityIdentifier = "agent.move.name"
+        }
+        prompt.addAction(UIAlertAction(title: String(localized: "Cancel"), style: .cancel) { [weak self] _ in
+            self?.isShowingNamePrompt = false
+            self?.store.send(.move(.presented(.nameCancelled)))
+        })
+        prompt.addAction(UIAlertAction(title: String(localized: "Copy"), style: .default) { [weak self] _ in
+            self?.isShowingNamePrompt = false
+            self?.store.send(.move(.presented(.nameSubmitted(prompt.textFields?.first?.text ?? ""))))
+        })
+        (presentedViewController ?? self).present(prompt, animated: true)
     }
 
     /// The screens of the secondary column, bottom first.
