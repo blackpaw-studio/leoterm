@@ -1,6 +1,6 @@
 import Foundation
 
-public enum LeoMoveOutcome: Equatable, Sendable {
+public enum LeoAgentMoveOutcome: Equatable, Sendable {
     case done(LeoMoveResult)
     /// The daemon refused. `message` is its own text (the app's wording for
     /// `agent_busy`); `offersForce` is true only for a mid-turn move.
@@ -32,7 +32,7 @@ public struct LeoAgentMover: Sendable {
 
     /// A refusal at start (`agent_moving`, a transport failure) throws; so does
     /// cancellation, which stops polling and leaves the job running on the daemon.
-    public func run(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveOutcome {
+    public func run(_ name: String, _ request: LeoMoveRequest) async throws -> LeoAgentMoveOutcome {
         var job = try await client.startMove(name, request)
         while true {
             if let outcome = Self.outcome(of: job, agent: name) { return outcome }
@@ -46,7 +46,7 @@ public struct LeoAgentMover: Sendable {
         }
     }
 
-    private static func outcome(of job: LeoMoveJob, agent: String) -> LeoMoveOutcome? {
+    private static func outcome(of job: LeoMoveJob, agent: String) -> LeoAgentMoveOutcome? {
         switch job.state {
         case .running:
             return nil
