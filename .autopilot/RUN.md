@@ -46,15 +46,17 @@ Lane: B-320
   Branch: autopilot-lane/B-320
   Base: d96154f93e73aaf5a7404d20fabe2b4fed39e43a
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 738ffb00bf111facebc1a16cf1f77789591a638d
   Dispatched: 2026-10-28T04:08:27Z
+  Call: iOS only (UIKit layout under ios/; the Mac app doesn't use this view) — AGENTS.md Mac+iOS rule
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
 Finished 1: B-318 landed 8d9135bb3 · not visually verified
 - B-320 runner: leo dispatch d-ff8fb617a827 (implement role).
+- B-320 lane: restored a verifier-regenerated ios/LeoFeatures/Package.resolved (B-321's subject) so the lane could land; diff saved to the session scratchpad.
