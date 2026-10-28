@@ -1186,12 +1186,14 @@ Source: autopilot polish (B-107)
 Done: 80a983924 4c15f0a6b
 Verified: not visually verified — same-runloop click/close race can't be driven in the GUI; integration test failed before and passes after; full suite 3835 pass
 
-## B-173 · pendingFocusMovesLand polls instead of sleeping 1 s   [ready]
+## B-173 · pendingFocusMovesLand polls instead of sleeping 1 s   [done]
 Issue: #177
 Why: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Accept: replace the fixed 1 s sleep with an eventually-poll on firstResponder/focusedSurface (moveFocus retries on asyncAfter timers); a disclosed D-178 exception that could flake under a main-thread stall
 Source: autopilot polish (B-107)
 Note: B-204 (2026-10-08) removed the 1 s pendingFocusMovesLand wait from LeoTerminalRowsIntegrationTests; the same sleep remains at LeoContentFocusTests.swift:88,187 — scope this item to those.
+Done: 14d7e1c3e b05763dac 2d62ef55f
+Verified: not visually verified — test-only change; full suite 3835 pass, mutation check showed the stay-put assertion fails on a late focus steal
 
 ## B-174 · Close Terminal undo window is only 5 s by default   [ready]
 Issue: #178

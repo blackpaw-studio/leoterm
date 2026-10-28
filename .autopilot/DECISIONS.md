@@ -4280,3 +4280,24 @@ Chose: showTerminal still doesn't call onRowShown for the adopted shell; left ou
 Why: small scope cut
 Commit: 80a983924 4c15f0a6b
 Veto: [ ]
+
+## D-600 · 2026-10-28 · Test-only focus drain (0.8 s main-queue timer outlasting the moveFocus…
+Context: B-173 (runner call).
+Chose: Test-only focus drain (0.8 s main-queue timer outlasting the moveFocus retry chain), no production seam in Ghostty.moveFocus
+Why: flake fixes and test infrastructure; smallest correct change
+Commit: 14d7e1c3e b05763dac 2d62ef55f
+Veto: [ ]
+
+## D-601 · 2026-10-28 · Stall-mid-chain gap accepted and documented in the commit body
+Context: B-173 (runner call).
+Chose: Stall-mid-chain gap accepted and documented in the commit body
+Why: contrived coincidence under the severity bar
+Commit: 14d7e1c3e b05763dac 2d62ef55f
+Veto: [ ]
+
+## D-602 · 2026-10-28 · B-173 is Mac only (AppKit focus mechanism), no LeoKit/iOS change
+Context: B-173 (runner call).
+Chose: B-173 is Mac only (AppKit focus mechanism), no LeoKit/iOS change
+Why: AGENTS.md Mac+iOS rule
+Commit: 14d7e1c3e b05763dac 2d62ef55f
+Veto: [ ]

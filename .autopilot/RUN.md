@@ -101,11 +101,12 @@ Lane: B-173
   Branch: autopilot-lane/B-173
   Base: 85aa16a29b62f7595be5ef8f653c5fc9a5d20f4e
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 14d7e1c3efd4437ddbd3f1d9d762c3d3f53280ea
+  Tokens: 14.6M in (13.9M cache read), ≥76.9k out, 173 requests
   Dispatched: 2026-10-28T07:21:28Z
   Call: Test-only focus drain (0.8 s main-queue timer outlasting the moveFocus retry chain), no production seam in Ghostty.moveFocus — flake fixes and test infrastructure; smallest correct change
   Call: Stall-mid-chain gap accepted and documented in the commit body — contrived coincidence under the severity bar
@@ -127,3 +128,4 @@ Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 5: B-172 landed 41ba19a2d · not visually verified
 - B-173 runner: leo dispatch d-8452801d9121 (implement role).
 - B-173: first runner d-8452801d9121 reported blocked on an implementer permission prompt (rm of two lane symlinks) it couldn't answer; orchestrator allowed it, commit 2d62ef55f landed in the lane; fresh runner dispatched to integrate/review/verify.
+Finished 6: B-173 landed 21d9b00d2 · not visually verified
