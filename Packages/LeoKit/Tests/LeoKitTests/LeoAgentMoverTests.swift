@@ -6,7 +6,8 @@ import Testing
 struct LeoAgentMoverTests {
     private static func job(_ state: String, mode: String = "move", extra: String = "") -> LeoMoveJob {
         let json = #"{"id":"mv-1","request":{"mode":"\#(mode)","to":"nas"},"state":"\#(state)"\#(extra)}"#
-        return try! JSONDecoder().decode(LeoMoveJob.self, from: Data(json.utf8))
+        guard let job = try? JSONDecoder().decode(LeoMoveJob.self, from: Data(json.utf8)) else { fatalError("bad job fixture: \(json)") }
+        return job
     }
 
     private func mover(_ client: ScriptedMoveClient, sleep: SleepProbe = SleepProbe()) -> LeoAgentMover {
