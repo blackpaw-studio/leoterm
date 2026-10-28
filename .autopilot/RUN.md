@@ -100,9 +100,9 @@ Lane: B-172
 Lane: B-173
   Branch: autopilot-lane/B-173
   Base: 85aa16a29b62f7595be5ef8f653c5fc9a5d20f4e
-  Tier: light
+  Tier: light→full
   State: building
-  Fixes: 0
+  Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
