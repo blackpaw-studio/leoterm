@@ -139,6 +139,17 @@ Lane: B-175
   Tokens: 8.07M in (7.9M cache read), ≥31.6k out, 80 requests
   Dispatched: 2026-10-28T08:28:09Z
 
+Lane: B-059
+  Branch: autopilot-lane/B-059
+  Base: d0642c4a33a51f5365cdf4c35c325287455b6b25
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T08:48:26Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
