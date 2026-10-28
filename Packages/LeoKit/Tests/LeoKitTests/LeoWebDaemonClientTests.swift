@@ -187,3 +187,26 @@ struct LeoWebDaemonClientPushTests {
         }
     }
 }
+
+struct LeoWebDaemonClientMoveTests {
+    @Test func startMovePostsTheRequestAndDecodesTheEnvelopeData() async throws {
+        let body = #"{"ok":true,"data":{"id":"mv-1","request":{"mode":"copy"},"state":"running"}}"#
+        let transport = FakeWebTransport(responses: [202: body])
+        let job = try await LeoWebDaemonClient(transport: transport).startMove("a b", .duplicate(name: "twin"))
+
+        #expect(job.id == "mv-1")
+        #expect(job.state == .running)
+        let sent = try #require(await transport.requests.first)
+        #expect(sent.method == "POST")
+        #expect(sent.path == "/api/agent/a%20b/move")
+        let json = try #require(sent.body.flatMap { try JSONSerialization.jsonObject(with: $0) as? NSDictionary })
+        #expect(json == ["mode": "copy", "name": "twin"] as NSDictionary)
+    }
+
+    @Test func aSynchronousRefusalKeepsTheDaemonsText() async {
+        let transport = FakeWebTransport(responses: [409: #"{"ok":false,"error":"a is already being moved","code":"agent_moving"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: "agent_moving", message: "a is already being moved", matches: [])) {
+            _ = try await LeoWebDaemonClient(transport: transport).startMove("a", .move(to: "nas"))
+        }
+    }
+}

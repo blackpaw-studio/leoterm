@@ -80,6 +80,16 @@ public struct LeoWebDaemonClient: Sendable {
         try await expectOK("POST", "/api/v1/agents/\(try LeoSocketDaemonClient.pathSegment(name))/interrupt")
     }
 
+    /// Starts a move or copy of `name` (`agent_move`). The web listener answers
+    /// 202 with the job in the envelope; refusals use the envelope's `code`.
+    /// It has no job poll yet: a later `moveJob(id:)` over the same job shape
+    /// lets `LeoAgentMover` follow web jobs unchanged.
+    public func startMove(_ name: String, _ moveRequest: LeoMoveRequest) async throws -> LeoMoveJob {
+        let path = "/api/agent/\(try LeoSocketDaemonClient.pathSegment(name))/move"
+        let response = try await request("POST", path, body: try JSONEncoder().encode(moveRequest))
+        return try LeoDaemonEnvelope<LeoMoveJob>.decode(response.body).value()
+    }
+
     /// The configured named environments, sorted.
     public func environmentNames() async throws -> [String] {
         try LeoEnvironmentsWire.catalogNames(try await request("GET", "/api/v1/environments").body)
