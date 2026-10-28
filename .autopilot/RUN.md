@@ -173,6 +173,17 @@ Lane: B-183
   Call: B-183 is Mac only: SurfaceView is AppKit and iOS has no row rename — AGENTS.md Mac+iOS rule
   Call: Keep Zig untouched: the guard sits in the Leo-owned leoSetUserTitle — AUTONOMY keep Zig changes minimal
 
+Lane: B-188
+  Branch: autopilot-lane/B-188
+  Base: d771917ec14d23d0019d1d1814a346f5e4caa1bc
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T10:23:48Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
