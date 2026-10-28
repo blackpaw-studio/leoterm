@@ -127,6 +127,17 @@ Lane: B-174
   Call: Implement D-603 with a Leo defaults file (undo-timeout = 30s) loaded first in Ghostty.Config.loadConfig, so any explicit user value wins; no Zig changes — D-603, keep Zig changes minimal
   Call: The Leo defaults file is rewritten in the temp dir on each config load; if the write fails it logs and falls back to upstream's 5 s — reversible implementation call
 
+Lane: B-175
+  Branch: autopilot-lane/B-175
+  Base: 7c777e514ae3a09b7c4bbc6a32c9ecd37a68d7c5
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T08:28:09Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
