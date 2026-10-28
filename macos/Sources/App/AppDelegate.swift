@@ -61,6 +61,9 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuSelectSplitBelow: NSMenuItem?
     @IBOutlet private var menuSelectSplitLeft: NSMenuItem?
     @IBOutlet private var menuSelectSplitRight: NSMenuItem?
+    @IBOutlet private var menuSelectNextRow: NSMenuItem?
+    @IBOutlet private var menuSelectPreviousRow: NSMenuItem?
+    @IBOutlet private var menuSelectRow: NSMenuItem?
     @IBOutlet private var menuReturnToDefaultSize: NSMenuItem?
     @IBOutlet private var menuFloatOnTop: NSMenuItem?
     @IBOutlet private var menuUseAsDefault: NSMenuItem?
@@ -1500,6 +1503,12 @@ extension AppDelegate {
         syncMenuShortcut(config, action: "toggle_command_palette", menuItem: self.menuCommandPalette)
 
         syncMenuShortcut(config, action: "toggle_secure_input", menuItem: self.menuSecureInput)
+
+        // Leo: the old tab shortcuts go to sidebar rows (B-059).
+        LeoRowMenuShortcuts.sync(
+            config, selectRow: self.menuSelectRow, next: self.menuSelectNextRow, previous: self.menuSelectPreviousRow,
+            manager: menuShortcutManager
+        )
 
         // This menu item is NOT synced with the configuration because it disables macOS
         // global fullscreen keyboard shortcut. The shortcut in the Ghostty config will continue

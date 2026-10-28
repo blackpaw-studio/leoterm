@@ -55,6 +55,9 @@
                 <outlet property="menuScrollToSelection" destination="1rN-4k-Dz3" id="aRr-aT-oe3"/>
                 <outlet property="menuSecureInput" destination="oC6-w4-qI7" id="PCc-pe-Mda"/>
                 <outlet property="menuSelectAll" destination="q2h-lq-e4r" id="s98-r1-Jcv"/>
+                <outlet property="menuSelectNextRow" destination="Leo-Window-NextRow" id="Leo-Window-NextRow-Outlet"/>
+                <outlet property="menuSelectPreviousRow" destination="Leo-Window-PreviousRow" id="Leo-Window-PreviousRow-Outlet"/>
+                <outlet property="menuSelectRow" destination="Leo-Window-SelectRow" id="Leo-Window-SelectRow-Outlet"/>
                 <outlet property="menuSelectSplitAbove" destination="0yU-hC-8xF" id="aPc-lS-own"/>
                 <outlet property="menuSelectSplitBelow" destination="QDz-d9-CBr" id="FsH-Dq-jij"/>
                 <outlet property="menuSelectSplitLeft" destination="cTK-oy-KuV" id="Jpr-5q-dqz"/>
@@ -437,12 +440,6 @@
                                     <action selector="newLeoAgent:" target="-1" id="Leo-New-Agent-Action"/>
                                 </connections>
                             </menuItem>
-                            <menuItem title="Jump to Next Needing Attention" keyEquivalent="j" id="Leo-Agents-JumpAttention">
-                                <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
-                                <connections>
-                                    <action selector="jumpToNextLeoAgentNeedingAttention:" target="-1" id="Leo-Agents-JumpAttention-Action"/>
-                                </connections>
-                            </menuItem>
                             <menuItem title="Open File in Editor…" keyEquivalent="O" id="Leo-Agents-OpenFile">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>
@@ -699,6 +696,86 @@
                                 </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="rlu-tP-x0P"/>
+                            <menuItem title="Select Next Row" keyEquivalent="&#9;" id="Leo-Window-NextRow">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES"/>
+                                <connections>
+                                    <action selector="selectNextLeoRow:" target="-1" id="Leo-Window-NextRow-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Select Previous Row" keyEquivalent="&#9;" id="Leo-Window-PreviousRow">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" control="YES"/>
+                                <connections>
+                                    <action selector="selectPreviousLeoRow:" target="-1" id="Leo-Window-PreviousRow-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Select Row" id="Leo-Window-SelectRow">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Select Row" id="Leo-Window-SelectRow-Menu">
+                                    <items>
+                                        <menuItem title="Row 1" tag="1" id="Leo-Window-Row1">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row1-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 2" tag="2" id="Leo-Window-Row2">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row2-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 3" tag="3" id="Leo-Window-Row3">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row3-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 4" tag="4" id="Leo-Window-Row4">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row4-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 5" tag="5" id="Leo-Window-Row5">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row5-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 6" tag="6" id="Leo-Window-Row6">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row6-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 7" tag="7" id="Leo-Window-Row7">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row7-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Row 8" tag="8" id="Leo-Window-Row8">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLeoRowByNumber:" target="-1" id="Leo-Window-Row8-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Last Row" tag="9" id="Leo-Window-RowLast">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <connections>
+                                                <action selector="selectLastLeoRow:" target="-1" id="Leo-Window-RowLast-Action"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Jump to Next Needing Attention" keyEquivalent="j" id="Leo-Agents-JumpAttention">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="jumpToNextLeoAgentNeedingAttention:" target="-1" id="Leo-Agents-JumpAttention-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Window-RowsSeparator"/>
                             <menuItem title="Zoom Split" id="oPd-mn-IEH">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>

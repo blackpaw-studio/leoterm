@@ -16,9 +16,9 @@ extension LeoMenuCommands {
     }
 }
 
-/// Ghostty's `next_tab`/`previous_tab` from the terminal (⌃Tab, ⇧⌘]): a
-/// window has no tabs of its own to switch (D-098), so they switch the
-/// window's editor tabs, leaving focus in the terminal.
+/// Ghostty's `next_tab`/`previous_tab` from the terminal (⇧⌘]): a window
+/// has no tabs of its own to switch (D-098), so they switch the window's
+/// editor tabs, leaving focus in the terminal. ⌃Tab goes to rows (B-059).
 enum LeoEditorTabNavigation {
     /// `true` when it switched an editor tab; `false` leaves the action to
     /// Ghostty: the window has window tabs after all, the pane has fewer
@@ -66,21 +66,6 @@ extension TerminalController {
             return LeoMenuCommands.canCloseEditorTab(tabs)
         default:
             return nil
-        }
-    }
-}
-
-extension Ghostty.App {
-    /// Leo: offers Ghostty's goto_tab to the window's editor tabs before
-    /// Ghostty's own handling (see `LeoEditorTabNavigation`).
-    static func leoGotoEditorTab(target: ghostty_target_s, _ tab: ghostty_action_goto_tab_e) -> Bool {
-        guard Thread.isMainThread, target.tag == GHOSTTY_TARGET_SURFACE, let surface = target.target.surface,
-              let userdata = ghostty_surface_userdata(surface) else { return false }
-        let view = Unmanaged<Ghostty.SurfaceView>.fromOpaque(userdata).takeUnretainedValue()
-        return MainActor.assumeIsolated {
-            guard let window = view.window, let controller = window.windowController as? TerminalController else { return false }
-            let hasWindowTabs = (window.tabGroup?.windows.count ?? 0) > 1
-            return LeoEditorTabNavigation.gotoTab(tab, tabs: controller.leoSession?.editor, hasWindowTabs: hasWindowTabs)
         }
     }
 }

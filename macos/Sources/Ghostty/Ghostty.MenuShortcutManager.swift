@@ -34,6 +34,15 @@ extension Ghostty {
             }
         }
 
+        /// Leo (B-059): indexes `item` by its own key equivalent on the physical key
+        /// `physicalKeyCode`, so a Ghostty binding on that key (⌃Tab's `next_tab`) goes
+        /// to the menu item before it becomes an action. Like the synced shortcuts it
+        /// is dropped by `reset()`, so it must be registered again after every sync.
+        func registerFixedShortcut(_ item: NSMenuItem, physicalKeyCode: UInt16) {
+            let key = MenuShortcutKey(physicalKeyCode: physicalKeyCode, modifiers: item.keyEquivalentModifierMask)
+            menuItemsByShortcut[key] = .init(item)
+        }
+
         /// Attempts to perform a menu key equivalent only for menu items that represent
         /// Ghostty keybind actions. This is important because it lets our surface dispatch
         /// bindings through the menu so they flash but also lets our surface override macOS built-ins
