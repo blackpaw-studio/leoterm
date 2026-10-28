@@ -239,7 +239,7 @@ extension TerminalController {
         fill(actions.moveDestinations(for: host))
         guard actions.moveDestinations(for: host) == nil else { return }
         moveWait = Task { @MainActor in
-            guard let loaded = await actions.awaitMoveDestinations(for: host), !Task.isCancelled else { return }
+            guard let loaded = await actions.loadedMoveDestinations(for: host), !Task.isCancelled else { return }
             fill(loaded)
         }
     }

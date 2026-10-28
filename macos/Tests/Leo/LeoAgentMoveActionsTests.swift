@@ -151,9 +151,16 @@ import Testing
     @Test func aSupersededWaitForDestinationsEndsWhenCancelled() async {
         let actions = makeActions(MoveDaemon())
         let wait = Task { await actions.awaitMoveDestinations(for: .local) }
-        try? await Task.sleep(for: .milliseconds(20))
+        await Task.yield()
         wait.cancel()
         #expect(await wait.value == nil)
+    }
+
+    /// The menu's path: opening it must start the load itself, so a host with
+    /// no daemon reads as unavailable instead of "Loading…" forever.
+    @Test func openingTheMenuForAHostWithNoDaemonResolvesToUnavailable() async {
+        let actions = makeActions(MoveDaemon(), clients: FakeMachineClients())
+        #expect(await actions.loadedMoveDestinations(for: .remote("nas")) == .unavailable)
     }
 
     @Test func aWaitForDestinationsReturnsTheListOnceItLoads() async {

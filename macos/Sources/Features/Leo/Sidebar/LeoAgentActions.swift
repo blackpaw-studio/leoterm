@@ -201,6 +201,13 @@ import LeoKit
         }
     }
 
+    /// What opening the move menu does: starts the load itself (a host with no
+    /// daemon resolves to `.unavailable`), then waits for the list.
+    func loadedMoveDestinations(for host: LeoHostID) async -> LeoMoveDestinations? {
+        loadMoveDestinations(for: host)
+        return await awaitMoveDestinations(for: host)
+    }
+
     /// `host`'s list once it has loaded; nil when the waiting task is cancelled
     /// (the menu was reopened) so a wait never outlives the menu that asked.
     func awaitMoveDestinations(for host: LeoHostID) async -> LeoMoveDestinations? {
