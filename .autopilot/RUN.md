@@ -116,11 +116,12 @@ Lane: B-174
   Branch: autopilot-lane/B-174
   Base: 1ffc47d323181a3f43029c6a8603a7fb5fe6c303
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: a399ec1558a0eb087b15f42d9f57512e9337e91c
+  Tokens: 6.12M in (5.86M cache read), ≥29.8k out, 77 requests
   Dispatched: 2026-10-28T08:07:04Z
   Call: B-174 is Mac only: Ghostty config doesn't exist on iOS, so no iOS backlog item — AGENTS.md Mac+iOS rule
   Call: Implement D-603 with a Leo defaults file (undo-timeout = 30s) loaded first in Ghostty.Config.loadConfig, so any explicit user value wins; no Zig changes — D-603, keep Zig changes minimal
@@ -144,3 +145,4 @@ Finished 5: B-172 landed 41ba19a2d · not visually verified
 - B-173: first runner d-8452801d9121 reported blocked on an implementer permission prompt (rm of two lane symlinks) it couldn't answer; orchestrator allowed it, commit 2d62ef55f landed in the lane; fresh runner dispatched to integrate/review/verify.
 Finished 6: B-173 landed 21d9b00d2 · not visually verified
 - B-174 runner: leo dispatch d-7bde6c9abcdd (implement role).
+Finished 7: B-174 landed 7673b4f6c · not visually verified

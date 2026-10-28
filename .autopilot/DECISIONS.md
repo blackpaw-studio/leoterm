@@ -4306,5 +4306,26 @@ Veto: [ ]
 Context: B-174 (orchestrator call at Decide).
 Chose: Leo uses a 30 s default undo window for Close Terminal (long enough to reach Edit ▸ Undo or ⌘Z by hand); an explicit user `undo-timeout` in the Ghostty config still wins.
 Why: Mac-native (undo should be reachable from the menu like a first-party app); calm by default; reversible.
-Commit:
+Commit: 2eae8428a
+Veto: [ ]
+
+## D-604 · 2026-10-28 · B-174 is Mac only: Ghostty config doesn't exist on iOS, so no iOS…
+Context: B-174 (runner call).
+Chose: B-174 is Mac only: Ghostty config doesn't exist on iOS, so no iOS backlog item
+Why: AGENTS.md Mac+iOS rule
+Commit: 2eae8428a
+Veto: [ ]
+
+## D-605 · 2026-10-28 · Implement D-603 with a Leo defaults file (undo-timeout = 30s) loaded…
+Context: B-174 (runner call).
+Chose: Implement D-603 with a Leo defaults file (undo-timeout = 30s) loaded first in Ghostty.Config.loadConfig, so any explicit user value wins; no Zig changes
+Why: D-603, keep Zig changes minimal
+Commit: 2eae8428a
+Veto: [ ]
+
+## D-606 · 2026-10-28 · The Leo defaults file is rewritten in the temp dir on each config…
+Context: B-174 (runner call).
+Chose: The Leo defaults file is rewritten in the temp dir on each config load; if the write fails it logs and falls back to upstream's 5 s
+Why: reversible implementation call
+Commit: 2eae8428a
 Veto: [ ]

@@ -1195,11 +1195,13 @@ Note: B-204 (2026-10-08) removed the 1 s pendingFocusMovesLand wait from LeoTerm
 Done: 14d7e1c3e b05763dac 2d62ef55f
 Verified: not visually verified — test-only change; full suite 3835 pass, mutation check showed the stay-put assertion fails on a late focus steal
 
-## B-174 · Close Terminal undo window is only 5 s by default   [ready]
+## B-174 · Close Terminal undo window is only 5 s by default   [done]
 Issue: #178
 Why: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
 Accept: B-108 verify needed undo-timeout=300s to reach Edit ▸ Undo from the menu; with the default 5 s a human may barely use the restore path — consider a longer Leo default
 Source: autopilot polish (B-108)
+Done: 2eae8428a
+Verified: not visually verified — the verifier couldn't drive the split/close/undo flow (Return keypress denied by the auto-mode classifier); build, 4 new tests and full suite 3839 pass
 
 ## B-054 · Bug — template lists are empty in New Agent and row Set Template   [done]
 Issue: #59
