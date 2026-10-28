@@ -176,6 +176,9 @@ extension TerminalController {
 
     private var shortcutMonitor: Any?
 
+    /// The one pending "Loading…" refill; each open replaces it.
+    private var moveWait: Task<Void, Never>?
+
     private override init() {}
 
     /// Starts matching ⇧⌃⌘M / ⇧⌃⌘C (see `LeoMoveMenu.shortcut`). Idempotent.
@@ -218,7 +221,8 @@ extension TerminalController {
             menu.items.first(where: { $0.identifier == identifier }).flatMap { item in item.submenu.map { (item, $0, kind) } }
         }
         guard !targets.isEmpty else { return }
-        let generation = updateGeneration
+        moveWait?.cancel()
+        moveWait = nil
         guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
               let row = controller.selectedLeoRow, let runtime = controller.leoRuntime else {
             for (_, submenu, _) in targets { submenu.items = [Self.placeholderItem(title: "No Agent Selected")] }
@@ -234,13 +238,9 @@ extension TerminalController {
         let host = row.host
         fill(actions.moveDestinations(for: host))
         guard actions.moveDestinations(for: host) == nil else { return }
-        Task { @MainActor [weak self] in
-            for await lists in actions.$moveDestinationLists.values {
-                guard let loaded = lists[host] else { continue }
-                guard let self, self.updateGeneration == generation else { return }
-                fill(loaded)
-                return
-            }
+        moveWait = Task { @MainActor in
+            guard let loaded = await actions.awaitMoveDestinations(for: host), !Task.isCancelled else { return }
+            fill(loaded)
         }
     }
 

@@ -181,17 +181,34 @@ import LeoKit
     /// nil until `host`'s list has loaded.
     func moveDestinations(for host: LeoHostID) -> LeoMoveDestinations? { moveDestinationLists[host] }
 
+    /// A host with no daemon has no list to wait for: it reads as unavailable
+    /// instead of loading forever. A load that a reconnect outdated starts over
+    /// against the new connection (or the same answer if there is none).
     func loadMoveDestinations(for host: LeoHostID) {
-        guard let daemon = clients.daemon(for: host) else { return }
         #if DEBUG
         guard !seededMoveDestinationHosts.contains(host) else { return }
         #endif
+        guard let daemon = clients.daemon(for: host) else {
+            moveDestinationLists[host] = .unavailable
+            return
+        }
         let generation = clients.generation(for: host)
         Task { [weak self] in
             let destinations = await LeoMoveDestinations.load(from: daemon)
-            guard let self, self.clients.generation(for: host) == generation else { return }
+            guard let self else { return }
+            guard self.clients.generation(for: host) == generation else { return self.loadMoveDestinations(for: host) }
             self.moveDestinationLists[host] = destinations
         }
+    }
+
+    /// `host`'s list once it has loaded; nil when the waiting task is cancelled
+    /// (the menu was reopened) so a wait never outlives the menu that asked.
+    func awaitMoveDestinations(for host: LeoHostID) async -> LeoMoveDestinations? {
+        for await lists in $moveDestinationLists.values {
+            guard !Task.isCancelled else { return nil }
+            if let loaded = lists[host] { return loaded }
+        }
+        return nil
     }
 
     #if DEBUG
@@ -226,7 +243,7 @@ import LeoKit
     private func transfer(_ row: LeoAgentRow, _ request: LeoMoveRequest) {
         let sleep = moveSleep
         run(
-            row, refreshOnSuccess: false,
+            row, refreshOnSuccess: false, outlivesReconnect: true,
             onSuccess: { [weak self] (outcome: LeoAgentMoveOutcome) in self?.finish(outcome, row: row, request: request) },
             operation: { daemon in try await LeoAgentMover(client: daemon, sleep: sleep).run(row.name, request) }
         )
@@ -348,8 +365,10 @@ import LeoKit
     /// `operation` itself where a stale completion could still reach it.
     /// Only the row's own host counts: another machine reconnecting changes
     /// nothing here. A row whose host has no connection fails on the row
-    /// without a request.
-    private func run<T>(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, onSuccess: @escaping (T) -> Void = { (_: T) in },
+    /// without a request. `outlivesReconnect` is for jobs that run on the
+    /// daemon, not the connection (a move): their outcome, Force offer and row
+    /// error publish even after a reconnect.
+    private func run<T>(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, outlivesReconnect: Bool = false, onSuccess: @escaping (T) -> Void = { (_: T) in },
                         onFailure: @escaping () -> Void = {},
                         operation: @escaping @MainActor (any LeoDaemonClient) async throws -> T) {
         guard pendingActions.insert(row.id).inserted else { return }
@@ -365,11 +384,11 @@ import LeoKit
             defer { self.pendingActions.remove(row.id) }
             do {
                 let value = try await operation(capturedDaemon)
-                guard self.clients.generation(for: row.host) == capturedGeneration else { return }
+                guard outlivesReconnect || self.clients.generation(for: row.host) == capturedGeneration else { return }
                 if refreshOnSuccess { self.refresh() }
                 onSuccess(value)
             } catch {
-                guard self.clients.generation(for: row.host) == capturedGeneration else { return }
+                guard outlivesReconnect || self.clients.generation(for: row.host) == capturedGeneration else { return }
                 self.model.setRowError(Self.message(error, host: row.host), code: Self.code(error), for: row.id)
                 self.offerOnboardingIfClaudeMissing(error, host: row.host)
                 onFailure()

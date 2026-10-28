@@ -9,10 +9,10 @@ import Testing
     private let row = LeoAgentRow(host: .local, name: "alpha", template: "default", status: .running, activity: .unknown, actionDetail: nil)
 
     private func makeActions(
-        _ daemon: MoveDaemon, model: LeoSidebarModel? = nil, refreshes: RefreshCounter? = nil
+        _ daemon: MoveDaemon, model: LeoSidebarModel? = nil, refreshes: RefreshCounter? = nil, clients: FakeMachineClients? = nil
     ) -> LeoAgentActions {
         LeoAgentActions(
-            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(),
+            clients: clients ?? FakeMachineClients(daemon: daemon), cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(),
             processRunner: LeoRecordingTemplateRunner(), moveSleep: { _ in }, refresh: { refreshes?.count += 1 }
         )
     }
@@ -92,7 +92,7 @@ import Testing
         actions.copy(row, to: "nas", name: nil)
         await awaitCondition { await MainActor.run { model.rowErrors[row.id] != nil } }
         #expect(actions.forceOffer == nil)
-        #expect(model.rowErrors[row.id] == "This agent is in the middle of a turn.")
+        #expect(model.rowErrors[row.id] == "pass --force", "a copy's busy text is the daemon's own")
         #expect(model.rowErrorCodes[row.id] == "agent_busy")
     }
 
@@ -114,6 +114,55 @@ import Testing
         #expect(model.rowErrors[row.id] == "This Leo daemon can't move agents yet.")
     }
 
+    /// A move outcome belongs to the job, not the connection: a reconnect while it runs must not drop it.
+    @Test func aReconnectDuringAMoveStillPublishesTheForceOffer() async {
+        let gate = Gate()
+        let daemon = MoveDaemon(polls: [Self.job("failed", extra: Self.busy)], gate: gate)
+        let clients = FakeMachineClients(daemon: daemon)
+        let actions = makeActions(daemon, clients: clients)
+        actions.move(row, to: "nas")
+        await awaitCondition { await daemon.pollCount == 1 }
+        clients.connect(.local, daemon)
+        await gate.open()
+        await awaitCondition { await MainActor.run { actions.forceOffer != nil } }
+        #expect(actions.forceOffer == LeoMoveForceOffer(row: row, destination: "nas", message: "This agent is in the middle of a turn."))
+    }
+
+    @Test func aReconnectDuringAMoveStillShowsItsRefusalOnTheRow() async {
+        let gate = Gate()
+        let model = LeoSidebarModel()
+        let daemon = MoveDaemon(polls: [Self.job("failed", extra: #","error":{"code":"no_repo","message":"not a git repo"}"#)], gate: gate)
+        let clients = FakeMachineClients(daemon: daemon)
+        let actions = makeActions(daemon, model: model, clients: clients)
+        actions.move(row, to: "nas")
+        await awaitCondition { await daemon.pollCount == 1 }
+        clients.connect(.local, daemon)
+        await gate.open()
+        await awaitCondition { await MainActor.run { model.rowErrors[row.id] != nil } }
+        #expect(model.rowErrors[row.id] == "not a git repo")
+    }
+
+    @Test func aMachineWithNoDaemonHasUnavailableDestinationsNotLoadingForever() async {
+        let actions = makeActions(MoveDaemon(), clients: FakeMachineClients())
+        actions.loadMoveDestinations(for: .remote("nas"))
+        #expect(actions.moveDestinations(for: .remote("nas")) == .unavailable)
+    }
+
+    @Test func aSupersededWaitForDestinationsEndsWhenCancelled() async {
+        let actions = makeActions(MoveDaemon())
+        let wait = Task { await actions.awaitMoveDestinations(for: .local) }
+        try? await Task.sleep(for: .milliseconds(20))
+        wait.cancel()
+        #expect(await wait.value == nil)
+    }
+
+    @Test func aWaitForDestinationsReturnsTheListOnceItLoads() async {
+        let actions = makeActions(MoveDaemon())
+        let wait = Task { await actions.awaitMoveDestinations(for: .local) }
+        actions.loadMoveDestinations(for: .local)
+        #expect(await wait.value == .unavailable)
+    }
+
     @Test func destinationsAreUnavailableWhenTheHostListCannotBeRead() async {
         let actions = makeActions(MoveDaemon())
         #expect(actions.moveDestinations(for: .local) == nil, "nil while nothing was loaded")
@@ -124,6 +173,23 @@ import Testing
 
 @MainActor final class RefreshCounter { var count = 0 }
 
+/// Holds a poll until the test opens it, so a connection can change mid-job.
+private actor Gate {
+    private var isOpen = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        guard !isOpen else { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        isOpen = true
+        waiters.forEach { $0.resume() }
+        waiters = []
+    }
+}
+
 private actor MoveDaemon: LeoDaemonClient {
     struct Sent: Equatable { let name: String; let request: LeoMoveRequest }
 
@@ -131,10 +197,12 @@ private actor MoveDaemon: LeoDaemonClient {
     private(set) var pollCount = 0
     private var polls: [LeoMoveJob]
     private let startError: LeoDaemonError?
+    private let gate: Gate?
 
-    init(polls: [LeoMoveJob] = [], startError: LeoDaemonError? = nil) {
+    init(polls: [LeoMoveJob] = [], startError: LeoDaemonError? = nil, gate: Gate? = nil) {
         self.polls = polls
         self.startError = startError
+        self.gate = gate
     }
 
     func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob {
@@ -146,6 +214,7 @@ private actor MoveDaemon: LeoDaemonClient {
 
     func moveJob(id: String) async throws -> LeoMoveJob {
         pollCount += 1
+        await gate?.wait()
         return polls.removeFirst()
     }
 
