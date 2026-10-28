@@ -97,6 +97,17 @@ Lane: B-172
   Call: B-172 is Mac only; host, terminal rows and Ghostty surfaces exist only under macos/ — AGENTS.md Mac+iOS rule
   Call: showTerminal still doesn't call onRowShown for the adopted shell; left out of scope since the B-274 rowReplaced hook already moves the row's pane mapping — small scope cut
 
+Lane: B-173
+  Branch: autopilot-lane/B-173
+  Base: 85aa16a29b62f7595be5ef8f653c5fc9a5d20f4e
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T06:33:19Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
