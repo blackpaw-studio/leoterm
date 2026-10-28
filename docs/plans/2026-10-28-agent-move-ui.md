@@ -306,3 +306,24 @@ Every step is test-first. The test named in each step must fail before the chang
   - **Recommendation:** reword only those two codes in LeoKit.
 - **Q6 (feature gating).** There is no hello feature for moves. The items stay visible, and an older daemon's 404 shows as "This Leo daemon can't move agents yet."
   - Alternative: ask for an `agent_move` hello feature in #308.
+
+## Addendum: merged contract 500d2d77
+
+leo PR #308 merged to leo main as `500d2d77`. Checked against that commit (`internal/web/handlers_agent_move.go`, `internal/observe/{event,snapshot}.go`); this supersedes Q1, Q6 and A1 above.
+
+- **Web poll.** `GET /api/agent/moves/{id}` returns `{ok, data: JobStatus}` and covers copy jobs too. 404 `no such move job` for an unknown or pruned id; 503 `agent moves not available` with no job store; 401 for a bad token (same auth as the POST). The route is served ahead of the agent mux so a literal agent named `moves` still routes normally.
+  - LeoKit: `LeoWebDaemonClient.moveJob(id:)` polls it. The narrow protocol `LeoMoveJobClient` (`startMove`, `moveJob`) is what `LeoAgentMover` takes, so the socket client (Mac) and the web client (iOS) share one poller. A 404 reads as `not_found`, which `LeoAgentMover` maps to `.unknown`.
+  - iOS therefore follows a job to its outcome like the Mac does: the client-side mid-turn pre-check and the bounded `/state` refetch loop from I3/I5 are gone. After `done` (or `unknown`) the app refetches that daemon's `/state` once (`Fleet.refreshRequested`).
+- **`agent_move` hello feature** (also in `/version` capabilities). When it is absent the move items are **hidden**, on both platforms: Mac's Agents menu, row menu and context menu; iOS's row menu, swipe and detail Move section. The "can't move agents yet" text stays only as the fallback for a 404 from the move route.
+- **`moved_at`** is on `observe.Agent` in `/api/v1/state` (`omitempty`, set with `moved_to`). `LeoObservedAgent.movedAt` decodes it. The daemon writes Go RFC 3339, with nanoseconds when the instant has them, so `LeoMovedAgentWording.date(from:)` accepts both shapes (a plain `ISO8601DateFormatter` rejects fractions). Rows read "Moved to X · 5 minutes ago".
+- **Delete on a moved row.** The daemon removes the source host's worktree, plus the branch only if it is merged; the destination is untouched. Both platforms say so: "Remove leftover copy on <source> (the agent lives on <moved_to>)", with the button reading Remove and the branch checkbox off by default (Mac: `LeoDeleteAgentSheet`; the wording is `LeoMovedAgentWording`). iOS has no delete action, so nothing changes there.
+
+### iOS as built
+- `AgentMove` (reducer, `Features/AgentMove.swift`) owned by `AppFeature` (`@Presents move`); the detail's Move rows and the list's menu both send `moveRequested`. `daemonClient.move` runs start + poll through `LeoAgentMover`; `daemonClient.moveHosts` reads `client.hosts` (`.unavailable` → Duplicate only, per Q3).
+- Mid-turn refusal (`agent_busy`, `offersForce`) → "<agent> is busy" with Move Anyway, which resends `force: true`. Other refusals and thrown errors show the daemon's text in an alert.
+- Hosts are read when a daemon connects with `agent_move` (`AppFeature.moveDestinations`).
+- Screenshots: `-moveFixture` + `LeoUITests/LeoMoveTests` write `docs/plans/shots/agent-move/ios-*.png` (`TEST_RUNNER_MOVE_SHOTS_DIR`).
+
+### Mac as built (deltas)
+- Move To / Copy To parents have actions (`moveSelectedLeoAgent:`, `copySelectedLeoAgent:`) so AppKit validates them: a submenu parent with no action is always enabled, which is why they showed enabled with no row selected. Set Template has the same latent issue (not changed).
+- ⇧⌃⌘M / ⇧⌃⌘C: AppKit ignores key equivalents on submenu parents, so `LeoAgentsMenuController` matches them in a local key monitor and pops the host list at the pointer for the selected row.
