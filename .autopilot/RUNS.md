@@ -580,3 +580,37 @@ Interim updates: 3 posted, through item 16
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
+
+## Run 2026-10-28T01:47:16Z
+🛠 leoterm autopilot — 3 fixed, 7 shipped, 3 blocked (2 closed with no code change)
+Fixed
+• B-318 ⌘C copies from the chat (the Edit ▸ Copy menu item gets ⌘C; works app-wide) (not visually verified) · light→full
+• B-320 iOS settings form no longer collapses when its banner stack is empty (not visually verified) · light
+• B-322 Mac test host gets an unreachable socket instead of the production daemon (verified: screenshot) · full
+Shipped
+• B-172 Pending reconciles finish before a sidebar click selects (not visually verified) · full
+• B-173 Focus test polls instead of sleeping 1 s (not visually verified) · light→full
+• B-174 Close Terminal undo window is 30 s by default (not visually verified) · light
+• B-059 Switch rows with ⌃⇥, ⌘1–9 and the Window menu (verified: screenshot) · full
+• B-183 Clearing a row name keeps a terminal title that arrives right after (not visually verified) · full
+• B-194 App setup no longer falls back to the real ssh runner (not visually verified) · light
+• B-227 Release workflow runs the full CI first (not visually verified; not yet run on GitHub) · light
+Done, no code change: B-188 (already satisfied), B-199 (dismissed: the re-open was caused by the screenshot tool, D-619)
+Calls I made — reply "veto D-0xx" to undo
+• D-590–D-622: highlights D-592 ⌘C fix is app-wide, D-595 unreachable socket, D-603 30 s undo, D-607 ⌃⇥ overrides user binding, D-611 Window-menu row items, D-619 B-199 dismissed, D-620 release gate in leo-release.yml
+Needs you — reply "B-0xx: <answer>"
+• B-321 can't reproduce the stale Package.resolved: "B-321: close" or give the exact command
+• B-175 can't reproduce grey traffic lights after Undo New Split: "B-175: close" or give the exact steps
+• B-317 can't reproduce on Dionysus (3873/3873 passed): "B-317: close", paste CI log lines, or "B-317: decouple"
+• Shelved: autopilot-shelved/B-321, B-175, B-188, B-199, B-317. Lanes left in place: B-233 (unlanded), B-058 and B-143 (held). Untracked-left: default.profraw scratchpad/
+Self-filed
+• B-325 bug (from B-318) — Edit ▸ Paste may lack ⌘V
+• B-326 idea (from B-059) — iPad hardware-keyboard row switching
+• B-327 idea (from B-188) — Remove stale LeoHostSelection comment and dead spawn overload
+Next up: B-325
+Spend (estimated, lower bound · prices 2026-10-09): ≈$64.85 est. — largest B-318 ≈$18.97, B-059 ≈$7.83, B-173 ≈$6.20
+Interim updates: 2 posted, through item 10
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

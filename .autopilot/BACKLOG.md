@@ -2359,6 +2359,7 @@ Source: owner (/idea, 2026-10-27)
 Inbox: 20261027T235417298836Z-e052e28c#1
 
 ## B-325 · Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste   [ready (next run)]
+Issue: #300
 Type: bug
 Report: Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste — same cause as B-318 (Ghostty's performable paste binding is left out of the menu shortcut lookup); unverified, from reading the code (LeoStandardEditShortcut.swift).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
