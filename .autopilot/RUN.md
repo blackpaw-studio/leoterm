@@ -158,6 +158,17 @@ Lane: B-059
   Call: Window menu holds Select Next/Previous Row, a Select Row ▸ submenu (Row 1–8, Last Row) and Jump to Next Needing Attention, moved from the Agents menu with the same id, selector and ⌃⌥⌘J — principle 1
   Call: B-059 is Mac only; iPad row switching filed as a backlog idea — AGENTS.md Mac+iOS rule
 
+Lane: B-183
+  Branch: autopilot-lane/B-183
+  Base: 5215b0778abda1c74ed00fdbc70cb3680c9a26fa
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T09:37:09Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
