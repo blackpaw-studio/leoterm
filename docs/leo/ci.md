@@ -10,7 +10,7 @@ workflows are **disabled**, not deleted, so upstream syncs stay clean.
 | --- | --- | --- |
 | `leo-ci.yml` | push to `main`, same-repo PRs | CI script tests (`.github/scripts/leo/run-tests.sh`: every `tests/test_*.sh`), SwiftLint `--strict`, Zig GhosttyKit, `GhosttyTests` unit bundle (no UI tests) |
 | `leo-build.yml` | `workflow_dispatch`, `workflow_call` | ReleaseFast GhosttyKit, Release `Leo.app` with the bundled leo + tmux, Developer ID sign, DMG, notarize, staple; uploads `Leo.dmg` + zip (14 days) |
-| `leo-release.yml` | tag `leo-vX.Y.Z` | Calls `leo-build`, signs the DMG for Sparkle, appends `appcast.xml`, publishes a GitHub Release |
+| `leo-release.yml` | tag `leo-vX.Y.Z` | Calls `leo-ci` (must pass), then `leo-build`, signs the DMG for Sparkle, appends `appcast.xml`, publishes a GitHub Release |
 | `leo-bump.yml` | `repository_dispatch` `leo-release`, `workflow_dispatch` | Verifies a new leo release and opens a PR that bumps `macos/Bundled/LEO_VERSION` (see "Bumping the bundled leo") |
 | `leo-bump-release.yml` | merged PR from `bump/leo-*` into `main` | Tags the next patch `leo-vX.Y.Z`, which fires `leo-release` |
 

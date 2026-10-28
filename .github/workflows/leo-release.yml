@@ -16,7 +16,14 @@ permissions:
   contents: read
 
 jobs:
+  # Same gate main and PRs get (script tests, LeoKit, unit tests), so a tag
+  # on a commit that skipped main's CI, or landed while it was red, can't
+  # release. Gated here, not in leo-build, which workflow_dispatch also uses.
+  ci:
+    uses: ./.github/workflows/leo-ci.yml
+
   build:
+    needs: ci
     uses: ./.github/workflows/leo-build.yml
     secrets: inherit
     with:
