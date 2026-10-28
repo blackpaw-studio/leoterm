@@ -218,12 +218,15 @@ Lane: B-227
   Branch: autopilot-lane/B-227
   Base: 4ac4fbf2928d6a7df8cd93397e0965de906b6236
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 70f028f2c12f7c81cbb1b5989d3c0c266ea52a15
   Dispatched: 2026-10-28T12:22:00Z
+  Call: Gate lives in leo-release.yml (a ci job calls leo-ci.yml; build needs ci), not leo-build.yml, which workflow_dispatch also runs — AUTONOMY "agent decides" (test infrastructure / CI)
+  Call: Gate on the whole leo-ci workflow, not only run-tests.sh (the item's preferred option, stronger gate) — AUTONOMY "agent decides"
+  Call: Neither Mac nor iOS (CI only) — Mac+iOS parity rule
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
