@@ -25,13 +25,18 @@ public struct Agent: Equatable, Identifiable, Sendable {
     /// The resolved emoji and color (`agent_appearance`); nil when none is set.
     public var appearance: LeoAgentAppearance?
     public var startedAt: String?
+    /// The host this agent moved to (B-324), and when; nil while it lives here.
+    /// A moved agent's record on this daemon is dormant: stopped, and refusing control.
+    public var movedTo: String?
+    public var movedAt: String?
 
     public var id: String { name }
 
     public init(
         name: String, status: LeoAgentStatus? = nil, activity: LeoActivity? = nil, currentAction: LeoCurrentAction? = nil,
         attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
-        environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil
+        environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil,
+        movedTo: String? = nil, movedAt: String? = nil
     ) {
         self.name = name
         self.status = status
@@ -43,13 +48,16 @@ public struct Agent: Equatable, Identifiable, Sendable {
         self.environments = environments
         self.appearance = appearance
         self.startedAt = startedAt
+        self.movedTo = movedTo
+        self.movedAt = movedAt
     }
 
     public init(_ observed: LeoObservedAgent) {
         self.init(
             name: observed.name, status: observed.status, activity: observed.activity, currentAction: observed.currentAction,
             attention: observed.attention, template: observed.template, harness: observed.harness,
-            environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt
+            environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt,
+            movedTo: observed.movedTo, movedAt: observed.movedAt
         )
     }
 
@@ -57,6 +65,26 @@ public struct Agent: Equatable, Identifiable, Sendable {
     public var opensInClaude: Bool { harness?.lowercased() == "claude" }
 
     public var isStopped: Bool { status == .stopped }
+
+    public var isMoved: Bool { movedTo != nil }
+
+    /// "Moved to nas · 5 minutes ago"; nil while the agent lives here.
+    public func movedText(now: Date = Date(), locale: Locale = .current) -> String? {
+        movedTo.map { LeoMovedAgentWording.movedText(host: $0, at: movedAt, now: now, locale: locale) }
+    }
+
+    /// The control actions the detail screen offers. A moved agent lives on
+    /// another host, so none apply to this dormant record.
+    public var availableCommands: [AgentCommand] {
+        if isMoved { return [] }
+        return isStopped ? [.start] : [.interrupt, .restart, .stop]
+    }
+
+    /// Its tmux session is on this daemon only while the agent is.
+    public var canOpenTerminal: Bool { !isStopped && !isMoved }
+
+    /// Move, Copy and Duplicate need an agent that lives here.
+    public var canMove: Bool { !isMoved }
 
     public var priority: AgentPriority {
         if isStopped { return .stopped }
