@@ -4371,3 +4371,24 @@ Chose: B-059 is Mac only; iPad row switching filed as a backlog idea
 Why: AGENTS.md Mac+iOS rule
 Commit: c6afa4ca1
 Veto: [ ]
+
+## D-613 · 2026-10-28 · Fix the clear-name/OSC-title race rather than dismiss it: a shell or…
+Context: B-183 (runner call).
+Chose: Fix the clear-name/OSC-title race rather than dismiss it: a shell or TUI that retitles on every prompt reaches it, and the guard is small and Swift-only
+Why: bug fixes (AUTONOMY agent decides)
+Commit: f310bee07
+Veto: [ ]
+
+## D-614 · 2026-10-28 · B-183 is Mac only: SurfaceView is AppKit and iOS has no row rename
+Context: B-183 (runner call).
+Chose: B-183 is Mac only: SurfaceView is AppKit and iOS has no row rename
+Why: AGENTS.md Mac+iOS rule
+Commit: f310bee07
+Veto: [ ]
+
+## D-615 · 2026-10-28 · Keep Zig untouched: the guard sits in the Leo-owned leoSetUserTitle
+Context: B-183 (runner call).
+Chose: Keep Zig untouched: the guard sits in the Leo-owned leoSetUserTitle
+Why: AUTONOMY keep Zig changes minimal
+Commit: f310bee07
+Veto: [ ]

@@ -162,11 +162,12 @@ Lane: B-183
   Branch: autopilot-lane/B-183
   Base: 5215b0778abda1c74ed00fdbc70cb3680c9a26fa
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: eef2ff51dc316ddc4334bbb2d3277367e82d630b
+  Tokens: 6.78M in (6.45M cache read), ≥32k out, 82 requests
   Dispatched: 2026-10-28T09:37:09Z
   Call: Fix the clear-name/OSC-title race rather than dismiss it: a shell or TUI that retitles on every prompt reaches it, and the guard is small and Swift-only — bug fixes (AUTONOMY agent decides)
   Call: B-183 is Mac only: SurfaceView is AppKit and iOS has no row rename — AGENTS.md Mac+iOS rule
@@ -197,3 +198,4 @@ Finished 8: B-175 blocked
 - B-059 runner: leo dispatch d-32e70823fb37 (implement role).
 Finished 9: B-059 landed 7ace88fd6 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-059-10.png
 - B-183 runner: leo dispatch d-4cc9e2c906e3 (implement role).
+Finished 10: B-183 landed 1dc53327c · not visually verified

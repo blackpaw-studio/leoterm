@@ -1725,11 +1725,13 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-183 · Clearing a row name can drop a just-arrived OSC title   [ready]
+## B-183 · Clearing a row name can drop a just-arrived OSC title   [done]
 Issue: #187
 Why: B-177 review: clearing a name within 75 ms of an OSC title can drop that newer title (upstream race)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
+Done: f310bee07
+Verified: not visually verified — 75 ms coalescing race; integration test through the real SurfaceView and sidebar label failed before the fix; full suite 3872 pass
 
 ## B-184 · Drive row-menu Split in GUI verification   [idea]
 Issue: #188
