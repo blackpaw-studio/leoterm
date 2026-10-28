@@ -2,8 +2,9 @@ Status: running
 Started: 2026-10-28T01:47:16Z
 Budget: 20 items, until 2026-10-28T13:47:16Z
 Digested-through: 5
-Filed: 1/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 1/5 ideas
 Self-filed: B-318 → B-325 bug — Edit ▸ Paste may lack ⌘V
+Self-filed: B-059 → B-326 idea — iPad hardware-keyboard row switching
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -143,11 +144,12 @@ Lane: B-059
   Branch: autopilot-lane/B-059
   Base: d0642c4a33a51f5365cdf4c35c325287455b6b25
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 443e3df3b882dcb9ec20b3747728ca62725ed822
+  Tokens: 26.7M in (26.1M cache read), ≥126k out, 214 requests
   Dispatched: 2026-10-28T08:48:26Z
   Call: ⌃⇥/⌃⇧⇥ step to the next/previous row everywhere (overriding a user's ctrl+tab Ghostty keybind so it reaches the menu); ⇧⌘]/[ stay with editor tabs and fall through to rows when the pane has fewer than two editor tabs. Supersedes only D-460's clause that Ghostty next/previous_tab switches editor tabs — principle 1 (keyboard-first)
   Call: ⌘1–⌘8 select rows 1–8, ⌘9 is Last Row, and a number past the end clamps to the last row (Ghostty's goto_tab/last_tab behaviour) — principle 1
@@ -179,3 +181,4 @@ Finished 7: B-174 landed 7673b4f6c · not visually verified
 - B-175: runner d-a35c6df4c0ab reported blocked on implementer permission prompt (revert of NSLog instrumentation); orchestrator allowed it; implementer then reported not reproducible.
 Finished 8: B-175 blocked
 - B-059 runner: leo dispatch d-32e70823fb37 (implement role).
+Finished 9: B-059 landed 7ace88fd6 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-059-10.png

@@ -1681,12 +1681,14 @@ Issue: #58
 Accept: After an attached agent restarts, its tab shows the "No Agent Attached" placeholder but keeps the agent's name (D-095). A sidebar double-click, Return, or palette choice for that agent should refill that placeholder, and focus it, instead of opening a new tab beside it. Today you get two same-named tabs, one of them empty (seen in B-052 verification, shots B-052-4/-5). ⌘-click / ⌘↩ still force a new tab. Test the lookup (an exited placeholder carrying the agent's name counts as that agent's tab). Screenshot with autopilot-scratch only.
 Source: B-052 verification
 
-## B-059 · Keyboard switching between rows   [ready]
+## B-059 · Keyboard switching between rows   [done]
 Issue: #64
 Why: principle 1 (keyboard-first; every action has a shortcut and a menu item)
 Accept: the old tab shortcuts are remapped to rows (⌘1–⌘9 select the Nth visible row, ⌃Tab/⌃⇧Tab or ⌘⇧]/[ go to the next/previous row, ⌃⌥⌘J still jumps to the next agent that needs you); each has a Window-menu item; the shortcuts skip collapsed sections; tests cover each shortcut
 Out: user-configurable bindings beyond Ghostty's keybind config
 Source: Evan (/vision revision, 2026-09-28)
+Done: c6afa4ca1
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-059-10.png (plus B-059-11/15/16/18); full suite 3871 pass
 
 ## B-178 · Hidden Close checks every pane of the kept tree   [dropped]
 Issue: #182
@@ -2350,3 +2352,7 @@ Type: bug
 Report: Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste — same cause as B-318 (Ghostty's performable paste binding is left out of the menu shortcut lookup); unverified, from reading the code (LeoStandardEditShortcut.swift).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-318)
+
+## B-326 · iPad hardware-keyboard row switching (B-059 parity)   [idea]
+Note: B-059 gave the Mac ⌃⇥/⌃⇧⇥, ⌘1–⌘9 and Window-menu row switching; iPad with a hardware keyboard has none (UIKeyCommand). Mac+iOS rule: the iOS half was deferred.
+Source: autopilot polish (B-059)

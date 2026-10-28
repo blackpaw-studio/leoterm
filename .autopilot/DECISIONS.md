@@ -4329,3 +4329,45 @@ Chose: The Leo defaults file is rewritten in the temp dir on each config load; i
 Why: reversible implementation call
 Commit: 2eae8428a
 Veto: [ ]
+
+## D-607 · 2026-10-28 · ⌃⇥/⌃⇧⇥ step to the next/previous row everywhere (overriding a user's…
+Context: B-059 (runner call).
+Chose: ⌃⇥/⌃⇧⇥ step to the next/previous row everywhere (overriding a user's ctrl+tab Ghostty keybind so it reaches the menu); ⇧⌘]/[ stay with editor tabs and fall through to rows when the pane has fewer than two editor tabs. Supersedes only D-460's clause that Ghostty next/previous_tab switches editor tabs
+Why: principle 1 (keyboard-first)
+Commit: c6afa4ca1
+Veto: [ ]
+
+## D-608 · 2026-10-28 · ⌘1–⌘8 select rows 1–8, ⌘9 is Last Row, and a number past the end…
+Context: B-059 (runner call).
+Chose: ⌘1–⌘8 select rows 1–8, ⌘9 is Last Row, and a number past the end clamps to the last row (Ghostty's goto_tab/last_tab behaviour)
+Why: principle 1
+Commit: c6afa4ca1
+Veto: [ ]
+
+## D-609 · 2026-10-28 · A navigable row is every row the list can select (agents, attachable…
+Context: B-059 (runner call).
+Chose: A navigable row is every row the list can select (agents, attachable dispatch rows, then this window's terminals); collapsed sections and folded/offline machines are skipped, and a search filter lists only matches
+Why: principle 6
+Commit: c6afa4ca1
+Veto: [ ]
+
+## D-610 · 2026-10-28 · Going to a row by keyboard acts like a single click, so a stopped…
+Context: B-059 (runner call).
+Chose: Going to a row by keyboard acts like a single click, so a stopped agent gets the start prompt
+Why: principles 1 and 6
+Commit: c6afa4ca1
+Veto: [ ]
+
+## D-611 · 2026-10-28 · Window menu holds Select Next/Previous Row, a Select Row ▸ submenu…
+Context: B-059 (runner call).
+Chose: Window menu holds Select Next/Previous Row, a Select Row ▸ submenu (Row 1–8, Last Row) and Jump to Next Needing Attention, moved from the Agents menu with the same id, selector and ⌃⌥⌘J
+Why: principle 1
+Commit: c6afa4ca1
+Veto: [ ]
+
+## D-612 · 2026-10-28 · B-059 is Mac only; iPad row switching filed as a backlog idea
+Context: B-059 (runner call).
+Chose: B-059 is Mac only; iPad row switching filed as a backlog idea
+Why: AGENTS.md Mac+iOS rule
+Commit: c6afa4ca1
+Veto: [ ]
