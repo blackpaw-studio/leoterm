@@ -26,6 +26,26 @@ struct LeoMenuCommandsTests {
         #expect(duplicate.title == "Duplicate…")
     }
 
+    /// B-324: AppKit enables a submenu parent that has no action whatever its
+    /// `isEnabled`, so Move To and Copy To carry an action the window validates.
+    @Test func theMoveAndCopyParentsHaveActionsToValidate() throws {
+        #expect(try LeoMenuXib.titles(forAction: "moveSelectedLeoAgent:") == ["Move To"])
+        #expect(try LeoMenuXib.titles(forAction: "copySelectedLeoAgent:") == ["Copy To"])
+    }
+
+    /// B-324: a daemon without `agent_move` can't move, copy or duplicate, so those
+    /// items go away for its agents; a daemon that has it keeps them.
+    @Test func aDaemonWithoutAgentMoveHasNoMoveItems() {
+        let availability = LeoRowActionAvailability(status: .running, isPending: false)
+        let without = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: availability, movesSupported: false)
+        #expect(!LeoMenuCommands.canMove(without) && !LeoMenuCommands.canCopy(without) && !LeoMenuCommands.canDuplicate(without))
+        #expect(!LeoMenuCommands.showsMoveItems(without))
+        let with = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: availability, movesSupported: true)
+        #expect(LeoMenuCommands.showsMoveItems(with))
+        let nothingSelected = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: nil)
+        #expect(LeoMenuCommands.showsMoveItems(nothingSelected), "with no row there is no daemon to blame; the items stay, disabled")
+    }
+
     @Test @MainActor func setTemplateItemIsFoundByIdentifierNotTitle() {
         let item = NSMenuItem(title: "Set Template", action: nil, keyEquivalent: "")
         item.identifier = LeoAgentsMenuController.setTemplateItemIdentifier

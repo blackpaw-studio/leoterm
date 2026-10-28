@@ -15,6 +15,9 @@ enum LeoMenuCommands {
     struct AgentContext {
         let hasLeoSession: Bool
         let availability: LeoRowActionAvailability?
+        /// B-324: the selected agent's daemon has `agent_move`. True with no
+        /// selection (nothing to blame); false hides Move To, Copy To and Duplicate….
+        var movesSupported = true
     }
 
     /// HIG: a Show/Hide title pair, not a checkmark, is the convention for
@@ -45,9 +48,10 @@ enum LeoMenuCommands {
     static func canRename(_ context: AgentContext) -> Bool { enabled(context) { $0.rename } }
     static func canViewLogs(_ context: AgentContext) -> Bool { enabled(context) { $0.logs } }
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
-    static func canMove(_ context: AgentContext) -> Bool { enabled(context) { $0.move } }
-    static func canCopy(_ context: AgentContext) -> Bool { enabled(context) { $0.copy } }
-    static func canDuplicate(_ context: AgentContext) -> Bool { enabled(context) { $0.duplicate } }
+    static func canMove(_ context: AgentContext) -> Bool { context.movesSupported && enabled(context) { $0.move } }
+    static func canCopy(_ context: AgentContext) -> Bool { context.movesSupported && enabled(context) { $0.copy } }
+    static func canDuplicate(_ context: AgentContext) -> Bool { context.movesSupported && enabled(context) { $0.duplicate } }
+    static func showsMoveItems(_ context: AgentContext) -> Bool { context.movesSupported }
 
     /// Agents ▸ Pin Agent / Unpin Agent (⌥⌘P) on the selected row (B-010).
     static func pinToggleTitle(isPinned: Bool) -> String { isPinned ? "Unpin Agent" : "Pin Agent" }

@@ -93,6 +93,8 @@ struct LeoAgentRowView: View {
     var environmentsSupported = false
     /// The row's host advertised `agent_appearance`.
     var appearanceSupported = false
+    /// B-324: the row's host advertised `agent_move`.
+    var movesSupported = false
     /// Whether the row sits in the Working section (grouped by attention).
     var inWorkingSection = false
     /// Unread chat messages from the agent.
@@ -156,12 +158,14 @@ struct LeoAgentRowView: View {
             Menu(LeoEnvironmentSwitchMenu.title) { switchItems }
                 .disabled(!availability.setTemplate)
         }
-        Menu(LeoMoveMenu.moveTitle) { destinationItems { host in LeoMoveFlow.move(row, to: host, actions: actions, in: NSApp.keyWindow) } }
-            .disabled(!availability.move)
-        Menu(LeoMoveMenu.copyTitle) { destinationItems { host in LeoMoveFlow.copy(row, to: host, actions: actions, in: NSApp.keyWindow) } }
-            .disabled(!availability.copy)
-        Button(LeoMoveMenu.duplicateTitle) { LeoMoveFlow.copy(row, to: nil, actions: actions, in: NSApp.keyWindow) }
-            .disabled(!availability.duplicate)
+        if movesSupported {
+            Menu(LeoMoveMenu.moveTitle) { destinationItems { host in LeoMoveFlow.move(row, to: host, actions: actions, in: NSApp.keyWindow) } }
+                .disabled(!availability.move)
+            Menu(LeoMoveMenu.copyTitle) { destinationItems { host in LeoMoveFlow.copy(row, to: host, actions: actions, in: NSApp.keyWindow) } }
+                .disabled(!availability.copy)
+            Button(LeoMoveMenu.duplicateTitle) { LeoMoveFlow.copy(row, to: nil, actions: actions, in: NSApp.keyWindow) }
+                .disabled(!availability.duplicate)
+        }
         if appearanceSupported {
             Button("Appearance…") { showingAppearance = true }
         }

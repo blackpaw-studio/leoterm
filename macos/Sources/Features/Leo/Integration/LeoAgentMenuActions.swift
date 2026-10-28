@@ -71,6 +71,17 @@ extension TerminalController {
         LeoMoveFlow.copy(row, to: nil, actions: runtime.actions, in: window)
     }
 
+    /// Agents ▸ Move To / Copy To parents. Their submenus do the work; the
+    /// actions exist so AppKit validates the parents (a submenu parent with no
+    /// action is always enabled) and, if it ever fires them, they open the list.
+    @IBAction func moveSelectedLeoAgent(_ sender: Any?) {
+        _ = LeoAgentsMenuController.shared.popMoveMenu(.move, in: window)
+    }
+
+    @IBAction func copySelectedLeoAgent(_ sender: Any?) {
+        _ = LeoAgentsMenuController.shared.popMoveMenu(.copy, in: window)
+    }
+
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)
@@ -108,7 +119,12 @@ extension TerminalController {
     func validateLeoRenameMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canRename(selectedLeoAgentContext) }
     func validateLeoViewLogsMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canViewLogs(selectedLeoAgentContext) }
     func validateLeoDeleteMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canDelete(selectedLeoAgentContext) }
-    func validateLeoDuplicateMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canDuplicate(selectedLeoAgentContext) }
+    func validateLeoDuplicateMenuItem(_ item: NSMenuItem) -> Bool { validateLeoMoveMenuItem(item, LeoMenuCommands.canDuplicate) }
+    func validateLeoMoveMenuItem(_ item: NSMenuItem, _ can: (LeoMenuCommands.AgentContext) -> Bool) -> Bool {
+        let context = selectedLeoAgentContext
+        item.isHidden = !LeoMenuCommands.showsMoveItems(context)
+        return can(context)
+    }
     func validateLeoManageHostsMenuItem(_ item: NSMenuItem) -> Bool { leoRuntime != nil }
 
     /// Installs the "Set Template" submenu controller on the Agents menu
@@ -174,7 +190,7 @@ extension TerminalController {
 
     /// Pops the Move To / Copy To list for the selected row at the pointer.
     /// False, and nothing happens, when no row is selected or can't move.
-    private func popMoveMenu(_ kind: LeoMoveKind, in window: NSWindow?) -> Bool {
+    func popMoveMenu(_ kind: LeoMoveKind, in window: NSWindow?) -> Bool {
         guard let controller = window?.windowController as? TerminalController,
               let view = window?.contentView, let agentsMenu = NSApp.mainMenu?.items.compactMap(\.submenu).first(where: { menu in
                   menu.items.contains { $0.identifier == Self.moveToItemIdentifier }
@@ -205,17 +221,10 @@ extension TerminalController {
         let generation = updateGeneration
         guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
               let row = controller.selectedLeoRow, let runtime = controller.leoRuntime else {
-            for (item, submenu, _) in targets {
-                item.isEnabled = false
-                submenu.items = [Self.placeholderItem(title: "No Agent Selected")]
-            }
+            for (_, submenu, _) in targets { submenu.items = [Self.placeholderItem(title: "No Agent Selected")] }
             return
         }
         let actions = runtime.actions
-        let context = controller.selectedLeoAgentContext
-        for (item, _, kind) in targets {
-            item.isEnabled = kind == .move ? LeoMenuCommands.canMove(context) : LeoMenuCommands.canCopy(context)
-        }
         let fill = { [weak self] (destinations: LeoMoveDestinations?) in
             guard let self else { return }
             for (_, submenu, kind) in targets {

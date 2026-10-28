@@ -540,6 +540,9 @@
                             </menuItem>
                             <menuItem title="Move To" keyEquivalent="M" identifier="leo.agents.moveTo" id="Leo-Agents-MoveTo">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="moveSelectedLeoAgent:" target="-1" id="Leo-Agents-MoveTo-Action"/>
+                                </connections>
                                 <menu key="submenu" title="Move To" id="Leo-Agents-MoveTo-Menu">
                                     <items>
                                         <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-MoveTo-Placeholder"/>
@@ -548,6 +551,9 @@
                             </menuItem>
                             <menuItem title="Copy To" keyEquivalent="C" identifier="leo.agents.copyTo" id="Leo-Agents-CopyTo">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="copySelectedLeoAgent:" target="-1" id="Leo-Agents-CopyTo-Action"/>
+                                </connections>
                                 <menu key="submenu" title="Copy To" id="Leo-Agents-CopyTo-Menu">
                                     <items>
                                         <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-CopyTo-Placeholder"/>

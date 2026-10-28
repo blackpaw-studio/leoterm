@@ -29,7 +29,8 @@ extension TerminalController {
                 movedTo: row.movedTo
             )
         }
-        return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability)
+        let movesSupported = row.flatMap { row in leoRuntime?.model.features(for: row.host).contains(.agentMove) } ?? true
+        return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability, movesSupported: movesSupported)
     }
 
     /// B-055: the window's one content area shows `tree` in place of what

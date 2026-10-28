@@ -2111,6 +2111,12 @@ extension TerminalController {
         case #selector(duplicateSelectedLeoAgent(_:)):
             return validateLeoDuplicateMenuItem(item)
 
+        case #selector(moveSelectedLeoAgent(_:)):
+            return validateLeoMoveMenuItem(item, LeoMenuCommands.canMove)
+
+        case #selector(copySelectedLeoAgent(_:)):
+            return validateLeoMoveMenuItem(item, LeoMenuCommands.canCopy)
+
         case #selector(messageSelectedLeoAgent(_:)):
             return validateLeoControlMenuItem(\.canSend)
 

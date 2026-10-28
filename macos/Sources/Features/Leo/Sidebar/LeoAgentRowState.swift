@@ -118,7 +118,7 @@ struct LeoAgentRowState: Equatable {
     /// "Moved to nas, Oct 28, 2026 at 2:00 PM"; the host alone when the
     /// daemon sent no (or an unreadable) time.
     static func movedHelp(host: String, at timestamp: String?) -> String {
-        guard let timestamp, let date = ISO8601DateFormatter().date(from: timestamp) else { return "Moved to \(host)" }
+        guard let timestamp, let date = LeoMovedAgentWording.date(from: timestamp) else { return "Moved to \(host)" }
         return "Moved to \(host), \(date.formatted(date: .abbreviated, time: .shortened))"
     }
 

@@ -407,6 +407,7 @@ struct LeoSidebarView: View {
                 newWorktreeAgent: { worktreeSource = row },
                 environmentsSupported: model.features(for: row.host).contains(.agentEnvironments),
                 appearanceSupported: model.features(for: row.host).contains(.agentAppearance),
+                movesSupported: model.features(for: row.host).contains(.agentMove),
                 inWorkingSection: section.id == LeoSidebarLayout.workingSectionID,
                 unreadCount: unread.count(for: row.id)
             )

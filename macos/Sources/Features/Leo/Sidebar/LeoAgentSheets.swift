@@ -94,13 +94,19 @@ struct LeoDeleteAgentSheet: View {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
     }
 
+    /// A moved agent's dormant record is a leftover copy, not the agent (B-324).
+    private var title: String {
+        guard let movedTo = row.movedTo else { return "Delete \(row.name)?" }
+        return LeoMovedAgentWording.removeLeftoverTitle(on: row.host.displayName, movedTo: movedTo)
+    }
+
     private var deleteSheetAvailability: LeoDeleteSheetActionAvailability {
         LeoDeleteSheetActionAvailability(row: availability, errorCode: errorCode)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Delete \(row.name)?").font(.headline)
+            Text(title).font(.headline)
             if let deletePlan {
                 if let path = deletePlan.worktreePath { Text("Worktree: \(path)") }
                 if let branch = deletePlan.branch { Text("Branch: \(branch)") }
@@ -116,7 +122,7 @@ struct LeoDeleteAgentSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button("Delete", role: .destructive) {
+                Button(row.movedTo == nil ? "Delete" : LeoMovedAgentWording.removeLeftoverButton, role: .destructive) {
                     actions.delete(row, force: forceDelete, deleteBranch: deleteBranch) { dismiss() }
                 }.disabled(!deleteSheetAvailability.delete)
             }
