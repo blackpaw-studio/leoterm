@@ -106,7 +106,7 @@ Lane: B-173
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-10-28T06:33:19Z
+  Dispatched: 2026-10-28T07:21:28Z
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
@@ -123,3 +123,4 @@ Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-172 runner: leo dispatch d-904a06e6ebc0 (implement role).
 Finished 5: B-172 landed 41ba19a2d · not visually verified
 - B-173 runner: leo dispatch d-8452801d9121 (implement role).
+- B-173: first runner d-8452801d9121 reported blocked on an implementer permission prompt (rm of two lane symlinks) it couldn't answer; orchestrator allowed it, commit 2d62ef55f landed in the lane; fresh runner dispatched to integrate/review/verify.
