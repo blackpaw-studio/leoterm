@@ -4238,3 +4238,24 @@ Chose: iOS only (UIKit layout under ios/; the Mac app doesn't use this view)
 Why: AGENTS.md Mac+iOS rule
 Commit: bc69fb4d1
 Veto: [ ]
+
+## D-594 · 2026-10-28 · Test-host daemon isolation gates on isRunningAsTestHost()
+Context: B-322 (runner call).
+Chose: Gate on the existing isRunningAsTestHost() rather than an env var, so plain xcodebuild and Xcode runs are isolated too
+Why: test infrastructure (AUTONOMY agent decides)
+Commit: 2f2454a5c e17978ce2
+Veto: [ ]
+
+## D-595 · 2026-10-28 · Test host gets an unreachable socket, not a scratch daemon
+Context: B-322 (runner call).
+Chose: The test host gets an unreachable socket (/dev/null/leo-test-host.sock) and no legacy :8370 web config, rather than a scratch daemon
+Why: test infrastructure (AUTONOMY agent decides)
+Commit: 2f2454a5c e17978ce2
+Veto: [ ]
+
+## D-596 · 2026-10-28 · B-322 test-host isolation is Mac only
+Context: B-322 (runner call).
+Chose: Mac only; iOS has no local unix socket and LeoKit is unchanged
+Why: AGENTS.md Mac+iOS rule
+Commit: 2f2454a5c e17978ce2
+Veto: [ ]

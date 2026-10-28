@@ -111,3 +111,7 @@ peekaboo see --no-elements --mode window --app $APPID \
 - Implementers must wait for all commands/test hosts they start before reporting. Verifiers must prove no other XCTest host is active before the serial authoritative suite. Do not repeat a passing independent suite when subsequent work is GUI-only and source is unchanged.
 
 - Sheet/alert capture lesson (B-238, 2026-10-06): a window-mode capture of the dimmed parent may OMIT its separate confirmation dialog. Capture the actual dialog window ID bound to the verified own-debug PID. Inspect the saved PNG itself; AX title evidence cannot certify pixels that are absent. A successful screenshot command and dimmed parent are insufficient.
+
+## Daemon isolation (B-322)
+- The hosted test app (runtests / xcodebuild test host) now gets an unreachable local socket and no legacy web API; the launched debug app still talks to the real daemon.
+- A scratch-daemon recipe must set `web.port` (not 8370; bind 127.0.0.1) before spawning any scratch agent. Agents spawned earlier keep `LEO_WEB_PORT=8370`, so their hooks hit production and get 401.

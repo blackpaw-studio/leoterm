@@ -1158,13 +1158,15 @@ Inbox: 20261027T235417232930Z-5234bb5c#1
 Question: couldn't reproduce — in ios/LeoFeatures, `swift package resolve` and the full `swift test` (346 tests) leave the committed Package.resolved unchanged, and a from-scratch re-resolve gives the same originHash and pins. The observed rewrite (adds swift-argument-parser, swaps swift-issue-reporting for xctest-dynamic-overlay) looks like a different dependency graph, probably the Xcode app project (ios/project.yml), not SwiftPM in ios/LeoFeatures. Reply "B-321: close" to close it, or "B-321: <exact command, working directory and Xcode/swift versions where the file got rewritten>" to retry. Work kept on autopilot-shelved/B-321.
 Answer:
 
-## B-322 · Mac test host connects to the production leo daemon socket during…   [ready]
+## B-322 · Mac test host connects to the production leo daemon socket during…   [done]
 Issue: #298
 Type: bug
 Report: Mac test host connects to the production leo daemon socket during tests (and earlier perf scratch agents posted hook events to the prod daemon on :8370, rejected 401). Tests must use an isolated socket/port.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-27)
 Inbox: 20261027T235417266137Z-9e9ee6e4#1
+Done: 2f2454a5c e17978ce2
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png (no UI change; shows the debug app still reaches its daemon); 5 new LeoLocalDaemonIsolationTests + full suite 3834 pass
 
 ## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [blocked]
 Issue: #299

@@ -71,11 +71,12 @@ Lane: B-322
   Branch: autopilot-lane/B-322
   Base: ffd1217db72bda7e6b3bbefcc957138bf1b6da36
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 7302c56887e654b3fb39278daf86a5d2e92139f9
+  Tokens: 12.2M in (11.7M cache read), ≥64.5k out, 128 requests
   Dispatched: 2026-10-28T04:54:36Z
   Call: Gate test-host daemon isolation on the existing isRunningAsTestHost() rather than an env var, so plain xcodebuild and Xcode runs are isolated too — test infrastructure
   Call: The test host gets an unreachable socket (/dev/null/leo-test-host.sock) and no legacy :8370 web config, rather than a scratch daemon — test infrastructure
@@ -91,3 +92,5 @@ Finished 2: B-320 landed f1ec80688 · not visually verified
 - B-321 runner: leo dispatch d-65093f67540d (implement role).
 Finished 3: B-321 blocked
 - B-322 runner: leo dispatch d-6675f3229244 (implement role).
+Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png
+- verify.md: added B-322 daemon-isolation notes from the runner.
