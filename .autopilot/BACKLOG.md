@@ -1761,11 +1761,12 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
-## B-188 · LeoAgentActions.spawn enforces the expected host itself   [ready]
+## B-188 · LeoAgentActions.spawn enforces the expected host itself   [done]
 Issue: #192
 Why: B-176 review: guard hostSelection.selected == expectedHost inside spawn, not only via the disabled Create button
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
+Done: no code change — already satisfied: LeoAgentActions.spawn(_:on:) resolves the target host's daemon via clients.daemon(for: host) and refuses with "Not connected to <host> yet"; a87b3b0db deleted LeoHostSelection, so a selected/expected mismatch can't happen (D-300; LeoAgentActionsTests, LeoWorktreeSpawnTests)
 
 ## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [idea]
 Issue: #193
@@ -2358,3 +2359,7 @@ Source: autopilot bug (B-318)
 ## B-326 · iPad hardware-keyboard row switching (B-059 parity)   [idea]
 Note: B-059 gave the Mac ⌃⇥/⌃⇧⇥, ⌘1–⌘9 and Window-menu row switching; iPad with a hardware keyboard has none (UIKeyCommand). Mac+iOS rule: the iOS half was deferred.
 Source: autopilot polish (B-059)
+
+## B-327 · Remove the stale LeoHostSelection comment and dead LeoDaemonClient.spawn(_:host:)   [idea]
+Note: LeoDaemonClient.swift:48 comment points to the deleted LeoHostSelection; the spawn(_:host:) overload (:19/:70) has no callers — dead code, no user-visible effect
+Source: autopilot polish (B-188)

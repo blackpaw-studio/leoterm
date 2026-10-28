@@ -2,9 +2,10 @@ Status: running
 Started: 2026-10-28T01:47:16Z
 Budget: 20 items, until 2026-10-28T13:47:16Z
 Digested-through: 10
-Filed: 1/3 bugs, 1/5 ideas
+Filed: 1/3 bugs, 2/5 ideas
 Self-filed: B-318 → B-325 bug — Edit ▸ Paste may lack ⌘V
 Self-filed: B-059 → B-326 idea — iPad hardware-keyboard row switching
+Self-filed: B-188 → B-327 idea — Remove the stale LeoHostSelection comment and dead spawn overload
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -177,11 +178,12 @@ Lane: B-188
   Branch: autopilot-lane/B-188
   Base: d771917ec14d23d0019d1d1814a346f5e4caa1bc
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Tokens: 4.44M in (4.22M cache read), ≥16.2k out, 58 requests
   Dispatched: 2026-10-28T10:23:48Z
 
 Progress:
@@ -211,3 +213,4 @@ Finished 9: B-059 landed 7ace88fd6 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-183 runner: leo dispatch d-4cc9e2c906e3 (implement role).
 Finished 10: B-183 landed 1dc53327c · not visually verified
 - B-188 runner: leo dispatch d-96c02afe603b (implement role).
+Finished 11: B-188 done (no code change)
