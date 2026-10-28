@@ -143,12 +143,18 @@ Lane: B-059
   Branch: autopilot-lane/B-059
   Base: d0642c4a33a51f5365cdf4c35c325287455b6b25
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 443e3df3b882dcb9ec20b3747728ca62725ed822
   Dispatched: 2026-10-28T08:48:26Z
+  Call: ⌃⇥/⌃⇧⇥ step to the next/previous row everywhere (overriding a user's ctrl+tab Ghostty keybind so it reaches the menu); ⇧⌘]/[ stay with editor tabs and fall through to rows when the pane has fewer than two editor tabs. Supersedes only D-460's clause that Ghostty next/previous_tab switches editor tabs — principle 1 (keyboard-first)
+  Call: ⌘1–⌘8 select rows 1–8, ⌘9 is Last Row, and a number past the end clamps to the last row (Ghostty's goto_tab/last_tab behaviour) — principle 1
+  Call: A navigable row is every row the list can select (agents, attachable dispatch rows, then this window's terminals); collapsed sections and folded/offline machines are skipped, and a search filter lists only matches — principle 6
+  Call: Going to a row by keyboard acts like a single click, so a stopped agent gets the start prompt — principles 1 and 6
+  Call: Window menu holds Select Next/Previous Row, a Select Row ▸ submenu (Row 1–8, Last Row) and Jump to Next Needing Attention, moved from the Agents menu with the same id, selector and ⌃⌥⌘J — principle 1
+  Call: B-059 is Mac only; iPad row switching filed as a backlog idea — AGENTS.md Mac+iOS rule
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
