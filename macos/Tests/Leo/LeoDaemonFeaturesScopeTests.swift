@@ -52,7 +52,7 @@ struct LeoDaemonFeaturesScopeTests {
         let runtime = LeoRuntime(
             daemon: EmptyDaemon(), cli: .recordingForTests(),
             activitySource: LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
-            defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(),
+            defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
             machineLegacySocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             machineControlSocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             makeTunnel: LeoFakeTunnels().factory,

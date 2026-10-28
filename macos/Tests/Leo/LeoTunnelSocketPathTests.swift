@@ -18,6 +18,7 @@ struct LeoTunnelSocketPathTests {
         let legacy = URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
         let environment = LeoMachineConnectionEnvironment(
             orphanStore: LeoTunnelOrphanStore(defaults: LeoInMemoryDefaults(), legacySocketDirectory: legacy),
+            runner: LeoFakeHomeRunner(stdout: "/home/evan"),
             legacySocketDirectory: legacy
         )
 
