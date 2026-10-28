@@ -4259,3 +4259,24 @@ Chose: Mac only; iOS has no local unix socket and LeoKit is unchanged
 Why: AGENTS.md Mac+iOS rule
 Commit: 2f2454a5c e17978ce2
 Veto: [ ]
+
+## D-597 · 2026-10-28 · Drain pending reconciles in the public selectShownTerminal(in:), not…
+Context: B-172 (runner call).
+Chose: Drain pending reconciles in the public selectShownTerminal(in:), not in isOpen or the coordinator: keeps queries side-effect-free, adds no protocol method
+Why: bug fixes / Swift under macos/
+Commit: 80a983924 4c15f0a6b
+Veto: [ ]
+
+## D-598 · 2026-10-28 · B-172 is Mac only; host, terminal rows and Ghostty surfaces exist only…
+Context: B-172 (runner call).
+Chose: B-172 is Mac only; host, terminal rows and Ghostty surfaces exist only under macos/
+Why: AGENTS.md Mac+iOS rule
+Commit: 80a983924 4c15f0a6b
+Veto: [ ]
+
+## D-599 · 2026-10-28 · showTerminal still doesn't call onRowShown for the adopted shell; left…
+Context: B-172 (runner call).
+Chose: showTerminal still doesn't call onRowShown for the adopted shell; left out of scope since the B-274 rowReplaced hook already moves the row's pane mapping
+Why: small scope cut
+Commit: 80a983924 4c15f0a6b
+Veto: [ ]

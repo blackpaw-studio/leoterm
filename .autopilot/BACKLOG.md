@@ -1178,11 +1178,13 @@ Answer:
 Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
 
-## B-172 · Drain pending reconciles before a sidebar click selects   [ready]
+## B-172 · Drain pending reconciles before a sidebar click selects   [done]
 Issue: #176
 Why: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
 Accept: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
 Source: autopilot polish (B-107)
+Done: 80a983924 4c15f0a6b
+Verified: not visually verified — same-runloop click/close race can't be driven in the GUI; integration test failed before and passes after; full suite 3835 pass
 
 ## B-173 · pendingFocusMovesLand polls instead of sleeping 1 s   [ready]
 Issue: #177
