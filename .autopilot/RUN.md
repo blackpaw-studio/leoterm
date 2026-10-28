@@ -67,6 +67,17 @@ Lane: B-321
   Tokens: 1.43M in (1.33M cache read), ≥8.48k out, 20 requests
   Dispatched: 2026-10-28T04:50:20Z
 
+Lane: B-322
+  Branch: autopilot-lane/B-322
+  Base: ffd1217db72bda7e6b3bbefcc957138bf1b6da36
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T04:54:36Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
@@ -76,3 +87,4 @@ Finished 1: B-318 landed 8d9135bb3 · not visually verified
 Finished 2: B-320 landed f1ec80688 · not visually verified
 - B-321 runner: leo dispatch d-65093f67540d (implement role).
 Finished 3: B-321 blocked
+- B-322 runner: leo dispatch d-6675f3229244 (implement role).
