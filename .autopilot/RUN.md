@@ -233,12 +233,14 @@ Lane: B-317
   Branch: autopilot-lane/B-317
   Base: 933b8fb30c53369bc34ab6c7596d2223a5027aa3
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Tokens: 6.7M in (6.5M cache read), ≥30.5k out, 72 requests
   Dispatched: 2026-10-28T12:26:46Z
+  Call: Mac only (test infra under macos/Tests; no iOS counterpart) — AGENTS.md Mac+iOS rule
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
@@ -276,3 +278,5 @@ Finished 13: B-199 done (dismissed, no code change)
 - B-227 runner: leo dispatch d-93957ae9a828 (implement role).
 Finished 14: B-227 landed 281443e38 · not visually verified
 - B-317 runner: leo dispatch d-7e4173718a03 (implement role).
+- B-317: not reproducible on Dionysus (3873/3873, all requiresActiveHost tests ran); shelved autopilot-shelved/B-317.
+Finished 15: B-317 blocked

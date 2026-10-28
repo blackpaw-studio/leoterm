@@ -2339,12 +2339,14 @@ Source: autopilot polish (B-307)
 Note: B-309 shrank the ring hole from 17.5pt to 15pt; unchecked by eye (no screenshot)
 Source: autopilot polish (B-309)
 
-## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [ready]
+## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [blocked]
 Issue: #293
 Type: bug
 Report: Key-window tests all skip on Dionysus while system prompts hold the foreground — ⌃C and other key-window tests skip on the CI runner host while a modal UserNotificationCenter alert and universalAccessAuthWarn hold the foreground, so CI never exercises them (found in B-311).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-311)
+Question: couldn't reproduce — a full macOS suite on Dionysus with both universalAccessAuthWarn and UserNotificationCenter up ran 3873/3873, and every .requiresActiveHost test ran (the test host re-activates itself every 20 ms); forcing Finder frontmost first still passed. The skip likely shows only on the CI runner. Reply "B-317: close", or "B-317: <focus-gate-skip: lines from a CI runner log>" to retry, or "B-317: decouple" to let the ⌃C/Return tests send events to the first responder without a key window (changes what they assert; palette/resentKeys tests would still need a key window).
+Answer:
 
 ## B-319 · iOS Agent Appearance rules editor (deferred iOS half of agent…   [idea]
 Note: iOS Agent Appearance rules editor (deferred iOS half of agent appearance; Mac has Settings > Agent Appearance; spec docs/superpowers/specs/2026-10-27-agent-appearance.md, daemon routes GET/PUT /appearance/rules in leo v0.64.0)
