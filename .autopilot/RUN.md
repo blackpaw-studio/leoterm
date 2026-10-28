@@ -2,7 +2,8 @@ Status: running
 Started: 2026-10-28T01:47:16Z
 Budget: 20 items, until 2026-10-28T13:47:16Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 0/5 ideas
+Self-filed: B-318 → B-325 bug — Edit ▸ Paste may lack ⌘V
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -29,13 +30,16 @@ Lane: B-143
 Lane: B-318
   Branch: autopilot-lane/B-318
   Base: ca6b82515615918204128be2f2e6c6922f6253ec
-  Tier: light
-  State: building
+  Tier: light→full
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: dc0f12d06775accf2eb8edb95d232f4bacc840d1
   Dispatched: 2026-10-28T01:50:02Z
+  Call: Mac only — iOS chat text is a selectable UITextView that copies without a menu shortcut (AGENTS.md parity rule)
+  Call: Edit ▸ Copy gets ⌘C when the config gives it none and ⌘C is still bound (respects super+c=unbind and user-set shortcuts); dropped the plan's focus-on-mouse-down fix — Keyboard-first, Mac-native
+  Call: Fix is app-wide: ⌘C also works for other selectable text and fields — Edit ▸ Copy / ⌘C must work wherever text is selectable
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
