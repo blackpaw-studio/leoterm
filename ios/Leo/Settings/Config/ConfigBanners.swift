@@ -35,6 +35,9 @@ final class ConfigBannerStack: UIStackView {
             view.removeFromSuperview()
         }
         banners.map(Self.view(for:)).forEach(addArrangedSubview)
+        // An empty stack still takes part in its parent's layout; on iOS 26.5 it
+        // won the spare height and left the screen below it with none.
+        isHidden = banners.isEmpty
     }
 
     private static func view(for banner: ConfigBanner) -> UIView {
