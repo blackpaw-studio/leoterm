@@ -116,12 +116,15 @@ Lane: B-174
   Branch: autopilot-lane/B-174
   Base: 1ffc47d323181a3f43029c6a8603a7fb5fe6c303
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a399ec1558a0eb087b15f42d9f57512e9337e91c
   Dispatched: 2026-10-28T08:07:04Z
+  Call: B-174 is Mac only: Ghostty config doesn't exist on iOS, so no iOS backlog item — AGENTS.md Mac+iOS rule
+  Call: Implement D-603 with a Leo defaults file (undo-timeout = 30s) loaded first in Ghostty.Config.loadConfig, so any explicit user value wins; no Zig changes — D-603, keep Zig changes minimal
+  Call: The Leo defaults file is rewritten in the temp dir on each config load; if the write fails it logs and falls back to upstream's 5 s — reversible implementation call
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
