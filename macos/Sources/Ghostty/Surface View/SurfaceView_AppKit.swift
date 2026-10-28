@@ -646,6 +646,10 @@ extension Ghostty {
                 // (already so when they never set one).
                 guard let prevTitle = titleFromTerminal else { return }
                 titleFromTerminal = nil
+                // A title the terminal sent in the last 75 ms is still
+                // pending and newer than prevTitle; it lands on its own
+                // now the name is gone (B-183), so don't replace it.
+                guard titleChangeTimer?.isValid != true else { return }
                 setTitle(prevTitle)
                 return
             }
