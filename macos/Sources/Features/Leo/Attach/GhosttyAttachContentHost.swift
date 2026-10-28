@@ -277,7 +277,11 @@ import OSLog
         live.keptSurfaces(in: window).contains { $0.needsConfirmQuit }
     }
 
+    /// Pending reconciles run first (B-172): a click on a row whose pane
+    /// closed in the same turn finds the shell carrying it on, not none.
+    /// The controller is looked up after, from the settled attachments.
     func selectShownTerminal(in window: LeoWindowID) {
+        runPendingReconciles()
         let controller = attachments.first { $0.key.windowID == window }?.value.controller ?? registry.controller(for: window)
         guard let controller else { return }
         selectShownTerminal(in: controller)

@@ -820,6 +820,27 @@ import Testing
         #expect(!fixture.events.events.contains(.closed(split)))
     }
 
+    /// B-172: a click on the row queued just before its pane closed runs
+    /// ahead of the host's hop to reconcile. Finding the row no longer
+    /// open, showing it selects what the window shows -- the shell left
+    /// beside it, already carrying the row on -- not none.
+    @Test func aClickInTheCloseTurnSelectsTheShellCarryingTheRowOn() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture)
+        let split = try openSplit(fixture, beside: row)
+        fixture.terminals.select(row.surfaceID)
+
+        try closePane(fixture, row)
+        // What `showTerminal` does once the clicked row's handle is closed.
+        fixture.host.selectShownTerminal(in: fixture.windowID)
+
+        #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID], "in the row's slot")
+        #expect(fixture.terminals.selection == split.surfaceID)
+        #expect(await turnsUntil { fixture.events.events.contains(.closed(row)) })
+        #expect(fixture.terminals.selection == split.surfaceID, "the host's own hop changes nothing")
+    }
+
     /// B-107: asking before a switch in the turn the row's pane closed
     /// sees the busy shell beside it already carrying the row on: it is
     /// kept, so nothing asks. An alert that did appear is cancelled so
