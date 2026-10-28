@@ -101,12 +101,15 @@ Lane: B-173
   Branch: autopilot-lane/B-173
   Base: 85aa16a29b62f7595be5ef8f653c5fc9a5d20f4e
   Tier: light→full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 14d7e1c3efd4437ddbd3f1d9d762c3d3f53280ea
   Dispatched: 2026-10-28T07:21:28Z
+  Call: Test-only focus drain (0.8 s main-queue timer outlasting the moveFocus retry chain), no production seam in Ghostty.moveFocus — flake fixes and test infrastructure; smallest correct change
+  Call: Stall-mid-chain gap accepted and documented in the commit body — contrived coincidence under the severity bar
+  Call: B-173 is Mac only (AppKit focus mechanism), no LeoKit/iOS change — AGENTS.md Mac+iOS rule
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
