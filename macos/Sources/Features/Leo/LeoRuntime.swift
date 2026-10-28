@@ -128,29 +128,31 @@ import LeoKit
         let daemon = LeoRuntime.makeClient(socketPath: socketPath, transport: transport)
         self.init(
             daemon: daemon, cli: LeoCLI(runner: LeoProcessRunner()), activitySource: activity, defaults: defaults,
-            templateFetchRunner: LeoProcessRunner()
+            templateFetchRunner: LeoProcessRunner(), machineRunner: LeoProcessRunner()
         )
     }
 
     convenience init(
         daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard,
-        templateFetchRunner: any LeoProcessRunning
+        templateFetchRunner: any LeoProcessRunning, machineRunner: any LeoProcessRunning
     ) {
         self.init(
             daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults,
-            templateFetchRunner: templateFetchRunner
+            templateFetchRunner: templateFetchRunner, machineRunner: machineRunner
         )
     }
 
     /// `templateFetchRunner` runs a remote host's one-off
-    /// `ssh … leo template list --json` (B-061). Deliberately no default:
-    /// every caller but the app's own `init(defaults:)` is a test, and a
-    /// test that forgot it would ssh into a real host on selecting it.
+    /// `ssh … leo template list --json` (B-061); `machineRunner` runs the
+    /// ssh home resolution, dispatch-access probe and pane focus (B-194).
+    /// Deliberately no defaults: every caller but the app's own
+    /// `init(defaults:)` is a test, and a test that forgot either would ssh
+    /// into a real host.
     init(
         daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
         templateFetchRunner: any LeoProcessRunning,
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-        machineRunner: any LeoProcessRunning = LeoProcessRunner(),
+        machineRunner: any LeoProcessRunning,
         machineSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
         machineLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
         machineControlSocketDirectory: URL? = LeoControlSocketDirectory.default,

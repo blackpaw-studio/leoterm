@@ -16,7 +16,7 @@ import Testing
         let delivered = Delivered()
         let runtime = LeoRuntime(
             daemon: EmptyDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
-            templateFetchRunner: LeoRecordingTemplateRunner(),
+            templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
             focusedAgentSink: { await delivered.append($0) },
             chatClient: FakeChatClient()
         )

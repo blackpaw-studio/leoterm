@@ -24,7 +24,7 @@ struct LeoRuntimeFileDropTests {
         LeoRuntime(
             daemon: FileDropUnusedDaemon(), cli: .recordingForTests(),
             activitySource: LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
-            defaults: LeoInMemoryDefaults(), templateFetchRunner: LeoRecordingTemplateRunner(),
+            defaults: LeoInMemoryDefaults(), templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
             terminalFileDropDependencies: LeoTerminalFileDropDependencies(
                 context: { _ in state.context },
                 makeAccess: { host in

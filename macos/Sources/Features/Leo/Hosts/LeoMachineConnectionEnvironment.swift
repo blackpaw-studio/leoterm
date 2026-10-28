@@ -65,7 +65,7 @@ struct LeoMachineConnectionEnvironment {
 
     init(
         orphanStore: LeoTunnelOrphanStore,
-        runner: any LeoProcessRunning = LeoProcessRunner(),
+        runner: any LeoProcessRunning,
         sshExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
         transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
         localSocketPath: String = LeoLocalDaemon.socketPath,

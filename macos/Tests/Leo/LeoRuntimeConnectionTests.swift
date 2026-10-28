@@ -11,7 +11,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
         _ = runtime.makeWindowSession()
 
         runtime.start()
@@ -37,7 +37,7 @@ import Testing
         let daemon = RuntimeTestDaemon()
         let defaults = LeoInMemoryDefaults()
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activitySource, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
 
         runtime.shutdown()
 
@@ -58,7 +58,7 @@ import Testing
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
             daemon: RuntimeTestDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
-            templateFetchRunner: templateRunner,
+            templateFetchRunner: templateRunner, machineRunner: templateRunner,
             machineLegacySocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             machineControlSocketDirectory: LeoMachineTunnelTestSupport.localSocketDirectory,
             makeTunnel: LeoFakeTunnels().factory,
@@ -88,7 +88,7 @@ import Testing
         let activitySource = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
         let runtime = LeoRuntime(
             daemon: RuntimeTestDaemon(), cli: .recordingForTests(runner: recorder), activitySource: activitySource,
-            defaults: LeoInMemoryDefaults(), templateFetchRunner: LeoRecordingTemplateRunner(),
+            defaults: LeoInMemoryDefaults(), templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
             chatClient: FakeChatClient()
         )
         defer { runtime.shutdown() }
