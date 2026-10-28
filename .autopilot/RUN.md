@@ -86,12 +86,15 @@ Lane: B-172
   Branch: autopilot-lane/B-172
   Base: efb36873f1c56f4e2bc54ba6ea474d266071cebf
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d74f69857099e3a0392064699d516c656eb7ef56
   Dispatched: 2026-10-28T05:31:51Z
+  Call: Drain pending reconciles in the public selectShownTerminal(in:), not in isOpen or the coordinator: keeps queries side-effect-free, adds no protocol method — bug fixes / Swift under macos/
+  Call: B-172 is Mac only; host, terminal rows and Ghostty surfaces exist only under macos/ — AGENTS.md Mac+iOS rule
+  Call: showTerminal still doesn't call onRowShown for the adopted shell; left out of scope since the B-274 rowReplaced hook already moves the row's pane mapping — small scope cut
 
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
