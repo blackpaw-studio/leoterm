@@ -68,7 +68,7 @@ struct LeoMachineConnectionEnvironment {
         runner: any LeoProcessRunning = LeoProcessRunner(),
         sshExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
         transport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-        localSocketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+        localSocketPath: String = LeoLocalDaemon.socketPath,
         legacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
         controlSocketDirectory: URL? = LeoControlSocketDirectory.default,
         controlSocketInstance: String = LeoMachineConnectionEnvironment.defaultControlSocketInstance,

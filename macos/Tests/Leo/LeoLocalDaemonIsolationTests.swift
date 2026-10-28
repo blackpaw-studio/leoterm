@@ -21,4 +21,33 @@ import Testing
         #expect(runtime.machines.environment.localSocketPath == LeoLocalDaemon.socketPath)
         #expect(runtime.machines.environment.localSocketPath != Self.productionSocket)
     }
+
+    @Test func aTestHostEndpointHasNoLegacyWebAPI() {
+        let endpoint = LeoLocalDaemon.resolve(isTestHost: true)
+        #expect(!endpoint.readsLegacyWebConfig)
+        #expect(!endpoint.socketPath.hasPrefix(NSHomeDirectory()))
+        #expect(LeoLocalDaemon.observeConfig() == nil)
+    }
+
+    @Test func productionResolutionIsUnchanged() {
+        #expect(LeoLocalDaemon.resolve(isTestHost: false) == LeoLocalDaemon.Endpoint(socketPath: Self.productionSocket, readsLegacyWebConfig: true))
+    }
+
+    @Test func theLegacyFallbackAsksTheInjectedConfigOnly() async throws {
+        final class Counter: @unchecked Sendable {
+            private let lock = NSLock()
+            private var value = 0
+            var count: Int { lock.withLock { value } }
+            func bump() { lock.withLock { value += 1 } }
+        }
+        let loads = Counter()
+        let source = LeoRuntime.makeSocketOrLegacyActivitySource(
+            socketPath: "/dev/null/x.sock", observeConfig: { loads.bump(); return nil }
+        )
+
+        let state = try await source.fetchState()
+
+        #expect(state.agents.isEmpty)
+        #expect(loads.count == 1)
+    }
 }

@@ -7,7 +7,7 @@ import Testing
 /// Shared helpers for the suites that run real tunnels against
 /// `fake_ssh.py`, and the sockets every Leo test shares.
 enum LeoMachineTunnelTestSupport {
-    static let localSocketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
+    static let localSocketPath = LeoLocalDaemon.socketPath
 
     /// Tests never touch the real `~/.leo/state/leoterm` or per-user cache
     /// directory -- that's production data. They share this directory
