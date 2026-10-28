@@ -47,6 +47,10 @@ enum MoveFixture {
         values.daemonClient.fetchState = { _ in LeoObservedState(agents: world.value) }
         values.daemonClient.moveHosts = { _ in .hosts(["hestia", "nas", "work"]) }
         values.daemonClient.move = { _, name, request in
+            // -moveFixtureHang: the daemon never answers, to hold the in-progress state.
+            if ProcessInfo.processInfo.arguments.contains("-moveFixtureHang") {
+                try await Task.sleep(for: .seconds(600))
+            }
             if request.to == "work" {
                 return .refused(code: "host_unreachable", message: "work is unreachable over SSH.", offersForce: false)
             }

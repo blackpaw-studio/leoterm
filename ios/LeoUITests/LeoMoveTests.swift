@@ -4,9 +4,9 @@ import XCTest
 /// daemon needed). Set `MOVE_SHOTS_DIR` (as `TEST_RUNNER_MOVE_SHOTS_DIR`) to
 /// also save each state as `<dir>/ios-<name>.png`.
 final class LeoMoveTests: XCTestCase {
-    private func launch() -> XCUIApplication {
+    private func launch(hanging: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-moveFixture", "-noAnimationsForUITests"]
+        app.launchArguments = ["-moveFixture", "-noAnimationsForUITests"] + (hanging ? ["-moveFixtureHang"] : [])
         app.launch()
         XCTAssertTrue(app.cells["agent.zeus"].waitForExistence(timeout: 10))
         return app
@@ -32,6 +32,17 @@ final class LeoMoveTests: XCTestCase {
         app.buttons["Move To"].tap()
         XCTAssertTrue(app.buttons["nas"].waitForExistence(timeout: 5))
         shot("context-menu")
+    }
+
+    func testAMoveInFlightShowsProgressAndBlocksAnotherRequest() {
+        let app = launch(hanging: true)
+        app.cells["agent.zeus"].press(forDuration: 1.2)
+        app.buttons["Move To"].tap()
+        app.buttons["nas"].tap()
+        app.buttons["Move"].tap()
+        XCTAssertTrue(app.staticTexts["Moving zeus to nas…"].waitForExistence(timeout: 5))
+        shot("in-progress")
+        XCTAssertFalse(app.cells["agent.busy-agent"].isHittable, "the progress cover blocks every row, menu and swipe while a move is in flight")
     }
 
     func testAMovedAgentIsADormantRowWithItsDestination() {

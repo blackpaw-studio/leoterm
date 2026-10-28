@@ -27,6 +27,7 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
     /// `isCollapsed` flips, which is not the user popping back.
     private var transitionsInFlight = 0
     private var isShowingNamePrompt = false
+    private let moveProgress = MoveProgressView()
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -75,6 +76,13 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
         observe { [weak self] in
             guard let self else { return }
             presentNamePromptIfNeeded()
+        }
+        moveProgress.frame = view.bounds
+        moveProgress.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        view.addSubview(moveProgress)
+        observe { [weak self] in
+            guard let self else { return }
+            moveProgress.show(store.move?.isMoving == true ? store.move : nil)
         }
 
         observe { [weak self] in
@@ -235,5 +243,61 @@ final class NoSelectionViewController: UIViewController {
         configuration.text = String(localized: "No Agent Selected")
         configuration.secondaryText = String(localized: "Choose an agent to see its state and act on it.")
         contentUnavailableConfiguration = configuration
+    }
+}
+
+/// B-324: while a move, copy or duplicate is in flight this sits over the whole
+/// app, so the row menus, swipe actions and detail rows can't start a second
+/// one, and says what is happening.
+private final class MoveProgressView: UIView {
+    private let label = UILabel()
+    private let spinner = UIActivityIndicatorView(style: .medium)
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isHidden = true
+        accessibilityIdentifier = "agent.move.progress"
+        backgroundColor = UIColor.black.withAlphaComponent(0.25)
+        let card = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+        card.layer.cornerRadius = 14
+        card.clipsToBounds = true
+        label.font = .preferredFont(forTextStyle: .subheadline)
+        label.numberOfLines = 0
+        label.textAlignment = .center
+        label.adjustsFontForContentSizeCategory = true
+        spinner.startAnimating()
+        let stack = UIStackView(arrangedSubviews: [spinner, label])
+        stack.axis = .vertical
+        stack.spacing = 10
+        stack.alignment = .center
+        stack.isLayoutMarginsRelativeArrangement = true
+        stack.layoutMargins = UIEdgeInsets(top: 20, left: 24, bottom: 20, right: 24)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        card.contentView.addSubview(stack)
+        card.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(card)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: card.contentView.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: card.contentView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: card.contentView.bottomAnchor),
+            card.centerXAnchor.constraint(equalTo: centerXAnchor),
+            card.centerYAnchor.constraint(equalTo: centerYAnchor),
+            card.widthAnchor.constraint(lessThanOrEqualTo: widthAnchor, constant: -48),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func show(_ flow: AgentMove.State?) {
+        isHidden = flow == nil
+        guard let flow else { return }
+        label.text = switch flow.intent {
+        case .move(let host): String(localized: "Moving \(flow.agentName) to \(host)…")
+        case .copy(let host): String(localized: "Copying \(flow.agentName) to \(host)…")
+        case .duplicate: String(localized: "Duplicating \(flow.agentName)…")
+        }
+        UIAccessibility.post(notification: .announcement, argument: label.text)
     }
 }
