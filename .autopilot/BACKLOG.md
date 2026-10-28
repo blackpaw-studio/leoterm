@@ -1138,13 +1138,15 @@ Inbox: 20261027T135932581460Z-31f7f211#1
 Done: 11755c5d2
 Verified: not visually verified — verifier couldn't get chat text on screen in the isolated debug app (build, lint, full suite 3829/0 pass); implementer's isolated run showed ⌘C copying
 
-## B-320 · iOS LeoSettingsScreensTests UI tests fail on main (7 of 10,…   [ready]
+## B-320 · iOS LeoSettingsScreensTests UI tests fail on main (7 of 10,…   [done]
 Issue: #296
 Type: bug
 Report: iOS LeoSettingsScreensTests UI tests fail on main (7 of 10, reproducible; seen at 62ed29490 and 102f70b6b on iPhone 17 Pro sim iOS 26.5, Xcode 26.5). Line 170 (6 tests: testDirtyTemplateOffersSave, testLeavingADirtyTemplateAsks, testRejectedValueShowsItsInlineError, testStaleSaveShowsTheConflictBanner, testTappingAnywhereOnARowOpensItsEditorOrMenu, testTemplateFormWithEveryFieldType): config.row.<name> never appears within 10s after tapping Templates. Line 108 (testTaskDetailPromptHistoryAndLog): config.field.schedule never appears. Logs: /private/tmp/claude-501/leoperf/integ/
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-27)
 Inbox: 20261027T235417179362Z-401b1112#1
+Done: bc69fb4d1
+Verified: not visually verified — no UI change intended; 10/10 LeoSettingsScreensTests pass on the iPhone 17 Pro sim (7 failed before), full iOS + LeoKit + LeoFeatures suites pass
 
 ## B-321 · ios/LeoFeatures/Package.resolved on main is stale; swift test…   [ready]
 Issue: #297

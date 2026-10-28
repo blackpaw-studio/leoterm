@@ -4231,3 +4231,10 @@ Chose: The fix is app-wide: ⌘C also works for other selectable text and fields
 Why: Edit ▸ Copy / ⌘C must work wherever text is selectable
 Commit: 11755c5d2
 Veto: [ ]
+
+## D-593 · 2026-10-28 · B-320 settings banner-stack fix is iOS only
+Context: B-320 (runner call).
+Chose: iOS only (UIKit layout under ios/; the Mac app doesn't use this view)
+Why: AGENTS.md Mac+iOS rule
+Commit: bc69fb4d1
+Veto: [ ]
