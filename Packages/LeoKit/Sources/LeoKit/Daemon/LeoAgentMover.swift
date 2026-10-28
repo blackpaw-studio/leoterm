@@ -30,18 +30,31 @@ public struct LeoAgentMover: Sendable {
         self.sleep = sleep
     }
 
+    /// How many polls in a row may be dropped (a transport error or timeout, as
+    /// on a slow ssh-forwarded socket during a long copy) before the outcome is
+    /// given up as unknown. The move itself carries on in the daemon.
+    public static let maxConsecutivePollFailures = 5
+    public static let lostContactMessage = "Lost contact with the daemon. The move may still be running; check the agent in a moment."
+    /// Backoff doubles per consecutive failure, up to this many doublings.
+    private static let maxBackoffDoublings = 4
+
     /// A refusal at start (`agent_moving`, a transport failure) throws; so does
     /// cancellation, which stops polling and leaves the job running on the daemon.
     public func run(_ name: String, _ request: LeoMoveRequest) async throws -> LeoAgentMoveOutcome {
         var job = try await client.startMove(name, request)
+        var failures = 0
         while true {
             if let outcome = Self.outcome(of: job, agent: name) { return outcome }
             try Task.checkCancellation()
-            try await sleep(pollInterval)
+            try await sleep(pollInterval * (1 << min(failures, Self.maxBackoffDoublings)))
             do {
                 job = try await client.moveJob(id: job.id)
+                failures = 0
             } catch LeoDaemonError.daemon(LeoMoveWire.notFoundCode, let message, _) {
                 return .unknown(message)
+            } catch LeoDaemonError.transport, LeoDaemonError.timeout {
+                failures += 1
+                if failures >= Self.maxConsecutivePollFailures { return .unknown(Self.lostContactMessage) }
             }
         }
     }
@@ -55,7 +68,10 @@ public struct LeoAgentMover: Sendable {
         case .failed:
             let code = job.error?.code ?? "move_failed"
             let text = job.problems.isEmpty ? job.error?.message ?? "The move failed." : job.problems.map(\.message).joined(separator: "\n")
-            let message = LeoDaemonError.daemon(code: code, message: text, matches: []).localizedDescription
+            // The app's wording of a busy refusal speaks of Force; a busy copy
+            // (or a failed busy probe) has no Force, so it keeps the daemon's text.
+            let isBusyWithoutForce = code == LeoMoveJob.busyCode && !job.offersForce
+            let message = isBusyWithoutForce ? text : LeoDaemonError.daemon(code: code, message: text, matches: []).localizedDescription
             return .refused(code: code, message: message, offersForce: job.offersForce)
         case .unknown(let raw):
             return .unknown("The Leo daemon reported an unexpected move state (\(raw)).")
