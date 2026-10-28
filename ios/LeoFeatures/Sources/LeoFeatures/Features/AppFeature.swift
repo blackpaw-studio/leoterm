@@ -358,10 +358,11 @@ extension AppFeature.State {
         MoveAvailability(supportsMove: fleet.sessions[id: daemonID]?.supportsMove == true, destinations: moveDestinations[daemonID])
     }
 
-    /// Opens the move flow for `ref`, unless its daemon can't move agents or
-    /// the agent already lives elsewhere.
+    /// Opens the move flow for `ref`, unless a flow is already open (its
+    /// result would otherwise land on the wrong agent), its daemon can't move
+    /// agents or the agent already lives elsewhere.
     mutating func openMove(_ ref: AgentRef, _ intent: AgentMove.Intent) {
-        guard let session = fleet.sessions[id: ref.daemonID], session.supportsMove,
+        guard move == nil, let session = fleet.sessions[id: ref.daemonID], session.supportsMove,
               let agent = session.agents[id: ref.name], agent.canMove else { return }
         move = AgentMove.State(daemon: session.daemon, agentName: ref.name, intent: intent)
     }

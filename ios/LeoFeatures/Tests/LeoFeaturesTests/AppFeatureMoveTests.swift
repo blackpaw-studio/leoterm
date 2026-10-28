@@ -25,6 +25,38 @@ struct AppFeatureMoveTests {
         }
     }
 
+    @Test func aSecondRequestWhileAMoveIsInFlightChangesNothing() async {
+        var initial = Self.state()
+        initial.fleet.sessions[0].agents = [Agent(.make("zeus")), Agent(.make("hera"))]
+        var flow = AgentMove.State(daemon: .dionysus, agentName: "zeus", intent: .move(to: "nas"))
+        flow.isMoving = true
+        flow.confirmation = nil
+        initial.move = flow
+        let store = TestStore(initialState: initial) { AppFeature() }
+        await store.send(.moveRequested(AgentRef(daemonID: PairedDaemon.dionysus.id, name: "hera"), .move(to: "nas")))
+    }
+
+    @Test func replacingTheFlowCancelsTheOldMovesEffect() async {
+        let gate = LockIsolated<CheckedContinuation<Void, Never>?>(nil)
+        var initial = Self.state()
+        initial.move = AgentMove.State(daemon: .dionysus, agentName: "zeus", intent: .move(to: "nas"))
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.move = { _, _, _ in
+                await withCheckedContinuation { c in gate.setValue(c) }
+                return .done(LeoMoveResult(name: "zeus", to: "nas"))
+            }
+        }
+        store.exhaustivity = .off
+        await store.send(\.move.presented.confirmation.presented.start, false)
+        await store.send(\.move.presented.delegate.dismissed)
+        #expect(store.state.move == nil)
+        gate.value?.resume()
+        await store.finish()
+    }
+
     @Test func aDaemonWithoutAgentMoveIgnoresTheRequest() async {
         let store = TestStore(initialState: Self.state(features: .none)) { AppFeature() }
         await store.send(.moveRequested(Self.ref, .duplicate))

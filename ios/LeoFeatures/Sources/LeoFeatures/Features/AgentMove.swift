@@ -17,7 +17,10 @@ public struct AgentMove {
     }
 
     @ObservableState
-    public struct State: Equatable {
+    public struct State: Equatable, Identifiable {
+        /// Fresh per flow, so replacing or dropping a flow cancels its effects.
+        /// Not part of equality: two flows for the same move compare equal.
+        public let id = UUID()
         public var daemon: PairedDaemon
         public let agentName: String
         public let intent: Intent
@@ -38,6 +41,12 @@ public struct AgentMove {
         }
 
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
+
+        public static func == (lhs: State, rhs: State) -> Bool {
+            lhs.daemon == rhs.daemon && lhs.agentName == rhs.agentName && lhs.intent == rhs.intent
+                && lhs.isMoving == rhs.isMoving && lhs.isAskingName == rhs.isAskingName
+                && lhs.alert == rhs.alert && lhs.confirmation == rhs.confirmation
+        }
     }
 
     public enum Action {
