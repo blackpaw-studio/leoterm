@@ -40,6 +40,10 @@ public protocol LeoDaemonClient: Sendable {
     /// The daemon's JSON config API (`config_api`), when this client can
     /// reach it. Nil for a client with no such route.
     func configClient() -> (any LeoConfigClient)?
+    /// B-324 (`agent_move`): start a move or copy of `name`; the daemon runs it
+    /// as a job. `moveJob(id:)` reports the job's progress and outcome.
+    func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob
+    func moveJob(id: String) async throws -> LeoMoveJob
 }
 
 /// Default host-scoped implementations: every daemon socket now represents
@@ -62,6 +66,8 @@ extension LeoDaemonClient {
     public func setEnvironments(_ name: String, names: [String]) async throws { throw LeoDaemonError.transport("Environments are unavailable") }
     public func machineStats() async throws -> LeoMachineStats { throw LeoDaemonError.transport("Machine stats are unavailable") }
     public func configClient() -> (any LeoConfigClient)? { nil }
+    public func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob { throw LeoDaemonError.transport("Agent moves are unavailable") }
+    public func moveJob(id: String) async throws -> LeoMoveJob { throw LeoDaemonError.transport("Agent moves are unavailable") }
 
     private func requireLocal(_ host: LeoHostID) throws {
         guard host == .local else { throw LeoDaemonError.hostUnavailable("Remote hosts are unavailable") }
@@ -145,6 +151,30 @@ public struct LeoSocketDaemonClient: LeoDaemonClient {
         _ = try await control(name, .compact, body: body)
     }
     public func clear(_ name: String) async throws { _ = try await control(name, .clear) }
+
+    public func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob {
+        try await moveCall("POST", try route(name, "move"), body: try JSONEncoder().encode(request), unsupportedWhenUnparsed: true)
+    }
+
+    public func moveJob(id: String) async throws -> LeoMoveJob {
+        try await moveCall("GET", "/moves/\(try Self.pathSegment(id))", unsupportedWhenUnparsed: false)
+    }
+
+    /// The move routes answer a bare `JobStatus` (no envelope), and refuse with
+    /// `{"error":code,"message":text}`.
+    private func moveCall(_ method: String, _ path: String, body: Data? = nil, unsupportedWhenUnparsed: Bool) async throws -> LeoMoveJob {
+        let response = try await transport.send(
+            LeoHTTPRequest(method: method, path: path, body: body), socketPath: socketPath, timeout: mutationTimeout
+        )
+        guard (200..<300).contains(response.status) else {
+            if let refusal = LeoMoveWire.refusal(status: response.status, body: response.body) { throw refusal }
+            if unsupportedWhenUnparsed, response.status == 404 {
+                throw LeoDaemonError.daemon(code: LeoMoveWire.notFoundCode, message: LeoMoveWire.unsupportedMessage, matches: [])
+            }
+            throw Self.controlError(response)
+        }
+        do { return try JSONDecoder().decode(LeoMoveJob.self, from: response.body) } catch { throw LeoDaemonError.decoding(String(describing: error)) }
+    }
 
     public func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
     public func machineStats() async throws -> LeoMachineStats { try await value("GET", "/machine") }

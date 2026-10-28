@@ -135,3 +135,20 @@ public struct LeoMoveJob: Decodable, Equatable, Sendable {
         state == .failed && error?.code == Self.busyCode && request.mode == .move
     }
 }
+
+/// Socket-route details shared by the clients.
+public enum LeoMoveWire {
+    /// What an older daemon, which has no move route, answers (a plain 404).
+    public static let unsupportedMessage = "This Leo daemon can't move agents yet."
+    public static let notFoundCode = "not_found"
+
+    /// The socket's refusal body: `{"error":"<code>","message":"<text>"}`.
+    /// Unlike `LeoDaemonEnvelope`, `error` holds the code. Nil when the body
+    /// is anything else (an older daemon's plain-text 404).
+    static func refusal(status: Int, body: Data) -> LeoDaemonError? {
+        struct Refusal: Decodable { let error: String; let message: String? }
+        guard let refusal = try? JSONDecoder().decode(Refusal.self, from: body) else { return nil }
+        let code = status == 404 ? notFoundCode : refusal.error
+        return .daemon(code: code, message: refusal.message ?? refusal.error, matches: [])
+    }
+}

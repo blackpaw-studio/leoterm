@@ -131,6 +131,53 @@ struct LeoSocketDaemonClientTests {
         }
     }
 
+    private func moveClient(status: Int, body: String) -> (LeoSocketDaemonClient, RecordingTransport) {
+        let transport = RecordingTransport(reply: LeoHTTPResponse(status: status, body: Data(body.utf8)))
+        return (LeoSocketDaemonClient(socketPath: "/tmp/s", transport: transport), transport)
+    }
+
+    private static let jobBody = #"{"id":"mv-1","request":{"mode":"move","to":"nas"},"state":"running"}"#
+
+    @Test func startMovePostsTheRequestAndDecodesTheBareJob() async throws {
+        let (client, transport) = moveClient(status: 202, body: Self.jobBody)
+        let job = try await client.startMove("a b", .move(to: "nas"))
+        #expect(job.id == "mv-1")
+        let sent = try #require(await transport.requests.first)
+        #expect(sent.method == "POST")
+        #expect(sent.path == "/agents/a%20b/move")
+        let body = try #require(sent.body)
+        #expect(try JSONSerialization.jsonObject(with: body) as? NSDictionary == ["mode": "move", "to": "nas"] as NSDictionary)
+    }
+
+    @Test func moveJobGetsTheJobById() async throws {
+        let (client, transport) = moveClient(status: 200, body: Self.jobBody)
+        _ = try await client.moveJob(id: "mv-1")
+        let sent = try #require(await transport.requests.first)
+        #expect(sent.method == "GET")
+        #expect(sent.path == "/moves/mv-1")
+    }
+
+    @Test func aMoveRefusalKeepsTheDaemonCodeAndText() async {
+        let (client, _) = moveClient(status: 409, body: #"{"error":"agent_moving","message":"a is already being moved"}"#)
+        await #expect(throws: LeoDaemonError.daemon(code: "agent_moving", message: "a is already being moved", matches: [])) {
+            _ = try await client.startMove("a", .duplicate())
+        }
+    }
+
+    @Test func aPlainTextNotFoundMeansAnOlderDaemon() async {
+        let (client, _) = moveClient(status: 404, body: "404 page not found\n")
+        await #expect(throws: LeoDaemonError.daemon(code: "not_found", message: LeoMoveWire.unsupportedMessage, matches: [])) {
+            _ = try await client.startMove("a", .duplicate())
+        }
+    }
+
+    @Test func anUnknownJobPollIsNotFound() async {
+        let (client, _) = moveClient(status: 404, body: #"{"error":"bad_request","message":"no such move job"}"#)
+        await #expect(throws: LeoDaemonError.daemon(code: "not_found", message: "no such move job", matches: [])) {
+            _ = try await client.moveJob(id: "mv-1")
+        }
+    }
+
     @Test func daemonErrorsPreserveCodeAndMatches() throws {
         let envelope = try LeoDaemonEnvelope<LeoAgent>.decode(Data(#"{"ok":false,"error":"ambiguous","code":"ambiguous","matches":["one","two"]}"#.utf8))
         #expect(throws: LeoDaemonError.daemon(code: "ambiguous", message: "ambiguous", matches: ["one", "two"])) {
