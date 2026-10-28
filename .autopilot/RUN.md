@@ -26,5 +26,15 @@ Lane: B-143
   Reviewed-tip: none
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-318
+  Branch: autopilot-lane/B-318
+  Base: ca6b82515615918204128be2f2e6c6922f6253ec
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
