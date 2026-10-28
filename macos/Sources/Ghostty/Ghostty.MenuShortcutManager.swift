@@ -25,6 +25,8 @@ extension Ghostty {
             guard let menu = menuItem else { return }
 
             if !updateMenuShortcut(config, action: action, menuItem: menu) {
+                // Leo: an Edit item whose default binding is performable keeps its standard shortcut (B-318).
+                if LeoStandardEditShortcut.apply(config, action: action, to: menu) { return }
                 menu.keyEquivalent = ""
                 menu.keyEquivalentModifierMask = []
                 menu.allowsAutomaticKeyEquivalentLocalization = true
