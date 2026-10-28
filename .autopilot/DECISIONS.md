@@ -4406,3 +4406,17 @@ Chose: B-194 is Mac only: iOS has no LeoRuntime or LeoMachineConnectionEnvironme
 Why: AGENTS.md Mac+iOS rule
 Commit: 647e19821
 Veto: [ ]
+
+## D-618 · 2026-10-28 · Mac only (the Quick Terminal is macOS UI, no iOS half)
+Context: B-199 (runner call).
+Chose: Mac only (the Quick Terminal is macOS UI, no iOS half)
+Why: Mac+iOS parity rule
+Commit: none (dismissed; 91ab8efab + revert 57d57df29 on autopilot-shelved/B-199)
+Veto: [ ]
+
+## D-619 · 2026-10-28 · Dismiss B-199 as a verification artifact: real clicks already close…
+Context: B-199 (runner call).
+Chose: Dismiss B-199 as a verification artifact: real clicks already close the panel; the re-open only appears when Peekaboo's window-focus step runs before the click (AX focus resigns key with no mouse-down)
+Why: the 'fixed or explicitly dismissed with a reason' criterion
+Commit: none (dismissed; 91ab8efab + revert 57d57df29 on autopilot-shelved/B-199)
+Veto: [ ]

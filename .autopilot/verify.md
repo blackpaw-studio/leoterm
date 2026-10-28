@@ -115,3 +115,6 @@ peekaboo see --no-elements --mode window --app $APPID \
 ## Daemon isolation (B-322)
 - The hosted test app (runtests / xcodebuild test host) now gets an unreachable local socket and no legacy web API; the launched debug app still talks to the real daemon.
 - A scratch-daemon recipe must set `web.port` (not 8370; bind 127.0.0.1) before spawning any scratch agent. Agents spawned earlier keep `LEO_WEB_PORT=8370`, so their hooks hit production and get 401.
+
+## Quick Terminal clicks (B-199)
+`peekaboo window focus` autohides the Quick Terminal (AX focus resigns key). To click inside or toggle it, use `peekaboo click --global --foreground` without a preceding window-focus step.

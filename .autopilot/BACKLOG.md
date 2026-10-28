@@ -1839,11 +1839,13 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-199 · Quick Terminal button re-opens the panel instead of closing it   [ready]
+## B-199 · Quick Terminal button re-opens the panel instead of closing it   [done]
 Issue: #203
 Why: B-113 verify: clicking a Quick Terminal button while the panel is up re-opens it (resign-key autohide, then toggle); only View > Quick Terminal closes it. Predates B-113
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-113)
+Done: none (dismissed; 91ab8efab + revert 57d57df29 on autopilot-shelved/B-199)
+Verified: 3/3 plain global clicks close the panel on unfixed code; AX focus then click reproduces the re-open (.autopilot/shots/B-199-t2-b-after.png, B-199-t4-c-after-click.png)
 
 ## B-200 · Single-instance test hardening (kqueue copy test, LeoTestChild reaping)   [dropped]
 Issue: #204
