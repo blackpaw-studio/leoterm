@@ -218,11 +218,12 @@ Lane: B-227
   Branch: autopilot-lane/B-227
   Base: 4ac4fbf2928d6a7df8cd93397e0965de906b6236
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 70f028f2c12f7c81cbb1b5989d3c0c266ea52a15
+  Tokens: 2.14M in (1.95M cache read), ≥15.6k out, 30 requests
   Dispatched: 2026-10-28T12:22:00Z
   Call: Gate lives in leo-release.yml (a ci job calls leo-ci.yml; build needs ci), not leo-build.yml, which workflow_dispatch also runs — AUTONOMY "agent decides" (test infrastructure / CI)
   Call: Gate on the whole leo-ci workflow, not only run-tests.sh (the item's preferred option, stronger gate) — AUTONOMY "agent decides"
@@ -262,3 +263,4 @@ Finished 12: B-194 landed 1e566664b · not visually verified
 Finished 13: B-199 done (dismissed, no code change)
 - B-199: runner d-b210ebfa1c0e; fix then self-revert after root cause; dismissed as Peekaboo window-focus artifact; lane shelved autopilot-shelved/B-199.
 - B-227 runner: leo dispatch d-93957ae9a828 (implement role).
+Finished 14: B-227 landed 281443e38 · not visually verified

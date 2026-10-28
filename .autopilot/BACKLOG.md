@@ -2008,11 +2008,13 @@ Accept: B-221 review: the guard is satisfied by `run-tests.sh --list` or a DIR a
 Source: autopilot polish (B-221)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-227 · Release path runs the CI script tests   [ready]
+## B-227 · Release path runs the CI script tests   [done]
 Issue: #231
 Why: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Accept: B-221 review: leo-release.yml calls only leo-build, so a tag on a commit that skipped main (or while main's leo-ci was red) can release without the script tests — have leo-release call leo-ci (workflow_call) or have leo-build run run-tests.sh first
 Source: autopilot polish (B-221)
+Done: a7801243f
+Verified: actionlint on leo-*.yml exit 0; run-tests.sh 24/24 incl. new test_release-runs-ci.sh (failed 2/3 before fix); not run on GitHub (nothing pushed)
 
 ## B-228 · run-tests.sh pins /bin/bash   [dropped]
 Issue: #232

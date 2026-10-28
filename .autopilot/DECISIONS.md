@@ -4420,3 +4420,24 @@ Chose: Dismiss B-199 as a verification artifact: real clicks already close the p
 Why: the 'fixed or explicitly dismissed with a reason' criterion
 Commit: none (dismissed; 91ab8efab + revert 57d57df29 on autopilot-shelved/B-199)
 Veto: [ ]
+
+## D-620 · 2026-10-28 · Gate lives in leo-release.yml (a ci job calls leo-ci.yml; build needs…
+Context: B-227 (runner call).
+Chose: Gate lives in leo-release.yml (a ci job calls leo-ci.yml; build needs ci), not leo-build.yml, which workflow_dispatch also runs
+Why: AUTONOMY "agent decides" (test infrastructure / CI)
+Commit: a7801243f
+Veto: [ ]
+
+## D-621 · 2026-10-28 · Gate on the whole leo-ci workflow, not only run-tests.sh (the item's…
+Context: B-227 (runner call).
+Chose: Gate on the whole leo-ci workflow, not only run-tests.sh (the item's preferred option, stronger gate)
+Why: AUTONOMY "agent decides"
+Commit: a7801243f
+Veto: [ ]
+
+## D-622 · 2026-10-28 · Neither Mac nor iOS (CI only)
+Context: B-227 (runner call).
+Chose: Neither Mac nor iOS (CI only)
+Why: Mac+iOS parity rule
+Commit: a7801243f
+Veto: [ ]
