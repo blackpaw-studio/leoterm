@@ -229,6 +229,17 @@ Lane: B-227
   Call: Gate on the whole leo-ci workflow, not only run-tests.sh (the item's preferred option, stronger gate) — AUTONOMY "agent decides"
   Call: Neither Mac nor iOS (CI only) — Mac+iOS parity rule
 
+Lane: B-317
+  Branch: autopilot-lane/B-317
+  Base: 933b8fb30c53369bc34ab6c7596d2223a5027aa3
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T12:26:46Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
