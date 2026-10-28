@@ -105,3 +105,4 @@ Finished 3: B-321 blocked
 - B-322 runner: leo dispatch d-6675f3229244 (implement role).
 Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png
 - verify.md: added B-322 daemon-isolation notes from the runner.
+- B-172 runner: leo dispatch d-904a06e6ebc0 (implement role).
