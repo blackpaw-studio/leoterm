@@ -140,3 +140,4 @@ Finished 5: B-172 landed 41ba19a2d · not visually verified
 - B-173 runner: leo dispatch d-8452801d9121 (implement role).
 - B-173: first runner d-8452801d9121 reported blocked on an implementer permission prompt (rm of two lane symlinks) it couldn't answer; orchestrator allowed it, commit 2d62ef55f landed in the lane; fresh runner dispatched to integrate/review/verify.
 Finished 6: B-173 landed 21d9b00d2 · not visually verified
+- B-174 runner: leo dispatch d-7bde6c9abcdd (implement role).
