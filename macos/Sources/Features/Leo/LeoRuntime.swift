@@ -415,6 +415,7 @@ import LeoKit
             guard let actions else { return }
             LeoMoveFlow.offerForce(offer, actions: actions, in: NSApp.keyWindow)
         }
+        LeoAgentsMenuController.shared.installMoveShortcuts()
         control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in
             await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })

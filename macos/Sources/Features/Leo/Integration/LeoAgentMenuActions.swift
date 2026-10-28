@@ -158,7 +158,35 @@ extension TerminalController {
     /// actually detects a stale fetch.
     private var updateGeneration = 0
 
+    private var shortcutMonitor: Any?
+
     private override init() {}
+
+    /// Starts matching ⇧⌃⌘M / ⇧⌃⌘C (see `LeoMoveMenu.shortcut`). Idempotent.
+    func installMoveShortcuts() {
+        guard shortcutMonitor == nil else { return }
+        shortcutMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let kind = LeoMoveMenu.shortcut(characters: event.charactersIgnoringModifiers, modifiers: event.modifierFlags),
+                  self?.popMoveMenu(kind, in: event.window) == true else { return event }
+            return nil
+        }
+    }
+
+    /// Pops the Move To / Copy To list for the selected row at the pointer.
+    /// False, and nothing happens, when no row is selected or can't move.
+    private func popMoveMenu(_ kind: LeoMoveKind, in window: NSWindow?) -> Bool {
+        guard let controller = window?.windowController as? TerminalController,
+              let view = window?.contentView, let agentsMenu = NSApp.mainMenu?.items.compactMap(\.submenu).first(where: { menu in
+                  menu.items.contains { $0.identifier == Self.moveToItemIdentifier }
+              }) else { return false }
+        let context = controller.selectedLeoAgentContext
+        guard kind == .move ? LeoMenuCommands.canMove(context) : LeoMenuCommands.canCopy(context) else { return false }
+        updateMoveItems(in: agentsMenu)
+        let identifier = kind == .move ? Self.moveToItemIdentifier : Self.copyToItemIdentifier
+        guard let submenu = agentsMenu.items.first(where: { $0.identifier == identifier })?.submenu else { return false }
+        submenu.popUp(positioning: nil, at: view.convert(window?.mouseLocationOutsideOfEventStream ?? .zero, from: nil), in: view)
+        return true
+    }
 
     func menuNeedsUpdate(_ menu: NSMenu) {
         updateTemplateItem(in: menu)
@@ -169,7 +197,7 @@ extension TerminalController {
     /// Move To and Copy To list the selected agent's host's destinations,
     /// read from the list `LeoAgentActions` prefetched on connect.
     private func updateMoveItems(in menu: NSMenu) {
-        let kinds: [(NSUserInterfaceItemIdentifier, MoveKind)] = [(Self.moveToItemIdentifier, .move), (Self.copyToItemIdentifier, .copy)]
+        let kinds: [(NSUserInterfaceItemIdentifier, LeoMoveKind)] = [(Self.moveToItemIdentifier, .move), (Self.copyToItemIdentifier, .copy)]
         let targets = kinds.compactMap { identifier, kind in
             menu.items.first(where: { $0.identifier == identifier }).flatMap { item in item.submenu.map { (item, $0, kind) } }
         }
@@ -207,9 +235,7 @@ extension TerminalController {
         }
     }
 
-    private enum MoveKind { case move, copy }
-
-    private func moveMenuItem(for entry: LeoMoveMenuEntry, kind: MoveKind, row: LeoAgentRow, actions: LeoAgentActions) -> NSMenuItem {
+    private func moveMenuItem(for entry: LeoMoveMenuEntry, kind: LeoMoveKind, row: LeoAgentRow, actions: LeoAgentActions) -> NSMenuItem {
         switch entry {
         case .placeholder(let title):
             return Self.placeholderItem(title: title)

@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 
 @testable import Ghostty
@@ -25,5 +26,18 @@ struct LeoMoveMenuTests {
     @Test func theMoveConfirmationNamesTheAgentAndHost() {
         #expect(LeoMoveMenu.confirmMessage(agent: "alpha", host: "nas") == "Move alpha to nas?")
         #expect(LeoMoveMenu.confirmDetail == "It stops here and resumes there.")
+    }
+
+    private static let chord: NSEvent.ModifierFlags = [.command, .control, .shift]
+
+    @Test func shiftControlCommandMAndCPopTheMoveAndCopyMenus() {
+        #expect(LeoMoveMenu.shortcut(characters: "m", modifiers: Self.chord) == .move)
+        #expect(LeoMoveMenu.shortcut(characters: "C", modifiers: Self.chord) == .copy)
+    }
+
+    @Test func otherChordsAreNotMoveShortcuts() {
+        #expect(LeoMoveMenu.shortcut(characters: "m", modifiers: [.command, .control]) == nil)
+        #expect(LeoMoveMenu.shortcut(characters: "m", modifiers: Self.chord.union(.option)) == nil)
+        #expect(LeoMoveMenu.shortcut(characters: "d", modifiers: Self.chord) == nil)
     }
 }

@@ -8,6 +8,11 @@ enum LeoMoveMenuEntry: Equatable {
     case placeholder(String)
 }
 
+/// Which of the two destination menus a shortcut or entry belongs to.
+enum LeoMoveKind: Equatable {
+    case move, copy
+}
+
 /// The wording and entries of B-324's Move To, Copy To and Duplicate…, shared
 /// by the sidebar row's context menu and the Agents menu so the two read alike.
 enum LeoMoveMenu {
@@ -23,6 +28,17 @@ enum LeoMoveMenu {
         case .unavailable?: [.placeholder("Unavailable")]
         case .hosts(let hosts)? where hosts.isEmpty: [.placeholder("No Other Machines")]
         case .hosts(let hosts)?: hosts.map(LeoMoveMenuEntry.host)
+        }
+    }
+
+    /// ⇧⌃⌘M and ⇧⌃⌘C. AppKit ignores key equivalents on submenu parents, so
+    /// the Agents menu controller matches these itself and pops the menu.
+    static func shortcut(characters: String?, modifiers: NSEvent.ModifierFlags) -> LeoMoveKind? {
+        guard modifiers.intersection(.deviceIndependentFlagsMask) == [.command, .control, .shift] else { return nil }
+        switch characters?.lowercased() {
+        case "m": return .move
+        case "c": return .copy
+        default: return nil
         }
     }
 
@@ -82,7 +98,12 @@ enum LeoMoveMenu {
 
     /// Copy and Duplicate (no `host`) ask for the copy's optional name first.
     static func copy(_ row: LeoAgentRow, to host: String?, actions: LeoAgentActions, in window: NSWindow?) {
-        window?.presentLeoSheet(NSHostingController(rootView: LeoCopyAgentSheet(row: row, destination: host, actions: actions)))
+        guard let window else { return }
+        let close = { [weak window] in
+            guard let window, let sheet = window.attachedSheet else { return }
+            window.endSheet(sheet)
+        }
+        window.presentLeoSheet(NSHostingController(rootView: LeoCopyAgentSheet(row: row, destination: host, actions: actions, close: close)))
     }
 
     /// Asks about a mid-turn refusal as it is published. Wired by `LeoRuntime`.
