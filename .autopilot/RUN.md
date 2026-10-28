@@ -122,3 +122,4 @@ Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/
 - verify.md: added B-322 daemon-isolation notes from the runner.
 - B-172 runner: leo dispatch d-904a06e6ebc0 (implement role).
 Finished 5: B-172 landed 41ba19a2d · not visually verified
+- B-173 runner: leo dispatch d-8452801d9121 (implement role).
