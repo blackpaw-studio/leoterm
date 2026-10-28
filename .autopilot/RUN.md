@@ -42,7 +42,19 @@ Lane: B-318
   Call: Edit ▸ Copy gets ⌘C when the config gives it none and ⌘C is still bound (respects super+c=unbind and user-set shortcuts); dropped the plan's focus-on-mouse-down fix — Keyboard-first, Mac-native
   Call: Fix is app-wide: ⌘C also works for other selectable text and fields — Edit ▸ Copy / ⌘C must work wherever text is selectable
 
+Lane: B-320
+  Branch: autopilot-lane/B-320
+  Base: d96154f93e73aaf5a7404d20fabe2b4fed39e43a
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T04:08:27Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
 Finished 1: B-318 landed 8d9135bb3 · not visually verified
+- B-320 runner: leo dispatch d-ff8fb617a827 (implement role).
