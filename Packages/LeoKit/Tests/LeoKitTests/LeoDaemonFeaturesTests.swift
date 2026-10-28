@@ -11,4 +11,9 @@ struct LeoDaemonFeaturesTests {
         #expect(!LeoDaemonFeatures(["agent_usage"]).contains(.machineStats))
         #expect(!LeoDaemonFeatures.none.contains(.machineStats))
     }
+
+    @Test func advertisesAgentMove() {
+        #expect(LeoDaemonFeatures(["agent_move"]).contains(.agentMove))
+        #expect(!LeoDaemonFeatures.none.contains(.agentMove))
+    }
 }

@@ -49,6 +49,18 @@ struct LeoModelsTests {
         #expect(error.localizedDescription == "leo is still restoring agents — try again in a moment")
     }
 
+    @Test func agentBusyAndAgentMovedReadWithoutCLIPhrasing() {
+        let busy = LeoDaemonError.daemon(code: "agent_busy", message: "agent is mid-turn; pass --force to move anyway", matches: [])
+        let moved = LeoDaemonError.daemon(code: "agent_moved", message: "moved; run `leo --host nas agent attach x`", matches: [])
+        #expect(busy.localizedDescription == "This agent is in the middle of a turn.")
+        #expect(moved.localizedDescription == "This agent was moved to another machine.")
+    }
+
+    @Test func otherMoveCodesKeepTheDaemonMessageVerbatim() {
+        let error = LeoDaemonError.daemon(code: "name_taken", message: "an agent named x-copy exists on nas", matches: [])
+        #expect(error.localizedDescription == "an agent named x-copy exists on nas")
+    }
+
     @Test func mapsErrorEnvelopeIncludingMatches() throws {
         let data = Data(#"{"ok":false,"error":"ambiguous agent","code":"ambiguous","matches":["one","two"]}"#.utf8)
         let envelope = try LeoDaemonEnvelope<LeoAgent>.decode(data)

@@ -173,10 +173,15 @@ public enum LeoDaemonError: Error, Equatable, Sendable {
 extension LeoDaemonError: LocalizedError {
     /// The 503 code a mutation gets while the daemon restores agents at startup.
     static let restoringCode: String? = "daemon_restoring"
+    /// Move refusals whose daemon text names CLI commands; the app words them itself.
+    static let busyCode: String? = "agent_busy"
+    static let movedCode: String? = "agent_moved"
 
     public var errorDescription: String? {
         switch self {
         case .daemon(Self.restoringCode, _, _): return "leo is still restoring agents — try again in a moment"
+        case .daemon(Self.busyCode, _, _): return "This agent is in the middle of a turn."
+        case .daemon(Self.movedCode, _, _): return "This agent was moved to another machine."
         case .daemon(_, let message, _): return message
         case .transport(let message): return "Connection to the Leo daemon failed: \(message)"
         case .timeout: return "The Leo daemon did not respond in time"
