@@ -183,6 +183,25 @@ import Testing
         #expect(await eventually { fixture.label(shell) == "~/x" })
     }
 
+    /// A title the terminal sets inside the 75 ms coalescing window is newer
+    /// than the one held under the name, so clearing must not drop it (B-183).
+    @Test func clearingANameKeepsATitleThatJustArrived() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let shell = try newShell(fixture, running: Self.standIn)
+        let view = try #require(fixture.view(shell))
+        try await titled(view, "~/old", in: fixture, shell)
+        fixture.terminals.rename(shell.surfaceID, to: "build")
+        try #require(await eventually { fixture.label(shell) == "build" })
+
+        view.setTitle("~/new")
+        fixture.terminals.rename(shell.surfaceID, to: "")
+
+        #expect(await eventually { fixture.label(shell) == "~/new" }, "\(fixture.label(shell) ?? "nil")")
+        await settle()
+        #expect(fixture.label(shell) == "~/new", "and it stays")
+    }
+
     /// Blank on a row never renamed leaves the terminal's own title be.
     @Test func anEmptyNameOnAnUnrenamedRowKeepsItsTitle() async throws {
         let fixture = try makeFixture()
