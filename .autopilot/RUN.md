@@ -131,11 +131,12 @@ Lane: B-175
   Branch: autopilot-lane/B-175
   Base: 7c777e514ae3a09b7c4bbc6a32c9ecd37a68d7c5
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Tokens: 8.07M in (7.9M cache read), ≥31.6k out, 80 requests
   Dispatched: 2026-10-28T08:28:09Z
 
 Progress:
@@ -158,3 +159,5 @@ Finished 6: B-173 landed 21d9b00d2 · not visually verified
 - B-174 runner: leo dispatch d-7bde6c9abcdd (implement role).
 Finished 7: B-174 landed 7673b4f6c · not visually verified
 - B-175 runner: leo dispatch d-a35c6df4c0ab (implement role).
+- B-175: runner d-a35c6df4c0ab reported blocked on implementer permission prompt (revert of NSLog instrumentation); orchestrator allowed it; implementer then reported not reproducible.
+Finished 8: B-175 blocked

@@ -1300,11 +1300,13 @@ Question: runner timed out after 3h — build mode, mid fix round: two delta rev
 Answer: punt — not sure we need it; don't resume. Keep the held lane/branch autopilot-lane/B-058 as-is; park the item.
 Parked: Evan, 2026-09-30 (D-212). Held lane autopilot-lane/B-058 kept as-is. "/feature B-058" to revive.
 
-## B-175 · Window renders inactive right after Undo New Split   [ready]
+## B-175 · Window renders inactive right after Undo New Split   [blocked]
 Issue: #179
 Why: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Accept: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Source: autopilot polish (B-108)
+Question: couldn't reproduce — 5 Edit ▸ Undo New Split runs and 3 redos on the isolated debug build (menu clicks via Peekaboo) showed no key/main change during undo (NSLog on becomeKey/resignKey/becomeMain/resignMain), coloured traffic lights, and the window key and frontmost; the undo path only moves the first responder. The grey in the B-108 shot was most likely environmental (app not frontmost, or a capture during the agent palette's key handoff). A real-mouse Edit-menu path wasn't tested. Reply "B-175: close" to close it, or "B-175: <exact steps where you saw it>" to retry. Work kept on autopilot-shelved/B-175.
+Answer:
 
 ## B-060 · One sidebar per window, shared by all its tabs   [dropped]
 Dropped: superseded before it was built, since tabs are removed (D-098, D-101). Recorded so the queued inbox line is skipped.
