@@ -54,6 +54,8 @@ public struct AgentMove {
         case confirmation(PresentationAction<Confirmation>)
         case delegate(Delegate)
         case finished(Result<LeoAgentMoveOutcome, any Error>)
+        /// "Hide" on the progress cover: stop waiting; the daemon job carries on.
+        case hideTapped
         case nameCancelled
         case nameSubmitted(String)
 
@@ -68,6 +70,9 @@ public struct AgentMove {
             case completed
             /// Nothing more to show; the parent drops this flow.
             case dismissed
+            /// The user stopped waiting on a job still running on the daemon:
+            /// the parent drops the flow (cancelling its poll) and refreshes.
+            case hidden
         }
     }
 
@@ -84,6 +89,9 @@ public struct AgentMove {
 
             case .alert, .delegate:
                 return .none
+
+            case .hideTapped:
+                return .send(.delegate(.hidden))
 
             case .confirmation(.presented(.start(let force))):
                 guard case .move(let host) = state.intent else { return .none }

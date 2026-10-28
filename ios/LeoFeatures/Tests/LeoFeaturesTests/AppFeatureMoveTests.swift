@@ -36,6 +36,39 @@ struct AppFeatureMoveTests {
         await store.send(.moveRequested(AgentRef(daemonID: PairedDaemon.dionysus.id, name: "hera"), .move(to: "nas")))
     }
 
+    @Test func hidingAMoveInFlightDismissesItCancelsItsPollAndRefreshesTheFleet() async {
+        let started = LockIsolated<CheckedContinuation<Void, Never>?>(nil)
+        let wasCancelled = LockIsolated(false)
+        var initial = Self.state()
+        initial.move = AgentMove.State(daemon: .dionysus, agentName: "zeus", intent: .move(to: "nas"))
+        let moved = LeoObservedAgent(
+            name: "zeus", status: .stopped, activity: nil, currentAction: nil, lastActivityAt: nil,
+            movedTo: "nas", movedAt: "2026-10-28T17:00:00Z"
+        )
+        let store = TestStore(initialState: initial) {
+            AppFeature()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.fetchState = { _ in LeoObservedState(agents: [moved]) }
+            $0.daemonClient.move = { _, _, _ in
+                await withTaskCancellationHandler {
+                    await withCheckedContinuation { started.setValue($0) }
+                } onCancel: { wasCancelled.setValue(true) }
+                throw CancellationError()
+            }
+        }
+        await store.send(\.move.presented.confirmation.presented.start, false) {
+            $0.move?.confirmation = nil
+            $0.move?.isMoving = true
+        }
+        await store.send(\.move.presented.hideTapped)
+        await store.receive(\.move.presented.delegate.hidden) { $0.move = nil }
+        await store.receive(\.fleet.snapshotLoaded) { $0.fleet.sessions[0].agents = [Agent(moved)] }
+        started.value?.resume()
+        await store.finish()
+        #expect(wasCancelled.value)
+    }
+
     @Test func replacingTheFlowCancelsTheOldMovesEffect() async {
         let gate = LockIsolated<CheckedContinuation<Void, Never>?>(nil)
         var initial = Self.state()

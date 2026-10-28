@@ -197,6 +197,11 @@ public struct AppFeature {
                     if state.move?.alert == nil { state.move = nil }
                     return id.map { fleet(.refreshRequested($0), state: &state) } ?? .none
 
+                case .move(.presented(.delegate(.hidden))):
+                    let id = state.move?.daemon.id
+                    state.move = nil
+                    return id.map { fleet(.refreshRequested($0), state: &state) } ?? .none
+
                 case .move(.presented(.delegate(.dismissed))):
                     state.move = nil
                     return .none

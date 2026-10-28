@@ -41,8 +41,21 @@ final class LeoMoveTests: XCTestCase {
         app.buttons["nas"].tap()
         app.buttons["Move"].tap()
         XCTAssertTrue(app.staticTexts["Moving zeus to nas…"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["agent.move.hide"].exists)
         shot("in-progress")
         XCTAssertFalse(app.cells["agent.busy-agent"].isHittable, "the progress cover blocks every row, menu and swipe while a move is in flight")
+    }
+
+    func testHidingAMoveInFlightGivesTheAppBack() {
+        let app = launch(hanging: true)
+        app.cells["agent.zeus"].press(forDuration: 1.2)
+        app.buttons["Move To"].tap()
+        app.buttons["nas"].tap()
+        app.buttons["Move"].tap()
+        XCTAssertTrue(app.buttons["agent.move.hide"].waitForExistence(timeout: 5))
+        app.buttons["agent.move.hide"].tap()
+        XCTAssertFalse(app.staticTexts["Moving zeus to nas…"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.cells["agent.busy-agent"].isHittable)
     }
 
     func testAMovedAgentIsADormantRowWithItsDestination() {

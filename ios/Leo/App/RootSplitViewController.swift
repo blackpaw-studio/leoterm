@@ -27,7 +27,7 @@ final class RootSplitViewController: UISplitViewController, UISplitViewControlle
     /// `isCollapsed` flips, which is not the user popping back.
     private var transitionsInFlight = 0
     private var isShowingNamePrompt = false
-    private let moveProgress = MoveProgressView()
+    private lazy var moveProgress = MoveProgressView { [weak self] in self?.store.send(.move(.presented(.hideTapped))) }
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -251,10 +251,11 @@ final class NoSelectionViewController: UIViewController {
 /// one, and says what is happening.
 private final class MoveProgressView: UIView {
     private let label = UILabel()
+    private let detail = UILabel()
     private let spinner = UIActivityIndicatorView(style: .medium)
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    init(onHide: @escaping () -> Void) {
+        super.init(frame: .zero)
         isHidden = true
         accessibilityIdentifier = "agent.move.progress"
         backgroundColor = UIColor.black.withAlphaComponent(0.25)
@@ -265,8 +266,18 @@ private final class MoveProgressView: UIView {
         label.numberOfLines = 0
         label.textAlignment = .center
         label.adjustsFontForContentSizeCategory = true
+        detail.text = String(localized: "Leo keeps moving it in the background.")
+        detail.font = .preferredFont(forTextStyle: .footnote)
+        detail.textColor = .secondaryLabel
+        detail.numberOfLines = 0
+        detail.textAlignment = .center
+        detail.adjustsFontForContentSizeCategory = true
+        var hide = UIButton.Configuration.plain()
+        hide.title = String(localized: "Hide")
+        let hideButton = UIButton(configuration: hide, primaryAction: UIAction { _ in onHide() })
+        hideButton.accessibilityIdentifier = "agent.move.hide"
         spinner.startAnimating()
-        let stack = UIStackView(arrangedSubviews: [spinner, label])
+        let stack = UIStackView(arrangedSubviews: [spinner, label, detail, hideButton])
         stack.axis = .vertical
         stack.spacing = 10
         stack.alignment = .center
