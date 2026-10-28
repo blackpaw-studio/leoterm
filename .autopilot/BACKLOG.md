@@ -1128,6 +1128,43 @@ Source: autopilot polish (B-106)
 Done: 662eb7c63
 Verified: new test aFocusReportInFlightWhenTheLastRowClosesDoesNotReselectAnotherAgent; full suite 3783 tests passed, swiftlint clean at 2d2ef1781
 
+## B-318 · command+c doesnt work to copy things out of the chat, you have to…   [ready]
+Type: bug
+Report: command+c doesnt work to copy things out of the chat, you have to right click
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-27)
+Inbox: 20261027T135932581460Z-31f7f211#1
+
+## B-320 · iOS LeoSettingsScreensTests UI tests fail on main (7 of 10,…   [ready]
+Type: bug
+Report: iOS LeoSettingsScreensTests UI tests fail on main (7 of 10, reproducible; seen at 62ed29490 and 102f70b6b on iPhone 17 Pro sim iOS 26.5, Xcode 26.5). Line 170 (6 tests: testDirtyTemplateOffersSave, testLeavingADirtyTemplateAsks, testRejectedValueShowsItsInlineError, testStaleSaveShowsTheConflictBanner, testTappingAnywhereOnARowOpensItsEditorOrMenu, testTemplateFormWithEveryFieldType): config.row.<name> never appears within 10s after tapping Templates. Line 108 (testTaskDetailPromptHistoryAndLog): config.field.schedule never appears. Logs: /private/tmp/claude-501/leoperf/integ/
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-27)
+Inbox: 20261027T235417179362Z-401b1112#1
+
+## B-321 · ios/LeoFeatures/Package.resolved on main is stale; swift test…   [ready]
+Type: bug
+Report: ios/LeoFeatures/Package.resolved on main is stale; swift test re-resolves it and adds swift-argument-parser. Commit the resolved file.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-27)
+Inbox: 20261027T235417232930Z-5234bb5c#1
+
+## B-322 · Mac test host connects to the production leo daemon socket during…   [ready]
+Type: bug
+Report: Mac test host connects to the production leo daemon socket during tests (and earlier perf scratch agents posted hook events to the prod daemon on :8370, rejected 401). Tests must use an isolated socket/port.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-27)
+Inbox: 20261027T235417266137Z-9e9ee6e4#1
+
+## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [blocked]
+Why: Leo's new agent move/copy lets an agent hand off or fork between hosts; doing it from the app keeps that work in Leo ("Everything through Leo", "Local = remote"). Both platforms: request/response and moved_to state live in LeoKit, only UI glue per app.
+Accept: Mac — an agent row's context menu and the Agent menu offer Move to ▸ <host>, Copy to ▸ <host>, and Duplicate (copy to the agent's own host), each with a menu item and shortcut per HIG; iOS — the same three actions from the agent row's context menu / swipe and the agent detail screen (UIKit + TCA); each action calls the daemon's move route (mode move/copy, to, optional name) through the existing client, shows the daemon's own error text on failure, and offers Force only when the daemon refuses because the agent is mid-turn; a moved agent's row shows its moved_to host as dormant and can't be started or attached, and a copy appears as a new row once the daemon reports it; LeoKit tests cover the request shape, the mid-turn refusal → Force path, and moved_to decoding; TCA reducer tests on iOS; shots from the isolated Mac debug build and the iOS simulator against a fake daemon.
+Out: renaming the copy or choosing its branch beyond an optional name field; progress streaming beyond the daemon's response; any daemon changes.
+Question: Needs owner to do: blocked until leo's feat/agent-move ships in a daemon release (the move route and moved_to field must be on main). Reply "B-324: done" once it's done.
+Answer:
+Source: owner (/feature, 2026-10-27)
+Inbox: 20261028T004216695906Z-63ec4cf1#1
+
 ## B-172 · Drain pending reconciles before a sidebar click selects   [ready]
 Issue: #176
 Why: a sidebar click queued just before the row's pane closes runs ahead of the drain hop, selects nil, and leaves the adopted row unselected; drain in showTerminal or isOpen/selectShownTerminal (B-107 concurrency review)
@@ -2276,3 +2313,13 @@ Type: bug
 Report: Key-window tests all skip on Dionysus while system prompts hold the foreground — ⌃C and other key-window tests skip on the CI runner host while a modal UserNotificationCenter alert and universalAccessAuthWarn hold the foreground, so CI never exercises them (found in B-311).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-311)
+
+## B-319 · iOS Agent Appearance rules editor (deferred iOS half of agent…   [idea]
+Note: iOS Agent Appearance rules editor (deferred iOS half of agent appearance; Mac has Settings > Agent Appearance; spec docs/superpowers/specs/2026-10-27-agent-appearance.md, daemon routes GET/PUT /appearance/rules in leo v0.64.0)
+Source: owner (/idea, 2026-10-27)
+Inbox: 20261027T171612866222Z-65d1cc3e#1
+
+## B-323 · config-API writes (incl. PUT /appearance/rules) strip comments from…   [idea]
+Note: config-API writes (incl. PUT /appearance/rules) strip comments from leo.yaml; preserve comments on round-trip. Daemon change: PR to blackpaw-studio/leo, reviewed and merged by the leo agent.
+Source: owner (/idea, 2026-10-27)
+Inbox: 20261027T235417298836Z-e052e28c#1
