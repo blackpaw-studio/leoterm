@@ -258,3 +258,4 @@ Finished 12: B-194 landed 1e566664b · not visually verified
 - B-199 runner: leo dispatch d-b210ebfa1c0e (implement role).
 Finished 13: B-199 done (dismissed, no code change)
 - B-199: runner d-b210ebfa1c0e; fix then self-revert after root cause; dismissed as Peekaboo window-focus artifact; lane shelved autopilot-shelved/B-199.
+- B-227 runner: leo dispatch d-93957ae9a828 (implement role).
