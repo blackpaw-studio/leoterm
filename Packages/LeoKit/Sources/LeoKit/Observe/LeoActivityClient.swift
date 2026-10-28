@@ -34,12 +34,16 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// The resolved emoji and color (`agent_appearance`); nil when nothing
     /// is set. Decoded by `LeoAppearanceWire`.
     public let appearance: LeoAgentAppearance?
+    /// The host this agent was moved to; nil unless moved. `/state` carries
+    /// no `moved_at`.
+    public let movedTo: String?
 
     public init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
                 currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
                 startedAt: String? = nil, usage: LeoAgentUsage? = nil,
                 environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil,
-                appearance: LeoAgentAppearance? = nil) {
+                appearance: LeoAgentAppearance? = nil, movedTo: String? = nil) {
+        self.movedTo = movedTo
         self.template = template
         self.harness = harness
         self.appearance = appearance
@@ -61,6 +65,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         case lastActivityAt = "last_activity_at"
         case startedAt = "started_at"
         case usage, template, harness
+        case movedTo = "moved_to"
     }
 
     /// Hand-written only so a malformed optional `attention` degrades to
@@ -80,6 +85,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         template = (try? container.decodeIfPresent(String.self, forKey: .template)) ?? nil
         harness = (try? container.decodeIfPresent(String.self, forKey: .harness)) ?? nil
         appearance = LeoAppearanceWire.agent(from: decoder)
+        movedTo = (try? container.decodeIfPresent(String.self, forKey: .movedTo)) ?? nil
     }
 
 }

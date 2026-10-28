@@ -46,13 +46,18 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
     public let restarts: Int?
     public let stoppedReason: String?
     public let wakeOnMessage: Bool?
+    /// The host this agent was moved to (`agent_move`); nil unless moved.
+    /// A moved agent stays here as a stopped, dormant record.
+    public let movedTo: String?
+    public let movedAt: String?
 
     public var id: String { name }
 
     public init(
         name: String, template: String? = nil, repo: String? = nil, workspace: String? = nil, branch: String? = nil,
         canonicalPath: String? = nil, status: LeoAgentStatus? = nil, startedAt: String? = nil, restarts: Int? = nil,
-        stoppedReason: String? = nil, wakeOnMessage: Bool? = nil
+        stoppedReason: String? = nil, wakeOnMessage: Bool? = nil,
+        movedTo: String? = nil, movedAt: String? = nil
     ) {
         self.name = name
         self.template = template
@@ -65,6 +70,8 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
         self.restarts = restarts
         self.stoppedReason = stoppedReason
         self.wakeOnMessage = wakeOnMessage
+        self.movedTo = movedTo
+        self.movedAt = movedAt
     }
 
     enum CodingKeys: String, CodingKey {
@@ -73,6 +80,8 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
         case startedAt = "started_at"
         case stoppedReason = "stopped_reason"
         case wakeOnMessage = "wake_on_message"
+        case movedTo = "moved_to"
+        case movedAt = "moved_at"
     }
 }
 

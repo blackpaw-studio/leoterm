@@ -23,6 +23,19 @@ struct LeoModelsTests {
         #expect(agent.wakeOnMessage == nil)
     }
 
+    @Test func decodesMovedToAndMovedAt() throws {
+        let data = Data(#"{"name":"alpha","status":"stopped","moved_to":"nas","moved_at":"2026-10-28T13:55:00Z"}"#.utf8)
+        let agent = try JSONDecoder().decode(LeoAgent.self, from: data)
+        #expect(agent.movedTo == "nas")
+        #expect(agent.movedAt == "2026-10-28T13:55:00Z")
+    }
+
+    @Test func movedFieldsAreNilWhenAbsent() throws {
+        let agent = try JSONDecoder().decode(LeoAgent.self, from: Data(#"{"name":"alpha"}"#.utf8))
+        #expect(agent.movedTo == nil)
+        #expect(agent.movedAt == nil)
+    }
+
     @Test func decodesRestoringAsItsOwnStatusAndRoundTrips() throws {
         let data = Data(#"{"name":"booting","status":"restoring"}"#.utf8)
         let agent = try JSONDecoder().decode(LeoAgent.self, from: data)

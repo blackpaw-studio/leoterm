@@ -24,6 +24,11 @@ struct LeoObservedStateDecodingTests {
         #expect(Mirror(reflecting: state.agents[0]).children.allSatisfy { $0.label?.lowercased().contains("surfaced") != true })
     }
 
+    @Test func movedToDecodesOnAnObservedAgent() throws {
+        let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha","moved_to":"nas"},{"name":"beta"}]}}"#)
+        #expect(state.agents.map(\.movedTo) == ["nas", nil])
+    }
+
     @Test func absentDispatchesReadAsNone() throws {
         let state = try decode(#"{"ok":true,"data":{"agents":[{"name":"alpha"}]}}"#)
         #expect(state.agents.map(\.name) == ["alpha"])
