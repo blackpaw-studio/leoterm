@@ -183,6 +183,9 @@ import LeoKit
 
     func loadMoveDestinations(for host: LeoHostID) {
         guard let daemon = clients.daemon(for: host) else { return }
+        #if DEBUG
+        guard !seededMoveDestinationHosts.contains(host) else { return }
+        #endif
         let generation = clients.generation(for: host)
         Task { [weak self] in
             let destinations = await LeoMoveDestinations.load(from: daemon)
@@ -192,10 +195,13 @@ import LeoKit
     }
 
     #if DEBUG
-    /// The move fixture's stand-in for the daemon's host list.
+    /// The move fixture's stand-in for the daemon's host list; a connection
+    /// coming up does not replace it.
     func seedMoveDestinations(_ destinations: LeoMoveDestinations, for host: LeoHostID) {
         moveDestinationLists[host] = destinations
+        seededMoveDestinationHosts.insert(host)
     }
+    private var seededMoveDestinationHosts: Set<LeoHostID> = []
     #endif
 
     func move(_ row: LeoAgentRow, to destination: String, force: Bool = false) {

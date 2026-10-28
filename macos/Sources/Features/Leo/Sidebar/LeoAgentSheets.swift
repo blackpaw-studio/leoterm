@@ -41,7 +41,9 @@ struct LeoCopyAgentSheet: View {
     let row: LeoAgentRow
     let destination: String?
     @ObservedObject var actions: LeoAgentActions
-    @Environment(\.dismiss) private var dismiss
+    /// Closes the sheet where SwiftUI's `dismiss` can't: a sheet presented
+    /// by `NSWindow.presentLeoSheet` has no presenting controller to ask.
+    var close: () -> Void = {}
     @State private var name = ""
 
     private var validation: String? { SpawnValidation.name(name, current: row.name) }
@@ -56,7 +58,7 @@ struct LeoCopyAgentSheet: View {
             }
             HStack {
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
                 Button("Copy") {
                     let chosen = name.isEmpty ? nil : name
                     if let destination {
@@ -64,7 +66,7 @@ struct LeoCopyAgentSheet: View {
                     } else {
                         actions.duplicate(row, name: chosen)
                     }
-                    dismiss()
+                    close()
                 }.keyboardShortcut(.defaultAction).disabled(validation != nil)
             }
         }.padding().frame(width: 360)
