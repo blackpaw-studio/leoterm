@@ -84,9 +84,6 @@ private struct FocusFixture {
     let origin: LeoWindowID
     let sidebar: NSView
 
-    /// Past the longest `Ghostty.moveFocus` retry chain (50 + 100 + 200 +
-    /// 400 ms): a focus move still pending by then never lands.
-    private static let pendingFocusMovesLand: Duration = .seconds(1)
     private static let timeout: Duration = .seconds(5)
 
     static func make() async throws -> FocusFixture {
@@ -173,18 +170,24 @@ private struct FocusFixture {
         try #require(await eventually { window.isKeyWindow }, "never key again: \(describe()) \(comment)", sourceLocation: sourceLocation)
     }
 
-    /// `expected` becomes the first responder and stays it once every
-    /// focus move still pending has landed; then it alone draws focused
-    /// (as long as the window is key).
+    /// `expected` becomes the first responder, the window's focused surface
+    /// and (as long as the window is key) the only pane drawing focused.
+    /// Polled, not slept on: `Ghostty.moveFocus` lands on `asyncAfter`
+    /// timers, so the state is awaited rather than read after a fixed wait.
     func expectSettled(
         on expected: Ghostty.SurfaceView,
         _ comment: Comment? = nil,
         sourceLocation: SourceLocation = #_sourceLocation
     ) async throws {
-        let isFirstResponder = { window.firstResponder === expected }
-        try #require(await eventually(isFirstResponder), "never first responder: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
-        try? await Task.sleep(for: Self.pendingFocusMovesLand)
-        #expect(isFirstResponder(), "focus moved on: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+        let isSettled = {
+            window.firstResponder === expected
+                && controller.focusedSurface === expected
+                && expected.focused == window.isKeyWindow
+                && !controller.surfaceTree.contains { $0 !== expected && $0.focused }
+        }
+        try #require(await eventually { window.firstResponder === expected }, "never first responder: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+        _ = await eventually(isSettled)
+        #expect(window.firstResponder === expected, "focus moved on: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
         #expect(controller.focusedSurface === expected, "the window's focused surface \(comment ?? "")", sourceLocation: sourceLocation)
         #expect(expected.focused == window.isKeyWindow, "its cursor: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
         let others = controller.surfaceTree.filter { $0 !== expected && $0.focused }
