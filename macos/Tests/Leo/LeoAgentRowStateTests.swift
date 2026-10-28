@@ -11,11 +11,11 @@ struct LeoAgentRowStateTests {
     private func resolve(
         status: LeoAgentStatus = .running, activity: LeoAgentRow.Activity = .idle, attention: LeoAttentionBadge? = nil,
         reason: LeoAttentionReason? = nil, compaction: LeoRowCompaction? = nil, error: String? = nil,
-        inWorkingSection: Bool = false
+        inWorkingSection: Bool = false, movedTo: String? = nil, movedAt: String? = nil
     ) -> LeoAgentRowState {
         let row = LeoAgentRow(
             host: .local, name: "alpha", template: "claude", status: status, activity: activity, actionDetail: nil,
-            attention: attention, attentionReason: reason, compaction: compaction
+            attention: attention, attentionReason: reason, compaction: compaction, movedTo: movedTo, movedAt: movedAt
         )
         return LeoAgentRowState(row: row, error: error, inWorkingSection: inWorkingSection)
     }
@@ -28,6 +28,27 @@ struct LeoAgentRowStateTests {
         #expect(restoring.trailingWord == "Restoring…")
         #expect(restoring.accessibilityLabel == "Restoring")
         #expect(!restoring.isNameDimmed)
+    }
+
+    /// B-324: a moved agent is a stopped record on this host; the row says where it went.
+    @Test func movedBeatsStoppedAndNamesTheHost() {
+        let moved = resolve(status: .stopped, movedTo: "nas", movedAt: "2026-10-28T14:00:00Z")
+        #expect(moved.state == .moved)
+        #expect(moved.symbolName == "arrow.up.forward.square")
+        #expect(moved.symbolInk == .tertiary)
+        #expect(moved.trailingWord == "On nas")
+        #expect(moved.isNameDimmed)
+        #expect(!moved.hasSecondLine)
+        #expect(moved.accessibilityLabel == "Moved to nas")
+        #expect(moved.help?.hasPrefix("Moved to nas") == true)
+    }
+
+    @Test func movedHelpIsJustTheHostWithoutATimestamp() {
+        #expect(resolve(status: .stopped, movedTo: "nas").help == "Moved to nas")
+    }
+
+    @Test func aNeedsYouBadgeStillBeatsMoved() {
+        #expect(resolve(status: .stopped, attention: .needsInput, movedTo: "nas").state == .needsYou)
     }
 
     // MARK: What each state draws

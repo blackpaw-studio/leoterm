@@ -498,7 +498,8 @@ actor LeoSidebarFeed {
 
     private static func row(_ agent: LeoAgent, host: LeoHostID) -> LeoAgentRow {
         LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo,
-                    startedAt: agent.startedAt, wakeOnMessage: agent.wakeOnMessage)
+                    startedAt: agent.startedAt, wakeOnMessage: agent.wakeOnMessage,
+                    movedTo: agent.movedTo, movedAt: agent.movedAt)
     }
 }
 

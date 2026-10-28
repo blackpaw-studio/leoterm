@@ -25,7 +25,8 @@ extension TerminalController {
         let availability = row.map { row in
             LeoRowActionAvailability(
                 status: row.status,
-                isPending: leoRuntime?.actions.pendingActions.contains(row.id) ?? false
+                isPending: leoRuntime?.actions.pendingActions.contains(row.id) ?? false,
+                movedTo: row.movedTo
             )
         }
         return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability)

@@ -7,7 +7,7 @@ import Foundation
 struct LeoAgentRowState: Equatable {
     /// In resolution order.
     enum State: Equatable {
-        case needsYou, error, done, starting, restoring, stopped, unknown, compacting, working, idle
+        case needsYou, error, done, starting, restoring, moved, stopped, unknown, compacting, working, idle
     }
 
     let state: State
@@ -52,6 +52,11 @@ struct LeoAgentRowState: Equatable {
             self.init(.starting, "ellipsis", .secondary, spoken: "Starting")
         case (_, .restoring, _, _):
             self.init(.restoring, "ellipsis", .secondary, trailing: (LeoStatusPresentation.restoringTitle, .secondary), spoken: "Restoring")
+        case (_, .stopped, _, _) where row.movedTo != nil:
+            self.init(
+                .moved, "arrow.up.forward.square", .tertiary, trailing: ("On \(row.movedTo ?? "")", .tertiary), isNameDimmed: true,
+                help: Self.movedHelp(host: row.movedTo ?? "", at: row.movedAt), spoken: "Moved to \(row.movedTo ?? "")"
+            )
         case (_, .stopped, _, _):
             self.init(.stopped, "stop.fill", .tertiary, isNameDimmed: true, spoken: "Stopped")
         case (_, .unknown, _, _):
@@ -108,6 +113,13 @@ struct LeoAgentRowState: Equatable {
         isNameDimmed = other.isNameDimmed
         help = other.help
         accessibilityLabel = other.accessibilityLabel
+    }
+
+    /// "Moved to nas, Oct 28, 2026 at 2:00 PM"; the host alone when the
+    /// daemon sent no (or an unreadable) time.
+    static func movedHelp(host: String, at timestamp: String?) -> String {
+        guard let timestamp, let date = ISO8601DateFormatter().date(from: timestamp) else { return "Moved to \(host)" }
+        return "Moved to \(host), \(date.formatted(date: .abbreviated, time: .shortened))"
     }
 
     static let needsYouSymbol = "questionmark.circle.fill"

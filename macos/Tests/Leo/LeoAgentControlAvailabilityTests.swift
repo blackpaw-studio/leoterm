@@ -8,8 +8,8 @@ import Testing
 struct LeoAgentControlAvailabilityTests {
     private static let control = LeoDaemonFeatures(["agent_control"])
 
-    private static func row(_ status: LeoAgentStatus, host: LeoHostID = .local, wake: Bool? = nil) -> LeoAgentRow {
-        LeoAgentRow(host: host, name: "alpha", template: nil, status: status, activity: .idle, actionDetail: nil, wakeOnMessage: wake)
+    private static func row(_ status: LeoAgentStatus, host: LeoHostID = .local, wake: Bool? = nil, movedTo: String? = nil) -> LeoAgentRow {
+        LeoAgentRow(host: host, name: "alpha", template: nil, status: status, activity: .idle, actionDetail: nil, wakeOnMessage: wake, movedTo: movedTo)
     }
 
     private static func all(_ a: LeoAgentControlAvailability) -> [Bool] { [a.canSend, a.canInterrupt, a.canCompact, a.canClear] }
@@ -39,6 +39,14 @@ struct LeoAgentControlAvailabilityTests {
         #expect(availability.isOffered)
         #expect(Self.all(availability) == [false, false, false, false])
         #expect(availability.reason != nil)
+    }
+
+    @Test func aMovedAgentAllowsNothingAndSaysWhereItWent() {
+        let moved = Self.row(.stopped, wake: true, movedTo: "nas")
+        let availability = LeoAgentControlAvailability(row: moved, features: Self.control, deniedHosts: [], inFlight: nil)
+        #expect(Self.all(availability) == [false, false, false, false])
+        #expect(!availability.canCompose)
+        #expect(availability.reason == "alpha moved to nas.")
     }
 
     @Test func restoringDisablesAllAndSaysSo() {

@@ -33,6 +33,10 @@ struct LeoAgentControlAvailability: Equatable, Sendable {
             self = .off(isOffered: true, reason: Self.deniedReason)
             return
         }
+        if let movedTo = row.movedTo {
+            self = .off(isOffered: true, reason: "\(row.name) moved to \(movedTo).")
+            return
+        }
         let idle = inFlight == nil
         switch row.status {
         case .running:
