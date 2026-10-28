@@ -4210,3 +4210,24 @@ Chose: A focus report sent after the row removal still moves the selection
 Why: consistency with a click's fence (follow-focus rule)
 Commit: 662eb7c63
 Veto: [ ]
+
+## D-590 · 2026-10-28 · Leo Chat ⌘C fix is Mac only
+Context: B-318 (runner call).
+Chose: Mac only — iOS chat text is a selectable UITextView that copies without a menu shortcut
+Why: AGENTS.md parity rule
+Commit: 11755c5d2
+Veto: [ ]
+
+## D-591 · 2026-10-28 · Edit ▸ Copy gets ⌘C when the config gives it none and ⌘C is still bound
+Context: B-318 (runner call).
+Chose: Give Edit ▸ Copy ⌘C when Ghostty's config gives it none (its default copy binding is performable, so the menu lookup skips it) and ⌘C is still bound; respects super+c=unbind and user-set shortcuts. Dropped the plan's focus-on-mouse-down fix.
+Why: Keyboard-first, Mac-native
+Commit: 11755c5d2
+Veto: [ ]
+
+## D-592 · 2026-10-28 · ⌘C copy fix is app-wide, not chat-only
+Context: B-318 (runner call).
+Chose: The fix is app-wide: ⌘C also works for other selectable text and fields
+Why: Edit ▸ Copy / ⌘C must work wherever text is selectable
+Commit: 11755c5d2
+Veto: [ ]

@@ -25,13 +25,14 @@ Lane: B-143
   Wip: a3fe1df0d
   Reverifies: 0
   Reviewed-tip: none
+  Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
 Lane: B-318
   Branch: autopilot-lane/B-318
   Base: ca6b82515615918204128be2f2e6c6922f6253ec
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -44,3 +45,4 @@ Lane: B-318
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
+Finished 1: B-318 landed 8d9135bb3 · not visually verified

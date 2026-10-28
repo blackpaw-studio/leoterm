@@ -1128,13 +1128,15 @@ Source: autopilot polish (B-106)
 Done: 662eb7c63
 Verified: new test aFocusReportInFlightWhenTheLastRowClosesDoesNotReselectAnotherAgent; full suite 3783 tests passed, swiftlint clean at 2d2ef1781
 
-## B-318 · command+c doesnt work to copy things out of the chat, you have to…   [ready]
+## B-318 · command+c doesnt work to copy things out of the chat, you have to…   [done]
 Issue: #295
 Type: bug
 Report: command+c doesnt work to copy things out of the chat, you have to right click
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-27)
 Inbox: 20261027T135932581460Z-31f7f211#1
+Done: 11755c5d2
+Verified: not visually verified — verifier couldn't get chat text on screen in the isolated debug app (build, lint, full suite 3829/0 pass); implementer's isolated run showed ⌘C copying
 
 ## B-320 · iOS LeoSettingsScreensTests UI tests fail on main (7 of 10,…   [ready]
 Issue: #296
