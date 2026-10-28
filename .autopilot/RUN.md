@@ -275,3 +275,4 @@ Finished 13: B-199 done (dismissed, no code change)
 - B-199: runner d-b210ebfa1c0e; fix then self-revert after root cause; dismissed as Peekaboo window-focus artifact; lane shelved autopilot-shelved/B-199.
 - B-227 runner: leo dispatch d-93957ae9a828 (implement role).
 Finished 14: B-227 landed 281443e38 · not visually verified
+- B-317 runner: leo dispatch d-7e4173718a03 (implement role).
