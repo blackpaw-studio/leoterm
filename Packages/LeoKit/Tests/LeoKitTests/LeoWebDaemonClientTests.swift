@@ -129,6 +129,7 @@ actor FakeWebTransport: LeoWebTransport {
     private let status: Int
     private let body: String
     private let streamed: [LeoSSEEvent]
+    private var queued: [(Int, String)] = []
     private(set) var requests: [LeoHTTPRequest] = []
     private(set) var streamedPaths: [String] = []
 
@@ -138,8 +139,20 @@ actor FakeWebTransport: LeoWebTransport {
         streamed = events
     }
 
+    /// Answers each request with the next of `sequence`, then with the last.
+    init(sequence: [(Int, String)]) {
+        status = sequence.last?.0 ?? 200
+        body = sequence.last?.1 ?? #"{"ok":true}"#
+        streamed = []
+        queued = sequence
+    }
+
     func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse {
         requests.append(request)
+        if !queued.isEmpty {
+            let next = queued.removeFirst()
+            return LeoHTTPResponse(status: next.0, body: Data(next.1.utf8))
+        }
         return LeoHTTPResponse(status: status, body: Data(body.utf8))
     }
 
@@ -208,5 +221,36 @@ struct LeoWebDaemonClientMoveTests {
         await #expect(throws: LeoDaemonError.daemon(code: "agent_moving", message: "a is already being moved", matches: [])) {
             _ = try await LeoWebDaemonClient(transport: transport).startMove("a", .move(to: "nas"))
         }
+    }
+
+    @Test func moveJobPollsTheJobRouteAndDecodesTheEnvelopeData() async throws {
+        let body = #"{"ok":true,"data":{"id":"mv 1","request":{"mode":"move"},"state":"done","result":{"name":"a","to":"nas"}}}"#
+        let transport = FakeWebTransport(responses: [200: body])
+        let job = try await LeoWebDaemonClient(transport: transport).moveJob(id: "mv 1")
+
+        #expect(job.state == .done)
+        let sent = try #require(await transport.requests.first)
+        #expect(sent.method == "GET")
+        #expect(sent.path == "/api/agent/moves/mv%201")
+    }
+
+    @Test func anUnknownOrPrunedJobIsNotFound() async {
+        let transport = FakeWebTransport(responses: [404: #"{"ok":false,"error":"no such move job"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: LeoMoveWire.notFoundCode, message: "no such move job", matches: [])) {
+            _ = try await LeoWebDaemonClient(transport: transport).moveJob(id: "gone")
+        }
+    }
+
+    @Test func aWebPollLetsTheMoverFollowTheJobToItsOutcome() async throws {
+        let running = #"{"ok":true,"data":{"id":"mv-1","request":{"mode":"move"},"state":"running"}}"#
+        let accepted = (202, running)
+        let done = #"{"ok":true,"data":{"id":"mv-1","request":{"mode":"move"},"state":"done","result":{"name":"a","to":"nas"}}}"#
+        let transport = FakeWebTransport(sequence: [accepted, (200, running), (200, done)])
+        let mover = LeoAgentMover(client: LeoWebDaemonClient(transport: transport), pollInterval: .zero, sleep: { _ in })
+
+        let outcome = try await mover.run("a", .move(to: "nas"))
+        #expect(outcome == .done(LeoMoveResult(name: "a", to: "nas")))
+        let paths = await transport.requests.map(\.path)
+        #expect(paths == ["/api/agent/a/move", "/api/agent/moves/mv-1", "/api/agent/moves/mv-1"])
     }
 }

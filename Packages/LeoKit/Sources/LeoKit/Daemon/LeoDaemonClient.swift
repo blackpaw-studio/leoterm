@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol LeoDaemonClient: Sendable {
+public protocol LeoDaemonClient: LeoMoveJobClient {
     func listAgents() async throws -> [LeoAgent]
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent
     func start(_ name: String) async throws
@@ -40,8 +40,12 @@ public protocol LeoDaemonClient: Sendable {
     /// The daemon's JSON config API (`config_api`), when this client can
     /// reach it. Nil for a client with no such route.
     func configClient() -> (any LeoConfigClient)?
-    /// B-324 (`agent_move`): start a move or copy of `name`; the daemon runs it
-    /// as a job. `moveJob(id:)` reports the job's progress and outcome.
+}
+
+/// B-324 (`agent_move`): start a move or copy of `name`; the daemon runs it as
+/// a job. `moveJob(id:)` reports the job's progress and outcome. The socket
+/// and web clients both answer it, so `LeoAgentMover` follows either.
+public protocol LeoMoveJobClient: Sendable {
     func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob
     func moveJob(id: String) async throws -> LeoMoveJob
 }

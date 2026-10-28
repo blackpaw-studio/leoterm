@@ -2,7 +2,7 @@ import Foundation
 
 /// The daemon's web-listener API as a paired device uses it: the
 /// observability snapshot and stream, and the agent control routes.
-public struct LeoWebDaemonClient: Sendable {
+public struct LeoWebDaemonClient: LeoMoveJobClient {
     public let defaultTimeout: TimeInterval
     public let mutationTimeout: TimeInterval
     private let transport: any LeoWebTransport
@@ -82,11 +82,19 @@ public struct LeoWebDaemonClient: Sendable {
 
     /// Starts a move or copy of `name` (`agent_move`). The web listener answers
     /// 202 with the job in the envelope; refusals use the envelope's `code`.
-    /// It has no job poll yet: a later `moveJob(id:)` over the same job shape
-    /// lets `LeoAgentMover` follow web jobs unchanged.
+    /// `moveJob(id:)` polls `GET /api/agent/moves/{id}`, the same job shape, so
+    /// `LeoAgentMover` follows web jobs unchanged.
     public func startMove(_ name: String, _ moveRequest: LeoMoveRequest) async throws -> LeoMoveJob {
         let path = "/api/agent/\(try LeoSocketDaemonClient.pathSegment(name))/move"
         let response = try await request("POST", path, body: try JSONEncoder().encode(moveRequest))
+        return try LeoDaemonEnvelope<LeoMoveJob>.decode(response.body).value()
+    }
+
+    /// The job's current status (a move or a copy). A job the daemon no longer
+    /// holds (unknown, or pruned once finished) is `not_found`; a daemon with
+    /// no job store answers `unavailable`.
+    public func moveJob(id: String) async throws -> LeoMoveJob {
+        let response = try await request("GET", "/api/agent/moves/\(try LeoSocketDaemonClient.pathSegment(id))")
         return try LeoDaemonEnvelope<LeoMoveJob>.decode(response.body).value()
     }
 

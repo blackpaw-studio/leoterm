@@ -16,12 +16,12 @@ public enum LeoAgentMoveOutcome: Equatable, Sendable {
 public struct LeoAgentMover: Sendable {
     public typealias Sleep = @Sendable (Duration) async throws -> Void
 
-    private let client: any LeoDaemonClient
+    private let client: any LeoMoveJobClient
     private let pollInterval: Duration
     private let sleep: Sleep
 
     public init(
-        client: any LeoDaemonClient,
+        client: any LeoMoveJobClient,
         pollInterval: Duration = .seconds(1),
         sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
     ) {
