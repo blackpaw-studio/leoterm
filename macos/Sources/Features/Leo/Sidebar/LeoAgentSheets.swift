@@ -35,6 +35,42 @@ struct LeoRenameAgentSheet: View {
     }
 }
 
+/// Copy and Duplicate: asks for the copy's optional name, then starts the
+/// copy on `destination`, or on the agent's own host when it is nil.
+struct LeoCopyAgentSheet: View {
+    let row: LeoAgentRow
+    let destination: String?
+    @ObservedObject var actions: LeoAgentActions
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+
+    private var validation: String? { SpawnValidation.name(name, current: row.name) }
+    private var title: String { destination.map { "Copy \(row.name) to \($0)" } ?? "Duplicate \(row.name)" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title).font(.headline)
+            TextField("Name", text: $name, prompt: Text("\(row.name)-copy"))
+            if let validation {
+                Text(validation).foregroundStyle(Color(nsColor: .systemRed))
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Copy") {
+                    let chosen = name.isEmpty ? nil : name
+                    if let destination {
+                        actions.copy(row, to: destination, name: chosen)
+                    } else {
+                        actions.duplicate(row, name: chosen)
+                    }
+                    dismiss()
+                }.keyboardShortcut(.defaultAction).disabled(validation != nil)
+            }
+        }.padding().frame(width: 360)
+    }
+}
+
 /// Delete sheet shared the same way. `error`/`errorCode` are passed in
 /// rather than read from a model directly, so this view stays agnostic
 /// about where they come from: a caller embedded in a reactive SwiftUI tree

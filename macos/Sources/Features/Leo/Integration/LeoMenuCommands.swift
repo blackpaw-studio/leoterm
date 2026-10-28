@@ -45,6 +45,9 @@ enum LeoMenuCommands {
     static func canRename(_ context: AgentContext) -> Bool { enabled(context) { $0.rename } }
     static func canViewLogs(_ context: AgentContext) -> Bool { enabled(context) { $0.logs } }
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
+    static func canMove(_ context: AgentContext) -> Bool { enabled(context) { $0.move } }
+    static func canCopy(_ context: AgentContext) -> Bool { enabled(context) { $0.copy } }
+    static func canDuplicate(_ context: AgentContext) -> Bool { enabled(context) { $0.duplicate } }
 
     /// Agents ▸ Pin Agent / Unpin Agent (⌥⌘P) on the selected row (B-010).
     static func pinToggleTitle(isPinned: Bool) -> String { isPinned ? "Unpin Agent" : "Pin Agent" }

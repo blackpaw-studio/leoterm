@@ -12,6 +12,20 @@ struct LeoMenuCommandsTests {
         #expect(identifiers.dropFirst(index + 1).first == LeoAgentsMenuController.setEnvironmentsItemIdentifier.rawValue)
     }
 
+    /// B-324: Move To, Copy To and Duplicate… follow Switch to in the Agent menu, each with its own shortcut.
+    @Test func moveCopyAndDuplicateSitInTheAgentMenuWithShortcuts() throws {
+        let identifiers = try LeoMenuXib.siblingIdentifiers(of: LeoAgentsMenuController.moveToItemIdentifier.rawValue)
+        let move = try #require(identifiers.firstIndex(of: LeoAgentsMenuController.moveToItemIdentifier.rawValue))
+        #expect(identifiers[move - 1] == LeoAgentsMenuController.switchEnvironmentItemIdentifier.rawValue)
+        #expect(identifiers[move + 1] == LeoAgentsMenuController.copyToItemIdentifier.rawValue)
+        let shortcuts = try LeoMenuXib.shortcuts()
+        #expect(shortcuts.first { $0.title == "Move To" }?.shortcut == "⌃⇧⌘m")
+        #expect(shortcuts.first { $0.title == "Copy To" }?.shortcut == "⌃⇧⌘c")
+        let duplicate = try #require(shortcuts.first { $0.action == "duplicateSelectedLeoAgent:" })
+        #expect(duplicate.shortcut == "⌃⌘d")
+        #expect(duplicate.title == "Duplicate…")
+    }
+
     @Test @MainActor func setTemplateItemIsFoundByIdentifierNotTitle() {
         let item = NSMenuItem(title: "Set Template", action: nil, keyEquivalent: "")
         item.identifier = LeoAgentsMenuController.setTemplateItemIdentifier
@@ -48,6 +62,18 @@ struct LeoMenuCommandsTests {
     @Test func createAgentRequiresLeoSession() {
         #expect(LeoMenuCommands.canCreateAgent(hasLeoSession: true))
         #expect(!LeoMenuCommands.canCreateAgent(hasLeoSession: false))
+    }
+
+    /// B-324: Move To, Copy To and Duplicate follow the same availability as the row menu.
+    @Test func moveCopyAndDuplicateFollowTheRowAvailability() {
+        let live = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: LeoRowActionAvailability(status: .running, isPending: false))
+        #expect(LeoMenuCommands.canMove(live) && LeoMenuCommands.canCopy(live) && LeoMenuCommands.canDuplicate(live))
+        let noSession = LeoMenuCommands.AgentContext(hasLeoSession: false, availability: LeoRowActionAvailability(status: .running, isPending: false))
+        #expect(!LeoMenuCommands.canMove(noSession) && !LeoMenuCommands.canCopy(noSession) && !LeoMenuCommands.canDuplicate(noSession))
+        let moved = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: LeoRowActionAvailability(status: .stopped, isPending: false, movedTo: "nas"))
+        #expect(!LeoMenuCommands.canMove(moved) && !LeoMenuCommands.canCopy(moved) && !LeoMenuCommands.canDuplicate(moved))
+        let none = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: nil)
+        #expect(!LeoMenuCommands.canMove(none) && !LeoMenuCommands.canCopy(none) && !LeoMenuCommands.canDuplicate(none))
     }
 
     @Test func agentCommandsDisabledWithoutLeoSession() {

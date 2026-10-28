@@ -538,6 +538,28 @@
                                     </items>
                                 </menu>
                             </menuItem>
+                            <menuItem title="Move To" keyEquivalent="M" identifier="leo.agents.moveTo" id="Leo-Agents-MoveTo">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" shift="YES" command="YES"/>
+                                <menu key="submenu" title="Move To" id="Leo-Agents-MoveTo-Menu">
+                                    <items>
+                                        <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-MoveTo-Placeholder"/>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Copy To" keyEquivalent="C" identifier="leo.agents.copyTo" id="Leo-Agents-CopyTo">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" shift="YES" command="YES"/>
+                                <menu key="submenu" title="Copy To" id="Leo-Agents-CopyTo-Menu">
+                                    <items>
+                                        <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-CopyTo-Placeholder"/>
+                                    </items>
+                                </menu>
+                            </menuItem>
+                            <menuItem title="Duplicate…" keyEquivalent="d" id="Leo-Agents-Duplicate">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="duplicateSelectedLeoAgent:" target="-1" id="Leo-Agents-Duplicate-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="View Logs" id="Leo-Agents-ViewLogs">
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>

@@ -28,18 +28,29 @@ struct LeoRowActionAvailability {
     /// B-176: a worktree branch needs the agent's GitHub owner/repo; the
     /// agent's own status doesn't matter.
     let newWorktree: Bool
+    /// B-324: the agent moved to another host; this row is its dormant record.
+    let isMoved: Bool
+    let move: Bool
+    let copy: Bool
+    let duplicate: Bool
 
-    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil) {
+    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil, movedTo: String? = nil) {
         newWorktree = SpawnValidation.ownerRepo(repo) != nil
+        isMoved = movedTo != nil
         let editable = !isPending && (status == .stopped || status == .running)
-        start = !isPending && status == .stopped
+        // A moved agent lives on its new host: only Delete and View Logs stay.
+        let live = editable && movedTo == nil
+        start = !isPending && status == .stopped && movedTo == nil
         stop = !isPending && status == .running
         restart = !isPending && status == .running
-        setTemplate = editable
-        rename = editable
+        setTemplate = live
+        rename = live
         delete = editable
-        attach = !isPending
+        attach = !isPending && movedTo == nil
         logs = !isPending
+        move = live
+        copy = live
+        duplicate = live
     }
 }
 
@@ -91,7 +102,7 @@ struct LeoAgentRowView: View {
     @State private var showingAppearance = false
 
     private var availability: LeoRowActionAvailability {
-        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo)
+        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo, movedTo: row.movedTo)
     }
 
     var body: some View {
@@ -145,6 +156,12 @@ struct LeoAgentRowView: View {
             Menu(LeoEnvironmentSwitchMenu.title) { switchItems }
                 .disabled(!availability.setTemplate)
         }
+        Menu(LeoMoveMenu.moveTitle) { destinationItems { host in LeoMoveFlow.move(row, to: host, actions: actions, in: NSApp.keyWindow) } }
+            .disabled(!availability.move)
+        Menu(LeoMoveMenu.copyTitle) { destinationItems { host in LeoMoveFlow.copy(row, to: host, actions: actions, in: NSApp.keyWindow) } }
+            .disabled(!availability.copy)
+        Button(LeoMoveMenu.duplicateTitle) { LeoMoveFlow.copy(row, to: nil, actions: actions, in: NSApp.keyWindow) }
+            .disabled(!availability.duplicate)
         if appearanceSupported {
             Button("Appearance…") { showingAppearance = true }
         }
@@ -155,6 +172,18 @@ struct LeoAgentRowView: View {
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
+    }
+
+    /// B-324: the host's move destinations, read from the list `actions`
+    /// prefetched on connect, like the templates.
+    @ViewBuilder private func destinationItems(_ choose: @escaping (String) -> Void) -> some View {
+        let entries = LeoMoveMenu.entries(actions.moveDestinations(for: row.host))
+        ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            switch entry {
+            case .placeholder(let title): Text(title)
+            case .host(let host): Button(host) { choose(host) }
+            }
+        }
     }
 
     @ViewBuilder private var templateItems: some View {

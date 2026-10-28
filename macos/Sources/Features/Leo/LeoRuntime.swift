@@ -29,6 +29,10 @@ import LeoKit
     /// Windows open Chat for a selected agent with unread messages: on a
     /// selection change, and when a seed lands after one.
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
+    private var moveForceOffers: AnyCancellable?
+    #if DEBUG
+    private var moveFixture: LeoMoveFixture?
+    #endif
     /// Every configured machine, connected at once (This Mac first).
     let machines: LeoMachineRegistry
     /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
@@ -393,10 +397,24 @@ import LeoKit
         self.clients = clients
         let statsPoller = Self.makeStatsPoller(clients: clients, model: model, defaults: defaults)
         self.statsPoller = statsPoller
-        actions = LeoAgentActions(clients: clients, cli: cli, model: model, processRunner: templateFetchRunner) {
-            Task { @MainActor [weak feeds] in feeds?.refresh() }
+        var actionClients: any LeoMachineClientResolving = clients
+        var refreshActions: @MainActor () -> Void = { [weak feeds] in feeds?.refresh() }
+        #if DEBUG
+        let moveFixture = LeoMoveFixture.isEnabled() ? LeoMoveFixture(model: model) : nil
+        if let fixture = moveFixture {
+            actionClients = fixture.clients
+            refreshActions = { fixture.refresh() }
+        }
+        #endif
+        actions = LeoAgentActions(clients: actionClients, cli: cli, model: model, processRunner: templateFetchRunner) {
+            Task { @MainActor in refreshActions() }
         }
         actionsBox.actions = actions
+        // A mid-turn move refusal asks the user in whichever window is key.
+        moveForceOffers = actions.$forceOffer.compactMap { $0 }.sink { [weak actions] offer in
+            guard let actions else { return }
+            LeoMoveFlow.offerForce(offer, actions: actions, in: NSApp.keyWindow)
+        }
         control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in
             await LeoClearConfirmation.confirm(agent: row.name, in: window)
         })
@@ -487,6 +505,11 @@ import LeoKit
         statsObservations = Self.observeStatsInputs(poller: statsPoller, defaults: defaults, activation: appActivationNotifications)
         #if DEBUG
         if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
+        if let moveFixture {
+            moveFixture.arm()
+            moveFixture.seedDestinations(into: actions)
+            self.moveFixture = moveFixture
+        }
         if let reason = LeoForcedDisconnectFixture.reason() {
             LeoForcedDisconnectFixture.arm(feeds: feeds, reason: reason)
         }

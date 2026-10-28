@@ -25,6 +25,13 @@ import LeoKit
     /// daemon fails quietly: every reader is gated on `agent_environments`.
     @Published private(set) var environmentCatalogs: [LeoHostID: LeoEnvironmentCatalogState] = [:]
     private var environmentCatalogTokens: [LeoHostID: Int] = [:]
+    /// B-324: where each machine's agents can be moved or copied to (the
+    /// keys of its daemon's `client.hosts`), loaded whenever it connects.
+    @Published private(set) var moveDestinationLists: [LeoHostID: LeoMoveDestinations] = [:]
+    /// A move the daemon refused only because the agent is mid-turn; the UI
+    /// asks whether to move it anyway (`acceptForceOffer`).
+    @Published private(set) var forceOffer: LeoMoveForceOffer?
+    private let moveSleep: LeoAgentMover.Sleep
     /// Resolves the daemon, generation and configuration of the row's own
     /// host for every call below, so actions on one machine never wait on,
     /// or get redirected by, another's connection.
@@ -54,12 +61,14 @@ import LeoKit
     init(clients: any LeoMachineClientResolving, cli: LeoCLI, model: LeoSidebarModel,
          processRunner: any LeoProcessRunning,
          sshExecutable: String = "/usr/bin/ssh",
+         moveSleep: @escaping LeoAgentMover.Sleep = { try await Task.sleep(for: $0) },
          refresh: @escaping () -> Void) {
         self.clients = clients
         self.cli = cli
         self.model = model
         self.processRunner = processRunner
         self.sshExecutable = sshExecutable
+        self.moveSleep = moveSleep
         self.refresh = refresh
     }
 
@@ -73,6 +82,7 @@ import LeoKit
     func hostConnected(_ host: LeoHostID) {
         loadTemplates(for: host)
         reloadEnvironmentCatalog(for: host)
+        loadMoveDestinations(for: host)
     }
 
     /// Fetches `host`'s catalog from the daemon it is bound to now; a load
@@ -121,6 +131,7 @@ import LeoKit
             }
         }
         environmentCatalogs.keys.forEach { reloadEnvironmentCatalog(for: $0) }
+        moveDestinationLists.keys.forEach { loadMoveDestinations(for: $0) }
     }
 
     private func nextTemplateListToken(for host: LeoHostID) -> Int {
@@ -165,6 +176,72 @@ import LeoKit
     func appearanceClient(for host: LeoHostID) -> (any LeoAppearanceAPI)? {
         clients.daemon(for: host)?.configClient()
     }
+    // MARK: Move, copy, duplicate (B-324)
+
+    /// nil until `host`'s list has loaded.
+    func moveDestinations(for host: LeoHostID) -> LeoMoveDestinations? { moveDestinationLists[host] }
+
+    func loadMoveDestinations(for host: LeoHostID) {
+        guard let daemon = clients.daemon(for: host) else { return }
+        let generation = clients.generation(for: host)
+        Task { [weak self] in
+            let destinations = await LeoMoveDestinations.load(from: daemon)
+            guard let self, self.clients.generation(for: host) == generation else { return }
+            self.moveDestinationLists[host] = destinations
+        }
+    }
+
+    #if DEBUG
+    /// The move fixture's stand-in for the daemon's host list.
+    func seedMoveDestinations(_ destinations: LeoMoveDestinations, for host: LeoHostID) {
+        moveDestinationLists[host] = destinations
+    }
+    #endif
+
+    func move(_ row: LeoAgentRow, to destination: String, force: Bool = false) {
+        transfer(row, .move(to: destination, force: force))
+    }
+    func copy(_ row: LeoAgentRow, to destination: String, name: String?) { transfer(row, .copy(to: destination, name: name)) }
+    /// A copy on the agent's own host.
+    func duplicate(_ row: LeoAgentRow, name: String?) { transfer(row, .duplicate(name: name)) }
+
+    /// The user chose "Move Anyway": resends the move with the mid-turn check skipped.
+    func acceptForceOffer() {
+        guard let offer = forceOffer else { return }
+        forceOffer = nil
+        move(offer.row, to: offer.destination, force: true)
+    }
+    func dismissForceOffer() { forceOffer = nil }
+
+    /// Runs the job to its outcome while the row stays pending. A finished
+    /// job (or a lost one) refreshes the list: a moved agent turns dormant
+    /// and a copy appears. A refusal shows on the row instead, which a
+    /// refresh would clear.
+    private func transfer(_ row: LeoAgentRow, _ request: LeoMoveRequest) {
+        let sleep = moveSleep
+        run(
+            row, refreshOnSuccess: false,
+            onSuccess: { [weak self] (outcome: LeoAgentMoveOutcome) in self?.finish(outcome, row: row, request: request) },
+            operation: { daemon in try await LeoAgentMover(client: daemon, sleep: sleep).run(row.name, request) }
+        )
+    }
+
+    private func finish(_ outcome: LeoAgentMoveOutcome, row: LeoAgentRow, request: LeoMoveRequest) {
+        switch outcome {
+        case .done:
+            refresh()
+        case .unknown(let message):
+            model.setRowError(message, for: row.id)
+            refresh()
+        case .refused(let code, let message, let offersForce):
+            if offersForce, let destination = request.to {
+                forceOffer = LeoMoveForceOffer(row: row, destination: destination, message: message)
+            } else {
+                model.setRowError(message, code: code, for: row.id)
+            }
+        }
+    }
+
     func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
     /// B-274: closes `row`'s editor panes in every window before it's
     /// deleted, asking about unsaved edits; `false` on Cancel. Wired by
@@ -312,4 +389,12 @@ import LeoKit
         if case let LeoDaemonError.daemon(code, _, _) = error { return code }
         return nil
     }
+}
+
+/// A mid-turn refusal of `row`'s move to `destination`, with the daemon's
+/// reason, awaiting the user's choice.
+struct LeoMoveForceOffer: Equatable {
+    let row: LeoAgentRow
+    let destination: String
+    let message: String
 }

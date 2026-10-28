@@ -65,6 +65,12 @@ extension TerminalController {
         LeoAgentMenuSheets(runtime: runtime).presentDelete(row, in: window)
     }
 
+    /// Agents ▸ Duplicate… (⌃⌘D): a copy on the agent's own host.
+    @IBAction func duplicateSelectedLeoAgent(_ sender: Any?) {
+        guard let runtime = leoRuntime, let row = selectedLeoRow, LeoMenuCommands.canDuplicate(selectedLeoAgentContext) else { return }
+        LeoMoveFlow.copy(row, to: nil, actions: runtime.actions, in: window)
+    }
+
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)
@@ -102,6 +108,7 @@ extension TerminalController {
     func validateLeoRenameMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canRename(selectedLeoAgentContext) }
     func validateLeoViewLogsMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canViewLogs(selectedLeoAgentContext) }
     func validateLeoDeleteMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canDelete(selectedLeoAgentContext) }
+    func validateLeoDuplicateMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canDuplicate(selectedLeoAgentContext) }
     func validateLeoManageHostsMenuItem(_ item: NSMenuItem) -> Bool { leoRuntime != nil }
 
     /// Installs the "Set Template" submenu controller on the Agents menu
@@ -137,6 +144,9 @@ extension TerminalController {
     /// "Switch to", right after Set Environments: one pick sets a sole
     /// environment. Shown and hidden with Set Environments.
     static let switchEnvironmentItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.switchEnvironment")
+    /// B-324: "Move To" and "Copy To", right after Switch to.
+    static let moveToItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.moveTo")
+    static let copyToItemIdentifier = NSUserInterfaceItemIdentifier("leo.agents.copyTo")
 
     /// Bumped on every `menuNeedsUpdate` call and captured before the async
     /// template fetch; a fetch whose generation no longer matches the
@@ -153,6 +163,72 @@ extension TerminalController {
     func menuNeedsUpdate(_ menu: NSMenu) {
         updateTemplateItem(in: menu)
         updateEnvironmentsItem(in: menu)
+        updateMoveItems(in: menu)
+    }
+
+    /// Move To and Copy To list the selected agent's host's destinations,
+    /// read from the list `LeoAgentActions` prefetched on connect.
+    private func updateMoveItems(in menu: NSMenu) {
+        let kinds: [(NSUserInterfaceItemIdentifier, MoveKind)] = [(Self.moveToItemIdentifier, .move), (Self.copyToItemIdentifier, .copy)]
+        let targets = kinds.compactMap { identifier, kind in
+            menu.items.first(where: { $0.identifier == identifier }).flatMap { item in item.submenu.map { (item, $0, kind) } }
+        }
+        guard !targets.isEmpty else { return }
+        let generation = updateGeneration
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController,
+              let row = controller.selectedLeoRow, let runtime = controller.leoRuntime else {
+            for (item, submenu, _) in targets {
+                item.isEnabled = false
+                submenu.items = [Self.placeholderItem(title: "No Agent Selected")]
+            }
+            return
+        }
+        let actions = runtime.actions
+        let context = controller.selectedLeoAgentContext
+        for (item, _, kind) in targets {
+            item.isEnabled = kind == .move ? LeoMenuCommands.canMove(context) : LeoMenuCommands.canCopy(context)
+        }
+        let fill = { [weak self] (destinations: LeoMoveDestinations?) in
+            guard let self else { return }
+            for (_, submenu, kind) in targets {
+                submenu.items = LeoMoveMenu.entries(destinations).map { self.moveMenuItem(for: $0, kind: kind, row: row, actions: actions) }
+            }
+        }
+        let host = row.host
+        fill(actions.moveDestinations(for: host))
+        guard actions.moveDestinations(for: host) == nil else { return }
+        Task { @MainActor [weak self] in
+            for await lists in actions.$moveDestinationLists.values {
+                guard let loaded = lists[host] else { continue }
+                guard let self, self.updateGeneration == generation else { return }
+                fill(loaded)
+                return
+            }
+        }
+    }
+
+    private enum MoveKind { case move, copy }
+
+    private func moveMenuItem(for entry: LeoMoveMenuEntry, kind: MoveKind, row: LeoAgentRow, actions: LeoAgentActions) -> NSMenuItem {
+        switch entry {
+        case .placeholder(let title):
+            return Self.placeholderItem(title: title)
+        case .host(let host):
+            let item = NSMenuItem(title: host, action: #selector(selectMoveDestination(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = LeoMoveSelection(isMove: kind == .move, host: host, row: row, actions: actions)
+            return item
+        }
+    }
+
+    @objc private func selectMoveDestination(_ sender: NSMenuItem) {
+        guard let selection = sender.representedObject as? LeoMoveSelection else { return }
+        let window = NSApp.keyWindow
+        if selection.isMove {
+            LeoMoveFlow.move(selection.row, to: selection.host, actions: selection.actions, in: window)
+        } else {
+            LeoMoveFlow.copy(selection.row, to: selection.host, actions: selection.actions, in: window)
+        }
     }
 
     private func updateTemplateItem(in menu: NSMenu) {
@@ -290,6 +366,13 @@ extension TerminalController {
         item.isEnabled = false
         return item
     }
+}
+
+private struct LeoMoveSelection {
+    let isMove: Bool
+    let host: String
+    let row: LeoAgentRow
+    let actions: LeoAgentActions
 }
 
 private struct LeoEnvironmentSelection {
