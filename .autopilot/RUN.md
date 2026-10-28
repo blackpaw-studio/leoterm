@@ -214,6 +214,17 @@ Lane: B-199
   Call: Mac only (the Quick Terminal is macOS UI, no iOS half) — Mac+iOS parity rule
   Call: Dismiss B-199 as a verification artifact: real clicks already close the panel; the re-open only appears when Peekaboo's window-focus step runs before the click (AX focus resigns key with no mouse-down) — the 'fixed or explicitly dismissed with a reason' criterion
 
+Lane: B-227
+  Branch: autopilot-lane/B-227
+  Base: 4ac4fbf2928d6a7df8cd93397e0965de906b6236
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T12:22:00Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
