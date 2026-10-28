@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-28T01:47:16Z
 Budget: 20 items, until 2026-10-28T13:47:16Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 0/5 ideas
 Self-filed: B-318 → B-325 bug — Edit ▸ Paste may lack ⌘V
 Untracked-left: default.profraw scratchpad/
