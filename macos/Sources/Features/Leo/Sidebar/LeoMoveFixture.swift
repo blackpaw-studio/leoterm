@@ -19,7 +19,11 @@ import LeoKit
         environment[environmentKey] == "1"
     }
 
+    /// `LEO_MOVE_FIXTURE_FEATURES=none` plays a daemon that predates `agent_move`.
+    static let featuresKey = "LEO_MOVE_FIXTURE_FEATURES"
+
     private let model: LeoSidebarModel
+    private let features: LeoDaemonFeatures
     private var movedAway: [String: String] = ["old-agent": "nas"]
     private var onNAS: [String] = []
     private var copies: [String] = []
@@ -27,8 +31,9 @@ import LeoKit
     private var subscription: AnyCancellable?
     private(set) lazy var clients = LeoMoveFixtureClients(daemon: LeoMoveFixtureDaemon(world: self))
 
-    init(model: LeoSidebarModel) {
+    init(model: LeoSidebarModel, environment: [String: String] = ProcessInfo.processInfo.environment) {
         self.model = model
+        features = environment[Self.featuresKey] == "none" ? LeoDaemonFeatures([]) : LeoDaemonFeatures(["agent_move"])
     }
 
     /// Fills the sidebar once This Mac's first snapshot has landed, as the
@@ -83,7 +88,7 @@ import LeoKit
     private func snapshot(_ rows: [LeoAgentRow], _ host: LeoHostID) -> LeoSidebarSnapshot {
         LeoSidebarSnapshot(
             rows: rows, connectivity: .connected, generation: generation, listRefreshSucceeded: true,
-            features: LeoDaemonFeatures(["agent_move"]), featuresHost: host
+            features: features, featuresHost: host
         )
     }
 
@@ -146,7 +151,10 @@ actor LeoMoveFixtureDaemon: LeoDaemonClient {
     func setTemplate(_ name: String, template: String) async throws {}
     func rename(_ name: String, newName: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
-    func deletePlan(_ name: String) async throws -> LeoDeletePlan { throw LeoDaemonError.timeout }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan {
+        let json = #"{"name":"\#(name)","has_worktree":true,"branch":"agent/\#(name)","worktree_path":"/work/\#(name)"}"#
+        return try JSONDecoder().decode(LeoDeletePlan.self, from: Data(json.utf8))
+    }
     func logs(_ name: String, lines: Int?) async throws -> String { "" }
 }
 #endif

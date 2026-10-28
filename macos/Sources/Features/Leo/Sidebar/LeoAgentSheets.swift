@@ -97,7 +97,7 @@ struct LeoDeleteAgentSheet: View {
     /// A moved agent's dormant record is a leftover copy, not the agent (B-324).
     private var title: String {
         guard let movedTo = row.movedTo else { return "Delete \(row.name)?" }
-        return LeoMovedAgentWording.removeLeftoverTitle(on: row.host.displayName, movedTo: movedTo)
+        return LeoMovedAgentWording.removeLeftoverTitle(on: SpawnMachineOption.title(for: row.host), movedTo: movedTo)
     }
 
     private var deleteSheetAvailability: LeoDeleteSheetActionAvailability {
