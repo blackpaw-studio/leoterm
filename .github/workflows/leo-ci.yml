@@ -48,10 +48,17 @@ jobs:
         working-directory: macos
         run: swiftlint lint --strict
 
+      # leo-release.yml calls this workflow on a leo-vX.Y.Z tag; without an
+      # explicit version string Config.zig panics on the tag (B-317).
       - name: Build GhosttyKit
         run: |
+          version="$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' build.zig.zon | head -1)"
+          if [[ -z "$version" ]]; then
+            echo "could not read .version from build.zig.zon" >&2
+            exit 1
+          fi
           rm -rf macos/GhosttyKit.xcframework zig-out
-          zig build -Demit-macos-app=false
+          zig build -Demit-macos-app=false -Dversion-string="$version"
 
       - name: Unit tests
         env:
