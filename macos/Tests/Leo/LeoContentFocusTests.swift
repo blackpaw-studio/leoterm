@@ -86,6 +86,11 @@ private struct FocusFixture {
 
     private static let timeout: Duration = .seconds(5)
 
+    /// Just past the longest `Ghostty.moveFocus` retry chain: it backs off
+    /// 50, 100, 200 and 400 ms (SurfaceView.swift) and stops at 800, so the
+    /// last stale retry fires 750 ms after the move that began it.
+    private static let focusRetryChain: TimeInterval = 0.8
+
     static func make() async throws -> FocusFixture {
         let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "the test host has no Ghostty.App")
         try #require(ghostty.readiness == .ready, "the test host's Ghostty.App isn't ready")
@@ -171,9 +176,16 @@ private struct FocusFixture {
     }
 
     /// `expected` becomes the first responder, the window's focused surface
-    /// and (as long as the window is key) the only pane drawing focused.
-    /// Polled, not slept on: `Ghostty.moveFocus` lands on `asyncAfter`
-    /// timers, so the state is awaited rather than read after a fixed wait.
+    /// and (as long as the window is key) the only pane drawing focused, and
+    /// it stays so.
+    /// `Ghostty.moveFocus` lands on `asyncAfter` timers, so the state is
+    /// polled for rather than read after a fixed wait. A poll cannot show
+    /// that focus stays put: a stale `moveFocus` to another pane, queued
+    /// before the settle, may still be pending and would steal it back. So
+    /// once settled, a main-queue timer past the whole retry chain is
+    /// awaited; timers fire in deadline order, so every retry queued earlier
+    /// has run by the time it resumes, even if the main thread stalled
+    /// meanwhile (a wall-clock sleep would not give that).
     func expectSettled(
         on expected: Ghostty.SurfaceView,
         _ comment: Comment? = nil,
@@ -186,12 +198,21 @@ private struct FocusFixture {
                 && !controller.surfaceTree.contains { $0 !== expected && $0.focused }
         }
         try #require(await eventually { window.firstResponder === expected }, "never first responder: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+        // The result is deliberately dropped: the #expects below report
+        // which part of the state is wrong, which a bare timeout would not.
         _ = await eventually(isSettled)
+        await drainFocusRetries()
         #expect(window.firstResponder === expected, "focus moved on: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
         #expect(controller.focusedSurface === expected, "the window's focused surface \(comment ?? "")", sourceLocation: sourceLocation)
         #expect(expected.focused == window.isKeyWindow, "its cursor: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
         let others = controller.surfaceTree.filter { $0 !== expected && $0.focused }
         #expect(others.isEmpty, "another pane draws focused: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+    }
+
+    private func drainFocusRetries() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.focusRetryChain) { continuation.resume() }
+        }
     }
 
     private func row(_ handle: AttachmentHandle) throws -> Row {
