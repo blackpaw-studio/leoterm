@@ -55,6 +55,17 @@ Lane: B-320
   Dispatched: 2026-10-28T04:08:27Z
   Call: iOS only (UIKit layout under ios/; the Mac app doesn't use this view) — AGENTS.md Mac+iOS rule
 
+Lane: B-321
+  Branch: autopilot-lane/B-321
+  Base: 6a74d3fd6bc33aae5c5cd295a8b462f4443764a4
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T04:50:20Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
