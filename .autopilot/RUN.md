@@ -82,6 +82,17 @@ Lane: B-322
   Call: The test host gets an unreachable socket (/dev/null/leo-test-host.sock) and no legacy :8370 web config, rather than a scratch daemon — test infrastructure
   Call: B-322 is Mac only; iOS has no local unix socket and LeoKit is unchanged — AGENTS.md Mac+iOS rule
 
+Lane: B-172
+  Branch: autopilot-lane/B-172
+  Base: efb36873f1c56f4e2bc54ba6ea474d266071cebf
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-28T05:31:51Z
+
 Progress:
 - Unlanded lane B-233 has no RUN.md block (left in place).
 - B-318 runner: leo dispatch d-975afc371f24 (implement role).
@@ -94,3 +105,4 @@ Finished 3: B-321 blocked
 - B-322 runner: leo dispatch d-6675f3229244 (implement role).
 Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png
 - verify.md: added B-322 daemon-isolation notes from the runner.
+- B-172 runner: leo dispatch d-904a06e6ebc0 (implement role).
