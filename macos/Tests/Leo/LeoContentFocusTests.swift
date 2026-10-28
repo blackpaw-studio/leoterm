@@ -86,9 +86,12 @@ private struct FocusFixture {
 
     private static let timeout: Duration = .seconds(5)
 
-    /// Just past the longest `Ghostty.moveFocus` retry chain: it backs off
-    /// 50, 100, 200 and 400 ms (SurfaceView.swift) and stops at 800, so the
-    /// last stale retry fires 750 ms after the move that began it.
+    /// Just past the longest `Ghostty.moveFocus` retry chain for a move
+    /// queued with no initial delay: retries at 50, 100, 200 and 400 ms
+    /// (SurfaceView.swift) end 750 ms after it; the fifth, 800 ms, is
+    /// refused by `maxDelay` (0.5 s). The one caller with an initial delay
+    /// (BaseTerminalController.swift:808, 0.1 s) finishes by 700 ms. A
+    /// future caller with an initial delay under 50 ms would run past this.
     private static let focusRetryChain: TimeInterval = 0.8
 
     static func make() async throws -> FocusFixture {
@@ -183,9 +186,12 @@ private struct FocusFixture {
     /// that focus stays put: a stale `moveFocus` to another pane, queued
     /// before the settle, may still be pending and would steal it back. So
     /// once settled, a main-queue timer past the whole retry chain is
-    /// awaited; timers fire in deadline order, so every retry queued earlier
-    /// has run by the time it resumes, even if the main thread stalled
-    /// meanwhile (a wall-clock sleep would not give that).
+    /// awaited. Without a main-thread stall every retry has fired before it
+    /// resumes: the chain's last deadline (750 ms) precedes the drain's
+    /// (800 ms) and GCD never fires early. Each retry computes its next
+    /// deadline when it fires, so a stall mid-chain can push a later retry
+    /// past the drain (accepted risk, B-173). A wall-clock sleep gives even
+    /// weaker ordering than a timer on the queue the retries run on.
     func expectSettled(
         on expected: Ghostty.SurfaceView,
         _ comment: Comment? = nil,
