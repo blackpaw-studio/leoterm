@@ -2421,3 +2421,9 @@ Accept: an agent row with dispatch children shows a disclosure chevron that coll
 Out: auto-collapsing finished dispatches; changing dispatch row content/indent (B-267); iOS — Mac sidebar only for now
 Source: owner (/feature, 2026-10-28)
 Inbox: 20261029T005956057206Z-1410c522#1
+
+## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready (next run)]
+Type: bug
+Report: Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything — with `keybind = super+v=new_window`, Edit ▸ Paste still shows ⌘V and two menu items share the key (LeoStandardEditShortcut.swift:39; same gap in B-318's Copy logic)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-325)
