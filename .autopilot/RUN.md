@@ -27,5 +27,15 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-334
+  Branch: autopilot-lane/B-334
+  Base: c18a40f8e34f237f97655f7bb0da70ad7f7ef7c4
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: inbox empty; promoted B-334; lane B-233 unlanded with no block (left in place).
