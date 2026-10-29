@@ -2385,13 +2385,15 @@ Inbox: 20261028T234443650881Z-998cb639#1
 Done: 14d25aadf
 Verified: not visually verified — screen captures only (Rename/Delete close on Cancel+Esc, New Agent on Cancel; confirm paths by tests)
 
-## B-329 · Mac Agents menu "Set Template" submenu is enabled with no agent row…   [ready]
+## B-329 · Mac Agents menu "Set Template" submenu is enabled with no agent row…   [done]
 Issue: #303
 Type: bug
 Report: Mac Agents menu "Set Template" submenu is enabled with no agent row selected — AppKit enables a submenu parent with no action regardless of isEnabled (same bug B-324 fixed for Move To / Copy To by giving the parents actions the window validates).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-28)
 Inbox: 20261028T234444110827Z-5ec96fdf#1
+Done: 329891a93
+Verified: not visually verified — screen captures only (Set Template disabled with no row; enabled state by unit tests)
 
 ## B-330 · there should be some more spacing between stats here (Image #1)   [ready]
 Issue: #304

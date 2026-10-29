@@ -62,13 +62,14 @@ Lane: B-329
   Branch: autopilot-lane/B-329
   Base: defe83c4070d4c4f4de52c9960dbb8cd240b675c
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 0e990850f66679d6db4427621c9ba604852bc9d0
   Dispatched: 2026-10-29T04:53:48Z
   Call: Set Template menu parent gets an action the window validates (B-324 pattern, not in this tree); Mac only, AppKit menu-bar quirk — Keyboard-first, Mac-native; Mac+iOS parity rule
+  Tokens: 7.7M in (7.41M cache read), ≥29.7k out, 90 requests
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -78,3 +79,5 @@ Runner B-328: leo dispatch d-021a185b277e
 Finished 2: B-328 landed 7a99dacfa · shot screen capture, not attached
 B-328 landed 7a99dacfa (≈$3.44 est.); note: committed test never seen failing (probe with \.dismiss did fail); Copy sheet could move to LeoSheetDismiss once B-324 lands
 Runner B-329: leo dispatch d-857e3fc39586
+Finished 3: B-329 landed 590edac57 · shot screen capture, not attached
+B-329 landed 590edac57 (≈$2.42 est.)

@@ -4476,3 +4476,10 @@ Chose: LeoSpawnSheetHostingController becomes NSHostingController<AnyView> so th
 Why: AUTONOMY: implementation approach
 Commit: 14d25aadf
 Veto: [ ]
+
+## D-628 · 2026-10-29 · Set Template menu parent gets a validated action; Mac only
+Context: B-329 (runner call).
+Chose: Set Template menu parent gets an action the window validates (B-324's pattern; not in this tree); Mac only, AppKit menu-bar quirk
+Why: Keyboard-first, Mac-native; Mac+iOS parity rule
+Commit: 329891a93
+Veto: [ ]
