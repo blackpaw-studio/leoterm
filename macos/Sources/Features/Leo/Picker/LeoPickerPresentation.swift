@@ -20,7 +20,7 @@ import SwiftUI
 /// fires exactly once, regardless of *how* the sheet went away (attach,
 /// Escape, or any other dismissal AppKit doesn't route through
 /// `SpawnAgentSheet` itself).
-@MainActor final class LeoSpawnSheetHostingController: NSHostingController<SpawnAgentSheet> {
+@MainActor final class LeoSpawnSheetHostingController: NSHostingController<AnyView> {
     var onDisappear: (() -> Void)?
 
     override func viewDidDisappear() {
@@ -61,7 +61,7 @@ import SwiftUI
         let sheetView = SpawnAgentSheet(model: sidebar, actions: actions) { row, _ in
             resolve(row.identity)
         }
-        let hosting = LeoSpawnSheetHostingController(rootView: sheetView)
+        let hosting = LeoSpawnSheetHostingController(rootView: AnyView(sheetView.leoSheetClose(in: window)))
         hosting.onDisappear = { resolve(nil) }
         if !window.presentLeoSheet(hosting) { resolve(nil) }
     }

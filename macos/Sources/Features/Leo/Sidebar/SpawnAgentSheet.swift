@@ -8,7 +8,7 @@ struct SpawnAgentSheet: View {
     @ObservedObject var actions: LeoAgentActions
     private let attach: (LeoAgentRow, AttachDisposition) -> Void
     @StateObject private var model: SpawnAgentModel
-    @Environment(\.dismiss) private var dismiss
+    private let dismiss = LeoSheetDismiss()
 
     private let chooseDirectory: () -> String?
     @Environment(\.colorScheme) private var colorScheme

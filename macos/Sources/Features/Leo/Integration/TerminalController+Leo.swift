@@ -133,10 +133,11 @@ extension TerminalController {
 
     @IBAction func newLeoAgent(_ sender: Any?) {
         guard leoSession != nil, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return }
-        let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
+        let sheetView = SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
             guard let id = self.leoSession?.id else { return }
             runtime.model.attachRequested(row, id, disposition)
-        })
+        }
+        let sheet = NSHostingController(rootView: sheetView.leoSheetClose(in: window))
         window?.presentLeoSheet(sheet)
     }
 
