@@ -408,7 +408,8 @@ struct LeoSidebarView: View {
                 environmentsSupported: model.features(for: row.host).contains(.agentEnvironments),
                 appearanceSupported: model.features(for: row.host).contains(.agentAppearance),
                 inWorkingSection: section.id == LeoSidebarLayout.workingSectionID,
-                unreadCount: unread.count(for: row.id)
+                unreadCount: unread.count(for: row.id),
+                subagents: subagents(for: row)
             )
             .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
@@ -422,6 +423,17 @@ struct LeoSidebarView: View {
                     .listRowInsets(LeoDispatchRowMetrics.listRowInsets)
             }
         }
+    }
+
+    /// The chevron for a row with dispatches (B-331); only once the daemon's
+    /// dispatch tree is shown (the children are empty otherwise).
+    private func subagents(for row: LeoAgentRow) -> LeoAgentRowContent.Subagents? {
+        guard model.hasSubagents(row) else { return nil }
+        return LeoAgentRowContent.Subagents(
+            isCollapsed: model.areSubagentsCollapsed(row),
+            runningCount: model.runningSubagentCount(for: row),
+            toggle: { model.toggleSubagentsCollapsed(row) }
+        )
     }
 
     @ViewBuilder private func dispatchRow(_ item: LeoDispatchRowItem, under row: LeoAgentRow, endsGroup: Bool) -> some View {

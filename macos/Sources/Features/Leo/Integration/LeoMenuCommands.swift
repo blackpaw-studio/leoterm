@@ -49,6 +49,10 @@ enum LeoMenuCommands {
     /// Agents ▸ Pin Agent / Unpin Agent (⌥⌘P) on the selected row (B-010).
     static func pinToggleTitle(isPinned: Bool) -> String { isPinned ? "Unpin Agent" : "Pin Agent" }
 
+    /// View ▸ Hide Subagents / Show Subagents (⌥⌘S, B-331): a Show/Hide
+    /// title pair, like the sidebar's.
+    static func hideSubagentsTitle(isHidden: Bool) -> String { isHidden ? "Show Subagents" : "Hide Subagents" }
+
     static func canTogglePin(_ context: AgentContext) -> Bool { context.hasLeoSession && context.availability != nil }
 
     static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }

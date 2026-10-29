@@ -1,6 +1,7 @@
 import AppKit
 
-/// Agents ▸ Pin Agent (⌥⌘P), Agents ▸ Sort By (B-010) and Agents ▸ Group By. The pin acts on
+/// Agents ▸ Pin Agent (⌥⌘P), Agents ▸ Sort By (B-010), Agents ▸ Group By and
+/// View ▸ Hide Subagents (⌥⌘S, B-331). The pin acts on
 /// the sidebar's selection, like the other agent commands; the row's
 /// context menu offers the same toggle.
 extension TerminalController {
@@ -17,6 +18,8 @@ extension TerminalController {
 
     @IBAction func groupLeoAgentsByAttention(_ sender: Any?) { leoRuntime?.model.setGroupBy(.attention) }
 
+    @IBAction func toggleLeoHideSubagents(_ sender: Any?) { leoRuntime?.model.toggleHideSubagents() }
+
     func validateLeoPinMenuItem(_ item: NSMenuItem) -> Bool {
         let isPinned = selectedLeoRow.map { leoRuntime?.model.isPinned($0.id) ?? false } ?? false
         item.title = LeoMenuCommands.pinToggleTitle(isPinned: isPinned)
@@ -30,6 +33,11 @@ extension TerminalController {
 
     func validateLeoGroupMenuItem(_ item: NSMenuItem, groupBy: LeoSidebarGroupBy) -> Bool {
         item.state = leoRuntime?.model.preferences.groupBy == groupBy ? .on : .off
+        return leoSession != nil
+    }
+
+    func validateLeoHideSubagentsMenuItem(_ item: NSMenuItem) -> Bool {
+        item.title = LeoMenuCommands.hideSubagentsTitle(isHidden: leoRuntime?.model.hidesSubagents ?? false)
         return leoSession != nil
     }
 }

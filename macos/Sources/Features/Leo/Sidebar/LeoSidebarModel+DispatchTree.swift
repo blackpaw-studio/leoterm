@@ -14,10 +14,11 @@ struct LeoDispatchRowItem: Equatable, Identifiable {
 /// state is kept per dispatch id for as long as it lives.
 extension LeoSidebarModel {
     /// `row`'s dispatches with the children of every collapsed one left
-    /// out. The nodes are depth first, so a node has children when the
+    /// out, or none at all while `row` itself is collapsed (B-331). The nodes are depth first, so a node has children when the
     /// next one is deeper, and a collapsed node hides every deeper node
     /// after it up to the next one at its own depth or shallower.
     func visibleDispatchRows(for row: LeoAgentRow) -> [LeoDispatchRowItem] {
+        guard !areSubagentsCollapsed(row) else { return [] }
         let nodes = dispatchChildren(for: row)
         var hiddenBelow: Int?
         var items: [LeoDispatchRowItem] = []

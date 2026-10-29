@@ -70,6 +70,19 @@ import Testing
         #expect(harness.clicks.isEmpty)
     }
 
+    /// B-331: the subagents chevron sits at the row's trailing edge, and a
+    /// click on it must not also be a row click (select / attach).
+    @Test func aClickOnTheExcludedTrailingEdgeIsNoRowClick() {
+        let harness = Harness()
+        harness.catcher.trailingExclusion = 30
+
+        harness.click(at: NSPoint(x: 110, y: 40))
+        #expect(harness.clicks.isEmpty)
+
+        harness.click(at: Harness.inside)
+        #expect(harness.clicks.count == 1)
+    }
+
     @Test func aDisabledRowIgnoresClicks() {
         let harness = Harness()
         harness.catcher.isEnabled = false

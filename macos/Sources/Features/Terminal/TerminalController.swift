@@ -2091,6 +2091,9 @@ extension TerminalController {
         case #selector(toggleSelectedLeoAgentPin(_:)):
             return validateLeoPinMenuItem(item)
 
+        case #selector(toggleLeoHideSubagents(_:)):
+            return validateLeoHideSubagentsMenuItem(item)
+
         case #selector(sortLeoAgentsByLastActivity(_:)):
             return validateLeoSortMenuItem(item, order: .lastActivity)
 
