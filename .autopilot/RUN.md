@@ -36,6 +36,8 @@ Lane: B-334
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-29T23:38:44Z
 
 Progress:
 - Preflight: inbox empty; promoted B-334; lane B-233 unlanded with no block (left in place).
+- B-334 runner: leo dispatch d-318488c92376 (implement, pane %720).
