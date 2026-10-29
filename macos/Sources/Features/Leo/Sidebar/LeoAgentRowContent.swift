@@ -30,6 +30,13 @@ struct LeoAgentRowContent: View {
         let isCollapsed: Bool
         let runningCount: Int
         let toggle: () -> Void
+
+        /// What the toggle does now: the chevron's label and tooltip, and
+        /// the row's named VoiceOver action (the chevron is folded into the
+        /// row's one accessibility element).
+        var actionName: String { Self.actionName(isCollapsed: isCollapsed) }
+
+        static func actionName(isCollapsed: Bool) -> String { isCollapsed ? "Show Subagents" : "Hide Subagents" }
     }
 
     var body: some View {
@@ -84,8 +91,8 @@ struct LeoAgentRowContent: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(subagents.isCollapsed ? "Show subagents" : "Hide subagents")
-        .help(subagents.isCollapsed ? "Show subagents" : "Hide subagents")
+        .accessibilityLabel(subagents.actionName)
+        .help(subagents.actionName)
         .leoSelectionDisabled()
     }
 

@@ -120,6 +120,7 @@ struct LeoAgentRowView: View {
         .accessibilityElement(children: .combine)
         .accessibilityAction { LeoRowAccessibility.press(click) }
         .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
+        .modifier(SubagentsAccessibilityAction(subagents: subagents))
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
         .popover(isPresented: $showingAppearance, arrowEdge: .trailing) {
@@ -277,4 +278,18 @@ struct LeoAgentRowView: View {
         }
     }
 
+}
+
+/// B-331: the chevron can't be reached inside the row's single accessibility
+/// element, so a row with dispatches offers its toggle as a named action.
+private struct SubagentsAccessibilityAction: ViewModifier {
+    let subagents: LeoAgentRowContent.Subagents?
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if let subagents {
+            content.accessibilityAction(named: Text(subagents.actionName), subagents.toggle)
+        } else {
+            content
+        }
+    }
 }

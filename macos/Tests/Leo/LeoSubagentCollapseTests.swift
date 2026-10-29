@@ -182,6 +182,11 @@ import Testing
         #expect(preferences.isSubagentsCollapsed(agent("gamma").id))
     }
 
+    @Test func theRowsAccessibilityActionNamesWhatItWillDo() {
+        #expect(LeoAgentRowContent.Subagents(isCollapsed: false, runningCount: 0, toggle: {}).actionName == "Hide Subagents")
+        #expect(LeoAgentRowContent.Subagents(isCollapsed: true, runningCount: 2, toggle: {}).actionName == "Show Subagents")
+    }
+
     // MARK: Menu
 
     @Test func theMenuTitleNamesWhatItWillDo() {
