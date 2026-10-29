@@ -614,3 +614,41 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-29T02:17:35Z
+
+🛠 leoterm autopilot — 4 fixed, 3 shipped, 0 blocked
+Fixed
+• B-325 Edit ▸ Paste shows ⌘V (verified: screenshot) · light
+• B-328 Rename/Delete/New Agent sheets close (verified: screen capture, not attached) · light
+• B-329 Set Template disabled with no row selected (verified: screen capture, not attached) · light
+• B-330 Mac stats spacing 3→10 pt (verified: screenshot) · light
+Shipped
+• B-333 Ghostty-style splits in terminal rows; ⌘D/⇧⌘D to a shell, layout kept on switch (verified: screenshot) · full
+• B-332 Terminals rows, splits and titles restored on relaunch — only via "Quit and Keep Windows" when macOS closes windows on quit (verified: screenshot; cwd/rename by tests) · full
+• B-331 Collapsible dispatch rows + View ▸ Hide Subagents ⌥⌘S, persisted (verified: screenshot) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-623..638 (see interim update)
+• D-639 B-332 restores via AppKit window restoration
+• D-640 only windows with a Terminals row are saved; agent panes dropped
+• D-643 restored window replaces the start window
+• D-647 global Hide Subagents flag with per-agent exceptions
+• D-648 ⌥⌘S shortcut
+• D-649 chevron on the name line; running count only when collapsed
+Needs you
+• verify.md: add -ApplePersistenceIgnoreState YES to debug launches (B-332 runner)
+• Lane B-332 left (untracked .shots/); held B-058/B-143 and unlanded B-233 from earlier runs
+• Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058, B-180, B-181, B-182, B-184 +60 more
+Self-filed
+• B-334 bug (from B-325) — Paste/Copy get ⌘V/⌘C whenever the key is bound
+• B-335 idea (from B-329) — Set Environments/Switch enabled for a pending row
+• B-336 idea (from B-333) — focused split pane hard to spot
+• B-337 idea (from B-331) — clip the chevron's click area to the name line
+Next up: B-334
+Spend (estimated, lower bound · prices 2026-10-09): ≈$53.63 est. — B-325 $2.15, B-328 $3.44, B-329 $2.42, B-330 $2.09, B-333 $17.39, B-332 $18.63, B-331 $7.52
+Interim updates: 1 posted, through item 5
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
