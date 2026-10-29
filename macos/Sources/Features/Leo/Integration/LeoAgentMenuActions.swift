@@ -332,12 +332,14 @@ private struct LeoTemplateSelection {
     }
 
     func presentRename(_ row: LeoAgentRow, in window: NSWindow?) {
-        window?.presentLeoSheet(NSHostingController(rootView: LeoRenameAgentSheet(row: row, actions: actions)))
+        window?.presentLeoSheet(NSHostingController(
+            rootView: LeoRenameAgentSheet(row: row, actions: actions).leoSheetClose(in: window)
+        ))
     }
 
     func presentDelete(_ row: LeoAgentRow, in window: NSWindow?) {
         window?.presentLeoSheet(NSHostingController(
-            rootView: LeoDeleteAgentSheetContainer(row: row, model: model, actions: actions)
+            rootView: LeoDeleteAgentSheetContainer(row: row, model: model, actions: actions).leoSheetClose(in: window)
         ))
     }
 }
