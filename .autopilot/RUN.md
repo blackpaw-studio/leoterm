@@ -90,7 +90,7 @@ Lane: B-333
   Branch: autopilot-lane/B-333
   Base: 3c1c7e1cd4f3cc286f838747698075f7f053171e
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -104,6 +104,7 @@ Lane: B-333
   Call: A hidden pane that exits leaves the layout, and the row passes to a surviving shell — D-190/D-191
   Call: Reveal refocuses the pane that was focused at switch-away — Ghostty parity
   Call: B-333 is Mac only; iOS is Out — Mac+iOS parity rule
+  Tokens: 40.3M in (39.5M cache read), ≥228k out, 251 requests
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -120,3 +121,5 @@ Finished 4: B-330 landed 75f360d2b · shot /Users/evan/.leo/agents/leoterm/.git/
 B-330 landed 75f360d2b (≈$2.09 est.)
 Runner B-333: leo dispatch d-65b1d70d9ace
 B-333 polish "log calls in DECISIONS" not filed: handled by Record
+Finished 5: B-333 landed ad1846319 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-333-3.png
+B-333 landed ad1846319 (≈$17.39 est.); D-631..D-638 logged; supersedes interim D-105/D-114 for rows

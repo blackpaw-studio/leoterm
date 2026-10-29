@@ -2406,13 +2406,15 @@ Attachments: .autopilot/bugs/B-330/1.png
 Done: 5a61f8d9e
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
 
-## B-333 · Ghostty-style splits in terminal windows   [ready]
+## B-333 · Ghostty-style splits in terminal windows   [done]
 Issue: #305
 Why: Splitting a terminal works exactly like Ghostty — ⌘D / ⇧⌘D split straight into a new shell in the same working directory, no picker.
 Accept: with a Terminals row shown, ⌘D splits right and ⇧⌘D splits down into a new shell in the focused pane's cwd; Ghostty's split navigation (⌘[ / ⌘], ⌥⌘arrows), equalize and resize keybinds work; closing a split pane hands focus to its neighbor; the row keeps its split layout when you switch away and back
 Out: mixing agents and shells in one split layout (B-058 stays parked); saved layouts; iOS
 Source: owner (/feature, 2026-10-28)
 Inbox: 20261029T010346303681Z-5551ad6c#1
+Done: 11bf35fa5
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-333-3.png (split right; B-333-4.png split down; busy-pane confirm by tests only)
 
 ## B-332 · Restore terminals across launches (Ghostty parity)   [ready]
 Issue: #306

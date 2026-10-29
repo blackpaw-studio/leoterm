@@ -4497,3 +4497,59 @@ Chose: Mac only; iOS Capsules already use 24 pt spacing
 Why: Mac+iOS parity rule
 Commit: 5a61f8d9e
 Veto: [ ]
+
+## D-631 · 2026-10-29 · One row owns its whole split layout; split panes are never rows…
+Context: B-333 (runner call).
+Chose: One row owns its whole split layout; split panes are never rows (differs from parked B-058)
+Why: Ghostty parity, sidebar-is-navigation (D-098)
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-632 · 2026-10-29 · ⌘D/⇧⌘D, Window ▸ Split and row-menu Split on a row-only layout go…
+Context: B-333 (runner call).
+Chose: ⌘D/⇧⌘D, Window ▸ Split and row-menu Split on a row-only layout go straight to a shell in the focused pane's cwd; supersedes interim D-114/D-105 for rows (D-105 still holds for the agent pool)
+Why: keyboard-first, Mac-native; owner's B-333 Accept
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-633 · 2026-10-29 · Agent-row ⌘D, and a split beside an agent, keep the picker
+Context: B-333 (runner call).
+Chose: Agent-row ⌘D, and a split beside an agent, keep the picker
+Why: D-212
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-634 · 2026-10-29 · A layout with any agent pane is closed on switch-away rather than kept
+Context: B-333 (runner call).
+Chose: A layout with any agent pane is closed on switch-away rather than kept
+Why: matches existing close-confirm counting
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-635 · 2026-10-29 · Row-menu Close closes the whole layout with one confirm naming every…
+Context: B-333 (runner call).
+Chose: Row-menu Close closes the whole layout with one confirm naming every busy pane, shown or hidden; ⌘W stays per pane
+Why: no silent kills
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-636 · 2026-10-29 · A hidden pane that exits leaves the layout, and the row passes to a…
+Context: B-333 (runner call).
+Chose: A hidden pane that exits leaves the layout, and the row passes to a surviving shell
+Why: D-190/D-191
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-637 · 2026-10-29 · Reveal refocuses the pane that was focused at switch-away
+Context: B-333 (runner call).
+Chose: Reveal refocuses the pane that was focused at switch-away
+Why: Ghostty parity
+Commit: 11bf35fa5
+Veto: [ ]
+
+## D-638 · 2026-10-29 · B-333 is Mac only; iOS is Out
+Context: B-333 (runner call).
+Chose: B-333 is Mac only; iOS is Out
+Why: Mac+iOS parity rule
+Commit: 11bf35fa5
+Veto: [ ]
