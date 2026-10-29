@@ -71,6 +71,16 @@ Lane: B-329
   Call: Set Template menu parent gets an action the window validates (B-324 pattern, not in this tree); Mac only, AppKit menu-bar quirk — Keyboard-first, Mac-native; Mac+iOS parity rule
   Tokens: 7.7M in (7.41M cache read), ≥29.7k out, 90 requests
 
+Lane: B-330
+  Branch: autopilot-lane/B-330
+  Base: 206c306fc83d0b647f556f8c7ec42c2249340a5d
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
