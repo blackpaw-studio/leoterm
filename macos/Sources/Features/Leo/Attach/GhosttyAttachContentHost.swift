@@ -335,6 +335,82 @@ import OSLog
         live.keptSurfaces(in: window).contains { $0.needsConfirmQuit }
     }
 
+    /// B-332: what `window` saves for restoring at launch: its terminal
+    /// rows in sidebar order, each with its whole layout -- shown, or kept
+    /// hidden -- less any pane that isn't a running plain shell, and the
+    /// row it selects. Pending reconciles run first, so a row carried on
+    /// in this very turn (B-082) is saved by the shell carrying it.
+    func savedTerminals(in window: LeoWindowID) -> LeoTerminalsRestorableState {
+        runPendingReconciles()
+        guard let controller = controller(in: window), let terminals = controller.leoSession?.terminals else {
+            return LeoTerminalsRestorableState(.init(rows: [], selectedRow: nil))
+        }
+        let layouts = terminals.rows.compactMap { terminalRowLayout(of: $0.id, in: window, of: controller) }
+        return LeoTerminalsRestorableState(.snapshot(layouts, selected: terminals.selection, saving: isSavedPane))
+    }
+
+    private func terminalRowLayout(
+        of row: UUID,
+        in window: LeoWindowID,
+        of controller: TerminalController
+    ) -> LeoTerminalRowLayout<Ghostty.SurfaceView>? {
+        guard let surface = attachments[AttachmentHandle(surfaceID: row, windowID: window)]?.surface else { return nil }
+        if controller.surfaceTree.contains(surface) {
+            return LeoTerminalRowLayout(row: surface, layout: controller.surfaceTree, focused: controller.focusedSurface)
+        }
+        return live.keptLayout(holding: surface, in: window).map { LeoTerminalRowLayout(row: surface, layout: $0.tree, focused: $0.focused) }
+    }
+
+    /// B-332: a pane saved with its row's layout: a plain shell Leo made,
+    /// its process running. An agent's pane -- even one only titled after
+    /// its agent -- reattaches through tmux instead.
+    private func isSavedPane(_ surface: Ghostty.SurfaceView) -> Bool {
+        !surface.processExited && !isAgent(surface) && attachments.values.contains { $0.surface === surface }
+    }
+
+    /// B-332: `rows`, restored at launch, become the rows of `controller`'s
+    /// empty start screen, in order, each with its whole layout -- its own
+    /// shell the row, the rest shells split beside it (B-333). Every
+    /// layout is kept hidden as a switch keeps one, but `selected`'s (else
+    /// the first row's), which shows, focused on the pane it had focused.
+    /// Their surfaces, ids and titles are the saved ones; their shells are
+    /// new. Returns the row shown; `nil` when none could be restored.
+    @discardableResult
+    func restoreTerminalRows(
+        _ rows: [LeoTerminalsRestorableState.Row],
+        selecting selected: UUID?,
+        in controller: TerminalController
+    ) -> UUID? {
+        guard let window = controller.leoSession?.id, controller.surfaceTree.isEmpty else { return nil }
+        let restored = rows.filter { restoreTerminalRow($0, in: controller) }.map(\.id)
+        guard let shown = LeoTerminalsRestorableState.shownRow(of: restored, selected: selected) else { return nil }
+        _ = reveal(AttachmentHandle(surfaceID: shown, windowID: window))
+        selectShownTerminal(in: controller)
+        Self.logger.log("restoreTerminalRows window=\(window.rawValue.uuidString, privacy: .public) rows=\(restored.count)")
+        return shown
+    }
+
+    /// Shows `row`'s layout, registers its panes, and keeps what it
+    /// displaced (the row restored before it) hidden. `false` when its
+    /// shell couldn't be made a row: what it shows then goes with the next
+    /// switch, as any shell with no row does.
+    private func restoreTerminalRow(_ row: LeoTerminalsRestorableState.Row, in controller: TerminalController) -> Bool {
+        guard let shell = row.layout.first(where: { $0.id == row.id }) else { return false }
+        let focused = controller.focusedSurface
+        let displaced = controller.leoReplaceContent(with: row.layout, focusing: row.layout.first { $0.id == row.focusedPane } ?? shell)
+        let isRestored: Bool
+        do {
+            _ = try register(controller, surface: shell, isAgent: false, isTerminalRow: true)
+            try row.layout.filter { $0 !== shell }.forEach { _ = try register(controller, surface: $0, isAgent: false) }
+            isRestored = true
+        } catch {
+            Self.logger.log("restoreTerminalRow failed error=\(String(describing: error), privacy: .public)")
+            isRestored = false
+        }
+        if !displaced.isEmpty { retire(displaced, from: controller, focused: focused) }
+        return isRestored
+    }
+
     /// Pending reconciles run first (B-172): a click on a row whose pane
     /// closed in the same turn finds the shell carrying it on, not none.
     /// The controller is looked up after, from the settled attachments.
@@ -454,6 +530,8 @@ import OSLog
     /// its row on to `heir` there, the pane the layout focuses next (B-082).
     private func keptPaneLeft(_ pane: Ghostty.SurfaceView, heir: Ghostty.SurfaceView?, remaining: SplitTree<Ghostty.SurfaceView>) {
         guard let (handle, attachment) = attachments.first(where: { $0.value.surface === pane }) else { return }
+        // B-332: the layout its window saves changed.
+        attachment.controller?.window?.invalidateRestorableState()
         close(handle, handingOnItsRow: attachment.isTerminalRow ? RowHandOn(heir: heir, layout: remaining) : nil)
     }
 
@@ -891,6 +969,7 @@ import OSLog
         let attachment = Attachment(controller: controller, surface: surface, isAgent: isAgent, isTerminalRow: isTerminalRow)
         attachments[handle] = attachment
         if isTerminalRow { addTerminalRow(surface, to: session.terminals, cancellables: &attachment.cancellables) }
+        if !isAgent { followSavedState(of: surface, in: controller, cancellables: &attachment.cancellables) }
 
         // `@Published` tells before it sets (willSet): the controller still
         // holds the old tree here. Read it rather than keep it (a `scan`
@@ -921,6 +1000,21 @@ import OSLog
     ) {
         terminals.add(surface.id, title: surface.title)
         followTitle(of: surface, in: terminals, cancellables: &cancellables)
+    }
+
+    /// B-332: a plain shell's working directory and title are saved with
+    /// its row's layout, so its window's saved state goes stale as they
+    /// change. Only marked stale: AppKit saves later, so a title that
+    /// changes ~10 times a second (a spinner) costs no encoding.
+    private func followSavedState(
+        of surface: Ghostty.SurfaceView,
+        in controller: TerminalController,
+        cancellables: inout Set<AnyCancellable>
+    ) {
+        surface.$pwd.removeDuplicates().dropFirst().map { _ in () }
+            .merge(with: surface.$title.removeDuplicates().dropFirst().map { _ in () })
+            .sink { [weak controller] in controller?.window?.invalidateRestorableState() }
+            .store(in: &cancellables)
     }
 
     /// The row follows its terminal's title as it changes.

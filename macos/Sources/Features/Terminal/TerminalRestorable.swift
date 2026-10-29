@@ -123,9 +123,9 @@ class TerminalWindowRestoration: NSObject, NSWindowRestoration {
         completionHandler: @escaping (NSWindow?, Error?) -> Void
     ) {
         // MARK: Leo
-        // Every TerminalController in this fork is Leo-managed and opts out
-        // of AppKit state restoration in `windowDidLoad` (isRestorable =
-        // false), so no *new* saved state is ever written -- but a saved
+        // Every TerminalController in this fork is Leo-managed and saves
+        // its Terminals rows under `LeoTerminalWindowRestoration` instead
+        // (B-332), so no *new* state names this class -- but a saved
         // state from before this upgrade can still be on disk, and AppKit
         // calls this restoration entry point before `windowDidLoad` ever
         // runs. Completing with no window here (instead of recreating a

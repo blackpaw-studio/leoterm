@@ -238,6 +238,9 @@ extension Ghostty {
         var leoTitleIsUserSet: Bool { titleFromTerminal != nil }
         /// The terminal's own title, under a title the user set (B-177).
         var leoLiveTitle: String { titleFromTerminal ?? title }
+        /// B-332: the directory its process was asked to start in (its
+        /// configuration's), if any -- where a restored shell starts.
+        private(set) var leoStartWorkingDirectory: String?
 
         // The cached contents of the screen.
         private(set) var cachedScreenContents: CachedValue<String>
@@ -269,6 +272,8 @@ extension Ghostty {
             // is non-zero so that our layer bounds are non-zero so that our renderer
             // can do SOMETHING.
             super.init(id: uuid, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+            // MARK: Leo
+            leoStartWorkingDirectory = baseConfig?.workingDirectory
 
             // Our cache of screen data
             cachedScreenContents = .init(duration: .milliseconds(500)) { [weak self] in
@@ -1915,7 +1920,8 @@ extension Ghostty {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let uuid = UUID(uuidString: try container.decode(String.self, forKey: .uuid))
             var config = Ghostty.SurfaceConfiguration()
-            config.workingDirectory = try container.decode(String?.self, forKey: .pwd)
+            // MARK: Leo -- where it was, or home once that is gone (B-332).
+            config.workingDirectory = LeoRestoredWorkingDirectory.resolve(pwd: try container.decode(String?.self, forKey: .pwd))
             let savedTitle = try container.decodeIfPresent(String.self, forKey: .title)
             let isUserSetTitle = try container.decodeIfPresent(Bool.self, forKey: .isUserSetTitle) ?? false
 

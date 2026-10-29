@@ -576,6 +576,8 @@ import LeoKit
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
         session.splitsIntoShell = { [weak attachHost] in attachHost?.splitsIntoShell(in: sessionID) ?? false }
         session.registerSplitShell = { [weak attachHost] in attachHost?.registerSplitShell($0, in: sessionID) }
+        session.savedTerminals = { [weak attachHost] in attachHost?.savedTerminals(in: sessionID) }
+        session.terminals.changed = { [weak controller] in controller?.leoTerminalsDidChange() }
         session.selectedAgent = { [weak self] in self?.model.actionableSelection?.id }
         session.unreadCount = { [weak unread] in unread?.count(for: $0) ?? 0 }
         session.latestAgentMessageKind = { [weak unread] in unread?.latestAgentKind(for: $0) }
@@ -603,6 +605,16 @@ import LeoKit
         }
         #endif
         return session
+    }
+
+    /// B-332: `controller`, a window AppKit restores at launch, gets its
+    /// saved Terminals rows back (`LeoTerminalWindowRestoration`). Its
+    /// editor and browser follow the row it shows, as after any switch
+    /// (B-274). `false` when no row could be restored.
+    func restoreTerminalRows(_ state: LeoTerminalsRestorableState, in controller: TerminalController) -> Bool {
+        guard let shown = attachHost.restoreTerminalRows(state.rows, selecting: state.selectedRow, in: controller) else { return false }
+        controller.leoSession?.panes.activate(.terminal(shown))
+        return true
     }
 
     /// B-057: a window's terminal rows show, close and count their hidden
