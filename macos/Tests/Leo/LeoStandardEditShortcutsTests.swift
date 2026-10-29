@@ -46,6 +46,20 @@ struct LeoStandardEditShortcutsTests {
         #expect(item.keyEquivalentModifierMask == [.command, .shift])
     }
 
+    @Test func aCommandCBoundToAnotherActionLeavesCopyWithoutAShortcut() throws {
+        let item = try syncedCopyItem(config: "keybind = super+c=new_window")
+
+        #expect(item.keyEquivalent.isEmpty)
+        #expect(item.keyEquivalentModifierMask.isEmpty)
+    }
+
+    @Test func aCommandVBoundToAnotherActionLeavesPasteWithoutAShortcut() throws {
+        let item = try syncedPasteItem(config: "keybind = super+v=new_window")
+
+        #expect(item.keyEquivalent.isEmpty)
+        #expect(item.keyEquivalentModifierMask.isEmpty)
+    }
+
     @Test func pasteShowsCommandVWithTheDefaultConfig() throws {
         let item = try syncedPasteItem(config: "")
 
