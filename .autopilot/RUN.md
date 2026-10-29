@@ -32,7 +32,7 @@ Lane: B-325
   Branch: autopilot-lane/B-325
   Base: 791b934ff3bf2fa421c405e771b29651301b3a77
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -40,6 +40,9 @@ Lane: B-325
   Dispatched: 2026-10-29T02:20:31Z
   Call: Mac only; iOS has no menu bar and uses UIKit's own paste — Keyboard-first/Mac-native
   Call: app-wide, like D-592 — Keyboard-first/Mac-native
+  Tokens: 6.18M in (5.91M cache read), ≥25.3k out, 75 requests
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
+Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
+B-325 landed e80b304df (≈$2.15 est.)

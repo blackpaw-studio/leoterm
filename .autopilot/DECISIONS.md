@@ -4441,3 +4441,17 @@ Chose: Neither Mac nor iOS (CI only)
 Why: Mac+iOS parity rule
 Commit: a7801243f
 Veto: [ ]
+
+## D-623 · 2026-10-28 · Mac only; iOS has no menu bar and uses UIKit's own paste
+Context: B-325 (runner call).
+Chose: Mac only; iOS has no menu bar and uses UIKit's own paste
+Why: Mac+iOS parity rule; Keyboard-first/Mac-native
+Commit: 1b4da8c82
+Veto: [ ]
+
+## D-624 · 2026-10-28 · App-wide ⌘V fallback, like D-592
+Context: B-325 (runner call).
+Chose: App-wide ⌘V fallback, like D-592
+Why: Keyboard-first/Mac-native
+Commit: 1b4da8c82
+Veto: [ ]

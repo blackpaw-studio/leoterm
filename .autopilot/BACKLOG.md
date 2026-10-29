@@ -2358,12 +2358,14 @@ Note: config-API writes (incl. PUT /appearance/rules) strip comments from leo.ya
 Source: owner (/idea, 2026-10-27)
 Inbox: 20261027T235417298836Z-e052e28c#1
 
-## B-325 · Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste   [ready]
+## B-325 · Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste   [done]
 Issue: #300
 Type: bug
 Report: Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste — same cause as B-318 (Ghostty's performable paste binding is left out of the menu shortcut lookup); unverified, from reading the code (LeoStandardEditShortcut.swift).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-318)
+Done: 1b4da8c82
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png (window; menu ⌘V confirmed by Peekaboo menu listing, composer paste not driven)
 
 ## B-326 · iPad hardware-keyboard row switching (B-059 parity)   [idea]
 Note: B-059 gave the Mac ⌃⇥/⌃⇧⇥, ⌘1–⌘9 and Window-menu row switching; iPad with a hardware keyboard has none (UIKeyCommand). Mac+iOS rule: the iOS half was deferred.
