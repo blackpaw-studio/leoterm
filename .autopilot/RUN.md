@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-10-29T02:17:35Z
 Budget: 20 items, until 2026-10-29T14:17:35Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 2/5 ideas
 Self-filed: B-325 → B-334 bug — Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything
 Self-filed: B-329 → B-335 idea — Set Environments and Switch menu parents stay enabled for a pending agent row
