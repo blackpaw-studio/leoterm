@@ -80,6 +80,7 @@ Lane: B-330
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-29T05:24:12Z
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -91,3 +92,4 @@ B-328 landed 7a99dacfa (≈$3.44 est.); note: committed test never seen failing 
 Runner B-329: leo dispatch d-857e3fc39586
 Finished 3: B-329 landed 590edac57 · shot screen capture, not attached
 B-329 landed 590edac57 (≈$2.42 est.)
+Runner B-330: leo dispatch d-27abc57ef309
