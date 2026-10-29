@@ -94,6 +94,7 @@ Lane: B-333
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-29T05:48:59Z
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -108,3 +109,4 @@ B-329 landed 590edac57 (≈$2.42 est.)
 Runner B-330: leo dispatch d-27abc57ef309
 Finished 4: B-330 landed 75f360d2b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
 B-330 landed 75f360d2b (≈$2.09 est.)
+Runner B-333: leo dispatch d-65b1d70d9ace
