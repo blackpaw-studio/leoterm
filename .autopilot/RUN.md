@@ -27,4 +27,16 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-325
+  Branch: autopilot-lane/B-325
+  Base: 791b934ff3bf2fa421c405e771b29651301b3a77
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-10-29T02:20:31Z
+
 Progress:
+Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
