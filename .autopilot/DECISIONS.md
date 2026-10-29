@@ -4455,3 +4455,24 @@ Chose: App-wide ⌘V fallback, like D-592
 Why: Keyboard-first/Mac-native
 Commit: 1b4da8c82
 Veto: [ ]
+
+## D-625 · 2026-10-29 · Close Leo sheets through their window (LeoSheetDismiss +…
+Context: B-328 (runner call).
+Chose: Close Leo sheets through their window (LeoSheetDismiss + .leoSheetClose(in: window)), falling back to \.dismiss under SwiftUI .sheet
+Why: Keyboard-first, Mac-native
+Commit: 14d25aadf
+Veto: [ ]
+
+## D-626 · 2026-10-29 · B-328 sheet-close fix is Mac only (iOS doesn't use presentLeoSheet)
+Context: B-328 (runner call).
+Chose: B-328 sheet-close fix is Mac only (iOS doesn't use presentLeoSheet)
+Why: Mac+iOS parity rule
+Commit: 14d25aadf
+Veto: [ ]
+
+## D-627 · 2026-10-29 · LeoSpawnSheetHostingController becomes NSHostingController<AnyView>…
+Context: B-328 (runner call).
+Chose: LeoSpawnSheetHostingController becomes NSHostingController<AnyView> so the close value can be injected
+Why: AUTONOMY: implementation approach
+Commit: 14d25aadf
+Veto: [ ]

@@ -2375,13 +2375,15 @@ Source: autopilot polish (B-059)
 Note: LeoDaemonClient.swift:48 comment points to the deleted LeoHostSelection; the spawn(_:host:) overload (:19/:70) has no callers — dead code, no user-visible effect
 Source: autopilot polish (B-188)
 
-## B-328 · Mac Rename, Delete and New Agent sheets don't close via SwiftUI…   [ready]
+## B-328 · Mac Rename, Delete and New Agent sheets don't close via SwiftUI…   [done]
 Issue: #302
 Type: bug
 Report: Mac Rename, Delete and New Agent sheets don't close via SwiftUI `dismiss` under `presentLeoSheet` (found in B-324; the Copy sheet was fixed by closing through its window, see LeoCopyAgentSheet `close:`). Fix the same way or fix presentLeoSheet so `dismiss` works.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-28)
 Inbox: 20261028T234443650881Z-998cb639#1
+Done: 14d25aadf
+Verified: not visually verified — screen captures only (Rename/Delete close on Cancel+Esc, New Agent on Cancel; confirm paths by tests)
 
 ## B-329 · Mac Agents menu "Set Template" submenu is enabled with no agent row…   [ready]
 Issue: #303

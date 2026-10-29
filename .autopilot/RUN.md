@@ -46,7 +46,7 @@ Lane: B-328
   Branch: autopilot-lane/B-328
   Base: cf19af992d2a325020bac1d822a17cb0e1402082
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -55,9 +55,12 @@ Lane: B-328
   Call: Close Leo sheets through their window (LeoSheetDismiss + .leoSheetClose(in: window)), falling back to \.dismiss under SwiftUI .sheet — Keyboard-first, Mac-native
   Call: B-328 sheet-close fix is Mac only (iOS doesn't use presentLeoSheet) — Mac+iOS parity rule
   Call: LeoSpawnSheetHostingController becomes NSHostingController<AnyView> so the close value can be injected — implementation approach
+  Tokens: 13.2M in (12.8M cache read), ≥49.6k out, 140 requests
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
 B-325 landed e80b304df (≈$2.15 est.)
 Runner B-328: leo dispatch d-021a185b277e
+Finished 2: B-328 landed 7a99dacfa · shot screen capture, not attached
+B-328 landed 7a99dacfa (≈$3.44 est.); note: committed test never seen failing (probe with \.dismiss did fail); Copy sheet could move to LeoSheetDismiss once B-324 lands
