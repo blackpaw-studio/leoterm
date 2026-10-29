@@ -574,6 +574,8 @@ import LeoKit
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)
         }
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
+        session.splitsIntoShell = { [weak attachHost] in attachHost?.splitsIntoShell(in: sessionID) ?? false }
+        session.registerSplitShell = { [weak attachHost] in attachHost?.registerSplitShell($0, in: sessionID) }
         session.selectedAgent = { [weak self] in self?.model.actionableSelection?.id }
         session.unreadCount = { [weak unread] in unread?.count(for: $0) ?? 0 }
         session.latestAgentMessageKind = { [weak unread] in unread?.latestAgentKind(for: $0) }
@@ -616,10 +618,10 @@ import LeoKit
         wireTerminalMenu(terminals, window: window)
     }
 
-    /// B-177: a terminal row's context menu. Split shows the row, then asks
-    /// for the split ⌘D would make beside its shell (inheriting its
-    /// working directory); Rename… and Close act on the shell, shown or
-    /// hidden.
+    /// B-177: a terminal row's context menu. Split shows the row, then
+    /// makes the split ⌘D would make beside its shell, straight into a
+    /// shell inheriting its working directory (B-333); Rename… and Close
+    /// act on the shell, shown or hidden.
     private func wireTerminalMenu(_ terminals: LeoWindowTerminals, window: LeoWindowID) {
         let handle: (UUID) -> AttachmentHandle = { AttachmentHandle(surfaceID: $0, windowID: window) }
         terminals.renameRequested = { [weak attachHost] in attachHost?.renameTerminal(handle($0), to: $1) }
@@ -627,13 +629,8 @@ import LeoKit
         terminals.closeFromMenuRequested = { [weak attachHost] id in
             Task { await attachHost?.closeTerminalFromMenu(handle(id)) }
         }
-        terminals.splitRequested = { [weak self] id, direction in
-            Task { [weak self] in
-                guard let self else { return }
-                await attachCoordinator.splitTerminal(handle(id), direction: direction) { request in
-                    route(request, inheritedConfig: attachHost.splitConfiguration(for: handle(id)))
-                }
-            }
+        terminals.splitRequested = { [weak attachCoordinator] id, direction in
+            Task { await attachCoordinator?.splitTerminal(handle(id), direction: direction) }
         }
     }
 
@@ -702,7 +699,7 @@ import LeoKit
         route(LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: sourceSurface), inheritedConfig: inheritedConfig)
     }
 
-    /// `routeNewSurface` for a request already made (B-177's row-menu split).
+    /// `routeNewSurface` for a request already made.
     private func route(_ request: LeoSurfaceRequest, inheritedConfig: Ghostty.SurfaceConfiguration?) {
         Self.logger.log("routeNewSurface disposition=\(String(describing: request.disposition), privacy: .public) origin=\(request.origin.rawValue.uuidString, privacy: .public)")
         requestConfigStore.set(inheritedConfig, for: request.id)

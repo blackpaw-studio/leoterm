@@ -75,6 +75,12 @@ struct LeoWindowVisibilityState: Equatable {
     /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
     /// tests that construct a session directly).
     var openPicker: (UUID?) -> Void = { _ in }
+    /// B-333: whether a split here (⌘D, ⇧⌘D) goes straight to a new shell
+    /// -- the content area shows a terminal row's layout -- and the hook
+    /// that makes the new shell part of that layout (both wired by
+    /// `LeoRuntime` to the attach host).
+    var splitsIntoShell: () -> Bool = { false }
+    var registerSplitShell: (Ghostty.SurfaceView) -> Void = { _ in }
     @Published private(set) var placeholderSurfaceIDs: Set<UUID> = []
     /// Fired once, synchronously, from `NSWindow.willCloseNotification` --
     /// lets `LeoRuntime` tear down this window's router state and palette

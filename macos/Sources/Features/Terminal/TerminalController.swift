@@ -41,10 +41,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// `title` to each surface), and a start screen has none.
     private var leoStartTitle: String?
 
-    /// Intercepts the `new_split` core action: if this window has a Leo
-    /// session and a non-empty tree, the split is routed to the agent
-    /// picker instead of being created directly (`leoCreateSplit` below is
-    /// the committed path the picker uses once a choice is made). An empty
+    /// Intercepts the `new_split` core action. B-333: a terminal row's
+    /// layout splits as a Ghostty tab does, straight into a new shell from
+    /// `config` (the inherited one: the pane's working directory), which
+    /// joins the row's layout. Otherwise, if this window has a Leo session
+    /// and a non-empty tree, the split is routed to the agent picker
+    /// instead of being created directly (`leoCreateSplit` below is the
+    /// committed path the picker uses once a choice is made). An empty
     /// tree can't be split from (there's no `oldView`), so that case is
     /// treated as a `.placeholder` request instead.
     override func newSplit(
@@ -52,6 +55,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         direction: SplitTree<Ghostty.SurfaceView>.NewDirection,
         baseConfig config: Ghostty.SurfaceConfiguration? = nil
     ) -> Ghostty.SurfaceView? {
+        if let leoSession, !surfaceTree.isEmpty, leoSession.splitsIntoShell() {
+            guard let view = super.newSplit(at: oldView, direction: direction, baseConfig: config) else { return nil }
+            leoSession.registerSplitShell(view)
+            return view
+        }
         guard let leoSession, let leoRuntime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
             return super.newSplit(at: oldView, direction: direction, baseConfig: config)
         }
