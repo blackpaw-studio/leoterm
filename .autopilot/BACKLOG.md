@@ -2439,3 +2439,7 @@ Source: autopilot bug (B-325)
 ## B-335 · Set Environments and Switch menu parents stay enabled for a pending agent row   [idea]
 Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
 Source: autopilot polish (B-329)
+
+## B-336 · Make the focused split pane easier to spot   [idea]
+Note: B-333 verify: the focused-pane cue is only a hollow vs bar cursor — legible but faint; matters for knowing which split gets keystrokes (Keyboard-first)
+Source: autopilot polish (B-333)

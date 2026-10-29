@@ -2,9 +2,10 @@ Status: running
 Started: 2026-10-29T02:17:35Z
 Budget: 20 items, until 2026-10-29T14:17:35Z
 Digested-through: 0
-Filed: 1/3 bugs, 1/5 ideas
+Filed: 1/3 bugs, 2/5 ideas
 Self-filed: B-325 → B-334 bug — Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything
 Self-filed: B-329 → B-335 idea — Set Environments and Switch menu parents stay enabled for a pending agent row
+Self-filed: B-333 → B-336 idea — Make the focused split pane easier to spot
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -89,12 +90,20 @@ Lane: B-333
   Branch: autopilot-lane/B-333
   Base: 3c1c7e1cd4f3cc286f838747698075f7f053171e
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0a9120a7decb2e62caa76ac77b1a537dd8574aee
   Dispatched: 2026-10-29T05:48:59Z
+  Call: One row owns its whole split layout; split panes are never rows (differs from parked B-058) — Ghostty parity, sidebar-is-navigation (D-098)
+  Call: ⌘D/⇧⌘D, Window ▸ Split and row-menu Split on a row-only layout go straight to a shell in the focused pane's cwd; supersedes interim D-114/D-105 for rows (D-105 still holds for the agent pool) — keyboard-first, Mac-native; owner's B-333 Accept
+  Call: Agent-row ⌘D, and a split beside an agent, keep the picker — D-212
+  Call: A layout with any agent pane is closed on switch-away rather than kept — matches existing close-confirm counting
+  Call: Row-menu Close closes the whole layout with one confirm naming every busy pane, shown or hidden; ⌘W stays per pane — no silent kills
+  Call: A hidden pane that exits leaves the layout, and the row passes to a surviving shell — D-190/D-191
+  Call: Reveal refocuses the pane that was focused at switch-away — Ghostty parity
+  Call: B-333 is Mac only; iOS is Out — Mac+iOS parity rule
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -110,3 +119,4 @@ Runner B-330: leo dispatch d-27abc57ef309
 Finished 4: B-330 landed 75f360d2b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
 B-330 landed 75f360d2b (≈$2.09 est.)
 Runner B-333: leo dispatch d-65b1d70d9ace
+B-333 polish "log calls in DECISIONS" not filed: handled by Record
