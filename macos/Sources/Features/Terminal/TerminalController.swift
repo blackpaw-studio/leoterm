@@ -2105,6 +2105,9 @@ extension TerminalController {
         case #selector(viewLogsForSelectedLeoAgent(_:)):
             return validateLeoViewLogsMenuItem(item)
 
+        case #selector(setTemplateForSelectedLeoAgent(_:)):
+            return validateLeoSetTemplateMenuItem(item)
+
         case #selector(deleteSelectedLeoAgent(_:)):
             return validateLeoDeleteMenuItem(item)
 

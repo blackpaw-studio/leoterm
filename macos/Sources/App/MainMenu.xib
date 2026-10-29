@@ -516,6 +516,9 @@
                             </menuItem>
                             <menuItem title="Set Template" identifier="leo.agents.setTemplate" id="Leo-Agents-SetTemplate">
                                 <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="setTemplateForSelectedLeoAgent:" target="-1" id="Leo-Agents-SetTemplate-Action"/>
+                                </connections>
                                 <menu key="submenu" title="Set Template" id="Leo-Agents-SetTemplate-Menu">
                                     <items>
                                         <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SetTemplate-Placeholder"/>

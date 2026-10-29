@@ -65,6 +65,11 @@ extension TerminalController {
         LeoAgentMenuSheets(runtime: runtime).presentDelete(row, in: window)
     }
 
+    /// Agents ▸ Set Template parent. Its submenu does the work; the action
+    /// exists so AppKit validates the parent (a submenu parent with no action
+    /// is always enabled, whatever its `isEnabled`).
+    @IBAction func setTemplateForSelectedLeoAgent(_ sender: Any?) {}
+
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)
@@ -101,6 +106,7 @@ extension TerminalController {
     func validateLeoRestartMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canRestart(selectedLeoAgentContext) }
     func validateLeoRenameMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canRename(selectedLeoAgentContext) }
     func validateLeoViewLogsMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canViewLogs(selectedLeoAgentContext) }
+    func validateLeoSetTemplateMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canSetTemplate(selectedLeoAgentContext) }
     func validateLeoDeleteMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canDelete(selectedLeoAgentContext) }
     func validateLeoManageHostsMenuItem(_ item: NSMenuItem) -> Bool { leoRuntime != nil }
 

@@ -12,6 +12,12 @@ struct LeoMenuCommandsTests {
         #expect(identifiers.dropFirst(index + 1).first == LeoAgentsMenuController.setEnvironmentsItemIdentifier.rawValue)
     }
 
+    /// B-329: AppKit enables a submenu parent that has no action whatever its
+    /// `isEnabled`, so Set Template carries an action the window validates.
+    @Test func theSetTemplateParentHasAnActionToValidate() throws {
+        #expect(try LeoMenuXib.titles(forAction: "setTemplateForSelectedLeoAgent:") == ["Set Template"])
+    }
+
     @Test @MainActor func setTemplateItemIsFoundByIdentifierNotTitle() {
         let item = NSMenuItem(title: "Set Template", action: nil, keyEquivalent: "")
         item.identifier = LeoAgentsMenuController.setTemplateItemIdentifier
