@@ -2374,6 +2374,7 @@ Note: LeoDaemonClient.swift:48 comment points to the deleted LeoHostSelection; t
 Source: autopilot polish (B-188)
 
 ## B-328 · Mac Rename, Delete and New Agent sheets don't close via SwiftUI…   [ready]
+Issue: #302
 Type: bug
 Report: Mac Rename, Delete and New Agent sheets don't close via SwiftUI `dismiss` under `presentLeoSheet` (found in B-324; the Copy sheet was fixed by closing through its window, see LeoCopyAgentSheet `close:`). Fix the same way or fix presentLeoSheet so `dismiss` works.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2381,6 +2382,7 @@ Source: owner (/issue, 2026-10-28)
 Inbox: 20261028T234443650881Z-998cb639#1
 
 ## B-329 · Mac Agents menu "Set Template" submenu is enabled with no agent row…   [ready]
+Issue: #303
 Type: bug
 Report: Mac Agents menu "Set Template" submenu is enabled with no agent row selected — AppKit enables a submenu parent with no action regardless of isEnabled (same bug B-324 fixed for Move To / Copy To by giving the parents actions the window validates).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2388,6 +2390,7 @@ Source: owner (/issue, 2026-10-28)
 Inbox: 20261028T234444110827Z-5ec96fdf#1
 
 ## B-330 · there should be some more spacing between stats here (Image #1)   [ready]
+Issue: #304
 Type: bug
 Report: there should be some more spacing between stats here [Image #1]
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2396,6 +2399,7 @@ Inbox: 20261028T235441329172Z-478c5345#1
 Attachments: .autopilot/bugs/B-330/1.png
 
 ## B-333 · Ghostty-style splits in terminal windows   [ready]
+Issue: #305
 Why: Splitting a terminal works exactly like Ghostty — ⌘D / ⇧⌘D split straight into a new shell in the same working directory, no picker.
 Accept: with a Terminals row shown, ⌘D splits right and ⇧⌘D splits down into a new shell in the focused pane's cwd; Ghostty's split navigation (⌘[ / ⌘], ⌥⌘arrows), equalize and resize keybinds work; closing a split pane hands focus to its neighbor; the row keeps its split layout when you switch away and back
 Out: mixing agents and shells in one split layout (B-058 stays parked); saved layouts; iOS
@@ -2403,6 +2407,7 @@ Source: owner (/feature, 2026-10-28)
 Inbox: 20261029T010346303681Z-5551ad6c#1
 
 ## B-332 · Restore terminals across launches (Ghostty parity)   [ready]
+Issue: #306
 Why: Quitting and reopening Leo brings back your Terminals section as you left it, matching Ghostty's own window-save-state restore, so you don't rebuild your shells by hand each launch.
 Accept: terminals open at quit reappear in the Terminals section on relaunch, in the same order with the same titles and split layout; each restored terminal starts a fresh shell in its last working directory (home if it no longer exists); a terminal closed before quit doesn't come back; behaviour follows Ghostty's window-save-state setting (reuse its TerminalRestorable machinery where possible)
 Out: scrollback or terminal contents (Ghostty doesn't restore them either); keeping running processes alive; agent panes (they reattach via tmux); iOS
@@ -2410,6 +2415,7 @@ Source: owner (/feature, 2026-10-28)
 Inbox: 20261029T010236033957Z-36f72010#1
 
 ## B-331 · Collapsible dispatch rows in the sidebar   [ready]
+Issue: #307
 Why: Lets the sidebar show just the top-level agents when subagent/dispatch rows get noisy, while keeping them one click away.
 Accept: an agent row with dispatch children shows a disclosure chevron that collapses/expands just its dispatch rows; a "Hide Subagents" toggle (View menu, with shortcut) collapses or expands them all at once; a collapsed parent still shows its Working state and a count of running dispatches; collapse state persists across relaunch
 Out: auto-collapsing finished dispatches; changing dispatch row content/indent (B-267); iOS — Mac sidebar only for now
