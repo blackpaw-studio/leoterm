@@ -2395,7 +2395,7 @@ Inbox: 20261028T234444110827Z-5ec96fdf#1
 Done: 329891a93
 Verified: not visually verified — screen captures only (Set Template disabled with no row; enabled state by unit tests)
 
-## B-330 · there should be some more spacing between stats here (Image #1)   [ready]
+## B-330 · there should be some more spacing between stats here (Image #1)   [done]
 Issue: #304
 Type: bug
 Report: there should be some more spacing between stats here [Image #1]
@@ -2403,6 +2403,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-28)
 Inbox: 20261028T235441329172Z-478c5345#1
 Attachments: .autopilot/bugs/B-330/1.png
+Done: 5a61f8d9e
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
 
 ## B-333 · Ghostty-style splits in terminal windows   [ready]
 Issue: #305

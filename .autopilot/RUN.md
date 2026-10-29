@@ -75,7 +75,7 @@ Lane: B-330
   Branch: autopilot-lane/B-330
   Base: 206c306fc83d0b647f556f8c7ec42c2249340a5d
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -83,6 +83,7 @@ Lane: B-330
   Dispatched: 2026-10-29T05:24:12Z
   Call: Capsule stats spacing 3→10 pt (about a capsule width) — Agent decides UX/layout
   Call: B-330 is Mac only; iOS Capsules already use 24 pt spacing — Mac+iOS parity rule
+  Tokens: 6.19M in (5.94M cache read), ≥23.8k out, 79 requests
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -95,3 +96,5 @@ Runner B-329: leo dispatch d-857e3fc39586
 Finished 3: B-329 landed 590edac57 · shot screen capture, not attached
 B-329 landed 590edac57 (≈$2.42 est.)
 Runner B-330: leo dispatch d-27abc57ef309
+Finished 4: B-330 landed 75f360d2b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
+B-330 landed 75f360d2b (≈$2.09 est.)

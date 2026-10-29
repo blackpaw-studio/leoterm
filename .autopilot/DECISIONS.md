@@ -4483,3 +4483,17 @@ Chose: Set Template menu parent gets an action the window validates (B-324's pat
 Why: Keyboard-first, Mac-native; Mac+iOS parity rule
 Commit: 329891a93
 Veto: [ ]
+
+## D-629 · 2026-10-29 · Capsule stats spacing 3→10 pt
+Context: B-330 (runner call).
+Chose: Capsule stats spacing 3→10 pt (about a capsule width)
+Why: AUTONOMY: UX details, layout, polish
+Commit: 5a61f8d9e
+Veto: [ ]
+
+## D-630 · 2026-10-29 · B-330 stats spacing fix is Mac only
+Context: B-330 (runner call).
+Chose: Mac only; iOS Capsules already use 24 pt spacing
+Why: Mac+iOS parity rule
+Commit: 5a61f8d9e
+Veto: [ ]
