@@ -46,12 +46,15 @@ Lane: B-328
   Branch: autopilot-lane/B-328
   Base: cf19af992d2a325020bac1d822a17cb0e1402082
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8e11cce2a1c69039b2c040c8bd66bf153aebc553
   Dispatched: 2026-10-29T02:56:32Z
+  Call: Close Leo sheets through their window (LeoSheetDismiss + .leoSheetClose(in: window)), falling back to \.dismiss under SwiftUI .sheet — Keyboard-first, Mac-native
+  Call: B-328 sheet-close fix is Mac only (iOS doesn't use presentLeoSheet) — Mac+iOS parity rule
+  Call: LeoSpawnSheetHostingController becomes NSHostingController<AnyView> so the close value can be injected — implementation approach
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
