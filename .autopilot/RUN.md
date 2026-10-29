@@ -110,15 +110,24 @@ Lane: B-332
   Branch: autopilot-lane/B-332
   Base: 5b2d1fda40521f87d329cb9d1fdd47b998c48276
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1609ee58bc31b639eece613d8bf571dc5598e8e8
   Dispatched: 2026-10-29T06:55:05Z
+  Call: Restore through AppKit TerminalRestorable/window restoration, not a Leo-owned file — Mac-native
+  Call: Only windows with at least one Terminals row are saved; agent and exited panes are dropped — Out: agent panes; Calm
+  Call: Restored window shows the row selected at quit, else the first row — Keyboard-first
+  Call: A nil pwd falls back to working-directory; a missing dir falls back to home — acceptance criteria
+  Call: A restored window replaces the start window at launch — Ghostty parity
+  Call: Restored window is built via TerminalController(leoIsPlaceholder: true) so AppKit's saved frame stands — Mac-native
+  Call: Saving is disabled in the test host — keeps test windows out of debug-app restores
+  Call: Mac only — iOS is Out
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
+
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
 B-325 landed e80b304df (≈$2.15 est.)
 Runner B-328: leo dispatch d-021a185b277e
