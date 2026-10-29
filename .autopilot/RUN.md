@@ -106,6 +106,16 @@ Lane: B-333
   Call: B-333 is Mac only; iOS is Out — Mac+iOS parity rule
   Tokens: 40.3M in (39.5M cache read), ≥228k out, 251 requests
 
+Lane: B-332
+  Branch: autopilot-lane/B-332
+  Base: 5b2d1fda40521f87d329cb9d1fdd47b998c48276
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
