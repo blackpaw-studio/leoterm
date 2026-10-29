@@ -126,6 +126,16 @@ Lane: B-332
   Call: Saving is disabled in the test host — keeps test windows out of debug-app restores
   Call: Mac only — iOS is Out
 
+Lane: B-331
+  Branch: autopilot-lane/B-331
+  Base: b2cb0a8df1b749d73790f2f89cf54de4ff85c607
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 
