@@ -2,8 +2,9 @@ Status: running
 Started: 2026-10-29T02:17:35Z
 Budget: 20 items, until 2026-10-29T14:17:35Z
 Digested-through: 0
-Filed: 1/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 1/5 ideas
 Self-filed: B-325 → B-334 bug — Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything
+Self-filed: B-329 → B-335 idea — Set Environments and Switch menu parents stay enabled for a pending agent row
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -61,12 +62,13 @@ Lane: B-329
   Branch: autopilot-lane/B-329
   Base: defe83c4070d4c4f4de52c9960dbb8cd240b675c
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0e990850f66679d6db4427621c9ba604852bc9d0
   Dispatched: 2026-10-29T04:53:48Z
+  Call: Set Template menu parent gets an action the window validates (B-324 pattern, not in this tree); Mac only, AppKit menu-bar quirk — Keyboard-first, Mac-native; Mac+iOS parity rule
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
