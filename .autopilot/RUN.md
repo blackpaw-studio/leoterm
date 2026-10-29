@@ -131,11 +131,12 @@ Lane: B-331
   Branch: autopilot-lane/B-331
   Base: b2cb0a8df1b749d73790f2f89cf54de4ff85c607
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: de466ff246f4c29a345c46cb0256416e35a87cdb
+  Tokens: 25.3M in (24.6M cache read), ≥99k out, 229 requests
   Dispatched: 2026-10-29T08:04:00Z
   Call: Global hidesSubagents flag plus per-agent exceptions; Hide Subagents clears the exceptions — calm, agent decides persistence
   Call: View ▸ Hide/Show Subagents on ⌥⌘S, no Ghostty or xib clash — keyboard-first
@@ -164,3 +165,4 @@ Finished 5: B-333 landed ad1846319 · shot /Users/evan/.leo/agents/leoterm/.git/
 B-333 landed ad1846319 (≈$17.39 est.); D-631..D-638 logged; supersedes interim D-105/D-114 for rows
 Runner B-332: leo dispatch d-48620c2d4582
 Finished 6: B-332 landed 9b7fba969 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-332-10.png
+Finished 7: B-331 landed 912484a6c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png
