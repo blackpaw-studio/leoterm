@@ -110,11 +110,12 @@ Lane: B-332
   Branch: autopilot-lane/B-332
   Base: 5b2d1fda40521f87d329cb9d1fdd47b998c48276
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 1609ee58bc31b639eece613d8bf571dc5598e8e8
+  Tokens: 51.2M in (50.4M cache read), ≥208k out, 300 requests
   Dispatched: 2026-10-29T06:55:05Z
   Call: Restore through AppKit TerminalRestorable/window restoration, not a Leo-owned file — Mac-native
   Call: Only windows with at least one Terminals row are saved; agent and exited panes are dropped — Out: agent panes; Calm
@@ -144,3 +145,4 @@ B-333 polish "log calls in DECISIONS" not filed: handled by Record
 Finished 5: B-333 landed ad1846319 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-333-3.png
 B-333 landed ad1846319 (≈$17.39 est.); D-631..D-638 logged; supersedes interim D-105/D-114 for rows
 Runner B-332: leo dispatch d-48620c2d4582
+Finished 6: B-332 landed 9b7fba969 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-332-10.png

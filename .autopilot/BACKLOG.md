@@ -2416,13 +2416,15 @@ Inbox: 20261029T010346303681Z-5551ad6c#1
 Done: 11bf35fa5
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-333-3.png (split right; B-333-4.png split down; busy-pane confirm by tests only)
 
-## B-332 · Restore terminals across launches (Ghostty parity)   [ready]
+## B-332 · Restore terminals across launches (Ghostty parity)   [done]
 Issue: #306
 Why: Quitting and reopening Leo brings back your Terminals section as you left it, matching Ghostty's own window-save-state restore, so you don't rebuild your shells by hand each launch.
 Accept: terminals open at quit reappear in the Terminals section on relaunch, in the same order with the same titles and split layout; each restored terminal starts a fresh shell in its last working directory (home if it no longer exists); a terminal closed before quit doesn't come back; behaviour follows Ghostty's window-save-state setting (reuse its TerminalRestorable machinery where possible)
 Out: scrollback or terminal contents (Ghostty doesn't restore them either); keeping running processes alive; agent panes (they reattach via tmux); iOS
 Source: owner (/feature, 2026-10-28)
 Inbox: 20261029T010236033957Z-36f72010#1
+Done: 91b61c44d
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-332-10.png (restored after relaunch; before quit B-332-7/9; cwd/home fallback and rename by tests only; restores only via "Quit and Keep Windows" when the system closes windows on quit)
 
 ## B-331 · Collapsible dispatch rows in the sidebar   [ready]
 Issue: #307

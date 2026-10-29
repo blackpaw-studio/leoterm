@@ -4553,3 +4553,59 @@ Chose: B-333 is Mac only; iOS is Out
 Why: Mac+iOS parity rule
 Commit: 11bf35fa5
 Veto: [ ]
+
+## D-639 · 2026-10-29 · Restore Terminals rows through AppKit window restoration
+Context: B-332 (runner call).
+Chose: Restore through AppKit TerminalRestorable/window restoration, not a Leo-owned file
+Why: Mac-native; the agent decides the persistence format
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-640 · 2026-10-29 · Save only windows with a Terminals row; drop agent and exited panes
+Context: B-332 (runner call).
+Chose: Only windows with at least one Terminals row are saved; agent and exited panes are dropped
+Why: Out: agent panes; Calm
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-641 · 2026-10-29 · Restored window selects the row selected at quit, else the first
+Context: B-332 (runner call).
+Chose: Restored window shows the row selected at quit, else the first row
+Why: Keyboard-first
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-642 · 2026-10-29 · Missing cwd falls back to working-directory, then home
+Context: B-332 (runner call).
+Chose: A nil pwd falls back to working-directory; a missing dir falls back to home
+Why: acceptance criteria
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-643 · 2026-10-29 · A restored window replaces the start window at launch
+Context: B-332 (runner call).
+Chose: A restored window replaces the start window at launch
+Why: Ghostty parity
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-644 · 2026-10-29 · Restored window keeps AppKit's saved frame
+Context: B-332 (runner call).
+Chose: Restored window is built via TerminalController(leoIsPlaceholder: true), not leoNewPlaceholderWindow, so AppKit's saved frame stands
+Why: Mac-native
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-645 · 2026-10-29 · No window saving in the test host
+Context: B-332 (runner call).
+Chose: Saving is disabled in the test host (LeoTerminalWindowRestoration.isEnabled)
+Why: keeps test windows out of debug-app restores
+Commit: 91b61c44d
+Veto: [ ]
+
+## D-646 · 2026-10-29 · B-332 is Mac only; iOS is Out
+Context: B-332 (runner call).
+Chose: B-332 is Mac only; iOS is Out
+Why: Mac+iOS parity rule
+Commit: 91b61c44d
+Veto: [ ]
