@@ -652,3 +652,9 @@ Interim updates: 1 posted, through item 5
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-29T23:36:23Z — paused by owner
+🛠 leoterm autopilot — 0 fixed, 0 shipped, 0 blocked
+Stopped at your request (2026-10-29T23:42:01Z) — paused mid-item.
+B-334 (Paste/Copy ⌘V/⌘C conflict) was in its first build; partial test work saved as wip 8b05121bb on autopilot-lane/B-334; the next run resumes it first.
+Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332 (finish judged unlanded), B-334 (wip).

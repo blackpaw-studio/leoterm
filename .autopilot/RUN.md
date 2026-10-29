@@ -1,7 +1,8 @@
-Status: running
+Status: finished
 Started: 2026-10-29T23:36:23Z
 Budget: 20 items, until 2026-10-30T11:36:23Z
 Digested-through: 0
+Stop: requested 2026-10-29T23:42:01Z (in session)
 Filed: 0/3 bugs, 0/5 ideas
 Untracked-left: default.profraw scratchpad/
 
@@ -33,7 +34,7 @@ Lane: B-334
   Tier: light
   State: building
   Fixes: 0
-  Wip: none
+  Wip: 8b05121bb
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-29T23:38:44Z
@@ -41,3 +42,4 @@ Lane: B-334
 Progress:
 - Preflight: inbox empty; promoted B-334; lane B-233 unlanded with no block (left in place).
 - B-334 runner: leo dispatch d-318488c92376 (implement, pane %720).
+- Paused by owner 2026-10-29T23:42Z: runner d-318488c92376 and implementer d-09a8482d969e cancelled; partial test work committed as wip 8b05121bb; B-334 stays building for next run's recovery.
