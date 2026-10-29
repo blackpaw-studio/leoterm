@@ -75,12 +75,14 @@ Lane: B-330
   Branch: autopilot-lane/B-330
   Base: 206c306fc83d0b647f556f8c7ec42c2249340a5d
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 26df7a3f08a8271c7b5faf50e4976d0d820c7d03
   Dispatched: 2026-10-29T05:24:12Z
+  Call: Capsule stats spacing 3→10 pt (about a capsule width) — Agent decides UX/layout
+  Call: B-330 is Mac only; iOS Capsules already use 24 pt spacing — Mac+iOS parity rule
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
