@@ -327,9 +327,8 @@ import Testing
 
     @Test(arguments: [
         ([LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: true)], LeoContentReplacement.Fate.keep),
-        // A shell split beside a row has no row of its own: the whole
-        // content closes (asking first when busy), as beside an agent.
-        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], .close),
+        // B-333: shells split beside a row are its layout, kept with it.
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], .keep),
         ([.init(isAgent: true, needsConfirmQuit: true)], .pool),
         ([.init(isAgent: true, needsConfirmQuit: true), .init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)], .close),
         ([.init(isAgent: false, needsConfirmQuit: false)], .close),
@@ -347,15 +346,31 @@ import Testing
         #expect(!LeoContentReplacement.needsConfirmation(shown))
     }
 
-    /// Fix round 2: a busy shell split beside a row would close with it,
-    /// so switching away asks first.
-    @Test func aBusyShellSplitBesideATerminalRowAsks() {
-        let shown = [
-            LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false),
-            .init(isAgent: false, needsConfirmQuit: true),
-        ]
+    /// B-333: a row owns its split layout, as a Ghostty tab does: shells
+    /// split beside it are hidden with it, busy or not, so switching away
+    /// never asks.
+    @Test func aRowWithShellSplitsIsKeptWhole() {
+        let row = LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)
+        let busy = LeoContentReplacement.Shown(isAgent: false, needsConfirmQuit: true)
+        let shown = [row, busy, busy]
 
-        #expect(LeoContentReplacement.needsConfirmation(shown))
+        #expect(LeoContentReplacement.fate(shown) == .keep)
+        #expect(!LeoContentReplacement.needsConfirmation(shown))
+    }
+
+    /// B-333: ⌘D splits straight into a shell only where the split joins a
+    /// row's layout: a row and the shells beside it. Agents, and shells
+    /// with no row, keep the picker (D-212).
+    @Test(arguments: [
+        ([LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)], true),
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], true),
+        ([.init(isAgent: true, needsConfirmQuit: false)], false),
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: true, needsConfirmQuit: false)], false),
+        ([.init(isAgent: false, needsConfirmQuit: false)], false),
+        ([], false),
+    ])
+    func splitsIntoShellOnlyOnRowOnlyLayouts(_ shown: [LeoContentReplacement.Shown], _ splitsIntoShell: Bool) {
+        #expect(LeoContentReplacement.splitsIntoShell(shown) == splitsIntoShell)
     }
 
     /// B-058 territory keeps today's safe behaviour: a shell beside an

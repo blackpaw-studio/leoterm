@@ -329,6 +329,75 @@ import Testing
         #expect(keep.letGo.trees.isEmpty)
     }
 
+    // MARK: Kept layouts (B-333)
+
+    /// B-333: a shell split beside a kept row's shell ends -- switched
+    /// away from once ended, taken to be shown, dropped with the dead, or
+    /// on Ghostty's close request (which needs no exit seen yet): only its
+    /// pane leaves the layout, and the host hears it left. The row's shell
+    /// stays, and nothing else is let go.
+    @Test(arguments: ["hidden once ended", "taken", "dropped with the dead", "its close request"])
+    func aKeptLayoutLosesOnlyThePaneThatEnded(_ path: String) throws {
+        let keep = try KeptLayout()
+        if path != "hidden once ended" { keep.hide() }
+        if path != "its close request" { keep.state.ended.insert(keep.split.id) }
+
+        switch path {
+        case "hidden once ended": keep.hide()
+        case "taken": #expect(keep.live.take(treeHolding: keep.row, in: keep.window)?.tree.map(\.id) == [keep.row.id], "the rest shows")
+        case "dropped with the dead": keep.live.dropDead()
+        default: #expect(keep.live.keptPaneEnded(keep.split))
+        }
+
+        #expect(keep.state.left.map(\.pane) == [keep.split.id])
+        #expect(keep.letGo.trees.isEmpty)
+        if path != "taken" { #expect(keep.live.keptSurfaces(in: keep.window).map(\.id) == [keep.row.id]) }
+    }
+
+    /// B-333: the kept row's own shell ends. It leaves the layout, and the
+    /// host hears it left with the pane focused next to carry its row on;
+    /// the rest stays kept under that row.
+    @Test func aKeptLayoutsRowPaneThatEndsIsHandedOn() throws {
+        let keep = try KeptLayout()
+        keep.hide()
+        keep.state.ended.insert(keep.row.id)
+
+        keep.live.dropDead()
+
+        #expect(keep.state.left.map(\.pane) == [keep.row.id])
+        #expect(keep.state.left.map(\.heir) == [keep.split.id])
+        #expect(keep.live.keptSurfaces(in: keep.window).map(\.id) == [keep.split.id])
+        #expect(keep.letGo.trees.isEmpty)
+        #expect(keep.live.take(treeHolding: keep.split, in: keep.window)?.tree.map(\.id) == [keep.split.id])
+    }
+
+    /// B-333: nothing carried the row on, so the rest of its layout has no
+    /// row to come back by: it is let go.
+    @Test func aKeptLayoutLeftWithNoRowIsLetGo() throws {
+        let keep = try KeptLayout(handsOn: false)
+        keep.hide()
+        keep.state.ended.insert(keep.row.id)
+
+        keep.live.dropDead()
+
+        #expect(keep.letGo.trees.map { $0.map(\.id) } == [[keep.split.id]])
+        #expect(keep.live.keptSurfaces(in: keep.window).isEmpty)
+    }
+
+    /// B-333: a kept layout comes back focused where it was left; with no
+    /// focus noted, on the pane it was taken by.
+    @Test func aKeptLayoutIsTakenWithThePaneItHadFocused() throws {
+        let keep = try KeptLayout()
+        keep.hide(focused: keep.split)
+
+        let taken = try #require(keep.live.take(treeHolding: keep.row, in: keep.window))
+
+        #expect(taken.focus === keep.split)
+        #expect(taken.tree.map(\.id) == [keep.row.id, keep.split.id])
+        keep.hide()
+        #expect(keep.live.take(treeHolding: keep.split, in: keep.window)?.focus === keep.split)
+    }
+
     @MainActor private final class LetGoLog {
         var trees: [[Ghostty.SurfaceView]] = []
     }
@@ -367,6 +436,60 @@ import Testing
         func hide() throws {
             live.hide(SplitTree(view: shell), in: window, showing: SplitTree())
             try #require(live.keptSurfaces(in: window).map(\.id) == [shell.id])
+        }
+    }
+
+    @MainActor private final class LayoutState {
+        var row: UUID
+        var ended: Set<UUID> = []
+        var left: [(pane: UUID, heir: UUID?)] = []
+
+        init(row: UUID) { self.row = row }
+    }
+
+    /// `LeoLiveSurfaces` on its own with one terminal row's layout: its
+    /// shell with a shell split beside it. Which pane is the row, which
+    /// have ended, and what the host heard left are scripted.
+    /// `handsOn`: the host carries the row on in the heir it is told of.
+    @MainActor private struct KeptLayout {
+        let window = LeoWindowID()
+        let letGo: LetGoLog
+        let state: LayoutState
+        let row: Ghostty.SurfaceView
+        let split: Ghostty.SurfaceView
+        let live: LeoLiveSurfaces
+
+        init(handsOn: Bool = true) throws {
+            let app = try #require(LeoLivePoolIntegrationTests.ghostty?.app, "these tests need the app's Ghostty.App")
+            let row = Ghostty.SurfaceView(app, baseConfig: nil)
+            let split = Ghostty.SurfaceView(app, baseConfig: nil)
+            let state = LayoutState(row: row.id)
+            let letGo = LetGoLog()
+            self.letGo = letGo
+            self.row = row
+            self.split = split
+            self.state = state
+            live = LeoLiveSurfaces(
+                isAgent: { _ in false },
+                isTerminalRow: { $0.id == state.row },
+                isClient: { _ in false },
+                hasExited: { state.ended.contains($0.id) },
+                paneLeft: { pane, heir, _ in
+                    state.left.append((pane.id, heir?.id))
+                    if handsOn, pane.id == state.row, let heir { state.row = heir.id }
+                },
+                letGo: { letGo.trees.append(Array($0)) }
+            )
+        }
+
+        /// The row's shell, with the shell split to its right.
+        var tree: SplitTree<Ghostty.SurfaceView> {
+            (try? SplitTree(view: row).inserting(view: split, at: row, direction: .right)) ?? SplitTree(view: row)
+        }
+
+        /// Switched away from: kept for its row.
+        func hide(focused: Ghostty.SurfaceView? = nil) {
+            live.hide(tree, in: window, showing: SplitTree(), focused: focused)
         }
     }
 

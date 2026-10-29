@@ -150,6 +150,12 @@ struct FakeOpenCall {
         emit(.closed(handle))
     }
 
+    /// Every split asked for beside a terminal row's shell (B-333).
+    private(set) var terminalSplits: [(AttachmentHandle, LeoSplitDirection)] = []
+    func splitTerminal(_ handle: AttachmentHandle, direction: LeoSplitDirection) {
+        terminalSplits.append((handle, direction))
+    }
+
     /// Every window whose sidebar was told to select what it shows again.
     private(set) var reselectedWindows: [LeoWindowID] = []
     func selectShownTerminal(in window: LeoWindowID) {

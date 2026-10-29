@@ -21,30 +21,40 @@ extension GhosttyAttachContentHost {
     }
 
     /// Close on the row's menu, asking first as ⌘W does when a process is
-    /// running. Shown, it is ⌘W's own path: Ghostty decides whether to ask
-    /// and names the pane (`leoCloseTerminalRow`, or a split's close beside
-    /// another pane). Hidden, nothing on screen can ask for it, so the
-    /// same "Close …?" confirm is put up here; with nothing running it
-    /// closes straight away. Cancelled, or another alert already up on the
-    /// window, it stays.
+    /// running. B-333: the row's whole layout closes, as a Ghostty tab with
+    /// splits does. Shown alone, it is ⌘W's own path: Ghostty decides
+    /// whether to ask and names the pane (`leoCloseTerminalRow`). Hidden,
+    /// or split, one "Close …?" confirm here names every busy pane in it;
+    /// with nothing running it closes straight away. Cancelled, or another
+    /// alert already up on the window, all of it stays.
     /// Its pane's unsaved edits are asked about first (B-274).
     func closeTerminalFromMenu(_ handle: AttachmentHandle) async {
         guard let (controller, surface) = terminalRowSurface(handle) else { return }
         if let panes = controller.leoSession?.panes, panes.existingPane(for: .terminal(handle.surfaceID))?.hasUnsavedEdits == true {
             guard await panes.close(.terminal(handle.surfaceID)), terminalRowSurface(handle) != nil else { return }
         }
-        if controller.surfaceTree.contains(surface) {
+        guard let layout = terminalLayout(handle) else { return }
+        if controller.surfaceTree.contains(surface), !layout.isSplit {
             guard let ghosttySurface = surface.surface else { return }
             return controller.ghostty.requestClose(surface: ghosttySurface)
         }
-        if surface.needsConfirmQuit {
+        let busy = layout.filter(\.needsConfirmQuit).map(\.leoPaneName)
+        if !busy.isEmpty {
             let response = await controller.confirmCloseAsync(
-                messageText: LeoCloseConfirmation.messageText(closing: [surface.leoPaneName]),
-                informativeText: LeoCloseConfirmation.rowInformativeText
+                messageText: LeoCloseConfirmation.messageText(closing: busy),
+                informativeText: layout.isSplit ? LeoCloseConfirmation.rowLayoutInformativeText : LeoCloseConfirmation.rowInformativeText
             )
             guard let response, [.alertFirstButtonReturn, .OK].contains(response) else { return }
         }
-        controller.leoSession?.terminals.closeRequested(handle.surfaceID)
+        closeTerminalLayout(handle)
+    }
+
+    /// Split Right / Split Down, once the row shows: ⌘D's split beside its
+    /// shell, from the shell's working directory -- straight into a new
+    /// shell of the row's layout (B-333). Not shown, nothing splits.
+    func splitTerminal(_ handle: AttachmentHandle, direction: LeoSplitDirection) {
+        guard let (controller, surface) = terminalRowSurface(handle), controller.surfaceTree.contains(surface) else { return }
+        _ = controller.newSplit(at: surface, direction: leoSplitTreeDirection(for: direction), baseConfig: splitConfiguration(for: handle))
     }
 
     /// What a split beside the row's shell starts from, as ⌘D's: the

@@ -587,23 +587,6 @@ import Testing
         #expect(fixture.host.isShown(agent), "what the window shows stays")
     }
 
-    /// A shell split beside a row has no row of its own to come back by,
-    /// so switching away closes the whole content (the coordinator asks
-    /// first when a shell in it is busy): nothing hidden holds a shell a
-    /// later close could kill without asking.
-    @Test func aRowWithAShellSplitBesideItIsNotKept() throws {
-        let fixture = try makeFixture()
-        defer { close(fixture) }
-        let row = try newShell(fixture)
-        let split = try openSplit(fixture, beside: row)
-
-        _ = try attachAgent(fixture)
-
-        #expect(fixture.host.hiddenSurfaces(in: fixture.windowID).isEmpty)
-        #expect(!fixture.host.isOpen(row) && !fixture.host.isOpen(split))
-        #expect(!fixture.terminals.contains(row.surfaceID), "its row closes with it")
-    }
-
     /// A row's shell closing while a shell is split beside it (⌘D) closes
     /// its own pane only, as a split's close does: the shell beside it --
     /// busy or not -- is never closed without asking. It carries the row
@@ -1218,9 +1201,9 @@ import Testing
         #expect(!fixture.host.isShown(row))
     }
 
-    /// ⌘D, switch rows, ⌘Z (of "New Split"). Switching away from a row
-    /// with a split beside it let both go (D-114), so only the busy row
-    /// is left.
+    /// ⌘D, switch rows, ⌘Z (of "New Split"). Switching away keeps the
+    /// row's split layout hidden (B-333); undo is a boundary the switch
+    /// ended, so the busy row stays shown and the row stays hidden.
     @Test func undoingANewSplitAfterASwitchLeavesTheShownRowAlone() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -1234,8 +1217,9 @@ import Testing
 
         undoManager.undo()
 
-        await expectUndoLeftTheSwitchAlone(fixture, busy: busy, busyView: busyView, rows: [busy.surfaceID])
-        #expect(!fixture.shown().contains { $0 === rowView.view }, "the let-go row isn't brought back")
+        // B-333: the row's split layout is kept hidden, not let go.
+        await expectUndoLeftTheSwitchAlone(fixture, busy: busy, busyView: busyView, rows: [row.surfaceID, busy.surfaceID])
+        #expect(!fixture.shown().contains { $0 === rowView.view }, "the hidden row isn't brought back")
     }
 
     /// The start screen the last row leaves is a boundary too: ⌘Z brings

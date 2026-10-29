@@ -208,18 +208,20 @@ import Testing
 
     // MARK: Switching away from a busy split
 
-    /// A row with a shell split beside it closes whole on a switch away
-    /// (`LeoContentReplacement.fate`): the confirm names each busy shell.
+    /// Shells split beside an agent close on a switch away
+    /// (`LeoContentReplacement.fate`; a row's split layout is kept,
+    /// B-333): the confirm names each busy shell, never the agent.
     @Test func switchingAwayFromABusySplitNamesTheShellsThatClose() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
-        let row = try newRow(fixture)
-        let split = try newSplit(fixture, beside: row)
-        let rowView = try #require(fixture.view(row))
-        let splitView = try #require(fixture.view(split))
-        #expect(await title(rowView, "editor"))
-        #expect(await title(splitView, "build"))
-        #expect(await eventually { rowView.needsConfirmQuit && splitView.needsConfirmQuit }, "the stand-in keeps both busy")
+        let agent = try fixture.host.showInContent(command: Self.standIn, workingDirectory: nil, origin: fixture.origin, requestID: UUID())
+        let editor = try newSplit(fixture, beside: agent)
+        let build = try newSplit(fixture, beside: editor)
+        let editorView = try #require(fixture.view(editor))
+        let buildView = try #require(fixture.view(build))
+        #expect(await title(editorView, "editor"))
+        #expect(await title(buildView, "build"))
+        #expect(await eventually { editorView.needsConfirmQuit && buildView.needsConfirmQuit }, "the stand-in keeps both busy")
 
         #expect(await !fixture.host.confirmReplacingContent(origin: fixture.origin), "Cancel keeps the content")
 
