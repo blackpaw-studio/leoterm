@@ -12,7 +12,7 @@ private enum LeoMeterMetrics {
     static let capsuleSize = CGSize(width: 10, height: 20)
     static let ringDiameter: CGFloat = 20
     static let ringLineWidth: CGFloat = 2.5
-    static let capsuleSpacing: CGFloat = 3
+    static let capsuleSpacing: CGFloat = 10
     static let ringSpacing: CGFloat = 5
     static let dimmedOpacity = 0.4
 }

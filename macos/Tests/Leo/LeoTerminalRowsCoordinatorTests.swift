@@ -170,51 +170,48 @@ import Testing
         if case .failure(let error) = result { #expect(error.isCancellation) } else { Issue.record("expected a quiet cancel") }
     }
 
-    // MARK: Split from the row's menu (B-177)
+    // MARK: Split from the row's menu (B-177, B-333)
 
-    /// Split Right on a hidden row: the row shows (its own shell), then the
-    /// split ⌘D would ask for beside that shell is requested.
+    /// Split Right on a hidden row: the row shows (its own layout), then
+    /// the host splits beside its shell, straight into a shell -- no
+    /// picker request.
     @Test(arguments: [LeoSplitDirection.right, .down])
-    func splittingAHiddenRowShowsItThenRequestsASplit(_ direction: LeoSplitDirection) async throws {
+    func splittingAHiddenRowShowsItThenSplitsIt(_ direction: LeoSplitDirection) async throws {
         let (host, coordinator) = make()
         let shell = try await newShell(coordinator)
         await coordinator.attach(identity: worker, from: window, disposition: .content)
         try #require(host.isHidden(shell))
-        var routed: [LeoSurfaceRequest] = []
 
-        await coordinator.splitTerminal(shell, direction: direction) { routed.append($0) }
+        await coordinator.splitTerminal(shell, direction: direction)
 
         #expect(host.revealed == [shell])
         #expect(host.isShown(shell))
-        #expect(routed.map(\.disposition) == [.split(direction)])
-        #expect(routed.map(\.splitSourceSurface) == [shell.surfaceID])
-        #expect(routed.map(\.origin) == [window])
+        #expect(host.terminalSplits.map(\.0) == [shell])
+        #expect(host.terminalSplits.map(\.1) == [direction])
     }
 
-    @Test func splittingTheShownRowRequestsASplitBesideIt() async throws {
+    @Test func splittingTheShownRowSplitsItWithoutShowingIt() async throws {
         let (host, coordinator) = make()
         let shell = try await newShell(coordinator)
-        var routed: [LeoSurfaceRequest] = []
 
-        await coordinator.splitTerminal(shell, direction: .right) { routed.append($0) }
+        await coordinator.splitTerminal(shell, direction: .right)
 
         #expect(host.revealed.isEmpty)
-        #expect(routed.map(\.splitSourceSurface) == [shell.surfaceID])
+        #expect(host.terminalSplits.map(\.0) == [shell])
     }
 
     /// Showing it was cancelled (or its shell is gone): nothing splits,
     /// least of all whatever the window shows instead.
     @Test(arguments: ["cancelled", "closed"])
-    func aRowNotShownAsksForNoSplit(_ outcome: String) async throws {
+    func aRowNotShownIsNotSplit(_ outcome: String) async throws {
         let (host, coordinator) = make()
         let shell = try await newShell(coordinator)
         await coordinator.attach(identity: worker, from: window, disposition: .content)
         if outcome == "cancelled" { host.confirmsReplacement = false } else { coordinator.closeTerminal(shell) }
-        var routed: [LeoSurfaceRequest] = []
 
-        await coordinator.splitTerminal(shell, direction: .right) { routed.append($0) }
+        await coordinator.splitTerminal(shell, direction: .right)
 
-        #expect(routed.isEmpty)
+        #expect(host.terminalSplits.isEmpty)
         #expect(!host.isShown(shell))
     }
 }

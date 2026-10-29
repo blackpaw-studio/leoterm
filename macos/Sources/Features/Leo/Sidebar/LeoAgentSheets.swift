@@ -7,7 +7,7 @@ import LeoKit
 struct LeoRenameAgentSheet: View {
     let row: LeoAgentRow
     @ObservedObject var actions: LeoAgentActions
-    @Environment(\.dismiss) private var dismiss
+    private let dismiss = LeoSheetDismiss()
     @State private var name: String
 
     init(row: LeoAgentRow, actions: LeoAgentActions) {
@@ -85,7 +85,7 @@ struct LeoDeleteAgentSheet: View {
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
-    @Environment(\.dismiss) private var dismiss
+    private let dismiss = LeoSheetDismiss()
     @State private var deletePlan: LeoDeletePlan?
     @State private var forceDelete = false
     @State private var deleteBranch = false

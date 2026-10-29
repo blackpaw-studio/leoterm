@@ -168,9 +168,14 @@ struct AttachExitReport: Equatable, Sendable {
     /// `exit`), shown or hidden. Shown alone, its window shows the
     /// neighbouring terminal row instead -- the same hidden surface -- or,
     /// with none, the start screen; the window stays. Shown with a split
-    /// beside it, only its own pane closes. Hidden, its shell is let go and
+    /// beside it, only its own pane closes. Hidden, its whole kept layout
+    /// -- its shell and the shells split beside it (B-333) -- is let go and
     /// what the window shows is untouched. Already closed, nothing happens.
     func closeTerminal(_ handle: AttachmentHandle)
+    /// B-333: Split Right / Split Down on a shown terminal row's menu: the
+    /// split ⌘D makes beside its shell, straight into a new shell of the
+    /// row's layout. Not shown (or gone), nothing splits.
+    func splitTerminal(_ handle: AttachmentHandle, direction: LeoSplitDirection)
     /// B-057: `window`'s sidebar selects the terminal row its content area
     /// shows -- or, showing an agent or the start screen, none, so the
     /// agent's selection shows. A row selected to be shown that wasn't

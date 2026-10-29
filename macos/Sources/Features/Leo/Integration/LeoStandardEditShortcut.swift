@@ -2,23 +2,27 @@ import AppKit
 import Carbon.HIToolbox
 import GhosttyKit
 
-/// B-318: the standard macOS shortcut for an Edit menu item whose Ghostty
-/// default binding is `performable`. Ghostty's reverse lookup, which the
+/// B-318, B-325: the standard macOS shortcut for an Edit menu item whose
+/// Ghostty default binding is `performable`. Ghostty's reverse lookup, which the
 /// menu sync reads, leaves performable bindings out, so the sync would give
 /// the item no key equivalent. A focused terminal surface still answers the
 /// key itself (a key equivalent reaches the window's views before the
 /// menu), but selected text anywhere else -- a chat bubble, a text field --
-/// can only be copied through the menu.
+/// can only be copied (or, for ⌘V, pasted into a text field such as the chat
+/// composer) through the menu.
 ///
-/// Only Copy. Paste's ⌘V is performable too; Find's ⌘F is handled by
-/// `LeoFindableTextView` instead, since Edit ▸ Find climbs to the terminal.
+/// Copy and Paste. Find's ⌘F is handled by `LeoFindableTextView` instead,
+/// since Edit ▸ Find climbs to the terminal.
 enum LeoStandardEditShortcut {
     private struct Shortcut {
         let key: Character
         let keyCode: Int
     }
 
-    private static let shortcuts = ["copy_to_clipboard": Shortcut(key: "c", keyCode: kVK_ANSI_C)]
+    private static let shortcuts = [
+        "copy_to_clipboard": Shortcut(key: "c", keyCode: kVK_ANSI_C),
+        "paste_from_clipboard": Shortcut(key: "v", keyCode: kVK_ANSI_V),
+    ]
 
     /// Gives `item` the standard ⌘ shortcut for `action` while the config
     /// still binds that key; false when there is none to give (an `unbind`

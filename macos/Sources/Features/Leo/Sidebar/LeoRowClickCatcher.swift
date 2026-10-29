@@ -14,12 +14,16 @@ struct LeoRowClickCatcher: NSViewRepresentable {
     /// The row this view currently backs (its agent's id).
     let identity: AnyHashable
     let onClick: (NSEvent.ModifierFlags, Int) -> Void
+    /// Width of the trailing edge that belongs to a control of the row's
+    /// own (the subagents chevron): a click there is not a row click.
+    var trailingExclusion: CGFloat = 0
 
     func makeNSView(context: Context) -> LeoRowClickCatcherView { LeoRowClickCatcherView() }
 
     func updateNSView(_ view: LeoRowClickCatcherView, context: Context) {
         view.identity = identity
         view.onClick = onClick
+        view.trailingExclusion = trailingExclusion
         view.isEnabled = context.environment.isEnabled
     }
 }
@@ -27,6 +31,8 @@ struct LeoRowClickCatcher: NSViewRepresentable {
 final class LeoRowClickCatcherView: NSView {
     var onClick: (NSEvent.ModifierFlags, Int) -> Void = { _, _ in }
     var isEnabled = true
+    /// See `LeoRowClickCatcher.trailingExclusion`.
+    var trailingExclusion: CGFloat = 0
     /// The row this view backs. Rows re-sort live, and SwiftUI may hand
     /// this view (with a new `onClick`) to another row between mouse-down
     /// and mouse-up; that mouse-up is no click on the new row (B-049).
@@ -74,7 +80,8 @@ final class LeoRowClickCatcherView: NSView {
         guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return false }
         // `visibleRect` alone can reach past the view's own bounds.
         let point = convert(event.locationInWindow, from: nil)
-        return bounds.contains(point) && visibleRect.contains(point)
+        let clickable = NSRect(x: bounds.minX, y: bounds.minY, width: max(bounds.width - trailingExclusion, 0), height: bounds.height)
+        return clickable.contains(point) && visibleRect.contains(point)
     }
 
     private func removeMonitor() {

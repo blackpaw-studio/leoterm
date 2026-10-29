@@ -1,11 +1,12 @@
 Status: finished
-Started: 2026-10-28T01:47:16Z
-Budget: 20 items, until 2026-10-28T13:47:16Z
-Digested-through: 10
-Filed: 1/3 bugs, 2/5 ideas
-Self-filed: B-318 → B-325 bug — Edit ▸ Paste may lack ⌘V
-Self-filed: B-059 → B-326 idea — iPad hardware-keyboard row switching
-Self-filed: B-188 → B-327 idea — Remove the stale LeoHostSelection comment and dead spawn overload
+Started: 2026-10-29T02:17:35Z
+Budget: 20 items, until 2026-10-29T14:17:35Z
+Digested-through: 5
+Filed: 1/3 bugs, 3/5 ideas
+Self-filed: B-325 → B-334 bug — Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything
+Self-filed: B-329 → B-335 idea — Set Environments and Switch menu parents stay enabled for a pending agent row
+Self-filed: B-333 → B-336 idea — Make the focused split pane easier to spot
+Self-filed: B-331 → B-337 idea — Clip the subagent chevron's click area to the name line
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -30,253 +31,138 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
-Lane: B-318
-  Branch: autopilot-lane/B-318
-  Base: ca6b82515615918204128be2f2e6c6922f6253ec
-  Tier: light→full
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: dc0f12d06775accf2eb8edb95d232f4bacc840d1
-  Dispatched: 2026-10-28T01:50:02Z
-  Call: Mac only — iOS chat text is a selectable UITextView that copies without a menu shortcut (AGENTS.md parity rule)
-  Call: Edit ▸ Copy gets ⌘C when the config gives it none and ⌘C is still bound (respects super+c=unbind and user-set shortcuts); dropped the plan's focus-on-mouse-down fix — Keyboard-first, Mac-native
-  Call: Fix is app-wide: ⌘C also works for other selectable text and fields — Edit ▸ Copy / ⌘C must work wherever text is selectable
-
-Lane: B-320
-  Branch: autopilot-lane/B-320
-  Base: d96154f93e73aaf5a7404d20fabe2b4fed39e43a
+Lane: B-325
+  Branch: autopilot-lane/B-325
+  Base: 791b934ff3bf2fa421c405e771b29651301b3a77
   Tier: light
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 738ffb00bf111facebc1a16cf1f77789591a638d
-  Tokens: 7.99M in (7.7M cache read), ≥35.2k out, 91 requests
-  Dispatched: 2026-10-28T04:08:27Z
-  Call: iOS only (UIKit layout under ios/; the Mac app doesn't use this view) — AGENTS.md Mac+iOS rule
+  Reviewed-tip: d778bfce1f9ba3c167d40b82bea1eefd5b5d6063
+  Dispatched: 2026-10-29T02:20:31Z
+  Call: Mac only; iOS has no menu bar and uses UIKit's own paste — Keyboard-first/Mac-native
+  Call: app-wide, like D-592 — Keyboard-first/Mac-native
+  Tokens: 6.18M in (5.91M cache read), ≥25.3k out, 75 requests
 
-Lane: B-321
-  Branch: autopilot-lane/B-321
-  Base: 6a74d3fd6bc33aae5c5cd295a8b462f4443764a4
+Lane: B-328
+  Branch: autopilot-lane/B-328
+  Base: cf19af992d2a325020bac1d822a17cb0e1402082
   Tier: light
-  State: shelved
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
-  Tokens: 1.43M in (1.33M cache read), ≥8.48k out, 20 requests
-  Dispatched: 2026-10-28T04:50:20Z
+  Reviewed-tip: 8e11cce2a1c69039b2c040c8bd66bf153aebc553
+  Dispatched: 2026-10-29T02:56:32Z
+  Call: Close Leo sheets through their window (LeoSheetDismiss + .leoSheetClose(in: window)), falling back to \.dismiss under SwiftUI .sheet — Keyboard-first, Mac-native
+  Call: B-328 sheet-close fix is Mac only (iOS doesn't use presentLeoSheet) — Mac+iOS parity rule
+  Call: LeoSpawnSheetHostingController becomes NSHostingController<AnyView> so the close value can be injected — implementation approach
+  Tokens: 13.2M in (12.8M cache read), ≥49.6k out, 140 requests
 
-Lane: B-322
-  Branch: autopilot-lane/B-322
-  Base: ffd1217db72bda7e6b3bbefcc957138bf1b6da36
+Lane: B-329
+  Branch: autopilot-lane/B-329
+  Base: defe83c4070d4c4f4de52c9960dbb8cd240b675c
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 0e990850f66679d6db4427621c9ba604852bc9d0
+  Dispatched: 2026-10-29T04:53:48Z
+  Call: Set Template menu parent gets an action the window validates (B-324 pattern, not in this tree); Mac only, AppKit menu-bar quirk — Keyboard-first, Mac-native; Mac+iOS parity rule
+  Tokens: 7.7M in (7.41M cache read), ≥29.7k out, 90 requests
+
+Lane: B-330
+  Branch: autopilot-lane/B-330
+  Base: 206c306fc83d0b647f556f8c7ec42c2249340a5d
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 26df7a3f08a8271c7b5faf50e4976d0d820c7d03
+  Dispatched: 2026-10-29T05:24:12Z
+  Call: Capsule stats spacing 3→10 pt (about a capsule width) — Agent decides UX/layout
+  Call: B-330 is Mac only; iOS Capsules already use 24 pt spacing — Mac+iOS parity rule
+  Tokens: 6.19M in (5.94M cache read), ≥23.8k out, 79 requests
+
+Lane: B-333
+  Branch: autopilot-lane/B-333
+  Base: 3c1c7e1cd4f3cc286f838747698075f7f053171e
   Tier: full
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 7302c56887e654b3fb39278daf86a5d2e92139f9
-  Tokens: 12.2M in (11.7M cache read), ≥64.5k out, 128 requests
-  Dispatched: 2026-10-28T04:54:36Z
-  Call: Gate test-host daemon isolation on the existing isRunningAsTestHost() rather than an env var, so plain xcodebuild and Xcode runs are isolated too — test infrastructure
-  Call: The test host gets an unreachable socket (/dev/null/leo-test-host.sock) and no legacy :8370 web config, rather than a scratch daemon — test infrastructure
-  Call: B-322 is Mac only; iOS has no local unix socket and LeoKit is unchanged — AGENTS.md Mac+iOS rule
+  Reviewed-tip: 0a9120a7decb2e62caa76ac77b1a537dd8574aee
+  Dispatched: 2026-10-29T05:48:59Z
+  Call: One row owns its whole split layout; split panes are never rows (differs from parked B-058) — Ghostty parity, sidebar-is-navigation (D-098)
+  Call: ⌘D/⇧⌘D, Window ▸ Split and row-menu Split on a row-only layout go straight to a shell in the focused pane's cwd; supersedes interim D-114/D-105 for rows (D-105 still holds for the agent pool) — keyboard-first, Mac-native; owner's B-333 Accept
+  Call: Agent-row ⌘D, and a split beside an agent, keep the picker — D-212
+  Call: A layout with any agent pane is closed on switch-away rather than kept — matches existing close-confirm counting
+  Call: Row-menu Close closes the whole layout with one confirm naming every busy pane, shown or hidden; ⌘W stays per pane — no silent kills
+  Call: A hidden pane that exits leaves the layout, and the row passes to a surviving shell — D-190/D-191
+  Call: Reveal refocuses the pane that was focused at switch-away — Ghostty parity
+  Call: B-333 is Mac only; iOS is Out — Mac+iOS parity rule
+  Tokens: 40.3M in (39.5M cache read), ≥228k out, 251 requests
 
-Lane: B-172
-  Branch: autopilot-lane/B-172
-  Base: efb36873f1c56f4e2bc54ba6ea474d266071cebf
+Lane: B-332
+  Branch: autopilot-lane/B-332
+  Base: 5b2d1fda40521f87d329cb9d1fdd47b998c48276
   Tier: full
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: d74f69857099e3a0392064699d516c656eb7ef56
-  Tokens: 9.55M in (9.15M cache read), ≥42.8k out, 107 requests
-  Dispatched: 2026-10-28T05:31:51Z
-  Call: Drain pending reconciles in the public selectShownTerminal(in:), not in isOpen or the coordinator: keeps queries side-effect-free, adds no protocol method — bug fixes / Swift under macos/
-  Call: B-172 is Mac only; host, terminal rows and Ghostty surfaces exist only under macos/ — AGENTS.md Mac+iOS rule
-  Call: showTerminal still doesn't call onRowShown for the adopted shell; left out of scope since the B-274 rowReplaced hook already moves the row's pane mapping — small scope cut
+  Reviewed-tip: 1609ee58bc31b639eece613d8bf571dc5598e8e8
+  Tokens: 51.2M in (50.4M cache read), ≥208k out, 300 requests
+  Dispatched: 2026-10-29T06:55:05Z
+  Call: Restore through AppKit TerminalRestorable/window restoration, not a Leo-owned file — Mac-native
+  Call: Only windows with at least one Terminals row are saved; agent and exited panes are dropped — Out: agent panes; Calm
+  Call: Restored window shows the row selected at quit, else the first row — Keyboard-first
+  Call: A nil pwd falls back to working-directory; a missing dir falls back to home — acceptance criteria
+  Call: A restored window replaces the start window at launch — Ghostty parity
+  Call: Restored window is built via TerminalController(leoIsPlaceholder: true) so AppKit's saved frame stands — Mac-native
+  Call: Saving is disabled in the test host — keeps test windows out of debug-app restores
+  Call: Mac only — iOS is Out
 
-Lane: B-173
-  Branch: autopilot-lane/B-173
-  Base: 85aa16a29b62f7595be5ef8f653c5fc9a5d20f4e
-  Tier: light→full
+Lane: B-331
+  Branch: autopilot-lane/B-331
+  Base: b2cb0a8df1b749d73790f2f89cf54de4ff85c607
+  Tier: full
   State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 14d7e1c3efd4437ddbd3f1d9d762c3d3f53280ea
-  Tokens: 14.6M in (13.9M cache read), ≥76.9k out, 173 requests
-  Dispatched: 2026-10-28T07:21:28Z
-  Call: Test-only focus drain (0.8 s main-queue timer outlasting the moveFocus retry chain), no production seam in Ghostty.moveFocus — flake fixes and test infrastructure; smallest correct change
-  Call: Stall-mid-chain gap accepted and documented in the commit body — contrived coincidence under the severity bar
-  Call: B-173 is Mac only (AppKit focus mechanism), no LeoKit/iOS change — AGENTS.md Mac+iOS rule
-
-Lane: B-174
-  Branch: autopilot-lane/B-174
-  Base: 1ffc47d323181a3f43029c6a8603a7fb5fe6c303
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: a399ec1558a0eb087b15f42d9f57512e9337e91c
-  Tokens: 6.12M in (5.86M cache read), ≥29.8k out, 77 requests
-  Dispatched: 2026-10-28T08:07:04Z
-  Call: B-174 is Mac only: Ghostty config doesn't exist on iOS, so no iOS backlog item — AGENTS.md Mac+iOS rule
-  Call: Implement D-603 with a Leo defaults file (undo-timeout = 30s) loaded first in Ghostty.Config.loadConfig, so any explicit user value wins; no Zig changes — D-603, keep Zig changes minimal
-  Call: The Leo defaults file is rewritten in the temp dir on each config load; if the write fails it logs and falls back to upstream's 5 s — reversible implementation call
-
-Lane: B-175
-  Branch: autopilot-lane/B-175
-  Base: 7c777e514ae3a09b7c4bbc6a32c9ecd37a68d7c5
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Tokens: 8.07M in (7.9M cache read), ≥31.6k out, 80 requests
-  Dispatched: 2026-10-28T08:28:09Z
-
-Lane: B-059
-  Branch: autopilot-lane/B-059
-  Base: d0642c4a33a51f5365cdf4c35c325287455b6b25
-  Tier: full
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 443e3df3b882dcb9ec20b3747728ca62725ed822
-  Tokens: 26.7M in (26.1M cache read), ≥126k out, 214 requests
-  Dispatched: 2026-10-28T08:48:26Z
-  Call: ⌃⇥/⌃⇧⇥ step to the next/previous row everywhere (overriding a user's ctrl+tab Ghostty keybind so it reaches the menu); ⇧⌘]/[ stay with editor tabs and fall through to rows when the pane has fewer than two editor tabs. Supersedes only D-460's clause that Ghostty next/previous_tab switches editor tabs — principle 1 (keyboard-first)
-  Call: ⌘1–⌘8 select rows 1–8, ⌘9 is Last Row, and a number past the end clamps to the last row (Ghostty's goto_tab/last_tab behaviour) — principle 1
-  Call: A navigable row is every row the list can select (agents, attachable dispatch rows, then this window's terminals); collapsed sections and folded/offline machines are skipped, and a search filter lists only matches — principle 6
-  Call: Going to a row by keyboard acts like a single click, so a stopped agent gets the start prompt — principles 1 and 6
-  Call: Window menu holds Select Next/Previous Row, a Select Row ▸ submenu (Row 1–8, Last Row) and Jump to Next Needing Attention, moved from the Agents menu with the same id, selector and ⌃⌥⌘J — principle 1
-  Call: B-059 is Mac only; iPad row switching filed as a backlog idea — AGENTS.md Mac+iOS rule
-
-Lane: B-183
-  Branch: autopilot-lane/B-183
-  Base: 5215b0778abda1c74ed00fdbc70cb3680c9a26fa
-  Tier: full
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: eef2ff51dc316ddc4334bbb2d3277367e82d630b
-  Tokens: 6.78M in (6.45M cache read), ≥32k out, 82 requests
-  Dispatched: 2026-10-28T09:37:09Z
-  Call: Fix the clear-name/OSC-title race rather than dismiss it: a shell or TUI that retitles on every prompt reaches it, and the guard is small and Swift-only — bug fixes (AUTONOMY agent decides)
-  Call: B-183 is Mac only: SurfaceView is AppKit and iOS has no row rename — AGENTS.md Mac+iOS rule
-  Call: Keep Zig untouched: the guard sits in the Leo-owned leoSetUserTitle — AUTONOMY keep Zig changes minimal
-
-Lane: B-188
-  Branch: autopilot-lane/B-188
-  Base: d771917ec14d23d0019d1d1814a346f5e4caa1bc
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Tokens: 4.44M in (4.22M cache read), ≥16.2k out, 58 requests
-  Dispatched: 2026-10-28T10:23:48Z
-
-Lane: B-194
-  Branch: autopilot-lane/B-194
-  Base: bf6814a87e3535682c70553b027a3d67f9d6c0d7
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: e56d40b287955c7aa69e5ca8b856da549097de26
-  Tokens: 5.23M in (4.97M cache read), ≥24.6k out, 62 requests
-  Dispatched: 2026-10-28T10:51:14Z
-  Call: Fix the successor symbols (hostSelectionRunner/LeoHostSelection were deleted in a87b3b0db): LeoRuntime.init's machineRunner and LeoMachineConnectionEnvironment.init's runner lose their LeoProcessRunner() defaults, so a test that forgets either fails to compile — test infrastructure
-  Call: B-194 is Mac only: iOS has no LeoRuntime or LeoMachineConnectionEnvironment — AGENTS.md Mac+iOS rule
-
-Lane: B-199
-  Branch: autopilot-lane/B-199
-  Base: 7acfe0f8df20c6629a3c5ed901e7c221b85be5ef
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 57d57df29f2745661b46077cf9ab8a41a5c49921
-  Tokens: 19.5M in (19M cache read), ≥92.4k out, 184 requests
-  Dispatched: 2026-10-28T11:17:48Z
-  Call: Mac only (the Quick Terminal is macOS UI, no iOS half) — Mac+iOS parity rule
-  Call: Dismiss B-199 as a verification artifact: real clicks already close the panel; the re-open only appears when Peekaboo's window-focus step runs before the click (AX focus resigns key with no mouse-down) — the 'fixed or explicitly dismissed with a reason' criterion
-
-Lane: B-227
-  Branch: autopilot-lane/B-227
-  Base: 4ac4fbf2928d6a7df8cd93397e0965de906b6236
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: 70f028f2c12f7c81cbb1b5989d3c0c266ea52a15
-  Tokens: 2.14M in (1.95M cache read), ≥15.6k out, 30 requests
-  Dispatched: 2026-10-28T12:22:00Z
-  Call: Gate lives in leo-release.yml (a ci job calls leo-ci.yml; build needs ci), not leo-build.yml, which workflow_dispatch also runs — AUTONOMY "agent decides" (test infrastructure / CI)
-  Call: Gate on the whole leo-ci workflow, not only run-tests.sh (the item's preferred option, stronger gate) — AUTONOMY "agent decides"
-  Call: Neither Mac nor iOS (CI only) — Mac+iOS parity rule
-
-Lane: B-317
-  Branch: autopilot-lane/B-317
-  Base: 933b8fb30c53369bc34ab6c7596d2223a5027aa3
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Tokens: 6.7M in (6.5M cache read), ≥30.5k out, 72 requests
-  Dispatched: 2026-10-28T12:26:46Z
-  Call: Mac only (test infra under macos/Tests; no iOS counterpart) — AGENTS.md Mac+iOS rule
+  Reviewed-tip: de466ff246f4c29a345c46cb0256416e35a87cdb
+  Tokens: 25.3M in (24.6M cache read), ≥99k out, 229 requests
+  Dispatched: 2026-10-29T08:04:00Z
+  Call: Global hidesSubagents flag plus per-agent exceptions; Hide Subagents clears the exceptions — calm, agent decides persistence
+  Call: View ▸ Hide/Show Subagents on ⌥⌘S, no Ghostty or xib clash — keyboard-first
+  Call: Chevron at trailing end of the name line; count only when collapsed and above 0, .running only — Mac-native, never invents daemon state
+  Call: Collapse moves a hidden dispatch selection to its agent — Mac-native
+  Call: No ←/→ or ⌥-click handling (not in the acceptance criteria) — scope
+  Call: Mac only — iOS is Out
 
 Progress:
-- Unlanded lane B-233 has no RUN.md block (left in place).
-- B-318 runner: leo dispatch d-975afc371f24 (implement role).
-Finished 1: B-318 landed 8d9135bb3 · not visually verified
-- B-320 runner: leo dispatch d-ff8fb617a827 (implement role).
-- B-320 lane: restored a verifier-regenerated ios/LeoFeatures/Package.resolved (B-321's subject) so the lane could land; diff saved to the session scratchpad.
-Finished 2: B-320 landed f1ec80688 · not visually verified
-- B-321 runner: leo dispatch d-65093f67540d (implement role).
-Finished 3: B-321 blocked
-- B-322 runner: leo dispatch d-6675f3229244 (implement role).
-Finished 4: B-322 landed 67114465d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png
-- verify.md: added B-322 daemon-isolation notes from the runner.
-- B-172 runner: leo dispatch d-904a06e6ebc0 (implement role).
-Finished 5: B-172 landed 41ba19a2d · not visually verified
-- B-173 runner: leo dispatch d-8452801d9121 (implement role).
-- B-173: first runner d-8452801d9121 reported blocked on an implementer permission prompt (rm of two lane symlinks) it couldn't answer; orchestrator allowed it, commit 2d62ef55f landed in the lane; fresh runner dispatched to integrate/review/verify.
-Finished 6: B-173 landed 21d9b00d2 · not visually verified
-- B-174 runner: leo dispatch d-7bde6c9abcdd (implement role).
-Finished 7: B-174 landed 7673b4f6c · not visually verified
-- B-175 runner: leo dispatch d-a35c6df4c0ab (implement role).
-- B-175: runner d-a35c6df4c0ab reported blocked on implementer permission prompt (revert of NSLog instrumentation); orchestrator allowed it; implementer then reported not reproducible.
-Finished 8: B-175 blocked
-- B-059 runner: leo dispatch d-32e70823fb37 (implement role).
-Finished 9: B-059 landed 7ace88fd6 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-059-10.png
-- B-183 runner: leo dispatch d-4cc9e2c906e3 (implement role).
-Finished 10: B-183 landed 1dc53327c · not visually verified
-- B-188 runner: leo dispatch d-96c02afe603b (implement role).
-Finished 11: B-188 done (no code change)
-- B-194 runner: leo dispatch d-d13d78c89fb2 (implement role).
-Finished 12: B-194 landed 1e566664b · not visually verified
-- B-199 runner: leo dispatch d-b210ebfa1c0e (implement role).
-Finished 13: B-199 done (dismissed, no code change)
-- B-199: runner d-b210ebfa1c0e; fix then self-revert after root cause; dismissed as Peekaboo window-focus artifact; lane shelved autopilot-shelved/B-199.
-- B-227 runner: leo dispatch d-93957ae9a828 (implement role).
-Finished 14: B-227 landed 281443e38 · not visually verified
-- B-317 runner: leo dispatch d-7e4173718a03 (implement role).
-- B-317: not reproducible on Dionysus (3873/3873, all requiresActiveHost tests ran); shelved autopilot-shelved/B-317.
-Finished 15: B-317 blocked
+Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
+
+Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
+B-325 landed e80b304df (≈$2.15 est.)
+Runner B-328: leo dispatch d-021a185b277e
+Finished 2: B-328 landed 7a99dacfa · shot screen capture, not attached
+B-328 landed 7a99dacfa (≈$3.44 est.); note: committed test never seen failing (probe with \.dismiss did fail); Copy sheet could move to LeoSheetDismiss once B-324 lands
+Runner B-329: leo dispatch d-857e3fc39586
+Finished 3: B-329 landed 590edac57 · shot screen capture, not attached
+B-329 landed 590edac57 (≈$2.42 est.)
+Runner B-330: leo dispatch d-27abc57ef309
+Finished 4: B-330 landed 75f360d2b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
+B-330 landed 75f360d2b (≈$2.09 est.)
+Runner B-333: leo dispatch d-65b1d70d9ace
+B-333 polish "log calls in DECISIONS" not filed: handled by Record
+Finished 5: B-333 landed ad1846319 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-333-3.png
+B-333 landed ad1846319 (≈$17.39 est.); D-631..D-638 logged; supersedes interim D-105/D-114 for rows
+Runner B-332: leo dispatch d-48620c2d4582
+Finished 6: B-332 landed 9b7fba969 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-332-10.png
+Finished 7: B-331 landed 912484a6c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png

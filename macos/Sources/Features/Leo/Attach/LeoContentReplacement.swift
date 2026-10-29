@@ -2,13 +2,14 @@ import Foundation
 
 /// B-055: showing a row in a window's content area replaces what it
 /// showed. Agents detach losslessly -- tmux keeps them, and the row brings
-/// them back -- so replacing one never asks. A terminal row's shell is
-/// hidden, not closed (B-057, D-111), so it never asks either. Only what
-/// has no row to come back to -- a shell split beside an agent or a row
-/// (B-058 territory), or a window's shell Leo didn't make -- closes with
-/// the switch, and a running process there asks first, in Ghostty's own
-/// terms (`needsConfirmQuit`, D-106). A shell a row's closed pane left on
-/// its own carries that row on (B-082), so it is kept, not closed.
+/// them back -- so replacing one never asks. A terminal row's layout --
+/// its shell and the shells split beside it (B-333) -- is hidden, not
+/// closed (B-057, D-111), so it never asks either. Only what has no row
+/// to come back to -- a shell split beside an agent (B-058 territory), or
+/// a window's shell Leo didn't make -- closes with the switch, and a
+/// running process there asks first, in Ghostty's own terms
+/// (`needsConfirmQuit`, D-106). A shell a row's closed pane left on its
+/// own carries that row on (B-082), so it is kept, not closed.
 enum LeoContentReplacement {
     /// One surface the content area shows now.
     struct Shown: Equatable, Sendable {
@@ -38,23 +39,21 @@ enum LeoContentReplacement {
         case close
     }
 
-    /// All agents: the pool. Nothing but a terminal row's shell: kept for
-    /// that row. Anything else -- a shell split beside an agent or a row --
-    /// closes (asking first when busy); it is never hidden, so no later
-    /// eviction or close kills a shell silently (D-109).
-    ///
-    /// Known tension, an interim call: D-111 says a row's shell lives until
-    /// its row closes, but a row with a ⌘D split beside it closes whole
-    /// on switch-away -- the row's own shell too, after the busy confirm.
-    /// Keeping the row's pane alone would drop the split; keeping both
-    /// would hide a non-row shell nothing can come back to. Splits within
-    /// a row are B-058's (D-100) to settle. The same holds for a row
-    /// carried on by a shell its closed pane left (B-082) while another
-    /// plain shell stays split beside it: that is a [row, plain] tree too,
-    /// so it closes whole on switch-away, after the busy confirm.
+    /// All agents: the pool. A terminal row's layout: kept for that row.
+    /// Anything else -- a shell split beside an agent -- closes (asking
+    /// first when busy); it is never hidden, so no later eviction or close
+    /// kills a shell silently (D-109).
     static func fate(_ shown: [Shown]) -> Fate {
         if keepsAttached(shown) { return .pool }
-        return !shown.isEmpty && shown.allSatisfy(\.isTerminalRow) ? .keep : .close
+        return splitsIntoShell(shown) ? .keep : .close
+    }
+
+    /// B-333: a terminal row's layout -- its shell, and only plain shells
+    /// split beside it -- which a Ghostty split (⌘D, ⇧⌘D) joins straight
+    /// as a new shell, as a split in a Ghostty tab does. Anything holding
+    /// an agent keeps the picker (D-212), as does a shell with no row.
+    static func splitsIntoShell(_ shown: [Shown]) -> Bool {
+        shown.contains(where: \.isTerminalRow) && !shown.contains(where: \.isAgent)
     }
 
     /// Only content that closes with the switch asks, and only for a

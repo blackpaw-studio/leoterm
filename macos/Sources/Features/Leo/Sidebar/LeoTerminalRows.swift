@@ -2,10 +2,12 @@ import Combine
 import Foundation
 
 /// B-057 (D-099, D-111): one plain shell in its window's "Terminals"
-/// sidebar section. The row owns its one surface for its whole life:
-/// switching away hides it, and only closing it (⌘W, `exit`) ends it --
-/// unless its pane closes beside a split, when a plain shell left there
-/// carries it on in its sidebar slot (B-082).
+/// sidebar section. The row owns its surface -- and, B-333, the layout of
+/// shells split beside it -- for its whole life: switching away hides the
+/// layout whole, and only closing the row (⌘W, `exit`) ends its surface --
+/// unless its pane closes beside a split, shown or hidden, when a plain
+/// shell left there carries it on in its sidebar slot (B-082). Split
+/// panes are panes of the row's layout, never rows of their own.
 struct LeoTerminalRow: Identifiable, Equatable, Sendable {
     /// The shell's surface (the one carrying the row on, after B-082).
     let id: UUID
@@ -93,7 +95,10 @@ struct LeoTerminalList: Equatable, Sendable {
     let titles = LeoTerminalTitles()
     /// The terminal row this window's sidebar selects; `nil` when an agent
     /// row (or nothing) is selected there.
-    @Published private(set) var selection: UUID?
+    @Published private(set) var selection: UUID? { didSet { changed() } }
+    /// B-332: the rows, a title or the selection changed -- what the
+    /// window saves for restoring at launch (wired by `LeoRuntime`).
+    var changed: () -> Void = {}
     /// Shows the row in the window's content area (wired by `LeoRuntime`).
     var showRequested: (UUID) -> Void = { _ in }
     /// Closes the shown row: its neighbour shows instead, or the start
@@ -186,6 +191,7 @@ struct LeoTerminalList: Equatable, Sendable {
         if updated.ids != list.ids { objectWillChange.send() }
         list = updated
         titles.show(updated.labels)
+        changed()
     }
 }
 

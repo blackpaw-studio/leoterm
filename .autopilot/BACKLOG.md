@@ -2358,12 +2358,14 @@ Note: config-API writes (incl. PUT /appearance/rules) strip comments from leo.ya
 Source: owner (/idea, 2026-10-27)
 Inbox: 20261027T235417298836Z-e052e28c#1
 
-## B-325 · Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste   [ready (next run)]
+## B-325 · Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste   [done]
 Issue: #300
 Type: bug
 Report: Edit ▸ Paste may lack ⌘V, so ⌘V in the chat composer may not paste — same cause as B-318 (Ghostty's performable paste binding is left out of the menu shortcut lookup); unverified, from reading the code (LeoStandardEditShortcut.swift).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-318)
+Done: 1b4da8c82
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png (window; menu ⌘V confirmed by Peekaboo menu listing, composer paste not driven)
 
 ## B-326 · iPad hardware-keyboard row switching (B-059 parity)   [idea]
 Note: B-059 gave the Mac ⌃⇥/⌃⇧⇥, ⌘1–⌘9 and Window-menu row switching; iPad with a hardware keyboard has none (UIKeyCommand). Mac+iOS rule: the iOS half was deferred.
@@ -2372,3 +2374,83 @@ Source: autopilot polish (B-059)
 ## B-327 · Remove the stale LeoHostSelection comment and dead LeoDaemonClient.spawn(_:host:)   [idea]
 Note: LeoDaemonClient.swift:48 comment points to the deleted LeoHostSelection; the spawn(_:host:) overload (:19/:70) has no callers — dead code, no user-visible effect
 Source: autopilot polish (B-188)
+
+## B-328 · Mac Rename, Delete and New Agent sheets don't close via SwiftUI…   [done]
+Issue: #302
+Type: bug
+Report: Mac Rename, Delete and New Agent sheets don't close via SwiftUI `dismiss` under `presentLeoSheet` (found in B-324; the Copy sheet was fixed by closing through its window, see LeoCopyAgentSheet `close:`). Fix the same way or fix presentLeoSheet so `dismiss` works.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-28)
+Inbox: 20261028T234443650881Z-998cb639#1
+Done: 14d25aadf
+Verified: not visually verified — screen captures only (Rename/Delete close on Cancel+Esc, New Agent on Cancel; confirm paths by tests)
+
+## B-329 · Mac Agents menu "Set Template" submenu is enabled with no agent row…   [done]
+Issue: #303
+Type: bug
+Report: Mac Agents menu "Set Template" submenu is enabled with no agent row selected — AppKit enables a submenu parent with no action regardless of isEnabled (same bug B-324 fixed for Move To / Copy To by giving the parents actions the window validates).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-28)
+Inbox: 20261028T234444110827Z-5ec96fdf#1
+Done: 329891a93
+Verified: not visually verified — screen captures only (Set Template disabled with no row; enabled state by unit tests)
+
+## B-330 · there should be some more spacing between stats here (Image #1)   [done]
+Issue: #304
+Type: bug
+Report: there should be some more spacing between stats here [Image #1]
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-28)
+Inbox: 20261028T235441329172Z-478c5345#1
+Attachments: .autopilot/bugs/B-330/1.png
+Done: 5a61f8d9e
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-330-1.png
+
+## B-333 · Ghostty-style splits in terminal windows   [done]
+Issue: #305
+Why: Splitting a terminal works exactly like Ghostty — ⌘D / ⇧⌘D split straight into a new shell in the same working directory, no picker.
+Accept: with a Terminals row shown, ⌘D splits right and ⇧⌘D splits down into a new shell in the focused pane's cwd; Ghostty's split navigation (⌘[ / ⌘], ⌥⌘arrows), equalize and resize keybinds work; closing a split pane hands focus to its neighbor; the row keeps its split layout when you switch away and back
+Out: mixing agents and shells in one split layout (B-058 stays parked); saved layouts; iOS
+Source: owner (/feature, 2026-10-28)
+Inbox: 20261029T010346303681Z-5551ad6c#1
+Done: 11bf35fa5
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-333-3.png (split right; B-333-4.png split down; busy-pane confirm by tests only)
+
+## B-332 · Restore terminals across launches (Ghostty parity)   [done]
+Issue: #306
+Why: Quitting and reopening Leo brings back your Terminals section as you left it, matching Ghostty's own window-save-state restore, so you don't rebuild your shells by hand each launch.
+Accept: terminals open at quit reappear in the Terminals section on relaunch, in the same order with the same titles and split layout; each restored terminal starts a fresh shell in its last working directory (home if it no longer exists); a terminal closed before quit doesn't come back; behaviour follows Ghostty's window-save-state setting (reuse its TerminalRestorable machinery where possible)
+Out: scrollback or terminal contents (Ghostty doesn't restore them either); keeping running processes alive; agent panes (they reattach via tmux); iOS
+Source: owner (/feature, 2026-10-28)
+Inbox: 20261029T010236033957Z-36f72010#1
+Done: 91b61c44d
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-332-10.png (restored after relaunch; before quit B-332-7/9; cwd/home fallback and rename by tests only; restores only via "Quit and Keep Windows" when the system closes windows on quit)
+
+## B-331 · Collapsible dispatch rows in the sidebar   [done]
+Issue: #307
+Why: Lets the sidebar show just the top-level agents when subagent/dispatch rows get noisy, while keeping them one click away.
+Accept: an agent row with dispatch children shows a disclosure chevron that collapses/expands just its dispatch rows; a "Hide Subagents" toggle (View menu, with shortcut) collapses or expands them all at once; a collapsed parent still shows its Working state and a count of running dispatches; collapse state persists across relaunch
+Out: auto-collapsing finished dispatches; changing dispatch row content/indent (B-267); iOS — Mac sidebar only for now
+Source: owner (/feature, 2026-10-28)
+Inbox: 20261029T005956057206Z-1410c522#1
+Done: de466ff24
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png (collapsed with Working and running count; B-331-1/3 expanded; View menu via menu list; VoiceOver action and tooltip by tests only)
+
+## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready (next run)]
+Issue: #308
+Type: bug
+Report: Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything — with `keybind = super+v=new_window`, Edit ▸ Paste still shows ⌘V and two menu items share the key (LeoStandardEditShortcut.swift:39; same gap in B-318's Copy logic)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-325)
+
+## B-335 · Set Environments and Switch menu parents stay enabled for a pending agent row   [idea]
+Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
+Source: autopilot polish (B-329)
+
+## B-336 · Make the focused split pane easier to spot   [idea]
+Note: B-333 verify: the focused-pane cue is only a hollow vs bar cursor — legible but faint; matters for knowing which split gets keystrokes (Keyboard-first)
+Source: autopilot polish (B-333)
+
+## B-337 · Clip the subagent chevron's click area to the name line   [idea]
+Note: B-331 verify: the chevron click-exclusion strip is full row height, so the trailing 23pt of a row with dispatches (including the detail line) no longer selects or attaches on click (Mac-native)
+Source: autopilot polish (B-331)

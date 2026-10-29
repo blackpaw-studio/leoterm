@@ -33,6 +33,19 @@ struct LeoRingMeterGeometryTests {
         }
     }
 
+    /// B-330: in the Capsules style the next metric's stacked key sat 3 pt
+    /// from the previous capsule, so CPU / MEM / DSK read as one crowded run.
+    @Test func capsuleMetersAreSeparatedByAVisibleGapFromTheNextKey() throws {
+        let ink = try Self.renderedInk(style: .capsules)
+
+        // Each metric draws a key run then a capsule run: six runs in all.
+        #expect(ink.columnRuns.count == 6, "expected three key+capsule pairs, found runs \(ink.columnRuns)")
+        for pair in stride(from: 1, to: ink.columnRuns.count - 1, by: 2) {
+            let capsule = ink.columnRuns[pair], nextKey = ink.columnRuns[pair + 1]
+            #expect(nextKey.lowerBound - capsule.upperBound >= 8, "capsule \(capsule) and next key \(nextKey) are too close")
+        }
+    }
+
     // MARK: - Harness
 
     private struct Ink {
@@ -42,8 +55,8 @@ struct LeoRingMeterGeometryTests {
         let columnRuns: [Range<CGFloat>]
     }
 
-    private static func renderedInk() throws -> Ink {
-        let cluster = LeoMachineMeterCluster(meters: Self.meters, style: .rings)
+    private static func renderedInk(style: LeoStatsStyle = .rings) throws -> Ink {
+        let cluster = LeoMachineMeterCluster(meters: Self.meters, style: style)
         let host = NSHostingView(rootView: cluster)
         let size = host.fittingSize
         let canvas = NSHostingView(rootView: cluster.padding(margin))

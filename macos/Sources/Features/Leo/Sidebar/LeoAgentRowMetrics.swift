@@ -22,8 +22,14 @@ enum LeoAgentRowMetrics {
     static let colorBarWidth: CGFloat = 3
     static let colorBarSpacing: CGFloat = 4
     static var colorBarSlot: CGFloat { colorBarWidth + colorBarSpacing }
+    /// The subagents chevron's square (B-331), at the name line's end.
+    static let disclosureSize: CGFloat = 16
     /// The emoji before the name, and the gap after it.
     static let emojiSpacing: CGFloat = 4
+
+    /// The trailing edge of a row that is the chevron's, not the row's: the
+    /// chevron plus the color bar's slot it sits inside of.
+    static var disclosureTrailingEdge: CGFloat { disclosureSize + colorBarSlot }
 
     /// Where the name starts, from the row's leading edge. A dispatch row's
     /// glyph sits on this column.

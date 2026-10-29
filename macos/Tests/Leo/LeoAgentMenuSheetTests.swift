@@ -1,5 +1,6 @@
 import AppKit
 import GhosttyKit
+import SwiftUI
 import Testing
 
 @testable import Ghostty
@@ -68,6 +69,28 @@ import Testing
         if let sheet = window.attachedSheet { window.endSheet(sheet) }
         #expect(await daemon.calls == ["plan:autopilot-scratch"], "presenting asks for the plan and does nothing else")
     }
+
+    /// B-328: SwiftUI's `dismiss` does nothing in a hosting controller that
+    /// `presentLeoSheet` attached outside SwiftUI, so Cancel and confirm left
+    /// Rename, Delete and New Agent open. The sheets close through
+    /// `LeoSheetDismiss`, which ends the window's sheet.
+    @Test func leoSheetDismissClosesASheetPresentedOnATerminalWindow() async throws {
+        let controller = try makeController()
+        defer { controller.closeTabImmediately(registerRedo: false) }
+        let window = try #require(controller.window)
+        let probe = DismissProbe()
+
+        window.presentLeoSheet(NSHostingController(rootView: DismissProbeView(probe: probe).leoSheetClose(in: window)))
+        await awaitCondition { @MainActor in probe.dismiss != nil }
+        #expect(window.attachedSheet != nil)
+
+        probe.dismiss?()
+        await awaitCondition { @MainActor in window.attachedSheet == nil }
+
+        let leftOpen = window.attachedSheet
+        if let leftOpen { window.endSheet(leftOpen) }
+        #expect(leftOpen == nil, "dismiss leaves the sheet open")
+    }
 }
 
 /// Records every call it gets; the delete plan is canned. Anything the
@@ -89,4 +112,17 @@ private actor RecordingDaemon: LeoDaemonClient {
         return LeoDeletePlan(name: name, hasWorktree: false, branch: nil, worktreePath: nil)
     }
     func logs(_ name: String, lines: Int?) async throws -> String { calls.append("logs:\(name)"); return "" }
+}
+
+@MainActor private final class DismissProbe {
+    var dismiss: (() -> Void)?
+}
+
+private struct DismissProbeView: View {
+    let probe: DismissProbe
+    private let dismiss = LeoSheetDismiss()
+
+    var body: some View {
+        Text("probe").frame(width: 120, height: 60).onAppear { probe.dismiss = { dismiss() } }
+    }
 }

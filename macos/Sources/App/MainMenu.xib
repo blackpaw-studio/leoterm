@@ -367,6 +367,14 @@
                                     <action selector="decreaseFontSize:" target="-1" id="Zlz-QZ-t8K"/>
                                 </connections>
                             </menuItem>
+                            <!-- MARK: Leo subagent rows (B-331) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-Subagents-View-Separator"/>
+                            <menuItem title="Hide Subagents" keyEquivalent="s" id="Leo-Subagents-Hide">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoHideSubagents:" target="-1" id="Leo-Subagents-Hide-Action"/>
+                                </connections>
+                            </menuItem>
                             <!-- MARK: Leo editor previews (B-278) -->
                             <menuItem isSeparatorItem="YES" id="Leo-Editor-View-Separator"/>
                             <menuItem title="Show Raw" keyEquivalent="u" id="Leo-Editor-ToggleRaw">
@@ -516,6 +524,9 @@
                             </menuItem>
                             <menuItem title="Set Template" identifier="leo.agents.setTemplate" id="Leo-Agents-SetTemplate">
                                 <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="setTemplateForSelectedLeoAgent:" target="-1" id="Leo-Agents-SetTemplate-Action"/>
+                                </connections>
                                 <menu key="submenu" title="Set Template" id="Leo-Agents-SetTemplate-Menu">
                                     <items>
                                         <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SetTemplate-Placeholder"/>

@@ -87,6 +87,20 @@ extension TerminalController {
         undoManager?.removeAllActions(withTarget: self)
     }
 
+    /// B-332: whether the window lists a Terminals row, so it saves its
+    /// rows for restoring at launch. One listing none saves nothing.
+    var leoHasRestorableTerminals: Bool { leoSession?.terminals.rows.isEmpty == false }
+
+    /// B-332: the window's rows, a title or its selection changed. It is
+    /// restorable while it lists a row (never in a test host), and what
+    /// it saved is stale: AppKit saves it again later.
+    func leoTerminalsDidChange() {
+        guard let window else { return }
+        let isRestorable = LeoTerminalWindowRestoration.isEnabled && leoHasRestorableTerminals
+        if window.isRestorable != isRestorable { window.isRestorable = isRestorable }
+        window.invalidateRestorableState()
+    }
+
     /// File ▸ Choose Agent… (⌘O): the agent palette, whose choice shows
     /// in this window's content area -- or fills its start screen (B-057
     /// moved it off ⌘T). A plain shell chosen there inherits the focused
@@ -135,10 +149,11 @@ extension TerminalController {
 
     @IBAction func newLeoAgent(_ sender: Any?) {
         guard leoSession != nil, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return }
-        let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
+        let sheetView = SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
             guard let id = self.leoSession?.id else { return }
             runtime.model.attachRequested(row, id, disposition)
-        })
+        }
+        let sheet = NSHostingController(rootView: sheetView.leoSheetClose(in: window))
         window?.presentLeoSheet(sheet)
     }
 
