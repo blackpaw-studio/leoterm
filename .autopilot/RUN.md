@@ -2,10 +2,11 @@ Status: running
 Started: 2026-10-29T02:17:35Z
 Budget: 20 items, until 2026-10-29T14:17:35Z
 Digested-through: 5
-Filed: 1/3 bugs, 2/5 ideas
+Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-325 → B-334 bug — Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything
 Self-filed: B-329 → B-335 idea — Set Environments and Switch menu parents stay enabled for a pending agent row
 Self-filed: B-333 → B-336 idea — Make the focused split pane easier to spot
+Self-filed: B-331 → B-337 idea — Clip the subagent chevron's click area to the name line
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -130,12 +131,18 @@ Lane: B-331
   Branch: autopilot-lane/B-331
   Base: b2cb0a8df1b749d73790f2f89cf54de4ff85c607
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: de466ff246f4c29a345c46cb0256416e35a87cdb
   Dispatched: 2026-10-29T08:04:00Z
+  Call: Global hidesSubagents flag plus per-agent exceptions; Hide Subagents clears the exceptions — calm, agent decides persistence
+  Call: View ▸ Hide/Show Subagents on ⌥⌘S, no Ghostty or xib clash — keyboard-first
+  Call: Chevron at trailing end of the name line; count only when collapsed and above 0, .running only — Mac-native, never invents daemon state
+  Call: Collapse moves a hidden dispatch selection to its agent — Mac-native
+  Call: No ←/→ or ⌥-click handling (not in the acceptance criteria) — scope
+  Call: Mac only — iOS is Out
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs

@@ -2426,13 +2426,15 @@ Inbox: 20261029T010236033957Z-36f72010#1
 Done: 91b61c44d
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-332-10.png (restored after relaunch; before quit B-332-7/9; cwd/home fallback and rename by tests only; restores only via "Quit and Keep Windows" when the system closes windows on quit)
 
-## B-331 · Collapsible dispatch rows in the sidebar   [ready]
+## B-331 · Collapsible dispatch rows in the sidebar   [done]
 Issue: #307
 Why: Lets the sidebar show just the top-level agents when subagent/dispatch rows get noisy, while keeping them one click away.
 Accept: an agent row with dispatch children shows a disclosure chevron that collapses/expands just its dispatch rows; a "Hide Subagents" toggle (View menu, with shortcut) collapses or expands them all at once; a collapsed parent still shows its Working state and a count of running dispatches; collapse state persists across relaunch
 Out: auto-collapsing finished dispatches; changing dispatch row content/indent (B-267); iOS — Mac sidebar only for now
 Source: owner (/feature, 2026-10-28)
 Inbox: 20261029T005956057206Z-1410c522#1
+Done: de466ff24
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png (collapsed with Working and running count; B-331-1/3 expanded; View menu via menu list; VoiceOver action and tooltip by tests only)
 
 ## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready (next run)]
 Type: bug
@@ -2447,3 +2449,7 @@ Source: autopilot polish (B-329)
 ## B-336 · Make the focused split pane easier to spot   [idea]
 Note: B-333 verify: the focused-pane cue is only a hollow vs bar cursor — legible but faint; matters for knowing which split gets keystrokes (Keyboard-first)
 Source: autopilot polish (B-333)
+
+## B-337 · Clip the subagent chevron's click area to the name line   [idea]
+Note: B-331 verify: the chevron click-exclusion strip is full row height, so the trailing 23pt of a row with dispatches (including the detail line) no longer selects or attaches on click (Mac-native)
+Source: autopilot polish (B-331)
