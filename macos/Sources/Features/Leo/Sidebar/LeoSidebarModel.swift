@@ -173,7 +173,7 @@ import LeoKit
         update(revealed)
     }
 
-    private func update(_ updated: LeoSidebarPreferences) {
+    func update(_ updated: LeoSidebarPreferences) {
         guard updated != preferences else { return }
         preferences = updated
         preferencesStore.save(updated)

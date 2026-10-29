@@ -21,6 +21,16 @@ struct LeoAgentRowContent: View {
     /// Unread chat messages from the agent, as a capsule at the end of the
     /// name line. Independent of the leading attention symbol.
     var unreadCount = 0
+    /// B-331: set only for a row with dispatches.
+    var subagents: Subagents?
+
+    /// The row's dispatch rows are collapsed or shown: a chevron (outside
+    /// the row's click area) and, while collapsed, how many are running.
+    struct Subagents {
+        let isCollapsed: Bool
+        let runningCount: Int
+        let toggle: () -> Void
+    }
 
     var body: some View {
         let presentation = LeoAgentRowPresentation(row: row, error: error, inWorkingSection: inWorkingSection)
@@ -59,8 +69,24 @@ struct LeoAgentRowContent: View {
             LeoAgentBrowserBadge(host: row.host, agent: row.name, isSelected: isSelected)
             trailing(presentation.state)
             LeoUnreadCountBadge(count: unreadCount, isOnSelection: isSelected)
+            if let subagents { subagentsControls(subagents) }
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
+    }
+
+    @ViewBuilder private func subagentsControls(_ subagents: Subagents) -> some View {
+        if subagents.isCollapsed { LeoRunningSubagentsBadge(count: subagents.runningCount, isOnSelection: isSelected) }
+        Button(action: subagents.toggle) {
+            Image(systemName: subagents.isCollapsed ? "chevron.right" : "chevron.down")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .frame(width: LeoAgentRowMetrics.disclosureSize, height: LeoAgentRowMetrics.disclosureSize)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(subagents.isCollapsed ? "Show subagents" : "Hide subagents")
+        .help(subagents.isCollapsed ? "Show subagents" : "Hide subagents")
+        .leoSelectionDisabled()
     }
 
     @ViewBuilder private func colorBar(_ color: LeoAppearanceColor?) -> some View {

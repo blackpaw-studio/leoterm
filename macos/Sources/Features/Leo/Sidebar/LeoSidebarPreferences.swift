@@ -19,7 +19,9 @@ enum LeoSidebarGroupBy: String, Codable, CaseIterable, Sendable {
 /// agents (keyed by host + name, kept even while the agent is absent),
 /// each host's collapsed sections and the machines folded to their header. A section that starts collapsed
 /// (`LeoSidebarLayout.defaultCollapsedSectionIDs`) is remembered open in
-/// `expanded` instead.
+/// `expanded` instead. Agents' dispatch rows (B-331) follow `hidesSubagents`
+/// (View ▸ Hide Subagents), except for the agents in `toggledSubagents`,
+/// which the user flipped from it with their own chevron.
 struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     var sortOrder: LeoSidebarSortOrder
     var groupBy: LeoSidebarGroupBy
@@ -27,11 +29,14 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     var collapsed: [LeoHostID: Set<String>]
     var expanded: [LeoHostID: Set<String>]
     var collapsedMachines: Set<LeoHostID>
+    var hidesSubagents: Bool
+    var toggledSubagents: Set<LeoAgentRow.ID>
 
     init(
         sortOrder: LeoSidebarSortOrder = .lastActivity, groupBy: LeoSidebarGroupBy = .status,
         pinned: Set<LeoAgentRow.ID> = [], collapsed: [LeoHostID: Set<String>] = [:],
-        expanded: [LeoHostID: Set<String>] = [:], collapsedMachines: Set<LeoHostID> = []
+        expanded: [LeoHostID: Set<String>] = [:], collapsedMachines: Set<LeoHostID> = [],
+        hidesSubagents: Bool = false, toggledSubagents: Set<LeoAgentRow.ID> = []
     ) {
         self.sortOrder = sortOrder
         self.groupBy = groupBy
@@ -39,6 +44,8 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         self.collapsed = collapsed
         self.expanded = expanded
         self.collapsedMachines = collapsedMachines
+        self.hidesSubagents = hidesSubagents
+        self.toggledSubagents = toggledSubagents
     }
 
     /// Lenient: a field that's missing or unreadable falls back to its
@@ -52,6 +59,8 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         collapsed = (try? container.decodeIfPresent([LeoHostID: Set<String>].self, forKey: .collapsed)) ?? defaults.collapsed
         expanded = (try? container.decodeIfPresent([LeoHostID: Set<String>].self, forKey: .expanded)) ?? defaults.expanded
         collapsedMachines = (try? container.decodeIfPresent(Set<LeoHostID>.self, forKey: .collapsedMachines)) ?? defaults.collapsedMachines
+        hidesSubagents = (try? container.decodeIfPresent(Bool.self, forKey: .hidesSubagents)) ?? defaults.hidesSubagents
+        toggledSubagents = (try? container.decodeIfPresent(Set<LeoAgentRow.ID>.self, forKey: .toggledSubagents)) ?? defaults.toggledSubagents
     }
 
     static func decode(_ data: Data?) -> LeoSidebarPreferences {
@@ -65,6 +74,27 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         if collapsed[host]?.contains(sectionID) == true { return true }
         guard LeoSidebarLayout.defaultCollapsedSectionIDs.contains(sectionID) else { return false }
         return expanded[host]?.contains(sectionID) != true
+    }
+
+    /// Whether `id`'s dispatch rows are collapsed: the global setting,
+    /// flipped for the agents the user toggled on their own.
+    func isSubagentsCollapsed(_ id: LeoAgentRow.ID) -> Bool {
+        hidesSubagents != toggledSubagents.contains(id)
+    }
+
+    func togglingSubagents(of id: LeoAgentRow.ID) -> LeoSidebarPreferences {
+        var updated = self
+        updated.toggledSubagents = toggledSubagents.symmetricDifference([id])
+        return updated
+    }
+
+    /// Hides or shows every agent's dispatch rows at once, dropping the
+    /// per-agent exceptions.
+    func settingHidesSubagents(_ hides: Bool) -> LeoSidebarPreferences {
+        var updated = self
+        updated.hidesSubagents = hides
+        updated.toggledSubagents = []
+        return updated
     }
 
     func with(sortOrder: LeoSidebarSortOrder) -> LeoSidebarPreferences {

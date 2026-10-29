@@ -367,6 +367,14 @@
                                     <action selector="decreaseFontSize:" target="-1" id="Zlz-QZ-t8K"/>
                                 </connections>
                             </menuItem>
+                            <!-- MARK: Leo subagent rows (B-331) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-Subagents-View-Separator"/>
+                            <menuItem title="Hide Subagents" keyEquivalent="s" id="Leo-Subagents-Hide">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="toggleLeoHideSubagents:" target="-1" id="Leo-Subagents-Hide-Action"/>
+                                </connections>
+                            </menuItem>
                             <!-- MARK: Leo editor previews (B-278) -->
                             <menuItem isSeparatorItem="YES" id="Leo-Editor-View-Separator"/>
                             <menuItem title="Show Raw" keyEquivalent="u" id="Leo-Editor-ToggleRaw">

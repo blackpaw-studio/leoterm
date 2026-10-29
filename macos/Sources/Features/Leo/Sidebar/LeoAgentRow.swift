@@ -86,6 +86,8 @@ struct LeoAgentRowView: View {
     var inWorkingSection = false
     /// Unread chat messages from the agent.
     var unreadCount = 0
+    /// B-331: the dispatch rows' collapse, for a row that has any.
+    var subagents: LeoAgentRowContent.Subagents?
     @State private var showingRename = false
     @State private var showingDelete = false
     @State private var showingAppearance = false
@@ -97,7 +99,8 @@ struct LeoAgentRowView: View {
     var body: some View {
         LeoAgentRowContent(
             row: row, error: error, isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
-            nameHighlights: nameHighlights, inWorkingSection: inWorkingSection, unreadCount: unreadCount
+            nameHighlights: nameHighlights, inWorkingSection: inWorkingSection, unreadCount: unreadCount,
+            subagents: subagents
         )
         .contentShape(Rectangle())
         // The whole row is the target, like Finder or Mail (B-049);
@@ -107,7 +110,10 @@ struct LeoAgentRowView: View {
         // own modifiers and count, so a double-click is the second
         // click (B-048). It never takes the click from the list's
         // own selection.
-        .background(LeoRowClickCatcher(identity: row.id, onClick: click).accessibilityHidden(true))
+        .background(LeoRowClickCatcher(
+            identity: row.id, onClick: click,
+            trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge
+        ).accessibilityHidden(true))
         // One element per row: the name's label (name, state), then the
         // detail and time. There's no button in the row to press, so the
         // row itself is the press.
