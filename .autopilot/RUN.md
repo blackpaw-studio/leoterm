@@ -85,6 +85,16 @@ Lane: B-330
   Call: B-330 is Mac only; iOS Capsules already use 24 pt spacing — Mac+iOS parity rule
   Tokens: 6.19M in (5.94M cache read), ≥23.8k out, 79 requests
 
+Lane: B-333
+  Branch: autopilot-lane/B-333
+  Base: 3c1c7e1cd4f3cc286f838747698075f7f053171e
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
