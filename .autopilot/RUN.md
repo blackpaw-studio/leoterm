@@ -51,8 +51,10 @@ Lane: B-328
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-29T02:56:32Z
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
 B-325 landed e80b304df (≈$2.15 est.)
+Runner B-328: leo dispatch d-021a185b277e
