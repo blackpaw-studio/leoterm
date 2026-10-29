@@ -57,6 +57,16 @@ Lane: B-328
   Call: LeoSpawnSheetHostingController becomes NSHostingController<AnyView> so the close value can be injected — implementation approach
   Tokens: 13.2M in (12.8M cache read), ≥49.6k out, 140 requests
 
+Lane: B-329
+  Branch: autopilot-lane/B-329
+  Base: defe83c4070d4c4f4de52c9960dbb8cd240b675c
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
 Finished 1: B-325 landed e80b304df · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-325-0.png
