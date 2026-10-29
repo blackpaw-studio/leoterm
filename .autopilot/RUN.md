@@ -66,6 +66,7 @@ Lane: B-329
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-29T04:53:48Z
 
 Progress:
 Runner B-325: leo dispatch d-b58f99910543; wake timer bf18g6lzs
@@ -74,3 +75,4 @@ B-325 landed e80b304df (≈$2.15 est.)
 Runner B-328: leo dispatch d-021a185b277e
 Finished 2: B-328 landed 7a99dacfa · shot screen capture, not attached
 B-328 landed 7a99dacfa (≈$3.44 est.); note: committed test never seen failing (probe with \.dismiss did fail); Copy sheet could move to LeoSheetDismiss once B-324 lands
+Runner B-329: leo dispatch d-857e3fc39586
