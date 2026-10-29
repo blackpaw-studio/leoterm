@@ -2436,7 +2436,7 @@ Inbox: 20261029T005956057206Z-1410c522#1
 Done: de466ff24
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png (collapsed with Working and running count; B-331-1/3 expanded; View menu via menu list; VoiceOver action and tooltip by tests only)
 
-## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready (next run)]
+## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready]
 Issue: #308
 Type: bug
 Report: Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything — with `keybind = super+v=new_window`, Edit ▸ Paste still shows ⌘V and two menu items share the key (LeoStandardEditShortcut.swift:39; same gap in B-318's Copy logic)
