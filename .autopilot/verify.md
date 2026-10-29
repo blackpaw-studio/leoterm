@@ -45,7 +45,7 @@ bash macos/scripts/leo-runtests.sh <label>     # tracked in git since B-114; run
   - Its UserDefaults are separate from release's (`studio.blackpaw.leo.macos`).
   - Evan's Leo runs on his laptop, not Dionysus.
 ```
-open -n macos/build/DD/Build/Products/Debug/Leo.app
+open -n macos/build/DD/Build/Products/Debug/Leo.app --args -ApplePersistenceIgnoreState YES   # don't reopen saved windows (B-332)
 osascript -e 'tell application id "studio.blackpaw.leo.macos.debug" to quit'   # when done
 ```
 - **Shared state warning:** the debug app talks to the REAL local daemon (`~/.leo/state/leo.sock`) and sees Evan's real agents.
