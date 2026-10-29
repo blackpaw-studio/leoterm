@@ -91,7 +91,13 @@ import GhosttyKit
     /// B-333: the hidden layout `window` keeps holding `surface`, left in
     /// place; `nil` when none does.
     func keptTree(holding surface: Ghostty.SurfaceView, in window: LeoWindowID) -> Tree? {
-        keptTrees(in: window).first { Self.tree($0, holds: surface) }
+        keptLayout(holding: surface, in: window)?.tree
+    }
+
+    /// B-332: that layout with the pane it had focused when it was
+    /// switched away from, left in place.
+    func keptLayout(holding surface: Ghostty.SurfaceView, in window: LeoWindowID) -> (tree: Tree, focused: Ghostty.SurfaceView?)? {
+        (kept[window] ?? []).first { Self.tree($0.tree, holds: surface) }.map { ($0.tree, $0.focused) }
     }
 
     /// `displaced` just left `window`'s content area for `shown`. All

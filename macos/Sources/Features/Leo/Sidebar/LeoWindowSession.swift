@@ -81,6 +81,10 @@ struct LeoWindowVisibilityState: Equatable {
     /// `LeoRuntime` to the attach host).
     var splitsIntoShell: () -> Bool = { false }
     var registerSplitShell: (Ghostty.SurfaceView) -> Void = { _ in }
+    /// B-332: what the window saves for restoring at launch -- its
+    /// Terminals rows and their layouts (wired by `LeoRuntime` to the
+    /// attach host); `nil` until wired.
+    var savedTerminals: () -> LeoTerminalsRestorableState? = { nil }
     @Published private(set) var placeholderSurfaceIDs: Set<UUID> = []
     /// Fired once, synchronously, from `NSWindow.willCloseNotification` --
     /// lets `LeoRuntime` tear down this window's router state and palette

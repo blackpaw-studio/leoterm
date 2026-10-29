@@ -58,11 +58,14 @@ import Testing
 
     private static var ghostty: Ghostty.App? { (NSApp.delegate as? AppDelegate)?.ghostty }
 
-    init() throws {
+    /// `startScreen`: the window opens on an empty start screen, as a
+    /// restored one does (B-332), rather than showing a shell no row owns.
+    init(startScreen: Bool = false) throws {
         let ghostty = try #require(Self.ghostty, "these tests need the app's Ghostty.App")
         let app = try #require(ghostty.app)
-        let first = Ghostty.SurfaceView(app, baseConfig: nil)
-        controller = Controller(ghostty, withSurfaceTree: SplitTree(view: first))
+        controller = startScreen
+            ? Controller(ghostty, withSurfaceTree: .init(), leoIsPlaceholder: true)
+            : Controller(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil)))
         controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
@@ -79,6 +82,7 @@ import Testing
         session.terminals.hasBusyHiddenShell = { [weak host] in host?.hiddenTerminalsNeedConfirmQuit(in: window) ?? false }
         session.splitsIntoShell = { [weak host] in host?.splitsIntoShell(in: window) ?? false }
         session.registerSplitShell = { [weak host] in host?.registerSplitShell($0, in: window) }
+        session.savedTerminals = { [weak host] in host?.savedTerminals(in: window) }
         eventTask = Task { [weak self, events = host.lifecycleEvents] in
             for await event in events { self?.events.append(event) }
         }

@@ -95,7 +95,10 @@ struct LeoTerminalList: Equatable, Sendable {
     let titles = LeoTerminalTitles()
     /// The terminal row this window's sidebar selects; `nil` when an agent
     /// row (or nothing) is selected there.
-    @Published private(set) var selection: UUID?
+    @Published private(set) var selection: UUID? { didSet { changed() } }
+    /// B-332: the rows, a title or the selection changed -- what the
+    /// window saves for restoring at launch (wired by `LeoRuntime`).
+    var changed: () -> Void = {}
     /// Shows the row in the window's content area (wired by `LeoRuntime`).
     var showRequested: (UUID) -> Void = { _ in }
     /// Closes the shown row: its neighbour shows instead, or the start
@@ -188,6 +191,7 @@ struct LeoTerminalList: Equatable, Sendable {
         if updated.ids != list.ids { objectWillChange.send() }
         list = updated
         titles.show(updated.labels)
+        changed()
     }
 }
 
