@@ -699,7 +699,9 @@ extension Ghostty {
             config.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(
                 nsview: Unmanaged.passUnretained(view).toOpaque()
             ))
-            config.scale_factor = NSScreen.main!.backingScaleFactor
+            // NSScreen.main is nil on headless hosts (e.g. CI); fall back to any screen, then 2x.
+            let screen = NSScreen.main ?? NSScreen.screens.first
+            config.scale_factor = Double(screen?.backingScaleFactor ?? 2.0)
 
             // Zero is our default value that means to inherit the font size.
             config.font_size = fontSize ?? 0
