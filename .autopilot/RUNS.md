@@ -658,3 +658,9 @@ Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
 Stopped at your request (2026-10-29T23:42:01Z) — paused mid-item.
 B-334 (Paste/Copy ⌘V/⌘C conflict) was in its first build; partial test work saved as wip 8b05121bb on autopilot-lane/B-334; the next run resumes it first.
 Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332 (finish judged unlanded), B-334 (wip).
+
+## Run 2026-10-30T00:56Z — stopped by owner
+🛠 leoterm autopilot — 0 fixed, 0 shipped, 0 blocked
+Stopped at your request (2026-10-30T01:06:08Z) — halted mid-item.
+B-334 was in its build (planner done; implementer mid-change touching LeoStandardEditShortcut.swift, include/ghostty.h, src/apprt/embedded.zig); saved as wip 3d2b0d723 on autopilot-lane/B-334; next run resumes it first.
+Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332, B-334 (wip).

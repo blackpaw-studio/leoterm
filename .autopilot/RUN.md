@@ -1,7 +1,8 @@
-Status: running
+Status: finished
 Started: 2026-10-30T00:56:31Z
 Budget: 20 items, until 2026-10-30T12:56:31Z
 Digested-through: 0
+Stop: requested 2026-10-30T01:06:08Z (in session)
 Filed: 0/3 bugs, 0/5 ideas
 Untracked-left: default.profraw scratchpad/
 
@@ -33,7 +34,7 @@ Lane: B-334
   Tier: full
   State: building
   Fixes: 0
-  Wip: 8b05121bb
+  Wip: 3d2b0d723
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-10-30T00:57:41Z
@@ -41,3 +42,4 @@ Lane: B-334
 Progress:
 - Preflight (resume after owner pause): inbox empty; B-334 recovered from wip 8b05121bb as first pick, tier full (recovered lane).
 - B-334 runner: leo dispatch d-7faa5077d456 (implement, pane %728).
+- Stopped by owner 2026-10-30T01:06Z: runner d-7faa5077d456 and implementer d-0567eca3c38c cancelled; partial fix (LeoStandardEditShortcut.swift, include/ghostty.h, src/apprt/embedded.zig) committed as wip 3d2b0d723; B-334 stays building for next run's recovery.
