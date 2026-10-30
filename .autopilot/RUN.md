@@ -36,6 +36,8 @@ Lane: B-334
   Wip: 8b05121bb
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-30T00:57:41Z
 
 Progress:
 - Preflight (resume after owner pause): inbox empty; B-334 recovered from wip 8b05121bb as first pick, tier full (recovered lane).
+- B-334 runner: leo dispatch d-7faa5077d456 (implement, pane %728).
