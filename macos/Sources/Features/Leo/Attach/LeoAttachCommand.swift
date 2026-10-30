@@ -55,15 +55,13 @@ enum LeoAttachCommand {
         }
         var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", try leoShellQuote(executable)]
         parts += ["agent", "attach"]
-        if case .remote(let host) = identity.host {
-            parts += ["--host", try leoShellQuote(host)]
-        }
+        parts += try hostArguments(identity.host)
         parts += features.attachPlacementArguments
         parts += ["--", try leoShellQuote(identity.name)]
         return parts.joined(separator: " ")
     }
 
-    /// `leo [--host H] dispatch attach [--rw] <id>`: attaches the TTY to the
+    /// `leo --host H dispatch attach [--rw] <id>`: attaches the TTY to the
     /// dispatch's pane and exits when the dispatch closes (B-266). `--rw`
     /// (B-288) only for a leo that has it. An id that could read as a flag,
     /// or break the line, is refused.
@@ -75,11 +73,18 @@ enum LeoAttachCommand {
             throw LeoAttachCommandError.invalidDispatchID
         }
         var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", try leoShellQuote(executable)]
-        if case .remote(let name) = host {
-            parts += ["--host", try leoShellQuote(name)]
-        }
+        parts += try hostArguments(host)
         parts += ["dispatch", "attach"] + access.attachArguments + [try leoShellQuote(dispatchID)]
         return parts.joined(separator: " ")
+    }
+
+    /// Always explicit: without `--host`, leo falls back to the user's
+    /// `client.default_host`, so a local agent would be looked up remotely.
+    private static func hostArguments(_ host: LeoHostID) throws -> [String] {
+        switch host {
+        case .local: return ["--host", "localhost"]
+        case .remote(let name): return ["--host", try leoShellQuote(name)]
+        }
     }
 
     static func workingDirectory(

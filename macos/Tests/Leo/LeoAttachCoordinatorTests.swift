@@ -173,8 +173,8 @@ import Testing
         features = LeoDaemonFeatures(["attach_dispatch_placement"])
         await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "other"), from: origin, disposition: .content)
 
-        #expect(host.contentCalls.first?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach -- 'worker'")
-        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --dispatch-placement background -- 'other'")
+        #expect(host.contentCalls.first?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost -- 'worker'")
+        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost --dispatch-placement background -- 'other'")
     }
 
     @Test func remoteIdentityUsesTheRemoteCommandBuilderNotTheLocalExecutable() async throws {

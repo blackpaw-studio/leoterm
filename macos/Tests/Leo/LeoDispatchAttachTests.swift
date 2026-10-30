@@ -61,7 +61,7 @@ struct LeoDispatchAttachDecodingTests {
 struct LeoDispatchAttachCommandTests {
     @Test func buildsALocalCommand() throws {
         let command = try LeoAttachCommand.build(executable: "/opt/leo", identity: .dispatch(host: .local, id: "d-1", title: nil))
-        #expect(command == "env -u TMUX -u TMUX_PANE '/opt/leo' dispatch attach 'd-1'")
+        #expect(command == "env -u TMUX -u TMUX_PANE '/opt/leo' --host localhost dispatch attach 'd-1'")
     }
 
     @Test func includesTheRemoteHost() throws {
@@ -72,7 +72,7 @@ struct LeoDispatchAttachCommandTests {
     @Test func readWriteAddsTheFlagLocallyAndWithHost() throws {
         let local = try LeoAttachCommand.build(
             executable: "/leo", identity: .dispatch(host: .local, id: "d-1", title: nil), dispatchAccess: .readWrite)
-        #expect(local == "env -u TMUX -u TMUX_PANE '/leo' dispatch attach --rw 'd-1'")
+        #expect(local == "env -u TMUX -u TMUX_PANE '/leo' --host localhost dispatch attach --rw 'd-1'")
         let remote = try LeoAttachCommand.buildDispatch(
             executable: "/leo", host: .remote("box"), dispatchID: "d-1", access: .readWrite)
         #expect(remote == "env -u TMUX -u TMUX_PANE '/leo' --host 'box' dispatch attach --rw 'd-1'")
@@ -136,7 +136,7 @@ struct AttachExitReportTests {
         let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
-        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' dispatch attach 'd-1'"])
+        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' --host localhost dispatch attach 'd-1'"])
         #expect(host.agentNames.map(\.1) == ["Reviewer"])
     }
 
@@ -216,7 +216,7 @@ struct AttachExitReportTests {
         let host = FakeAttachContentHost()
         let coordinator = makeCoordinator(host: host, access: .readWrite)
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
-        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' dispatch attach --rw 'd-1'"])
+        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' --host localhost dispatch attach --rw 'd-1'"])
         #expect(host.dispatchMarks.map(\.handle) == [host.handles[0]])
         #expect(host.dispatchMarks.map(\.readOnly) == [false], "a writable pane carries no read-only badge")
     }
@@ -227,7 +227,7 @@ struct AttachExitReportTests {
         await coordinator.attach(identity: .init(host: .local, name: "worker"), from: origin, disposition: .content)
         #expect(host.dispatchMarks.isEmpty, "an agent is never marked as a dispatch")
         await coordinator.attach(identity: identity, from: origin, disposition: .content)
-        #expect(host.contentCalls.map(\.command).last == "env -u TMUX -u TMUX_PANE '/leo' dispatch attach 'd-1'")
+        #expect(host.contentCalls.map(\.command).last == "env -u TMUX -u TMUX_PANE '/leo' --host localhost dispatch attach 'd-1'")
         #expect(host.dispatchMarks.map(\.handle) == [host.handles[1]])
         #expect(host.dispatchMarks.map(\.readOnly) == [true])
     }
@@ -267,7 +267,7 @@ struct AttachExitReportTests {
         let result = await slow.value
 
         #expect(result == .failure(.init(identity: identity, kind: .cancelled)), "superseded, quietly")
-        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' agent attach -- 'worker'"])
+        #expect(host.contentCalls.map(\.command) == ["env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost -- 'worker'"])
         #expect(host.isOpen(newerHandle), "the newer selection is kept")
         #expect(host.dispatchMarks.isEmpty)
     }
