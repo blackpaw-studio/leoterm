@@ -25,10 +25,11 @@ enum LeoStandardEditShortcut {
     ]
 
     /// Gives `item` the standard ⌘ shortcut for `action` while the config
-    /// still binds that key; false when there is none to give (an `unbind`
-    /// hands the key to the terminal program, so the menu must not take it).
+    /// still binds that key to `action`; false when there is none to give (an
+    /// `unbind` hands the key to the terminal program, and a rebind to another
+    /// action gives it to that action, so the menu must not take it either).
     @MainActor static func apply(_ config: Ghostty.Config, action: String?, to item: NSMenuItem) -> Bool {
-        guard let action, let shortcut = shortcuts[action], isBound(shortcut, in: config) else { return false }
+        guard let action, let shortcut = shortcuts[action], isBound(shortcut, to: action, in: config) else { return false }
         item.keyEquivalent = String(shortcut.key)
         item.keyEquivalentModifierMask = .command
         item.allowsAutomaticKeyEquivalentLocalization = true
@@ -36,7 +37,7 @@ enum LeoStandardEditShortcut {
         return true
     }
 
-    private static func isBound(_ shortcut: Shortcut, in config: Ghostty.Config) -> Bool {
+    private static func isBound(_ shortcut: Shortcut, to action: String, in config: Ghostty.Config) -> Bool {
         guard let cfg = config.config, let scalar = shortcut.key.unicodeScalars.first else { return false }
         var event = ghostty_input_key_s()
         event.action = GHOSTTY_ACTION_PRESS
@@ -45,7 +46,7 @@ enum LeoStandardEditShortcut {
         event.unshifted_codepoint = scalar.value
         return String(shortcut.key).withCString { text in
             event.text = text
-            return ghostty_config_key_is_binding(cfg, event)
+            return ghostty_config_key_is_binding_for_action(cfg, event, action, UInt(action.utf8.count))
         }
     }
 }
