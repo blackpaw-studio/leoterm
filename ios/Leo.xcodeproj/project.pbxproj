@@ -64,6 +64,7 @@
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
 		9EE030FDA72503DABA19F046 /* ConfigEditorNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22A905AA871540E60BA88896 /* ConfigEditorNavigationTests.swift */; };
 		A5FCC89BFBCD93DBE1D05662 /* AgentRowTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BFB67E77A5BA319D698F594 /* AgentRowTile.swift */; };
+		A759E65C62EF6A0986734067 /* ChatScrollFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FCF11F1309372102F938BF8 /* ChatScrollFixture.swift */; };
 		AB9A6A79ABD69284F11A2294 /* StripEmulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46D47BEF0F4ED0DB6E612C6 /* StripEmulator.swift */; };
 		AC0BFDF8CC92DE3B580B7EAC /* SchemaFormCellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */; };
 		B08EEED0063368B5C7435B51 /* ChatBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EABF66CB1EE1C883F7930FFD /* ChatBubbleView.swift */; };
@@ -90,6 +91,7 @@
 		E092B1F2FD246F8984A737F6 /* MachineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C6F25CCCD87641CD218A9C /* MachineCell.swift */; };
 		E4AD252ED3954D152BA5D5B4 /* LeoNavStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */; };
 		E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38482350857C026362E8F7EE /* QRScannerViewController.swift */; };
+		E8EC2D2FF0414238ADF4AFE9 /* LeoChatScrollTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A137BFE99804E761E4738874 /* LeoChatScrollTests.swift */; };
 		EB64EEED1BC1858429F218F1 /* TaskLogViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186DF50396BCA70A75DC69E1 /* TaskLogViewController.swift */; };
 		EF4A0166AFD67220A7139538 /* AgentPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
@@ -192,7 +194,9 @@
 		87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFormCellTests.swift; sourceTree = "<group>"; };
 		93C6F25CCCD87641CD218A9C /* MachineCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineCell.swift; sourceTree = "<group>"; };
 		940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsSplitViewController.swift; sourceTree = "<group>"; };
+		9FCF11F1309372102F938BF8 /* ChatScrollFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatScrollFixture.swift; sourceTree = "<group>"; };
 		9FF7947A4DAF1A52A076FEFD /* ServiceScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceScreenTests.swift; sourceTree = "<group>"; };
+		A137BFE99804E761E4738874 /* LeoChatScrollTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoChatScrollTests.swift; sourceTree = "<group>"; };
 		A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoMoveTests.swift; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
 		A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingViewController.swift; sourceTree = "<group>"; };
@@ -316,6 +320,7 @@
 				940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */,
 				FD0798F4619AB2A887324F77 /* AppDelegate.swift */,
 				35CC91E2C136D84061F083BB /* AppearanceFixture.swift */,
+				9FCF11F1309372102F938BF8 /* ChatScrollFixture.swift */,
 				D9F7D132D3B67A3EEBB2210E /* ChatsSplitViewController.swift */,
 				F1CBEB41B43F59128C3247B5 /* MoveFixture.swift */,
 				FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */,
@@ -435,6 +440,7 @@
 			children = (
 				C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */,
 				C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */,
+				A137BFE99804E761E4738874 /* LeoChatScrollTests.swift */,
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
 				ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */,
 				A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */,
@@ -732,6 +738,7 @@
 			files = (
 				52AF27E75BC9A3FA5D427A81 /* LeoAppearanceTests.swift in Sources */,
 				8DD991FAC8CF7D6FD29A9BEC /* LeoChatPasteTests.swift in Sources */,
+				E8EC2D2FF0414238ADF4AFE9 /* LeoChatScrollTests.swift in Sources */,
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
 				674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */,
 				F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */,
@@ -767,6 +774,7 @@
 				D53BEAE86E41AC0D887D17D4 /* ChatPresentation.swift in Sources */,
 				85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */,
 				FD5AFE72B0D498DB5026CC25 /* ChatQuestionsFixture.swift in Sources */,
+				A759E65C62EF6A0986734067 /* ChatScrollFixture.swift in Sources */,
 				89473D2B7712366198CC2775 /* ChatThreadTitleView.swift in Sources */,
 				B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */,
 				3E8CAAD59AE015ECC9520FDD /* ChatTimeHeaderCell.swift in Sources */,
