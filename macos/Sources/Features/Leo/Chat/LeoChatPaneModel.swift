@@ -47,7 +47,7 @@ import LeoKit
 
     private var clients: [LeoHostID: any LeoChatClient]
     private let recorder: any LeoChatVoiceRecording
-    private let attachmentDirectory: URL
+    let attachmentDirectory: URL
     private let maximumUploadBytes: Int
     private let readFile: FileReader
     private let onRead: @MainActor (LeoAgentID) -> Void

@@ -24,7 +24,11 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     @UIBindable private var store: StoreOf<ChatThread>
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
-    private lazy var composer = ComposerView(store: store.scope(state: \.composer, action: \.composer)) { [weak self] in self?.pick($0) }
+    private lazy var composer = ComposerView(
+        store: store.scope(state: \.composer, action: \.composer),
+        pick: { [weak self] in self?.pick($0) },
+        pasteAttachments: { [weak self] in self?.pickerDelegate.attachPasted($0) }
+    )
     private let replyBanner = UIButton(configuration: .plain())
     /// Everything but Terminal: the agent's info, the task filter and, while
     /// the strip is hidden, the way to bring it back. The header holds just
