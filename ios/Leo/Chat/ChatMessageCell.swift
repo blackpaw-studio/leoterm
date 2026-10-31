@@ -14,6 +14,8 @@ final class ChatMessageCell: UICollectionViewCell {
         /// The prompt's free text changed.
         case text(String)
         case submit
+        /// "Reply instead" on a button prompt: focuses the composer.
+        case replyInstead
         /// An option of a questions card tapped.
         case questionChoice(questionID: String, value: String)
         /// A questions card's "Other…" text changed.

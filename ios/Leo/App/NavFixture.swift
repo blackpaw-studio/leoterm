@@ -54,6 +54,20 @@ enum NavFixture {
         LeoChatThread(agent: "ares", lastMessage: message("f", "ares", "Standing by.", minutesAgo: 1_700)),
     ]
 
+    /// Zeus's thread in the rich inbox: a button ask waiting on an answer.
+    private static let zeusMessages: [LeoChatMessage] = [
+        message("z0", "zeus", "Tests are green and the release branch is cut.", minutesAgo: 6),
+        LeoChatMessage(
+            id: "b", agent: "zeus", direction: .outbound, kind: .ask, text: "Deploy to prod, or hold for Evan's sign-off?", state: "open",
+            ts: Date().addingTimeInterval(-240),
+            input: try? LeoChatInput(kind: .buttons, options: [
+                LeoChatOption(value: "deploy", label: "Deploy to prod"),
+                LeoChatOption(value: "hold", label: "Hold for sign-off"),
+                LeoChatOption(value: "rollback", label: "Roll back the last release"),
+            ])
+        ),
+    ]
+
     /// Replaces the paired daemons, keychain, daemon transport and chat client.
     static func prepare(_ values: inout DependencyValues) {
         values.pairedDaemons.load = { [daemon] in [daemon] }
@@ -64,7 +78,9 @@ enum NavFixture {
         }
         values.daemonClient.fetchState = { [state] _ in state }
         values.chatClient.threads = { _ in isRichInbox ? richThreads : agentNames.map { LeoChatThread(agent: $0) } }
-        values.chatClient.messages = { _, _, _ in LeoChatPage(messages: [], hasMore: false) }
+        values.chatClient.messages = { _, agent, _ in
+            LeoChatPage(messages: isRichInbox && agent == "zeus" ? zeusMessages : [], hasMore: false)
+        }
         values.chatClient.markRead = { _, _, _ in }
     }
 }

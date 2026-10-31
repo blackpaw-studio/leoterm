@@ -283,6 +283,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             store.send(.askTextChanged(messageID: message.id, text))
         case .submit:
             store.send(.askSubmitTapped(messageID: message.id))
+        case .replyInstead:
+            composer.focus()
         case .questionChoice, .questionText, .questionsSubmit, .questionsDismiss:
             if event.settlesCard { settleReveal.acted(on: message.id) }
             event.questionsAction(messageID: message.id).map { store.send($0) }
