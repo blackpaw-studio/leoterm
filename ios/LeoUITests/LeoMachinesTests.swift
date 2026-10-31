@@ -25,21 +25,24 @@ final class LeoMachinesTests: XCTestCase {
         attach(app, "machines-numbers")
     }
 
-    /// Settings > Chat: the live terminal default starts on, flips with the
-    /// switch, and is put back so a rerun starts from the same place.
-    func testLiveTerminalSettingTogglesFromSettings() throws {
+    /// Settings > Chat: the live terminal default starts on "While working",
+    /// switches to "Always" from the pop-up menu, and is put back so a rerun
+    /// starts from the same place.
+    func testLiveTerminalModeMenuChangesFromSettings() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-machinesFixture", "-statsStyle", "capsules"]
         app.launch()
         app.tabBars.buttons["Settings"].tap()
-        let toggle = app.switches["settings.liveTerminal"]
-        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
-        let start = toggle.value as? String
+        let row = app.cells["settings.liveTerminal"]
+        XCTAssertTrue(row.waitForExistence(timeout: 10))
+        XCTAssertTrue(row.staticTexts["While working"].exists)
         attach(app, "settings-live-terminal")
-        toggle.tap()
-        XCTAssertNotEqual(toggle.value as? String, start)
-        toggle.tap()
-        XCTAssertEqual(toggle.value as? String, start)
+        row.tap()
+        app.buttons["Always"].tap()
+        XCTAssertTrue(row.staticTexts["Always"].waitForExistence(timeout: 5))
+        row.tap()
+        app.buttons["While working"].tap()
+        XCTAssertTrue(row.staticTexts["While working"].waitForExistence(timeout: 5))
     }
 
     /// Back from an open machine returns to the Machines list, whose rows
