@@ -334,4 +334,28 @@ struct AppFeatureChatTests {
         #expect(state.isChatOnScreen(Self.zeus))
         #expect(!state.isChatOnScreen(AgentRef(daemonID: Self.zeus.daemonID, name: "hera")))
     }
+
+    // MARK: The thread's full terminal
+
+    private static func stateWithChatTerminal() -> AppFeature.State {
+        var state = connected()
+        var thread = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        thread.terminal = Terminal.State(daemon: .dionysus, agentName: "zeus", isAgentRunning: true)
+        state.chat = thread
+        return state
+    }
+
+    @Test func theSceneGoingToTheBackgroundReachesTheChatsTerminal() async {
+        let store = TestStore(initialState: Self.stateWithChatTerminal()) { AppFeature() }
+        store.exhaustivity = .off
+        await store.send(.scenePhaseChanged(isActive: false))
+        await store.receive(\.chat.terminal.presented.scenePhaseChanged, false) { $0.chat?.terminal?.isSceneActive = false }
+    }
+
+    @Test func theAgentStoppingReachesTheChatsTerminal() async {
+        let store = TestStore(initialState: Self.stateWithChatTerminal()) { AppFeature() }
+        store.exhaustivity = .off
+        await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .agentStopped(seq: 2, at: nil, agent: "zeus", wakeOnMessage: false)))
+        await store.receive(\.chat.terminal.presented.agentRunningChanged, false) { $0.chat?.terminal?.isAgentRunning = false }
+    }
 }

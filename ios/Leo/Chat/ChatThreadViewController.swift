@@ -22,6 +22,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private lazy var composer = ComposerView(store: store.scope(state: \.composer, action: \.composer)) { [weak self] in self?.pick($0) }
     private let replyBanner = UIButton(configuration: .plain())
     private let filterButton = UIBarButtonItem(image: UIImage(systemName: "line.3.horizontal.decrease.circle"))
+    private let terminalButton = UIBarButtonItem(image: UIImage(systemName: "terminal"))
+    private let infoButton = UIBarButtonItem(image: UIImage(systemName: "info.circle"))
+    private let titleView = ChatThreadTitleView()
     private let voice = VoicePlayer()
     private var shownIDs: [String] = []
     private var shownItems: [String: LeoChatTranscript.Item] = [:]
@@ -42,8 +45,15 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         navigationItem.largeTitleDisplayMode = .never
-        navigationItem.rightBarButtonItem = filterButton
+        navigationItem.titleView = titleView
+        navigationItem.rightBarButtonItems = [infoButton, terminalButton, filterButton]
         filterButton.accessibilityLabel = String(localized: "Filter Task Output")
+        terminalButton.accessibilityLabel = String(localized: "Terminal")
+        terminalButton.accessibilityIdentifier = "chat.terminal"
+        terminalButton.primaryAction = UIAction(image: terminalButton.image) { [weak self] _ in self?.store.send(.terminalButtonTapped) }
+        infoButton.accessibilityLabel = String(localized: "Agent Info")
+        infoButton.accessibilityIdentifier = "chat.info"
+        infoButton.primaryAction = UIAction(image: infoButton.image) { [weak self] _ in self?.store.send(.infoButtonTapped) }
         collectionView.delegate = self
         collectionView.keyboardDismissMode = .interactive
         collectionView.accessibilityIdentifier = "chat.thread"
@@ -84,6 +94,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
         present(item: $store.scope(state: \.alert, action: \.alert)) { store in
             UIAlertController(store: store)
+        }
+        navigationDestination(item: $store.scope(state: \.terminal, action: \.terminal)) { store in
+            TerminalViewController(store: store)
         }
         observe { [weak self] in self?.render() }
         store.send(.task)
@@ -132,7 +145,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
     private func render() {
         title = store.agentName
-        navigationItem.subtitle = store.agent.map(\.statusText)
+        titleView.configure(agentName: store.agentName, agent: store.agent, daemonName: store.daemon.name)
         renderFilterMenu()
         renderReplyBanner()
 

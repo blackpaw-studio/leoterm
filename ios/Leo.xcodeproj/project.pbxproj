@@ -54,6 +54,7 @@
 		81C7612D440AA87361720BEE /* LeoSettingsE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
 		85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */; };
+		89473D2B7712366198CC2775 /* ChatThreadTitleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC683CC35301B8DD36DCF16C /* ChatThreadTitleView.swift */; };
 		8B81C9A92523833C6243FBEE /* NavFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */; };
 		8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */; };
 		8EA25F32175AB6CB49437F95 /* DialogAnchorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */; };
@@ -203,6 +204,7 @@
 		AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */ = {isa = PBXFileReference; name = Ghostty.icon; path = ../../../images/Ghostty.icon; sourceTree = "<group>"; };
 		B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatThreadViewController.swift; sourceTree = "<group>"; };
 		BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatClientsLive.swift; sourceTree = "<group>"; };
+		BC683CC35301B8DD36DCF16C /* ChatThreadTitleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatThreadTitleView.swift; sourceTree = "<group>"; };
 		BE45FDF5272832A5443C1236 /* AgentAppearanceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAppearanceViewController.swift; sourceTree = "<group>"; };
 		C0D9A1F7848ADA6B35BFA29E /* LeoAppearancePalette+UIKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LeoAppearancePalette+UIKit.swift"; sourceTree = "<group>"; };
 		C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoAppearanceTests.swift; sourceTree = "<group>"; };
@@ -453,6 +455,7 @@
 				5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */,
 				1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */,
 				5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */,
+				BC683CC35301B8DD36DCF16C /* ChatThreadTitleView.swift */,
 				B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */,
 				D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */,
 				36770E26AC7E79990AFA6F96 /* ComposerView.swift */,
@@ -754,6 +757,7 @@
 				D53BEAE86E41AC0D887D17D4 /* ChatPresentation.swift in Sources */,
 				85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */,
 				FD5AFE72B0D498DB5026CC25 /* ChatQuestionsFixture.swift in Sources */,
+				89473D2B7712366198CC2775 /* ChatThreadTitleView.swift in Sources */,
 				B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */,
 				3E8CAAD59AE015ECC9520FDD /* ChatTimeHeaderCell.swift in Sources */,
 				62D603D1FF47FF25D6D8899B /* ChatsSplitViewController.swift in Sources */,

@@ -243,11 +243,14 @@ public struct AppFeature {
                     let terminal: Effect<Action> = state.detail?.destination?.terminal == nil
                         ? .none
                         : .send(.detail(.destination(.presented(.terminal(.scenePhaseChanged(isActive: isActive))))))
+                    let chatTerminal: Effect<Action> = state.chat?.terminal == nil
+                        ? .none
+                        : .send(.chat(.terminal(.presented(.scenePhaseChanged(isActive: isActive)))))
                     let pushCheck: Effect<Action> = isActive ? push(.becameActive, state: &state) : .none
                     let settings: Effect<Action> = state.daemons.machine == nil
                         ? .none
                         : .send(.daemons(.machine(.presented(.scenePhaseChanged(isActive: isActive)))))
-                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck, settings)
+                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, chatTerminal, pushCheck, settings)
 
                 case .detailPopped:
                     state.detail = nil
@@ -272,12 +275,7 @@ public struct AppFeature {
                 state.syncAppearance()
                 state.syncChat()
                 state.decideChatFilter()
-                let machine = state.machineLinkUpdate()
-                // The terminal opens and closes its socket as the agent starts
-                // and stops, so that change is an action, not a state edit.
-                guard let terminal = state.detail?.destination?.terminal, let agent = state.detail?.agent,
-                      terminal.isAgentRunning == agent.isStopped else { return machine }
-                return .merge(machine, .send(.detail(.destination(.presented(.terminal(.agentRunningChanged(!agent.isStopped)))))))
+                return .merge(state.machineLinkUpdate(), state.terminalRunningUpdates())
             }
         }
     }

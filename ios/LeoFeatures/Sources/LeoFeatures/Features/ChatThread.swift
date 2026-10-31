@@ -25,6 +25,8 @@ public struct ChatThread {
         /// doesn't report it (stopped and pruned, or not connected yet).
         public var agent: Agent?
         @Presents public var alert: AlertState<Never>?
+        /// The full terminal, pushed from the header's Terminal button.
+        @Presents public var terminal: Terminal.State?
         /// Message ids with an answer in flight.
         public var answering: Set<String> = []
         /// Unsent selections and text of open asks, by message id.
@@ -143,6 +145,8 @@ public struct ChatThread {
         case settledMessageResponse(messageID: String, Result<LeoChatPage, any Error>)
         case task
         case taskFilterChanged(String?)
+        case terminal(PresentationAction<Terminal.Action>)
+        case terminalButtonTapped
     }
 
     enum CancelID { case page }
@@ -251,7 +255,11 @@ public struct ChatThread {
                     }))
                 }
 
-            case .composer, .infoButtonTapped:
+            case .composer, .infoButtonTapped, .terminal:
+                return .none
+
+            case .terminalButtonTapped:
+                state.terminal = Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: state.agent?.canOpenTerminal ?? false)
                 return .none
 
             case .loadOlderTriggered:
@@ -368,6 +376,7 @@ public struct ChatThread {
             }
         }
         .ifLet(\.$alert, action: \.alert)
+        .ifLet(\.$terminal, action: \.terminal) { Terminal() }
     }
 
     public static func failureAlert(title: String, message: String) -> AlertState<Never> {

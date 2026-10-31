@@ -113,6 +113,19 @@ extension AppFeature.State {
         return link == machine.link ? .none : .send(.daemons(.machine(.presented(.linkUpdated(link)))))
     }
 
+    /// A terminal opens and closes its socket as its agent starts and stops,
+    /// so that change reaches it as an action, not a state edit.
+    func terminalRunningUpdates() -> Effect<AppFeature.Action> {
+        var updates: [Effect<AppFeature.Action>] = []
+        if let terminal = detail?.destination?.terminal, let agent = detail?.agent, terminal.isAgentRunning == agent.isStopped {
+            updates.append(.send(.detail(.destination(.presented(.terminal(.agentRunningChanged(!agent.isStopped)))))))
+        }
+        if let terminal = chat?.terminal, let agent = chat?.agent, terminal.isAgentRunning != agent.canOpenTerminal {
+            updates.append(.send(.chat(.terminal(.presented(.agentRunningChanged(agent.canOpenTerminal))))))
+        }
+        return .merge(updates)
+    }
+
     /// Keeps the open detail in step with the live fleet.
     mutating func syncDetail() {
         guard let ref = detail?.ref, let session = fleet.sessions[id: ref.daemonID] else { return }
