@@ -6,7 +6,9 @@ struct TerminalStripLinesTests {
     private static let status = "[leo] 0:claude*                                 \"leoterm\" 07:58 31-Oct"
     private static let rule = String(repeating: "─", count: 78)
 
-    /// A Claude Code screen: output, a ruled input box, status-line rows, tmux's status row.
+    /// A Claude Code screen as it draws today: a labelled rule above the prompt,
+    /// a rule below it, a status panel with a closing rule of its own, then
+    /// tmux's status row.
     private static let claudeScreen = [
         "● Read(src/main.zig)",
         "  ⎿  Read 120 lines",
@@ -16,12 +18,17 @@ struct TerminalStripLinesTests {
         "",
         "● Next I will run the tests.",
         "",
-        rule,
+        String(repeating: "─", count: 66) + " leoterm ─",
         "❯ ",
         rule,
-        "  ⏵⏵ accept edits on (shift+tab to cycle)",
-        "  Opus 5.5 · ctx 41%",
+        "  ⏵⏵ auto mode on (shift+tab to cycle)",
         "",
+        "  model   Sonnet 5.5  ·  thinking medium",
+        "  where   /p/t/c/c/app  ·  no git  ·  no PR",
+        "  context ▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆  —",
+        "          sys 2.9k  tools 39k  mem 11k  chat 17k  · 931k free  · compact 37%",
+        "  cost    $0.04",
+        "  " + rule,
         status,
     ]
 

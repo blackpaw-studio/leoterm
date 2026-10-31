@@ -19,23 +19,23 @@ public enum TerminalStripLines {
         return Array(content.filter { !$0.allSatisfy(\.isWhitespace) }.suffix(count))
     }
 
-    /// The tallest input the box is expected to grow to before it scrolls.
-    private static let maxBoxInteriorRows = 8
     private static let minRuleLength = 10
+    private static let promptMarkers: [Character] = ["❯", ">"]
 
     /// The index of the top border of Claude Code's input box, if one is on
-    /// screen. A rounded box opens with `╭`. The plain style is a rule above
-    /// and a rule below the prompt, so the box top is the last rule's
-    /// predecessor, unless that is too far up to be the same box (a rule in
-    /// the agent's output).
+    /// screen. A rounded box opens with `╭`. The plain style is a rule (it may
+    /// carry the agent's name) with the prompt row right under it, and a rule
+    /// below that; the status panel under the box can have rules of its own,
+    /// so the box is the last rule that a prompt row follows.
     private static func inputBoxTop(in rows: [String]) -> Int? {
         if let rounded = rows.lastIndex(where: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("╭") }) {
             return rounded
         }
-        let rules = rows.indices.filter { isRule(rows[$0]) }
-        guard let last = rules.last else { return nil }
-        guard rules.count > 1, let previous = rules.dropLast().last, last - previous - 1 <= maxBoxInteriorRows else { return last }
-        return previous
+        return rows.indices.last { isRule(rows[$0]) && rows.indices.contains($0 + 1) && isPrompt(rows[$0 + 1]) }
+    }
+
+    private static func isPrompt(_ row: String) -> Bool {
+        row.drop { $0 == " " }.first.map(promptMarkers.contains) ?? false
     }
 
     private static func isRule(_ row: String) -> Bool {
