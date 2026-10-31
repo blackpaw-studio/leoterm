@@ -66,6 +66,18 @@ final class LeoChatScrollTests: XCTestCase {
         XCTAssertTrue(app.cells[before].exists, "the reader's place moved")
     }
 
+    /// Sending is the reader asking to be at the bottom, wherever they were.
+    func testScrolledUpReaderSendsAndSeesTheirMessage() {
+        let app = openThread()
+        let thread = app.collectionViews["chat.thread"]
+        for _ in 0..<3 { thread.swipeDown() }
+        let composer = app.textViews["chat.composer.text"]
+        composer.tap()
+        composer.typeText("sent from up here")
+        app.buttons["chat.composer.send"].tap()
+        assertNewestVisible(app, id: "zz-sent-1", "after a scrolled-up send")
+    }
+
     func testStaysAtTheBottomAfterSending() {
         let app = openThread()
         assertNewestVisible(app, id: "s69", "after open")

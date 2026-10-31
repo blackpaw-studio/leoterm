@@ -53,6 +53,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     /// Whether the list follows its newest message; see `ChatScrollPin`.
     private var pin = ChatScrollPin()
     private var isCorrectingScroll = false
+    private var wasSending = false
 
     init(store: StoreOf<ChatThread>) {
         self.store = store
@@ -209,6 +210,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { changed.contains($0) || shownIDs.contains($0) })
         dataSource.apply(snapshot, animatingDifferences: false)
         let isFirstFill = shownIDs.isEmpty && !ids.isEmpty
+        // Any send (text or voice note) starts as the composer's draft going out.
+        if store.composer.isSending, !wasSending { pin.userSent() }
+        wasSending = store.composer.isSending
         shownIDs = ids
 
         collectionView.layoutIfNeeded()

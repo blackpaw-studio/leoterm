@@ -63,4 +63,12 @@ struct ChatScrollPinTests {
         pin.userScrolled(metrics(offset: 410))
         #expect(pin.isPinned)
     }
+
+    @Test func sendingRepinsAReaderWhoScrolledUp() {
+        var pin = ChatScrollPin()
+        pin.userScrolled(metrics(offset: 200))
+        pin.userSent()
+        #expect(pin.isPinned)
+        #expect(pin.correction(for: metrics(offset: 200)) == 410)
+    }
 }

@@ -44,6 +44,9 @@ public struct ChatScrollPin: Equatable, Sendable {
         isPinned = metrics.distanceFromBottom < Self.nearBottom
     }
 
+    /// The reader sent a message: they want to see it, wherever they were.
+    public mutating func userSent() { isPinned = true }
+
     /// The app is about to scroll somewhere else (to reveal a field or a card):
     /// stop following the bottom until the reader scrolls back to it.
     public mutating func release() { isPinned = false }
