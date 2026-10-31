@@ -17,15 +17,18 @@ public struct TerminalStrip {
         public var terminal: Terminal.State
         /// The user's choice in this thread; nil until they toggle. It lasts
         /// as long as the thread's state, so each opened thread starts from
-        /// the Settings default.
+        /// the Settings mode.
         public var userChoice: Bool?
-        @Shared(.showsTerminalInChats) public var showsByDefault
+        @Shared(.liveTerminalMode) public var mode
+        /// Whether the agent's status is `working`; the parent keeps it current.
+        public var isAgentWorking: Bool
 
-        public init(daemon: PairedDaemon, agentName: String, isAgentRunning: Bool) {
+        public init(daemon: PairedDaemon, agentName: String, isAgentRunning: Bool, isAgentWorking: Bool = false) {
             terminal = Terminal.State(daemon: daemon, agentName: agentName, isAgentRunning: isAgentRunning)
+            self.isAgentWorking = isAgentWorking
         }
 
-        public var isShown: Bool { userChoice ?? showsByDefault }
+        public var isShown: Bool { userChoice ?? mode.isShown(isAgentWorking: isAgentWorking) }
     }
 
     public enum Action {
@@ -78,9 +81,23 @@ public struct TerminalStrip {
     }
 }
 
-extension SharedKey where Self == AppStorageKey<Bool>.Default {
-    /// Settings > Chat > "Show live terminal in chats"; the default for each thread opened.
-    public static var showsTerminalInChats: Self { Self[.appStorage("showsTerminalInChats"), default: true] }
+/// Settings > Chat > "Live terminal in chats": when a thread's strip shows
+/// unless the user toggled it there.
+public enum LiveTerminalMode: String, CaseIterable, Sendable {
+    case whileWorking, always, never
+
+    func isShown(isAgentWorking: Bool) -> Bool {
+        switch self {
+        case .whileWorking: isAgentWorking
+        case .always: true
+        case .never: false
+        }
+    }
+}
+
+extension SharedKey where Self == AppStorageKey<LiveTerminalMode>.Default {
+    /// A new key: the old boolean `showsTerminalInChats` is ignored.
+    public static var liveTerminalMode: Self { Self[.appStorage("liveTerminalMode"), default: .whileWorking] }
 }
 
 private enum TerminalStripOutputKey: DependencyKey {
