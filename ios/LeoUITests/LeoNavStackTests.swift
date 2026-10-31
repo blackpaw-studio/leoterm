@@ -1,8 +1,9 @@
 import UIKit
 import XCTest
 
-/// Back from a chat or an agent returns one level at a time on iPhone (a chat
-/// opened from a detail returns to it first), with the list intact, against the scripted `-navFixture` (no daemon needed).
+/// Back from a chat or an agent returns one level at a time on iPhone, with
+/// the list intact; each tab keeps its own selection. Runs against the
+/// scripted `-navFixture` (no daemon needed).
 final class LeoNavStackTests: XCTestCase {
     private let agents = ["agent-0", "agent-1", "agent-2"]
 
@@ -10,8 +11,12 @@ final class LeoNavStackTests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-navFixture"]
         app.launch()
-        XCTAssertTrue(app.cells["agent.agent-0"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.cells["chat.agent-0"].waitForExistence(timeout: 10))
         return app
+    }
+
+    private func openTab(_ app: XCUIApplication, _ name: String) {
+        app.tabBars.buttons[name].tap()
     }
 
     private func assertAtAgentsList(_ app: XCUIApplication, _ step: String, file: StaticString = #filePath, line: UInt = #line) {
@@ -22,26 +27,46 @@ final class LeoNavStackTests: XCTestCase {
         }
     }
 
+    private func assertAtInbox(_ app: XCUIApplication, _ step: String, file: StaticString = #filePath, line: UInt = #line) {
+        attach(app, step)
+        XCTAssertTrue(app.navigationBars["Chats"].waitForExistence(timeout: 5), "\(step): Chats bar", file: file, line: line)
+        for agent in agents {
+            XCTAssertTrue(app.cells["chat.\(agent)"].exists, "\(step): row \(agent)", file: file, line: line)
+        }
+    }
+
     private func back(_ app: XCUIApplication) {
         app.navigationBars.buttons.element(boundBy: 0).tap()
     }
 
-    func testBackFromChatOpenedFromDetailReturnsToTheList() throws {
+    func testLaunchesIntoTheInbox() throws {
         let app = launch()
-        app.cells["agent.agent-0"].tap()
-        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
-        app.cells["agent.chat"].tap()
-        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
-        back(app)
-        attach(app, "back-from-chat-to-detail")
-        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "Back from the chat lands on the detail")
-        XCTAssertFalse(app.collectionViews["chat.thread"].exists, "chat popped")
-        back(app)
-        assertAtAgentsList(app, "back-from-detail-after-chat")
+        assertAtInbox(app, "launch")
+        XCTAssertTrue(app.tabBars.buttons["Chats"].isSelected)
     }
 
-    func testBackFromDetailReturnsToTheList() throws {
+    func testBackFromAChatOpenedFromTheInboxReturnsToTheInbox() throws {
         let app = launch()
+        app.cells["chat.agent-1"].tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+        back(app)
+        assertAtInbox(app, "back-to-inbox")
+    }
+
+    func testBackFromAChatStartedFromTheNewChatPickerReturnsToTheInbox() throws {
+        let app = launch()
+        app.buttons["New Chat"].tap()
+        let pick = app.cells["newChat.agent-2"]
+        XCTAssertTrue(pick.waitForExistence(timeout: 5))
+        pick.tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+        back(app)
+        assertAtInbox(app, "back-to-inbox-after-new-chat")
+    }
+
+    func testBackFromDetailReturnsToTheAgentsList() throws {
+        let app = launch()
+        openTab(app, "Agents")
         app.cells["agent.agent-0"].tap()
         XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
         back(app)
@@ -50,6 +75,7 @@ final class LeoNavStackTests: XCTestCase {
 
     func testReopeningTheSameAgentAfterBackShowsItAgain() throws {
         let app = launch()
+        openTab(app, "Agents")
         app.cells["agent.agent-0"].tap()
         XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
         back(app)
@@ -60,61 +86,47 @@ final class LeoNavStackTests: XCTestCase {
         assertAtAgentsList(app, "reopen-second-back")
     }
 
-    func testBackFromChatOpenedFromTheChatsListReturnsToChats() throws {
+    /// The detail's Chat button opens the thread on the Chats tab; the detail
+    /// stays where it was on the Agents tab.
+    func testChatFromDetailSwitchesToTheChatsTabAndLeavesTheDetail() throws {
         let app = launch()
-        app.navigationBars["Agents"].buttons["Chats"].tap()
-        XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5))
-        app.cells["chat.agent-1"].tap()
+        openTab(app, "Agents")
+        app.cells["agent.agent-0"].tap()
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
+        app.cells["agent.chat"].tap()
         XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Chats"].isSelected, "Chats tab selected")
         back(app)
-        attach(app, "back-to-chats")
-        XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5))
-        back(app)
-        assertAtAgentsList(app, "back-to-agents")
+        assertAtInbox(app, "back-from-chat-to-inbox")
+        openTab(app, "Agents")
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "the Agents tab still shows the detail")
+        XCTAssertFalse(app.collectionViews["chat.thread"].exists)
     }
 
-    func testBackFromAChatStartedFromTheNewChatPickerReturnsToChats() throws {
-        let app = launch()
-        app.navigationBars["Agents"].buttons["Chats"].tap()
-        XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5))
-        app.buttons["New Chat"].tap()
-        let pick = app.cells["newChat.agent-2"]
-        XCTAssertTrue(pick.waitForExistence(timeout: 5))
-        pick.tap()
-        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
-        back(app)
-        XCTAssertTrue(app.cells["chat.agent-1"].waitForExistence(timeout: 5), "back to Chats")
-        back(app)
-        assertAtAgentsList(app, "back-to-agents-after-new-chat")
-    }
-
-    /// Regular width: the list stays beside the secondary column while the
-    /// selection moves from an agent to its chat and to another agent.
+    /// Regular width: the inbox stays beside the thread, and the agents list
+    /// beside the detail, while the selection moves.
     func testSplitViewKeepsTheListBesideTheSelection() throws {
         try XCTSkipUnless(UIDevice.current.userInterfaceIdiom == .pad, "regular width only")
         let app = launch()
-        app.cells["agent.agent-0"].tap()
-        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
-        attach(app, "ipad-detail")
-        app.cells["agent.chat"].tap()
+        app.cells["chat.agent-0"].tap()
         XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
         for agent in agents {
-            XCTAssertTrue(app.cells["agent.\(agent)"].exists, "ipad chat: row \(agent)")
+            XCTAssertTrue(app.cells["chat.\(agent)"].exists, "ipad chat: row \(agent)")
         }
         attach(app, "ipad-chat")
-        // Back from the chat returns to its detail, beside the list.
-        back(app)
-        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "ipad: Back lands on the detail")
-        XCTAssertFalse(app.collectionViews["chat.thread"].exists, "ipad: chat popped")
+        app.cells["chat.agent-1"].tap()
+        XCTAssertTrue(app.collectionViews["chat.thread"].exists)
+        attach(app, "ipad-second-chat")
+
+        openTab(app, "Agents")
+        app.cells["agent.agent-0"].tap()
+        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
         for agent in agents {
             XCTAssertTrue(app.cells["agent.\(agent)"].exists, "ipad detail: row \(agent)")
         }
-        attach(app, "ipad-back-to-detail")
-        app.cells["agent.chat"].tap()
-        XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
+        attach(app, "ipad-detail")
         app.cells["agent.agent-1"].tap()
         XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
-        XCTAssertFalse(app.collectionViews["chat.thread"].exists)
         attach(app, "ipad-second-agent")
     }
 
@@ -125,9 +137,7 @@ final class LeoNavStackTests: XCTestCase {
         try XCTSkipIf(UIDevice.current.userInterfaceIdiom == .pad, "iPhone only")
         let app = launch()
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
-        app.cells["agent.agent-0"].tap()
-        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5))
-        app.cells["agent.chat"].tap()
+        app.cells["chat.agent-0"].tap()
         XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5))
 
         XCUIDevice.shared.orientation = .landscapeLeft
@@ -136,12 +146,9 @@ final class LeoNavStackTests: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
         XCTAssertTrue(app.collectionViews["chat.thread"].waitForExistence(timeout: 5), "portrait again: chat stays")
         attach(app, "rotate-portrait")
-        XCTAssertFalse(app.staticTexts["No Agent Selected"].exists, "placeholder")
+        XCTAssertFalse(app.staticTexts["No Chat Selected"].exists, "placeholder")
         back(app)
-        XCTAssertTrue(app.cells["agent.chat"].waitForExistence(timeout: 5), "Back after rotation lands on the detail")
-        XCTAssertFalse(app.collectionViews["chat.thread"].exists, "chat popped")
-        back(app)
-        assertAtAgentsList(app, "back-after-rotation")
+        assertAtInbox(app, "back-after-rotation")
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {

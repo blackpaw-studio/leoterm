@@ -25,6 +25,8 @@ public struct ChatThread {
         /// doesn't report it (stopped and pruned, or not connected yet).
         public var agent: Agent?
         @Presents public var alert: AlertState<Never>?
+        /// The full terminal, pushed from the header's Terminal button.
+        @Presents public var terminal: Terminal.State?
         /// Message ids with an answer in flight.
         public var answering: Set<String> = []
         /// Unsent selections and text of open asks, by message id.
@@ -52,6 +54,8 @@ public struct ChatThread {
         /// The message (usually a task card) the next send replies to.
         public var replyTo: String?
         public var taskFilter: String?
+        /// The live terminal under the header.
+        public var strip: TerminalStrip.State
 
         public var id: AgentRef { ref }
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
@@ -60,7 +64,12 @@ public struct ChatThread {
             self.daemon = daemon
             agentName = name
             agent = live
+            strip = TerminalStrip.State(daemon: daemon, agentName: name, isAgentRunning: live?.canOpenTerminal ?? false)
         }
+
+        /// Whether the strip should hold a connection: only for a known agent,
+        /// on screen, and shown.
+        public var wantsStripConnection: Bool { isOnScreen && strip.isShown && agent != nil }
 
         /// Merges a fetched page, skipping messages a live event has
         /// replaced since the request started.
@@ -117,10 +126,13 @@ public struct ChatThread {
         case attachmentResponse(id: String, Result<URL, any Error>)
         case chatEvent(LeoChatEvent)
         case composer(Composer.Action)
+        /// The header's Info button; the app root opens the agent's detail.
+        case infoButtonTapped
         case loadOlderTriggered
         case olderPageResponse(Result<LeoChatPage, any Error>)
         case onScreenChanged(Bool)
         case pageResponse(Result<LeoChatPage, any Error>)
+        case strip(TerminalStrip.Action)
         /// An option of a questions card tapped: updates its draft.
         case questionChoiceTapped(messageID: String, questionID: String, value: String)
         case questionTextChanged(messageID: String, questionID: String, String)
@@ -141,6 +153,8 @@ public struct ChatThread {
         case settledMessageResponse(messageID: String, Result<LeoChatPage, any Error>)
         case task
         case taskFilterChanged(String?)
+        case terminal(PresentationAction<Terminal.Action>)
+        case terminalButtonTapped
     }
 
     enum CancelID { case page }
@@ -153,6 +167,7 @@ public struct ChatThread {
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.composer, action: \.composer) { Composer() }
+        Scope(state: \.strip, action: \.strip) { TerminalStrip() }
         Reduce { state, action in
             switch action {
             case .alert:
@@ -249,7 +264,11 @@ public struct ChatThread {
                     }))
                 }
 
-            case .composer:
+            case .composer, .infoButtonTapped, .strip, .terminal:
+                return .none
+
+            case .terminalButtonTapped:
+                state.terminal = Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: state.agent?.canOpenTerminal ?? false)
                 return .none
 
             case .loadOlderTriggered:
@@ -366,6 +385,7 @@ public struct ChatThread {
             }
         }
         .ifLet(\.$alert, action: \.alert)
+        .ifLet(\.$terminal, action: \.terminal) { Terminal() }
     }
 
     public static func failureAlert(title: String, message: String) -> AlertState<Never> {

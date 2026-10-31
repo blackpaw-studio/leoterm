@@ -29,11 +29,10 @@ struct AppFeatureQuestionsDraftTests {
             $0.chat?.questionsDrafts = ["01": draft]
             $0.parkedQuestionsDrafts = [:]
         }
-        // Opening an agent's detail parks it too.
+        // Opening an agent's detail is the other tab's: the chat stays.
         await store.send(.agentTapped(AppFeatureChatTests.zeus)) {
-            $0.chat = nil
             $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
-            $0.parkedQuestionsDrafts[AppFeatureChatTests.zeus] = ["01": draft]
         }
+        #expect(store.state.chat?.questionsDrafts == ["01": draft])
     }
 }

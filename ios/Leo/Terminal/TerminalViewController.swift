@@ -70,14 +70,6 @@ final class TerminalViewController: UIViewController, UIScrollViewDelegate {
             banner.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 16),
         ])
 
-        let ref = store.ref
-        let stream = output.output(for: ref)
-        outputTask = Task { [weak self] in
-            for await chunk in stream {
-                self?.apply(chunk)
-            }
-        }
-
         observe { [weak self] in
             guard let self else { return }
             render()
@@ -86,12 +78,27 @@ final class TerminalViewController: UIViewController, UIScrollViewDelegate {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        subscribeToOutput()
         store.send(.appeared)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        outputTask?.cancel()
+        outputTask = nil
         store.send(.disappeared)
+    }
+
+    /// The bus allows one subscriber per agent, so the screen holds it only
+    /// while visible: a chat's terminal strip takes it back when this pops.
+    private func subscribeToOutput() {
+        guard outputTask == nil else { return }
+        let stream = output.output(for: store.ref)
+        outputTask = Task { [weak self] in
+            for await chunk in stream {
+                self?.apply(chunk)
+            }
+        }
     }
 
     override func viewDidLayoutSubviews() {

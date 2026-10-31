@@ -5,11 +5,14 @@ import UIKit
 import UIKitNavigation
 
 /// App settings: the notifications switch, why pushes might not arrive,
-/// and a way to iOS Settings when the user turned Leo's notifications off.
+/// a way to iOS Settings when the user turned Leo's notifications off, and
+/// the chat's live terminal default.
 final class SettingsViewController: UIViewController {
     private enum Item: Hashable {
         case notifications
         case openSystemSettings
+        /// Chat: whether threads open with the live terminal strip shown.
+        case liveTerminal
         case statsStyle
         /// Identified by `PushProblem.id` (a daemon ID), never its text.
         case problem(PushProblem)
@@ -21,6 +24,7 @@ final class SettingsViewController: UIViewController {
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
     private var footer = ""
+    private var showsLiveTerminal = true
 
     init(app: StoreOf<AppFeature>) {
         self.app = app
@@ -48,7 +52,10 @@ final class SettingsViewController: UIViewController {
 
         observe { [weak self] in
             guard let self else { return }
-            render(isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems, statsStyle: app.fleet.statsStyle)
+            render(
+                isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems,
+                statsStyle: app.fleet.statsStyle, showsLiveTerminal: app.showsTerminalInChats
+            )
         }
     }
 
@@ -76,6 +83,17 @@ final class SettingsViewController: UIViewController {
                     self?.store.send(.toggled(toggle.isOn))
                 }, for: .valueChanged)
                 cell.accessories = [.customView(configuration: .init(customView: toggle, placement: .trailing()))]
+            case .liveTerminal:
+                content.text = String(localized: "Show live terminal in chats")
+                content.image = UIImage(systemName: "terminal")
+                let toggle = UISwitch()
+                toggle.isOn = showsLiveTerminal
+                toggle.accessibilityIdentifier = "settings.liveTerminal"
+                toggle.addAction(UIAction { [weak self, weak toggle] _ in
+                    guard let toggle else { return }
+                    self?.app.send(.showsTerminalInChatsToggled(toggle.isOn))
+                }, for: .valueChanged)
+                cell.accessories = [.customView(configuration: .init(customView: toggle, placement: .trailing()))]
             case .openSystemSettings:
                 content.text = String(localized: "Open iOS Settings")
                 content.textProperties.color = .tintColor
@@ -101,7 +119,11 @@ final class SettingsViewController: UIViewController {
             elementKind: UICollectionView.elementKindSectionFooter
         ) { [weak self] view, _, indexPath in
             var content = UIListContentConfiguration.footer()
-            content.text = indexPath.section == 0 ? self?.footer : nil
+            content.text = switch indexPath.section {
+            case 0: self?.footer
+            case 1: String(localized: "A strip under a chat's header shows the agent's last few terminal lines. Each chat can hide it.")
+            default: nil
+            }
             view.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
@@ -113,21 +135,26 @@ final class SettingsViewController: UIViewController {
         collectionView.delegate = self
     }
 
-    private func render(isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle) {
+    private func render(
+        isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle, showsLiveTerminal: Bool
+    ) {
         self.statsStyle = statsStyle
+        self.showsLiveTerminal = showsLiveTerminal
         footer = Self.footer(isEnabled: isEnabled, authorization: authorization)
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
         snapshot.appendSections([0])
         snapshot.appendItems([.notifications])
         if isEnabled, authorization == .denied { snapshot.appendItems([.openSystemSettings]) }
         snapshot.appendSections([1])
+        snapshot.appendItems([.liveTerminal])
+        snapshot.appendSections([2])
         snapshot.appendItems([.statsStyle])
         // Off, these are daemons that haven't confirmed they stopped pushing.
         if !problems.isEmpty {
-            snapshot.appendSections([2])
+            snapshot.appendSections([3])
             snapshot.appendItems(problems.map(Item.problem))
         }
-        snapshot.reconfigureItems([.notifications, .statsStyle])
+        snapshot.reconfigureItems([.notifications, .liveTerminal, .statsStyle])
         snapshot.reloadSections([0])
         dataSource.apply(snapshot, animatingDifferences: false)
     }

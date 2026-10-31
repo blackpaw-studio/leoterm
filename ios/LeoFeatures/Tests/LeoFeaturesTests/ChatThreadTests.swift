@@ -616,4 +616,25 @@ struct ChatThreadTests {
             $0.loadError = ChatConnectionError.missingCredentials.localizedDescription
         }
     }
+
+    // MARK: Terminal
+
+    @Test func theTerminalButtonOpensTheFullTerminalForARunningAgent() async {
+        var state = Self.state()
+        state.agent = Agent(.make("zeus"))
+        let store = TestStore(initialState: state) { ChatThread() }
+        await store.send(.terminalButtonTapped) {
+            $0.terminal = Terminal.State(daemon: .dionysus, agentName: "zeus", isAgentRunning: true)
+        }
+    }
+
+    @Test(arguments: [Agent(.make("zeus", status: .stopped)), nil])
+    func theFullTerminalOpensNotRunningForAStoppedOrUnknownAgent(agent: Agent?) async {
+        var state = Self.state()
+        state.agent = agent
+        let store = TestStore(initialState: state) { ChatThread() }
+        await store.send(.terminalButtonTapped) {
+            $0.terminal = Terminal.State(daemon: .dionysus, agentName: "zeus", isAgentRunning: false)
+        }
+    }
 }

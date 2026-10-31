@@ -79,6 +79,7 @@ final class ChatAskControls: UIStackView, UITextViewDelegate {
         for (index, view) in above.enumerated() { insertArrangedSubview(view, at: index) }
         if takesText { addArrangedSubview(counter(model.draft)) }
         if let submit = submitButton(model) { addArrangedSubview(submit) }
+        if let reply = replyInsteadButton(model) { addArrangedSubview(reply) }
     }
 
     /// Takes the draft's text unless the user is typing in this field.
@@ -135,9 +136,14 @@ final class ChatAskControls: UIStackView, UITextViewDelegate {
         let row = UIStackView()
         row.spacing = 8
         if model.input.kind == .buttons {
-            row.axis = options.count > 2 ? .vertical : .horizontal
-            row.distribution = .fillEqually
-            for option in options { row.addArrangedSubview(answerButton(option, model: model)) }
+            // Full-width and stacked: the first option is the filled one.
+            row.axis = .vertical
+            row.distribution = .fill
+            // A permission's "deny" is never the filled one.
+            let primary = options.firstIndex { !(model.message.kind == .permission && $0.value == "deny") }
+            for (index, option) in options.enumerated() {
+                row.addArrangedSubview(answerButton(option, isPrimary: index == primary, model: model))
+            }
         } else {
             row.axis = .vertical
             row.spacing = 2
@@ -146,11 +152,12 @@ final class ChatAskControls: UIStackView, UITextViewDelegate {
         return row
     }
 
-    private func answerButton(_ option: LeoChatOption, model: Model) -> UIButton {
-        let isDeny = model.message.kind == .permission && option.value == "deny"
-        var configuration = isDeny ? UIButton.Configuration.bordered() : UIButton.Configuration.borderedProminent()
+    private func answerButton(_ option: LeoChatOption, isPrimary: Bool, model: Model) -> UIButton {
+        var configuration = isPrimary ? UIButton.Configuration.filled() : UIButton.Configuration.tinted()
         configuration.title = option.label
-        configuration.cornerStyle = .capsule
+        configuration.cornerStyle = .large
+        configuration.buttonSize = .large
+        configuration.titleLineBreakMode = .byTruncatingTail
         configuration.showsActivityIndicator = model.isAnswering
         let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in self?.onEvent(.choice(option.value)) })
         button.isEnabled = !model.isAnswering
@@ -180,6 +187,18 @@ final class ChatAskControls: UIStackView, UITextViewDelegate {
         button.isEnabled = !model.isAnswering
         button.accessibilityIdentifier = "chat.ask.option.\(option.value)"
         button.accessibilityTraits = isSelected ? [.button, .selected] : .button
+        return button
+    }
+
+    /// A quiet way out of a button prompt: the composer takes a free reply.
+    private func replyInsteadButton(_ model: Model) -> UIButton? {
+        guard model.input.kind == .buttons, !model.input.allowsText else { return nil }
+        var configuration = UIButton.Configuration.plain()
+        configuration.title = String(localized: "Reply instead")
+        configuration.buttonSize = .small
+        let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in self?.onEvent(.replyInstead) })
+        button.isEnabled = !model.isAnswering
+        button.accessibilityIdentifier = "chat.ask.replyInstead"
         return button
     }
 
