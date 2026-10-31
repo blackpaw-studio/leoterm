@@ -2,21 +2,21 @@ import ComposableArchitecture
 import Foundation
 import LeoKit
 
-/// The app root: the fleet of daemons, the Daemons screen, the selected
-/// agent, the pairing sheet, Settings and push registration.
+/// The app root: the selected tab, the fleet of daemons, the Chats inbox and
+/// open thread, the selected agent, the pairing sheet, and push registration.
 @Reducer
 public struct AppFeature {
     @ObservableState
     public struct State: Equatable {
-        /// The selected chat thread. Without a `detail` it fills the secondary
-        /// column; with one (the same agent's, opened from its detail screen)
-        /// it sits over the detail, which Back returns to.
+        /// The tab on screen; Chats at launch.
+        public var selectedTab = AppTab.chats
+        /// The Chats tab's selected thread. Independent of `detail`: each tab
+        /// keeps its own selection.
         public var chat: ChatThread.State?
         public var chats = ChatList.State()
         public var daemons = Daemons.State()
-        /// The selected agent. Selection, not presentation: on iPhone the
-        /// split view collapses it onto the list's navigation stack. Stays
-        /// set under `chat` when the chat was opened from it.
+        /// The Agents tab's selected agent. Selection, not presentation: on
+        /// iPhone the split view collapses it onto the list's navigation stack.
         public var detail: AgentDetail.State?
         /// The Appearance sheet, opened by a long press on an agent row.
         @Presents public var appearance: AgentAppearance.State?
@@ -26,9 +26,6 @@ public struct AppFeature {
         @Presents public var move: AgentMove.State?
         /// Each daemon's move hosts, read when it connects with `agent_move`.
         public var moveDestinations: [DaemonSession.ID: LeoMoveDestinations] = [:]
-        public var isShowingChats = false
-        public var isShowingDaemons = false
-        public var isShowingSettings = false
         @Presents public var pairing: Pairing.State?
         public var push = PushNotifications.State()
         /// Whether the paired daemons have been read from disk yet.
@@ -59,17 +56,15 @@ public struct AppFeature {
         /// A tapped chat notification (the app may have just launched for it).
         case chatNotificationOpened(AgentRef)
         case chatOpened(AgentRef)
-        /// The user popped a chat opened from an agent's detail back to it
-        /// (the detail stays selected).
+        /// The user popped the open thread back to the inbox (iPhone).
         case chatPopped
         case chats(ChatList.Action)
-        case chatsButtonTapped
-        /// The Agents list showed its Chats entry: start keeping unread
-        /// counts.
+        /// The Chats tab appeared: start keeping unread counts.
         case chatsEntryAppeared
         case daemons(Daemons.Action)
-        case daemonsButtonTapped
         case detail(AgentDetail.Action)
+        /// The user popped the agent detail back to the list (iPhone).
+        case detailPopped
         case fleet(Fleet.Action)
         case move(PresentationAction<AgentMove.Action>)
         /// Move To, Copy To or Duplicate on an agent: opens the flow. Ignored
@@ -82,12 +77,9 @@ public struct AppFeature {
         case pairing(PresentationAction<Pairing.Action>)
         case push(PushNotifications.Action)
         case scenePhaseChanged(isActive: Bool)
-        /// The user popped the agent or chat back to the list (iPhone):
-        /// nothing is selected any more.
-        case secondaryPopped
-        case settingsButtonTapped
         /// Settings > Stats style.
         case statsStyleSelected(LeoStatsStyle)
+        case tabSelected(AppTab)
         case task
     }
 
@@ -112,11 +104,7 @@ public struct AppFeature {
                     state.pendingAgent = nil
                     guard let session = state.fleet.sessions[id: ref.daemonID],
                           let agent = session.agents[id: ref.name] else { return .none }
-                    state.parkChatDrafts()
-                    state.chat = nil
-                    if state.detail?.ref != ref {
-                        state.detail = AgentDetail.State(daemon: session.daemon, agent: agent, connection: session.connection)
-                    }
+                    state.selectAgent(ref, session: session, agent: agent)
                     return .none
 
                 case .appearanceRequested(let ref):
@@ -129,6 +117,7 @@ public struct AppFeature {
                     return perform(response)
 
                 case .chatNotificationOpened(let ref):
+                    state.selectedTab = .chats
                     state.pendingChat = ref
                     return .none
 
@@ -140,11 +129,6 @@ public struct AppFeature {
                     state.parkChatDrafts()
                     state.chat = nil
                     return .none
-
-                case .chatsButtonTapped:
-                    state.isShowingChats = true
-                    state.chats.isActive = true
-                    return .send(.chats(.refresh(state.fleet.sessions.map(\.daemon))))
 
                 case .chatsEntryAppeared:
                     guard !state.chats.isActive else { return .none }
@@ -178,10 +162,6 @@ public struct AppFeature {
 
                 case .statsStyleSelected(let style):
                     return fleet(.statsStyleChanged(style), state: &state)
-
-                case .daemonsButtonTapped:
-                    state.isShowingDaemons = true
-                    return .none
 
                 case .fleet(.connected(let id, _, _, _)):
                     // Chats load only once the user has seen their entry.
@@ -231,6 +211,7 @@ public struct AppFeature {
                     return push(.daemonsLoaded(daemons), state: &state)
 
                 case .notificationOpened(let ref):
+                    state.selectedTab = .agents
                     state.pendingAgent = ref
                     return .none
 
@@ -243,7 +224,19 @@ public struct AppFeature {
                     return .none
 
                 case .detail(.chatButtonTapped):
-                    if let ref = state.detail?.ref { state.openChat(ref, overDetail: true) }
+                    if let ref = state.detail?.ref { state.openChat(ref) }
+                    return .none
+
+                case .chat(.infoButtonTapped):
+                    state.selectedTab = .agents
+                    if let ref = state.chat?.ref, state.detail?.ref != ref,
+                       let session = state.fleet.sessions[id: ref.daemonID], let agent = session.agents[id: ref.name] {
+                        state.selectAgent(ref, session: session, agent: agent)
+                    }
+                    return .none
+
+                case .tabSelected(let tab):
+                    state.selectedTab = tab
                     return .none
 
                 case .scenePhaseChanged(let isActive):
@@ -256,26 +249,12 @@ public struct AppFeature {
                         : .send(.daemons(.machine(.presented(.scenePhaseChanged(isActive: isActive)))))
                     return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, pushCheck, settings)
 
-                case .secondaryPopped:
-                    state.parkChatDrafts()
-                    state.chat = nil
+                case .detailPopped:
                     state.detail = nil
-                    return .none
-
-                case .settingsButtonTapped:
-                    state.isShowingSettings = true
                     return .none
 
                 case .task:
                     return fleet(.task, state: &state)
-
-                case .binding(\.isShowingDaemons):
-                    // A pop that skips the Machines list (the back button's
-                    // menu, a stack reset) never reports the machine above it
-                    // closed; left set, the next tap on its row presents
-                    // nothing because the item is unchanged.
-                    if !state.isShowingDaemons { state.daemons.machine = nil }
-                    return .none
 
                 case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .move, .pairing, .push:
                     return .none
@@ -355,134 +334,5 @@ public struct AppFeature {
 
     private func push(_ action: PushNotifications.Action, state: inout State) -> Effect<Action> {
         PushNotifications().reduce(into: &state.push, action: action).map(Action.push)
-    }
-}
-
-extension AppFeature.State {
-    /// What `daemonID`'s agents' Move menus offer.
-    public func moveAvailability(for daemonID: DaemonSession.ID) -> MoveAvailability {
-        MoveAvailability(supportsMove: fleet.sessions[id: daemonID]?.supportsMove == true, destinations: moveDestinations[daemonID])
-    }
-
-    /// Opens the move flow for `ref`, unless a flow is already open (its
-    /// result would otherwise land on the wrong agent), its daemon can't move
-    /// agents or the agent already lives elsewhere.
-    mutating func openMove(_ ref: AgentRef, _ intent: AgentMove.Intent) {
-        guard move == nil, let session = fleet.sessions[id: ref.daemonID], session.supportsMove,
-              let agent = session.agents[id: ref.name], agent.canMove else { return }
-        move = AgentMove.State(daemon: session.daemon, agentName: ref.name, intent: intent)
-    }
-
-    /// Opens a tapped notification's agent as soon as its daemon has
-    /// reported it; gives up once the paired daemons are known and its
-    /// daemon isn't one, or the daemon is connected and the agent is gone.
-    mutating func openPendingAgent() {
-        guard let ref = pendingAgent else { return }
-        guard let session = fleet.sessions[id: ref.daemonID] else {
-            if hasLoadedDaemons { pendingAgent = nil }
-            return
-        }
-        if let agent = session.agents[id: ref.name] {
-            pendingAgent = nil
-            parkChatDrafts()
-            chat = nil
-            if detail?.ref != ref { detail = AgentDetail.State(daemon: session.daemon, agent: agent, connection: session.connection) }
-        } else if session.connection.isConnected {
-            pendingAgent = nil
-        }
-    }
-
-    /// Whether `ref`'s thread is the one on screen (its banners are
-    /// suppressed and its messages count as read).
-    public func isChatOnScreen(_ ref: AgentRef) -> Bool {
-        chat?.ref == ref && chat?.isOnScreen == true
-    }
-
-    /// Shows `ref`'s thread in place of any agent detail, or over it when it
-    /// was opened from that detail.
-    mutating func openChat(_ ref: AgentRef, overDetail: Bool = false) {
-        guard let session = fleet.sessions[id: ref.daemonID] else { return }
-        pendingChat = nil
-        pendingAgent = nil
-        // Re-opening the chat already shown over its detail leaves that detail be.
-        let isShownOverItsDetail = chat?.ref == ref && detail?.ref == ref
-        if !overDetail, !isShownOverItsDetail { detail = nil }
-        chats.unreadCounts = chats.unreadCounts.clearing(ref.leoAgentID)
-        guard chat?.ref != ref else { return }
-        parkChatDrafts()
-        var thread = ChatThread.State(daemon: session.daemon, agent: ref.name, live: session.agents[id: ref.name])
-        thread.questionsDrafts = parkedQuestionsDrafts.removeValue(forKey: ref) ?? [:]
-        chat = thread
-    }
-
-    /// Sets the open thread's unsent questions answers aside before it is replaced.
-    mutating func parkChatDrafts() {
-        guard let thread = chat, !thread.questionsDrafts.isEmpty else { return }
-        parkedQuestionsDrafts[thread.ref] = thread.questionsDrafts
-    }
-
-    /// Opens a tapped chat notification's thread once its daemon is known;
-    /// gives up when the paired daemons are loaded and it isn't one.
-    mutating func openPendingChat() {
-        guard let ref = pendingChat else { return }
-        if fleet.sessions[id: ref.daemonID] != nil {
-            openChat(ref)
-        } else if hasLoadedDaemons {
-            pendingChat = nil
-        }
-    }
-
-    /// Picks the inbox's first chip once the fleet has settled: Needs you when
-    /// something does, otherwise All. After that only the user changes it.
-    mutating func decideChatFilter() {
-        guard chats.filter == nil, hasLoadedDaemons else { return }
-        let isSettled = fleet.sessions.allSatisfy { session in
-            switch session.connection {
-            case .offline, .connecting: false
-            case .connected, .reconnecting, .unauthorized: true
-            }
-        }
-        guard isSettled else { return }
-        let rows = ChatList.rows(threads: chats.threads, unread: chats.unreadCounts, sessions: fleet.sessions)
-        chats.filter = ChatList.counts(rows).needsYou > 0 ? .needsYou : .all
-    }
-
-    /// Keeps the open thread's agent and daemon in step with the fleet.
-    mutating func syncChat() {
-        guard let ref = chat?.ref, let session = fleet.sessions[id: ref.daemonID] else { return }
-        let agent = session.agents[id: ref.name]
-        if chat?.agent != agent { chat?.agent = agent }
-        if chat?.daemon != session.daemon { chat?.daemon = session.daemon }
-    }
-
-    /// The open machine's settings follow the fleet through an action, so the
-    /// settings can tell a pane that its machine reconnected.
-    func machineLinkUpdate() -> Effect<AppFeature.Action> {
-        guard let machine = daemons.machine, let session = fleet.sessions[id: machine.id] else { return .none }
-        let link = MachineLink(session: session)
-        return link == machine.link ? .none : .send(.daemons(.machine(.presented(.linkUpdated(link)))))
-    }
-
-    /// Keeps the open detail in step with the live fleet.
-    mutating func syncDetail() {
-        guard let ref = detail?.ref, let session = fleet.sessions[id: ref.daemonID] else { return }
-        let agent = session.agents[id: ref.name]
-        if detail?.agent != agent { detail?.agent = agent }
-        if detail?.connection != session.connection { detail?.connection = session.connection }
-        if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
-        let moves = moveAvailability(for: ref.daemonID)
-        if detail?.moves != moves { detail?.moves = moves }
-    }
-
-    /// Keeps the open Appearance sheet in step with the live fleet.
-    mutating func syncAppearance() {
-        guard let sheet = appearance, let session = fleet.sessions[id: sheet.daemon.id] else { return }
-        let agent = session.agents[id: sheet.agentName]
-        // Only a change in the fleet's value: its stale one must not undo a write's answer.
-        if let agent, agent.appearance != sheet.fleetAppearance {
-            appearance?.fleetAppearance = agent.appearance
-            appearance?.receive(agent.appearance)
-        }
-        if sheet.daemon != session.daemon { appearance?.daemon = session.daemon }
     }
 }

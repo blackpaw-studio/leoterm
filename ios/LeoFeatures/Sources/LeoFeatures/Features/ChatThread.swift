@@ -117,6 +117,8 @@ public struct ChatThread {
         case attachmentResponse(id: String, Result<URL, any Error>)
         case chatEvent(LeoChatEvent)
         case composer(Composer.Action)
+        /// The header's Info button; the app root opens the agent's detail.
+        case infoButtonTapped
         case loadOlderTriggered
         case olderPageResponse(Result<LeoChatPage, any Error>)
         case onScreenChanged(Bool)
@@ -249,7 +251,7 @@ public struct ChatThread {
                     }))
                 }
 
-            case .composer:
+            case .composer, .infoButtonTapped:
                 return .none
 
             case .loadOlderTriggered:
