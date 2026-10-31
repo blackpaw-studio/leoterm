@@ -25,6 +25,23 @@ final class LeoMachinesTests: XCTestCase {
         attach(app, "machines-numbers")
     }
 
+    /// Settings > Chat: the live terminal default starts on, flips with the
+    /// switch, and is put back so a rerun starts from the same place.
+    func testLiveTerminalSettingTogglesFromSettings() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-machinesFixture", "-statsStyle", "capsules"]
+        app.launch()
+        app.tabBars.buttons["Settings"].tap()
+        let toggle = app.switches["settings.liveTerminal"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        let start = toggle.value as? String
+        attach(app, "settings-live-terminal")
+        toggle.tap()
+        XCTAssertNotEqual(toggle.value as? String, start)
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, start)
+    }
+
     /// Back from an open machine returns to the Machines list, whose rows
     /// must still open a machine.
     func testMachinesListStaysUsableAfterBackFromAMachine() throws {
