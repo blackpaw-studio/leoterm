@@ -112,3 +112,14 @@ extension DependencyValues {
         set { self[TerminalStripOutputKey.self] = newValue }
     }
 }
+
+extension LiveTerminalMode {
+    /// The Settings row's wording.
+    public var title: String {
+        switch self {
+        case .whileWorking: String(localized: "While working")
+        case .always: String(localized: "Always")
+        case .never: String(localized: "Never")
+        }
+    }
+}
