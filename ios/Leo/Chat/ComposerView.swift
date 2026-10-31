@@ -246,20 +246,28 @@ final class PasteAwareTextView: UITextView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    private var pasteboardHoldsAttachment: Bool {
+    /// Whether the pasteboard may hold something to attach, judged without reading
+    /// it (reading prompts for permission). Text always pastes as text, and so
+    /// does a copied web link; a file copied in Files carries its own content
+    /// type, or a file URL.
+    private var pasteboardMayHoldAttachment: Bool {
         let board = UIPasteboard.general
-        // `numberOfItems` is readable without the paste-permission prompt. A file
-        // copied in Files carries its own content type, not a file URL.
-        return !board.hasStrings && board.numberOfItems > 0
+        guard !board.hasStrings, board.numberOfItems > 0 else { return false }
+        return !board.hasURLs || board.contains(pasteboardTypes: [UTType.fileURL.identifier])
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
-        if action == #selector(paste(_:)), pasteboardHoldsAttachment { return true }
+        if action == #selector(paste(_:)), pasteboardMayHoldAttachment { return true }
         return super.canPerformAction(action, withSender: sender)
     }
 
     override func paste(_ sender: Any?) {
-        guard pasteboardHoldsAttachment else { return super.paste(sender) }
-        pasteAttachments(UIPasteboard.general.itemProviders)
+        // Rich text or a link with no plain string carries no attachment: paste it as text.
+        guard pasteboardMayHoldAttachment else { return super.paste(sender) }
+        let providers = UIPasteboard.general.itemProviders
+        guard providers.contains(where: { AttachmentPickerDelegate.attachmentType(of: $0) != nil }) else {
+            return super.paste(sender)
+        }
+        pasteAttachments(providers)
     }
 }

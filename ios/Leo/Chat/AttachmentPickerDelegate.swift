@@ -58,6 +58,14 @@ final class AttachmentPickerDelegate: NSObject, UIImagePickerControllerDelegate,
 
     // MARK: Paste
 
+    /// The type to attach a pasted item as: an image, or any other type that is
+    /// not text or a web link (rich text and links paste as text).
+    static func attachmentType(of provider: NSItemProvider) -> UTType? {
+        let types = provider.registeredContentTypes
+        return types.first { $0.conforms(to: .image) }
+            ?? types.first { !$0.conforms(to: .text) && !$0.conforms(to: .url) }
+    }
+
     /// Attaches what a paste put on the pasteboard: images (named and
     /// encoded by `LeoPastedImage`) and copied files.
     func attachPasted(_ providers: [NSItemProvider]) {
@@ -72,7 +80,7 @@ final class AttachmentPickerDelegate: NSObject, UIImagePickerControllerDelegate,
                         self?.store(image.data, name: image.filename, mime: image.mime, kind: .photo)
                     }
                 }
-            } else if let type = provider.registeredContentTypes.first(where: { !$0.conforms(to: .text) }) {
+            } else if let type = Self.attachmentType(of: provider) {
                 let suggested = provider.suggestedName
                 _ = provider.loadFileRepresentation(for: type, openInPlace: false) { [weak self] url, _, error in
                     guard let url, let data = try? Data(contentsOf: url) else {
