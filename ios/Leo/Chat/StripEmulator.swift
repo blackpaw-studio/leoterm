@@ -31,10 +31,10 @@ final class StripEmulator {
         terminal.resize(cols: size.cols, rows: size.rows)
     }
 
-    /// The strip's rows, trailing blanks trimmed.
+    /// The strip's rows: the agent's latest output, without its chrome.
     func lines(count: Int = TerminalStripLines.count) -> [String] {
         let rows = (0..<terminal.rows).map { terminal.getLine(row: $0)?.translateToString(trimRight: true) ?? "" }
-        return TerminalStripLines.bottom(rows, count: count)
+        return TerminalStripLines.rows(rows, count: count)
     }
 
     /// Nothing leaves a read-only strip: no input, and no replies.
