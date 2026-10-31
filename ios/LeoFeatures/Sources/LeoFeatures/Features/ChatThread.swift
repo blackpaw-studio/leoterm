@@ -64,7 +64,10 @@ public struct ChatThread {
             self.daemon = daemon
             agentName = name
             agent = live
-            strip = TerminalStrip.State(daemon: daemon, agentName: name, isAgentRunning: live?.canOpenTerminal ?? false)
+            strip = TerminalStrip.State(
+                daemon: daemon, agentName: name, isAgentRunning: live?.canOpenTerminal ?? false,
+                isAgentWorking: live?.priority == .working
+            )
         }
 
         /// Whether the strip should hold a connection: only for a known agent,

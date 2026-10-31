@@ -11,12 +11,14 @@ final class SettingsViewController: UIViewController {
     private enum Item: Hashable {
         case notifications
         case openSystemSettings
-        /// Chat: whether threads open with the live terminal strip shown.
+        /// Chat: when a thread shows its live terminal strip.
         case liveTerminal
         case statsStyle
         /// Identified by `PushProblem.id` (a daemon ID), never its text.
         case problem(PushProblem)
     }
+
+    private static let chatSection = 1
 
     private let store: StoreOf<PushNotifications>
     private let app: StoreOf<AppFeature>
@@ -24,7 +26,7 @@ final class SettingsViewController: UIViewController {
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
     private var footer = ""
-    private var showsLiveTerminal = true
+    private var liveTerminalMode = LiveTerminalMode.whileWorking
 
     init(app: StoreOf<AppFeature>) {
         self.app = app
@@ -54,15 +56,16 @@ final class SettingsViewController: UIViewController {
             guard let self else { return }
             render(
                 isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems,
-                statsStyle: app.fleet.statsStyle, showsLiveTerminal: app.showsTerminalInChats
+                statsStyle: app.fleet.statsStyle, liveTerminalMode: app.liveTerminalMode
             )
         }
     }
 
     private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { _, environment in
+        UICollectionViewCompositionalLayout { section, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.footerMode = .supplementary
+            if section == Self.chatSection { configuration.headerMode = .supplementary }
             return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
         }
     }
@@ -84,16 +87,17 @@ final class SettingsViewController: UIViewController {
                 }, for: .valueChanged)
                 cell.accessories = [.customView(configuration: .init(customView: toggle, placement: .trailing()))]
             case .liveTerminal:
-                content.text = String(localized: "Show live terminal in chats")
+                content.text = String(localized: "Live terminal in chats")
+                content.secondaryText = liveTerminalMode.title
+                content.prefersSideBySideTextAndSecondaryText = true
                 content.image = UIImage(systemName: "terminal")
-                let toggle = UISwitch()
-                toggle.isOn = showsLiveTerminal
-                toggle.accessibilityIdentifier = "settings.liveTerminal"
-                toggle.addAction(UIAction { [weak self, weak toggle] _ in
-                    guard let toggle else { return }
-                    self?.app.send(.showsTerminalInChatsToggled(toggle.isOn))
-                }, for: .valueChanged)
-                cell.accessories = [.customView(configuration: .init(customView: toggle, placement: .trailing()))]
+                cell.accessibilityIdentifier = "settings.liveTerminal"
+                let options = LiveTerminalMode.allCases.map { mode in
+                    UIAction(title: mode.title, state: mode == liveTerminalMode ? .on : .off) { [weak self] _ in
+                        self?.app.send(.liveTerminalModeChanged(mode))
+                    }
+                }
+                cell.accessories = [.popUpMenu(UIMenu(children: options))]
             case .openSystemSettings:
                 content.text = String(localized: "Open iOS Settings")
                 content.textProperties.color = .tintColor
@@ -121,31 +125,40 @@ final class SettingsViewController: UIViewController {
             var content = UIListContentConfiguration.footer()
             content.text = switch indexPath.section {
             case 0: self?.footer
-            case 1: String(localized: "A strip under a chat's header shows the agent's last few terminal lines. Each chat can hide it.")
+            case Self.chatSection: String(localized: "A strip under a chat's header shows the agent's last few terminal lines. While working shows it only while the agent is working. Each chat can hide or show it.")
             default: nil
             }
+            view.contentConfiguration = content
+        }
+        let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
+            elementKind: UICollectionView.elementKindSectionHeader
+        ) { view, _, _ in
+            var content = UIListContentConfiguration.header()
+            content.text = String(localized: "Chat")
             view.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
             collectionView.dequeueConfiguredReusableCell(using: cell, for: indexPath, item: item)
         }
-        dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
-            collectionView.dequeueConfiguredReusableSupplementary(using: footerRegistration, for: indexPath)
+        dataSource.supplementaryViewProvider = { collectionView, kind, indexPath in
+            collectionView.dequeueConfiguredReusableSupplementary(
+                using: kind == UICollectionView.elementKindSectionHeader ? headerRegistration : footerRegistration, for: indexPath
+            )
         }
         collectionView.delegate = self
     }
 
     private func render(
-        isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle, showsLiveTerminal: Bool
+        isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle, liveTerminalMode: LiveTerminalMode
     ) {
         self.statsStyle = statsStyle
-        self.showsLiveTerminal = showsLiveTerminal
+        self.liveTerminalMode = liveTerminalMode
         footer = Self.footer(isEnabled: isEnabled, authorization: authorization)
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
         snapshot.appendSections([0])
         snapshot.appendItems([.notifications])
         if isEnabled, authorization == .denied { snapshot.appendItems([.openSystemSettings]) }
-        snapshot.appendSections([1])
+        snapshot.appendSections([Self.chatSection])
         snapshot.appendItems([.liveTerminal])
         snapshot.appendSections([2])
         snapshot.appendItems([.statsStyle])

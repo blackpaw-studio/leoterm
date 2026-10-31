@@ -129,6 +129,7 @@ extension AppFeature.State {
     /// thread wants, in the same action that changed it.
     mutating func reconcileStrip(_ reducer: TerminalStrip) -> Effect<AppFeature.Action> {
         guard chat != nil else { return .none }
+        chat!.strip.isAgentWorking = chat?.agent?.priority == .working
         let (wants, isRunning) = (chat?.wantsStripConnection ?? false, chat?.agent?.canOpenTerminal ?? false)
         return reducer.reconcile(&chat!.strip, wantsVisible: wants, isAgentRunning: isRunning).map { .chat(.strip($0)) }
     }

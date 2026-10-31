@@ -16,10 +16,10 @@ struct TerminalStripTests {
 
     /// An app with zeus's thread open and on screen.
     func makeStore(
-        agent: Agent? = Agent(.make("zeus")), showsByDefault: Bool = true, isOnScreen: Bool = true
+        agent: Agent? = Agent(.make("zeus")), mode: LiveTerminalMode = .always, isOnScreen: Bool = true
     ) -> TestStoreOf<AppFeature> {
-        @Shared(.showsTerminalInChats) var showsTerminalInChats
-        $showsTerminalInChats.withLock { $0 = showsByDefault }
+        @Shared(.liveTerminalMode) var liveTerminalMode
+        $liveTerminalMode.withLock { $0 = mode }
         var state = AppFeature.State()
         state.fleet = Fleet.State(daemons: [.dionysus])
         state.fleet.sessions[0].agents = agent.map { [$0] } ?? []
@@ -50,12 +50,94 @@ struct TerminalStripTests {
     /// Any action runs the root's tail reducer, where the strip is kept in step.
     static let tick = AppFeature.Action.chats(.threadRead(AgentRef(daemonID: PairedDaemon.dionysus.id, name: "none")))
 
-    @Test func aNewThreadStartsFromTheSetting() {
-        for value in [true, false] {
-            let store = makeStore(showsByDefault: value)
-            #expect(store.state.chat?.strip.isShown == value)
+    @Test func theDefaultModeIsWhileWorking() {
+        @Shared(.liveTerminalMode) var mode
+        #expect(mode == .whileWorking)
+    }
+
+    @Test func aNewThreadStartsFromTheMode() {
+        for (mode, expected) in [(LiveTerminalMode.always, true), (.never, false), (.whileWorking, false)] {
+            let store = makeStore(mode: mode)
+            #expect(store.state.chat?.strip.isShown == expected)
             #expect(store.state.chat?.strip.userChoice == nil)
         }
+    }
+
+    // MARK: While working
+
+    func working(_ state: LeoAttentionState, _ revision: Int) -> (String, LeoObserveEvent) {
+        (PairedDaemon.dionysus.id, .agentActivity(seq: revision, at: nil, agent: "zeus", activity: .idle, currentAction: nil, attention: .state(state, revision)))
+    }
+
+    func workingAgent() -> Agent { Agent(.make("zeus", attention: .state(.working, 1))) }
+
+    @Test func whileWorkingShowsAndConnectsForAWorkingAgentThenFollowsItsStatus() async {
+        let store = makeStore(agent: workingAgent(), mode: .whileWorking)
+        #expect(store.state.chat?.strip.isShown == true)
+        await store.send(Self.tick)
+        #expect(store.state.chat?.strip.terminal.phase == .connecting)
+        streams[0].yield(.opened)
+        await store.receive(\.chat.strip.terminal.opened)
+
+        await store.send(\.fleet.eventReceived, working(.needsInput, 2))
+        #expect(store.state.chat?.strip.isShown == false)
+        #expect(store.state.chat?.strip.terminal.phase == .idle)
+        #expect(streams.terminated.value == 1)
+
+        await store.send(\.fleet.eventReceived, working(.working, 3))
+        #expect(store.state.chat?.strip.isShown == true)
+        #expect(store.state.chat?.strip.terminal.phase == .connecting)
+        #expect(streams.opened.value == 2)
+
+        await store.send(\.fleet.eventReceived, working(.finished, 4))
+        #expect(store.state.chat?.strip.isShown == false)
+        #expect(store.state.chat?.strip.terminal.isVisible == false)
+    }
+
+    @Test func whileWorkingStaysHiddenAndUnconnectedForAnyOtherStatusAtOpen() async {
+        for state in [LeoAttentionState.needsInput, .errored, .finished, .unknown] {
+            let store = makeStore(agent: Agent(.make("zeus", attention: .state(state, 1))), mode: .whileWorking)
+            await store.send(Self.tick)
+            #expect(store.state.chat?.strip.isShown == false)
+            #expect(store.state.chat?.strip.terminal.isVisible == false)
+        }
+        let idle = makeStore(mode: .whileWorking)
+        await idle.send(Self.tick)
+        #expect(idle.state.chat?.strip.terminal.isVisible == false)
+        #expect(streams.opened.value == 0)
+    }
+
+    @Test func aUserToggleBeatsStatusChangesUntilTheThreadIsLeft() async {
+        let store = makeStore(agent: workingAgent(), mode: .whileWorking)
+        await store.send(Self.tick)
+        await store.send(.chat(.strip(.toggleTapped)))
+        #expect(store.state.chat?.strip.isShown == false)
+        await store.send(\.fleet.eventReceived, working(.needsInput, 2))
+        await store.send(\.fleet.eventReceived, working(.working, 3))
+        #expect(store.state.chat?.strip.isShown == false)
+        #expect(store.state.chat?.strip.terminal.isVisible == false)
+
+        await store.send(\.fleet.eventReceived, working(.needsInput, 4))
+        await store.send(.chat(.strip(.toggleTapped)))
+        await store.send(\.fleet.eventReceived, working(.working, 5))
+        await store.send(\.fleet.eventReceived, working(.finished, 6))
+        #expect(store.state.chat?.strip.isShown == true)
+
+        await store.send(.chatPopped)
+        await store.send(.chatOpened(zeus))
+        #expect(store.state.chat?.strip.userChoice == nil)
+        #expect(store.state.chat?.strip.isShown == false)
+    }
+
+    @Test func aModeChangeAppliesToAnUntoggledOpenThread() async {
+        let store = makeStore(agent: workingAgent(), mode: .whileWorking)
+        await store.send(Self.tick)
+        #expect(store.state.chat?.strip.terminal.isVisible == true)
+        await store.send(.liveTerminalModeChanged(.never))
+        #expect(store.state.chat?.strip.isShown == false)
+        #expect(store.state.chat?.strip.terminal.phase == .idle)
+        await store.send(.liveTerminalModeChanged(.always))
+        #expect(store.state.chat?.strip.terminal.isVisible == true)
     }
 
     @Test func connectsOnceTheThreadIsOnScreenAndTheStripShown() async {
@@ -72,7 +154,7 @@ struct TerminalStripTests {
     @Test func doesNotConnectOffScreenOrWhenHiddenByTheSetting() async {
         let offScreen = makeStore(isOnScreen: false)
         await offScreen.send(Self.tick)
-        let hidden = makeStore(showsByDefault: false)
+        let hidden = makeStore(mode: .never)
         await hidden.send(Self.tick)
         #expect(offScreen.state.chat?.strip.terminal.isVisible == false)
         #expect(hidden.state.chat?.strip.terminal.isVisible == false)
@@ -127,7 +209,7 @@ struct TerminalStripTests {
         let untoggled = makeStore()
         await untoggled.send(Self.tick)
         #expect(untoggled.state.chat?.strip.terminal.isVisible == true)
-        await untoggled.send(.showsTerminalInChatsToggled(false))
+        await untoggled.send(.liveTerminalModeChanged(.never))
         #expect(untoggled.state.chat?.strip.isShown == false)
         #expect(untoggled.state.chat?.strip.terminal.phase == .idle)
 
@@ -135,7 +217,7 @@ struct TerminalStripTests {
         await toggled.send(Self.tick)
         await toggled.send(.chat(.strip(.toggleTapped)))
         await toggled.send(.chat(.strip(.toggleTapped)))
-        await toggled.send(.showsTerminalInChatsToggled(false))
+        await toggled.send(.liveTerminalModeChanged(.never))
         #expect(toggled.state.chat?.strip.isShown == true)
         #expect(toggled.state.chat?.strip.terminal.isVisible == true)
     }
@@ -201,7 +283,7 @@ struct TerminalStripTests {
     }
 
     @Test func openingAnotherThreadClosesTheOldFullTerminal() async {
-        let store = makeStore(showsByDefault: false)
+        let store = makeStore(mode: .never)
         await store.send(.chat(.terminalButtonTapped))
         await store.send(.chat(.terminal(.presented(.appeared))))
         #expect(streams.opened.value == 1)
@@ -213,7 +295,7 @@ struct TerminalStripTests {
     }
 
     @Test func poppingTheThreadClosesItsFullTerminal() async {
-        let store = makeStore(showsByDefault: false)
+        let store = makeStore(mode: .never)
         await store.send(.chat(.terminalButtonTapped))
         await store.send(.chat(.terminal(.presented(.appeared))))
         await store.send(.chatPopped)
