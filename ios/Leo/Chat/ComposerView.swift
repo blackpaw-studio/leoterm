@@ -248,7 +248,9 @@ final class PasteAwareTextView: UITextView {
 
     private var pasteboardHoldsAttachment: Bool {
         let board = UIPasteboard.general
-        return !board.hasStrings && (board.hasImages || board.contains(pasteboardTypes: [UTType.fileURL.identifier]))
+        // `numberOfItems` is readable without the paste-permission prompt. A file
+        // copied in Files carries its own content type, not a file URL.
+        return !board.hasStrings && board.numberOfItems > 0
     }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

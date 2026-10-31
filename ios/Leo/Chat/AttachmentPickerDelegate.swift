@@ -72,15 +72,18 @@ final class AttachmentPickerDelegate: NSObject, UIImagePickerControllerDelegate,
                         self?.store(image.data, name: image.filename, mime: image.mime, kind: .photo)
                     }
                 }
-            } else if provider.hasItemConformingToTypeIdentifier(UTType.item.identifier) {
-                let name = provider.suggestedName
-                _ = provider.loadFileRepresentation(for: .item, openInPlace: false) { [weak self] url, _, error in
+            } else if let type = provider.registeredContentTypes.first(where: { !$0.conforms(to: .text) }) {
+                let suggested = provider.suggestedName
+                _ = provider.loadFileRepresentation(for: type, openInPlace: false) { [weak self] url, _, error in
                     guard let url, let data = try? Data(contentsOf: url) else {
                         Self.logger.error("chat: file paste failed \(error?.localizedDescription ?? "no file", privacy: .public)")
                         return
                     }
-                    let filename = url.lastPathComponent.isEmpty ? (name ?? "File") : url.lastPathComponent
-                    let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                    // The representation keeps the copied file's own name when it has one.
+                    let filename = url.lastPathComponent.isEmpty
+                        ? [suggested ?? "File", type.preferredFilenameExtension].compactMap { $0 }.joined(separator: ".")
+                        : url.lastPathComponent
+                    let mime = type.preferredMIMEType ?? "application/octet-stream"
                     Task { @MainActor [weak self] in
                         self?.store(data, name: filename, mime: mime, kind: .file)
                     }

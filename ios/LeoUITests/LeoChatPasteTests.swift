@@ -54,6 +54,17 @@ final class LeoChatPasteTests: XCTestCase {
         XCTAssertEqual(app.textViews["chat.composer.text"].value as? String ?? "", "")
     }
 
+    /// A file copied in Files carries its content type (here PDF), not a file URL.
+    func testPastingADocumentAttachesIt() throws {
+        let pdf = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 72, height: 72)).pdfData { $0.beginPage() }
+        UIPasteboard.general.setData(pdf, forPasteboardType: "com.adobe.pdf")
+        let app = openThread()
+        pasteIntoComposer(app)
+        let chip = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Remove ")).firstMatch
+        XCTAssertTrue(chip.waitForExistence(timeout: 5), "the pasted document is attached")
+        snapshot("document-pasted")
+    }
+
     func testPastingTextStaysText() throws {
         UIPasteboard.general.string = "hello paste"
         let app = openThread()
