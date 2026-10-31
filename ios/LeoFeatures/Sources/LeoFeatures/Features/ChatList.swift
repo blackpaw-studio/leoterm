@@ -21,8 +21,66 @@ public struct ChatRow: Equatable, Identifiable, Sendable {
     public let unread: Int
     public let isRunning: Bool
     public let section: Section
+    /// The fleet's record of this thread's agent; nil when it is not in the fleet.
+    public let agent: Agent?
 
     public var id: AgentRef { ref }
+
+    public var bucket: ChatBucket? { agent.flatMap { ChatBucket($0.priority) } }
+
+    /// The orange lead-in on the preview line when the agent wants something.
+    public var previewPrefix: ChatPreviewPrefix? {
+        switch agent?.priority {
+        case .needsInput: .asks
+        case .errored: .error
+        default: nil
+        }
+    }
+}
+
+/// The inbox's status groups; nil on a row means no dot.
+public enum ChatBucket: Int, Comparable, Sendable {
+    case needsYou, working, done
+
+    init?(_ priority: AgentPriority) {
+        switch priority {
+        case .needsInput, .errored: self = .needsYou
+        case .working: self = .working
+        case .finished: self = .done
+        case .idle, .stopped: return nil
+        }
+    }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+}
+
+public enum ChatPreviewPrefix: Equatable, Sendable {
+    case asks, error
+}
+
+/// The inbox's filter chips.
+public enum ChatFilter: Equatable, CaseIterable, Sendable {
+    case all, needsYou, working, done
+
+    func includes(_ row: ChatRow) -> Bool {
+        switch self {
+        case .all: true
+        case .needsYou: row.bucket == .needsYou
+        case .working: row.bucket == .working
+        case .done: row.bucket == .done
+        }
+    }
+}
+
+/// How many rows the chips with counts show.
+public struct ChatCounts: Equatable, Sendable {
+    public var needsYou: Int
+    public var working: Int
+
+    public init(needsYou: Int, working: Int) {
+        self.needsYou = needsYou
+        self.working = working
+    }
 }
 
 /// The Chats list: every daemon's threads plus running agents that have
@@ -38,6 +96,10 @@ public struct ChatList {
         /// Whether threads are being kept fresh (the Chats entry has shown).
         public var isActive = false
         public var isShowingNewChat = false
+        /// The selected chip; nil until the app has decided a default, and
+        /// read as All meanwhile.
+        public var filter: ChatFilter?
+        public var searchText = ""
         /// Each daemon's threads, by daemon id.
         public var threads: [String: IdentifiedArrayOf<LeoChatThread>] = [:]
         /// Unread agent messages: seeded from each load, bumped by live
@@ -56,6 +118,7 @@ public struct ChatList {
     public enum Action: BindableAction {
         case binding(BindingAction<State>)
         case chatEvent(String, LeoChatEvent, isOpen: Bool)
+        case filterPicked(ChatFilter)
         case newChatButtonTapped
         case newChatPicked(AgentRef)
         case refresh([PairedDaemon])
@@ -78,6 +141,10 @@ public struct ChatList {
 
             case .chatEvent(let daemonID, let event, let isOpen):
                 apply(event, daemonID: daemonID, isOpen: isOpen, state: &state)
+                return .none
+
+            case .filterPicked(let filter):
+                state.filter = filter
                 return .none
 
             case .newChatButtonTapped:
@@ -129,40 +196,62 @@ public struct ChatList {
         state.threads[daemonID] = threads
     }
 
-    /// Pinned threads (each daemon's assistant first), then the rest by
-    /// latest message, then running agents with no thread yet.
+    /// Every thread plus running agents with no thread yet, ordered for the
+    /// inbox: Needs you, then Working, then the rest; newest message first
+    /// within each, the assistant first in its own group.
     public static func rows(threads: [String: IdentifiedArrayOf<LeoChatThread>], unread: LeoChatUnreadCounts = LeoChatUnreadCounts(), sessions: IdentifiedArrayOf<DaemonSession>) -> [ChatRow] {
         let isMultiDaemon = sessions.count > 1
         let rows = sessions.flatMap { session -> [ChatRow] in
             let daemonThreads = threads[session.id] ?? []
             let daemonName = isMultiDaemon ? session.daemon.name : nil
             let threadRows = daemonThreads.map { thread in
-                ChatRow(
+                let agent = session.agents[id: thread.agent]
+                return ChatRow(
                     ref: AgentRef(daemonID: session.id, name: thread.agent), daemonName: daemonName, lastMessage: thread.lastMessage,
-                    unread: unread[LeoAgentID(host: .remote(session.id), name: thread.agent)], isRunning: session.agents[id: thread.agent].map { !$0.isStopped } ?? false,
-                    section: thread.isPinned ? .pinned : .recent
+                    unread: unread[LeoAgentID(host: .remote(session.id), name: thread.agent)], isRunning: agent.map { !$0.isStopped } ?? false,
+                    section: thread.isPinned ? .pinned : .recent, agent: agent
                 )
             }
             let runningRows = session.agents
                 .filter { !$0.isStopped && daemonThreads[id: $0.name] == nil }
-                .map { ChatRow(ref: AgentRef(daemonID: session.id, name: $0.name), daemonName: daemonName, lastMessage: nil, unread: 0, isRunning: true, section: .running) }
+                .map { ChatRow(ref: AgentRef(daemonID: session.id, name: $0.name), daemonName: daemonName, lastMessage: nil, unread: 0, isRunning: true, section: .running, agent: $0) }
             return threadRows + runningRows
         }
         return rows.sorted(by: isOrderedBefore)
     }
 
-    private static func isOrderedBefore(_ lhs: ChatRow, _ rhs: ChatRow) -> Bool {
-        if lhs.section != rhs.section { return lhs.section < rhs.section }
-        switch lhs.section {
-        case .pinned:
-            let (left, right) = (lhs.ref.name == assistant, rhs.ref.name == assistant)
-            if left != right { return left }
-        case .recent:
-            let (left, right) = (lhs.lastMessage?.ts ?? .distantPast, rhs.lastMessage?.ts ?? .distantPast)
-            if left != right { return left > right }
-        case .running:
-            break
+    /// The rows the selected chip and search field leave.
+    public static func visible(_ rows: [ChatRow], filter: ChatFilter?, search: String) -> [ChatRow] {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        return rows.filter { row in
+            (filter ?? .all).includes(row) && (query.isEmpty || matches(row, query))
         }
+    }
+
+    public static func counts(_ rows: [ChatRow]) -> ChatCounts {
+        ChatCounts(needsYou: rows.count { $0.bucket == .needsYou }, working: rows.count { $0.bucket == .working })
+    }
+
+    private static func matches(_ row: ChatRow, _ query: String) -> Bool {
+        let message = row.lastMessage
+        return [row.ref.name, message?.text, message?.transcript].contains { $0?.localizedCaseInsensitiveContains(query) == true }
+    }
+
+    /// Needs you, then Working, then everything else (done, idle, unknown).
+    private static func rank(_ row: ChatRow) -> Int {
+        switch row.bucket {
+        case .needsYou: 0
+        case .working: 1
+        case .done, nil: 2
+        }
+    }
+
+    private static func isOrderedBefore(_ lhs: ChatRow, _ rhs: ChatRow) -> Bool {
+        if rank(lhs) != rank(rhs) { return rank(lhs) < rank(rhs) }
+        let (left, right) = (lhs.ref.name == assistant, rhs.ref.name == assistant)
+        if left != right { return left }
+        let (leftDate, rightDate) = (lhs.lastMessage?.ts ?? .distantPast, rhs.lastMessage?.ts ?? .distantPast)
+        if leftDate != rightDate { return leftDate > rightDate }
         return (lhs.ref.name, lhs.daemonName ?? "") < (rhs.ref.name, rhs.daemonName ?? "")
     }
 }
