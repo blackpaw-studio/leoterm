@@ -121,6 +121,7 @@ struct AppFeatureChatTests {
         var state = Self.connected()
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         state.chat?.isOnScreen = true
+        state.chat?.strip.userChoice = false
         let reads = LockIsolated<[String]>([])
         let store = TestStore(initialState: state) {
             AppFeature()
@@ -322,6 +323,7 @@ struct AppFeatureChatTests {
             $0.fleet.sessions[0].agents[id: "zeus"]?.activity = .unknown
             $0.chat?.agent?.status = .stopped
             $0.chat?.agent?.activity = .unknown
+            $0.chat?.strip.terminal.isAgentRunning = false
         }
     }
 

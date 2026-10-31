@@ -54,6 +54,8 @@ public struct ChatThread {
         /// The message (usually a task card) the next send replies to.
         public var replyTo: String?
         public var taskFilter: String?
+        /// The live terminal under the header.
+        public var strip: TerminalStrip.State
 
         public var id: AgentRef { ref }
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
@@ -62,7 +64,12 @@ public struct ChatThread {
             self.daemon = daemon
             agentName = name
             agent = live
+            strip = TerminalStrip.State(daemon: daemon, agentName: name, isAgentRunning: live?.canOpenTerminal ?? false)
         }
+
+        /// Whether the strip should hold a connection: only for a known agent,
+        /// on screen, and shown.
+        public var wantsStripConnection: Bool { isOnScreen && strip.isShown && agent != nil }
 
         /// Merges a fetched page, skipping messages a live event has
         /// replaced since the request started.
@@ -125,6 +132,7 @@ public struct ChatThread {
         case olderPageResponse(Result<LeoChatPage, any Error>)
         case onScreenChanged(Bool)
         case pageResponse(Result<LeoChatPage, any Error>)
+        case strip(TerminalStrip.Action)
         /// An option of a questions card tapped: updates its draft.
         case questionChoiceTapped(messageID: String, questionID: String, value: String)
         case questionTextChanged(messageID: String, questionID: String, String)
@@ -159,6 +167,7 @@ public struct ChatThread {
 
     public var body: some ReducerOf<Self> {
         Scope(state: \.composer, action: \.composer) { Composer() }
+        Scope(state: \.strip, action: \.strip) { TerminalStrip() }
         Reduce { state, action in
             switch action {
             case .alert:
@@ -255,7 +264,7 @@ public struct ChatThread {
                     }))
                 }
 
-            case .composer, .infoButtonTapped, .terminal:
+            case .composer, .infoButtonTapped, .strip, .terminal:
                 return .none
 
             case .terminalButtonTapped:

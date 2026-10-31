@@ -30,6 +30,8 @@ public struct AppFeature {
         public var push = PushNotifications.State()
         /// Whether the paired daemons have been read from disk yet.
         public var hasLoadedDaemons = false
+        /// Settings > Chat: whether a thread starts with its live terminal strip shown.
+        @Shared(.showsTerminalInChats) public var showsTerminalInChats
         /// A tapped notification's agent, opened once the fleet has it.
         public var pendingAgent: AgentRef?
         /// A tapped chat notification's thread, opened once its daemon is known.
@@ -77,6 +79,7 @@ public struct AppFeature {
         case pairing(PresentationAction<Pairing.Action>)
         case push(PushNotifications.Action)
         case scenePhaseChanged(isActive: Bool)
+        case showsTerminalInChatsToggled(Bool)
         /// Settings > Stats style.
         case statsStyleSelected(LeoStatsStyle)
         case tabSelected(AppTab)
@@ -88,6 +91,7 @@ public struct AppFeature {
     @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.pairedDaemons) var pairedDaemons
     @Dependency(\.secrets) var secrets
+    private let stripReducer = TerminalStrip()
 
     public init() {}
 
@@ -250,7 +254,14 @@ public struct AppFeature {
                     let settings: Effect<Action> = state.daemons.machine == nil
                         ? .none
                         : .send(.daemons(.machine(.presented(.scenePhaseChanged(isActive: isActive)))))
-                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, chatTerminal, pushCheck, settings)
+                    let strip: Effect<Action> = state.chat == nil
+                        ? .none
+                        : stripReducer.reduce(into: &state.chat!.strip, action: .scenePhaseChanged(isActive: isActive)).map { .chat(.strip($0)) }
+                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, chatTerminal, strip, pushCheck, settings)
+
+                case .showsTerminalInChatsToggled(let isShown):
+                    state.$showsTerminalInChats.withLock { $0 = isShown }
+                    return .none
 
                 case .detailPopped:
                     state.detail = nil
@@ -275,7 +286,7 @@ public struct AppFeature {
                 state.syncAppearance()
                 state.syncChat()
                 state.decideChatFilter()
-                return .merge(state.machineLinkUpdate(), state.terminalRunningUpdates())
+                return .merge(state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
             }
         }
     }

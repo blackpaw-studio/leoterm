@@ -103,6 +103,7 @@ extension AppFeature.State {
         let agent = session.agents[id: ref.name]
         if chat?.agent != agent { chat?.agent = agent }
         if chat?.daemon != session.daemon { chat?.daemon = session.daemon }
+        if chat?.strip.terminal.daemon != session.daemon { chat?.strip.terminal.daemon = session.daemon }
     }
 
     /// The open machine's settings follow the fleet through an action, so the
@@ -124,6 +125,14 @@ extension AppFeature.State {
             updates.append(.send(.chat(.terminal(.presented(.agentRunningChanged(agent.canOpenTerminal))))))
         }
         return .merge(updates)
+    }
+
+    /// Opens and closes the open thread's terminal strip to match what the
+    /// thread wants, in the same action that changed it.
+    mutating func reconcileStrip(_ reducer: TerminalStrip) -> Effect<AppFeature.Action> {
+        guard chat != nil else { return .none }
+        let (wants, isRunning) = (chat?.wantsStripConnection ?? false, chat?.agent?.canOpenTerminal ?? false)
+        return reducer.reconcile(&chat!.strip, wantsVisible: wants, isAgentRunning: isRunning).map { .chat(.strip($0)) }
     }
 
     /// Keeps the open detail in step with the live fleet.
