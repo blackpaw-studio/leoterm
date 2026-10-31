@@ -75,8 +75,9 @@ struct LeoChatPasteMonitor: NSViewRepresentable {
             guard isActive else { return stop() }
             guard monitor == nil else { return }
             monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                let isPaste = event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command
-                    && event.charactersIgnoringModifiers == "v"
+                // Caps Lock and fn are in the device-independent mask; only these four matter.
+                let isPaste = event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command
+                    && event.charactersIgnoringModifiers?.lowercased() == "v"
                 guard isPaste, let self, MainActor.assumeIsolated({ self.handle() }) else { return event }
                 return nil
             }
