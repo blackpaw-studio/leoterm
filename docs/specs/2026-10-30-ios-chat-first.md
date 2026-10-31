@@ -83,9 +83,10 @@ but one tab away.
   it only shipped to TestFlight). Changing it affects threads opened afterwards, and the
   currently open thread if the user has not toggled it there.
 - **While working**: when the user has not toggled the strip in this thread, it is shown
-  exactly while the thread's agent status is `working`, and appears/hides (animated) as
-  the status changes while the thread is open. Any other status (`needsInput`, `errored`,
-  `finished`, `idle`, `stopped`, unknown) hides it. Once the user toggles it in a thread,
+  exactly while the thread's agent status, as shown in the header (`Agent.priority`), is
+  `working`, and appears/hides (animated) as the status changes while the thread is open.
+  Any other status hides it. (An agent with unknown attention but working activity shows
+  as working, so the strip shows.) Each hide drops the connection; re-showing reconnects. Once the user toggles it in a thread,
   the toggle wins until they leave the thread.
 - Data: reuse the existing read-only attach (`TerminalClient.attach`); **no daemon
   changes.** Only the visible thread's strip holds a connection; it disconnects when the
