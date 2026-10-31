@@ -228,7 +228,8 @@ struct AppFeatureChatTests {
         var state = AppFeature.State()
         state.hasLoadedDaemons = true
         let store = TestStore(initialState: state) { AppFeature() }
-        await store.send(.chatNotificationOpened(Self.zeus))
+        // Nothing is paired, so the inbox's first chip is decided too.
+        await store.send(.chatNotificationOpened(Self.zeus)) { $0.chats.filter = .all }
     }
 
     @Test func aNotificationReplySendsToTheThread() async {

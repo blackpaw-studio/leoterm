@@ -292,6 +292,7 @@ public struct AppFeature {
                 state.syncDetail()
                 state.syncAppearance()
                 state.syncChat()
+                state.decideChatFilter()
                 let machine = state.machineLinkUpdate()
                 // The terminal opens and closes its socket as the agent starts
                 // and stops, so that change is an action, not a state edit.
@@ -429,6 +430,21 @@ extension AppFeature.State {
         } else if hasLoadedDaemons {
             pendingChat = nil
         }
+    }
+
+    /// Picks the inbox's first chip once the fleet has settled: Needs you when
+    /// something does, otherwise All. After that only the user changes it.
+    mutating func decideChatFilter() {
+        guard chats.filter == nil, hasLoadedDaemons else { return }
+        let isSettled = fleet.sessions.allSatisfy { session in
+            switch session.connection {
+            case .offline, .connecting: false
+            case .connected, .reconnecting, .unauthorized: true
+            }
+        }
+        guard isSettled else { return }
+        let rows = ChatList.rows(threads: chats.threads, unread: chats.unreadCounts, sessions: fleet.sessions)
+        chats.filter = ChatList.counts(rows).needsYou > 0 ? .needsYou : .all
     }
 
     /// Keeps the open thread's agent and daemon in step with the fleet.

@@ -109,6 +109,7 @@ struct AppFeaturePushTests {
         initial.fleet.sessions[0].agents = [Agent(.make("zeus"))]
         initial.fleet.sessions[0].connection = .connected
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
 
         await store.send(.notificationOpened(Self.zeus)) {
@@ -122,6 +123,7 @@ struct AppFeaturePushTests {
         initial.fleet.sessions[0].agents = [Agent(.make("zeus")), Agent(.make("hera"))]
         initial.fleet.sessions[0].connection = .connected
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         initial.chat = ChatThread.State(daemon: .dionysus, agent: "hera", live: Agent(.make("hera")))
         let store = TestStore(initialState: initial) { AppFeature() }
 
@@ -154,12 +156,14 @@ struct AppFeaturePushTests {
             $0.fleet.sessions[0].agents = [Agent(.make("zeus"))]
             $0.pendingAgent = nil
             $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+            $0.chats.filter = .all
         }
     }
 
     @Test func aTapForAnUnpairedDaemonIsDropped() async {
         var initial = AppFeature.State()
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
 
         await store.send(.notificationOpened(Self.zeus))
@@ -169,6 +173,7 @@ struct AppFeaturePushTests {
         var initial = AppFeature.State()
         initial.fleet = Fleet.State(daemons: [.dionysus])
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
         let id = PairedDaemon.dionysus.id
 
@@ -187,6 +192,7 @@ struct AppFeaturePushTests {
         initial.fleet.sessions[1].agents = [Agent(.make("hera"))]
         initial.fleet.sessions[1].connection = .connected
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
 
         await store.send(.notificationOpened(Self.zeus)) { $0.pendingAgent = Self.zeus }
