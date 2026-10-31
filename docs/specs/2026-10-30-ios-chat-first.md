@@ -64,9 +64,13 @@ but one tab away.
 
 ## 4. Live terminal strip
 
-- A compact read-only strip pinned under the thread header, showing the last **5 lines**
-  of the agent's live terminal in a monospaced font on a dark panel, with a green "Live"
-  dot and the agent's state.
+- A compact read-only strip pinned under the thread header, showing **5 lines** of the
+  agent's live terminal in a monospaced font on a dark panel, with a green "Live" dot and
+  the agent's state.
+- Which 5 lines (amended 2026-10-31 after testing on a real Claude Code agent, where the
+  bottom rows were all chrome): drop tmux's status row, find the top border of Claude
+  Code's input box, and show the last 5 non-blank rows above it. If no input box is found,
+  show the bottom 5 non-blank rows (tmux status row still dropped).
 - Tapping the strip opens the full terminal screen.
 - A **hide/show control** in the strip's title row collapses it to nothing (thread content
   moves up) and a header affordance brings it back. Animated, no layout jump in the
