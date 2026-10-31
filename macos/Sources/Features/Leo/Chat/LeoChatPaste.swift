@@ -56,7 +56,11 @@ struct LeoChatPasteMonitor: NSViewRepresentable {
     let isActive: Bool
     let handle: () -> Bool
 
-    func makeNSView(context: Context) -> NSView { NSView() }
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        context.coordinator.view = view
+        return view
+    }
 
     func updateNSView(_ view: NSView, context: Context) {
         context.coordinator.update(isActive: isActive, handle: handle)
@@ -67,6 +71,7 @@ struct LeoChatPasteMonitor: NSViewRepresentable {
     static func dismantleNSView(_ view: NSView, coordinator: Coordinator) { coordinator.stop() }
 
     @MainActor final class Coordinator {
+        weak var view: NSView?
         private var monitor: Any?
         private var handle: () -> Bool = { false }
 
@@ -78,9 +83,22 @@ struct LeoChatPasteMonitor: NSViewRepresentable {
                 // Caps Lock and fn are in the device-independent mask; only these four matter.
                 let isPaste = event.modifierFlags.intersection([.command, .shift, .option, .control]) == .command
                     && event.charactersIgnoringModifiers?.lowercased() == "v"
-                guard isPaste, let self, MainActor.assumeIsolated({ self.handle() }) else { return event }
-                return nil
+                guard isPaste, let self else { return event }
+                return MainActor.assumeIsolated { self.owns(event) && self.handle() } ? nil : event
             }
+        }
+
+        /// Only a ⌘V typed into this composer's own field editor: not another
+        /// window, a sheet, or another field (focus state can outlive key status).
+        private func owns(_ event: NSEvent) -> Bool {
+            guard let view, let window = view.window, event.window === window,
+                  let editor = window.firstResponder as? NSTextView, editor.isFieldEditor,
+                  let field = editor.delegate as? NSView
+            else { return false }
+            // The monitor view is this composer's background, so it spans exactly the
+            // composer: the field being edited has to sit inside that rectangle.
+            let composer = view.convert(view.bounds, to: nil)
+            return composer.contains(field.convert(field.bounds, to: nil))
         }
 
         func stop() {
