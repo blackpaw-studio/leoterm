@@ -173,4 +173,60 @@ struct TerminalStripTests {
         var full = fullOutput.makeAsyncIterator()
         #expect(await full.next() == .bytes(Data("only-full".utf8)))
     }
+
+    // MARK: Swapping or clearing the open thread
+
+    let hera = AgentRef(daemonID: PairedDaemon.dionysus.id, name: "hera")
+
+    @Test func openingAnotherThreadClosesTheOldStrip() async {
+        let store = makeStore()
+        await store.send(Self.tick)
+        streams[0].yield(.opened)
+        await store.receive(\.chat.strip.terminal.opened)
+
+        // Hera is not in the fleet, so her own strip never connects.
+        await store.send(.chatOpened(hera))
+        #expect(store.state.chat?.ref == hera)
+        #expect(streams.terminated.value == 1)
+        await store.finish()
+    }
+
+    @Test func poppingTheThreadClosesItsStrip() async {
+        let store = makeStore()
+        await store.send(Self.tick)
+        await store.send(.chatPopped)
+        #expect(store.state.chat == nil)
+        #expect(streams.terminated.value == 1)
+        await store.finish()
+    }
+
+    @Test func openingAnotherThreadClosesTheOldFullTerminal() async {
+        let store = makeStore(showsByDefault: false)
+        await store.send(.chat(.terminalButtonTapped))
+        await store.send(.chat(.terminal(.presented(.appeared))))
+        #expect(streams.opened.value == 1)
+
+        await store.send(.chatOpened(hera))
+        #expect(store.state.chat?.terminal == nil)
+        #expect(streams.terminated.value == 1)
+        await store.finish()
+    }
+
+    @Test func poppingTheThreadClosesItsFullTerminal() async {
+        let store = makeStore(showsByDefault: false)
+        await store.send(.chat(.terminalButtonTapped))
+        await store.send(.chat(.terminal(.presented(.appeared))))
+        await store.send(.chatPopped)
+        #expect(streams.terminated.value == 1)
+        await store.finish()
+    }
+
+    @Test func aNotificationTapOpeningAnotherThreadClosesTheOldStrip() async {
+        let store = makeStore()
+        await store.send(Self.tick)
+        await store.send(.chatNotificationOpened(hera))
+        #expect(store.state.chat?.ref == hera)
+        #expect(streams.terminated.value == 1)
+        await store.finish()
+    }
 }

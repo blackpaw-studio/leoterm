@@ -126,13 +126,13 @@ public struct AppFeature {
                     return .none
 
                 case .chatOpened(let ref), .chats(.newChatPicked(let ref)), .chats(.rowTapped(let ref)):
-                    state.openChat(ref)
-                    return .none
+                    return openChat(ref, state: &state)
 
                 case .chatPopped:
                     state.parkChatDrafts()
+                    let closing = closeChat(state: &state)
                     state.chat = nil
-                    return .none
+                    return closing
 
                 case .chatsEntryAppeared:
                     guard !state.chats.isActive else { return .none }
@@ -281,14 +281,35 @@ public struct AppFeature {
             .ifLet(\.chat, action: \.chat) { ChatThread() }
             Reduce { state, _ in
                 state.openPendingAgent()
-                state.openPendingChat()
+                let opening = state.readyPendingChat().map { openChat($0, state: &state) } ?? .none
                 state.syncDetail()
                 state.syncAppearance()
                 state.syncChat()
                 state.decideChatFilter()
-                return .merge(state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
+                return .merge(opening, state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
             }
         }
+    }
+
+    /// Opens `ref`'s thread; a different thread already open is closed first.
+    private func openChat(_ ref: AgentRef, state: inout State) -> Effect<Action> {
+        guard state.chat?.ref != ref, state.fleet.sessions[id: ref.daemonID] != nil else {
+            state.openChat(ref)
+            return .none
+        }
+        let closing = closeChat(state: &state)
+        state.openChat(ref)
+        return closing
+    }
+
+    /// Cancels what the open thread's strip is attached to, before the thread
+    /// is replaced or cleared: the strip's connection lives at the root, so
+    /// dropping its state would leave the attach running. Its full terminal is
+    /// cancelled by the presentation going away with the thread.
+    private func closeChat(state: inout State) -> Effect<Action> {
+        guard state.chat != nil else { return .none }
+        let isRunning = state.chat?.agent?.canOpenTerminal ?? false
+        return stripReducer.reconcile(&state.chat!.strip, wantsVisible: false, isAgentRunning: isRunning).map { .chat(.strip($0)) }
     }
 
     /// Events from `daemonID` may have been lost (a reconnect or a sequence

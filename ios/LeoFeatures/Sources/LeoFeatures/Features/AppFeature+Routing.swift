@@ -71,15 +71,13 @@ extension AppFeature.State {
         parkedQuestionsDrafts[thread.ref] = thread.questionsDrafts
     }
 
-    /// Opens a tapped chat notification's thread once its daemon is known;
-    /// gives up when the paired daemons are loaded and it isn't one.
-    mutating func openPendingChat() {
-        guard let ref = pendingChat else { return }
-        if fleet.sessions[id: ref.daemonID] != nil {
-            openChat(ref)
-        } else if hasLoadedDaemons {
-            pendingChat = nil
-        }
+    /// The tapped chat notification's thread, once its daemon is known; gives
+    /// up when the paired daemons are loaded and it isn't one.
+    mutating func readyPendingChat() -> AgentRef? {
+        guard let ref = pendingChat else { return nil }
+        if fleet.sessions[id: ref.daemonID] != nil { return ref }
+        if hasLoadedDaemons { pendingChat = nil }
+        return nil
     }
 
     /// Picks the inbox's first chip once the fleet has settled: Needs you when
