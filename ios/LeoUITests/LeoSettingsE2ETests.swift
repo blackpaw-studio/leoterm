@@ -206,6 +206,7 @@ final class LeoSettingsE2ETests: XCTestCase {
 
     private func pairAndOpenMachine() throws {
         let payload = try XCTUnwrap(environment["LEO_PAIRING_PAYLOAD"])
+        app.tabBars.buttons["Agents"].tap()
         app.buttons["Pair a Daemon"].tap()
         let field = app.textViews["pairing.payload"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -213,7 +214,7 @@ final class LeoSettingsE2ETests: XCTestCase {
         field.typeText(payload)
         app.buttons["pairing.pair"].tap()
         XCTAssertTrue(field.waitForNonExistence(timeout: 30), "pairing never finished")
-        app.navigationBars["Agents"].buttons["Machines"].tap()
+        app.tabBars.buttons["Machines"].tap()
         XCTAssertTrue(app.staticTexts["Connected"].waitForExistence(timeout: 30), "the daemon never connected")
         let cell = app.cells.matching(NSPredicate(format: "identifier BEGINSWITH 'daemon.'")).firstMatch
         XCTAssertTrue(cell.waitForExistence(timeout: 10))

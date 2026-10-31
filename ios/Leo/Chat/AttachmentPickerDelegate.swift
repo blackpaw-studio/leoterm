@@ -1,4 +1,5 @@
 import LeoFeatures
+import LeoKit
 import OSLog
 import PhotosUI
 import UIKit
@@ -50,6 +51,50 @@ final class AttachmentPickerDelegate: NSObject, UIImagePickerControllerDelegate,
                 let mime = type.preferredMIMEType ?? "image/jpeg"
                 Task { @MainActor [weak self] in
                     self?.store(data, name: "\(suggested).\(ext)", mime: mime, kind: .photo)
+                }
+            }
+        }
+    }
+
+    // MARK: Paste
+
+    /// The type to attach a pasted item as: an image, or any other type that is
+    /// not text or a web link (rich text and links paste as text).
+    static func attachmentType(of provider: NSItemProvider) -> UTType? {
+        let types = provider.registeredContentTypes
+        return types.first { $0.conforms(to: .image) }
+            ?? types.first { !$0.conforms(to: .text) && !$0.conforms(to: .url) }
+    }
+
+    /// Attaches what a paste put on the pasteboard: images (named and
+    /// encoded by `LeoPastedImage`) and copied files.
+    func attachPasted(_ providers: [NSItemProvider]) {
+        for provider in providers {
+            if let type = provider.registeredContentTypes.first(where: { $0.conforms(to: .image) }) {
+                _ = provider.loadDataRepresentation(for: type) { [weak self] data, error in
+                    guard let data, let image = LeoPastedImage(data: data) else {
+                        Self.logger.error("chat: image paste failed \(error?.localizedDescription ?? "unreadable image", privacy: .public)")
+                        return
+                    }
+                    Task { @MainActor [weak self] in
+                        self?.store(image.data, name: image.filename, mime: image.mime, kind: .photo)
+                    }
+                }
+            } else if let type = Self.attachmentType(of: provider) {
+                let suggested = provider.suggestedName
+                _ = provider.loadFileRepresentation(for: type, openInPlace: false) { [weak self] url, _, error in
+                    guard let url, let data = try? Data(contentsOf: url) else {
+                        Self.logger.error("chat: file paste failed \(error?.localizedDescription ?? "no file", privacy: .public)")
+                        return
+                    }
+                    // The representation keeps the copied file's own name when it has one.
+                    let filename = url.lastPathComponent.isEmpty
+                        ? [suggested ?? "File", type.preferredFilenameExtension].compactMap { $0 }.joined(separator: ".")
+                        : url.lastPathComponent
+                    let mime = type.preferredMIMEType ?? "application/octet-stream"
+                    Task { @MainActor [weak self] in
+                        self?.store(data, name: filename, mime: mime, kind: .file)
+                    }
                 }
             }
         }

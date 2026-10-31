@@ -17,25 +17,7 @@ struct AppFeatureChatTests {
         return state
     }
 
-    @Test func theChatsButtonShowsTheListAndLoadsIt() async {
-        let store = TestStore(initialState: Self.connected()) {
-            AppFeature()
-        } withDependencies: {
-            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
-            $0.chatClient.threads = { _ in [LeoChatThread(agent: "zeus", unread: 2)] }
-        }
-        await store.send(.chatsButtonTapped) {
-            $0.isShowingChats = true
-            $0.chats.isActive = true
-        }
-        await store.receive(\.chats.refresh)
-        await store.receive(\.chats.threadsResponse) {
-            $0.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus", unread: 2)]
-            $0.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "zeus", unread: 2)], host: .remote(Self.zeus.daemonID))
-        }
-    }
-
-    @Test func tappingAChatOpensItsThreadInPlaceOfTheDetail() async {
+    @Test func tappingAChatOpensItsThreadAndLeavesTheAgentsTabAlone() async {
         var state = Self.connected()
         state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
         state.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus", unread: 3)]
@@ -43,36 +25,50 @@ struct AppFeatureChatTests {
         let store = TestStore(initialState: state) { AppFeature() }
 
         await store.send(\.chats.rowTapped, Self.zeus) {
-            $0.detail = nil
             $0.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
             $0.chats.unreadCounts = LeoChatUnreadCounts()
         }
-        // Selecting an agent replaces the chat.
-        await store.send(.agentTapped(Self.zeus)) {
-            $0.chat = nil
-            $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
-        }
+        #expect(store.state.detail?.ref == Self.zeus)
+        // Selecting an agent leaves the open chat alone too.
+        await store.send(.agentTapped(Self.zeus))
+        #expect(store.state.chat?.ref == Self.zeus)
     }
 
-    @Test func theDetailsChatButtonOpensTheThreadOverTheDetail() async {
+    @Test func theDetailsChatButtonSwitchesToTheChatsTabAndKeepsTheDetail() async {
         var state = Self.connected()
+        state.selectedTab = .agents
         state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
         let store = TestStore(initialState: state) { AppFeature() }
         await store.send(.detail(.chatButtonTapped)) {
+            $0.selectedTab = .chats
             $0.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         }
+        #expect(store.state.detail?.ref == Self.zeus)
     }
 
-    @Test func reopeningTheChatAlreadyOverItsDetailKeepsTheDetail() async {
+    @Test func theThreadsInfoButtonSwitchesToTheAgentsTabAndKeepsTheChat() async {
         var state = Self.connected()
-        state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        let store = TestStore(initialState: state) { AppFeature() }
+        await store.send(.chat(.infoButtonTapped)) {
+            $0.selectedTab = .agents
+            $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        }
+        #expect(store.state.chat?.ref == Self.zeus)
+        // With the agent's detail already selected, Info only switches tabs.
+        await store.send(.tabSelected(.chats)) { $0.selectedTab = .chats }
+        await store.send(.chat(.infoButtonTapped)) { $0.selectedTab = .agents }
+    }
+
+    @Test func reopeningTheOpenChatChangesNothing() async {
+        var state = Self.connected()
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         state.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus")]
         let store = TestStore(initialState: state) { AppFeature() }
         await store.send(\.chats.rowTapped, Self.zeus)
     }
 
-    @Test func poppingTheChatOverTheDetailLeavesTheDetailAndParksDrafts() async throws {
+    @Test func poppingTheChatClearsItAndParksDrafts() async throws {
         let draft = LeoChatQuestionsDraft(questions: ChatThreadQuestionsTests.questions).choosing("Swift", question: "q1")
         var state = Self.connected()
         state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
@@ -85,31 +81,19 @@ struct AppFeatureChatTests {
             $0.chat = nil
             $0.parkedQuestionsDrafts[Self.zeus] = ["01": draft]
         }
-        // The second Back clears the detail.
-        await store.send(.secondaryPopped) { $0.detail = nil }
+        // Nothing open: nothing to clear. The detail is the Agents tab's own.
+        await store.send(.chatPopped)
+        #expect(store.state.detail?.ref == Self.zeus)
     }
 
-    @Test func poppingBackToTheListClearsTheSelectedAgent() async {
+    @Test func poppingTheDetailClearsTheSelectedAgentAndLeavesTheChat() async {
         var state = Self.connected()
         state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+        state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         let store = TestStore(initialState: state) { AppFeature() }
-        await store.send(.secondaryPopped) { $0.detail = nil }
-        // Nothing selected: nothing to clear.
-        await store.send(.secondaryPopped)
-    }
-
-    @Test func poppingBackToTheListClearsTheOpenChatAndParksItsDrafts() async throws {
-        let draft = LeoChatQuestionsDraft(questions: ChatThreadQuestionsTests.questions).choosing("Swift", question: "q1")
-        var state = Self.connected()
-        var thread = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
-        thread.messages = [try ChatThreadQuestionsTests.questionsCard()]
-        thread.questionsDrafts["01"] = draft
-        state.chat = thread
-        let store = TestStore(initialState: state) { AppFeature() }
-        await store.send(.secondaryPopped) {
-            $0.chat = nil
-            $0.parkedQuestionsDrafts[Self.zeus] = ["01": draft]
-        }
+        await store.send(.detailPopped) { $0.detail = nil }
+        await store.send(.detailPopped)
+        #expect(store.state.chat?.ref == Self.zeus)
     }
 
     @Test func theNewChatPickerOpensTheThread() async {
@@ -122,12 +106,13 @@ struct AppFeatureChatTests {
         }
     }
 
-    @Test func theAgentDetailsChatButtonOpensItsThread() async {
+    @Test func openingAChatFromElsewhereSwitchesToTheChatsTab() async {
         var state = Self.connected()
+        state.selectedTab = .agents
         state.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
         let store = TestStore(initialState: state) { AppFeature() }
         await store.send(.chatOpened(Self.zeus)) {
-            $0.detail = nil
+            $0.selectedTab = .chats
             $0.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         }
     }
@@ -136,6 +121,7 @@ struct AppFeatureChatTests {
         var state = Self.connected()
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         state.chat?.isOnScreen = true
+        state.chat?.strip.userChoice = false
         let reads = LockIsolated<[String]>([])
         let store = TestStore(initialState: state) {
             AppFeature()
@@ -205,6 +191,19 @@ struct AppFeatureChatTests {
         await store.finish()
     }
 
+    @Test func aChatPushTapSwitchesToTheChatsTabAndOpensTheThread() async {
+        var state = Self.connected()
+        state.selectedTab = .settings
+        state.hasLoadedDaemons = true
+        state.chats.filter = .all
+        let store = TestStore(initialState: state) { AppFeature() }
+        await store.send(.chatNotificationOpened(Self.zeus)) {
+            $0.selectedTab = .chats
+            $0.pendingChat = nil
+            $0.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        }
+    }
+
     @Test func aTappedChatNotificationOpensTheThreadOnceTheDaemonIsKnown() async {
         let store = TestStore(initialState: AppFeature.State()) {
             AppFeature()
@@ -228,7 +227,8 @@ struct AppFeatureChatTests {
         var state = AppFeature.State()
         state.hasLoadedDaemons = true
         let store = TestStore(initialState: state) { AppFeature() }
-        await store.send(.chatNotificationOpened(Self.zeus))
+        // Nothing is paired, so the inbox's first chip is decided too.
+        await store.send(.chatNotificationOpened(Self.zeus)) { $0.chats.filter = .all }
     }
 
     @Test func aNotificationReplySendsToTheThread() async {
@@ -323,6 +323,7 @@ struct AppFeatureChatTests {
             $0.fleet.sessions[0].agents[id: "zeus"]?.activity = .unknown
             $0.chat?.agent?.status = .stopped
             $0.chat?.agent?.activity = .unknown
+            $0.chat?.strip.terminal.isAgentRunning = false
         }
     }
 
@@ -334,5 +335,29 @@ struct AppFeatureChatTests {
         state.chat?.isOnScreen = true
         #expect(state.isChatOnScreen(Self.zeus))
         #expect(!state.isChatOnScreen(AgentRef(daemonID: Self.zeus.daemonID, name: "hera")))
+    }
+
+    // MARK: The thread's full terminal
+
+    private static func stateWithChatTerminal() -> AppFeature.State {
+        var state = connected()
+        var thread = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        thread.terminal = Terminal.State(daemon: .dionysus, agentName: "zeus", isAgentRunning: true)
+        state.chat = thread
+        return state
+    }
+
+    @Test func theSceneGoingToTheBackgroundReachesTheChatsTerminal() async {
+        let store = TestStore(initialState: Self.stateWithChatTerminal()) { AppFeature() }
+        store.exhaustivity = .off
+        await store.send(.scenePhaseChanged(isActive: false))
+        await store.receive(\.chat.terminal.presented.scenePhaseChanged, false) { $0.chat?.terminal?.isSceneActive = false }
+    }
+
+    @Test func theAgentStoppingReachesTheChatsTerminal() async {
+        let store = TestStore(initialState: Self.stateWithChatTerminal()) { AppFeature() }
+        store.exhaustivity = .off
+        await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .agentStopped(seq: 2, at: nil, agent: "zeus", wakeOnMessage: false)))
+        await store.receive(\.chat.terminal.presented.agentRunningChanged, false) { $0.chat?.terminal?.isAgentRunning = false }
     }
 }

@@ -109,26 +109,30 @@ struct AppFeaturePushTests {
         initial.fleet.sessions[0].agents = [Agent(.make("zeus"))]
         initial.fleet.sessions[0].connection = .connected
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
 
         await store.send(.notificationOpened(Self.zeus)) {
+            $0.selectedTab = .agents
             $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
         }
     }
 
-    @Test func aTapOpensTheAgentInPlaceOfTheOpenChat() async {
+    @Test func aTapOpensTheAgentAndLeavesTheOpenChat() async {
         var initial = AppFeature.State()
         initial.fleet = Fleet.State(daemons: [.dionysus])
         initial.fleet.sessions[0].agents = [Agent(.make("zeus")), Agent(.make("hera"))]
         initial.fleet.sessions[0].connection = .connected
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         initial.chat = ChatThread.State(daemon: .dionysus, agent: "hera", live: Agent(.make("hera")))
         let store = TestStore(initialState: initial) { AppFeature() }
 
         await store.send(.notificationOpened(Self.zeus)) {
-            $0.chat = nil
+            $0.selectedTab = .agents
             $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
         }
+        #expect(store.state.chat?.agentName == "hera")
     }
 
     @Test func aTapThatLaunchedTheAppOpensTheAgentOnceItLoads() async {
@@ -140,7 +144,10 @@ struct AppFeaturePushTests {
         }
         let id = PairedDaemon.dionysus.id
 
-        await store.send(.notificationOpened(Self.zeus)) { $0.pendingAgent = Self.zeus }
+        await store.send(.notificationOpened(Self.zeus)) {
+            $0.selectedTab = .agents
+            $0.pendingAgent = Self.zeus
+        }
         await store.send(\.fleet.daemonsLoaded, [.dionysus]) {
             $0.fleet.sessions = [DaemonSession(daemon: .dionysus)]
             $0.hasLoadedDaemons = true
@@ -154,25 +161,31 @@ struct AppFeaturePushTests {
             $0.fleet.sessions[0].agents = [Agent(.make("zeus"))]
             $0.pendingAgent = nil
             $0.detail = AgentDetail.State(daemon: .dionysus, agent: Agent(.make("zeus")), connection: .connected)
+            $0.chats.filter = .all
         }
     }
 
     @Test func aTapForAnUnpairedDaemonIsDropped() async {
         var initial = AppFeature.State()
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
 
-        await store.send(.notificationOpened(Self.zeus))
+        await store.send(.notificationOpened(Self.zeus)) { $0.selectedTab = .agents }
     }
 
     @Test func aTapForAnAgentTheDaemonNoLongerHasIsDropped() async {
         var initial = AppFeature.State()
         initial.fleet = Fleet.State(daemons: [.dionysus])
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
         let id = PairedDaemon.dionysus.id
 
-        await store.send(.notificationOpened(Self.zeus)) { $0.pendingAgent = Self.zeus }
+        await store.send(.notificationOpened(Self.zeus)) {
+            $0.selectedTab = .agents
+            $0.pendingAgent = Self.zeus
+        }
         await store.send(\.fleet.connected, (id, bootID: "b1", features: .none, LeoObservedState(agents: [.make("hera")]))) {
             $0.fleet.sessions[0].connection = .connected
             $0.fleet.sessions[0].bootID = "b1"
@@ -187,17 +200,23 @@ struct AppFeaturePushTests {
         initial.fleet.sessions[1].agents = [Agent(.make("hera"))]
         initial.fleet.sessions[1].connection = .connected
         initial.hasLoadedDaemons = true
+        initial.chats.filter = .all
         let store = TestStore(initialState: initial) { AppFeature() }
 
-        await store.send(.notificationOpened(Self.zeus)) { $0.pendingAgent = Self.zeus }
+        await store.send(.notificationOpened(Self.zeus)) {
+            $0.selectedTab = .agents
+            $0.pendingAgent = Self.zeus
+        }
         await store.send(.agentTapped(AgentRef(daemonID: PairedDaemon.hestia.id, name: "hera"))) {
             $0.pendingAgent = nil
             $0.detail = AgentDetail.State(daemon: .hestia, agent: Agent(.make("hera")), connection: .connected)
         }
     }
 
-    @Test func theSettingsButtonShowsSettings() async {
+    @Test func chatsIsTheLaunchTabAndTheTabBarSelectsTabs() async {
         let store = TestStore(initialState: AppFeature.State()) { AppFeature() }
-        await store.send(.settingsButtonTapped) { $0.isShowingSettings = true }
+        #expect(store.state.selectedTab == .chats)
+        await store.send(.tabSelected(.settings)) { $0.selectedTab = .settings }
+        await store.send(.tabSelected(.machines)) { $0.selectedTab = .machines }
     }
 }

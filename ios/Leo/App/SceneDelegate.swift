@@ -17,7 +17,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         #if DEBUG
         if let fixture = ChatQuestionsFixture.requested { return ChatQuestionsFixture.rootViewController(for: fixture) }
         #endif
-        return RootSplitViewController(store: AppDelegate.store)
+        return RootTabBarController(store: AppDelegate.store)
     }
 
     // Event streams run only in the foreground; push covers the background.

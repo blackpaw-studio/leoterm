@@ -15,22 +15,36 @@ final class LeoMachinesTests: XCTestCase {
         XCTAssertTrue(app.otherElements["CPU 23%, Memory 85%, Disk 47%"].waitForExistence(timeout: 10))
         attach(app, "machines-capsules")
 
-        app.navigationBars["Machines"].buttons.element(boundBy: 0).tap()
-        app.navigationBars["Agents"].buttons["Settings"].tap()
+        app.tabBars.buttons["Settings"].tap()
         app.cells["settings.statsStyleRow"].tap()
         attach(app, "stats-style")
         app.cells["settings.statsStyle.numbers"].tap()
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        app.navigationBars["Agents"].buttons["Machines"].tap()
+        app.tabBars.buttons["Machines"].tap()
         XCTAssertTrue(app.otherElements["CPU 23%, Memory 85%, Disk 47%"].waitForExistence(timeout: 10))
         attach(app, "machines-numbers")
     }
 
-    /// The back button's long-press menu pops past the Machines list while a
-    /// machine is open. Opening Machines again must show the list, and its
-    /// rows must still open a machine.
-    func testMachinesListStaysUsableAfterPoppingStraightBackToAgents() throws {
+    /// Settings > Chat: the live terminal default starts on, flips with the
+    /// switch, and is put back so a rerun starts from the same place.
+    func testLiveTerminalSettingTogglesFromSettings() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-machinesFixture", "-statsStyle", "capsules"]
+        app.launch()
+        app.tabBars.buttons["Settings"].tap()
+        let toggle = app.switches["settings.liveTerminal"]
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        let start = toggle.value as? String
+        attach(app, "settings-live-terminal")
+        toggle.tap()
+        XCTAssertNotEqual(toggle.value as? String, start)
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, start)
+    }
+
+    /// Back from an open machine returns to the Machines list, whose rows
+    /// must still open a machine.
+    func testMachinesListStaysUsableAfterBackFromAMachine() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-machinesFixture", "-statsStyle", "capsules"]
         app.launch()
@@ -38,9 +52,7 @@ final class LeoMachinesTests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 10))
         row.tap()
         XCTAssertTrue(app.navigationBars["Dionysus"].waitForExistence(timeout: 5))
-        app.navigationBars["Dionysus"].buttons.element(boundBy: 0).press(forDuration: 1.2)
-        app.buttons["Agents"].firstMatch.tap()
-        app.navigationBars["Agents"].buttons["Machines"].tap()
+        app.navigationBars["Dionysus"].buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: 5))
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.tap()

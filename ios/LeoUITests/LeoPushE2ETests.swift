@@ -33,6 +33,7 @@ final class LeoPushE2ETests: XCTestCase {
         app.launchArguments = ["-resetForUITests", "-exportPushKey"]
         app.launch()
 
+        app.tabBars.buttons["Agents"].tap()
         app.buttons["Pair a Daemon"].tap()
         let field = app.textViews["pairing.payload"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -48,13 +49,12 @@ final class LeoPushE2ETests: XCTestCase {
         }
         XCTAssertTrue(app.cells["agent.\(agentName)"].waitForExistence(timeout: 30), "\(agentName) never appeared")
 
-        app.navigationBars["Agents"].buttons["Settings"].tap()
+        app.tabBars.buttons["Settings"].tap()
         let toggle = app.switches["settings.notifications"]
         XCTAssertTrue(toggle.waitForExistence(timeout: 5))
         XCTAssertEqual(toggle.value as? String, "1")
         settle()
         capture("push-settings")
-        app.navigationBars.firstMatch.buttons.element(boundBy: 0).tap()
 
         XCUIDevice.shared.press(.home)
         settle()

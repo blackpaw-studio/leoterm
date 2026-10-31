@@ -36,7 +36,15 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         #if DEBUG
         if MachinesFixture.isRequested { MachinesFixture.openMachines(Self.store) }
         if SettingsFixture.isRequested { SettingsFixture.openMachines(Self.store) }
+        // These fixtures are about the Agents list, not the Chats tab the app launches on.
+        if AppearanceFixture.isRequested || MoveFixture.isRequested { Self.store.send(.tabSelected(.agents)) }
         if AppearanceFixture.isRequested { AppearanceFixture.open(Self.store) }
+        // `-startTab agents`: launches on that tab, for screenshots.
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flag = arguments.firstIndex(of: "-startTab"), arguments.indices.contains(flag + 1),
+           let tab = AppTab.allCases.first(where: { "\($0)" == arguments[flag + 1] }) {
+            Self.store.send(.tabSelected(tab))
+        }
         #endif
         return true
     }
