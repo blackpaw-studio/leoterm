@@ -14,6 +14,7 @@
 		23BA2AE75A68A78E325DA39C /* SchemaFieldEditorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8489DDAE52EDC6E8AF2BF84B /* SchemaFieldEditorViewController.swift */; };
 		252D996710E28607977F4BCE /* MachineSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EF4F1B5D3288A09E6B56CAC /* MachineSettingsViewController.swift */; };
 		261BA65D9210E90DA1471EDC /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36770E26AC7E79990AFA6F96 /* ComposerView.swift */; };
+		26FA2A85749C017121FEA4A5 /* RootTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 517F37819D8EF92B650935BF /* RootTabBarController.swift */; };
 		2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */; };
 		2BC71F157DD346713AA024CB /* SchemaFormTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AF76CE70071EA3957056747 /* SchemaFormTestSupport.swift */; };
 		2F613DE6FE36BEADFC273BAE /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */; };
@@ -29,6 +30,7 @@
 		49DFFA476CDBDD3A17C8E741 /* MeterLineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57A6CD6037FBCBC596DCEE0F /* MeterLineView.swift */; };
 		4A17426C8214D9DDEFD25D26 /* ConfigItemViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */; };
 		4A70B7218DD15E34171BB0B2 /* TaskScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */; };
+		4F2A4BB3AA8CBE3BA1F79B5F /* AgentsSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */; };
 		52267BE6F859097A09775A73 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 02FB66C3DAF86096FDC01F27 /* LeoKit */; };
 		52AF27E75BC9A3FA5D427A81 /* LeoAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */; };
 		54AACE07CCCE7DDA96ABD6F8 /* SettingsFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF3E4D91083291F99E925A1 /* SettingsFixture.swift */; };
@@ -37,6 +39,7 @@
 		5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD0798F4619AB2A887324F77 /* AppDelegate.swift */; };
 		61C7847BB0226FB17CDD61F7 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62374CAF4B0AB162EB0A3C /* NotificationService.swift */; };
 		6284C2784E803A0500458645 /* TasksViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59740A69E25BA69E10AD4CD5 /* TasksViewController.swift */; };
+		62D603D1FF47FF25D6D8899B /* ChatsSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9F7D132D3B67A3EEBB2210E /* ChatsSplitViewController.swift */; };
 		674544CF6B9EBF24D05A110B /* AppearanceCells.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4081841A7C0C1970593F348 /* AppearanceCells.swift */; };
 		674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */; };
 		6789F4305E1CE53DF0968B75 /* KeyValueRowsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A367FE1B657DE5E681571E6F /* KeyValueRowsTests.swift */; };
@@ -47,7 +50,6 @@
 		6F18F0E5564F090690F5D3EA /* ServiceViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814B887B4D27ECED43048979 /* ServiceViewController.swift */; };
 		6F30D471A3E498B502EE95B7 /* MachinesFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E33C69E01DC3265B930EAB6 /* MachinesFixture.swift */; };
 		7224AF18FDB286110FFD8309 /* LeoSettingsScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7D3C9F892F834E02CE81A74 /* LeoSettingsScreensTests.swift */; };
-		787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */; };
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
 		81C7612D440AA87361720BEE /* LeoSettingsE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
@@ -66,6 +68,7 @@
 		B5F6A59C7F45752F8442B7A4 /* ChatAskControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */; };
 		B6440DBB047A78339AE73B85 /* ChatClientsLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */; };
 		B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */; };
+		B82ADE680F35CE217C65C86D /* SelectionSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7FD870297E92A050DCBF5C6C /* SelectionSplitViewController.swift */; };
 		B960CCF835C7AFB147EF9C18 /* AppearanceFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CC91E2C136D84061F083BB /* AppearanceFixture.swift */; };
 		BDFED519168F9FB44E185FE1 /* MachinesListTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FE85C9DD0A3B8FC29B35A3E /* MachinesListTests.swift */; };
 		C3CBC2AC2DB9E7C18DE162EF /* ConfigCollectionViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C40E03637E8C2B8531F2901 /* ConfigCollectionViewController.swift */; };
@@ -134,7 +137,6 @@
 /* Begin PBXFileReference section */
 		0F8B9632E4FB5665D708DF0E /* LeoPushE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoPushE2ETests.swift; sourceTree = "<group>"; };
 		0FE39999ECDA1982AB15718A /* AgentsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsViewController.swift; sourceTree = "<group>"; };
-		14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootSplitViewController.swift; sourceTree = "<group>"; };
 		186DF50396BCA70A75DC69E1 /* TaskLogViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskLogViewController.swift; sourceTree = "<group>"; };
 		18B49401DB8C7296CBD9D8EC /* StatsStyleViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsStyleViewController.swift; sourceTree = "<group>"; };
 		19A3B2FDB00B10511B1282E0 /* SchemaFieldContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldContentView.swift; sourceTree = "<group>"; };
@@ -158,6 +160,7 @@
 		4AF76CE70071EA3957056747 /* SchemaFormTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFormTestSupport.swift; sourceTree = "<group>"; };
 		4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = LeoNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		4EF4F1B5D3288A09E6B56CAC /* MachineSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineSettingsViewController.swift; sourceTree = "<group>"; };
+		517F37819D8EF92B650935BF /* RootTabBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootTabBarController.swift; sourceTree = "<group>"; };
 		5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQuestionsCard.swift; sourceTree = "<group>"; };
 		54D9136C96055AB2811BE750 /* LeoNotificationService.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LeoNotificationService.entitlements; sourceTree = "<group>"; };
 		57636A050F83D8C255CD37DB /* PushClientLive.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushClientLive.swift; sourceTree = "<group>"; };
@@ -175,11 +178,13 @@
 		79366C4E5F3E01AFDCC19AA8 /* NameEntryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameEntryViewController.swift; sourceTree = "<group>"; };
 		7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoHistoryBackBarButtonItem.swift; sourceTree = "<group>"; };
 		7DF3E4D91083291F99E925A1 /* SettingsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixture.swift; sourceTree = "<group>"; };
+		7FD870297E92A050DCBF5C6C /* SelectionSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionSplitViewController.swift; sourceTree = "<group>"; };
 		814B887B4D27ECED43048979 /* ServiceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceViewController.swift; sourceTree = "<group>"; };
 		8489DDAE52EDC6E8AF2BF84B /* SchemaFieldEditorViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldEditorViewController.swift; sourceTree = "<group>"; };
 		866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskScreensTests.swift; sourceTree = "<group>"; };
 		87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFormCellTests.swift; sourceTree = "<group>"; };
 		93C6F25CCCD87641CD218A9C /* MachineCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachineCell.swift; sourceTree = "<group>"; };
+		940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsSplitViewController.swift; sourceTree = "<group>"; };
 		9FF7947A4DAF1A52A076FEFD /* ServiceScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceScreenTests.swift; sourceTree = "<group>"; };
 		A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoMoveTests.swift; sourceTree = "<group>"; };
 		A1C736E4B042BE982C20D63C /* TerminalViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalViewController.swift; sourceTree = "<group>"; };
@@ -207,6 +212,7 @@
 		D1A1F7D0633E46F1B7A239E2 /* Leo.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Leo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoQuestionsCardTests.swift; sourceTree = "<group>"; };
 		D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTimeHeaderCell.swift; sourceTree = "<group>"; };
+		D9F7D132D3B67A3EEBB2210E /* ChatsSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSplitViewController.swift; sourceTree = "<group>"; };
 		DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPickerDelegate.swift; sourceTree = "<group>"; };
 		E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPresentationTests.swift; sourceTree = "<group>"; };
 		E80E49AC6DF9D2AF1C449A51 /* MachinesHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesHost.swift; sourceTree = "<group>"; };
@@ -297,12 +303,15 @@
 		2BC2D4779B3DC71568988B9D /* App */ = {
 			isa = PBXGroup;
 			children = (
+				940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */,
 				FD0798F4619AB2A887324F77 /* AppDelegate.swift */,
 				35CC91E2C136D84061F083BB /* AppearanceFixture.swift */,
+				D9F7D132D3B67A3EEBB2210E /* ChatsSplitViewController.swift */,
 				F1CBEB41B43F59128C3247B5 /* MoveFixture.swift */,
 				FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */,
-				14E6AC1C3305D1FE41B9863F /* RootSplitViewController.swift */,
+				517F37819D8EF92B650935BF /* RootTabBarController.swift */,
 				CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */,
+				7FD870297E92A050DCBF5C6C /* SelectionSplitViewController.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -727,6 +736,7 @@
 				6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */,
 				9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */,
 				A5FCC89BFBCD93DBE1D05662 /* AgentRowTile.swift in Sources */,
+				4F2A4BB3AA8CBE3BA1F79B5F /* AgentsSplitViewController.swift in Sources */,
 				F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */,
 				5E33999748F7BFB74748A8B0 /* AppDelegate.swift in Sources */,
 				674544CF6B9EBF24D05A110B /* AppearanceCells.swift in Sources */,
@@ -742,6 +752,7 @@
 				FD5AFE72B0D498DB5026CC25 /* ChatQuestionsFixture.swift in Sources */,
 				B7BEBAF01DF97E7AAFE235DA /* ChatThreadViewController.swift in Sources */,
 				3E8CAAD59AE015ECC9520FDD /* ChatTimeHeaderCell.swift in Sources */,
+				62D603D1FF47FF25D6D8899B /* ChatsSplitViewController.swift in Sources */,
 				D40FC2D15D3B36995C075597 /* ChatsViewController.swift in Sources */,
 				261BA65D9210E90DA1471EDC /* ComposerView.swift in Sources */,
 				6AD426790811463F508E8740 /* ConfigBanners.swift in Sources */,
@@ -763,12 +774,13 @@
 				2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */,
 				DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */,
 				E774071B30CF8DA71EB13833 /* QRScannerViewController.swift in Sources */,
-				787BACE232F874CDD0EACDE4 /* RootSplitViewController.swift in Sources */,
+				26FA2A85749C017121FEA4A5 /* RootTabBarController.swift in Sources */,
 				5B17D4836F510CA07BB3683D /* SceneDelegate.swift in Sources */,
 				D258721E750F95337A546A00 /* SchemaFieldContentView.swift in Sources */,
 				969BB67F442F42B4E155F597 /* SchemaFieldControls.swift in Sources */,
 				23BA2AE75A68A78E325DA39C /* SchemaFieldEditorViewController.swift in Sources */,
 				377B2E9AEAA174DDF41C34A2 /* SchemaFieldHandlers.swift in Sources */,
+				B82ADE680F35CE217C65C86D /* SelectionSplitViewController.swift in Sources */,
 				6F18F0E5564F090690F5D3EA /* ServiceViewController.swift in Sources */,
 				54AACE07CCCE7DDA96ABD6F8 /* SettingsFixture.swift in Sources */,
 				47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */,

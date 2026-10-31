@@ -23,26 +23,6 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         navigationItem.largeTitleDisplayMode = .always
-        navigationController?.navigationBar.prefersLargeTitles = true
-        let daemonsButton = UIBarButtonItem(
-            image: UIImage(systemName: "server.rack"),
-            primaryAction: UIAction { [weak self] _ in self?.store.send(.daemonsButtonTapped) }
-        )
-        daemonsButton.accessibilityLabel = String(localized: "Machines")
-        let chatsButton = UIBarButtonItem(
-            image: UIImage(systemName: "bubble.left.and.bubble.right"),
-            primaryAction: UIAction { [weak self] _ in self?.store.send(.chatsButtonTapped) }
-        )
-        chatsButton.accessibilityLabel = String(localized: "Chats")
-        chatsButton.accessibilityIdentifier = "agents.chats"
-        navigationItem.rightBarButtonItems = [daemonsButton, chatsButton]
-        let settingsButton = UIBarButtonItem(
-            image: UIImage(systemName: "gearshape"),
-            primaryAction: UIAction { [weak self] _ in self?.store.send(.settingsButtonTapped) }
-        )
-        settingsButton.accessibilityLabel = String(localized: "Settings")
-        navigationItem.leftBarButtonItem = settingsButton
-
         collectionView.delegate = self
         collectionView.accessibilityIdentifier = "agents.list"
         collectionView.translatesAutoresizingMaskIntoConstraints = false
@@ -55,27 +35,10 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         ])
         configureDataSource()
 
-        navigationDestination(isPresented: $store.isShowingDaemons) { [store] in
-            DaemonsViewController(store: store.scope(state: \.daemons, action: \.daemons), fleet: store.scope(state: \.fleet, action: \.fleet))
-        }
-        navigationDestination(isPresented: $store.isShowingChats) { [store] in
-            ChatsViewController(store: store)
-        }
-        navigationDestination(isPresented: $store.isShowingSettings) { [store] in
-            SettingsViewController(app: store)
-        }
-
         observe { [weak self] in
             guard let self else { return }
             render(sections: store.fleet.sections, selection: store.detail?.ref)
         }
-        observe { [weak self] in
-            guard let self else { return }
-            let unread = store.chats.unreadTotal
-            chatsButton.badge = unread > 0 ? .count(unread) : nil
-            chatsButton.accessibilityValue = unread > 0 ? String(localized: "\(unread) unread") : nil
-        }
-        store.send(.chatsEntryAppeared)
     }
 
     override func viewWillAppear(_ animated: Bool) {

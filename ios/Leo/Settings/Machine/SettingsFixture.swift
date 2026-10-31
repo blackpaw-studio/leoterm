@@ -229,7 +229,7 @@ enum SettingsFixture {
 
     /// Opens the Machines screen once the app has launched.
     @MainActor static func openMachines(_ store: StoreOf<AppFeature>) {
-        store.send(.daemonsButtonTapped)
+        store.send(.tabSelected(.machines))
     }
 }
 #endif
