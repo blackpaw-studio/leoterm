@@ -15,6 +15,11 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private static let olderPageThreshold: CGFloat = 300
     /// Room kept around a focused ask field when it scrolls into view.
     private static let focusedFieldMargin: CGFloat = 16
+    /// The strip's gap to the header and to the messages below it.
+    private static let stripMargin: CGFloat = 8
+    private static let stripAnimation: TimeInterval = 0.25
+    /// Redraw the strip at most this often while output streams in.
+    private static let stripRenderInterval: Duration = .milliseconds(100)
 
     @UIBindable private var store: StoreOf<ChatThread>
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
@@ -25,6 +30,14 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private let terminalButton = UIBarButtonItem(image: UIImage(systemName: "terminal"))
     private let infoButton = UIBarButtonItem(image: UIImage(systemName: "info.circle"))
     private let titleView = ChatThreadTitleView()
+    private let showStripButton = UIBarButtonItem(image: UIImage(systemName: "rectangle.topthird.inset.filled"))
+    private let stripView = TerminalStripView()
+    private let stripEmulator = StripEmulator()
+    @Dependency(\.terminalStripOutput) private var stripOutput
+    private var stripTask: Task<Void, Never>?
+    private var stripLines: [String] = []
+    private var isStripShown = false
+    private var stripRenderPending = false
     private let voice = VoicePlayer()
     private var shownIDs: [String] = []
     private var shownItems: [String: LeoChatTranscript.Item] = [:]
@@ -72,11 +85,23 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         bottom.axis = .vertical
         bottom.alignment = .fill
         bottom.spacing = 0
-        for subview in [collectionView, bottom] as [UIView] {
+        stripView.translatesAutoresizingMaskIntoConstraints = false
+        stripView.alpha = 0
+        stripView.isHidden = true
+        stripView.onTap = { [weak self] in self?.store.send(.terminalButtonTapped) }
+        stripView.onRetry = { [weak self] in self?.store.send(.strip(.terminal(.retryButtonTapped))) }
+        stripView.onHide = { [weak self] in self?.store.send(.strip(.toggleTapped)) }
+        showStripButton.accessibilityLabel = String(localized: "Show Live Terminal")
+        showStripButton.accessibilityIdentifier = "chat.strip.show"
+        showStripButton.primaryAction = UIAction(image: showStripButton.image) { [weak self] _ in self?.store.send(.strip(.toggleTapped)) }
+        for subview in [collectionView, bottom, stripView] as [UIView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
         NSLayoutConstraint.activate([
+            stripView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Self.stripMargin),
+            stripView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            stripView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -100,6 +125,19 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         }
         observe { [weak self] in self?.render() }
         store.send(.task)
+    }
+
+    deinit { stripTask?.cancel() }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        subscribeToStrip()
+    }
+
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        stripTask?.cancel()
+        stripTask = nil
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -148,6 +186,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         titleView.configure(agentName: store.agentName, agent: store.agent, daemonName: store.daemon.name)
         renderFilterMenu()
         renderReplyBanner()
+        renderStrip()
 
         let items = LeoChatTranscript.items(for: Array(store.messages))
         let ids = items.map(\.id)
@@ -182,6 +221,75 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             voice.toggle(id: id, url: url)
         }
         renderEmptyState()
+    }
+
+    // MARK: Terminal strip
+
+    /// The bus holds one subscriber per agent, so the strip holds it only
+    /// while the thread is visible.
+    private func subscribeToStrip() {
+        guard stripTask == nil else { return }
+        let stream = stripOutput.output(for: store.ref)
+        stripTask = Task { [weak self] in
+            for await chunk in stream { self?.applyStrip(chunk) }
+        }
+    }
+
+    private func applyStrip(_ chunk: TerminalOutput) {
+        switch chunk {
+        case .reset: stripEmulator.reset(to: store.strip.terminal.size)
+        case .bytes(let data): stripEmulator.feed(data)
+        }
+        scheduleStripRender()
+    }
+
+    private func scheduleStripRender() {
+        guard !stripRenderPending else { return }
+        stripRenderPending = true
+        Task { [weak self] in
+            try? await Task.sleep(for: Self.stripRenderInterval)
+            guard let self else { return }
+            stripRenderPending = false
+            stripLines = stripEmulator.lines()
+            renderStrip()
+        }
+    }
+
+    private func stripContent() -> TerminalStripView.Content {
+        switch store.strip.terminal.phase {
+        case .idle, .connecting, .paused: .connecting
+        case .live: .live(lines: stripLines)
+        case .notRunning: .notRunning
+        case .disconnected, .revoked: .unavailable
+        }
+    }
+
+    private func renderStrip() {
+        let isKnown = store.agent != nil
+        let shouldShow = isKnown && store.strip.isShown
+        let stateText = store.agent.map { ChatThreadTitleView.statusLine($0) } ?? ""
+        stripView.configure(.init(content: stripContent(), stateText: stateText))
+        navigationItem.rightBarButtonItems = [infoButton, terminalButton, filterButton] + (isKnown && !shouldShow ? [showStripButton] : [])
+        setStrip(shown: shouldShow)
+    }
+
+    /// Slides the strip in or out. The messages' top inset follows it, and
+    /// the list only moves if it was resting at its top.
+    private func setStrip(shown: Bool) {
+        guard shown != isStripShown else { return }
+        isStripShown = shown
+        stripView.isHidden = false
+        view.layoutIfNeeded()
+        let inset = shown ? stripView.bounds.height + 2 * Self.stripMargin : 0
+        let wasAtTop = collectionView.contentOffset.y <= -collectionView.adjustedContentInset.top + 1
+        UIView.animate(withDuration: Self.stripAnimation) {
+            self.stripView.alpha = shown ? 1 : 0
+            self.collectionView.contentInset.top = inset
+            self.collectionView.verticalScrollIndicatorInsets.top = inset
+            if wasAtTop { self.collectionView.contentOffset.y = -self.collectionView.adjustedContentInset.top }
+        } completion: { _ in
+            if !shown { self.stripView.isHidden = true }
+        }
     }
 
     private func renderEmptyState() {

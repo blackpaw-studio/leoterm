@@ -63,6 +63,7 @@
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
 		9EE030FDA72503DABA19F046 /* ConfigEditorNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22A905AA871540E60BA88896 /* ConfigEditorNavigationTests.swift */; };
 		A5FCC89BFBCD93DBE1D05662 /* AgentRowTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BFB67E77A5BA319D698F594 /* AgentRowTile.swift */; };
+		AB9A6A79ABD69284F11A2294 /* StripEmulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46D47BEF0F4ED0DB6E612C6 /* StripEmulator.swift */; };
 		AC0BFDF8CC92DE3B580B7EAC /* SchemaFormCellTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */; };
 		B08EEED0063368B5C7435B51 /* ChatBubbleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EABF66CB1EE1C883F7930FFD /* ChatBubbleView.swift */; };
 		B25470C3706218FBCA5C7DA1 /* LeoUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4259E396F6B6491459936938 /* LeoUITests.swift */; };
@@ -94,6 +95,7 @@
 		F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */; };
 		F7A18CCCB00F2FA34651E298 /* MeterAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 650EBAD07E75A2D3EA0F60F3 /* MeterAppearance.swift */; };
 		F87675DB161359B673F1856D /* DialogAnchors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71B44191ECF376EEECB29058 /* DialogAnchors.swift */; };
+		F96FA81692A9F34792B5D276 /* TerminalStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5580795BABB23ADE51EB7D /* TerminalStripView.swift */; };
 		FA9115D68B9C37E11A38BE0D /* LeoQuestionsCardTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D677076F517FB0C40E4A5214 /* LeoQuestionsCardTests.swift */; };
 		FD5AFE72B0D498DB5026CC25 /* ChatQuestionsFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */; };
 /* End PBXBuildFile section */
@@ -172,6 +174,7 @@
 		5B08BB06CBB0AABFFD7068CB /* KeyValueRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyValueRows.swift; sourceTree = "<group>"; };
 		5C66DE68F2108D6E2B1085BF /* ChatsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsViewController.swift; sourceTree = "<group>"; };
 		5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageCell.swift; sourceTree = "<group>"; };
+		5F5580795BABB23ADE51EB7D /* TerminalStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalStripView.swift; sourceTree = "<group>"; };
 		650EBAD07E75A2D3EA0F60F3 /* MeterAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterAppearance.swift; sourceTree = "<group>"; };
 		6B48EC9D98C80D8F978F2F0A /* LeoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6BFB67E77A5BA319D698F594 /* AgentRowTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentRowTile.swift; sourceTree = "<group>"; };
@@ -218,6 +221,7 @@
 		D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTimeHeaderCell.swift; sourceTree = "<group>"; };
 		D9F7D132D3B67A3EEBB2210E /* ChatsSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSplitViewController.swift; sourceTree = "<group>"; };
 		DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPickerDelegate.swift; sourceTree = "<group>"; };
+		E46D47BEF0F4ED0DB6E612C6 /* StripEmulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StripEmulator.swift; sourceTree = "<group>"; };
 		E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPresentationTests.swift; sourceTree = "<group>"; };
 		E80E49AC6DF9D2AF1C449A51 /* MachinesHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesHost.swift; sourceTree = "<group>"; };
 		E901E6A2806E9B56B41BE780 /* LeoKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoKit; path = ../Packages/LeoKit; sourceTree = SOURCE_ROOT; };
@@ -459,6 +463,8 @@
 				B4F905B733C356A725C5FE60 /* ChatThreadViewController.swift */,
 				D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */,
 				36770E26AC7E79990AFA6F96 /* ComposerView.swift */,
+				E46D47BEF0F4ED0DB6E612C6 /* StripEmulator.swift */,
+				5F5580795BABB23ADE51EB7D /* TerminalStripView.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -793,10 +799,12 @@
 				54AACE07CCCE7DDA96ABD6F8 /* SettingsFixture.swift in Sources */,
 				47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */,
 				D3BAB2D4681490832C6470C8 /* StatsStyleViewController.swift in Sources */,
+				AB9A6A79ABD69284F11A2294 /* StripEmulator.swift in Sources */,
 				691FAB10CBE4FEDE4BF0FF85 /* TaskHistoryViewController.swift in Sources */,
 				EB64EEED1BC1858429F218F1 /* TaskLogViewController.swift in Sources */,
 				D0B71B4BBA703CBDC8610261 /* TaskPromptViewController.swift in Sources */,
 				6284C2784E803A0500458645 /* TasksViewController.swift in Sources */,
+				F96FA81692A9F34792B5D276 /* TerminalStripView.swift in Sources */,
 				15A91201486195EC72F38990 /* TerminalViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

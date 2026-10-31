@@ -71,7 +71,7 @@ final class ChatThreadTitleView: UIView {
         accessibilityLabel = [agentName, status.text].compactMap { $0 }.joined(separator: ", ")
     }
 
-    private static func statusLine(_ agent: Agent) -> String {
+    static func statusLine(_ agent: Agent) -> String {
         switch agent.priority {
         case .needsInput: String(localized: "Needs input")
         case .errored: String(localized: "Error")
