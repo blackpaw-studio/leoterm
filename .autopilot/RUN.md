@@ -36,6 +36,8 @@ Lane: B-334
   Wip: 3d2b0d723
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-10-31T19:14:00Z
 
 Progress:
 - Preflight: main merged (16bb4a6ab); inbox applied: created B-338 (bug). B-334 recovered from wip 3d2b0d723 as first pick (tier full). Lanes B-233, B-332 exist unlanded with no RUN.md block and items already done — left in place.
+- B-334 runner: leo dispatch d-ee5a104b7f77 (implement, pane %868).
