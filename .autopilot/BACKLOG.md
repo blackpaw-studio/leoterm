@@ -2456,6 +2456,7 @@ Note: B-331 verify: the chevron click-exclusion strip is full row height, so the
 Source: autopilot polish (B-331)
 
 ## B-338 · iOS UI test…   [ready]
+Issue: #309
 Type: bug
 Report: iOS UI test LeoMoveTests.testDuplicateAsksForAnOptionalNameThenAddsTheCopy fails on main CI since 0b240ddbe (agent-move UI merge, 2026-10-28) and again on ac11050ab (Leo iOS CI run 41202201931). Assertion at ios/LeoUITests/LeoMoveTests.swift:119: after Duplicate… → name "twin" → Copy, cell "agent.twin" never appears within 10s. Unknown whether Duplicate is actually broken in the app or the test/fixture is wrong; it passed in the chat-first branch's local full-scheme run after fixture fix 24b91fcc2. Find out which and fix; CI should be green.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
