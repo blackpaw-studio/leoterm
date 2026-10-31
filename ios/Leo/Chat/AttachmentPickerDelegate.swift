@@ -1,4 +1,5 @@
 import LeoFeatures
+import LeoKit
 import OSLog
 import PhotosUI
 import UIKit
@@ -50,6 +51,39 @@ final class AttachmentPickerDelegate: NSObject, UIImagePickerControllerDelegate,
                 let mime = type.preferredMIMEType ?? "image/jpeg"
                 Task { @MainActor [weak self] in
                     self?.store(data, name: "\(suggested).\(ext)", mime: mime, kind: .photo)
+                }
+            }
+        }
+    }
+
+    // MARK: Paste
+
+    /// Attaches what a paste put on the pasteboard: images (named and
+    /// encoded by `LeoPastedImage`) and copied files.
+    func attachPasted(_ providers: [NSItemProvider]) {
+        for provider in providers {
+            if let type = provider.registeredContentTypes.first(where: { $0.conforms(to: .image) }) {
+                _ = provider.loadDataRepresentation(for: type) { [weak self] data, error in
+                    guard let data, let image = LeoPastedImage(data: data) else {
+                        Self.logger.error("chat: image paste failed \(error?.localizedDescription ?? "unreadable image", privacy: .public)")
+                        return
+                    }
+                    Task { @MainActor [weak self] in
+                        self?.store(image.data, name: image.filename, mime: image.mime, kind: .photo)
+                    }
+                }
+            } else if provider.hasItemConformingToTypeIdentifier(UTType.item.identifier) {
+                let name = provider.suggestedName
+                _ = provider.loadFileRepresentation(for: .item, openInPlace: false) { [weak self] url, _, error in
+                    guard let url, let data = try? Data(contentsOf: url) else {
+                        Self.logger.error("chat: file paste failed \(error?.localizedDescription ?? "no file", privacy: .public)")
+                        return
+                    }
+                    let filename = url.lastPathComponent.isEmpty ? (name ?? "File") : url.lastPathComponent
+                    let mime = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
+                    Task { @MainActor [weak self] in
+                        self?.store(data, name: filename, mime: mime, kind: .file)
+                    }
                 }
             }
         }

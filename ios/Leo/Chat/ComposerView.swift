@@ -2,6 +2,7 @@ import ComposableArchitecture
 import LeoFeatures
 import UIKit
 import UIKitNavigation
+import UniformTypeIdentifiers
 
 /// The thread's input bar: an attach menu (camera, photo library, Files),
 /// a growing text view, and a send button that becomes a hold-to-record
@@ -15,7 +16,8 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private let store: StoreOf<Composer>
     private let pick: (Source) -> Void
-    private let textView = UITextView()
+    private let pasteAttachments: ([NSItemProvider]) -> Void
+    private lazy var textView = PasteAwareTextView { [weak self] in self?.pasteAttachments($0) }
     private let placeholder = UILabel()
     private let attachButton = UIButton(type: .system)
     private let actionButton = UIButton(type: .system)
@@ -27,9 +29,14 @@ final class ComposerView: UIView, UITextViewDelegate {
     private var recordingTimer: Timer?
     private var showsMic = true
 
-    init(store: StoreOf<Composer>, pick: @escaping (Source) -> Void) {
+    init(
+        store: StoreOf<Composer>,
+        pick: @escaping (Source) -> Void,
+        pasteAttachments: @escaping ([NSItemProvider]) -> Void
+    ) {
         self.store = store
         self.pick = pick
+        self.pasteAttachments = pasteAttachments
         super.init(frame: .zero)
         backgroundColor = .systemBackground
         build()
@@ -223,4 +230,34 @@ final class ComposerView: UIView, UITextViewDelegate {
     }
 
     func focus() { textView.becomeFirstResponder() }
+}
+
+/// A text view that also pastes images and copied files as attachments.
+/// Text on the pasteboard always wins, so a web-page copy (text plus an
+/// image) pastes as text; only an image-only or file-only paste attaches.
+final class PasteAwareTextView: UITextView {
+    private let pasteAttachments: ([NSItemProvider]) -> Void
+
+    init(pasteAttachments: @escaping ([NSItemProvider]) -> Void) {
+        self.pasteAttachments = pasteAttachments
+        super.init(frame: .zero, textContainer: nil)
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private var pasteboardHoldsAttachment: Bool {
+        let board = UIPasteboard.general
+        return !board.hasStrings && (board.hasImages || board.contains(pasteboardTypes: [UTType.fileURL.identifier]))
+    }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        if action == #selector(paste(_:)), pasteboardHoldsAttachment { return true }
+        return super.canPerformAction(action, withSender: sender)
+    }
+
+    override func paste(_ sender: Any?) {
+        guard pasteboardHoldsAttachment else { return super.paste(sender) }
+        pasteAttachments(UIPasteboard.general.itemProviders)
+    }
 }

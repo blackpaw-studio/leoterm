@@ -56,6 +56,7 @@
 		85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */; };
 		89473D2B7712366198CC2775 /* ChatThreadTitleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC683CC35301B8DD36DCF16C /* ChatThreadTitleView.swift */; };
 		8B81C9A92523833C6243FBEE /* NavFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDB8658BBFA2AA1DC3C7C96E /* NavFixture.swift */; };
+		8DD991FAC8CF7D6FD29A9BEC /* LeoChatPasteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */; };
 		8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */; };
 		8EA25F32175AB6CB49437F95 /* DialogAnchorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */; };
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
@@ -211,6 +212,7 @@
 		BE45FDF5272832A5443C1236 /* AgentAppearanceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAppearanceViewController.swift; sourceTree = "<group>"; };
 		C0D9A1F7848ADA6B35BFA29E /* LeoAppearancePalette+UIKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LeoAppearancePalette+UIKit.swift"; sourceTree = "<group>"; };
 		C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoAppearanceTests.swift; sourceTree = "<group>"; };
+		C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoChatPasteTests.swift; sourceTree = "<group>"; };
 		C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentDetailViewController.swift; sourceTree = "<group>"; };
 		CB1449AF007C779C9BAE7CC9 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		CB4AA411389E96719E10F589 /* TaskPromptViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPromptViewController.swift; sourceTree = "<group>"; };
@@ -432,6 +434,7 @@
 			isa = PBXGroup;
 			children = (
 				C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */,
+				C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */,
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
 				ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */,
 				A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */,
@@ -728,6 +731,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				52AF27E75BC9A3FA5D427A81 /* LeoAppearanceTests.swift in Sources */,
+				8DD991FAC8CF7D6FD29A9BEC /* LeoChatPasteTests.swift in Sources */,
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
 				674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */,
 				F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */,
