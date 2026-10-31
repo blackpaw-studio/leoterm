@@ -10,8 +10,6 @@ import UniformTypeIdentifiers
 final class ComposerView: UIView, UITextViewDelegate {
     enum Source { case camera, files, photos }
 
-    /// How far a drag off the mic cancels the recording.
-    private static let cancelDistance: CGFloat = 80
     private static let maximumTextHeight: CGFloat = 140
 
     private let store: StoreOf<Composer>
@@ -20,7 +18,8 @@ final class ComposerView: UIView, UITextViewDelegate {
     private lazy var textView = PasteAwareTextView { [weak self] in self?.pasteAttachments($0) }
     private let placeholder = UILabel()
     private let attachButton = UIButton(type: .system)
-    private let actionButton = UIButton(type: .system)
+    private let actionButton = MinimumHitButton(type: .system)
+    private var holdStart = CGPoint.zero
     private let hintLabel = UILabel()
     private let chips = UIStackView()
     private let chipScroller = UIScrollView()
@@ -187,7 +186,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private func updateRecordingLabel() {
         let elapsed = Date().timeIntervalSince(recordingStart)
-        recordingLabel.text = String(localized: "● \(ChatPresentation.duration(elapsed)) — slide away to cancel")
+        recordingLabel.text = String(localized: "● \(ChatPresentation.duration(elapsed)) — slide left to cancel")
     }
 
     private func actionTapped() {
@@ -202,11 +201,11 @@ final class ComposerView: UIView, UITextViewDelegate {
         guard showsMic || store.isRecording else { return }
         switch recognizer.state {
         case .began:
+            holdStart = recognizer.location(in: self)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             store.send(.recordButtonPressed)
         case .changed:
-            let point = recognizer.location(in: actionButton)
-            if hypot(point.x - actionButton.bounds.midX, point.y - actionButton.bounds.midY) > Self.cancelDistance {
+            if RecordingGesture.shouldCancel(start: holdStart, current: recognizer.location(in: self)) {
                 recognizer.state = .cancelled
             }
         case .ended:
@@ -230,6 +229,18 @@ final class ComposerView: UIView, UITextViewDelegate {
     }
 
     func focus() { textView.becomeFirstResponder() }
+}
+
+/// A button whose touch area is at least the 44pt HIG minimum however small
+/// it draws, so a hold-to-record press survives a thumb that drifts.
+final class MinimumHitButton: UIButton {
+    static let minimumSide: CGFloat = 44
+
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        let insetX = max(0, Self.minimumSide - bounds.width) / 2
+        let insetY = max(0, Self.minimumSide - bounds.height) / 2
+        return bounds.insetBy(dx: -insetX, dy: -insetY).contains(point)
+    }
 }
 
 /// A text view that also pastes images and copied files as attachments.
