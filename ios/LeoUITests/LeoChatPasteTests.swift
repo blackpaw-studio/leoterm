@@ -15,16 +15,29 @@ final class LeoChatPasteTests: XCTestCase {
         return app
     }
 
-    private func pasteIntoComposer(_ app: XCUIApplication) {
+    override func setUp() {
+        continueAfterFailure = false
+        UIPasteboard.general.items = []
+    }
+
+    /// Pastes through the edit menu, then waits for `done`; the first read of
+    /// another process's pasteboard asks permission, so "Allow Paste" is tapped when it shows.
+    private func pasteIntoComposer(_ app: XCUIApplication, until done: () -> Bool) {
         let field = app.textViews["chat.composer.text"]
         field.tap()
+        let focused = expectation(for: NSPredicate(format: "hasKeyboardFocus == true"), evaluatedWith: field)
+        wait(for: [focused], timeout: 5)
         field.press(forDuration: 1.0)
         let paste = app.menuItems["Paste"]
         XCTAssertTrue(paste.waitForExistence(timeout: 5), "the edit menu offers Paste")
         paste.tap()
-        // The first read of another process's pasteboard asks permission.
         let allow = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons["Allow Paste"]
-        if allow.waitForExistence(timeout: 2) { allow.tap() }
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline, !done() {
+            if allow.exists { allow.tap() }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        XCTAssertTrue(done(), "the paste landed")
     }
 
     private func attachChip(_ app: XCUIApplication) -> XCUIElement {
@@ -48,8 +61,7 @@ final class LeoChatPasteTests: XCTestCase {
     func testPastingAnImageAttachesIt() throws {
         UIPasteboard.general.image = png()
         let app = openThread()
-        pasteIntoComposer(app)
-        XCTAssertTrue(attachChip(app).waitForExistence(timeout: 5), "the pasted image is attached")
+        pasteIntoComposer(app) { attachChip(app).exists }
         snapshot("image-pasted")
         XCTAssertEqual(app.textViews["chat.composer.text"].value as? String ?? "", "")
     }
@@ -59,18 +71,25 @@ final class LeoChatPasteTests: XCTestCase {
         let pdf = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 72, height: 72)).pdfData { $0.beginPage() }
         UIPasteboard.general.setData(pdf, forPasteboardType: "com.adobe.pdf")
         let app = openThread()
-        pasteIntoComposer(app)
         let chip = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Remove ")).firstMatch
-        XCTAssertTrue(chip.waitForExistence(timeout: 5), "the pasted document is attached")
+        pasteIntoComposer(app) { chip.exists }
         snapshot("document-pasted")
     }
 
     func testPastingTextStaysText() throws {
         UIPasteboard.general.string = "hello paste"
         let app = openThread()
-        pasteIntoComposer(app)
+        pasteIntoComposer(app) { app.textViews["chat.composer.text"].value as? String == "hello paste" }
         XCTAssertEqual(app.textViews["chat.composer.text"].value as? String, "hello paste")
         XCTAssertFalse(attachChip(app).exists)
         snapshot("text-pasted")
+    }
+
+    /// A copied web link with no plain string is text for the field, not a file.
+    func testPastingALinkStaysText() throws {
+        UIPasteboard.general.url = URL(string: "https://example.com/paste")
+        let app = openThread()
+        pasteIntoComposer(app) { app.textViews["chat.composer.text"].value as? String == "https://example.com/paste" }
+        XCTAssertFalse(attachChip(app).exists)
     }
 }
