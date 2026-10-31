@@ -66,6 +66,16 @@ final class LeoChatScrollTests: XCTestCase {
         XCTAssertTrue(app.cells[before].exists, "the reader's place moved")
     }
 
+    /// The status bar tap scrolls to the top, and the list doesn't fight it back down.
+    func testStatusBarTapScrollsToTheTopAndStays() {
+        let app = openThread()
+        // The status bar isn't in the accessibility tree: tap where it is.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.005)).tap()
+        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertFalse(app.cells["chat.message.s69"].isHittable, "the list snapped back to the bottom")
+        XCTAssertTrue(app.cells.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chat.message.s")).firstMatch.exists)
+    }
+
     /// Sending is the reader asking to be at the bottom, wherever they were.
     func testScrolledUpReaderSendsAndSeesTheirMessage() {
         let app = openThread()

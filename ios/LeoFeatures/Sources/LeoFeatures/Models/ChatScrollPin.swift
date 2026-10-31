@@ -29,8 +29,9 @@ public struct ChatScrollMetrics: Equatable, Sendable {
 /// composer or an image sizing in moves the bottom, and a pinned list moves
 /// with it.
 public struct ChatScrollPin: Equatable, Sendable {
-    /// Within this many points of the bottom counts as at the bottom.
-    public static let nearBottom: CGFloat = 80
+    /// Within this many points of the bottom counts as at the bottom: rounding
+    /// and rubber-banding, not a reader a few lines up (they stay put).
+    public static let bottomTolerance: CGFloat = 8
     /// Smaller gaps are rounding, not a layout change to follow.
     private static let tolerance: CGFloat = 0.5
 
@@ -39,9 +40,9 @@ public struct ChatScrollPin: Equatable, Sendable {
     public init() {}
 
     /// The reader scrolled (a drag or its deceleration): they follow the
-    /// bottom while they rest near it.
+    /// bottom only while they rest on it.
     public mutating func userScrolled(_ metrics: ChatScrollMetrics) {
-        isPinned = metrics.distanceFromBottom < Self.nearBottom
+        isPinned = metrics.distanceFromBottom <= Self.bottomTolerance
     }
 
     /// The reader sent a message: they want to see it, wherever they were.

@@ -474,6 +474,13 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool { false }
 
+    /// The status bar tap isn't a drag: let go of the bottom so the list
+    /// doesn't fight the scroll back down.
+    func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+        pin.release()
+        return true
+    }
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         guard scrollView.isDragging || scrollView.isDecelerating else { return }
         pin.userScrolled(scrollMetrics)

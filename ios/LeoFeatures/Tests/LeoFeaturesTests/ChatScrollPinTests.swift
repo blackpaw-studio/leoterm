@@ -43,16 +43,29 @@ struct ChatScrollPinTests {
         #expect(pin.correction(for: metrics(offset: 200)) == nil)
     }
 
-    @Test func scrollingBackNearTheBottomRepins() {
+    @Test func scrollingBackToTheBottomRepins() {
         var pin = ChatScrollPin()
         pin.userScrolled(metrics(offset: 200))
-        pin.userScrolled(metrics(offset: 410 - ChatScrollPin.nearBottom + 1))
+        pin.userScrolled(metrics(offset: 410 - ChatScrollPin.bottomTolerance))
         #expect(pin.isPinned)
     }
 
-    @Test func justOutsideTheThresholdStaysUnpinned() {
+    /// A reader nudging up a few lines and letting go must stay put.
+    @Test func lettingGoAFewLinesAboveTheBottomStaysUnpinned() {
         var pin = ChatScrollPin()
-        pin.userScrolled(metrics(offset: 410 - ChatScrollPin.nearBottom - 1))
+        pin.userScrolled(metrics(offset: 410 - 40))
+        #expect(!pin.isPinned)
+        #expect(pin.correction(for: metrics(offset: 410 - 40)) == nil)
+        pin.userScrolled(metrics(offset: 410 - ChatScrollPin.bottomTolerance - 1))
+        #expect(!pin.isPinned)
+    }
+
+    /// New messages grow the content; a reader who scrolled up isn't moved.
+    @Test func incomingContentLeavesAnUnpinnedReaderWhereTheyAre() {
+        var pin = ChatScrollPin()
+        pin.userScrolled(metrics(offset: 200))
+        let grown = metrics(offset: 200, content: 1_400)
+        #expect(pin.correction(for: grown) == nil)
         #expect(!pin.isPinned)
     }
 
