@@ -26,11 +26,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
     private lazy var composer = ComposerView(store: store.scope(state: \.composer, action: \.composer)) { [weak self] in self?.pick($0) }
     private let replyBanner = UIButton(configuration: .plain())
-    private let filterButton = UIBarButtonItem(image: UIImage(systemName: "line.3.horizontal.decrease.circle"))
+    /// Everything but Terminal: the agent's info, the task filter and, while
+    /// the strip is hidden, the way to bring it back. The header holds just
+    /// these two buttons so a long agent name has room on a phone.
+    private let moreButton = UIBarButtonItem(image: UIImage(systemName: "ellipsis.circle"))
     private let terminalButton = UIBarButtonItem(image: UIImage(systemName: "terminal"))
-    private let infoButton = UIBarButtonItem(image: UIImage(systemName: "info.circle"))
     private let titleView = ChatThreadTitleView()
-    private let showStripButton = UIBarButtonItem(image: UIImage(systemName: "rectangle.topthird.inset.filled"))
     private let stripView = TerminalStripView()
     private let stripEmulator = StripEmulator()
     @Dependency(\.terminalStripOutput) private var stripOutput
@@ -59,14 +60,12 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         view.backgroundColor = .systemBackground
         navigationItem.largeTitleDisplayMode = .never
         navigationItem.titleView = titleView
-        navigationItem.rightBarButtonItems = [infoButton, terminalButton, filterButton]
-        filterButton.accessibilityLabel = String(localized: "Filter Task Output")
+        navigationItem.rightBarButtonItems = [moreButton, terminalButton]
+        moreButton.accessibilityLabel = String(localized: "More")
+        moreButton.accessibilityIdentifier = "chat.more"
         terminalButton.accessibilityLabel = String(localized: "Terminal")
         terminalButton.accessibilityIdentifier = "chat.terminal"
         terminalButton.primaryAction = UIAction(image: terminalButton.image) { [weak self] _ in self?.store.send(.terminalButtonTapped) }
-        infoButton.accessibilityLabel = String(localized: "Agent Info")
-        infoButton.accessibilityIdentifier = "chat.info"
-        infoButton.primaryAction = UIAction(image: infoButton.image) { [weak self] _ in self?.store.send(.infoButtonTapped) }
         collectionView.delegate = self
         collectionView.keyboardDismissMode = .interactive
         collectionView.accessibilityIdentifier = "chat.thread"
@@ -91,9 +90,6 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         stripView.onTap = { [weak self] in self?.store.send(.terminalButtonTapped) }
         stripView.onRetry = { [weak self] in self?.store.send(.strip(.terminal(.retryButtonTapped))) }
         stripView.onHide = { [weak self] in self?.store.send(.strip(.toggleTapped)) }
-        showStripButton.accessibilityLabel = String(localized: "Show Live Terminal")
-        showStripButton.accessibilityIdentifier = "chat.strip.show"
-        showStripButton.primaryAction = UIAction(image: showStripButton.image) { [weak self] _ in self?.store.send(.strip(.toggleTapped)) }
         for subview in [collectionView, bottom, stripView] as [UIView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
@@ -184,9 +180,9 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private func render() {
         title = store.agentName
         titleView.configure(agentName: store.agentName, agent: store.agent, daemonName: store.daemon.name)
-        renderFilterMenu()
         renderReplyBanner()
         renderStrip()
+        renderMoreMenu()
 
         let items = LeoChatTranscript.items(for: Array(store.messages))
         let ids = items.map(\.id)
@@ -269,7 +265,6 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         let shouldShow = isKnown && store.strip.isShown
         let stateText = store.agent.map { ChatThreadTitleView.statusLine($0) } ?? ""
         stripView.configure(.init(content: stripContent(), stateText: stateText))
-        navigationItem.rightBarButtonItems = [infoButton, terminalButton, filterButton] + (isKnown && !shouldShow ? [showStripButton] : [])
         setStrip(shown: shouldShow)
     }
 
@@ -316,7 +311,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         }
     }
 
-    private func renderFilterMenu() {
+    private func renderMoreMenu() {
         let current = store.taskFilter
         let all = UIAction(title: String(localized: "All Messages"), state: current == nil ? .on : .off) { [weak self] _ in
             self?.store.send(.taskFilterChanged(nil))
@@ -326,9 +321,24 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
                 self?.store.send(.taskFilterChanged(task))
             }
         }
-        filterButton.menu = UIMenu(title: String(localized: "Task Output"), children: [all] + (tasks.isEmpty ? [] : [UIMenu(options: .displayInline, children: tasks)]))
-        filterButton.image = UIImage(systemName: current == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
-        filterButton.isEnabled = !store.knownTasks.isEmpty || current != nil
+        let info = UIAction(title: String(localized: "Agent Info"), image: UIImage(systemName: "info.circle")) { [weak self] _ in
+            self?.store.send(.infoButtonTapped)
+        }
+        info.accessibilityIdentifier = "chat.info"
+        var sections: [UIMenuElement] = [UIMenu(options: .displayInline, children: [info])]
+        if store.agent != nil, !store.strip.isShown {
+            let show = UIAction(title: String(localized: "Show Live Terminal"), image: UIImage(systemName: "rectangle.topthird.inset.filled")) { [weak self] _ in
+                self?.store.send(.strip(.toggleTapped))
+            }
+            show.accessibilityIdentifier = "chat.strip.show"
+            sections.append(UIMenu(options: .displayInline, children: [show]))
+        }
+        if !tasks.isEmpty || current != nil {
+            let filterIcon = current == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill"
+            sections.append(UIMenu(title: String(localized: "Task Output"), image: UIImage(systemName: filterIcon), children: [all] + tasks))
+        }
+        moreButton.menu = UIMenu(children: sections)
+        moreButton.image = UIImage(systemName: current == nil ? "ellipsis.circle" : "ellipsis.circle.fill")
     }
 
     private func renderReplyBanner() {
