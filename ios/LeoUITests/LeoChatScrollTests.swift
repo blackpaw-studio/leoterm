@@ -25,14 +25,20 @@ final class LeoChatScrollTests: XCTestCase {
         try? XCUIScreen.main.screenshot().pngRepresentation.write(to: URL(fileURLWithPath: dir).appending(path: "\(name).png"))
     }
 
+    /// Polls `condition` until it holds or `timeout` passes.
+    private func wait(timeout: TimeInterval = 5, until condition: @escaping () -> Bool) -> Bool {
+        let expectation = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in condition() }, object: nil)
+        return XCTWaiter().wait(for: [expectation], timeout: timeout) == .completed
+    }
+
     /// The newest bubble's bottom edge is above the composer and on screen.
     private func assertNewestVisible(_ app: XCUIApplication, id: String, _ context: String, file: StaticString = #filePath, line: UInt = #line) {
         let thread = app.collectionViews["chat.thread"]
         let composer = app.textViews["chat.composer.text"]
         let newest = app.cells["chat.message.\(id)"]
         XCTAssertTrue(newest.waitForExistence(timeout: 5), "\(context): newest cell exists", file: file, line: line)
-        // Let late self-sizing (an image loading) settle before measuring.
-        Thread.sleep(forTimeInterval: 1.5)
+        // Late self-sizing (an image loading) may still be moving the list.
+        _ = wait { newest.frame.maxY <= composer.frame.minY + 20 && newest.frame.maxY >= thread.frame.maxY - 220 }
         XCTAssertTrue(newest.isHittable || newest.frame.maxY <= composer.frame.minY + 1, "\(context): newest cell visible", file: file, line: line)
         XCTAssertLessThanOrEqual(newest.frame.maxY, composer.frame.minY + 20, "\(context): newest cell ends above the composer (maxY \(newest.frame.maxY), composer \(composer.frame.minY))", file: file, line: line)
         XCTAssertGreaterThanOrEqual(newest.frame.maxY, thread.frame.maxY - 220, "\(context): list is not scrolled short of the bottom (maxY \(newest.frame.maxY))", file: file, line: line)
@@ -61,7 +67,9 @@ final class LeoChatScrollTests: XCTestCase {
         let before = app.cells.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chat.message.s")).firstMatch.identifier
         app.textViews["chat.composer.text"].tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        Thread.sleep(forTimeInterval: 1)
+        // The list has resized above the keyboard: the layout pass a pin would act on.
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(wait { thread.frame.maxY <= keyboard.frame.minY }, "the list never resized above the keyboard")
         XCTAssertFalse(app.cells["chat.message.s69"].isHittable, "a reader scrolled up was pulled to the newest message")
         XCTAssertTrue(app.cells[before].exists, "the reader's place moved")
     }
@@ -71,7 +79,7 @@ final class LeoChatScrollTests: XCTestCase {
         let app = openThread()
         // The status bar isn't in the accessibility tree: tap where it is.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.005)).tap()
-        Thread.sleep(forTimeInterval: 1.5)
+        XCTAssertTrue(wait { app.cells["chat.message.s20"].isHittable }, "the status bar tap never reached the top")
         XCTAssertFalse(app.cells["chat.message.s69"].isHittable, "the list snapped back to the bottom")
         XCTAssertTrue(app.cells.matching(NSPredicate(format: "identifier BEGINSWITH %@", "chat.message.s")).firstMatch.exists)
     }
@@ -96,8 +104,6 @@ final class LeoChatScrollTests: XCTestCase {
         composer.typeText("one\ntwo\nthree")
         snapshot("scroll-typed")
         app.buttons["chat.composer.send"].tap()
-        Thread.sleep(forTimeInterval: 1)
-        snapshot("scroll-after-send-raw")
         assertNewestVisible(app, id: "zz-sent-1", "after send")
         snapshot("scroll-sent")
         composer.typeText("again")
