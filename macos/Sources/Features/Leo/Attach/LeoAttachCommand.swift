@@ -12,10 +12,13 @@ struct LeoAgentIdentity: Hashable, Sendable {
     /// tab shows.
     let dispatchID: String?
     let title: String?
+    /// What the user reads for an agent (the daemon's `display_name`). Not
+    /// part of identity: equality and hashing ignore it.
+    let displayName: String?
 
     init(
         host: LeoHostID, name: String, workspace: String? = nil, repo: String? = nil,
-        dispatchID: String? = nil, title: String? = nil
+        dispatchID: String? = nil, title: String? = nil, displayName: String? = nil
     ) {
         self.host = host
         self.name = name
@@ -23,6 +26,7 @@ struct LeoAgentIdentity: Hashable, Sendable {
         self.repo = repo
         self.dispatchID = dispatchID
         self.title = title
+        self.displayName = displayName
     }
 
     /// A dispatch subagent on `host`, shown under `title`.

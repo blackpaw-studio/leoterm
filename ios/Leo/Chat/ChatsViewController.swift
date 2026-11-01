@@ -281,7 +281,7 @@ final class NewChatViewController: UIViewController, UICollectionViewDelegate {
         let cell = UICollectionView.CellRegistration<UICollectionViewListCell, AgentRef> { [weak self] cell, _, ref in
             guard let agent = self?.sections.first(where: { $0.id == ref.daemonID })?.agents.first(where: { $0.name == ref.name }) else { return }
             var content = UIListContentConfiguration.subtitleCell()
-            content.text = agent.name
+            content.text = agent.displayName
             cell.accessibilityIdentifier = "newChat.\(agent.name)"
             content.secondaryText = agent.statusText
             content.secondaryTextProperties.color = .secondaryLabel
@@ -306,8 +306,8 @@ final class NewChatViewController: UIViewController, UICollectionViewDelegate {
             var snapshot = NSDiffableDataSourceSnapshot<String, AgentRef>()
             for section in sections {
                 snapshot.appendSections([section.id])
-                let names = section.agents.map(\.name).sorted { $0.localizedStandardCompare($1) == .orderedAscending }
-                snapshot.appendItems(names.map { AgentRef(daemonID: section.id, name: $0) }, toSection: section.id)
+                let ordered = section.agents.sorted { $0.displayName.localizedStandardCompare($1.displayName) == .orderedAscending }
+                snapshot.appendItems(ordered.map { AgentRef(daemonID: section.id, name: $0.name) }, toSection: section.id)
             }
             snapshot.reconfigureItems(snapshot.itemIdentifiers)
             dataSource.apply(snapshot, animatingDifferences: false)

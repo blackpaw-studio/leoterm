@@ -28,7 +28,7 @@ struct LeoAgentControlBar: View {
             if layout.isTerminalVisible {
                 LeoControlPromptField(
                     text: Binding(get: { control.draft(for: row.id) }, set: { control.setDraft($0, for: row.id) }),
-                    placeholder: availability.reason ?? "Message \(row.name)",
+                    placeholder: availability.reason ?? "Message \(row.displayName)",
                     isEnabled: availability.canCompose,
                     handle: handle,
                     onSubmit: send
@@ -37,13 +37,13 @@ struct LeoAgentControlBar: View {
             } else {
                 Spacer(minLength: 0)
             }
-            symbolButton("stop.circle", "Interrupt", "Interrupt \(row.name) (⌃⌘.)", availability.canInterrupt) {
+            symbolButton("stop.circle", "Interrupt", "Interrupt \(row.displayName) (⌃⌘.)", availability.canInterrupt) {
                 Task { await control.interrupt(row) }
             }
-            symbolButton("arrow.down.right.and.arrow.up.left", "Compact", "Compact \(row.name)’s context (⌃⌘K)", availability.canCompact) {
+            symbolButton("arrow.down.right.and.arrow.up.left", "Compact", "Compact \(row.displayName)’s context (⌃⌘K)", availability.canCompact) {
                 Task { await control.compact(row) }
             }
-            symbolButton("eraser", "Clear", "Clear \(row.name)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
+            symbolButton("eraser", "Clear", "Clear \(row.displayName)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
             Divider().frame(height: 18)
             LeoAgentViewSwitch(agentName: row.name, active: layout.activeSegments, choose: choose)
                 .chatSegmentBadge(unreadCount: unreadCount)
@@ -66,7 +66,7 @@ struct LeoAgentControlBar: View {
         }
         .buttonStyle(.borderless)
         .disabled(!availability.canSend || !control.canSendDraft(for: row.id))
-        .help("Send to \(row.name) (Return)")
+        .help("Send to \(row.displayName) (Return)")
         .accessibilityLabel("Send")
     }
 

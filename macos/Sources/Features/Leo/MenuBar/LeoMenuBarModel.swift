@@ -103,7 +103,7 @@ enum LeoMenuBarModel {
         snapshot.rows
             .map { row in
                 LeoMenuBarAgent(
-                    id: row.id, name: row.name, state: state(of: row.status),
+                    id: row.id, name: row.displayName, state: state(of: row.status),
                     needsAttention: row.attention == .needsInput || row.attention == .errored
                 )
             }

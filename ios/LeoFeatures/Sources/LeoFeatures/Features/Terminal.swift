@@ -14,6 +14,8 @@ public struct Terminal {
     public struct State: Equatable {
         public var daemon: PairedDaemon
         public let agentName: String
+        /// What the user sees; `agentName` stays the identifier.
+        public let displayName: String
         /// Kept in step by the parent from the agent's status.
         public var isAgentRunning: Bool
         public var isSceneActive = true
@@ -23,9 +25,10 @@ public struct Terminal {
         public var failures = 0
         @Shared(.terminalSize) public var size
 
-        public init(daemon: PairedDaemon, agentName: String, isAgentRunning: Bool) {
+        public init(daemon: PairedDaemon, agentName: String, isAgentRunning: Bool, displayName: String? = nil) {
             self.daemon = daemon
             self.agentName = agentName
+            self.displayName = displayName ?? agentName
             self.isAgentRunning = isAgentRunning
         }
 

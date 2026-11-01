@@ -64,7 +64,7 @@ enum LeoControlFeedback: Equatable, Sendable {
         guard let delivery = await perform(.message, row, { try await $0.message(row.name, text: text) }) else { return }
         // Only the draft that was sent: anything typed meanwhile stays.
         if draft(for: row.id) == sentDraft { drafts[row.id] = nil }
-        if delivery == .queued { feedback[row.id] = .notice("Queued. \(row.name) will get it when it can.") }
+        if delivery == .queued { feedback[row.id] = .notice("Queued. \(row.displayName) will get it when it can.") }
     }
 
     func interrupt(_ row: LeoAgentRow) async { _ = await perform(.interrupt, row) { try await $0.interrupt(row.name) } }

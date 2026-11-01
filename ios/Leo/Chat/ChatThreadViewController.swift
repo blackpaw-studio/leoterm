@@ -187,8 +187,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     }
 
     private func render() {
-        title = store.agentName
-        titleView.configure(agentName: store.agentName, agent: store.agent, daemonName: store.daemon.name)
+        title = store.displayName
+        titleView.configure(agentName: store.agentName, displayName: store.displayName, agent: store.agent, daemonName: store.daemon.name)
         renderReplyBanner()
         renderStrip()
         renderMoreMenu()
@@ -316,7 +316,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             var configuration = UIContentUnavailableConfiguration.empty()
             configuration.image = UIImage(systemName: "bubble.left.and.bubble.right")
             configuration.text = store.taskFilter == nil ? String(localized: "No Messages Yet") : String(localized: "No Output from \(store.taskFilter ?? "")")
-            configuration.secondaryText = store.taskFilter == nil ? String(localized: "Say hello to \(store.agentName).") : nil
+            configuration.secondaryText = store.taskFilter == nil ? String(localized: "Say hello to \(store.displayName).") : nil
             contentUnavailableConfiguration = configuration
         } else {
             contentUnavailableConfiguration = nil

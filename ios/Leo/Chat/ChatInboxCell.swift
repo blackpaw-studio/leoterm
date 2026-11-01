@@ -42,7 +42,7 @@ struct ChatInboxConfiguration: UIContentConfiguration, Equatable {
     /// What VoiceOver reads for the row.
     var accessibilityText: String {
         [
-            row.ref.name, row.bucket?.label, row.previewPrefix?.text,
+            row.displayName, row.bucket?.label, row.previewPrefix?.text,
             row.lastMessage.map(ChatPresentation.preview) ?? String(localized: "No messages yet"),
             row.unread > 0 ? String(localized: "\(row.unread) unread") : nil,
         ].compactMap { $0 }.joined(separator: ", ")
@@ -108,7 +108,7 @@ private final class ChatInboxContentView: UIView, UIContentView {
         guard let configuration = configuration as? ChatInboxConfiguration else { return }
         let row = configuration.row
         avatar.configure(row)
-        name.text = row.daemonName.map { "\(row.ref.name) · \($0)" } ?? row.ref.name
+        name.text = row.daemonName.map { "\(row.displayName) · \($0)" } ?? row.displayName
         name.font = .preferredFont(forTextStyle: .headline).withWeight(row.unread > 0 ? .bold : .semibold)
         time.text = row.lastMessage.map { ChatPresentation.time($0.ts, now: configuration.now) }
         preview.attributedText = Self.previewText(row)

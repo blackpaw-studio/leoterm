@@ -265,7 +265,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             if identity.dispatchID == nil, !placesDispatches(identity.host) { unplaced.insert(handle) }
             beginGeneration(of: handle)
             adoptHostFocus()
-            host.setAgentName(handle, name: identity.title ?? identity.name)
+            host.setAgentName(handle, name: identity.title ?? identity.displayName ?? identity.name)
             if identity.dispatchID != nil { host.markDispatch(handle, readOnly: access == .readOnly) }
             return .success(handle)
         } catch {
@@ -373,7 +373,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             identityByHandle[replacement] = identity
             handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == handle ? replacement : $0 }
             beginGeneration(of: replacement)
-            host.setAgentName(replacement, name: identity.title ?? identity.name)
+            host.setAgentName(replacement, name: identity.title ?? identity.displayName ?? identity.name)
         } catch {
             report(LeoAttachError(identity: identity, kind: .openFailed(error.localizedDescription)))
         }

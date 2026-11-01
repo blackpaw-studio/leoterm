@@ -114,7 +114,7 @@ public struct AppFeature {
                 case .appearanceRequested(let ref):
                     guard let session = state.fleet.sessions[id: ref.daemonID], session.supportsAppearance,
                           let agent = session.agents[id: ref.name] else { return .none }
-                    state.appearance = AgentAppearance.State(daemon: session.daemon, agentName: ref.name, appearance: agent.appearance)
+                    state.appearance = AgentAppearance.State(daemon: session.daemon, agentName: ref.name, appearance: agent.appearance, displayName: agent.displayName)
                     return .none
 
                 case .chatNotificationAction(let response):

@@ -25,6 +25,24 @@ import Testing
         #expect(input.body == "Needs your input")
     }
 
+    @Test func titleShowsTheDisplayNameWhileIdentityStaysOnTheRawName() throws {
+        let notification = try #require(LeoAttentionNotification(transition(.finished, revision: 3), displayName: "Alpha Prime"))
+        #expect(notification.title == "Alpha Prime · mars")
+        #expect(notification.identifier == "studio.blackpaw.leo.attention.remote.mars.alpha.-.3")
+        #expect(LeoAttentionNotification.agent(fromUserInfo: notification.userInfo) == Self.alpha)
+
+        let handoff = LeoAttentionNotification(handoffFrom: Self.alpha, displayName: "Alpha Prime", requestID: "r1", message: "help")
+        #expect(handoff.title == "Alpha Prime · mars")
+        #expect(handoff.identifier.contains(".alpha.r1"))
+    }
+
+    @Test func controllerPostsTheDisplayNameItWasGiven() async throws {
+        let (controller, center, _) = makeController()
+        await controller.enable()
+        await controller.handle([transition(.finished, revision: 1)], displayNames: [Self.alpha: "Alpha Prime"])
+        #expect(center.posted.map(\.title) == ["Alpha Prime · mars"])
+    }
+
     @Test func onlyTransitionsMarkedShouldNotifyBecomeNotifications() {
         #expect(LeoAttentionNotification(transition(.finished, revision: 1, notify: false)) == nil)
         #expect(LeoAttentionNotification(transition(.errored, revision: 1, notify: true)) == nil)

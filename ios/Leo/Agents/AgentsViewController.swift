@@ -75,7 +75,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             }
             // With any tile on screen every row's image gets the tile's width, so names stay aligned.
             if self?.showsTiles == true { content.imageProperties.reservedLayoutSize = AgentRowTile.size }
-            content.text = agent.name
+            content.text = agent.displayName
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
             content.secondaryText = agent.summary
             content.secondaryTextProperties.color = .secondaryLabel
@@ -235,7 +235,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
 
     private func presentMoveSheet(for ref: AgentRef, at indexPath: IndexPath) {
         let availability = store.withState { $0.moveAvailability(for: ref.daemonID) }
-        let sheet = UIAlertController(title: ref.name, message: nil, preferredStyle: .actionSheet)
+        let sheet = UIAlertController(title: agent(ref)?.displayName ?? ref.name, message: nil, preferredStyle: .actionSheet)
         for host in availability.hosts {
             sheet.addAction(UIAlertAction(title: String(localized: "Move to \(host)"), style: .default) { [weak self] _ in
                 self?.store.send(.moveRequested(ref, .move(to: host)))

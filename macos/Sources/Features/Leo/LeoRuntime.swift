@@ -216,7 +216,8 @@ import LeoKit
         self.machines = machines
         agentBrowsers = Self.makeAgentBrowsers(
             machines: machines, defaults: defaults, poster: notificationCenter,
-            notificationsEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false }
+            notificationsEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false },
+            displayName: { id in weakSelf?.model.rows.first { $0.id == id }?.displayName }
         )
         let resolveExecutable = {
             let override = defaults.string(forKey: "leo.executablePath")
@@ -417,7 +418,7 @@ import LeoKit
         }
         LeoAgentsMenuController.shared.installMoveShortcuts()
         control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in
-            await LeoClearConfirmation.confirm(agent: row.name, in: window)
+            await LeoClearConfirmation.confirm(agent: row.displayName, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
         // Agents ▸ Reconnect (Q7): every machine that isn't connected,
