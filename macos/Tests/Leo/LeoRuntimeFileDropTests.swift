@@ -82,29 +82,118 @@ struct LeoRuntimeFileDropTests {
         return board
     }
 
-    @Test func remoteAgentImagePasteUploadsAPNGAndTypesItsPathThenLeavesNoTempFile() async throws {
-        let destination = try LeoFileSandbox()
-        defer { destination.cleanUp() }
+    private func fixedNow() throws -> Date {
         var utc = Calendar(identifier: .gregorian)
         utc.timeZone = try #require(TimeZone(secondsFromGMT: 0))
-        let state = State()
-        state.now = try #require(utc.date(from: DateComponents(
+        return try #require(utc.date(from: DateComponents(
             year: 2026, month: 11, day: 1, hour: 0, minute: 7, second: 48, nanosecond: 500_000_000
         )))
-        state.context = context(host: .remote("work"), workspace: destination.root)
-        state.accesses = [LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher())]
+    }
+
+    private let pasteName = "leo-paste-20261101-000748-500.png"
+
+    @Test func remoteAgentImagePasteUploadsToTheScratchDirNotTheWorkspaceAndLeavesNoTempFile() async throws {
+        let workspace = try LeoFileSandbox()
+        let home = try LeoFileSandbox()
+        defer {
+            workspace.cleanUp()
+            home.cleanUp()
+        }
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(host: .remote("work"), workspace: workspace.root)
+        state.accesses = [FileDropHomeAccess(
+            base: LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher()), home: home.root
+        )]
         let runtime = makeRuntime(state)
         let surface = try makeSurface()
-        let name = "leo-paste-20261101-000748-500.png"
+        let scratchPath = home.path(".cache/leo/paste/" + pasteName)
+        #expect(!exists(home.path(".cache")))
 
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
         await awaitCondition { !state.inserted.isEmpty }
 
         #expect(state.requestedHosts == [.remote("work")])
-        #expect(state.inserted == [Ghostty.Shell.escape(destination.path(name)) + " "])
-        let uploaded = try Data(contentsOf: URL(fileURLWithPath: destination.path(name)))
+        #expect(state.inserted == [Ghostty.Shell.escape(scratchPath) + " "])
+        let uploaded = try Data(contentsOf: URL(fileURLWithPath: scratchPath))
         #expect(uploaded.prefix(4) == Data([0x89, 0x50, 0x4E, 0x47]))
-        #expect(!FileManager.default.fileExists(atPath: FileManager.default.temporaryDirectory.appendingPathComponent(name).path))
+        #expect(try workspace.names().isEmpty, "nothing may land in the workspace")
+        #expect(!exists(FileManager.default.temporaryDirectory.appendingPathComponent(pasteName).path))
+        runtime.shutdown()
+    }
+
+    @Test func aSecondPasteReusesTheExistingScratchDirectory() async throws {
+        let home = try LeoFileSandbox()
+        defer { home.cleanUp() }
+        try home.directory(".cache/leo/paste")
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(workspace: "/workspace")
+        state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        // `.local` is not remote, so drive the queue the way a paste does.
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(pasteName)
+        try Data("png".utf8).write(to: file)
+        let queue = LeoTerminalFileDropQueue(runtime: runtime, surface: surface)
+        runtime.terminalFileDropQueues[surface.id] = queue
+        var job = LeoTerminalFileDropQueue.Job(sources: [file], context: try #require(state.context), ownedFiles: [file])
+        job.destination = .pasteScratch
+        queue.enqueue(job)
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(try home.contents(".cache/leo/paste/" + pasteName) == "png")
+        runtime.shutdown()
+    }
+
+    @Test func aBlockedScratchDirectoryShowsAnErrorInsertsNothingAndRemovesTheTempFile() async throws {
+        let home = try LeoFileSandbox()
+        defer { home.cleanUp() }
+        try home.file(".cache", "i am a file")
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent(pasteName).path
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        await awaitCondition { !exists(temp) }
+
+        guard case .failed = surface.leoFileDropStatus else {
+            Issue.record("expected a failure status")
+            runtime.shutdown()
+            return
+        }
+        #expect(state.inserted.isEmpty)
+        #expect(try home.contents(".cache") == "i am a file")
+        runtime.shutdown()
+    }
+
+    @Test func aFinderDropStaysInTheWorkspaceAndNeverTouchesTheScratchDirectory() async throws {
+        let source = try LeoFileSandbox()
+        let workspace = try LeoFileSandbox()
+        let home = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            workspace.cleanUp()
+            home.cleanUp()
+        }
+        let path = try source.file("drop.txt", "dropped")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: workspace.root)
+        state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(state.inserted == [workspace.path("drop.txt") + " "])
+        #expect(try workspace.contents("drop.txt") == "dropped")
+        #expect(try home.names().isEmpty)
         runtime.shutdown()
     }
 
@@ -691,6 +780,26 @@ private struct FileDropGatedAccess: LeoFileAccess {
         await gate.close()
         await base.close()
     }
+}
+
+/// Reports a sandbox as the host's home, so a paste's scratch directory never
+/// lands in the real `~/.cache` during tests.
+private struct FileDropHomeAccess: LeoFileAccess {
+    let base: any LeoFileAccess
+    let home: String
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { home }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        try await base.create(at: path, from: source)
+    }
+    func ensureDirectory(_ path: String) async throws { try await base.ensureDirectory(path) }
+    func close() async { await base.close() }
 }
 
 private struct FileDropUnusedDaemon: LeoDaemonClient {

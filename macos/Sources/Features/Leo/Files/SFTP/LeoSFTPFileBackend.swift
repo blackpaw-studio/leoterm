@@ -119,6 +119,10 @@ struct LeoSFTPFileBackend: LeoFileAccessBackend {
         try await client().rename(source, to: destination)
     }
 
+    func makeDirectory(_ path: String, permissions: UInt16?) async throws {
+        try await client().makeDirectory(path, permissions: permissions.map(UInt32.init))
+    }
+
     func remove(_ path: String) async throws {
         try await client().remove(path)
     }

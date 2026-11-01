@@ -70,6 +70,11 @@ struct LeoImagePasteTests {
         #expect(LeoImagePaste.pngData(from: board) == png)
     }
 
+    @Test func scratchDirectoryIsTheUsersCacheUnderHome() {
+        #expect(LeoImagePaste.scratchDirectory(home: "/Users/evan") == "/Users/evan/.cache/leo/paste")
+        #expect(LeoImagePaste.scratchDirectory(home: "/") == "/.cache/leo/paste")
+    }
+
     @Test func textOnlyClipboardHasNoImage() {
         let board = pasteboard()
         board.setString("hello", forType: .string)

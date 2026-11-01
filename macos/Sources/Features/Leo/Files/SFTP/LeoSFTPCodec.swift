@@ -70,6 +70,7 @@ enum LeoSFTPCodec {
         case .opendir: .opendir
         case .readdir: .readdir
         case .remove: .remove
+        case .mkdir: .mkdir
         case .realpath: .realpath
         case .stat: .stat
         case .rename: .rename
@@ -98,6 +99,9 @@ enum LeoSFTPCodec {
             writeAttributes(attributes, into: &body)
         case let .lstat(path), let .opendir(path), let .remove(path), let .realpath(path), let .stat(path):
             body.string(path)
+        case let .mkdir(path, attributes):
+            body.string(path)
+            writeAttributes(attributes, into: &body)
         case let .rename(from, to):
             body.string(from)
             body.string(to)

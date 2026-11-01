@@ -30,6 +30,9 @@ public protocol LeoFileAccessBackend: Sendable {
     /// `destination`, failing rather than replacing anything there.
     func publishExclusive(_ destination: String, with source: String) async throws
     func remove(_ path: String) async throws
+    /// Makes the one directory `path` (its parent exists), with exactly
+    /// `permissions` when non-nil. Fails if `path` exists.
+    func makeDirectory(_ path: String, permissions: UInt16?) async throws
     /// Moves `source` over `destination`, replacing it. On failure, removes
     /// `source` unless that could lose the only copy of the data.
     func replace(_ destination: String, with source: String) async throws
@@ -46,6 +49,10 @@ extension LeoFileAccessBackend {
 
     public func publishExclusive(_ destination: String, with source: String) async throws {
         throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support exclusive publication")
+    }
+
+    public func makeDirectory(_ path: String, permissions: UInt16?) async throws {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating folders")
     }
 }
 
@@ -196,6 +203,35 @@ public struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
             throw LeoFileAccessError.wrapping(error, path: path)
         }
         return result
+    }
+
+    /// Walks the path's components, creating each missing one private to the
+    /// user. Symlinks to directories count as present (`~/.cache` often is
+    /// one); `.`/`..` are refused so a path can't climb out of what was named.
+    public func ensureDirectory(_ path: String) async throws {
+        try closed.check()
+        try Self.validate(path)
+        let components = path.split(separator: "/", omittingEmptySubsequences: true)
+        guard !components.contains(".."), !components.contains(".") else { throw LeoFileAccessError.invalidPath(path) }
+        var current = ""
+        for component in components {
+            current += "/" + component
+            try await ensureSingleDirectory(current)
+        }
+    }
+
+    private func ensureSingleDirectory(_ path: String) async throws {
+        if let existing = try await statIfPresent(path) {
+            guard existing.kind == .directory else { throw LeoFileAccessError.notADirectory(path: path) }
+            return
+        }
+        do {
+            try await backend.makeDirectory(path, permissions: 0o700)
+        } catch {
+            // Lost a race to another writer: fine as long as it's a directory now.
+            if let existing = try? await statIfPresent(path), existing.kind == .directory { return }
+            throw LeoFileAccessError.wrapping(error, path: path)
+        }
     }
 
     public func close() async {
