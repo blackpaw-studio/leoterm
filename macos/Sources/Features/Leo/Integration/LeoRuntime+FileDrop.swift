@@ -1,5 +1,8 @@
 import AppKit
 import LeoKit
+import os
+
+private let imagePasteLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
 struct LeoTerminalFileDropContext: Equatable {
     let identity: LeoAgentIdentity
@@ -23,6 +26,8 @@ struct LeoTerminalFileDropDependencies {
     let context: @MainActor (Ghostty.SurfaceView) -> LeoTerminalFileDropContext?
     let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     let insertText: @MainActor (Ghostty.SurfaceView, String) -> Void
+    /// Names a pasted image's temp file.
+    var now: @MainActor () -> Date = { Date() }
 }
 
 @MainActor final class LeoTerminalFileDropQueue {
@@ -30,6 +35,10 @@ struct LeoTerminalFileDropDependencies {
         let id = UUID()
         let sources: [URL]
         let context: LeoTerminalFileDropContext
+        /// Temp files the queue created for this job (a pasted image) and so
+        /// deletes once the job leaves the queue, however it ends. Dropped
+        /// Finder files are never owned.
+        var ownedFiles: [URL] = []
     }
 
     private final class Operation {
@@ -82,6 +91,7 @@ struct LeoTerminalFileDropDependencies {
 
     func cancel(clearStatus: Bool) {
         epoch &+= 1
+        retire(jobs)
         jobs = []
         let operation = active
         active = nil
@@ -142,8 +152,10 @@ struct LeoTerminalFileDropDependencies {
         guard owns(operation), jobs.first?.id == operation.job.id else { return }
         active = nil
         jobs.removeFirst()
+        retire([operation.job])
         guard !Task.isCancelled, let runtime, let surface,
               runtime.fileDropContext(for: surface) == operation.job.context else {
+            retire(jobs)
             jobs = []
             failures = []
             failureContext = nil
@@ -159,6 +171,12 @@ struct LeoTerminalFileDropDependencies {
         }
         surface.leoFileDropStatus = failures.isEmpty ? nil : .failed(failures.joined(separator: "\n"))
         startNext()
+    }
+
+    /// Deletes the temp files a job owned. Safe while sftp still reads one:
+    /// an open file outlives its unlink on POSIX.
+    private func retire(_ jobs: [Job]) {
+        for url in jobs.flatMap(\.ownedFiles) { try? FileManager.default.removeItem(at: url) }
     }
 
     private func clearFailures() {
@@ -206,6 +224,35 @@ extension LeoRuntime {
         return true
     }
 
+    /// Uploads the clipboard image to a remote agent's workspace when the
+    /// decision table says so, exactly like a dropped file. False means the
+    /// key keeps its normal behaviour: nothing was claimed.
+    func performImagePaste(
+        _ key: LeoImagePaste.Key, pasteboard: NSPasteboard, isRepeat: Bool = false, from surface: Ghostty.SurfaceView
+    ) -> Bool {
+        let decision = LeoImagePaste.decide(
+            key: key, hasImage: LeoImagePaste.hasImage(pasteboard), hasText: LeoImagePaste.hasText(pasteboard),
+            surface: imagePasteSurfaceKind(for: surface)
+        )
+        guard decision == .uploadImage, let context = fileDropContext(for: surface) else { return false }
+        // Holding the key must not upload once per autorepeat. Claim the event
+        // so it doesn't fall through and send a stray 0x16 to the pty.
+        if isRepeat { return true }
+        guard let png = LeoImagePaste.pngData(from: pasteboard) else { return false }
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent(LeoImagePaste.fileName(at: terminalFileDropDependencies?.now() ?? Date()))
+        do {
+            try png.write(to: file, options: .atomic)
+        } catch {
+            imagePasteLogger.error("image paste: could not write temp PNG: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+        let queue = terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: self, surface: surface)
+        terminalFileDropQueues[surface.id] = queue
+        queue.enqueue(.init(sources: [file], context: context, ownedFiles: [file]))
+        return true
+    }
+
     func fileDropContext(for surface: Ghostty.SurfaceView) -> LeoTerminalFileDropContext? {
         if let dependency = terminalFileDropDependencies { return dependency.context(surface) }
         guard let identity = attachCoordinator.identity(forSurface: surface.id) else { return nil }
@@ -214,6 +261,14 @@ extension LeoRuntime {
             workspace: editorContext(for: identity).workspace,
             generation: attachCoordinator.generation(forSurface: surface.id) ?? 0
         )
+    }
+
+    /// How an image paste treats this surface: only an agent attached on a
+    /// remote machine can't read the Mac's clipboard itself. Dispatch panes
+    /// and plain shells resolve to no drop context, so they stay `.plain`.
+    func imagePasteSurfaceKind(for surface: Ghostty.SurfaceView) -> LeoImagePaste.SurfaceKind {
+        guard let context = fileDropContext(for: surface) else { return .plain }
+        return context.identity.host == .local ? .localAgent : .remoteAgent
     }
 
     func makeFileDropAccess(for host: LeoHostID) throws -> any LeoFileAccess {

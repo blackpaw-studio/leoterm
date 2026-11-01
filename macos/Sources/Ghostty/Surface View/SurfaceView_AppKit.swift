@@ -1146,6 +1146,10 @@ extension Ghostty {
                 return
             }
 
+            // Ctrl+V with an image on the clipboard on a remote agent. Backstop
+            // for the same hook in performKeyEquivalent.
+            if leoPerformImagePaste(for: event) { return }
+
             // On any keyDown event we unset our bell state
             bell = false
 
@@ -1358,6 +1362,11 @@ extension Ghostty {
             if !focused {
                 return false
             }
+
+            // Remote agents can't read the Mac's clipboard, so an image paste is
+            // uploaded instead. Key equivalents reach this view before the main
+            // menu, so this catches both the menu's paste route and a binding.
+            if leoPerformImagePaste(for: event) { return true }
 
             // Get information about if this is a binding.
             let bindingFlags = surfaceModel.flatMap { surface in
@@ -1685,6 +1694,8 @@ extension Ghostty {
         }
 
         @IBAction func paste(_ sender: Any?) {
+            // Edit > Paste with an image-only clipboard on a remote agent.
+            if leoPerformImagePaste(key: .commandV) { return }
             guard let surface = self.surface else { return }
             let action = "paste_from_clipboard"
             if !ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8))) {
@@ -2576,5 +2587,29 @@ struct TrailSurrogate {
         } else {
             return nil
         }
+    }
+}
+
+// MARK: - Leo remote image paste
+
+extension Ghostty.SurfaceView {
+    /// The image-paste key this event is: exactly Ctrl+V or ⌘V.
+    fileprivate func leoImagePasteKey(for event: NSEvent) -> LeoImagePaste.Key? {
+        guard event.charactersIgnoringModifiers == "v" else { return nil }
+        switch event.modifierFlags.intersection([.shift, .control, .option, .command]) {
+        case [.control]: return .controlV
+        case [.command]: return .commandV
+        default: return nil
+        }
+    }
+
+    fileprivate func leoPerformImagePaste(for event: NSEvent) -> Bool {
+        guard let key = leoImagePasteKey(for: event) else { return false }
+        return leoPerformImagePaste(key: key, isRepeat: event.isARepeat)
+    }
+
+    fileprivate func leoPerformImagePaste(key: LeoImagePaste.Key, isRepeat: Bool = false) -> Bool {
+        guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return false }
+        return runtime.performImagePaste(key, pasteboard: .general, isRepeat: isRepeat, from: self)
     }
 }

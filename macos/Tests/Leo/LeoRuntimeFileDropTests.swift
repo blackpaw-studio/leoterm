@@ -13,6 +13,7 @@ struct LeoRuntimeFileDropTests {
         var accesses: [any LeoFileAccess] = []
         var inserted: [String] = []
         var accessError: LeoFileAccessError?
+        var now = Date()
     }
 
     private func makeSurface() throws -> Ghostty.SurfaceView {
@@ -32,7 +33,8 @@ struct LeoRuntimeFileDropTests {
                     if let error = state.accessError { throw error }
                     return state.accesses.removeFirst()
                 },
-                insertText: { _, text in state.inserted.append(text) }
+                insertText: { _, text in state.inserted.append(text) },
+                now: { state.now }
             ),
             chatClient: FakeChatClient()
         )
@@ -50,6 +52,259 @@ struct LeoRuntimeFileDropTests {
             identity: LeoAgentIdentity(host: host, name: "scratch"), workspace: workspace,
             attachmentGeneration: generation
         )
+    }
+
+    @Test func imagePasteSurfaceKindSeparatesRemoteLocalAndPlainSurfaces() throws {
+        let state = State()
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        state.context = context(host: .remote("work"), workspace: "/work")
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .remoteAgent)
+        state.context = context(host: .local, workspace: "/work")
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .localAgent)
+        state.context = nil
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .plain)
+        runtime.shutdown()
+    }
+
+    // MARK: Image paste
+
+    private func imageBoard(text: String? = nil) throws -> NSPasteboard {
+        let board = NSPasteboard(name: NSPasteboard.Name("leo-image-paste-\(UUID().uuidString)"))
+        board.clearContents()
+        let rep = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 4, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ))
+        board.setData(try #require(rep.tiffRepresentation), forType: .tiff)
+        if let text { board.setString(text, forType: .string) }
+        return board
+    }
+
+    @Test func remoteAgentImagePasteUploadsAPNGAndTypesItsPathThenLeavesNoTempFile() async throws {
+        let destination = try LeoFileSandbox()
+        defer { destination.cleanUp() }
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let state = State()
+        state.now = try #require(utc.date(from: DateComponents(
+            year: 2026, month: 11, day: 1, hour: 0, minute: 7, second: 48, nanosecond: 500_000_000
+        )))
+        state.context = context(host: .remote("work"), workspace: destination.root)
+        state.accesses = [LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher())]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let name = "leo-paste-20261101-000748-500.png"
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(state.requestedHosts == [.remote("work")])
+        #expect(state.inserted == [Ghostty.Shell.escape(destination.path(name)) + " "])
+        let uploaded = try Data(contentsOf: URL(fileURLWithPath: destination.path(name)))
+        #expect(uploaded.prefix(4) == Data([0x89, 0x50, 0x4E, 0x47]))
+        #expect(!FileManager.default.fileExists(atPath: FileManager.default.temporaryDirectory.appendingPathComponent(name).path))
+        runtime.shutdown()
+    }
+
+    @Test func commandVWithTextOnTheClipboardLeavesTheTextPasteAlone() throws {
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(!runtime.performImagePaste(.commandV, pasteboard: try imageBoard(text: "hello"), from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func localAndPlainSurfacesNeverClaimAnImagePaste() throws {
+        let state = State()
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        state.context = context(host: .local, workspace: "/workspace")
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        state.context = nil
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func autorepeatOfAnImagePasteIsSwallowedWithoutUploading() throws {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let state = State()
+        state.now = try #require(utc.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 0, minute: 9, second: 1)))
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "must not be reached")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("leo-paste-20261101-000901-000.png").path
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), isRepeat: true, from: surface))
+        #expect(!exists(temp))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aRepeatThatIsNotAnImagePasteStaysUnclaimed() throws {
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = NSPasteboard(name: NSPasteboard.Name("leo-image-paste-\(UUID().uuidString)"))
+        board.clearContents()
+        board.setString("hello", forType: .string)
+
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: board, isRepeat: true, from: surface))
+        runtime.shutdown()
+    }
+
+    @Test func aFinderCopiedFileIsNotAnImagePaste() throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let file = try source.file("report.txt", "x")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = try imageBoard(text: "report.txt")
+        board.addTypes([.fileURL], owner: nil)
+        board.setString(URL(fileURLWithPath: file).absoluteString, forType: .fileURL)
+
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: board, from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    // MARK: Temp-file ownership
+
+    private func enqueueOwned(
+        _ file: String, context: LeoTerminalFileDropContext, runtime: LeoRuntime, surface: Ghostty.SurfaceView
+    ) {
+        let queue = runtime.terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: runtime, surface: surface)
+        runtime.terminalFileDropQueues[surface.id] = queue
+        let url = URL(fileURLWithPath: file)
+        queue.enqueue(.init(sources: [url], context: context, ownedFiles: [url]))
+    }
+
+    private nonisolated func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
+
+    @Test func ownedFileIsRemovedAfterASuccessfulUpload() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("paste.png", "pixels")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(try destination.contents("paste.png") == "pixels")
+        #expect(!exists(path))
+        runtime.shutdown()
+    }
+
+    @Test func ownedFileIsRemovedAfterAFailedUpload() async throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let path = try source.file("paste.png", "pixels")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "SFTP unavailable")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await awaitCondition { !exists(path) }
+
+        #expect(!exists(path))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func ownedFilesAreRemovedWhenTheContextChangesUnderActiveAndQueuedJobs() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let active = try source.file("active.png", "a")
+        let queued = try source.file("queued.png", "b")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(active, context: try #require(state.context), runtime: runtime, surface: surface)
+        await gate.waitUntilEntered()
+        enqueueOwned(queued, context: try #require(state.context), runtime: runtime, surface: surface)
+        state.context = context(workspace: destination.root, generation: 2)
+        runtime.terminalFileDropContextDidChange()
+
+        #expect(!exists(active))
+        #expect(!exists(queued))
+        runtime.shutdown()
+    }
+
+    @Test func ownedFileIsRemovedWhenTheContextChangedBeforeTheUploadFinished() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("paste.png", "pixels")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await gate.waitUntilEntered()
+        state.context = context(workspace: destination.root, generation: 2)
+        await gate.release()
+        await awaitCondition { !exists(path) }
+
+        #expect(!exists(path))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aDroppedFinderFileIsNeverDeleted() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("keep.txt", "mine")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(exists(path))
+        runtime.shutdown()
     }
 
     @Test func localAndRemoteAttachedRoutesUploadAndInsertOnlyWorkspacePaths() async throws {
