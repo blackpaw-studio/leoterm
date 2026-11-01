@@ -216,6 +216,14 @@ extension LeoRuntime {
         )
     }
 
+    /// How an image paste treats this surface: only an agent attached on a
+    /// remote machine can't read the Mac's clipboard itself. Dispatch panes
+    /// and plain shells resolve to no drop context, so they stay `.plain`.
+    func imagePasteSurfaceKind(for surface: Ghostty.SurfaceView) -> LeoImagePaste.SurfaceKind {
+        guard let context = fileDropContext(for: surface) else { return .plain }
+        return context.identity.host == .local ? .localAgent : .remoteAgent
+    }
+
     func makeFileDropAccess(for host: LeoHostID) throws -> any LeoFileAccess {
         if let make = terminalFileDropDependencies?.makeAccess { return try make(host) }
         return try machines.makeFileAccess(for: host)

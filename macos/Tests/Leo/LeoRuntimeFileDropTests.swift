@@ -52,6 +52,20 @@ struct LeoRuntimeFileDropTests {
         )
     }
 
+    @Test func imagePasteSurfaceKindSeparatesRemoteLocalAndPlainSurfaces() throws {
+        let state = State()
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        state.context = context(host: .remote("work"), workspace: "/work")
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .remoteAgent)
+        state.context = context(host: .local, workspace: "/work")
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .localAgent)
+        state.context = nil
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .plain)
+        runtime.shutdown()
+    }
+
     @Test func localAndRemoteAttachedRoutesUploadAndInsertOnlyWorkspacePaths() async throws {
         for host in [LeoHostID.local, .remote("work")] {
             let source = try LeoFileSandbox()
