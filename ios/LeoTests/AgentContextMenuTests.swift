@@ -5,11 +5,19 @@ import Testing
 
 struct AgentContextMenuTests {
     private func offering(
-        canMove: Bool = true,
+        agent: Agent? = Self.agent(),
         _ availability: MoveAvailability,
         appearance: Bool = true
     ) -> AgentContextMenu.Offering {
-        AgentContextMenu.Offering(canMove: canMove, availability: availability, supportsAppearance: appearance)
+        AgentContextMenu.Offering(agent: agent, availability: availability, supportsAppearance: appearance)
+    }
+
+    private static func agent(moved: Bool = false) -> Agent {
+        Agent(name: "zeus", status: .running, activity: .working, movedTo: moved ? "hestia" : nil)
+    }
+
+    @Test func anAgentTheDaemonNoLongerReportsGetsNoMenu() {
+        #expect(offering(agent: nil, .hosts(["hestia"])).isEmpty)
     }
 
     @Test func aDaemonWithHostsOffersMoveCopyDuplicateAndAppearance() {
@@ -20,7 +28,7 @@ struct AgentContextMenuTests {
     }
 
     @Test func anAgentThatCannotMoveOffersOnlyAppearance() {
-        let result = offering(canMove: false, .hosts(["hestia"]))
+        let result = offering(agent: Self.agent(moved: true), .hosts(["hestia"]))
         #expect(result.moveHosts.isEmpty)
         #expect(!result.offersDuplicate)
         #expect(result.offersAppearance)

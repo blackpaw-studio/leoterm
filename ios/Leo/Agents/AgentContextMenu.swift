@@ -15,11 +15,13 @@ enum AgentContextMenu {
 
         var isEmpty: Bool { !offersDuplicate && !offersAppearance }
 
-        init(canMove: Bool, availability: MoveAvailability, supportsAppearance: Bool) {
-            let moves = canMove && availability.offersDuplicate
+        /// `agent` is nil when the daemon no longer reports the agent (an
+        /// orphaned chat thread): nothing applies to it.
+        init(agent: Agent?, availability: MoveAvailability, supportsAppearance: Bool) {
+            let moves = agent?.canMove == true && availability.offersDuplicate
             moveHosts = moves ? availability.hosts : []
             offersDuplicate = moves
-            offersAppearance = supportsAppearance
+            offersAppearance = agent != nil && supportsAppearance
         }
     }
 
@@ -27,13 +29,13 @@ enum AgentContextMenu {
     static func offering(for ref: AgentRef, store: StoreOf<AppFeature>) -> Offering {
         let session = store.fleet.sessions[id: ref.daemonID]
         return Offering(
-            canMove: session?.agents[id: ref.name]?.canMove == true,
+            agent: session?.agents[id: ref.name],
             availability: store.withState { $0.moveAvailability(for: ref.daemonID) },
             supportsAppearance: session?.supportsAppearance == true
         )
     }
 
-    /// Nil when `ref` is not a known agent or has nothing to offer.
+    /// Nil when the daemon no longer reports the agent or there is nothing to offer.
     @MainActor
     static func configuration(for ref: AgentRef, store: StoreOf<AppFeature>) -> UIContextMenuConfiguration? {
         guard !offering(for: ref, store: store).isEmpty else { return nil }
