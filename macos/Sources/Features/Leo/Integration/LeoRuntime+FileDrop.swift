@@ -39,6 +39,15 @@ struct LeoTerminalFileDropDependencies {
         /// deletes once the job leaves the queue, however it ends. Dropped
         /// Finder files are never owned.
         var ownedFiles: [URL] = []
+        /// Where on the host the files land. Finder drops go to the agent's
+        /// workspace; a pasted image goes to a per-user scratch directory so
+        /// it never litters (or gets committed from) a repo.
+        enum Destination: Equatable {
+            case workspace
+            case pasteScratch
+        }
+
+        var destination = Destination.workspace
     }
 
     private final class Operation {
@@ -128,19 +137,44 @@ struct LeoTerminalFileDropDependencies {
                 operation.access = access
             } catch {
                 guard self.owns(operation), !Task.isCancelled else { return }
-                self.finish(
-                    operation,
-                    result: LeoFileDrop.Result(uploaded: [], failures: [
-                        LeoFileDrop.Failure(name: "Upload", message: LeoRuntime.fileDropMessage(error))
-                    ])
-                )
+                self.finish(operation, result: Self.failure(error))
                 return
             }
-            let result = await LeoFileDrop.upload(job.sources, to: job.context.workspace, access: access)
+            let directory: String
+            do {
+                directory = try await Self.directory(for: job, access: access)
+            } catch {
+                await access.close()
+                operation.access = nil
+                guard self.owns(operation), !Task.isCancelled else { return }
+                self.finish(operation, result: Self.failure(error))
+                return
+            }
+            let result = await LeoFileDrop.upload(job.sources, to: directory, access: access)
             await access.close()
             operation.access = nil
             guard self.owns(operation) else { return }
             self.finish(operation, result: result)
+        }
+    }
+
+    private static func failure(_ error: Error) -> LeoFileDrop.Result {
+        LeoFileDrop.Result(uploaded: [], failures: [
+            LeoFileDrop.Failure(name: "Upload", message: LeoRuntime.fileDropMessage(error))
+        ])
+    }
+
+    /// The host directory a job uploads into, made if it's the paste scratch
+    /// directory (`mkdir -p` on the host's own home, so it follows whatever
+    /// `~` means there).
+    private static func directory(for job: Job, access: any LeoFileAccess) async throws -> String {
+        switch job.destination {
+        case .workspace:
+            return job.context.workspace
+        case .pasteScratch:
+            let directory = LeoImagePaste.scratchDirectory(home: try await access.homeDirectory())
+            try await access.ensureDirectory(directory)
+            return directory
         }
     }
 
@@ -249,7 +283,9 @@ extension LeoRuntime {
         }
         let queue = terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: self, surface: surface)
         terminalFileDropQueues[surface.id] = queue
-        queue.enqueue(.init(sources: [file], context: context, ownedFiles: [file]))
+        var job = LeoTerminalFileDropQueue.Job(sources: [file], context: context, ownedFiles: [file])
+        job.destination = .pasteScratch
+        queue.enqueue(job)
         return true
     }
 

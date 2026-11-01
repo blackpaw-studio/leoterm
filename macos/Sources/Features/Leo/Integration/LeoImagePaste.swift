@@ -55,6 +55,11 @@ enum LeoImagePaste {
             .flatMap { $0.representation(using: .png, properties: [:]) }
     }
 
+    /// Where pasted images land on the remote host.
+    static func scratchDirectory(home: String) -> String {
+        (home as NSString).appendingPathComponent(".cache/leo/paste")
+    }
+
     /// `leo-paste-yyyyMMdd-HHmmss-SSS.png`, in UTC so the name doesn't depend
     /// on the Mac's zone.
     static func fileName(at date: Date) -> String {

@@ -14,6 +14,7 @@ enum LeoSFTPPacketType: UInt8 {
     case opendir = 11
     case readdir = 12
     case remove = 13
+    case mkdir = 14
     case realpath = 16
     case stat = 17
     case rename = 18
@@ -85,6 +86,7 @@ enum LeoSFTPRequest: Equatable, Sendable {
     case opendir(path: String)
     case readdir(handle: Data)
     case remove(path: String)
+    case mkdir(path: String, attributes: LeoSFTPAttributes)
     case realpath(path: String)
     case stat(path: String)
     case rename(from: String, to: String)
