@@ -51,7 +51,8 @@ extension LeoRuntime {
 
 extension LeoRuntime {
     func attentionTransitionsCommitted(_ transitions: [LeoAttentionTransition]) {
-        Task { [attentionNotifications] in await attentionNotifications.handle(transitions) }
+        let displayNames = Dictionary(model.rows.map { ($0.id, $0.displayName) }, uniquingKeysWith: { first, _ in first })
+        Task { [attentionNotifications] in await attentionNotifications.handle(transitions, displayNames: displayNames) }
     }
 
     /// Handles a click on one of our notifications (attach or focus the

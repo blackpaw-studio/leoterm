@@ -216,7 +216,8 @@ import LeoKit
         self.machines = machines
         agentBrowsers = Self.makeAgentBrowsers(
             machines: machines, defaults: defaults, poster: notificationCenter,
-            notificationsEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false }
+            notificationsEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false },
+            displayName: { id in weakSelf?.model.rows.first { $0.id == id }?.displayName }
         )
         let resolveExecutable = {
             let override = defaults.string(forKey: "leo.executablePath")

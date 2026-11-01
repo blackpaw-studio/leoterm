@@ -68,7 +68,8 @@ enum LeoFuzzyMatcher {
             .map(\.row)
     }
 
-    /// The name characters to draw bold for `query`.
+    /// The characters of the shown name to draw bold for `query`. Empty when
+    /// only the raw name matched: those offsets don't belong to the display name.
     static func nameHighlights(for row: LeoAgentRow, query: String) -> [Int] {
         match(trimmed(query), in: row.displayName)?.offsets ?? []
     }
@@ -97,7 +98,8 @@ enum LeoFuzzyMatcher {
 
     /// Tier first; at the same tier a name match beats a secondary match.
     private static func sortKey(for row: LeoAgentRow, query: String, secondary: (LeoAgentRow) -> String?) -> Int? {
-        let nameKey = match(query, in: row.displayName).map { $0.tier.rawValue * 2 }
+        // The shown name and the raw name both count: "leo-alfred" still finds "Alfred".
+        let nameKey = [row.displayName, row.name].compactMap { match(query, in: $0) }.map { $0.tier.rawValue * 2 }.min()
         let secondaryKey = secondary(row).flatMap { match(query, in: $0) }.map { $0.tier.rawValue * 2 + 1 }
         return [nameKey, secondaryKey].compactMap { $0 }.min()
     }

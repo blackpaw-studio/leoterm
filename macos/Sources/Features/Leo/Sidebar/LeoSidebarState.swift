@@ -131,6 +131,15 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         )
     }
 
+    func withDisplayName(_ displayName: String?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt
+        )
+    }
+
     var id: ID { ID(host: host, name: name) }
     var identity: LeoAgentIdentity { LeoAgentIdentity(host: host, name: name, workspace: workspace, repo: repo, displayName: displayName) }
 }

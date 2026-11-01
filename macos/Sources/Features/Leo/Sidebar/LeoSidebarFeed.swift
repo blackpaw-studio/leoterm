@@ -113,6 +113,7 @@ actor LeoSidebarFeed {
     var environments = LeoAgentEnvironmentsIndex.empty
     /// Resolved emoji and colors -- see `LeoSidebarFeed+Appearance.swift`.
     var appearance = LeoAgentAppearanceIndex.empty
+    var displayNames = LeoAgentDisplayNameIndex.empty
     var running = false
     var needsState = true
     var recovering = false
@@ -327,6 +328,7 @@ actor LeoSidebarFeed {
             if case .agentSpawned(_, _, let agent, _, _) = event { forgetTurn(agent.name); endCompaction(agent.name) }
             if case .agentStopped(_, _, let name, _) = event { forgetTurn(name); endCompaction(name) }
             receiveEnvironments(event)
+            receiveDisplayName(event)
             process(scheduler.reduce(.sseEvent(event)))
             requestMetadataRefresh()
         case .agentActivity:

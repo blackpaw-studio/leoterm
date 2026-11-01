@@ -27,7 +27,8 @@ import LeoKit
     /// `makeBrowser` is nil before macOS 14.
     init(
         setting: LeoAgentBrowserSetting, forwards: LeoMachinePortForwards, makeBrowser: LeoAgentBrowsers.MakeBrowser?,
-        makeClient: @escaping MakeClient, poster: any LeoNotificationPosting, notificationsEnabled: @escaping () -> Bool
+        makeClient: @escaping MakeClient, poster: any LeoNotificationPosting, notificationsEnabled: @escaping () -> Bool,
+        displayName: @escaping (LeoAgentRow.ID) -> String? = { _ in nil }
     ) {
         self.setting = setting
         self.forwards = forwards
@@ -37,7 +38,7 @@ import LeoKit
             onClosed: { [weak forwards] key in Task { await forwards?.release(key) } }
         )
         self.browsers = browsers
-        handoff = LeoHandoffNotifier(presence: browsers, poster: poster, isEnabled: notificationsEnabled)
+        handoff = LeoHandoffNotifier(presence: browsers, poster: poster, isEnabled: notificationsEnabled, displayName: displayName)
         // `@Published` sends before it stores: the sink reads the sent value.
         settingSubscription = setting.$isOn.dropFirst().removeDuplicates()
             .sink { [weak self] isOn in MainActor.assumeIsolated { self?.settingChanged(isOn: isOn) } }

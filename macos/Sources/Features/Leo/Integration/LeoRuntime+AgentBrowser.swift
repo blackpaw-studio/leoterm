@@ -10,7 +10,7 @@ import LeoKit
 extension LeoRuntime {
     static func makeAgentBrowsers(
         machines: LeoMachineRegistry, defaults: UserDefaults, poster: any LeoNotificationPosting,
-        notificationsEnabled: @escaping () -> Bool
+        notificationsEnabled: @escaping () -> Bool, displayName: @escaping (LeoAgentRow.ID) -> String? = { _ in nil }
     ) -> LeoAgentBrowserRuntime {
         let forwards = LeoMachinePortForwards(makeForwards: { [weak machines] host in machines?.makePortForwards(for: host) })
         let isSupported = LeoAgentBrowserSetting.isPlatformSupported && !LeoSingleInstance.isRunningAsTestHost()
@@ -23,7 +23,7 @@ extension LeoRuntime {
                     : LeoTunnelSocketTransport(base: LeoUnixSocketTransport())
                 return LeoClientToolsClient(socketPath: socketPath, transport: transport)
             },
-            poster: poster, notificationsEnabled: notificationsEnabled
+            poster: poster, notificationsEnabled: notificationsEnabled, displayName: displayName
         )
     }
 
