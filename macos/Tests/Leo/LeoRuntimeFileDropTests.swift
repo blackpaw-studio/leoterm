@@ -133,6 +133,53 @@ struct LeoRuntimeFileDropTests {
         runtime.shutdown()
     }
 
+    @Test func autorepeatOfAnImagePasteIsSwallowedWithoutUploading() throws {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let state = State()
+        state.now = try #require(utc.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 0, minute: 9, second: 1)))
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "must not be reached")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("leo-paste-20261101-000901-000.png").path
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), isRepeat: true, from: surface))
+        #expect(!exists(temp))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aRepeatThatIsNotAnImagePasteStaysUnclaimed() throws {
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = NSPasteboard(name: NSPasteboard.Name("leo-image-paste-\(UUID().uuidString)"))
+        board.clearContents()
+        board.setString("hello", forType: .string)
+
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: board, isRepeat: true, from: surface))
+        runtime.shutdown()
+    }
+
+    @Test func aFinderCopiedFileIsNotAnImagePaste() throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let file = try source.file("report.txt", "x")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = try imageBoard(text: "report.txt")
+        board.addTypes([.fileURL], owner: nil)
+        board.setString(URL(fileURLWithPath: file).absoluteString, forType: .fileURL)
+
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: board, from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
     // MARK: Temp-file ownership
 
     private func enqueueOwned(

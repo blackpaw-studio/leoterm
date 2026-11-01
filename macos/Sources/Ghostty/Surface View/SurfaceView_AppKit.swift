@@ -2605,11 +2605,11 @@ extension Ghostty.SurfaceView {
 
     fileprivate func leoPerformImagePaste(for event: NSEvent) -> Bool {
         guard let key = leoImagePasteKey(for: event) else { return false }
-        return leoPerformImagePaste(key: key)
+        return leoPerformImagePaste(key: key, isRepeat: event.isARepeat)
     }
 
-    fileprivate func leoPerformImagePaste(key: LeoImagePaste.Key) -> Bool {
+    fileprivate func leoPerformImagePaste(key: LeoImagePaste.Key, isRepeat: Bool = false) -> Bool {
         guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return false }
-        return runtime.performImagePaste(key, pasteboard: .general, from: self)
+        return runtime.performImagePaste(key, pasteboard: .general, isRepeat: isRepeat, from: self)
     }
 }

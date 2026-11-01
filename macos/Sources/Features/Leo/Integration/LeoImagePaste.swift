@@ -34,9 +34,10 @@ enum LeoImagePaste {
     }
 
     /// Whether the pasteboard holds an image. Asks the pasteboard without
-    /// decoding it.
+    /// decoding it. A copied file is not one: Finder also puts the file's
+    /// icon on the pasteboard as a TIFF, which must not be uploaded.
     static func hasImage(_ pasteboard: NSPasteboard) -> Bool {
-        pasteboard.canReadObject(forClasses: [NSImage.self], options: nil)
+        pasteboard.ghosttyFileURLs.isEmpty && pasteboard.canReadObject(forClasses: [NSImage.self], options: nil)
     }
 
     /// Whether the pasteboard holds text a normal ⌘V would paste.

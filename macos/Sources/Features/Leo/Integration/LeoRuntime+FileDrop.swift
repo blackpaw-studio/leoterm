@@ -227,13 +227,18 @@ extension LeoRuntime {
     /// Uploads the clipboard image to a remote agent's workspace when the
     /// decision table says so, exactly like a dropped file. False means the
     /// key keeps its normal behaviour: nothing was claimed.
-    func performImagePaste(_ key: LeoImagePaste.Key, pasteboard: NSPasteboard, from surface: Ghostty.SurfaceView) -> Bool {
+    func performImagePaste(
+        _ key: LeoImagePaste.Key, pasteboard: NSPasteboard, isRepeat: Bool = false, from surface: Ghostty.SurfaceView
+    ) -> Bool {
         let decision = LeoImagePaste.decide(
             key: key, hasImage: LeoImagePaste.hasImage(pasteboard), hasText: LeoImagePaste.hasText(pasteboard),
             surface: imagePasteSurfaceKind(for: surface)
         )
-        guard decision == .uploadImage, let context = fileDropContext(for: surface),
-              let png = LeoImagePaste.pngData(from: pasteboard) else { return false }
+        guard decision == .uploadImage, let context = fileDropContext(for: surface) else { return false }
+        // Holding the key must not upload once per autorepeat. Claim the event
+        // so it doesn't fall through and send a stray 0x16 to the pty.
+        if isRepeat { return true }
+        guard let png = LeoImagePaste.pngData(from: pasteboard) else { return false }
         let file = FileManager.default.temporaryDirectory
             .appendingPathComponent(LeoImagePaste.fileName(at: terminalFileDropDependencies?.now() ?? Date()))
         do {

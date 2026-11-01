@@ -85,4 +85,15 @@ struct LeoImagePasteTests {
 
         #expect(!LeoImagePaste.hasText(board))
     }
+
+    /// Finder puts the file URL, its name and the file's icon (TIFF) on the
+    /// pasteboard when a file is copied. That is a file, not an image paste.
+    @Test func copiedFileWithItsIconIsNotAnImage() throws {
+        let board = pasteboard()
+        board.setData(try #require(try bitmap(width: 2, height: 2).tiffRepresentation), forType: .tiff)
+        board.addTypes([.fileURL], owner: nil)
+        board.setString(URL(fileURLWithPath: "/tmp/report.txt").absoluteString, forType: .fileURL)
+
+        #expect(!LeoImagePaste.hasImage(board))
+    }
 }
