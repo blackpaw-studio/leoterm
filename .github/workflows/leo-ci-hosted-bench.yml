@@ -39,7 +39,10 @@ jobs:
       - name: Install coreutils (timeout)
         run: |
           brew install coreutils
-          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          # Only `timeout`: full gnubin shadows BSD stat/etc. and breaks script tests.
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
       # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
