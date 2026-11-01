@@ -417,7 +417,7 @@ import LeoKit
         }
         LeoAgentsMenuController.shared.installMoveShortcuts()
         control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in
-            await LeoClearConfirmation.confirm(agent: row.name, in: window)
+            await LeoClearConfirmation.confirm(agent: row.displayName, in: window)
         })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
         // Agents ▸ Reconnect (Q7): every machine that isn't connected,

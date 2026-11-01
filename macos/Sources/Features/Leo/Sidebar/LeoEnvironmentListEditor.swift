@@ -104,8 +104,8 @@ struct LeoEnvironmentsSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Environments for \(row.name)").font(.headline)
-                Text("Applied in this order. Changing them restarts \(row.name) and resumes its session.")
+                Text("Environments for \(row.displayName)").font(.headline)
+                Text("Applied in this order. Changing them restarts \(row.displayName) and resumes its session.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             LeoEnvironmentListEditor(list: $list, available: actions.environmentCatalog(for: row.host).catalog?.names ?? [])

@@ -107,7 +107,7 @@ struct LeoChatPane: View {
             if document == nil {
                 Divider()
                 LeoChatComposer(
-                    chat: chat, agent: row.id, agentName: row.name,
+                    chat: chat, agent: row.id, agentName: row.displayName,
                     focusRequest: session.chatFocusRequest, takeFocusRequest: session.takeChatFocusRequest
                 )
             }
@@ -134,7 +134,7 @@ struct LeoChatPane: View {
     private var header: some View {
         HStack(spacing: 8) {
             Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(.secondary)
-            Text(row.name).font(.headline).lineLimit(1).truncationMode(.middle)
+            Text(row.displayName).font(.headline).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
             taskFilterMenu
             LeoChatViewerIconButton(systemImage: "xmark", title: "Close Chat", action: close)

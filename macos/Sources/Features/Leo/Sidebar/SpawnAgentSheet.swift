@@ -97,7 +97,7 @@ struct SpawnAgentSheet: View {
     private func worktreeHeader(_ source: LeoAgentRow) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("New Agent in Worktree").font(.headline)
-            Text("A new branch of \(source.name)'s repository.").font(.caption).foregroundStyle(.secondary)
+            Text("A new branch of \(source.displayName)'s repository.").font(.caption).foregroundStyle(.secondary)
         }
         .padding(.bottom, 4)
     }

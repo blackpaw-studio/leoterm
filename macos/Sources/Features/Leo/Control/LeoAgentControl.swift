@@ -34,7 +34,7 @@ struct LeoAgentControlAvailability: Equatable, Sendable {
             return
         }
         if let movedTo = row.movedTo {
-            self = .off(isOffered: true, reason: "\(row.name) moved to \(movedTo).")
+            self = .off(isOffered: true, reason: "\(row.displayName) moved to \(movedTo).")
             return
         }
         let idle = inFlight == nil
@@ -44,11 +44,11 @@ struct LeoAgentControlAvailability: Equatable, Sendable {
         case .stopped where row.wakeOnMessage == true:
             self.init(isOffered: true, canCompose: true, canSend: idle, canInterrupt: false, canCompact: false, canClear: false, reason: nil)
         case .starting:
-            self = .off(isOffered: true, reason: "\(row.name) is starting.")
+            self = .off(isOffered: true, reason: "\(row.displayName) is starting.")
         case .restoring:
-            self = .off(isOffered: true, reason: "\(row.name) is restoring.")
+            self = .off(isOffered: true, reason: "\(row.displayName) is restoring.")
         case .stopped, .unknown:
-            self = .off(isOffered: true, reason: "\(row.name) isn't running.")
+            self = .off(isOffered: true, reason: "\(row.displayName) isn't running.")
         }
     }
 

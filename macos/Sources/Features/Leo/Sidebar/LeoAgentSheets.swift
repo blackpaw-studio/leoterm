@@ -47,7 +47,7 @@ struct LeoCopyAgentSheet: View {
     @State private var name = ""
 
     private var validation: String? { SpawnValidation.name(name, current: row.name) }
-    private var title: String { destination.map { "Copy \(row.name) to \($0)" } ?? "Duplicate \(row.name)" }
+    private var title: String { destination.map { "Copy \(row.displayName) to \($0)" } ?? "Duplicate \(row.displayName)" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -96,7 +96,7 @@ struct LeoDeleteAgentSheet: View {
 
     /// A moved agent's dormant record is a leftover copy, not the agent (B-324).
     private var title: String {
-        guard let movedTo = row.movedTo else { return "Delete \(row.name)?" }
+        guard let movedTo = row.movedTo else { return "Delete \(row.displayName)?" }
         return LeoMovedAgentWording.removeLeftoverTitle(on: SpawnMachineOption.title(for: row.host), movedTo: movedTo)
     }
 
@@ -155,16 +155,20 @@ struct LeoStartAgentSheet: View {
         model.startPrompt(in: prompt.origin).flatMap { $0.id == prompt.id ? $0 : nil } ?? prompt
     }
 
+    private var agentLabel: String {
+        model.rows.first { $0.id == prompt.agent }?.displayName ?? prompt.agent.name
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             switch current.phase {
             case .confirm:
-                Text("Start \(prompt.agent.name)?").font(.headline)
+                Text("Start \(agentLabel)?").font(.headline)
                 Text("It opens here once it\u{2019}s running.").foregroundStyle(.secondary)
             case .waiting:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Starting \(prompt.agent.name)\u{2026}").font(.headline)
+                    Text("Starting \(agentLabel)\u{2026}").font(.headline)
                 }
                 Text("It opens here once it\u{2019}s running.").foregroundStyle(.secondary)
             }
