@@ -176,6 +176,13 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
         guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.chats(.rowTapped(ref)))
     }
+
+    /// Long press: the Agents tab's menu. Rows with no agent record (e.g. a
+    /// thread whose daemon dropped the agent) get none.
+    func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
+        guard let indexPath = indexPaths.first, let ref = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        return AgentContextMenu.configuration(for: ref, store: store)
+    }
 }
 
 /// The chip row above the inbox: All, Needs you, Working, Done.
