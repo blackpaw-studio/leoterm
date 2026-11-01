@@ -35,10 +35,17 @@ jobs:
           version: 0.16.0
           use-cache: false # zig caches managed explicitly below
 
-      - name: Ensure swiftlint
+      # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
+      # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
+      - name: Install swiftlint 0.63.3
         run: |
-          command -v swiftlint || brew install swiftlint
-          swiftlint --version
+          mkdir -p "$RUNNER_TEMP/swiftlint"
+          gh release download 0.63.3 -R realm/SwiftLint -p portable_swiftlint.zip -D "$RUNNER_TEMP/swiftlint"
+          unzip -q -o "$RUNNER_TEMP/swiftlint/portable_swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          echo "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftlint/swiftlint" --version
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Cache zig
         id: cache-zig
