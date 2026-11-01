@@ -23,6 +23,8 @@ public struct AgentMove {
         public let id = UUID()
         public var daemon: PairedDaemon
         public let agentName: String
+        /// What the user sees; `agentName` stays the identifier.
+        public let displayName: String
         public let intent: Intent
         public var isMoving = false
         /// The UIKit layer shows the name prompt while this is set.
@@ -30,12 +32,13 @@ public struct AgentMove {
         @Presents public var alert: AlertState<Never>?
         @Presents public var confirmation: ConfirmationDialogState<Action.Confirmation>?
 
-        public init(daemon: PairedDaemon, agentName: String, intent: Intent) {
+        public init(daemon: PairedDaemon, agentName: String, intent: Intent, displayName: String? = nil) {
             self.daemon = daemon
             self.agentName = agentName
+            self.displayName = displayName ?? agentName
             self.intent = intent
             switch intent {
-            case .move: confirmation = AgentMove.confirmation(for: intent, agent: agentName)
+            case .move: confirmation = AgentMove.confirmation(for: intent, agent: self.displayName)
             case .copy, .duplicate: isAskingName = true
             }
         }
@@ -119,7 +122,7 @@ public struct AgentMove {
             case .finished(.failure(let error)):
                 state.isMoving = false
                 guard !(error is CancellationError) else { return .none }
-                state.alert = Self.failureAlert("Couldn't \(state.verb) \(state.agentName)", error.localizedDescription)
+                state.alert = Self.failureAlert("Couldn't \(state.verb) \(state.displayName)", error.localizedDescription)
                 return .none
             }
         }
@@ -146,13 +149,13 @@ public struct AgentMove {
             return .send(.delegate(.completed))
         case .refused(_, let message, let offersForce):
             if offersForce {
-                state.confirmation = Self.busyConfirmation(agent: state.agentName, message: message)
+                state.confirmation = Self.busyConfirmation(agent: state.displayName, message: message)
             } else {
-                state.alert = Self.failureAlert("Couldn't \(state.verb) \(state.agentName)", message)
+                state.alert = Self.failureAlert("Couldn't \(state.verb) \(state.displayName)", message)
             }
             return .none
         case .unknown(let message):
-            state.alert = Self.failureAlert("Couldn't confirm the \(state.noun) of \(state.agentName)", message)
+            state.alert = Self.failureAlert("Couldn't confirm the \(state.noun) of \(state.displayName)", message)
             return .send(.delegate(.completed))
         }
     }

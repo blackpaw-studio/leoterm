@@ -58,7 +58,7 @@ final class ChatThreadTitleView: UIView {
 
     override var intrinsicContentSize: CGSize { UIView.layoutFittingExpandedSize }
 
-    func configure(agentName: String, agent: Agent?, daemonName: String) {
+    func configure(agentName: String, displayName: String, agent: Agent?, daemonName: String) {
         let color = agent?.appearance?.color?.uiColor
         disc.backgroundColor = color?.withAlphaComponent(0.2) ?? .tertiarySystemFill
         emoji.text = agent?.appearance?.emoji
@@ -66,9 +66,9 @@ final class ChatThreadTitleView: UIView {
         symbol.isHidden = agent?.appearance?.emoji != nil
         symbol.image = UIImage(systemName: agentName == ChatList.assistant ? "sparkles" : "person.fill")
         symbol.tintColor = color ?? .secondaryLabel
-        name.text = agentName
+        name.text = displayName
         status.text = [agent.map(Self.statusLine), daemonName].compactMap { $0 }.joined(separator: " · ")
-        accessibilityLabel = [agentName, status.text].compactMap { $0 }.joined(separator: ", ")
+        accessibilityLabel = [displayName, status.text].compactMap { $0 }.joined(separator: ", ")
     }
 
     static func statusLine(_ agent: Agent) -> String {

@@ -29,6 +29,12 @@ public struct Agent: Equatable, Identifiable, Sendable {
     /// A moved agent's record on this daemon is dormant: stopped, and refusing control.
     public var movedTo: String?
     public var movedAt: String?
+    /// The daemon's `display_name`; nil from older daemons. Read `displayName`.
+    public var daemonDisplayName: String?
+
+    /// What the user sees: `display_name` when set, else `name`. `name` stays
+    /// the identifier for API calls, refs, and persistence.
+    public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
 
     public var id: String { name }
 
@@ -36,7 +42,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         name: String, status: LeoAgentStatus? = nil, activity: LeoActivity? = nil, currentAction: LeoCurrentAction? = nil,
         attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
         environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil,
-        movedTo: String? = nil, movedAt: String? = nil
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil
     ) {
         self.name = name
         self.status = status
@@ -50,6 +56,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         self.startedAt = startedAt
         self.movedTo = movedTo
         self.movedAt = movedAt
+        daemonDisplayName = displayName
     }
 
     public init(_ observed: LeoObservedAgent) {
@@ -57,7 +64,8 @@ public struct Agent: Equatable, Identifiable, Sendable {
             name: observed.name, status: observed.status, activity: observed.activity, currentAction: observed.currentAction,
             attention: observed.attention, template: observed.template, harness: observed.harness,
             environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt,
-            movedTo: observed.movedTo, movedAt: observed.movedAt
+            movedTo: observed.movedTo, movedAt: observed.movedAt,
+            displayName: observed.daemonDisplayName
         )
     }
 

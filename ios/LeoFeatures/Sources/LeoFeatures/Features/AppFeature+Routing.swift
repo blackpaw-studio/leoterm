@@ -19,7 +19,7 @@ extension AppFeature.State {
     mutating func openMove(_ ref: AgentRef, _ intent: AgentMove.Intent) {
         guard move == nil, let session = fleet.sessions[id: ref.daemonID], session.supportsMove,
               let agent = session.agents[id: ref.name], agent.canMove else { return }
-        move = AgentMove.State(daemon: session.daemon, agentName: ref.name, intent: intent)
+        move = AgentMove.State(daemon: session.daemon, agentName: ref.name, intent: intent, displayName: session.agents[id: ref.name]?.displayName)
     }
 
     /// Opens a tapped notification's agent as soon as its daemon has

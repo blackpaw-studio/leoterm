@@ -23,8 +23,8 @@ public struct TerminalStrip {
         /// Whether the agent's status is `working`; the parent keeps it current.
         public var isAgentWorking: Bool
 
-        public init(daemon: PairedDaemon, agentName: String, isAgentRunning: Bool, isAgentWorking: Bool = false) {
-            terminal = Terminal.State(daemon: daemon, agentName: agentName, isAgentRunning: isAgentRunning)
+        public init(daemon: PairedDaemon, agentName: String, isAgentRunning: Bool, isAgentWorking: Bool = false, displayName: String? = nil) {
+            terminal = Terminal.State(daemon: daemon, agentName: agentName, isAgentRunning: isAgentRunning, displayName: displayName)
             self.isAgentWorking = isAgentWorking
         }
 
