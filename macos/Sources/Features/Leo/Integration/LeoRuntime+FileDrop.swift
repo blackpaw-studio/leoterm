@@ -30,6 +30,10 @@ struct LeoTerminalFileDropDependencies {
         let id = UUID()
         let sources: [URL]
         let context: LeoTerminalFileDropContext
+        /// Temp files the queue created for this job (a pasted image) and so
+        /// deletes once the job leaves the queue, however it ends. Dropped
+        /// Finder files are never owned.
+        var ownedFiles: [URL] = []
     }
 
     private final class Operation {
@@ -82,6 +86,7 @@ struct LeoTerminalFileDropDependencies {
 
     func cancel(clearStatus: Bool) {
         epoch &+= 1
+        retire(jobs)
         jobs = []
         let operation = active
         active = nil
@@ -142,8 +147,10 @@ struct LeoTerminalFileDropDependencies {
         guard owns(operation), jobs.first?.id == operation.job.id else { return }
         active = nil
         jobs.removeFirst()
+        retire([operation.job])
         guard !Task.isCancelled, let runtime, let surface,
               runtime.fileDropContext(for: surface) == operation.job.context else {
+            retire(jobs)
             jobs = []
             failures = []
             failureContext = nil
@@ -159,6 +166,12 @@ struct LeoTerminalFileDropDependencies {
         }
         surface.leoFileDropStatus = failures.isEmpty ? nil : .failed(failures.joined(separator: "\n"))
         startNext()
+    }
+
+    /// Deletes the temp files a job owned. Safe while sftp still reads one:
+    /// an open file outlives its unlink on POSIX.
+    private func retire(_ jobs: [Job]) {
+        for url in jobs.flatMap(\.ownedFiles) { try? FileManager.default.removeItem(at: url) }
     }
 
     private func clearFailures() {

@@ -66,6 +66,133 @@ struct LeoRuntimeFileDropTests {
         runtime.shutdown()
     }
 
+    // MARK: Temp-file ownership
+
+    private func enqueueOwned(
+        _ file: String, context: LeoTerminalFileDropContext, runtime: LeoRuntime, surface: Ghostty.SurfaceView
+    ) {
+        let queue = runtime.terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: runtime, surface: surface)
+        runtime.terminalFileDropQueues[surface.id] = queue
+        let url = URL(fileURLWithPath: file)
+        queue.enqueue(.init(sources: [url], context: context, ownedFiles: [url]))
+    }
+
+    private nonisolated func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
+
+    @Test func ownedFileIsRemovedAfterASuccessfulUpload() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("paste.png", "pixels")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(try destination.contents("paste.png") == "pixels")
+        #expect(!exists(path))
+        runtime.shutdown()
+    }
+
+    @Test func ownedFileIsRemovedAfterAFailedUpload() async throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let path = try source.file("paste.png", "pixels")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "SFTP unavailable")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await awaitCondition { !exists(path) }
+
+        #expect(!exists(path))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func ownedFilesAreRemovedWhenTheContextChangesUnderActiveAndQueuedJobs() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let active = try source.file("active.png", "a")
+        let queued = try source.file("queued.png", "b")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(active, context: try #require(state.context), runtime: runtime, surface: surface)
+        await gate.waitUntilEntered()
+        enqueueOwned(queued, context: try #require(state.context), runtime: runtime, surface: surface)
+        state.context = context(workspace: destination.root, generation: 2)
+        runtime.terminalFileDropContextDidChange()
+
+        #expect(!exists(active))
+        #expect(!exists(queued))
+        runtime.shutdown()
+    }
+
+    @Test func ownedFileIsRemovedWhenTheContextChangedBeforeTheUploadFinished() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("paste.png", "pixels")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await gate.waitUntilEntered()
+        state.context = context(workspace: destination.root, generation: 2)
+        await gate.release()
+        await awaitCondition { !exists(path) }
+
+        #expect(!exists(path))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aDroppedFinderFileIsNeverDeleted() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("keep.txt", "mine")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
+        await awaitCondition { !state.inserted.isEmpty }
+
+        #expect(exists(path))
+        runtime.shutdown()
+    }
+
     @Test func localAndRemoteAttachedRoutesUploadAndInsertOnlyWorkspacePaths() async throws {
         for host in [LeoHostID.local, .remote("work")] {
             let source = try LeoFileSandbox()
