@@ -35,6 +35,12 @@ jobs:
           version: 0.16.0
           use-cache: false # zig caches managed explicitly below
 
+      # run-unit-tests.sh calls GNU `timeout`, which hosted images lack.
+      - name: Install coreutils (timeout)
+        run: |
+          brew install coreutils
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+
       # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
       # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
       - name: Install swiftlint 0.63.3
