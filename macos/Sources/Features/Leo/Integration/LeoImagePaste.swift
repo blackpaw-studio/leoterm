@@ -32,4 +32,25 @@ enum LeoImagePaste {
         case .commandV: return hasText ? .passThrough : .uploadImage
         }
     }
+
+    /// Whether the pasteboard holds an image. Asks the pasteboard without
+    /// decoding it.
+    static func hasImage(_ pasteboard: NSPasteboard) -> Bool {
+        pasteboard.canReadObject(forClasses: [NSImage.self], options: nil)
+    }
+
+    /// Whether the pasteboard holds text a normal ⌘V would paste.
+    static func hasText(_ pasteboard: NSPasteboard) -> Bool {
+        pasteboard.canReadObject(forClasses: [NSString.self], options: nil)
+    }
+
+    /// The pasteboard image as PNG data: PNG is passed through untouched,
+    /// anything else NSImage reads (TIFF first) is re-encoded.
+    static func pngData(from pasteboard: NSPasteboard) -> Data? {
+        if let png = pasteboard.data(forType: .png) { return png }
+        let source = pasteboard.data(forType: .tiff) ?? NSImage(pasteboard: pasteboard)?.tiffRepresentation
+        return source
+            .flatMap(NSBitmapImageRep.init(data:))
+            .flatMap { $0.representation(using: .png, properties: [:]) }
+    }
 }
