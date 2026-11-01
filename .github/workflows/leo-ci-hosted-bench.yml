@@ -1,0 +1,113 @@
+name: Leo CI (hosted runner bench)
+
+# Benchmark only: mirrors leo-ci.yml's test-macos job on a standard
+# GitHub-hosted arm64 runner, with caches. Not a required check.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/hosted-runner-bench]
+
+permissions:
+  contents: read
+
+jobs:
+  test-macos-hosted:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      DERIVED_DATA: ${{ github.workspace }}/../DerivedData-ci
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Select Xcode
+        run: |
+          ls -d /Applications/Xcode*.app
+          if [[ -d /Applications/Xcode_26.3.app ]]; then x=/Applications/Xcode_26.3.app; else x="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"; fi
+          echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
+
+      - name: Setup zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+          use-cache: false # zig caches managed explicitly below
+
+      - name: Ensure swiftlint
+        run: |
+          command -v swiftlint || brew install swiftlint
+          swiftlint --version
+
+      - name: Cache zig
+        id: cache-zig
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: zig-${{ runner.os }}-${{ hashFiles('build.zig.zon', 'build.zig', 'src/build/**', 'pkg/**/*.zig', 'pkg/**/build.zig.zon') }}
+          restore-keys: zig-${{ runner.os }}-
+
+      - name: Cache LeoKit .build
+        id: cache-leokit
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Packages/LeoKit/.build
+          key: leokit-${{ runner.os }}-${{ hashFiles('Packages/LeoKit/Package.swift', 'Packages/LeoKit/Sources/**', 'Packages/LeoKit/Tests/**') }}
+          restore-keys: leokit-${{ runner.os }}-
+
+      - name: Cache DerivedData (incl. SourcePackages)
+        id: cache-dd
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DERIVED_DATA }}
+          key: dd-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            dd-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
+            dd-${{ runner.os }}-
+
+      - name: Cache report
+        run: |
+          echo "zig=${{ steps.cache-zig.outputs.cache-hit }} leokit=${{ steps.cache-leokit.outputs.cache-hit }} dd=${{ steps.cache-dd.outputs.cache-hit }}"
+          du -sh ~/.cache/zig .zig-cache Packages/LeoKit/.build "$DERIVED_DATA" 2>/dev/null || true
+          uptime; sysctl -n hw.ncpu; df -h / | tail -1
+
+      - name: CI script tests
+        run: .github/scripts/leo/run-tests.sh
+
+      - name: LeoKit tests
+        working-directory: Packages/LeoKit
+        run: |
+          swiftlint lint --strict
+          swift test
+
+      - name: SwiftLint
+        working-directory: macos
+        run: swiftlint lint --strict
+
+      - name: Build GhosttyKit
+        run: |
+          version="$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' build.zig.zon | head -1)"
+          [[ -n "$version" ]] || { echo "no version" >&2; exit 1; }
+          rm -rf macos/GhosttyKit.xcframework zig-out
+          zig build -Demit-macos-app=false -Dversion-string="$version"
+
+      - name: Unit tests
+        env:
+          LOG: ${{ runner.temp }}/leo-tests.log
+        run: .github/scripts/leo/run-unit-tests.sh
+
+      - name: Upload test log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: leo-test-log
+          retention-days: 7
+          path: ${{ runner.temp }}/leo-tests.log
+          if-no-files-found: ignore
+
+      - name: Cache sizes before save
+        if: always()
+        run: du -sh ~/.cache/zig .zig-cache Packages/LeoKit/.build "$DERIVED_DATA" 2>/dev/null || true
