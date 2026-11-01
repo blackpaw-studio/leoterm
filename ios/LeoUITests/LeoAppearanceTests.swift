@@ -26,7 +26,10 @@ final class LeoAppearanceTests: XCTestCase {
 
     func testChatsRowLongPressOffersAppearance() throws {
         let app = launch()
-        app.navigationBars["Agents"].buttons["Chats"].tap()
+        app.tabBars.buttons["Chats"].tap()
+        let all = app.buttons["chats.filter.all"]
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        all.tap()
         let row = app.cells["chat.apollo"]
         XCTAssertTrue(row.waitForExistence(timeout: 5))
         row.press(forDuration: 1.2)
