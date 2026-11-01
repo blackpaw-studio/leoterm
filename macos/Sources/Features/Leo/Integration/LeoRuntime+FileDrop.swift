@@ -1,5 +1,8 @@
 import AppKit
 import LeoKit
+import os
+
+private let imagePasteLogger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
 struct LeoTerminalFileDropContext: Equatable {
     let identity: LeoAgentIdentity
@@ -23,6 +26,8 @@ struct LeoTerminalFileDropDependencies {
     let context: @MainActor (Ghostty.SurfaceView) -> LeoTerminalFileDropContext?
     let makeAccess: @MainActor (LeoHostID) throws -> any LeoFileAccess
     let insertText: @MainActor (Ghostty.SurfaceView, String) -> Void
+    /// Names a pasted image's temp file.
+    var now: @MainActor () -> Date = { Date() }
 }
 
 @MainActor final class LeoTerminalFileDropQueue {
@@ -216,6 +221,30 @@ extension LeoRuntime {
         let queue = terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: self, surface: surface)
         terminalFileDropQueues[surface.id] = queue
         queue.enqueue(.init(sources: sources, context: context))
+        return true
+    }
+
+    /// Uploads the clipboard image to a remote agent's workspace when the
+    /// decision table says so, exactly like a dropped file. False means the
+    /// key keeps its normal behaviour: nothing was claimed.
+    func performImagePaste(_ key: LeoImagePaste.Key, pasteboard: NSPasteboard, from surface: Ghostty.SurfaceView) -> Bool {
+        let decision = LeoImagePaste.decide(
+            key: key, hasImage: LeoImagePaste.hasImage(pasteboard), hasText: LeoImagePaste.hasText(pasteboard),
+            surface: imagePasteSurfaceKind(for: surface)
+        )
+        guard decision == .uploadImage, let context = fileDropContext(for: surface),
+              let png = LeoImagePaste.pngData(from: pasteboard) else { return false }
+        let file = FileManager.default.temporaryDirectory
+            .appendingPathComponent(LeoImagePaste.fileName(at: terminalFileDropDependencies?.now() ?? Date()))
+        do {
+            try png.write(to: file, options: .atomic)
+        } catch {
+            imagePasteLogger.error("image paste: could not write temp PNG: \(error.localizedDescription, privacy: .public)")
+            return false
+        }
+        let queue = terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: self, surface: surface)
+        terminalFileDropQueues[surface.id] = queue
+        queue.enqueue(.init(sources: [file], context: context, ownedFiles: [file]))
         return true
     }
 

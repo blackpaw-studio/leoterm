@@ -53,4 +53,14 @@ enum LeoImagePaste {
             .flatMap(NSBitmapImageRep.init(data:))
             .flatMap { $0.representation(using: .png, properties: [:]) }
     }
+
+    /// `leo-paste-yyyyMMdd-HHmmss-SSS.png`, in UTC so the name doesn't depend
+    /// on the Mac's zone.
+    static func fileName(at date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
+        return "leo-paste-\(formatter.string(from: date)).png"
+    }
 }
