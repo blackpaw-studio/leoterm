@@ -128,6 +128,7 @@ jobs:
             -destination "generic/platform=iOS" \
             -archivePath "$ARCHIVE" \
             -skipPackagePluginValidation -skipMacroValidation \
+            -onlyUsePackageVersionsFromResolvedFile \
             OTHER_CODE_SIGN_FLAGS="--keychain $LEO_IOS_KEYCHAIN" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
