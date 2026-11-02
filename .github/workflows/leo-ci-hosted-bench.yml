@@ -1,0 +1,209 @@
+name: Leo CI (hosted portable tier)
+
+# Portable-tier check (LEO_HOST_TESTS unset): mirrors leo-ci.yml's test-macos job on a standard
+# GitHub-hosted arm64 runner, with caches. Not a required check.
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/portable-tests]
+
+permissions:
+  contents: read
+
+jobs:
+  test-macos-hosted:
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Mark start
+        if: always()
+        run: echo "start $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: Set DerivedData path
+        run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-ci" >> "$GITHUB_ENV"
+
+      - name: Select Xcode
+        run: |
+          # shellcheck disable=SC2012
+          ls -d /Applications/Xcode*.app
+          # shellcheck disable=SC2012
+          if [[ -d /Applications/Xcode_26.3.app ]]; then x=/Applications/Xcode_26.3.app; else x="$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1)"; fi
+          echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
+
+      - name: Setup zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+          use-cache: false # zig caches managed explicitly below
+
+      # run-unit-tests.sh calls GNU `timeout`, which hosted images lack.
+      - name: Install coreutils (timeout)
+        run: |
+          brew install coreutils
+          # Only `timeout`: full gnubin shadows BSD stat/etc. and breaks script tests.
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
+      # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
+      - name: Install swiftlint 0.63.3
+        run: |
+          mkdir -p "$RUNNER_TEMP/swiftlint"
+          gh release download 0.63.3 -R realm/SwiftLint -p portable_swiftlint.zip -D "$RUNNER_TEMP/swiftlint"
+          unzip -q -o "$RUNNER_TEMP/swiftlint/portable_swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          echo "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftlint/swiftlint" --version
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Cache zig
+        id: cache-zig
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: zig-${{ runner.os }}-${{ hashFiles('build.zig.zon', 'build.zig', 'src/build/**', 'pkg/**/*.zig', 'pkg/**/build.zig.zon') }}
+          restore-keys: zig-${{ runner.os }}-
+
+      - name: Cache LeoKit .build
+        id: cache-leokit
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Packages/LeoKit/.build
+          key: leokit-${{ runner.os }}-${{ hashFiles('Packages/LeoKit/Package.swift', 'Packages/LeoKit/Sources/**', 'Packages/LeoKit/Tests/**') }}
+          restore-keys: leokit-${{ runner.os }}-
+
+      - name: Cache DerivedData (incl. SourcePackages)
+        id: cache-dd
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DERIVED_DATA }}
+          key: dd-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            dd-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
+            dd-${{ runner.os }}-
+
+      - name: Cache report
+        id: cache-report
+        run: |
+          echo "zig=${{ steps.cache-zig.outputs.cache-hit }} leokit=${{ steps.cache-leokit.outputs.cache-hit }} dd=${{ steps.cache-dd.outputs.cache-hit }}"
+          du -sh ~/.cache/zig .zig-cache Packages/LeoKit/.build "$DERIVED_DATA" 2>/dev/null || true
+          uptime; sysctl -n hw.ncpu; df -h / | tail -1
+
+      - name: Mark setup
+        if: always()
+        run: echo "setup $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: CI script tests
+        run: .github/scripts/leo/run-tests.sh
+
+      - name: Mark ci-script-tests
+        if: always()
+        run: echo "ci-script-tests $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: LeoKit tests
+        working-directory: Packages/LeoKit
+        run: |
+          swiftlint lint --strict
+          swift test
+
+      - name: Mark leokit-tests
+        if: always()
+        run: echo "leokit-tests $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: SwiftLint
+        working-directory: macos
+        run: swiftlint lint --strict
+
+      - name: Mark swiftlint
+        if: always()
+        run: echo "swiftlint $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: Build GhosttyKit
+        run: |
+          version="$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' build.zig.zon | head -1)"
+          [[ -n "$version" ]] || { echo "no version" >&2; exit 1; }
+          rm -rf macos/GhosttyKit.xcframework zig-out
+          zig build -Demit-macos-app=false -Dversion-string="$version"
+
+      - name: Mark build-ghosttykit
+        if: always()
+        run: echo "build-ghosttykit $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: Unit tests
+        env:
+          LOG: ${{ runner.temp }}/leo-tests.log
+        run: .github/scripts/leo/run-unit-tests.sh
+
+      - name: Mark unit-tests
+        if: always()
+        run: echo "unit-tests $(date +%s)" >> "$RUNNER_TEMP/marks.txt"
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: leo-test-log
+          retention-days: 7
+          path: ${{ runner.temp }}/leo-tests.log
+          if-no-files-found: ignore
+
+      - name: Cache sizes before save
+        if: always()
+        run: du -sh ~/.cache/zig .zig-cache Packages/LeoKit/.build "$DERIVED_DATA" 2>/dev/null || true
+
+      # Save even when tests fail so the bench can measure warm runs.
+      - name: Save zig cache
+        if: always() && steps.cache-zig.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: ${{ steps.cache-zig.outputs.cache-primary-key }}
+
+      - name: Save LeoKit .build
+        if: always() && steps.cache-leokit.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Packages/LeoKit/.build
+          key: ${{ steps.cache-leokit.outputs.cache-primary-key }}
+
+      - name: Save DerivedData
+        if: always() && steps.cache-dd.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DERIVED_DATA }}
+          key: ${{ steps.cache-dd.outputs.cache-primary-key }}
+
+      - name: Timing summary
+        if: always()
+        run: |
+          {
+            echo "## Hosted portable tier"
+            echo
+            echo "| Cache | Hit |"
+            echo "|---|---|"
+            echo "| zig | ${{ steps.cache-zig.outputs.cache-hit || 'false' }} |"
+            echo "| LeoKit .build | ${{ steps.cache-leokit.outputs.cache-hit || 'false' }} |"
+            echo "| DerivedData | ${{ steps.cache-dd.outputs.cache-hit || 'false' }} |"
+            echo
+            echo "Cold = all false; warm = all true (exact-key hits)."
+            echo
+            echo "| Phase (ends at mark) | Seconds |"
+            echo "|---|---|"
+            prev=""
+            while read -r name ts; do
+              [[ -n "$prev" ]] && echo "| $name | $((ts - prev)) |"
+              prev="$ts"
+            done < "$RUNNER_TEMP/marks.txt"
+            [[ -n "$prev" ]] && echo "| total (start → last mark) | $((prev - $(head -1 "$RUNNER_TEMP/marks.txt" | cut -d' ' -f2))) |"
+          } >> "$GITHUB_STEP_SUMMARY"
