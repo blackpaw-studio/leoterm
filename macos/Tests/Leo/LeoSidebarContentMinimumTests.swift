@@ -257,3 +257,12 @@ import Testing
         }
     }
 }
+
+/// The sidebar item's thickness limits clamp its view, which macOS 26 insets
+/// inside the pane the limits are meant for.
+struct LeoSidebarItemThicknessTests {
+    @Test(arguments: [(349, 8, 341), (349, 0, 349), (200, 8, 192), (5, 8, 0), (349, -3, 349)] as [(CGFloat, CGFloat, CGFloat)])
+    func aPaneLimitLosesTheViewsInset(pane: CGFloat, inset: CGFloat, expected: CGFloat) {
+        #expect(LeoSidebarSplitMetrics.itemThickness(forPaneWidth: pane, inset: inset) == expected)
+    }
+}

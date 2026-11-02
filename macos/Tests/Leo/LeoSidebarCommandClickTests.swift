@@ -88,6 +88,18 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.model.selection == worker.id)
     }
 
+    /// The table's own highlight comes from real event delivery, so this one
+    /// posts real events to the app queue (host tier: needs a window server).
+    @Test(.hostOnly) func aRealCommandClickKeepsTheRowHighlighted() async throws {
+        let harness = try await CommandClickHarness(row: worker)
+        defer { harness.close() }
+
+        try await harness.postRealClickOnRow(.command)
+
+        #expect(harness.model.selection == worker.id)
+        #expect(harness.table.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
+    }
+
     /// Intended, as in Finder's sidebar: once a row is selected, clicking
     /// empty space keeps it (the list's selection is required, which is
     /// also what stops ⌘-click toggling the row off).
@@ -159,8 +171,37 @@ struct LeoSidebarCommandClickTests {
     }
 
     func close() {
+        if let monitor { NSEvent.removeMonitor(monitor) }
         window.close()
         keyWindow.close()
+    }
+
+    private var mouseUps = 0
+    private var monitor: Any?
+
+    /// Posts a down/up pair on the row to the app's event queue, so the table
+    /// sees it as the window server would deliver it, and waits for the up.
+    /// The sidebar's window is not key (another window holds it).
+    func postRealClickOnRow(_ modifierFlags: NSEvent.ModifierFlags) async throws {
+        if monitor == nil {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+                if let self, event.window === window { mouseUps += 1 }
+                return event
+            }
+        }
+        keyWindow.makeKeyAndOrderFront(nil)
+        let rect = table.rect(ofRow: agentRowIndex)
+        let location = table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
+        let expectedUps = mouseUps + 1
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = try #require(NSEvent.mouseEvent(
+                with: type, location: location, modifierFlags: modifierFlags,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
+            NSApp.postEvent(event, atStart: false)
+        }
+        try await Self.settle { mouseUps >= expectedUps }
+        try #require(mouseUps >= expectedUps, "the posted click was never dispatched")
     }
 
     /// Hands a down/up pair at `point` (table coordinates) straight to the
