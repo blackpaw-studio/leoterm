@@ -127,6 +127,7 @@ jobs:
             -project Leo.xcodeproj -scheme Leo -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$ARCHIVE" \
+            -skipPackagePluginValidation -skipMacroValidation \
             OTHER_CODE_SIGN_FLAGS="--keychain $LEO_IOS_KEYCHAIN" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
