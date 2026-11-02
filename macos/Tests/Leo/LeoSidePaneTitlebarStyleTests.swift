@@ -16,7 +16,7 @@ import Testing
 /// header out the same as one with a file open. Each pane is measured by
 /// its close button's glyph (the drawn symbol, not the button's padded
 /// frame), the one control both headers always show.
-// Hosted macos-26 insets the titlebar/header differently (30+ pt off): AppKit layout, not ours.
+/// `.hostOnly`: hosted macos-26 insets the titlebar and header differently (30+ pt off), AppKit layout rather than ours.
 @MainActor @Suite(.serialized, .hostOnly)
 struct LeoSidePaneTitlebarStyleTests {
     /// Room for every pane beside the sidebar and the terminal's floor, so

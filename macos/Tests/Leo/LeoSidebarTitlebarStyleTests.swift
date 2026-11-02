@@ -16,7 +16,7 @@ import Testing
 ///
 /// Needs the test host's `LeoRuntime` and a loadable Ghostty config; either
 /// missing fails the test rather than passing it silently.
-// Hosted macos-26 insets the titlebar/header differently (30+ pt off): AppKit layout, not ours.
+/// `.hostOnly`: hosted macos-26 insets the titlebar and header differently (30+ pt off), AppKit layout rather than ours.
 @MainActor @Suite(.serialized, .hostOnly)
 struct LeoSidebarTitlebarStyleTests {
     /// How far a header row may sit from where the chrome metrics put it:
