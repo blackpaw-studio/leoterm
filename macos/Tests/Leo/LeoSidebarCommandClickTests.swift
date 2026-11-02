@@ -89,8 +89,8 @@ struct LeoSidebarCommandClickTests {
     }
 
     /// The table's own highlight comes from real event delivery, so this one
-    /// posts real events to the app queue (host tier: needs a window server).
-    @Test(.hostOnly) func aRealCommandClickKeepsTheRowHighlighted() async throws {
+    /// posts real events to the app queue (host tier with a working focus probe; serialized with the other event-queue suites by LeoAppEventQueueTests).
+    @Test(.requiresActiveHost) func aRealCommandClickKeepsTheRowHighlighted() async throws {
         let harness = try await CommandClickHarness(row: worker)
         defer { harness.close() }
 

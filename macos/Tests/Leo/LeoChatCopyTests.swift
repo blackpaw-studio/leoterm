@@ -15,7 +15,7 @@ extension LeoAppEventQueueTests {
 /// the app's Edit menu both see the key, as they do in the app. Only the
 /// menu copies the selection, and only if its sync gave Copy ⌘C
 /// (`LeoStandardEditShortcut`).
-@MainActor @Suite(.serialized, .hostOnly, .timeLimit(.minutes(1)))
+@MainActor @Suite(.serialized, .requiresActiveHost, .timeLimit(.minutes(1)))
 struct LeoChatCopyTests {
     @Test(arguments: ChatCopyTerminal.allCases)
     func commandCCopiesSelectedChatText(terminal: ChatCopyTerminal) async throws {

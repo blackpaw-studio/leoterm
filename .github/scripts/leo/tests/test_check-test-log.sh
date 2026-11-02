@@ -23,7 +23,7 @@ check() {
   printf '%s\n' "$@" >"$work/log"
   local out got
   local host=""
-  [[ "$desc" == *"are required" ]] && host=1
+  [[ "$desc" == *"are required" || "$desc" == *"when host tests are required" ]] && host=1
   out="$(LEO_HOST_TESTS="$host" bash "$script" "$work/log" "$rc" 2>&1)" && got=0 || got=1
   if [[ "$got" -eq "$want" ]] && grep -Eq -- "$pattern" <<<"$out"; then
     echo "PASS: $desc"
@@ -51,6 +51,8 @@ check "a host-tier skip fails when host tests are required" 1 0 'host tier skipp
   '➜ Suite LeoWKBrowserPageTests skipped: host tier: set LEO_HOST_TESTS=1' "$summary_ok"
 check "a host-tier skip is fine when host tests are not required" 0 0 '^All tests passed' \
   '➜ Suite LeoWKBrowserPageTests skipped: host tier: set LEO_HOST_TESTS=1' "$summary_ok"
+check "a focus-gate skip is not a host-tier skip, even when host tests are required" 0 0 'focus-gate check' \
+  "$skip_line" '➜ Suite LeoChatCopyTests skipped: needs a key window: a plain probe window couldn'"'"'t become key' "$summary_ok"
 check "a failed test fails the run" 1 0 'failures reported' '✘ Test foo() failed after 0.1 seconds with 1 issue.' "$summary_ok"
 check "a missing summary fails" 1 0 'without a summary' 'noise'
 check "a timeout fails" 1 124 'timed out' '◇ Test foo() started.'
