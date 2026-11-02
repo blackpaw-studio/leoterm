@@ -63,6 +63,7 @@ import Testing
     @Test(.hostOnly) func deleteSheetAppearsOnARealWindowAndAsksForItsPlan() async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = NSView()
+        window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
         #expect(window.contentViewController == nil)
@@ -82,6 +83,7 @@ import Testing
     @Test(.hostOnly) func leoSheetDismissClosesASheetPresentedOnATerminalWindow() async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = NSView()
+        window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
         let probe = DismissProbe()
