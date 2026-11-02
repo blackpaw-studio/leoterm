@@ -95,6 +95,7 @@ jobs:
             -destination "platform=iOS Simulator,name=${SIMULATOR}" \
             -derivedDataPath "$DERIVED_DATA" \
             -skipPackagePluginValidation -skipMacroValidation \
+            -onlyUsePackageVersionsFromResolvedFile \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
       - name: App tests
