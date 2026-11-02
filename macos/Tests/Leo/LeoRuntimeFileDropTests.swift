@@ -5,7 +5,7 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-@MainActor
+@MainActor @Suite(.hostOnly)
 struct LeoRuntimeFileDropTests {
     private final class State: @unchecked Sendable {
         var context: LeoTerminalFileDropContext?

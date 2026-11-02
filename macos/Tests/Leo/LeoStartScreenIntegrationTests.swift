@@ -19,7 +19,7 @@ import Testing
 /// The one terminal surface here is never focused (it would make its
 /// window key); the attach decisions themselves are covered against a fake
 /// host in `LeoStartScreenTests`.
-@MainActor @Suite(.serialized) struct LeoStartScreenIntegrationTests {
+@MainActor @Suite(.serialized, .hostOnly) struct LeoStartScreenIntegrationTests {
     private struct Fixture {
         let host: GhosttyAttachContentHost
         let controller: TerminalController

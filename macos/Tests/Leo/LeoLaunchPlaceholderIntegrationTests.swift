@@ -21,7 +21,7 @@ import Testing
 /// Requested windows run the default shell, never an agent; the agents
 /// B-145 attaches run a stub `leo` (`StubLeoExecutable`).
 @MainActor @Suite(
-    .serialized,
+    .serialized, .hostOnly,
     .enabled("needs the app's Ghostty.App") { await MainActor.run { hasLiveGhosttyApp } },
     LeoCascadePointRestoringTrait()
 )

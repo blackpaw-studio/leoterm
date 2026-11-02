@@ -14,7 +14,7 @@ import Testing
 ///
 /// Windows are built but never shown or made key. An "agent" here runs
 /// `/bin/cat`, never a real agent.
-@MainActor @Suite(.serialized) struct LeoTerminalRowsIntegrationTests {
+@MainActor @Suite(.serialized, .hostOnly) struct LeoTerminalRowsIntegrationTests {
     private static let standIn = "/bin/cat"
 
     @MainActor private struct Fixture {

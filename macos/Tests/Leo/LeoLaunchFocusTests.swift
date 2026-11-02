@@ -20,7 +20,7 @@ import Testing
 ///
 /// Needs the test host's `Ghostty.App` and `LeoRuntime`; either missing
 /// fails the test rather than passing it silently.
-@MainActor @Suite(.serialized)
+@MainActor @Suite(.serialized, .hostOnly)
 struct LeoLaunchFocusTests {
     /// The start screen has nothing to focus, so the window itself keeps
     /// the first responder -- as a Finder window with no selection does.

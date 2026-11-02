@@ -9,7 +9,7 @@ import Testing
 /// `TerminalController` with terminal rows, so it needs the app's real
 /// `Ghostty.App` (like `LeoTerminalRowsIntegrationTests`). Windows are
 /// built but never shown.
-@MainActor @Suite(.serialized) struct LeoRowPaneCloseTests {
+@MainActor @Suite(.serialized, .hostOnly) struct LeoRowPaneCloseTests {
     @MainActor private struct Fixture {
         let host: GhosttyAttachContentHost
         let controller: TerminalController

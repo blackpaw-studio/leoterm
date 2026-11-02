@@ -10,7 +10,7 @@ import Testing
 /// runs `LeoTerminalWindowRestoration`'s own decoding, into a window built
 /// as `LeoRowLayoutFixture` builds one (the app's own restore path is off
 /// in a test host).
-@MainActor @Suite(.serialized) struct LeoTerminalRestoreIntegrationTests {
+@MainActor @Suite(.serialized, .hostOnly) struct LeoTerminalRestoreIntegrationTests {
     private typealias Fixture = LeoRowLayoutFixture
 
     /// Three rows: the first renamed, in a directory deleted before the

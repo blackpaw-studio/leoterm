@@ -13,7 +13,7 @@ import Testing
 /// put up: `ConfirmRecordingController` records what it would ask and
 /// answers itself. Every terminal here runs `/bin/cat`, never a shell
 /// (whose prompt would retitle it) and never a real agent.
-@MainActor @Suite(.serialized) struct LeoCloseConfirmationIntegrationTests {
+@MainActor @Suite(.serialized, .hostOnly) struct LeoCloseConfirmationIntegrationTests {
     private static let standIn = "/bin/cat"
 
     /// A window controller whose close confirms are recorded and answered
