@@ -32,6 +32,15 @@ if [[ -n "$skipped" ]]; then
   echo "::notice::$skipped_count test(s) skipped"
 fi
 
+# The host tier must run every host-only test: a skip carrying the tier's own
+# skip reason (LeoTestTier.hostTestsSkipReason) means it silently didn't.
+readonly HOST_SKIP_REASON='host tier: set LEO_HOST_TESTS=1'
+if [[ "${LEO_HOST_TESTS:-}" == 1 ]] && grep -qF "$HOST_SKIP_REASON" <<<"$skipped"; then
+  grep -F "$HOST_SKIP_REASON" <<<"$skipped" | head -20
+  echo "::error::host tier skipped host-only tests (LEO_HOST_TESTS=1 was not honored)"
+  exit 1
+fi
+
 if [[ $rc -eq 124 ]]; then
   echo "::error::Test run timed out after ${TEST_TIMEOUT_SECONDS}s"
   grep -E '◇ Test .* started' "$log" | tail -5 || true

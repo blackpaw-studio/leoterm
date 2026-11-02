@@ -22,7 +22,9 @@ check() {
   shift 4
   printf '%s\n' "$@" >"$work/log"
   local out got
-  out="$(bash "$script" "$work/log" "$rc" 2>&1)" && got=0 || got=1
+  local host=""
+  [[ "$desc" == *"are required" ]] && host=1
+  out="$(LEO_HOST_TESTS="$host" bash "$script" "$work/log" "$rc" 2>&1)" && got=0 || got=1
   if [[ "$got" -eq "$want" ]] && grep -Eq -- "$pattern" <<<"$out"; then
     echo "PASS: $desc"
     pass=$((pass + 1))
@@ -45,6 +47,10 @@ check "the skip count is a notice" 0 0 '^::notice::2 test\(s\) skipped' \
 check "the skipped names appear in the output" 0 0 'LeoWKBrowserPageTests' \
   '➜ Suite LeoWKBrowserPageTests skipped: host tier' "$summary_ok"
 check "no skips prints no group" 0 0 '^All tests passed' "$summary_ok"
+check "a host-tier skip fails when host tests are required" 1 0 'host tier skipped host-only' \
+  '➜ Suite LeoWKBrowserPageTests skipped: host tier: set LEO_HOST_TESTS=1' "$summary_ok"
+check "a host-tier skip is fine when host tests are not required" 0 0 '^All tests passed' \
+  '➜ Suite LeoWKBrowserPageTests skipped: host tier: set LEO_HOST_TESTS=1' "$summary_ok"
 check "a failed test fails the run" 1 0 'failures reported' '✘ Test foo() failed after 0.1 seconds with 1 issue.' "$summary_ok"
 check "a missing summary fails" 1 0 'without a summary' 'noise'
 check "a timeout fails" 1 124 'timed out' '◇ Test foo() started.'
