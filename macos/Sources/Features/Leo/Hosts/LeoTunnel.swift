@@ -21,6 +21,10 @@ enum LeoTunnelError: Error, Equatable, Sendable {
 final class LeoTunnel: @unchecked Sendable {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
+    /// How long `start()` waits for the forward to turn healthy.
+    static let defaultReadinessTimeout: Duration = .seconds(6)
+
+    private let readinessTimeout: Duration
     private let executable: URL
     private let arguments: [String]
     private let localSocketPath: String
@@ -88,8 +92,10 @@ final class LeoTunnel: @unchecked Sendable {
         arguments: [String],
         localSocketPath: String,
         healthProbe: @escaping @Sendable (String) async throws -> Bool,
-        clock: any Clock<Duration> = ContinuousClock()
+        clock: any Clock<Duration> = ContinuousClock(),
+        readinessTimeout: Duration = LeoTunnel.defaultReadinessTimeout
     ) {
+        self.readinessTimeout = readinessTimeout
         self.executable = executable
         self.arguments = arguments
         self.localSocketPath = localSocketPath
@@ -215,7 +221,7 @@ final class LeoTunnel: @unchecked Sendable {
     // MARK: - Readiness
 
     private func awaitReadiness(origin: Duration) async throws {
-        let deadline = origin + .seconds(6)
+        let deadline = origin + readinessTimeout
         while true {
             if hasExited {
                 await drainStderrBestEffort()

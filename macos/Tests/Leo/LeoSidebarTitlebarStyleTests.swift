@@ -16,8 +16,7 @@ import Testing
 ///
 /// Needs the test host's `LeoRuntime` and a loadable Ghostty config; either
 /// missing fails the test rather than passing it silently.
-/// `.hostOnly`: hosted macos-26 insets the titlebar and header differently (30+ pt off), AppKit layout rather than ours.
-@MainActor @Suite(.serialized, .hostOnly)
+@MainActor @Suite(.serialized)
 struct LeoSidebarTitlebarStyleTests {
     /// How far a header row may sit from where the chrome metrics put it:
     /// the row's height is the button's, so the title is centred in it.
@@ -44,6 +43,14 @@ struct LeoSidebarTitlebarStyleTests {
         #expect(fixture.window is HiddenTitlebarTerminalWindow, "\(type(of: fixture.window))")
         #expect(fixture.visibleWindowButtons.isEmpty, "buttons drawn: \(fixture.visibleWindowButtons)")
         #expect(fixture.splitTop == fixture.windowTop, "an empty band above the split: \(fixture.diagnostics)")
+    }
+
+    /// The header's inset under the hidden titlebar's top edge.
+    /// `.hostOnly`: hosted macos-26 places the header ~26 pt lower than the chrome metrics, AppKit layout rather than ours.
+    @Test(.hostOnly) func theHiddenStyleHeaderSitsTheChromeInsetUnderTheTopEdge() async throws {
+        let fixture = try await StyledWindowFixture.make(.hidden)
+        defer { fixture.close() }
+
         let gap = fixture.windowTop - fixture.header.maxY
         #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "the header sits \(gap) pt under the window's top edge; \(fixture.diagnostics)")
         #expect(
@@ -55,7 +62,8 @@ struct LeoSidebarTitlebarStyleTests {
     /// The titled styles (the default, `transparent`, among them) keep
     /// D-122's layout: the split starts at the titlebar's bottom edge and
     /// the header clears it by the chrome's top inset.
-    @Test(arguments: [TitlebarStyle.native, .transparent, .tabs, .tabsVentura])
+    /// `.hostOnly`: hosted macos-26 places the header 2 pt past the tolerance, AppKit layout rather than ours.
+    @Test(.hostOnly, arguments: [TitlebarStyle.native, .transparent, .tabs, .tabsVentura])
     func titledStylesKeepTheHeaderTheChromeInsetBelowTheTitlebar(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }

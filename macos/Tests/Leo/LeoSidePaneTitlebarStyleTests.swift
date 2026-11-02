@@ -16,8 +16,7 @@ import Testing
 /// header out the same as one with a file open. Each pane is measured by
 /// its close button's glyph (the drawn symbol, not the button's padded
 /// frame), the one control both headers always show.
-/// `.hostOnly`: hosted macos-26 insets the titlebar and header differently (30+ pt off), AppKit layout rather than ours.
-@MainActor @Suite(.serialized, .hostOnly)
+@MainActor @Suite(.serialized)
 struct LeoSidePaneTitlebarStyleTests {
     /// Room for every pane beside the sidebar and the terminal's floor, so
     /// no pane is squeezed or collapsed while it's measured.
@@ -29,7 +28,8 @@ struct LeoSidePaneTitlebarStyleTests {
     /// off a whole-point line there).
     private static let centreTolerance: CGFloat = 0.5
 
-    @Test func theHiddenStyleInsetsTheSidePaneHeadersLikeTheSidebarHeader() async throws {
+    /// `.hostOnly`: hosted macos-26 insets the headers differently (30 pt off), AppKit layout rather than ours.
+    @Test(.hostOnly) func theHiddenStyleInsetsTheSidePaneHeadersLikeTheSidebarHeader() async throws {
         let fixture = try await StyledWindowFixture.make(.hidden)
         defer { fixture.close() }
         // Measured before the panes open: that resizes the window.
@@ -77,7 +77,8 @@ struct LeoSidePaneTitlebarStyleTests {
     /// under it (the browser's was 8 pt short). The
     /// sidebar + (measured before the panes open) is the reference; the
     /// absolute figure pins both, so a shift in the two together still fails.
-    @Test(arguments: [TitlebarStyle.native, .transparent, .tabs])
+    /// `.hostOnly`: hosted macos-26 centres the glyphs 8 pt off the sidebar line, AppKit layout rather than ours.
+    @Test(.hostOnly, arguments: [TitlebarStyle.native, .transparent, .tabs])
     func titledStylesCentreTheSidePaneCloseGlyphsOnTheSidebarHeaderLine(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }

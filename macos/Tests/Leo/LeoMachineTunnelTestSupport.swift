@@ -69,7 +69,8 @@ enum LeoMachineTunnelTestSupport {
                 // per-user cache directory.
                 controlSocketDirectory: controlSocketDirectory ?? localSocketDirectory,
                 controlSocketInstance: controlSocketInstance,
-                controlSocketOwner: controlSocketOwner
+                controlSocketOwner: controlSocketOwner,
+                makeTunnel: LeoMachineConnectionEnvironment.tunnelFactory(readinessTimeout: LeoTunnelTestSupport.readinessTimeout)
             ),
             sleep: { try await sleeper.sleep($0) },
             activationCenter: NotificationCenter()
