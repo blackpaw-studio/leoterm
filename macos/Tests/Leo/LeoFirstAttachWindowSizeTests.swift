@@ -16,9 +16,13 @@ import Testing
 /// step that `fillPlaceholder` runs for a window's first content is then
 /// run again. The windows are real and shown, and they run the default
 /// shell, never an agent. Needs the app's real `Ghostty.App`.
-@MainActor @Suite(.serialized) struct LeoFirstAttachWindowSizeTests {
+@MainActor @Suite(.serialized, .hostOnly) struct LeoFirstAttachWindowSizeTests {
     /// What `window-width`/`window-height` give a surface, in points.
     private static let configuredSize = NSSize(width: 640, height: 384)
+
+    /// The screen area first-content sizing fits, fixed so the size math
+    /// doesn't depend on the machine's display.
+    private static let visibleFrame = NSRect(x: 0, y: 0, width: 1440, height: 900)
 
     private static var app: AppDelegate? { NSApp.delegate as? AppDelegate }
     private static var hasGhostty: Bool { app?.ghostty.app != nil }
@@ -86,7 +90,7 @@ import Testing
             to surface: Ghostty.SurfaceView, configuredSize: NSSize = LeoFirstAttachWindowSizeTests.configuredSize
         ) {
             surface.initialSize = configuredSize
-            controller.leoApplyInitialSize()
+            controller.leoApplyInitialSize(visibleFrame: LeoFirstAttachWindowSizeTests.visibleFrame)
         }
 
         /// The sidebar's width in the window's split, nil while collapsed.

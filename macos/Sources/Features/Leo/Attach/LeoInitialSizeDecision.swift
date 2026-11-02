@@ -34,4 +34,12 @@ enum LeoInitialSizeDecision {
         let terminalWidth = max(initialSize.width, LeoSidebarSplitMetrics.contentMinimumWidth)
         return CGSize(width: terminalWidth + sidebarWidth + dividerWidth, height: initialSize.height)
     }
+
+    /// `size` shrunk so a window with `chrome` (frame minus content) fits
+    /// `visibleFrame`. The screen's frame is a parameter, never read here.
+    static func fittedContentSize(_ size: CGSize, chrome: CGSize, visibleFrame: CGRect) -> CGSize {
+        CGSize(
+            width: min(size.width, visibleFrame.width - chrome.width),
+            height: min(size.height, visibleFrame.height - chrome.height))
+    }
 }
