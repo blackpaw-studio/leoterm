@@ -1,23 +1,24 @@
 # Leo macOS tests
 
-## Portable rule
+## What runs in CI
 
-A test is portable if it runs on a hosted macOS runner with no display session. It must not need:
+Everything runs on a hosted macOS runner except tests that cannot. A test is host-only
+only if it:
 
-- a window server or a key window (focus, first responder, real `makeKeyAndOrderFront`)
-- real event delivery (synthesized key or mouse events)
-- a real Ghostty surface or child process
-- real sockets, tmux, or ssh
-- the keychain or `UserDefaults.standard`
-- wall-clock waits that an injected clock could drive
+- needs Leo to be the active app with a key window, or real posted key/mouse events
+  (`.requiresActiveHost`)
+- needs a real SSH host (`LeoSSHEndToEnd.trait`)
+- was observed to fail on hosted macos-26 because AppKit draws or measures differently
+  and can't be made portable (gate that one test, with a one-line comment saying what differs)
 
-Prefer injection (clock, screen frame, sheet presenter, defaults suite) over marking a test host-only.
+Real Ghostty surfaces, child shells, and WKWebView are fine in CI. Prefer injection
+(clock, screen frame, sheet presenter, defaults suite) over gating a test.
 
 ## `.hostOnly`
 
-When the behavior under test is the real host, tag the test or suite `.hostOnly`
-(`macos/Tests/Leo/LeoTestHostActivation.swift`). It runs only with `LEO_HOST_TESTS=1`.
-Use `.requiresActiveHost` when the test also needs working key focus.
+Tag a test or suite `.hostOnly` (`macos/Tests/Leo/LeoTestHostActivation.swift`) only under
+the rule above. It runs only with `LEO_HOST_TESTS=1`. Use `.requiresActiveHost` when the
+test also needs working key focus.
 
 ## Running
 

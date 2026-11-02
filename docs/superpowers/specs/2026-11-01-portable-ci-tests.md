@@ -43,12 +43,21 @@ Add a documented local command for the host tier.
 
 ### Per-test rule
 
-Prefer making a test portable over moving it: inject the clock, a fake
-transport, an in-memory defaults store (`LeoInMemoryDefaults`), a screen
-frame, or a fake binary on PATH (as `LeoSSHCommandTests` already does). Move
-a test to the host tier only when the behavior under test *is* the real
-AppKit/Ghostty/WebKit/process interaction. A test that only needs a view
-hierarchy should run without a window or key focus.
+Revised 2026-11-02 (Evan approved): the first cut gated every real-Ghostty-surface
+test, which was too broad (~313 cases skipped on hosted, ~175 of them real-terminal
+suites that had passed there). A test is `.hostOnly` / `.requiresActiveHost` only if it:
+
+1. needs Leo to be the active app with a key window, or real posted key/mouse
+   events (`.requiresActiveHost`, via the focus probe);
+2. needs a real SSH host (`LeoSSHEndToEnd.trait`); or
+3. has been observed to fail on hosted `macos-26` because AppKit draws or measures
+   differently there and can't reasonably be made portable (re-gate the specific
+   test, not the suite, with a one-line comment saying what differs).
+
+Everything else runs in CI, including real Ghostty surfaces, child shells and
+WKWebView. Prefer making a test portable over gating it: inject the clock, a fake
+transport, an in-memory defaults store (`LeoInMemoryDefaults`), a screen frame, or
+a fake binary on PATH. A test that only needs a view hierarchy runs without key focus.
 
 Audit counts (grep, files): 44 window/NSApp, 33 real surface/AppDelegate,
 21 `sendEvent`, 64 `Task.sleep` (122 sites), 11 `Process()`, 2 `NSScreen`,
