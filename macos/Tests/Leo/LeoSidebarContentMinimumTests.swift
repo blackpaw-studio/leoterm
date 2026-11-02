@@ -46,7 +46,14 @@ import Testing
 
     // MARK: In a window
 
-    @Test func aWideStoredSidebarLeavesTheContentItsMinimum() async {
+    // The in-window cases below that are `.hostOnly` measure AppKit's own
+    // thickness clamps against view frames. macOS 26 insets a sidebar item's
+    // view 8 pt inside its pane (the detail view 7 pt), so the clamps land
+    // 7-8 pt off the designed widths there (verified on a macOS 26.6 VM).
+    // They hold on the self-hosted Mac; the width the split stores and
+    // restores is covered portably in LeoSplitViewRepresentableTests.
+
+    @Test(.hostOnly) func aWideStoredSidebarLeavesTheContentItsMinimum() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
@@ -68,7 +75,7 @@ import Testing
     /// passive widen keeps the clamp (D-237, above). The restore runs
     /// straight after the window resize, with no layout between, as Return
     /// To Default Size calls it.
-    @Test func restoringTheStoredWidthUndoesALaunchClamp() async {
+    @Test(.hostOnly) func restoringTheStoredWidthUndoesALaunchClamp() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
@@ -88,7 +95,7 @@ import Testing
 
     /// B-140: in a window still too narrow for it, restoring the stored
     /// width leaves the content its minimum, and stores nothing (D-233).
-    @Test func restoringTheStoredWidthInANarrowWindowStillLeavesTheContentItsMinimum() async {
+    @Test(.hostOnly) func restoringTheStoredWidthInANarrowWindowStillLeavesTheContentItsMinimum() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
@@ -101,7 +108,7 @@ import Testing
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
     }
 
-    @Test func draggingTheSidebarWideStopsAtTheContentMinimum() async {
+    @Test(.hostOnly) func draggingTheSidebarWideStopsAtTheContentMinimum() async {
         let defaults = LeoInMemoryDefaults()
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
         defer { harness.close() }
@@ -120,7 +127,7 @@ import Testing
     /// B-139: every step is checked as the window would draw it, not only
     /// where the resize ends, so a clamp a layout late (content squeezed
     /// under its minimum for a frame) or a sidebar giving way early fails.
-    @Test(arguments: [true, false])
+    @Test(.hostOnly, arguments: [true, false])
     func narrowingTheWindowNarrowsAWideSidebarBeforeTheContent(isLive: Bool) async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
