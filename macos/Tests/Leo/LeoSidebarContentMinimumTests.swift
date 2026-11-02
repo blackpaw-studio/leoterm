@@ -46,14 +46,11 @@ import Testing
 
     // MARK: In a window
 
-    // The in-window cases below that are `.hostOnly` measure AppKit's own
-    // thickness clamps against view frames. macOS 26 insets a sidebar item's
-    // view 8 pt inside its pane (the detail view 7 pt), so the clamps land
-    // 7-8 pt off the designed widths there (verified on a macOS 26.6 VM).
-    // They hold on the self-hosted Mac; the width the split stores and
-    // restores is covered portably in LeoSplitViewRepresentableTests.
+    // Widths are read with LeoSplitViewController.paneWidth, not view frames:
+    // macOS 26 insets a sidebar item's view inside its pane, so frames sit
+    // 7-8 pt short of the width the split actually gives the pane.
 
-    @Test(.hostOnly) func aWideStoredSidebarLeavesTheContentItsMinimum() async {
+    @Test func aWideStoredSidebarLeavesTheContentItsMinimum() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
@@ -75,7 +72,7 @@ import Testing
     /// passive widen keeps the clamp (D-237, above). The restore runs
     /// straight after the window resize, with no layout between, as Return
     /// To Default Size calls it.
-    @Test(.hostOnly) func restoringTheStoredWidthUndoesALaunchClamp() async {
+    @Test func restoringTheStoredWidthUndoesALaunchClamp() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
@@ -95,7 +92,7 @@ import Testing
 
     /// B-140: in a window still too narrow for it, restoring the stored
     /// width leaves the content its minimum, and stores nothing (D-233).
-    @Test(.hostOnly) func restoringTheStoredWidthInANarrowWindowStillLeavesTheContentItsMinimum() async {
+    @Test func restoringTheStoredWidthInANarrowWindowStillLeavesTheContentItsMinimum() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
@@ -108,7 +105,7 @@ import Testing
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
     }
 
-    @Test(.hostOnly) func draggingTheSidebarWideStopsAtTheContentMinimum() async {
+    @Test func draggingTheSidebarWideStopsAtTheContentMinimum() async {
         let defaults = LeoInMemoryDefaults()
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
         defer { harness.close() }
@@ -127,7 +124,7 @@ import Testing
     /// B-139: every step is checked as the window would draw it, not only
     /// where the resize ends, so a clamp a layout late (content squeezed
     /// under its minimum for a frame) or a sidebar giving way early fails.
-    @Test(.hostOnly, arguments: [true, false])
+    @Test(arguments: [true, false])
     func narrowingTheWindowNarrowsAWideSidebarBeforeTheContent(isLive: Bool) async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
@@ -201,8 +198,12 @@ import Testing
         }
 
         var sidebarItem: NSSplitViewItem? { components.controller.sidebarItem }
-        var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
-        var contentWidth: CGFloat { components.detailHosting.view.frame.width }
+        var sidebarWidth: CGFloat {
+            LeoSplitViewController.paneWidth(of: components.sidebarHosting.view, in: components.controller.splitView)
+        }
+        var contentWidth: CGFloat {
+            LeoSplitViewController.paneWidth(of: components.detailHosting.view, in: components.controller.splitView)
+        }
 
         func close() { window.close() }
 

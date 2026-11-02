@@ -5,7 +5,12 @@ name: Leo CI (hosted portable tier)
 on:
   workflow_dispatch:
   push:
-    branches: [ci/portable-tests]
+    branches: [main, ci/portable-tests]
+  pull_request:
+
+concurrency:
+  group: leo-ci-hosted-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
