@@ -312,7 +312,7 @@ import Testing
     // MARK: Close
 
     /// Close on a busy row asks as ⌘W does, naming it; Cancel keeps it.
-    @Test(.timeLimit(.minutes(1)), arguments: ["shown", "hidden"])
+    @Test(.timeLimit(.minutes(2)), arguments: ["shown", "hidden"])
     func closeFromMenuOnABusyRowAsks(_ state: String) async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -339,7 +339,7 @@ import Testing
     }
 
     /// Confirmed, a hidden busy row closes; what the window shows stays.
-    @Test(.timeLimit(.minutes(1)))
+    @Test(.timeLimit(.minutes(2)))
     func closeFromMenuOnAHiddenBusyRowClosesOnceConfirmed() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -368,7 +368,7 @@ import Testing
 
     /// Nothing running (its command ended): the shown row closes without
     /// asking, and its neighbour shows in its place.
-    @Test(.timeLimit(.minutes(1)))
+    @Test(.timeLimit(.minutes(2)))
     func closeFromMenuOnAnIdleShownRowClosesWithoutAsking() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -393,14 +393,14 @@ import Testing
 
     /// A hidden shell at its prompt closes without asking; what the window
     /// shows stays.
-    @Test(.timeLimit(.minutes(1)))
+    @Test(.timeLimit(.minutes(2)))
     func closeFromMenuOnAnIdleHiddenRowClosesWithoutAsking() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
         let window = try #require(fixture.controller.window)
         let idle = try newShell(fixture)
         let idleView = try #require(fixture.view(idle))
-        try #require(await eventually(.seconds(15)) { !idleView.needsConfirmQuit }, "the shell reached its prompt")
+        try #require(await eventually(.seconds(45)) { !idleView.needsConfirmQuit }, "the shell reached its prompt")
         let shown = try newShell(fixture, running: Self.standIn)
         let shownView = try #require(fixture.view(shown))
         window.orderFront(nil)

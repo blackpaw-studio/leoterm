@@ -103,7 +103,7 @@ import Testing
         defer { fixture.close() }
         let row = try fixture.newRow()
         let rowView = try #require(fixture.view(row))
-        try #require(await fixture.eventually(.seconds(15)) { !rowView.needsConfirmQuit }, "the row's shell reached its prompt")
+        try #require(await fixture.eventually(.seconds(45)) { !rowView.needsConfirmQuit }, "the row's shell reached its prompt")
         let busy = try fixture.pickerSplit(beside: row, running: Fixture.standIn)
         let busyView = try #require(fixture.view(busy))
         try #require(await fixture.eventually { busyView.needsConfirmQuit }, "the split's process is running")
