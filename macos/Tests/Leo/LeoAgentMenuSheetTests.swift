@@ -9,8 +9,9 @@ import Testing
 /// B-285: Agents ▸ Rename…, and Delete… must open their sheets
 /// on a real terminal window. `TerminalController` sets `window.contentView`
 /// directly and never a `contentViewController`, so presenting through that
-/// property was a silent no-op (the same root cause as B-284). Needs the
-/// app's real `Ghostty.App` for the window. Everything else is isolated: the
+/// property was a silent no-op (the same root cause as B-284). The sheets are
+/// checked against a recording presenter; the real-window cases are
+/// `.hostOnly`. Everything is isolated: the
 /// sheets get their own model, actions over a recording fake daemon, and an
 /// in-memory host store, so nothing touches the app runtime or its daemon.
 @MainActor @Suite(.serialized) struct LeoAgentMenuSheetTests {
@@ -18,66 +19,71 @@ import Testing
         host: .local, name: "autopilot-scratch", template: nil, status: .running, activity: .idle, actionDetail: nil
     )
 
-    private func makeController() throws -> TerminalController {
-        let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "needs the app's Ghostty.App")
-        let app = try #require(ghostty.app)
-        let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil)))
-        let window = try #require(controller.window)
-        window.contentView?.layoutSubtreeIfNeeded()
-        let registry = LeoWindowSessionRegistry()
-        _ = registry.makeSession(window: window, controller: controller, defaults: LeoInMemoryDefaults())
-        window.makeKeyAndOrderFront(nil)
-        #expect(window.contentViewController == nil)
-        return controller
-    }
-
-    private func makeSheets(daemon: RecordingDaemon) -> LeoAgentMenuSheets {
+    private func makeSheets(daemon: RecordingDaemon, presenter: LeoSheetPresenter = .live) -> LeoAgentMenuSheets {
         let model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [scratch], connectivity: .connected, generation: 1))
         let actions = LeoAgentActions(
             clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
-        return LeoAgentMenuSheets(model: model, actions: actions)
+        return LeoAgentMenuSheets(model: model, actions: actions, presenter: presenter)
     }
 
-    private func expectSheet(on controller: TerminalController, after present: (NSWindow) -> Void) throws {
-        let window = try #require(controller.window)
-        present(window)
-        let sheet = window.attachedSheet
-        #expect(sheet != nil)
-        if let sheet { window.endSheet(sheet) }
+    @Test func renamePresentsItsSheet() {
+        let recorder = RecordingSheetPresenter()
+        let sheets = makeSheets(daemon: RecordingDaemon(), presenter: recorder.presenter)
+
+        sheets.presentRename(scratch, in: RecordingSheetPresenter.plainWindow())
+
+        #expect(recorder.presentedControllers.count == 1)
     }
 
-    @Test func renamePresentsItsSheetOnATerminalWindow() throws {
-        let controller = try makeController()
-        defer { controller.closeTabImmediately(registerRedo: false) }
-        let sheets = makeSheets(daemon: RecordingDaemon())
-
-        try expectSheet(on: controller) { sheets.presentRename(scratch, in: $0) }
-    }
-
-    @Test func deletePresentsItsSheetOnATerminalWindowAndAsksTheFakeDaemonForItsPlan() async throws {
-        let controller = try makeController()
-        defer { controller.closeTabImmediately(registerRedo: false) }
+    @Test func deletePresentsItsSheetAndDoesNothingElseUntilItAppears() async {
+        let recorder = RecordingSheetPresenter()
         let daemon = RecordingDaemon()
-        let sheets = makeSheets(daemon: daemon)
-        let window = try #require(controller.window)
+        let sheets = makeSheets(daemon: daemon, presenter: recorder.presenter)
 
-        sheets.presentDelete(scratch, in: window)
+        sheets.presentDelete(scratch, in: RecordingSheetPresenter.plainWindow())
+
+        #expect(recorder.presentedControllers.count == 1)
+        #expect(await daemon.calls.isEmpty, "presenting alone calls nothing; the sheet asks for its plan when it appears")
+    }
+
+    @Test func nothingIsPresentedWithoutAWindow() {
+        let recorder = RecordingSheetPresenter()
+        let sheets = makeSheets(daemon: RecordingDaemon(), presenter: recorder.presenter)
+
+        sheets.presentRename(scratch, in: nil)
+        sheets.presentDelete(scratch, in: nil)
+
+        #expect(recorder.presentedControllers.isEmpty)
+    }
+
+    /// B-285: the real sheet appears on a window with `contentView` set and
+    /// no `contentViewController` (as `TerminalController` builds it), and the
+    /// delete sheet then asks the daemon for its plan.
+    @Test(.hostOnly) func deleteSheetAppearsOnARealWindowAndAsksForItsPlan() async throws {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSView()
+        window.makeKeyAndOrderFront(nil)
+        defer { window.close() }
+        #expect(window.contentViewController == nil)
+        let daemon = RecordingDaemon()
+
+        makeSheets(daemon: daemon).presentDelete(scratch, in: window)
 
         #expect(window.attachedSheet != nil)
         await awaitCondition { await daemon.calls == ["plan:autopilot-scratch"] }
         if let sheet = window.attachedSheet { window.endSheet(sheet) }
-        #expect(await daemon.calls == ["plan:autopilot-scratch"], "presenting asks for the plan and does nothing else")
     }
 
     /// B-328: SwiftUI's `dismiss` does nothing in a hosting controller that
     /// `presentLeoSheet` attached outside SwiftUI, so Cancel and confirm left
     /// Rename, Delete and New Agent open. The sheets close through
     /// `LeoSheetDismiss`, which ends the window's sheet.
-    @Test func leoSheetDismissClosesASheetPresentedOnATerminalWindow() async throws {
-        let controller = try makeController()
-        defer { controller.closeTabImmediately(registerRedo: false) }
-        let window = try #require(controller.window)
+    @Test(.hostOnly) func leoSheetDismissClosesASheetPresentedOnATerminalWindow() async throws {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSView()
+        window.makeKeyAndOrderFront(nil)
+        defer { window.close() }
         let probe = DismissProbe()
 
         window.presentLeoSheet(NSHostingController(rootView: DismissProbeView(probe: probe).leoSheetClose(in: window)))

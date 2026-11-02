@@ -12,7 +12,38 @@ import Testing
 /// real terminal window. `LeoSpawnAgentSheetPresenter` must still present a
 /// sheet in that exact configuration.
 @MainActor struct LeoSpawnAgentSheetPresenterTests {
-    @Test func presentsASheetOnAWindowWithNoContentViewController() {
+    private func makeActions() -> (LeoSidebarModel, LeoAgentActions) {
+        let sidebar = LeoSidebarModel()
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        return (sidebar, actions)
+    }
+
+    @Test func presentsTheSpawnSheetThroughThePresenter() {
+        let recorder = RecordingSheetPresenter()
+        let (sidebar, actions) = makeActions()
+        var completions = 0
+
+        LeoSpawnAgentSheetPresenter(presenter: recorder.presenter)
+            .present(on: RecordingSheetPresenter.plainWindow(), sidebar: sidebar, actions: actions) { _ in completions += 1 }
+
+        #expect(recorder.presentedControllers.count == 1)
+        #expect(recorder.presentedControllers.first is LeoSpawnSheetHostingController)
+        #expect(completions == 0, "an open sheet has not resolved yet")
+    }
+
+    @Test func resolvesWithNilWhenThePresenterCannotPresent() {
+        let (sidebar, actions) = makeActions()
+        var results: [LeoAgentIdentity?] = []
+        let refusing = LeoSheetPresenter(
+            presentController: { _, _ in false }, presentWindow: { _, _, _ in }, dismissWindow: { _, _ in }, hasSheet: { _ in false })
+
+        LeoSpawnAgentSheetPresenter(presenter: refusing)
+            .present(on: RecordingSheetPresenter.plainWindow(), sidebar: sidebar, actions: actions) { results.append($0) }
+
+        #expect(results.count == 1 && results[0] == nil)
+    }
+
+    @Test(.hostOnly) func presentsASheetOnAWindowWithNoContentViewController() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
             styleMask: [.titled],
