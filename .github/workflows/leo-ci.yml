@@ -24,6 +24,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, macOS, leo]
     timeout-minutes: 120
+    env:
+      # Self-hosted runs the host tier (real key focus, surfaces, WebKit).
+      LEO_HOST_TESTS: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
