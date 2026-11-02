@@ -12,7 +12,7 @@ permissions:
 
 # Bump to start every cache cold (acceptance runs: cold, then warm reruns).
 env:
-  CACHE_SALT: v1
+  CACHE_SALT: v2
 
 jobs:
   test-macos-hosted:
