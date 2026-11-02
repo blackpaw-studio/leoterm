@@ -16,7 +16,7 @@ import Testing
 ///
 /// Needs the test host's `LeoRuntime` and a loadable Ghostty config; either
 /// missing fails the test rather than passing it silently.
-@MainActor @Suite(.serialized, .hostOnly)
+@MainActor @Suite(.serialized)
 struct LeoSidebarTitlebarStyleTests {
     /// How far a header row may sit from where the chrome metrics put it:
     /// the row's height is the button's, so the title is centred in it.

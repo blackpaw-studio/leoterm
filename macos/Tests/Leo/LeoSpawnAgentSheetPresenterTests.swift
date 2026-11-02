@@ -43,7 +43,7 @@ import Testing
         #expect(results.count == 1 && results[0] == nil)
     }
 
-    @Test(.hostOnly) func presentsASheetOnAWindowWithNoContentViewController() {
+    @Test func presentsASheetOnAWindowWithNoContentViewController() {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
             styleMask: [.titled],

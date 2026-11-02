@@ -13,7 +13,7 @@ import Testing
 /// The windows are built but never shown or made key (see
 /// `LeoStartScreenIntegrationTests`: suites share one app), and the
 /// surfaces run the default shell (`command: ""`), never an agent.
-@MainActor @Suite(.serialized, .hostOnly) struct LeoContentSwapIntegrationTests {
+@MainActor @Suite(.serialized) struct LeoContentSwapIntegrationTests {
     private struct Fixture {
         let host: GhosttyAttachContentHost
         let controller: TerminalController

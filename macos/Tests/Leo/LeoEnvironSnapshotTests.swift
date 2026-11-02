@@ -22,7 +22,7 @@ import Testing
 /// `leoEnvironWasOnHeapAtGhosttyInit` rather than passing vacuously.
 ///
 /// The surface runs `/bin/cat`, never a shell or a real agent.
-@MainActor @Suite(.serialized, .hostOnly) struct LeoEnvironSnapshotTests {
+@MainActor @Suite(.serialized) struct LeoEnvironSnapshotTests {
     private static let standIn = "/bin/cat"
 
     /// libc grows `environ` one slot per new variable and moves it to a

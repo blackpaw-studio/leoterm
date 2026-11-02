@@ -10,7 +10,7 @@ import Testing
 /// silent no-op. Host tier: the subject is `TerminalController` itself on a
 /// real window, which needs the app's real `Ghostty.App`.
 @MainActor @Suite(.serialized) struct LeoNewAgentMenuSheetTests {
-    @Test(.hostOnly) func newLeoAgentPresentsTheSpawnSheetOnATerminalWindow() throws {
+    @Test func newLeoAgentPresentsTheSpawnSheetOnATerminalWindow() throws {
         let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "needs the app's Ghostty.App")
         let app = try #require(ghostty.app)
         let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil)))

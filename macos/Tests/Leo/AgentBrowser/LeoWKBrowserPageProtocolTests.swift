@@ -8,7 +8,7 @@ import Testing
 /// Errors reach the agent with the page's own codes, chords become real
 /// keys, and the console cursor continues where the last batch ended.
 @MainActor
-@Suite(.serialized, .hostOnly)
+@Suite(.serialized)
 struct LeoWKBrowserPageProtocolTests {
     private static let pages = [
         "form": """

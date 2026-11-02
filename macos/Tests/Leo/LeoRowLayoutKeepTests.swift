@@ -10,7 +10,7 @@ import Testing
 /// split beside it -- and nothing in it ends but by its own exit or the
 /// row's close. A pane whose process ends while hidden leaves the layout;
 /// the row's own pane leaving hands the row to a pane that stays (B-082).
-@MainActor @Suite(.serialized, .hostOnly) struct LeoRowLayoutKeepTests {
+@MainActor @Suite(.serialized) struct LeoRowLayoutKeepTests {
     private typealias Fixture = LeoRowLayoutFixture
 
     /// Switching away from a row with shells split beside it -- one busy

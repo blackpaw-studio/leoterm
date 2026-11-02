@@ -9,7 +9,7 @@ import WebKit
 /// C3: the WebKit page adapter in a real `WKWebView`, over in-memory
 /// fixtures. The view sits in an off-screen window, as a parked tab does.
 @MainActor
-@Suite(.serialized, .hostOnly)
+@Suite(.serialized)
 struct LeoWKBrowserPageTests {
     private static let form = """
     <title>Form</title>

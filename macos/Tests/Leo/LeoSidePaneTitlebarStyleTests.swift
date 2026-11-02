@@ -16,7 +16,7 @@ import Testing
 /// header out the same as one with a file open. Each pane is measured by
 /// its close button's glyph (the drawn symbol, not the button's padded
 /// frame), the one control both headers always show.
-@MainActor @Suite(.serialized, .hostOnly)
+@MainActor @Suite(.serialized)
 struct LeoSidePaneTitlebarStyleTests {
     /// Room for every pane beside the sidebar and the terminal's floor, so
     /// no pane is squeezed or collapsed while it's measured.

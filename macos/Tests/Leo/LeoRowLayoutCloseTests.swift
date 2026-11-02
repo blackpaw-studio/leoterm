@@ -10,7 +10,7 @@ import Testing
 /// it, shown or hidden. Cancel keeps all of it; Close lets all of it go,
 /// and the neighbouring row (or the start screen) shows in its place. ⌘W
 /// stays per pane (B-082).
-@MainActor @Suite(.serialized, .hostOnly) struct LeoRowLayoutCloseTests {
+@MainActor @Suite(.serialized) struct LeoRowLayoutCloseTests {
     private typealias Fixture = LeoRowLayoutFixture
 
     private final class Weak {

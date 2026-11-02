@@ -122,7 +122,7 @@ import Testing
 
     /// The one case whose subject is AppKit itself: a real `beginSheet` on a
     /// terminal-like window (no content view controller), ended by Escape.
-    @Test(.hostOnly) func escapeEndsARealSheetOnATerminalLikeWindow() async throws {
+    @Test func escapeEndsARealSheetOnATerminalLikeWindow() async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = NSView() // like TerminalController: no content view controller
         window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)

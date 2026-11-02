@@ -48,7 +48,7 @@ import Testing
 /// closes the windows it opened, with undo registration off while they
 /// open.
 @MainActor @Suite(
-    .serialized, .hostOnly,
+    .serialized,
     .enabled("needs the app's Ghostty.App") { await MainActor.run { hasLiveGhosttyApp } },
     LeoCascadePointRestoringTrait()
 )

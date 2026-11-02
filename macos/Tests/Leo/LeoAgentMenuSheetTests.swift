@@ -10,8 +10,8 @@ import Testing
 /// on a real terminal window. `TerminalController` sets `window.contentView`
 /// directly and never a `contentViewController`, so presenting through that
 /// property was a silent no-op (the same root cause as B-284). The sheets are
-/// checked against a recording presenter; the real-window cases are
-/// `.hostOnly`. Everything is isolated: the
+/// checked against a recording presenter; the real-window cases run on
+/// a plain window too. Everything is isolated: the
 /// sheets get their own model, actions over a recording fake daemon, and an
 /// in-memory host store, so nothing touches the app runtime or its daemon.
 @MainActor @Suite(.serialized) struct LeoAgentMenuSheetTests {
@@ -60,7 +60,7 @@ import Testing
     /// B-285: the real sheet appears on a window with `contentView` set and
     /// no `contentViewController` (as `TerminalController` builds it), and the
     /// delete sheet then asks the daemon for its plan.
-    @Test(.hostOnly) func deleteSheetAppearsOnARealWindowAndAsksForItsPlan() async throws {
+    @Test func deleteSheetAppearsOnARealWindowAndAsksForItsPlan() async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = NSView()
         window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)
@@ -80,7 +80,7 @@ import Testing
     /// `presentLeoSheet` attached outside SwiftUI, so Cancel and confirm left
     /// Rename, Delete and New Agent open. The sheets close through
     /// `LeoSheetDismiss`, which ends the window's sheet.
-    @Test(.hostOnly) func leoSheetDismissClosesASheetPresentedOnATerminalWindow() async throws {
+    @Test func leoSheetDismissClosesASheetPresentedOnATerminalWindow() async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = NSView()
         window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)

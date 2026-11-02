@@ -12,7 +12,7 @@ import Testing
 /// first as ⌘W does when a process is running. Needs the app's real
 /// `Ghostty.App`; windows are built but never made key, and a busy shell
 /// runs `/bin/cat`, never a real agent.
-@MainActor @Suite(.serialized, .hostOnly) struct LeoTerminalRowMenuIntegrationTests {
+@MainActor @Suite(.serialized) struct LeoTerminalRowMenuIntegrationTests {
     private static let standIn = "/bin/cat"
 
     @MainActor private struct Fixture {

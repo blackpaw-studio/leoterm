@@ -14,7 +14,7 @@ import Testing
 /// Windows are built but never shown or made key (suites share one app).
 /// An "attach" here runs `/bin/cat` -- a harmless long-lived process that
 /// stands in for `leo agent attach`, never a real agent.
-@MainActor @Suite(.serialized, .hostOnly) struct LeoLivePoolIntegrationTests {
+@MainActor @Suite(.serialized) struct LeoLivePoolIntegrationTests {
     private static let standIn = "/bin/cat"
 
     private struct Fixture {
