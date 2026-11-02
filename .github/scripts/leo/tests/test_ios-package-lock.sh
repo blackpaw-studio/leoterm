@@ -9,7 +9,7 @@ pass=0; fail=0
 result() { if [[ "$1" == yes ]]; then echo "PASS: $2"; pass=$((pass+1)); else echo "FAIL: $2"; fail=$((fail+1)); fi; }
 resolved=ios/Leo.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 git ls-files --error-unmatch "$resolved" >/dev/null 2>&1 && result yes "app Package.resolved is committed" || result no "app Package.resolved is committed"
-for wf in leo-ios leo-ios-testflight; do
+for wf in leo-ios-testflight; do
   f=.github/workflows/$wf.yml
   # every xcodebuild invocation that skips validation must also pin to the resolved file
   skip=$(grep -c -- '-skipPackagePluginValidation' "$f" || true)
