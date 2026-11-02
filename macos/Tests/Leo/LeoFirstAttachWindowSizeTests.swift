@@ -16,7 +16,7 @@ import Testing
 /// step that `fillPlaceholder` runs for a window's first content is then
 /// run again. The windows are real and shown, and they run the default
 /// shell, never an agent. Needs the app's real `Ghostty.App`.
-@MainActor @Suite(.serialized, .hostOnly) struct LeoFirstAttachWindowSizeTests {
+@MainActor @Suite(.serialized) struct LeoFirstAttachWindowSizeTests {
     /// What `window-width`/`window-height` give a surface, in points.
     private static let configuredSize = NSSize(width: 640, height: 384)
 
@@ -94,9 +94,11 @@ import Testing
         }
 
         /// The sidebar's width in the window's split, nil while collapsed.
+        /// Read from its pane, as the divider sets it: on macOS 26 the
+        /// sidebar's view sits inside the pane with an 8 pt inset.
         var sidebarWidth: CGFloat? {
             guard let split, let item = split.sidebarItem, !item.isCollapsed else { return nil }
-            return item.viewController.view.frame.width
+            return LeoSplitViewController.paneWidth(of: item.viewController.view, in: split.splitView)
         }
 
         /// The window's split, once its content has built one.
