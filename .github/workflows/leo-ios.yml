@@ -14,6 +14,7 @@ on:
       - "Packages/LeoKit/**"
       - "images/Ghostty.icon/**"
       - ".github/workflows/leo-ios.yml"
+  workflow_dispatch:
 
 concurrency:
   group: leo-ios-${{ github.event.pull_request.number || github.ref }}
@@ -24,15 +25,11 @@ permissions:
 
 env:
   # Xcode 27 crashes on this code; the Mac app's Xcode 26.3 pin is separate.
-  DEVELOPER_DIR: /Applications/Xcode-26.5.0.app/Contents/Developer
+  DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
 
 jobs:
   leo-ios:
-    # Never run fork PRs on the self-hosted runner.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       SIMULATOR: iPhone 17 Pro
@@ -40,12 +37,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          clean: true
           persist-credentials: false
 
       - name: Set paths
         run: |
           echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-leo-ios" >> "$GITHUB_ENV"
+
+      - name: Select Xcode 26.5
+        run: |
+          test -d "$DEVELOPER_DIR" || { echo "::error::$DEVELOPER_DIR missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
+          xcodebuild -version
+
+      - name: Install xcodegen 2.42.0
+        run: |
+          mkdir -p "$RUNNER_TEMP/xcodegen"
+          gh release download 2.42.0 -R yonaskolb/XcodeGen -p xcodegen.zip -D "$RUNNER_TEMP/xcodegen"
+          unzip -q -o "$RUNNER_TEMP/xcodegen/xcodegen.zip" -d "$RUNNER_TEMP/xcodegen"
+          echo "$RUNNER_TEMP/xcodegen/xcodegen/bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/xcodegen/xcodegen/bin/xcodegen" --version
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Check simulator exists
+        run: |
+          xcrun simctl list devices available
+          xcrun simctl list devices available | grep -q "${SIMULATOR} (" || { echo "::error::Simulator '${SIMULATOR}' not available"; exit 1; }
 
       - name: LeoKit tests
         working-directory: Packages/LeoKit

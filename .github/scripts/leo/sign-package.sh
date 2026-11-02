@@ -22,6 +22,8 @@ echo "::group::codesign"
 # tmux (Contents/Helpers) before the app, and the app (the last path, with
 # its entitlements) after everything it contains.
 scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hosted-helpers.sh
+source "$scripts/hosted-helpers.sh"
 code_paths=()
 while IFS= read -r path; do
   code_paths+=("$path")
@@ -77,7 +79,7 @@ staging="$(mktemp -d "${RUNNER_TEMP:-/tmp}/leo-dmg.XXXXXX")"
 ditto "$APP" "$staging/Leo.app"
 ln -s /Applications "$staging/Applications"
 rm -f "$dmg"
-hdiutil create -volname Leo -srcfolder "$staging" -fs HFS+ -format UDZO -ov "$dmg"
+retry 3 hdiutil create -volname Leo -srcfolder "$staging" -fs HFS+ -format UDZO -ov "$dmg"
 rm -rf "$staging"
 /usr/bin/codesign --force --timestamp --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$dmg"
 /usr/bin/codesign --verify --verbose=2 "$dmg"
@@ -91,6 +93,7 @@ echo "::endgroup::"
 echo "::group::verify"
 xcrun stapler validate "$dmg"
 xcrun stapler validate "$APP"
+ensure_assessments_enabled
 spctl --assess --type open --context context:primary-signature -vv "$dmg"
 spctl --assess --type execute -vv "$APP"
 echo "::endgroup::"

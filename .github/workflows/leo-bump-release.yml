@@ -28,7 +28,7 @@ jobs:
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'bump/leo-')
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 10
     permissions:
       contents: read

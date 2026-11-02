@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
   workflow_call:
 
 concurrency:
@@ -13,34 +14,90 @@ concurrency:
 permissions:
   contents: read
 
+# Bump to start every cache cold.
 env:
-  DEVELOPER_DIR: /Applications/Xcode-26.3.0.app/Contents/Developer
+  CACHE_SALT: v5
 
 jobs:
   test-macos:
-    # Never run fork PRs on the self-hosted runner.
-    if: >-
-      github.event_name != 'pull_request' ||
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 120
-    env:
-      # Self-hosted runs the host tier (real key focus, surfaces, WebKit).
-      LEO_HOST_TESTS: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          clean: true
           persist-credentials: false
 
-      # Every .github/scripts/leo/tests/test_*.sh (CI/release script tests);
-      # fast, so it runs first and fails the job on any failure.
+      - name: Set DerivedData path
+        run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-ci" >> "$GITHUB_ENV"
+
+      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md), so a
+      # missing 26.3 must fail, never fall back to a newer Xcode.
+      - name: Select Xcode 26.3
+        run: |
+          x=/Applications/Xcode_26.3.app
+          test -d "$x" || { echo "::error::$x missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
+          echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
+          DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
+
+      - name: Setup zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+          use-cache: false # zig caches managed explicitly below
+
+      # run-unit-tests.sh calls GNU `timeout`, which hosted images lack.
+      - name: Install coreutils (timeout)
+        run: |
+          brew install coreutils
+          # Only `timeout`: full gnubin shadows BSD stat/etc. and breaks script tests.
+          mkdir -p "$RUNNER_TEMP/bin"
+          ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
+      # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
+      - name: Install swiftlint 0.63.3
+        run: |
+          mkdir -p "$RUNNER_TEMP/swiftlint"
+          gh release download 0.63.3 -R realm/SwiftLint -p portable_swiftlint.zip -D "$RUNNER_TEMP/swiftlint"
+          unzip -q -o "$RUNNER_TEMP/swiftlint/portable_swiftlint.zip" -d "$RUNNER_TEMP/swiftlint"
+          echo "$RUNNER_TEMP/swiftlint" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftlint/swiftlint" --version
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Cache zig
+        id: cache-zig
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: zig-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('build.zig.zon', 'build.zig', 'src/build/**', 'pkg/**/*.zig', 'pkg/**/build.zig.zon') }}
+          restore-keys: zig-${{ env.CACHE_SALT }}-${{ runner.os }}-
+
+      - name: Cache LeoKit .build
+        id: cache-leokit
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Packages/LeoKit/.build
+          key: leokit-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('Packages/LeoKit/Package.swift', 'Packages/LeoKit/Sources/**', 'Packages/LeoKit/Tests/**') }}
+          restore-keys: leokit-${{ env.CACHE_SALT }}-${{ runner.os }}-
+
+      - name: Cache DerivedData (incl. SourcePackages)
+        id: cache-dd
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DERIVED_DATA }}
+          key: dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          restore-keys: |
+            dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
+            dd-${{ env.CACHE_SALT }}-${{ runner.os }}-
+
       - name: CI script tests
         run: .github/scripts/leo/run-tests.sh
 
-      # The shared LeoKit package (models, daemon client, observe, files);
-      # plain SwiftPM, so it runs before the app build.
       - name: LeoKit tests
         working-directory: Packages/LeoKit
         run: |
@@ -56,16 +113,12 @@ jobs:
       - name: Build GhosttyKit
         run: |
           version="$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' build.zig.zon | head -1)"
-          if [[ -z "$version" ]]; then
-            echo "could not read .version from build.zig.zon" >&2
-            exit 1
-          fi
+          [[ -n "$version" ]] || { echo "could not read .version from build.zig.zon" >&2; exit 1; }
           rm -rf macos/GhosttyKit.xcframework zig-out
           zig build -Demit-macos-app=false -Dversion-string="$version"
 
       - name: Unit tests
         env:
-          DERIVED_DATA: ${{ runner.temp }}/DerivedData-ci
           LOG: ${{ runner.temp }}/leo-tests.log
         run: .github/scripts/leo/run-unit-tests.sh
 
@@ -78,8 +131,26 @@ jobs:
           path: ${{ runner.temp }}/leo-tests.log
           if-no-files-found: ignore
 
-      - name: Clean up
-        if: always()
-        env:
-          TEMP_DIR: ${{ runner.temp }}
-        run: rm -rf "$TEMP_DIR/DerivedData-ci" "$TEMP_DIR/leo-tests.log" zig-out macos/GhosttyKit.xcframework
+      # Only main pushes write caches; PRs and tag calls restore from main.
+      - name: Save zig cache
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-zig.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/zig
+            .zig-cache
+          key: ${{ steps.cache-zig.outputs.cache-primary-key }}
+
+      - name: Save LeoKit .build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-leokit.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Packages/LeoKit/.build
+          key: ${{ steps.cache-leokit.outputs.cache-primary-key }}
+
+      - name: Save DerivedData
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-dd.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ env.DERIVED_DATA }}
+          key: ${{ steps.cache-dd.outputs.cache-primary-key }}

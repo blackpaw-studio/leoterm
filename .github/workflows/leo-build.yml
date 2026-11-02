@@ -1,9 +1,9 @@
 name: Leo Build
 
-# Signed, notarized Leo.app build on the self-hosted Mac (Dionysus).
+# Signed, notarized Leo.app build on a GitHub-hosted macOS runner.
 # The signing identity, notarization key and Sparkle key all come from
 # GitHub Actions secrets into a per-job keychain in $RUNNER_TEMP; nothing
-# depends on persistent state on the runner. See docs/leo/ci.md.
+# depends on persistent state on the runner (hosted runners are ephemeral). See docs/leo/ci.md.
 
 on:
   workflow_dispatch:
@@ -38,12 +38,12 @@ permissions:
   contents: read
 
 env:
-  DEVELOPER_DIR: /Applications/Xcode-26.3.0.app/Contents/Developer
+  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
   SIGN_IDENTITY: "Developer ID Application: Evan Coleman (52M9C6892K)"
 
 jobs:
   build:
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 150
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -60,6 +60,19 @@ jobs:
           path: ci
           sparse-checkout: .github/scripts/leo
           persist-credentials: false
+
+      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md); a
+      # missing 26.3 must fail, never fall back to a newer Xcode.
+      - name: Select Xcode 26.3
+        run: |
+          test -d "$DEVELOPER_DIR" || { echo "::error::$DEVELOPER_DIR missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
+          xcodebuild -version
+
+      - name: Setup zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.16.0
+          use-cache: false
 
       - name: Create signing keychain
         env:

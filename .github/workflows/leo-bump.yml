@@ -41,7 +41,7 @@ permissions:
 
 jobs:
   verify:
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 20
     outputs:
       bump: ${{ steps.bump.outputs.bump }}
@@ -72,7 +72,7 @@ jobs:
   write:
     needs: verify
     if: needs.verify.outputs.bump == 'true'
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 10
     steps:
       - name: Checkout
