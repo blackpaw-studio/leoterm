@@ -34,13 +34,14 @@ import Testing
         let titled = await title(rowView, "editor", in: fixture)
         let titledToo = await title(busyView, "build", in: fixture)
         try #require(titled && titledToo)
-        try #require(await fixture.eventually(.seconds(45)) {
+        try #require(await fixture.eventually(.seconds(15)) {
             rowView.needsConfirmQuit && busyView.needsConfirmQuit && !idleView.needsConfirmQuit
         }, "two busy panes, and a shell at its prompt")
         return ([row, fixture.handle(busyView), fixture.handle(idleView)], [rowView, busyView, idleView].map { Weak($0) })
     }
 
-    @Test(.timeLimit(.minutes(2)), arguments: ["shown", "hidden"])
+    /// `.hostOnly`: on hosted macos-26 the shell never reports idle (needsConfirmQuit stays true), so the "at its prompt" wait cannot pass
+    @Test(.hostOnly, .timeLimit(.minutes(1)), arguments: ["shown", "hidden"])
     func closingARowWithSplitsAsksOnceForEveryBusyPane(_ state: String) async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
@@ -75,7 +76,7 @@ import Testing
     }
 
     /// The last row: Close leaves the start screen; the window stays.
-    @Test(.timeLimit(.minutes(2)))
+    @Test(.timeLimit(.minutes(1)))
     func closingTheLastRowWithSplitsLeavesTheStartScreen() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
