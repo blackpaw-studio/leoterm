@@ -29,6 +29,14 @@ enum LeoSidebarSplitMetrics {
         min(maximumWidth, max(minimumWidth, splitWidth - dividerThickness - contentMinimumWidth))
     }
 
+    /// The thickness to give the sidebar's split view item so its pane comes
+    /// out `paneWidth` wide. `NSSplitViewItem` thickness limits clamp the
+    /// item's view, and on macOS 26 that view sits `inset` pt inside its
+    /// pane (0 elsewhere), so a limit meant for the pane is `inset` smaller.
+    static func itemThickness(forPaneWidth paneWidth: CGFloat, inset: CGFloat) -> CGFloat {
+        max(0, paneWidth - max(0, inset))
+    }
+
     /// What's left for the terminal in a split `splitWidth` wide beside
     /// panes `paneWidths` wide and `dividers` dividers.
     static func terminalWidth(splitWidth: CGFloat, paneWidths: [CGFloat], dividers: Int, dividerThickness: CGFloat) -> CGFloat {

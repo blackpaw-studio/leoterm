@@ -40,7 +40,8 @@ import Testing
         return ([row, fixture.handle(busyView), fixture.handle(idleView)], [rowView, busyView, idleView].map { Weak($0) })
     }
 
-    @Test(.timeLimit(.minutes(1)), arguments: ["shown", "hidden"])
+    /// `.hostOnly`: on hosted macos-26 the shell never reports idle (needsConfirmQuit stays true), so the "at its prompt" wait cannot pass
+    @Test(.hostOnly, .timeLimit(.minutes(1)), arguments: ["shown", "hidden"])
     func closingARowWithSplitsAsksOnceForEveryBusyPane(_ state: String) async throws {
         let fixture = try Fixture()
         defer { fixture.close() }

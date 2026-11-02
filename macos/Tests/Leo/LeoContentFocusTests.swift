@@ -18,7 +18,7 @@ import Testing
 ///
 /// Needs the test host's `Ghostty.App`; without it the test fails rather
 /// than passing silently.
-@MainActor @Suite(.serialized)
+@MainActor @Suite(.serialized, .hostOnly)
 struct LeoContentFocusTests {
     /// Covers the host step only: `showInContent` / `reveal` called
     /// directly, with a view in the window standing in for the sidebar

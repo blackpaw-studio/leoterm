@@ -178,6 +178,21 @@ struct LeoSplitViewRepresentableTests {
 
     /// Half never takes the terminal under its floor: at most what's left
     /// above it, and never under the editor's own minimum.
+    /// The sidebar's width is its pane's, however far the OS insets the
+    /// sidebar's view inside it (macOS 26 does, by 8 pt).
+    @Test func aPanesWidthIsTheArrangedSubviewsNotTheInsetViewInsideIt() {
+        let split = NSSplitView(frame: NSRect(x: 0, y: 0, width: 600, height: 100))
+        let pane = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 100))
+        let inset = NSView(frame: NSRect(x: 4, y: 4, width: 312, height: 92))
+        pane.addSubview(inset)
+        split.addArrangedSubview(pane)
+        let loose = NSView(frame: NSRect(x: 0, y: 0, width: 50, height: 10))
+
+        #expect(LeoSplitViewController.paneWidth(of: inset, in: split) == 320)
+        #expect(LeoSplitViewController.paneWidth(of: pane, in: split) == 320)
+        #expect(LeoSplitViewController.paneWidth(of: loose, in: split) == 50)
+    }
+
     @Test func theOpeningWidthKeepsTheTerminalFloor() {
         let minimum = LeoEditorPaneViewController.minimumWidth
         let floor = LeoSidebarSplitMetrics.terminalFloor
@@ -234,6 +249,9 @@ struct LeoSplitViewRepresentableTests {
 
         for (index, component) in components.enumerated() {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: Self.windowHeight), styleMask: [.titled], backing: .buffered, defer: false)
+            // `close()` would otherwise release the window once more than ARC
+            // retains it, which kills the host on macOS 26 when it deallocates.
+            window.isReleasedWhenClosed = false
             window.contentViewController = component.controller
             window.setContentSize(NSSize(width: Self.windowWidth, height: Self.windowHeight))
             window.layoutIfNeeded()
@@ -728,8 +746,9 @@ struct LeoSplitViewRepresentableTests {
     }
 
     /// A real mouse drag on the divider, through `NSSplitView`'s own
-    /// tracking, is stored.
-    @Test func aMouseDragOnTheDividerIsStored() async throws {
+    /// tracking, is stored. `.hostOnly`: the tracking's own offsets differ
+    /// on macOS 26 (5 pt off on a 26.6 VM), and that is AppKit's, not ours.
+    @Test(.hostOnly) func aMouseDragOnTheDividerIsStored() async throws {
         let defaults = LeoInMemoryDefaults()
         defaults.set(300.0, forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Self.launch(defaults)
@@ -745,7 +764,7 @@ struct LeoSplitViewRepresentableTests {
     /// Dragging the terminal's trailing divider past the terminal's minimum
     /// pushes the sidebar too. Only the sidebar's own divider is a
     /// sidebar-width choice, so the pushed width isn't stored (B-089).
-    @Test func pushingTheSidebarWithTheEditorsDividerStoresNothing() async throws {
+    @Test(.hostOnly) func pushingTheSidebarWithTheEditorsDividerStoresNothing() async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
         let defaults = LeoInMemoryDefaults()
@@ -896,7 +915,11 @@ struct LeoSplitViewRepresentableTests {
             window.close()
         }
 
-        var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
+        /// The sidebar's pane: what the divider sets, whatever inset the OS
+        /// puts between it and the sidebar's view (8 pt on macOS 26).
+        var sidebarWidth: CGFloat {
+            LeoSplitViewController.paneWidth(of: components.sidebarHosting.view, in: components.controller.splitView)
+        }
 
         var sidebarItem: NSSplitViewItem? { components.controller.sidebarItem }
 

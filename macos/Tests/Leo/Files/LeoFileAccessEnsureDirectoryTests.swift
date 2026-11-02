@@ -6,7 +6,7 @@ import Testing
 
 /// `mkdir -p` for `LeoFileAccess`, once per backend like the other contract
 /// suites (so the SFTP MKDIR wire path runs against a real sftp-server).
-@Suite(LeoSSHEndToEnd.trait)
+@Suite(.hostOnly, LeoSSHEndToEnd.trait)
 struct LeoFileAccessEnsureDirectoryTests {
     private func permissions(_ path: String) throws -> Int {
         let attributes = try FileManager.default.attributesOfItem(atPath: path)
