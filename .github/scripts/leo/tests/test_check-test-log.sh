@@ -38,6 +38,13 @@ check "a focus-gate skip warns and still passes" 0 0 '^::warning::1 focus-gate c
 check "the warning counts every skip" 0 0 '^::warning::5 focus-gate' \
   "$skip_line" "$skip_line" "$skip_line" "$skip_line" "$skip_line" "$summary_ok"
 check "an ordinary skip does not warn" 0 0 '^All tests passed' '➜ Test example() skipped.' "$summary_ok"
+check "skipped tests are listed by name in a group" 0 0 '^::group::Skipped tests \(2\)$' \
+  '➜ Suite LeoWKBrowserPageTests skipped: host tier' '➜ Test example() skipped.' "$summary_ok"
+check "the skip count is a notice" 0 0 '^::notice::2 test\(s\) skipped' \
+  '➜ Suite LeoWKBrowserPageTests skipped: host tier' '➜ Test example() skipped.' "$summary_ok"
+check "the skipped names appear in the output" 0 0 'LeoWKBrowserPageTests' \
+  '➜ Suite LeoWKBrowserPageTests skipped: host tier' "$summary_ok"
+check "no skips prints no group" 0 0 '^All tests passed' "$summary_ok"
 check "a failed test fails the run" 1 0 'failures reported' '✘ Test foo() failed after 0.1 seconds with 1 issue.' "$summary_ok"
 check "a missing summary fails" 1 0 'without a summary' 'noise'
 check "a timeout fails" 1 124 'timed out' '◇ Test foo() started.'

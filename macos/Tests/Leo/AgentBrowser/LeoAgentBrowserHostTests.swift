@@ -9,7 +9,7 @@ import WebKit
 /// the parking window otherwise, moving between them without reloading.
 /// With several windows showing the same row, the last one shown has it.
 @MainActor
-@Suite(.serialized, .enabled(if: LeoWKTestHost.hasWindowServer, "needs a window-server session"))
+@Suite(.serialized, .hostOnly)
 struct LeoAgentBrowserHostTests {
     /// A window standing in for one showing the row's pane.
     @MainActor private final class PaneWindow {

@@ -7,7 +7,7 @@
 # `-XCTest All <bundle>` on its own argv; Ghostty.Config.loadConfig skips CLI
 # arg parsing whenever isRunningXCTest() is true specifically so that argv
 # never reaches config parsing, so no test failures need to be tolerated here.
-# Env: DERIVED_DATA, DEVELOPER_DIR. Optional LOG (default $RUNNER_TEMP/leo-tests.log).
+# Env: DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
 set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
@@ -29,10 +29,16 @@ xcodebuild build-for-testing \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO
 echo "::endgroup::"
 
+# Host tier (real key focus, surfaces, WebKit): only an explicit LEO_HOST_TESTS=1
+# turns it on. Passed explicitly so the test host sees exactly what is logged.
+host_tests="${LEO_HOST_TESTS:-}"
+if [[ "$host_tests" == "1" ]]; then echo "host tier: on"; else echo "host tier: off"; fi
+
 D="$DEVELOPER_DIR"
 app="$DERIVED_DATA/Build/Products/Debug/Leo.app"
 set +e
 timeout "$TEST_TIMEOUT_SECONDS" env \
+  LEO_HOST_TESTS="$host_tests" \
   DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
   DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
   DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \

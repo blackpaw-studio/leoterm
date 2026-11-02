@@ -7,8 +7,6 @@ import WebKit
 /// Agent-browser WebKit tests need a window-server session: web views
 /// render and take input only inside real windows.
 enum LeoWKTestHost {
-    static var hasWindowServer: Bool { !NSScreen.screens.isEmpty }
-
     /// A frame for a window that no screen shows.
     static func offscreenFrame(size: CGSize) -> NSRect {
         let screens = NSScreen.screens.map(\.frame).reduce(NSRect.zero) { $0.union($1) }

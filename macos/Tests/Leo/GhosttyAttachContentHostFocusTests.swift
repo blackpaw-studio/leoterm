@@ -9,7 +9,8 @@ import Testing
 /// controller's remembered `focusedSurface`; the viewed attachment is the
 /// latter. Drives a real `TerminalController`, so it is skipped -- visibly
 /// -- without the app's real `Ghostty.App`.
-@MainActor struct GhosttyAttachContentHostFocusTests {
+@MainActor @Suite(.hostOnly)
+struct GhosttyAttachContentHostFocusTests {
     @Test(.enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } })
     func focusFollowsTheFirstResponderNotJustTheFocusedSurface() async throws {
         let ghostty = try #require(Self.ghostty)

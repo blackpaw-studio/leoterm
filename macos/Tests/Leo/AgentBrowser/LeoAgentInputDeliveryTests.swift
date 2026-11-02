@@ -12,7 +12,7 @@ import WebKit
 /// unhandled through `NSApp.sendEvent`, so every test first makes a window
 /// of its own key and main, and refuses to run while any other window is.
 @MainActor
-@Suite(.serialized, .enabled(if: LeoWKTestHost.hasWindowServer, "needs a window-server session"))
+@Suite(.serialized, .hostOnly)
 struct LeoAgentInputDeliveryTests {
     enum Placement: String, CaseIterable, CustomTestStringConvertible {
         case visibleNonKey

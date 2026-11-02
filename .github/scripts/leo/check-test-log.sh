@@ -21,6 +21,17 @@ if [[ "${skips:-0}" -gt 0 ]]; then
   echo "::warning::$skips focus-gate check(s) skipped: $reason"
 fi
 
+# Swift Testing prints "➜ Test x skipped" / "➜ Suite X skipped" (a gated suite
+# prints one line, not one per test); list them so the tier stays visible.
+skipped="$(grep -E '^➜ (Suite|Test) .* skipped' "$log" || true)"
+if [[ -n "$skipped" ]]; then
+  skipped_count="$(wc -l <<<"$skipped" | tr -d ' ')"
+  echo "::group::Skipped tests ($skipped_count)"
+  echo "$skipped"
+  echo "::endgroup::"
+  echo "::notice::$skipped_count test(s) skipped"
+fi
+
 if [[ $rc -eq 124 ]]; then
   echo "::error::Test run timed out after ${TEST_TIMEOUT_SECONDS}s"
   grep -E '◇ Test .* started' "$log" | tail -5 || true
