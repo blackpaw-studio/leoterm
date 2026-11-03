@@ -34,7 +34,7 @@ Updates are upserts: omitted fields keep their value. Strings are trimmed, and c
 - `succeeded` and `cancelled` tasks are removed 10 min after `ended_at`.
 - `failed` tasks persist until dismissed. They do not count toward the cap of 8.
 - When an agent stops, all of its tasks are removed. A daemon restart clears everything (in-memory only).
-- An update to an ended task with the same `id` starts a fresh run (new `started_at`).
+- An update to an ended task with the same `id` starts a fresh run (new `started_at`), except a repeat of the same terminal state with no other fields, which is an idempotent no-op (no event, no notification).
 
 ## Report paths (daemon)
 
