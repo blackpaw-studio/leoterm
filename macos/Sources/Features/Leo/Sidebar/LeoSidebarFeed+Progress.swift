@@ -8,6 +8,7 @@ import LeoKit
 extension LeoSidebarFeed {
     func receiveTask(_ event: LeoObserveEvent) {
         taskEventCount += 1
+        if let agent = Self.taskEventAgent(event) { lastTaskEventMark[agent] = taskEventCount }
         let before = tasks
         let finishes = taskReducer.apply(event: event)
         observeTaskETAs()
@@ -15,16 +16,32 @@ extension LeoSidebarFeed {
         if tasks != before { emit() }
     }
 
-    /// A `/state` baseline: replaces the map and reports nothing.
-    func applyTasks(state agents: [LeoObservedAgent]) {
-        taskReducer.apply(snapshot: agents)
+    /// A `/state` baseline: replaces the map and reports nothing. Agents with
+    /// a task event after `mark` (`nil`: none) keep the tasks the events built.
+    func applyTasks(state agents: [LeoObservedAgent], eventsSince mark: Int? = nil) {
+        let fresh = mark.map { mark in Set(lastTaskEventMark.filter { $0.value > mark }.keys) } ?? []
+        let held = taskReducer.allTasks
+        let reported = agents.filter { !fresh.contains($0.name) }
+        // Stand-ins carry only the held tasks, which is all a baseline reads.
+        let kept = fresh.compactMap { name in
+            held[name].map { LeoObservedAgent(name: name, status: nil, activity: nil, currentAction: nil, lastActivityAt: nil, tasks: $0) }
+        }
+        taskReducer.apply(snapshot: reported + kept)
         observeTaskETAs()
+    }
+
+    private static func taskEventAgent(_ event: LeoObserveEvent) -> String? {
+        switch event {
+        case .agentTaskChanged(_, _, let agent, _, _), .agentStopped(_, _, let agent, _): agent
+        default: nil
+        }
     }
 
     /// Host switch or stop: nothing carries over.
     func resetTasks() {
         taskReducer = LeoTaskReducer()
         taskETA = LeoTaskETA()
+        lastTaskEventMark = [:]
     }
 
     var tasks: [String: [LeoAgentTask]] { taskReducer.allTasks }

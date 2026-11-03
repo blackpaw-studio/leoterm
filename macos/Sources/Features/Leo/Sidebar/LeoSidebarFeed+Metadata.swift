@@ -48,13 +48,11 @@ extension LeoSidebarFeed {
         environments = LeoAgentEnvironmentsIndex(state: state)
         appearance = LeoAgentAppearanceIndex(state: state)
         displayNames = LeoAgentDisplayNameIndex(state: state)
-        if taskMark == nil || taskMark == taskEventCount {
-            applyTasks(state: state)
-        } else {
-            // A task event landed after this `/state` was asked for: it may
-            // predate it, so it must not undo the event. A fresh one follows.
-            metadataRefreshPending = true
-        }
+        // Agents a task event touched after this `/state` was asked for keep
+        // their event-driven tasks (the snapshot may predate the event);
+        // every other agent takes the snapshot's. No refetch: the events
+        // already carry what the snapshot may have missed.
+        applyTasks(state: state, eventsSince: taskMark)
         return true
     }
 

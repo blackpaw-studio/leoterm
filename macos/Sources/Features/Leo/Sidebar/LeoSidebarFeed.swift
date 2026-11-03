@@ -119,6 +119,8 @@ actor LeoSidebarFeed {
     var taskETA = LeoTaskETA()
     /// Counts task events, so a `/state` fetched before one can be told from one fetched after.
     var taskEventCount = 0
+    /// `taskEventCount` at each agent's latest task event: a `/state` skips the agents with one after it started.
+    var lastTaskEventMark: [String: Int] = [:]
     let onTaskFinishes: @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void
     let wallClock: @Sendable () -> Date
     var running = false
