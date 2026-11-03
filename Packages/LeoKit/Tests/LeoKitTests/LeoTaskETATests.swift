@@ -55,7 +55,7 @@ struct LeoTaskETATests {
         eta.observe(agent: "a", task: task(percent: 10), now: at(0))
         let t = task(percent: 90)
         eta.observe(agent: "a", task: t, now: at(60))
-        #expect(eta.etaAt(agent: "a", task: t, now: at(500)) == at(500))
+        #expect(eta.etaAt(agent: "a", task: t, now: at(100)) == at(100))
     }
 
     @Test func flatProgressGivesNoETA() {
@@ -112,5 +112,27 @@ struct LeoTaskETATests {
         let t = task(percent: nil, started: 10)
         #expect(LeoTaskETA.elapsed(of: t, now: at(130)) == 120)
         #expect(LeoTaskETA.elapsed(of: task(percent: 5), now: at(130)) == nil)
+    }
+
+    @Test func percentDropRestartsSampling() {
+        var eta = LeoTaskETA()
+        eta.observe(agent: "a", task: task(percent: 10), now: at(0))
+        eta.observe(agent: "a", task: task(percent: 80), now: at(60))
+        let dropped = task(percent: 40)
+        eta.observe(agent: "a", task: dropped, now: at(120))
+        #expect(eta.etaAt(agent: "a", task: dropped, now: at(120)) == nil)
+        let later = task(percent: 60)
+        eta.observe(agent: "a", task: later, now: at(180))
+        // 20 points per 60 s after the drop; 40 left -> 120 s more.
+        #expect(eta.etaAt(agent: "a", task: later, now: at(180)) == at(300))
+    }
+
+    @Test func stallAfterRiseGivesNoETA() {
+        var eta = LeoTaskETA()
+        eta.observe(agent: "a", task: task(percent: 10), now: at(0))
+        let t = task(percent: 20)
+        eta.observe(agent: "a", task: t, now: at(60))
+        #expect(eta.etaAt(agent: "a", task: t, now: at(60)) != nil)
+        #expect(eta.etaAt(agent: "a", task: t, now: at(300)) == nil)
     }
 }

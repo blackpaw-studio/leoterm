@@ -34,6 +34,8 @@ public struct LeoTaskETA: Equatable, Sendable {
         guard task.isRunning, task.mode == .determinate, let percent = task.percent else { return }
         var list = samples[key] ?? []
         guard list.last?.percent != percent else { return }
+        // Progress went backwards: the old phase says nothing about the new one.
+        if let last = list.last, percent < last.percent { list = [] }
         list.append(Sample(time: now, percent: percent))
         samples[key] = Array(list.suffix(Self.maxSamples))
     }
@@ -44,7 +46,7 @@ public struct LeoTaskETA: Equatable, Sendable {
     }
 
     /// When the task should finish; nil when unknown, flat, falling, or
-    /// the task is no longer running. Never earlier than `now`.
+    /// the task is no longer running or has stalled. Never earlier than `now`.
     public func etaAt(agent: String, task: LeoAgentTask, now: Date) -> Date? {
         guard task.isRunning else { return nil }
         if let supplied = task.etaAt { return supplied }
@@ -52,11 +54,20 @@ public struct LeoTaskETA: Equatable, Sendable {
         guard task.mode == .determinate, let list = samples[key],
               let first = list.first, let last = list.last,
               last.time.timeIntervalSince(first.time) >= Self.minimumSpan,
-              last.percent > first.percent
+              last.percent > first.percent,
+              now.timeIntervalSince(last.time) <= Self.stallLimit(list)
         else { return nil }
         let rate = (last.percent - first.percent) / last.time.timeIntervalSince(first.time)
         let eta = last.time.addingTimeInterval(max(100 - last.percent, 0) / rate)
         return max(eta, now)
+    }
+
+    /// How long the newest sample may age before the run counts as stalled:
+    /// twice the usual gap between samples, never under twice the minimum span.
+    private static func stallLimit(_ list: [Sample]) -> TimeInterval {
+        guard let first = list.first, let last = list.last, list.count > 1 else { return 2 * minimumSpan }
+        let gap = last.time.timeIntervalSince(first.time) / Double(list.count - 1)
+        return max(2 * gap, 2 * minimumSpan)
     }
 
     /// Time since the run started, for an indeterminate running task.
