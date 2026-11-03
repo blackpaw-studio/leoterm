@@ -73,6 +73,9 @@ final class TaskPanelView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    /// The height of the card collapsed to its header, whatever it shows now.
+    var collapsedHeight: CGFloat { headerButton.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize).height }
+
     /// At most 40% of the safe-area height, so a long list scrolls instead of covering the chat.
     override func didMoveToSuperview() {
         super.didMoveToSuperview()

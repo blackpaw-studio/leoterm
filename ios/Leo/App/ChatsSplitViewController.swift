@@ -6,8 +6,11 @@ import UIKit
 final class ChatsSplitViewController: SelectionSplitViewController {
     private let store: StoreOf<AppFeature>
     private let panel = TaskPanelView()
+    fileprivate static let compactPanelGap: CGFloat = 8
     fileprivate var panelRegularConstraints: [NSLayoutConstraint] = []
     fileprivate var panelCompactConstraints: [NSLayoutConstraint] = []
+    fileprivate lazy var panelCompactFallbackTop = panel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 52)
+    fileprivate var panelCompactNavigationTop: NSLayoutConstraint?
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -21,6 +24,16 @@ final class ChatsSplitViewController: SelectionSplitViewController {
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func viewIsAppearing(_ animated: Bool) {
+        super.viewIsAppearing(animated)
+        anchorCompactPanelToNavigationBar()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        anchorCompactPanelToNavigationBar()
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -41,18 +54,18 @@ extension ChatsSplitViewController {
         panel.isHidden = true
         view.addSubview(panel)
         let guide = view.safeAreaLayoutGuide
-        let top = panel.topAnchor.constraint(equalTo: guide.topAnchor, constant: 52)
         let widthPreference = panel.widthAnchor.constraint(equalToConstant: 320)
         widthPreference.priority = .defaultHigh
         panelRegularConstraints = [
-            top,
+            panel.topAnchor.constraint(equalTo: guide.topAnchor, constant: 52),
             panel.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
             panel.widthAnchor.constraint(lessThanOrEqualToConstant: 320),
             panel.leadingAnchor.constraint(greaterThanOrEqualTo: guide.leadingAnchor, constant: 12),
             widthPreference,
         ]
+        // Until the bar is in the hierarchy (see `anchorCompactPanelToNavigationBar`) the card rides the safe area.
         panelCompactConstraints = [
-            top,
+            panelCompactFallbackTop,
             panel.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 16),
             panel.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -16),
         ]
@@ -67,6 +80,9 @@ extension ChatsSplitViewController {
                 header: store.fleet.taskPanelHeader, rows: store.fleet.taskPanelRows,
                 isCollapsed: store.fleet.isProgressPanelCollapsed, now: store.fleet.progressClock
             )
+            // Compact: the list and thread start below the collapsed card, so it never hides content.
+            let reservesSpace = store.fleet.isCompactWidth && !store.fleet.taskPanelRows.isEmpty
+            topContentInset = reservesSpace ? Self.compactPanelGap * 2 + panel.collapsedHeight : 0
         }
     }
 
@@ -77,5 +93,17 @@ extension ChatsSplitViewController {
         NSLayoutConstraint.deactivate(isCompact ? panelRegularConstraints : panelCompactConstraints)
         NSLayoutConstraint.activate(isCompact ? panelCompactConstraints : panelRegularConstraints)
         store.send(.fleet(.widthClassChanged(isCompact: isCompact)))
+        anchorCompactPanelToNavigationBar()
+    }
+
+    /// The split view's own safe area stops above its child navigation bars, so the
+    /// compact card hangs from the list's bar once that is in the hierarchy.
+    func anchorCompactPanelToNavigationBar() {
+        guard panelCompactNavigationTop == nil, primaryNavigationBar.isDescendant(of: view) else { return }
+        let top = panel.topAnchor.constraint(equalTo: primaryNavigationBar.bottomAnchor, constant: Self.compactPanelGap)
+        panelCompactNavigationTop = top
+        panelCompactConstraints = panelCompactConstraints.filter { $0 !== panelCompactFallbackTop } + [top]
+        panelCompactFallbackTop.isActive = false
+        if traitCollection.horizontalSizeClass == .compact { top.isActive = true }
     }
 }

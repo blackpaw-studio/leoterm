@@ -4,6 +4,7 @@ import Foundation
 import LeoFeatures
 import LeoKit
 import OSLog
+import UIKit
 
 /// DEBUG builds only: a fake fleet whose agents carry scripted tasks, from the
 /// JSON file named by `LEO_PROGRESS_FIXTURE` (same shape as the Mac fixture,
@@ -15,7 +16,7 @@ import OSLog
 /// from when the step fires, `eta_in` forward from then.
 ///
 /// Launch args: `-startTab agents|chats`, `-progressDetail <agent>` opens that
-/// agent's detail. A collapsed panel comes from the stored default
+/// agent's detail, `-progressChat <agent>` that agent's thread. A collapsed panel comes from the stored default
 /// (`simctl spawn <udid> defaults write <bundle> progressPanelCollapsed -bool YES`).
 enum ProgressFixture {
     static let environmentKey = "LEO_PROGRESS_FIXTURE"
@@ -125,8 +126,27 @@ enum ProgressFixture {
     /// `-progressDetail <agent>`: opens that agent's detail once the fleet has it.
     static func open(_ store: StoreOf<AppFeature>) {
         let arguments = ProcessInfo.processInfo.arguments
+        if let chat = arguments.firstIndex(of: "-progressChat"), arguments.indices.contains(chat + 1) {
+            store.send(.chatOpened(AgentRef(daemonID: daemon.id, name: arguments[chat + 1])))
+        }
+        if arguments.contains("-progressScroll") { scrollFirstListPastItsTitle() }
         guard let flag = arguments.firstIndex(of: "-progressDetail"), arguments.indices.contains(flag + 1) else { return }
         store.send(.notificationOpened(AgentRef(daemonID: daemon.id, name: arguments[flag + 1])))
+    }
+
+    /// `-progressScroll`: scrolls the first list on screen past its large title, to see
+    /// whatever floats over it with the title collapsed.
+    private static func scrollFirstListPastItsTitle() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            let windows = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.windows }.flatMap { $0 }
+            func firstList(in view: UIView) -> UIScrollView? {
+                if let list = view as? UICollectionView { return list }
+                return view.subviews.lazy.compactMap(firstList(in:)).first
+            }
+            guard let list = windows.lazy.compactMap({ firstList(in: $0) }).first else { return }
+            list.setContentOffset(CGPoint(x: 0, y: -list.adjustedContentInset.top + 160), animated: false)
+        }
     }
 }
 #endif
