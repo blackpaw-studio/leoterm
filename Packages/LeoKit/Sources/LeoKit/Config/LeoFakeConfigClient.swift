@@ -27,6 +27,7 @@ public enum LeoFakeConfigCall: Equatable, Sendable {
     case serviceLog(lines: Int)
     case reloadConfig
     case appearanceRules
+    case dismissAgentTask(agent: String, id: String)
     case setAppearanceRules([LeoAppearanceRule], ifMatch: String)
     case setAgentAppearance(name: String, emoji: LeoAppearanceChange<String>, color: LeoAppearanceChange<LeoAppearanceColor>)
 }
