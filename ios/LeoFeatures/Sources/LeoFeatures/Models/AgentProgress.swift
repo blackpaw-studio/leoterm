@@ -51,6 +51,10 @@ extension Agent {
     /// The line under a task's title in the detail and the panel:
     /// `Compiling 412/980 · 62% · 4m`, `Failed · exit 2`, `Done`.
     public func taskDetailLine(_ task: LeoAgentTask, now: Date) -> String {
+        Self.taskDetailLine(task, etaAt: taskETAs[task.id], now: now)
+    }
+
+    public static func taskDetailLine(_ task: LeoAgentTask, etaAt: Date?, now: Date) -> String {
         var parts: [String] = []
         switch task.state {
         case .failed: parts.append("Failed")
@@ -64,7 +68,7 @@ extension Agent {
         if task.stale {
             parts.append("stale")
         } else if task.mode == .determinate {
-            if let eta = taskETAs[task.id], eta > now { parts.append(LeoTaskText.duration(eta.timeIntervalSince(now))) }
+            if let eta = etaAt, eta > now { parts.append(LeoTaskText.duration(eta.timeIntervalSince(now))) }
         } else if let elapsed = LeoTaskETA.elapsed(of: task, now: now) {
             parts.append(LeoTaskText.duration(elapsed))
         }

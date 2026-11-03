@@ -118,19 +118,15 @@ final class TaskPanelView: UIView {
 
 private final class TaskPanelRowView: UIView {
     private let detail = UILabel()
-    private let agent: Agent
-    private let task: LeoAgentTask
+    private let row: TaskPanelRow
 
     /// Rewrites the detail line (elapsed, ETA) for a new clock; nothing else moves.
     func relabel(now: Date) {
-        detail.text = agent.taskDetailLine(task, now: now)
+        detail.text = Agent.taskDetailLine(row.task, etaAt: row.etaAt, now: now)
     }
 
     init(_ row: TaskPanelRow, now: Date, open: @escaping () -> Void, dismiss: @escaping () -> Void) {
-        var agent = row.agent
-        agent.taskETAs[row.task.id] = row.etaAt
-        self.agent = agent
-        task = row.task
+        self.row = row
         super.init(frame: .zero)
         accessibilityIdentifier = "tasks.panel.row.\(row.ref.name).\(row.task.id)"
         let separator = UIView()
@@ -138,17 +134,17 @@ private final class TaskPanelRowView: UIView {
         separator.translatesAutoresizingMaskIntoConstraints = false
 
         let emoji = UILabel()
-        emoji.text = row.agent.appearance?.emoji ?? "🤖"
+        emoji.text = row.emoji ?? "🤖"
         emoji.font = .preferredFont(forTextStyle: .body)
         emoji.setContentHuggingPriority(.required, for: .horizontal)
         let name = UILabel()
-        name.text = row.agent.displayName
+        name.text = row.displayName
         name.font = .preferredFont(forTextStyle: .caption1).withWeight(.semibold)
         name.textColor = .secondaryLabel
         let title = UILabel()
         title.text = row.task.title
         title.font = .preferredFont(forTextStyle: .footnote).withWeight(.medium)
-        detail.text = agent.taskDetailLine(row.task, now: now)
+        detail.text = Agent.taskDetailLine(row.task, etaAt: row.etaAt, now: now)
         detail.font = .preferredFont(forTextStyle: .caption2)
         detail.textColor = row.task.state == .failed ? .systemRed : .secondaryLabel
         detail.numberOfLines = 2

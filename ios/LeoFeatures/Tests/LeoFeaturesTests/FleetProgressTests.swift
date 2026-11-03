@@ -106,7 +106,7 @@ struct FleetProgressTests {
         ]), now: Self.now)
         let rows = state.taskPanelRows
         #expect(rows.map(\.task.id) == ["b", "c", "a"])
-        #expect(rows.map(\.agent.name) == ["apollo", "apollo", "zeus"])
+        #expect(rows.map(\.ref.name) == ["apollo", "apollo", "zeus"])
         #expect(state.taskPanelHeader == "Tasks 3 · 62%")
     }
 

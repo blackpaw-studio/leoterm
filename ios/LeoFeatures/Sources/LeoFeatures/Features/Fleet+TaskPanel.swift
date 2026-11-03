@@ -10,7 +10,9 @@ extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
 /// One row of the floating task panel: a task and the agent running it.
 public struct TaskPanelRow: Equatable, Identifiable, Sendable {
     public let ref: AgentRef
-    public let agent: Agent
+    /// Only what the panel draws, so live activity on the agent never changes a row.
+    public let displayName: String
+    public let emoji: String?
     public let task: LeoAgentTask
     public let etaAt: Date?
 
@@ -29,7 +31,7 @@ extension Fleet.State {
         let rows = sessions.flatMap { session in
             session.agents.filter { !$0.isStopped }.flatMap { agent in
                 agent.tasks.filter { $0.isRunning || $0.state == .failed }.map {
-                    TaskPanelRow(ref: AgentRef(daemonID: session.id, name: agent.name), agent: agent, task: $0, etaAt: agent.taskETAs[$0.id])
+                    TaskPanelRow(ref: AgentRef(daemonID: session.id, name: agent.name), displayName: agent.displayName, emoji: agent.appearance?.emoji, task: $0, etaAt: agent.taskETAs[$0.id])
                 }
             }
         }
