@@ -6,7 +6,7 @@ import UIKitNavigation
 /// One agent: live state, environment, actions, and what's coming next.
 final class AgentDetailViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int, CaseIterable {
-        case header, claude, live, status, environment, move, actions
+        case header, claude, live, tasks, status, environment, move, actions
     }
 
     private enum Row: Hashable {
@@ -17,6 +17,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case command(Command)
         case chat, terminal
         case move(MoveRow)
+        case task(String)
     }
 
     /// B-324: the Move section's rows.
@@ -101,8 +102,9 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     private func makeLayout() -> UICollectionViewLayout {
         UICollectionViewCompositionalLayout { index, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
+            configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in self?.dismissAction(at: indexPath) }
             let section = Section(rawValue: index)
-            let titled: Set<Section> = [.status, .environment, .move, .actions]
+            let titled: Set<Section> = [.tasks, .status, .environment, .move, .actions]
             configuration.headerMode = section.map(titled.contains) == true ? .supplementary : .none
             let layout = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
             if section == .header {
@@ -122,9 +124,13 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, Row> { [weak self] cell, _, row in
             self?.configure(cell, row)
         }
+        let taskRow = UICollectionView.CellRegistration<ProgressListCell, Row> { [weak self] cell, _, row in
+            self?.configure(cell, task: row)
+        }
         let sectionHeader = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { view, _, indexPath in
             var content = UIListContentConfiguration.header()
             content.text = switch Section(rawValue: indexPath.section) {
+            case .tasks: String(localized: "Tasks")
             case .status: String(localized: "Status")
             case .environment: String(localized: "Environment")
             case .move: String(localized: "Move")
@@ -135,6 +141,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
             if case .header = item { return collectionView.dequeueConfiguredReusableCell(using: header, for: indexPath, item: item) }
+            if case .task = item { return collectionView.dequeueConfiguredReusableCell(using: taskRow, for: indexPath, item: item) }
             return collectionView.dequeueConfiguredReusableCell(using: row, for: indexPath, item: item)
         }
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
@@ -146,7 +153,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         cell.accessories = []
         cell.accessibilityIdentifier = nil
         switch row {
-        case .header:
+        case .header, .task:
             return
         case .openInClaude:
             var content = UIListContentConfiguration.cell()
@@ -237,6 +244,32 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         }
     }
 
+    private func configure(_ cell: ProgressListCell, task row: Row) {
+        guard case .task(let id) = row, let agent = store.agent, let task = agent.tasks.first(where: { $0.id == id }) else { return }
+        var content = UIListContentConfiguration.subtitleCell()
+        content.text = task.title
+        content.textProperties.font = .preferredFont(forTextStyle: .headline)
+        content.secondaryText = agent.taskDetailLine(task, now: Date())
+        content.secondaryTextProperties.color = task.state == .failed ? .systemRed : .secondaryLabel
+        content.secondaryTextProperties.numberOfLines = 2
+        cell.showBar(task.hasEnded && task.state != .failed ? nil : Agent.style(of: task), in: &content)
+        cell.contentConfiguration = content
+        cell.accessories = []
+        cell.accessibilityIdentifier = "agent.task.\(id)"
+    }
+
+    /// Swipe on a failed task: Dismiss.
+    private func dismissAction(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard case .task(let id) = dataSource.itemIdentifier(for: indexPath),
+              store.agent?.tasks.first(where: { $0.id == id })?.state == .failed else { return nil }
+        let action = UIContextualAction(style: .destructive, title: String(localized: "Dismiss")) { [weak self] _, _, done in
+            self?.store.send(.dismissTaskRequested(id))
+            done(true)
+        }
+        action.image = UIImage(systemName: "xmark")
+        return UISwipeActionsConfiguration(actions: [action])
+    }
+
     /// A moved agent's Chat and Terminal rows can't be opened here.
     private static func dim(_ content: inout UIListContentConfiguration) {
         content.textProperties.color = .tertiaryLabel
@@ -277,6 +310,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         snapshot.appendItems([.header], toSection: .header)
         if agent.opensInClaude, !agent.isMoved { snapshot.appendItems([.openInClaude], toSection: .claude) }
         snapshot.appendItems([.chat, .terminal], toSection: .live)
+        snapshot.appendItems(agent.tasks.map { .task($0.id) }, toSection: .tasks)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
         snapshot.appendItems(environmentRows.map { .value($0.key) } + (agent.isMoved ? [] : [.switchEnvironment]), toSection: .environment)
         snapshot.appendItems(moveRows(for: agent).map(Row.move), toSection: .move)

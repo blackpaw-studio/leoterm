@@ -5,6 +5,7 @@ import UIKit
 /// The Chats tab: the inbox beside the open thread.
 final class ChatsSplitViewController: SelectionSplitViewController {
     private let store: StoreOf<AppFeature>
+    private let panel = TaskPanelView()
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -24,6 +25,36 @@ final class ChatsSplitViewController: SelectionSplitViewController {
         observe { [weak self] in
             guard let self else { return }
             select(store.chat?.ref)
+        }
+        installTaskPanel()
+    }
+}
+
+extension ChatsSplitViewController {
+    /// Chat panel B: docked top-right, below the navigation bar, over the list
+    /// and the thread.
+    private func installTaskPanel() {
+        panel.translatesAutoresizingMaskIntoConstraints = false
+        panel.isHidden = true
+        view.addSubview(panel)
+        NSLayoutConstraint.activate([
+            panel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 52),
+            panel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
+            panel.widthAnchor.constraint(lessThanOrEqualToConstant: 320),
+            panel.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
+        ])
+        let widthPreference = panel.widthAnchor.constraint(equalToConstant: 320)
+        widthPreference.priority = .defaultHigh
+        widthPreference.isActive = true
+        panel.onToggle = { [store] in store.send(.fleet(.progressPanelToggled)) }
+        panel.onOpen = { [store] ref in store.send(.chatOpened(ref)) }
+        panel.onDismiss = { [store] row in store.send(.fleet(.dismissTask(row.ref.daemonID, agent: row.ref.name, id: row.task.id))) }
+        observe { [weak self] in
+            guard let self else { return }
+            panel.render(
+                header: store.fleet.taskPanelHeader, rows: store.fleet.taskPanelRows,
+                isCollapsed: store.fleet.isProgressPanelCollapsed, now: Date()
+            )
         }
     }
 }

@@ -60,7 +60,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func configureDataSource() {
-        let cell = UICollectionView.CellRegistration<UICollectionViewListCell, AgentRef> { [weak self] cell, _, ref in
+        let cell = UICollectionView.CellRegistration<ProgressListCell, AgentRef> { [weak self] cell, _, ref in
             guard let agent = self?.agent(ref) else { return }
             var content = UIListContentConfiguration.subtitleCell()
             let badge = agent.badge
@@ -77,14 +77,19 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             if self?.showsTiles == true { content.imageProperties.reservedLayoutSize = AgentRowTile.size }
             content.text = agent.displayName
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
-            content.secondaryText = agent.summary
+            let progress = agent.progress(now: Date())
+            content.secondaryText = progress?.text ?? agent.summary
             content.secondaryTextProperties.color = .secondaryLabel
             content.secondaryTextProperties.numberOfLines = 2
             content.textToSecondaryTextVerticalPadding = 3
+            cell.showBar(progress?.style, in: &content)
             cell.contentConfiguration = content
             var accessories: [UICellAccessory] = [.disclosureIndicator()]
             if agent.priority.needsAttention {
                 accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge.label, tint: badge.tint), placement: .trailing())), at: 0)
+            }
+            if let badge = progress?.badge {
+                accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge, tint: .secondaryLabel), placement: .trailing())), at: 0)
             }
             cell.accessories = accessories
             cell.accessibilityIdentifier = "agent.\(agent.name)"
