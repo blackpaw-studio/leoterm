@@ -16,11 +16,14 @@ public struct LeoTaskFinish: Equatable, Sendable {
 /// per-agent task map and reports live finishes. Pure: no clock, no I/O.
 ///
 /// - A baseline replaces everything and never reports a finish, so a
-///   reconnect replay is silent.
+///   reconnect replay is silent. It never rolls a held task back: a task
+///   the event stream already advanced past the baseline's copy is kept.
 /// - An event applies only if it is newer than what is held, by
 ///   (`started_at`, `revision`); a duplicate or older one is ignored.
-/// - A finish needs a transition to succeeded or failed whose `ended_at` is
-///   newer than the last one seen for that (agent, id).
+/// - A finish needs a held task for (agent, id) that is running or an older
+///   run, and a transition to succeeded or failed whose `ended_at` is newer
+///   than the last one seen. Nothing held (a rename re-publishing an ended
+///   task under its new name) is silent.
 public struct LeoTaskReducer: Equatable, Sendable {
     private struct Key: Hashable, Sendable {
         let agent: String
@@ -42,13 +45,20 @@ public struct LeoTaskReducer: Equatable, Sendable {
     /// Replaces the whole map with the agents' reported tasks. Silent.
     @discardableResult
     public mutating func apply(snapshot agents: [LeoObservedAgent]) -> [LeoTaskFinish] {
+        let previous = held
+        let previousEnded = lastEnded
         held = [:]
         lastEnded = [:]
         for agent in agents where !agent.tasks.isEmpty {
-            held[agent.name] = Dictionary(agent.tasks.map { ($0.id, $0) }, uniquingKeysWith: { _, later in later })
-            for task in agent.tasks {
-                if let ended = task.endedAt { lastEnded[Key(agent: agent.name, id: task.id)] = ended }
+            var tasks: [String: LeoAgentTask] = [:]
+            for reported in agent.tasks {
+                let current = previous[agent.name]?[reported.id]
+                let task = current.map { Self.supersedes(reported, $0) ? reported : $0 } ?? reported
+                tasks[reported.id] = task
+                let key = Key(agent: agent.name, id: reported.id)
+                if let ended = [task.endedAt, previousEnded[key]].compactMap({ $0 }).max() { lastEnded[key] = ended }
             }
+            held[agent.name] = tasks
         }
         return []
     }
@@ -71,8 +81,10 @@ public struct LeoTaskReducer: Equatable, Sendable {
             if held[agent]?.isEmpty == true { held[agent] = nil }
             return []
         }
-        if let current = held[agent]?[id], !Self.supersedes(task, current) { return [] }
+        let current = held[agent]?[id]
+        if let current, !Self.supersedes(task, current) { return [] }
         held[agent, default: [:]][id] = task
+        guard let current, current.isRunning || current.startedAt < task.startedAt else { return [] }
         guard task.state == .succeeded || task.state == .failed, let ended = task.endedAt else { return [] }
         let key = Key(agent: agent, id: id)
         if let seen = lastEnded[key], ended <= seen { return [] }

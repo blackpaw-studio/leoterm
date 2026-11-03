@@ -50,6 +50,7 @@ struct LeoTaskReducerTests {
 
     @Test func failureEmitsFinishCancelDoesNot() {
         var reducer = LeoTaskReducer()
+        _ = reducer.apply(snapshot: [agent("a", [task("f"), task("c")])])
         let failed = task("f", .failed, revision: 2, ended: 5)
         #expect(reducer.apply(event: event("a", "f", failed)).count == 1)
         #expect(reducer.apply(event: event("a", "c", task("c", .cancelled, revision: 2, ended: 5))).isEmpty)
@@ -57,6 +58,7 @@ struct LeoTaskReducerTests {
 
     @Test func replayAfterReconnectStaysSilent() {
         var reducer = LeoTaskReducer()
+        _ = reducer.apply(snapshot: [agent("a", [task()])])
         _ = reducer.apply(event: event("a", "build", task("build", .succeeded, revision: 2, ended: 10)))
         let finishes = reducer.apply(snapshot: [agent("a", [task("build", .succeeded, revision: 2, ended: 10)])])
         #expect(finishes.isEmpty)
@@ -65,6 +67,7 @@ struct LeoTaskReducerTests {
 
     @Test func newerRunFinishesAgain() {
         var reducer = LeoTaskReducer()
+        _ = reducer.apply(snapshot: [agent("a", [task()])])
         _ = reducer.apply(event: event("a", "build", task("build", .succeeded, revision: 2, started: 0, ended: 10)))
         let rerun = task("build", .succeeded, revision: 5, started: 100, ended: 160)
         #expect(reducer.apply(event: event("a", "build", rerun)) == [LeoTaskFinish(agent: "a", task: rerun)])
@@ -117,5 +120,36 @@ struct LeoTaskReducerTests {
         _ = reducer.apply(snapshot: [agent("a", [task()])])
         #expect(reducer.apply(event: .other(seq: 3, type: "x")).isEmpty)
         #expect(reducer.tasks(for: "a").count == 1)
+    }
+
+    @Test func renameRepublishStaysSilent() {
+        var reducer = LeoTaskReducer()
+        _ = reducer.apply(snapshot: [agent("old", [task("build", .failed, revision: 2, ended: 10)])])
+        _ = reducer.apply(event: event("old", "build", nil))
+        let moved = task("build", .failed, revision: 2, ended: 10)
+        #expect(reducer.apply(event: event("new", "build", moved)).isEmpty)
+        #expect(reducer.tasks(for: "new").count == 1)
+    }
+
+    @Test func finishNeedsAHeldRunningTask() {
+        var reducer = LeoTaskReducer()
+        #expect(reducer.apply(event: event("a", "build", task("build", .succeeded, revision: 2, ended: 10))).isEmpty)
+    }
+
+    @Test func staleSnapshotCannotRollBackAnEvent() {
+        var reducer = LeoTaskReducer()
+        _ = reducer.apply(snapshot: [agent("a", [task()])])
+        _ = reducer.apply(event: event("a", "build", task("build", .succeeded, revision: 5, ended: 10)))
+        _ = reducer.apply(snapshot: [agent("a", [task("build", .running, revision: 3)])])
+        #expect(reducer.tasks(for: "a").first?.state == .succeeded)
+        // The replayed finish stays silent too.
+        #expect(reducer.apply(event: event("a", "build", task("build", .succeeded, revision: 6, ended: 10))).isEmpty)
+    }
+
+    @Test func newerSnapshotStillWins() {
+        var reducer = LeoTaskReducer()
+        _ = reducer.apply(event: event("a", "build", task(revision: 2)))
+        _ = reducer.apply(snapshot: [agent("a", [task("build", .failed, revision: 4, ended: 9)])])
+        #expect(reducer.tasks(for: "a").first?.state == .failed)
     }
 }
