@@ -5,8 +5,10 @@
 # script tests. Checks, parsed as YAML:
 #   1. leo-ci.yml is callable (on: workflow_call).
 #   2. leo-release.yml has a job that calls leo-ci.yml with no `if:`.
-#   3. every job that calls leo-build.yml needs that job, so the signed
-#      build (and therefore publish, which needs build) waits for green CI.
+#   3. ci and build run in parallel, so the gate is on what ships: every job
+#      that depends (directly or transitively) on a leo-build.yml call also
+#      needs the leo-ci job, and none of them has a job-level `if:` that can
+#      bypass a failed dependency (always(), !cancelled(), failure()).
 # Run directly:
 #   ./test_release-runs-ci.sh
 set -euo pipefail
@@ -32,6 +34,53 @@ result() {
 if [[ ! -x "$ruby" ]]; then
   result no "YAML parser available" "$ruby not found"
   echo "-- $pass passed, $fail failed --"
+  exit 1
+fi
+
+# check <desc> <file> <ruby snippet over wf>; the snippet prints a problem,
+# or nothing when the check holds. `on` parses as the boolean true key in
+# YAML 1.1, so look it up both ways.
+check() {
+  local desc="$1" file="$2" snippet="$3" problem
+  problem="$("$ruby" -ryaml -e '
+    wf = YAML.safe_load(File.read(ARGV[0])) || {}
+    triggers = wf["on"] || wf[true] || {}
+    jobs = wf["jobs"] || {}
+    '"$snippet"'
+  ' "$file" 2>&1)" || problem="parse error: $problem"
+  [[ -z "$problem" ]] && result yes "$desc" || result no "$desc" "$problem"
+}
+
+check "leo-ci.yml is callable via workflow_call" "$ci" '
+  puts "no workflow_call trigger" unless triggers.is_a?(Hash) && triggers.key?("workflow_call")
+'
+
+check "leo-release.yml calls leo-ci.yml unconditionally" "$release" '
+  gate = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-ci.yml") }
+  puts "no job calls leo-ci.yml" if gate.empty?
+  gate.each { |id, j| puts "#{id} has an if:" if j.key?("if") }
+'
+
+check "every job downstream of leo-build.yml also needs the leo-ci call, with no bypassing if:" "$release" '
+  gate = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-ci.yml") }.keys
+  builds = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-build.yml") }.keys
+  puts "no job calls leo-build.yml" if builds.empty?
+  needs_of = ->(id) { Array(jobs[id]["needs"]) }
+  down = []
+  loop do
+    more = jobs.keys.select { |id| !down.include?(id) && !(needs_of.(id) & (builds + down)).empty? }
+    break if more.empty?
+    down += more
+  end
+  puts "nothing depends on leo-build.yml (no publish job?)" if down.empty?
+  down.each do |id|
+    puts "#{id} does not need #{gate.inspect}" if (needs_of.(id) & gate).empty?
+    cond = jobs[id]["if"].to_s
+    puts "#{id} has bypassing if: #{cond}" if cond =~ /always\(\)|cancelled\(\)|failure\(\)/
+  end
+'
+
+echo "-- $pass passed, $fail failed --"
   exit 1
 fi
 
