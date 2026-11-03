@@ -324,7 +324,7 @@ public struct Fleet {
             case .dismissTask(let id, let agent, let task):
                 guard let daemon = state.sessions[id: id]?.daemon else { return .none }
                 let (daemonClient, secrets) = (daemonClient, secrets)
-                return .run { send in
+                return .run { _ in
                     guard let saved = try secrets.load(daemon.id) else { throw MissingToken(daemonName: daemon.name) }
                     try await daemonClient.dismissTask(DaemonConnection(daemon: daemon, secrets: saved), agent, task)
                 } catch: { error, send in
