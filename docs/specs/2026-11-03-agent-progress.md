@@ -1,6 +1,6 @@
 # Agent-advertised task progress
 
-Status: DRAFT — awaiting Evan's approval
+Status: APPROVED (Evan, 2026-11-03)
 Mockups: `docs/mockups/2026-11-03-agent-progress/options.html` (chosen: Row A, Detail A + B, iOS cell 2, Chat panel B)
 Platforms: **both** — data model, decode, lifecycle rules and ETA derivation live in LeoKit; each app owns only rendering. The daemon owns the data.
 
