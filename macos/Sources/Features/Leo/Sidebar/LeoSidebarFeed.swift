@@ -117,6 +117,8 @@ actor LeoSidebarFeed {
     /// Agent tasks and their derived ETAs -- see `LeoSidebarFeed+Progress.swift`.
     var taskReducer = LeoTaskReducer()
     var taskETA = LeoTaskETA()
+    /// Counts task events, so a `/state` fetched before one can be told from one fetched after.
+    var taskEventCount = 0
     let onTaskFinishes: @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void
     let wallClock: @Sendable () -> Date
     var running = false

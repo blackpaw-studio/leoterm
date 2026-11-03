@@ -9,6 +9,7 @@ extension LeoSidebarFeed {
         activityTask?.cancel()
         let metadataRequest = nextMetadataRequest()
         let dispatchMark = dispatchTree.mark
+        let taskMark = taskEventCount
         // This baseline covers whatever was owed until now; only activity
         // drained after it starts needs a snapshot of its own.
         metadataRefreshPending = false
@@ -16,7 +17,7 @@ extension LeoSidebarFeed {
             do {
                 let state = try await Self.fetchState(from: activitySource)
                 guard let self else { return }
-                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest, dispatchMark: dispatchMark)
+                await self.applyActivityState(state, generation: generation, metadataRequest: metadataRequest, dispatchMark: dispatchMark, taskMark: taskMark)
             } catch is CancellationError {
                 return
             } catch {
@@ -62,12 +63,12 @@ extension LeoSidebarFeed {
         return try result.get()
     }
 
-    func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int, dispatchMark: Int) {
+    func applyActivityState(_ observed: LeoObservedState, generation: Int, metadataRequest: Int, dispatchMark: Int, taskMark: Int? = nil) {
         guard running, generation == snapshot.generation else { return }
         let state = observed.agents
         // Dispatches follow the same request order as metadata: a baseline
         // older than a snapshot already applied must not touch them.
-        if applyMetadata(state, request: metadataRequest, generation: generation) {
+        if applyMetadata(state, request: metadataRequest, generation: generation, taskMark: taskMark) {
             applyDispatchBaseline(observed.dispatches, since: dispatchMark, atSeq: observed.seq)
         }
         // `state` is the authoritative baseline as of when the fetch

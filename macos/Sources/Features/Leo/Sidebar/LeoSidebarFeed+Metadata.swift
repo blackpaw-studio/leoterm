@@ -41,14 +41,20 @@ extension LeoSidebarFeed {
     /// continuing the activity streaks of the one before it (B-063).
     /// Returns whether it was current enough to apply.
     @discardableResult
-    func applyMetadata(_ state: [LeoObservedAgent], request: Int, generation: Int) -> Bool {
+    func applyMetadata(_ state: [LeoObservedAgent], request: Int, generation: Int, taskMark: Int? = nil) -> Bool {
         guard running, generation == snapshot.generation, request > metadataAppliedSeq else { return false }
         metadataAppliedSeq = request
         metadata = LeoAgentMetadataIndex(state: state, previous: metadata)
         environments = LeoAgentEnvironmentsIndex(state: state)
         appearance = LeoAgentAppearanceIndex(state: state)
         displayNames = LeoAgentDisplayNameIndex(state: state)
-        applyTasks(state: state)
+        if taskMark == nil || taskMark == taskEventCount {
+            applyTasks(state: state)
+        } else {
+            // A task event landed after this `/state` was asked for: it may
+            // predate it, so it must not undo the event. A fresh one follows.
+            metadataRefreshPending = true
+        }
         return true
     }
 
@@ -72,6 +78,7 @@ extension LeoSidebarFeed {
         let request = nextMetadataRequest()
         let generation = snapshot.generation
         let dispatchMark = dispatchTree.mark
+        let taskMark = taskEventCount
         metadataInFlight = request
         metadataTask = Task { [weak self, activitySource] in
             let state: LeoObservedState?
@@ -84,11 +91,11 @@ extension LeoSidebarFeed {
                 Self.logger.error("Leo sidebar metadata fetch failed: \(String(describing: error), privacy: .public)")
                 state = nil
             }
-            await self?.metadataFetchFinished(state, request: request, generation: generation, dispatchMark: dispatchMark)
+            await self?.metadataFetchFinished(state, request: request, generation: generation, dispatchMark: dispatchMark, taskMark: taskMark)
         }
     }
 
-    private func metadataFetchFinished(_ observed: LeoObservedState?, request: Int, generation: Int, dispatchMark: Int) {
+    private func metadataFetchFinished(_ observed: LeoObservedState?, request: Int, generation: Int, dispatchMark: Int, taskMark: Int) {
         // A reset retired this fetch, and a newer one may own the slot.
         guard metadataInFlight == request else { return }
         metadataInFlight = nil
@@ -96,7 +103,7 @@ extension LeoSidebarFeed {
         let shown = displayedSnapshot
         if let observed, generation == snapshot.generation {
             // An older snapshot is rejected whole, dispatches included.
-            if applyMetadata(observed.agents, request: request, generation: generation) {
+            if applyMetadata(observed.agents, request: request, generation: generation, taskMark: taskMark) {
                 mergeDispatchSnapshot(observed.dispatches, since: dispatchMark, atSeq: observed.seq)
             }
         }

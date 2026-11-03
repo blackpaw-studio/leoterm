@@ -50,8 +50,11 @@ struct LeoSidebarFeedProgressTests {
     @Test func eventUpsertsThenNullRemoves() async throws {
         let harness = TurnHarness()
         try await started(harness)
+        // /state keeps up with the events, as a daemon's does.
+        await harness.activity.setTasks([Self.task(percent: 40, revision: 2)])
         await harness.activity.send(Self.changed(Self.task(percent: 40, revision: 2)))
         try await harness.pump { $0.rows.first?.tasks.primary?.percent == 40 }
+        await harness.activity.setTasks([])
         await harness.activity.send(Self.changed(nil, seq: 3))
         try await harness.pump { $0.rows.first?.tasks.isEmpty == true }
         await harness.stop()
@@ -126,6 +129,38 @@ struct LeoSidebarFeedProgressTests {
         try await harness.pump { $0.rows.first?.tasks.primary?.state == .succeeded }
         await harness.settle()
         #expect(await finishes.values.isEmpty)
+        await harness.stop()
+    }
+
+    private func state(_ tasks: [LeoAgentTask]) -> [LeoObservedAgent] {
+        [LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil, startedAt: "t1", tasks: tasks)]
+    }
+
+    @Test func aStateFetchedBeforeATaskEventDoesNotUndoIt() async throws {
+        let harness = TurnHarness()
+        try await started(harness)
+        let mark = await harness.feed.taskEventCount
+        await harness.activity.setTasks([Self.task(percent: 40, revision: 2)])
+        await harness.activity.send(Self.changed(Self.task(percent: 40, revision: 2)))
+        try await harness.pump { $0.rows.first?.tasks.primary?.percent == 40 }
+        let generation = await harness.feed.snapshot.generation
+        // A /state that was in flight when the event landed: it knows no task.
+        _ = await harness.feed.applyMetadata(state([]), request: 1_000_000, generation: generation, taskMark: mark)
+        #expect(await harness.feed.tasks["alpha"]?.first?.percent == 40)
+        await harness.stop()
+    }
+
+    @Test func aStateFetchedAfterTheLastTaskEventIsAuthoritative() async throws {
+        let harness = TurnHarness()
+        try await started(harness)
+        await harness.activity.setTasks([Self.task(percent: 40, revision: 2)])
+        await harness.activity.send(Self.changed(Self.task(percent: 40, revision: 2)))
+        try await harness.pump { $0.rows.first?.tasks.primary?.percent == 40 }
+        let generation = await harness.feed.snapshot.generation
+        await harness.activity.setTasks([])
+        let mark = await harness.feed.taskEventCount
+        _ = await harness.feed.applyMetadata(state([]), request: 1_000_000, generation: generation, taskMark: mark)
+        #expect(await harness.feed.tasks["alpha"] == nil)
         await harness.stop()
     }
 }

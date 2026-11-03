@@ -7,6 +7,7 @@ import LeoKit
 /// only while the host advertises `agent_progress`.
 extension LeoSidebarFeed {
     func receiveTask(_ event: LeoObserveEvent) {
+        taskEventCount += 1
         let before = tasks
         let finishes = taskReducer.apply(event: event)
         observeTaskETAs()
