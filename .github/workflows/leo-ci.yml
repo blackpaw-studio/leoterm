@@ -7,8 +7,11 @@ on:
   workflow_dispatch:
   workflow_call:
 
+# github.workflow is the caller's name inside a reusable call, so a release
+# run ("Leo Release") can't share a group with, and cancel, push CI ("Leo CI")
+# on the same ref.
 concurrency:
-  group: leo-ci-${{ github.event.pull_request.number || github.ref }}
+  group: leo-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:

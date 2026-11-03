@@ -9,6 +9,8 @@
 #      that depends (directly or transitively) on a leo-build.yml call also
 #      needs the leo-ci job, and none of them has a job-level `if:` that can
 #      bypass a failed dependency (always(), !cancelled(), failure()).
+#   4. leo-ci.yml's concurrency group includes github.workflow, so a release
+#      calling it can't cancel push CI on the same ref (and vice versa).
 # Run directly:
 #   ./test_release-runs-ci.sh
 set -euo pipefail
@@ -33,7 +35,12 @@ result() {
 
 if [[ ! -x "$ruby" ]]; then
   result no "YAML parser available" "$ruby not found"
-  echo "-- $pass passed, $fail failed --"
+  check "leo-ci.yml concurrency group includes github.workflow" "$ci" '
+  group = (wf["concurrency"] || {})["group"].to_s
+  puts "group #{group.inspect} lacks github.workflow" unless group.include?("github.workflow")
+'
+
+echo "-- $pass passed, $fail failed --"
   exit 1
 fi
 
@@ -78,6 +85,11 @@ check "every job downstream of leo-build.yml also needs the leo-ci call, with no
     cond = jobs[id]["if"].to_s
     puts "#{id} has bypassing if: #{cond}" if cond =~ /always\(\)|cancelled\(\)|failure\(\)/
   end
+'
+
+check "leo-ci.yml concurrency group includes github.workflow" "$ci" '
+  group = (wf["concurrency"] || {})["group"].to_s
+  puts "group #{group.inspect} lacks github.workflow" unless group.include?("github.workflow")
 '
 
 echo "-- $pass passed, $fail failed --"
