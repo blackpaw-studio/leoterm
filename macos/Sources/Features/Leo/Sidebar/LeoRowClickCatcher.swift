@@ -17,6 +17,14 @@ struct LeoRowClickCatcher: NSViewRepresentable {
     /// Width of the trailing edge that belongs to a control of the row's
     /// own (the subagents chevron): a click there is not a row click.
     var trailingExclusion: CGFloat = 0
+    /// Height of the bottom edge that belongs to a control of the row's own
+    /// (the task bar): a click there is not a row click.
+    var bottomExclusion: CGFloat = 0
+
+    /// The bar's horizontal extent within the row: the bottom strip only
+    /// excludes clicks between these two insets from the row's edges.
+    var bottomLeading: CGFloat = 0
+    var bottomTrailing: CGFloat = 0
 
     func makeNSView(context: Context) -> LeoRowClickCatcherView { LeoRowClickCatcherView() }
 
@@ -24,6 +32,9 @@ struct LeoRowClickCatcher: NSViewRepresentable {
         view.identity = identity
         view.onClick = onClick
         view.trailingExclusion = trailingExclusion
+        view.bottomExclusion = bottomExclusion
+        view.bottomLeading = bottomLeading
+        view.bottomTrailing = bottomTrailing
         view.isEnabled = context.environment.isEnabled
     }
 }
@@ -33,6 +44,10 @@ final class LeoRowClickCatcherView: NSView {
     var isEnabled = true
     /// See `LeoRowClickCatcher.trailingExclusion`.
     var trailingExclusion: CGFloat = 0
+    /// See `LeoRowClickCatcher.bottomExclusion`.
+    var bottomExclusion: CGFloat = 0
+    var bottomLeading: CGFloat = 0
+    var bottomTrailing: CGFloat = 0
     /// The row this view backs. Rows re-sort live, and SwiftUI may hand
     /// this view (with a new `onClick`) to another row between mouse-down
     /// and mouse-up; that mouse-up is no click on the new row (B-049).
@@ -80,8 +95,11 @@ final class LeoRowClickCatcherView: NSView {
         guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return false }
         // `visibleRect` alone can reach past the view's own bounds.
         let point = convert(event.locationInWindow, from: nil)
-        let clickable = NSRect(x: bounds.minX, y: bounds.minY, width: max(bounds.width - trailingExclusion, 0), height: bounds.height)
-        return clickable.contains(point) && visibleRect.contains(point)
+        let region = LeoRowClickRegion(
+            trailingExclusion: trailingExclusion, bottomExclusion: bottomExclusion,
+            bottomLeading: bottomLeading, bottomTrailing: bottomTrailing
+        )
+        return region.contains(point, in: bounds, isFlipped: isFlipped) && visibleRect.contains(point)
     }
 
     private func removeMonitor() {
@@ -99,5 +117,24 @@ enum LeoRowAccessibility {
 
     static func press(_ click: (NSEvent.ModifierFlags, Int) -> Void) {
         click([], 1)
+    }
+}
+
+/// Which points of a row are row clicks: everything but the trailing edge
+/// (the subagents chevron) and the task bar's own frame at the bottom,
+/// spanning `bottomLeading` ... `bounds.width - bottomTrailing`.
+struct LeoRowClickRegion: Equatable {
+    var trailingExclusion: CGFloat = 0
+    var bottomExclusion: CGFloat = 0
+    var bottomLeading: CGFloat = 0
+    var bottomTrailing: CGFloat = 0
+
+    func contains(_ point: NSPoint, in bounds: NSRect, isFlipped: Bool) -> Bool {
+        guard point.x >= bounds.minX, point.x <= bounds.maxX - trailingExclusion,
+              point.y >= bounds.minY, point.y <= bounds.maxY else { return false }
+        let fromBottom = isFlipped ? bounds.maxY - point.y : point.y - bounds.minY
+        let overBar = fromBottom < bottomExclusion
+            && point.x >= bounds.minX + bottomLeading && point.x <= bounds.maxX - bottomTrailing
+        return !overBar
     }
 }

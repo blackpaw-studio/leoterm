@@ -23,6 +23,9 @@ struct LeoAgentRowContent: View {
     var unreadCount = 0
     /// B-331: set only for a row with dispatches.
     var subagents: Subagents?
+    /// Dismisses a failed task from the popover on the row's bar.
+    var dismissTask: (LeoAgentTask) -> Void = { _ in }
+    @State private var showingTasks = false
 
     /// The row's dispatch rows are collapsed or shown: a chevron (outside
     /// the row's click area) and, while collapsed, how many are running.
@@ -40,12 +43,22 @@ struct LeoAgentRowContent: View {
     }
 
     var body: some View {
-        let presentation = LeoAgentRowPresentation(row: row, error: error, inWorkingSection: inWorkingSection)
-        HStack(alignment: .top, spacing: LeoAgentRowMetrics.symbolSpacing) {
+        if row.tasks.isEmpty {
+            content(now: nil)
+        } else {
+            // The elapsed and remaining times move on their own.
+            TimelineView(.periodic(from: .now, by: 30)) { context in content(now: context.date) }
+        }
+    }
+
+    private func content(now: Date?) -> some View {
+        let presentation = LeoAgentRowPresentation(row: row, error: error, now: now, inWorkingSection: inWorkingSection)
+        return HStack(alignment: .top, spacing: LeoAgentRowMetrics.symbolSpacing) {
             LeoAgentStateSymbolView(state: presentation.state, isSelected: isSelected)
             VStack(alignment: .leading, spacing: LeoAgentRowMetrics.lineSpacing) {
                 nameLine(presentation)
-                if presentation.state.hasSecondLine { detailLine(presentation) }
+                if presentation.hasSecondLine { detailLine(presentation) }
+                if let progress = presentation.progress { progressBar(progress) }
             }
         }
         // The bar spans the row's lines without adding to its height.
@@ -143,12 +156,43 @@ struct LeoAgentRowContent: View {
     }
 
     private func detailLine(_ presentation: LeoAgentRowPresentation) -> some View {
-        Text(presentation.detail.text)
-            .font(.caption)
-            .foregroundStyle(presentation.detailInk.style(isSelected: isSelected))
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .help(presentation.detail.text)
-            .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
+        HStack(spacing: 4) {
+            Text(presentation.detail.text)
+                .font(.caption)
+                .foregroundStyle(presentation.detailInk.style(isSelected: isSelected))
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(presentation.detail.text)
+            Spacer(minLength: 0)
+            if let badge = presentation.progress?.extraBadge {
+                Text(badge)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                    .padding(.horizontal, 5)
+                    .background(Capsule().fill(isSelected ? AnyShapeStyle(.white.opacity(0.25)) : AnyShapeStyle(.quaternary)))
+                    .fixedSize()
+            }
+        }
+        .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
+    }
+
+    /// Row A's bar. Clicking it opens every task of the agent, and is not
+    /// a row click (see `LeoAgentRowMetrics.taskBarHitHeight`).
+    private func progressBar(_ progress: LeoAgentRowPresentation.Progress) -> some View {
+        LeoTaskBar(kind: progress.kind, isOnSelection: isSelected)
+            .frame(maxWidth: .infinity)
+            .frame(height: LeoAgentRowMetrics.taskBarHitHeight)
+            // An AppKit target, not a Button: the list would select the row
+            // on mouse-down before a SwiftUI button saw the click.
+            .overlay(LeoTaskBarClickTarget { showingTasks = true })
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(progress.accessibilityLabel)
+            .accessibilityHint("Shows this agent's tasks")
+            // The AppKit overlay takes the mouse, so VoiceOver needs its own way in.
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { showingTasks = true }
+        .popover(isPresented: $showingTasks, arrowEdge: .trailing) {
+            LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
+        }
     }
 }

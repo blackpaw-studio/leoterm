@@ -94,6 +94,19 @@ public struct LeoConfigHTTPClient: LeoConfigClient {
         return try Self.payload(try await transport.send(request, timeout: mutationTimeout))
     }
 
+    /// A `DELETE` that answers with no body (204). 404 and 409 map to the
+    /// agent-task errors, anything else as a normal failure.
+    func delete(_ path: String) async throws {
+        let response = try await transport.send(LeoHTTPRequest(method: "DELETE", path: path), timeout: mutationTimeout)
+        guard !(200..<300).contains(response.status) else { return }
+        let body = try? JSONDecoder().decode(FailureBody.self, from: response.body)
+        switch response.status {
+        case 404 where body?.code == nil || body?.code == "not_found": throw LeoAgentTaskError.notFound
+        case 409: throw LeoAgentTaskError.notDismissable(reason: body?.error ?? "Only a failed task can be dismissed.")
+        default: throw Self.failure(response)
+        }
+    }
+
     private static let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]

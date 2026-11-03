@@ -84,6 +84,7 @@ extension LeoSidebarFeed {
                 resetDispatches()
                 resetTurns()
                 resetCompactions()
+                resetTasks()
                 wasLive = false
                 snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
             }

@@ -8,6 +8,9 @@ import UIKitNavigation
 final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     @UIBindable private var store: StoreOf<AppFeature>
     private var sections: [AgentSection] = []
+    /// The fleet's progress clock: elapsed and ETA text is judged at this.
+    private var clock = Date()
+    private var lastRenderedClock: Date?
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<String, AgentRef>!
 
@@ -37,6 +40,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
 
         observe { [weak self] in
             guard let self else { return }
+            clock = store.fleet.progressClock
             render(sections: store.fleet.sections, selection: store.detail?.ref)
         }
     }
@@ -60,7 +64,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func configureDataSource() {
-        let cell = UICollectionView.CellRegistration<UICollectionViewListCell, AgentRef> { [weak self] cell, _, ref in
+        let cell = UICollectionView.CellRegistration<ProgressListCell, AgentRef> { [weak self] cell, _, ref in
             guard let agent = self?.agent(ref) else { return }
             var content = UIListContentConfiguration.subtitleCell()
             let badge = agent.badge
@@ -77,14 +81,19 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             if self?.showsTiles == true { content.imageProperties.reservedLayoutSize = AgentRowTile.size }
             content.text = agent.displayName
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
-            content.secondaryText = agent.summary
+            let progress = agent.progress(now: self?.clock ?? Date())
+            content.secondaryText = progress?.text ?? agent.summary
             content.secondaryTextProperties.color = .secondaryLabel
             content.secondaryTextProperties.numberOfLines = 2
             content.textToSecondaryTextVerticalPadding = 3
+            cell.showBar(progress?.style, in: &content)
             cell.contentConfiguration = content
             var accessories: [UICellAccessory] = [.disclosureIndicator()]
             if agent.priority.needsAttention {
                 accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge.label, tint: badge.tint), placement: .trailing())), at: 0)
+            }
+            if let badge = progress?.badge {
+                accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge, tint: .secondaryLabel), placement: .trailing())), at: 0)
             }
             cell.accessories = accessories
             cell.accessibilityIdentifier = "agent.\(agent.name)"
@@ -141,8 +150,13 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
                 return old == agent ? nil : AgentRef(daemonID: section.id, name: agent.name)
             }
         }
+        let ticked = lastRenderedClock != nil && lastRenderedClock != clock
+        lastRenderedClock = clock
+        let running = ticked ? newSections.flatMap { section in
+            section.agents.filter { $0.tasks.contains(where: \.isRunning) }.map { AgentRef(daemonID: section.id, name: $0.name) }
+        } : []
         let tilesChanged = previous.contains { $0.agents.contains { $0.appearance?.emoji != nil } } != showsTiles
-        snapshot.reconfigureItems((tilesChanged ? snapshot.itemIdentifiers : changed).filter { snapshot.itemIdentifiers.contains($0) })
+        snapshot.reconfigureItems((tilesChanged ? snapshot.itemIdentifiers : Array(Set(changed + running))).filter { snapshot.itemIdentifiers.contains($0) })
         let headersChanged = previous.map(\.connection) != newSections.map(\.connection) || previous.map(\.id) != newSections.map(\.id)
         if headersChanged { snapshot.reloadSections(newSections.map(\.id).filter { previous.map(\.id).contains($0) }) }
         dataSource.apply(snapshot, animatingDifferences: !previous.isEmpty)

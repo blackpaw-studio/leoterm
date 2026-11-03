@@ -72,6 +72,11 @@ final class RootTabBarController: UITabBarController, UITabBarControllerDelegate
             moveProgress.show(store.move?.isMoving == true ? store.move : nil)
         }
 
+        observe { [weak self] in
+            guard let self else { return }
+            presentTaskDismissError(store.fleet.taskDismissError)
+        }
+
         // The unread badge needs threads even before the Chats tab has been opened.
         store.send(.chatsEntryAppeared)
         observe { [weak self] in
@@ -239,5 +244,16 @@ private final class MoveProgressView: UIView {
         case .duplicate: String(localized: "Duplicating \(flow.displayName)…")
         }
         UIAccessibility.post(notification: .announcement, argument: label.text)
+    }
+}
+
+extension RootTabBarController {
+    /// A refused task dismissal: the daemon's reason, once.
+    private func presentTaskDismissError(_ message: String?) {
+        guard let message else { return }
+        store.send(.fleet(.taskDismissErrorShown))
+        let alert = UIAlertController(title: String(localized: "Couldn't Dismiss Task"), message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: String(localized: "OK"), style: .cancel))
+        (presentedViewController ?? self).present(alert, animated: true)
     }
 }

@@ -40,6 +40,9 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// The daemon's `display_name` (leo >= 0.66.0), nil from older daemons;
     /// read `displayName`.
     public let daemonDisplayName: String?
+    /// The agent's advertised tasks (`agent_progress`); empty when the
+    /// daemon sent none. Decoded by `LeoAgentTaskWire`.
+    public let tasks: [LeoAgentTask]
 
     /// What the user sees: `display_name` when set, else `name`.
     public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
@@ -49,7 +52,8 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
                 startedAt: String? = nil, usage: LeoAgentUsage? = nil,
                 environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil,
                 appearance: LeoAgentAppearance? = nil, movedTo: String? = nil, movedAt: String? = nil,
-                displayName: String? = nil) {
+                displayName: String? = nil, tasks: [LeoAgentTask] = []) {
+        self.tasks = tasks
         self.daemonDisplayName = displayName
         self.movedTo = movedTo
         self.movedAt = movedAt
@@ -96,6 +100,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         template = (try? container.decodeIfPresent(String.self, forKey: .template)) ?? nil
         harness = (try? container.decodeIfPresent(String.self, forKey: .harness)) ?? nil
         appearance = LeoAppearanceWire.agent(from: decoder)
+        tasks = LeoAgentTaskWire.agent(from: decoder)
         movedTo = (try? container.decodeIfPresent(String.self, forKey: .movedTo)) ?? nil
         movedAt = (try? container.decodeIfPresent(String.self, forKey: .movedAt)) ?? nil
         daemonDisplayName = (try? container.decodeIfPresent(String.self, forKey: .daemonDisplayName)) ?? nil
@@ -166,6 +171,8 @@ public enum LeoObserveEvent: Equatable, Sendable {
     /// An agent's resolved appearance changed (`agent_appearance`); nil
     /// means nothing is set any more.
     case agentAppearanceChanged(seq: Int, at: String?, agent: String, appearance: LeoAgentAppearance?)
+    /// An agent's task changed (`agent_progress`); nil means it was removed.
+    case agentTaskChanged(seq: Int, at: String?, agent: String, id: String, task: LeoAgentTask?)
     /// A Leo Chat message was posted or changed (`chat.message`,
     /// `chat.updated`).
     case chat(seq: Int, LeoChatEvent)
@@ -377,6 +384,10 @@ public actor LeoActivityClient {
             if let p = LeoAppearanceWire.event(data) { return .agentAppearanceChanged(seq: p.seq, at: p.at, agent: p.agent, appearance: p.appearance) }
             leoActivityClientLogger.debug("activityClient: malformed agent_appearance_changed kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case LeoAgentTaskWire.eventType:
+            if let p = LeoAgentTaskWire.event(data) { return .agentTaskChanged(seq: p.seq, at: p.at, agent: p.agent, id: p.id, task: p.task) }
+            leoActivityClientLogger.debug("activityClient: malformed agent_task_changed kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         case "chat.message", "chat.updated":
             struct Payload: Decodable { let seq: Int }
             if let p = try? decoder.decode(Payload.self, from: data), let message = chatMessage(in: data) {
@@ -445,7 +456,7 @@ extension LeoObserveEvent {
              .agentStateChanged(let seq, _, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _),
-             .agentAppearanceChanged(let seq, _, _, _), .chat(let seq, _): return seq
+             .agentAppearanceChanged(let seq, _, _, _), .agentTaskChanged(let seq, _, _, _, _), .chat(let seq, _): return seq
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }

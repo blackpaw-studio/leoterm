@@ -19,6 +19,19 @@ class SelectionSplitViewController: UISplitViewController, UISplitViewController
     /// `isCollapsed` flips, which is not the user popping back.
     private var transitionsInFlight = 0
 
+    /// The primary column's navigation bar (its large title included).
+    final var primaryNavigationBar: UINavigationBar { primaryNavigation.navigationBar }
+
+    /// Space reserved above each column's content, for something floating over it.
+    final var topContentInset: CGFloat = 0 {
+        didSet { applyTopContentInset() }
+    }
+
+    private func applyTopContentInset() {
+        primaryNavigation.viewControllers.first?.additionalSafeAreaInsets.top = topContentInset
+        secondaryNavigation?.viewControllers.first?.additionalSafeAreaInsets.top = topContentInset
+    }
+
     /// `makeScreen` builds the selected item's screen; `selectionPopped` tells
     /// the store the user went back to the list.
     init(
@@ -55,6 +68,7 @@ class SelectionSplitViewController: UISplitViewController, UISplitViewController
         navigation.delegate = self
         secondaryNavigation = navigation
         setViewController(navigation, for: .secondary)
+        applyTopContentInset()
         if selection != nil {
             show(.secondary)
         } else if isCollapsed {

@@ -174,3 +174,17 @@ extension LeoAttentionNotification {
         userInfo = [Self.hostKey: Self.encode(id.host), Self.agentKey: id.name]
     }
 }
+
+extension LeoAttentionNotification {
+    /// A task that just finished live: "Done: title" or "Failed: title".
+    /// Clicking it opens the agent's row, like the attention ones.
+    init?(taskFinish finish: LeoTaskFinish, host: LeoHostID, displayName: String? = nil) {
+        guard let ended = finish.task.endedAt else { return nil }
+        let id = LeoAgentRow.ID(host: host, name: finish.agent)
+        let stamp = Int(ended.timeIntervalSince1970 * 1000)
+        identifier = "\(Self.identifierPrefix)task.\(Self.identifierHostKey(host)).\(finish.agent).\(finish.task.id).\(stamp)"
+        title = Self.title(displayName ?? id.name, host: host)
+        body = LeoTaskText.summary(finish.task, etaAt: nil, now: ended)
+        userInfo = [Self.hostKey: Self.encode(host), Self.agentKey: finish.agent]
+    }
+}

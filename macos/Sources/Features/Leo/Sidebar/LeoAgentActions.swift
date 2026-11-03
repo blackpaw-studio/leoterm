@@ -1,6 +1,7 @@
 import Combine
 import Foundation
 import LeoKit
+import OSLog
 
 @MainActor final class LeoAgentActions: ObservableObject {
     @Published private(set) var pendingActions: Set<LeoAgentRow.ID> = []
@@ -176,6 +177,28 @@ import LeoKit
     func appearanceClient(for host: LeoHostID) -> (any LeoAppearanceAPI)? {
         clients.daemon(for: host)?.configClient()
     }
+
+    /// The machine's task-dismiss route; nil while it isn't connected or
+    /// its client doesn't offer one.
+    func taskClient(for host: LeoHostID) -> (any LeoAgentTaskAPI)? {
+        clients.daemon(for: host)?.configClient() as? any LeoAgentTaskAPI
+    }
+
+    /// Dismisses a failed task. The feed's `agent_task_changed` removes it
+    /// from every surface; a task that is already gone needs nothing.
+    func dismissTask(host: LeoHostID, agent: String, id: String) {
+        guard let client = taskClient(for: host) else { return }
+        Task {
+            do {
+                try await client.dismissAgentTask(agent: agent, id: id)
+            } catch LeoAgentTaskError.notFound {
+                return
+            } catch {
+                Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").error("dismiss task failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
     // MARK: Move, copy, duplicate (B-324)
 
     /// nil until `host`'s list has loaded.

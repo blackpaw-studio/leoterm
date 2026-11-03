@@ -1,0 +1,22 @@
+{
+  "tasks": {
+    "alpha": [
+      {"id": "build", "title": "Xcode build", "percent": 62, "status": "Compiling 412/980", "started_ago": 252, "updated_ago": 3, "eta_in": 180, "revision": 4},
+      {"id": "lint", "title": "Lint", "state": "succeeded", "percent": 100, "started_ago": 400, "ended_ago": 360, "revision": 3},
+      {"id": "deploy", "title": "nomad deploy", "mode": "indeterminate", "status": "Waiting on allocs", "started_ago": 63, "revision": 2}
+    ],
+    "beta": [
+      {"id": "export", "title": "image export", "percent": 71, "status": "No update for 18m", "stale": true, "started_ago": 1900, "updated_ago": 1080, "revision": 5}
+    ],
+    "gamma": [
+      {"id": "archive", "title": "Release archive", "state": "failed", "percent": 40, "status": "exit 65: signing failed", "started_ago": 900, "ended_ago": 720, "revision": 6}
+    ]
+  },
+  "script": [
+    {"after": 2, "agent": "alpha", "id": "build", "task": {"title": "Xcode build", "percent": 70, "status": "Compiling 686/980", "started_ago": 252, "eta_in": 120, "revision": 5}},
+    {"after": 2, "agent": "alpha", "id": "build", "task": {"title": "Xcode build", "percent": 85, "status": "Linking", "started_ago": 252, "eta_in": 40, "revision": 6}},
+    {"after": 2, "agent": "alpha", "id": "build", "task": {"title": "Xcode build", "state": "succeeded", "percent": 100, "started_ago": 252, "revision": 7}},
+    {"after": 3, "agent": "alpha", "id": "deploy", "task": {"title": "nomad deploy", "state": "failed", "status": "alloc unhealthy", "started_ago": 63, "revision": 3}},
+    {"after": 3, "agent": "gamma", "id": "archive", "task": null}
+  ]
+}

@@ -22,6 +22,8 @@ import LeoKit
         var now: @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }
         var onManualRefresh: @MainActor @Sendable () -> Void = {}
         var onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in }
+        /// A task finished live on a machine (agent progress).
+        var onTaskFinishes: @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void = { _, _ in }
         /// Each machine's `chat.*` events and resyncs, in that machine's stream
         /// order, tagged with the machine.
         var onChat: @Sendable (LeoHostID, LeoChatFeedSignal) -> Void = { _, _ in }
@@ -145,6 +147,7 @@ import LeoKit
             onManualRefresh: dependencies.onManualRefresh,
             onAttentionTransitions: dependencies.onAttentionTransitions,
             onChat: { from, signal in if from == host { onChat(host, signal) } },
+            onTaskFinishes: { from, finishes in if from == host { dependencies.onTaskFinishes(host, finishes) } },
             sink: { [weak self] snapshot in self?.deliver(snapshot, from: host, feed: id) }
         )
         let entry = Entry(id: id, feed: feed, commands: LeoOrderedRelay { command in await command(feed) })

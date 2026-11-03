@@ -21,6 +21,7 @@ public struct LeoDaemonFeatures: Equatable, Sendable {
         case clientTools = "client_tools"
         case agentAppearance = "agent_appearance"
         case agentMove = "agent_move"
+        case agentProgress = "agent_progress"
     }
 
     public static let none = LeoDaemonFeatures([])
