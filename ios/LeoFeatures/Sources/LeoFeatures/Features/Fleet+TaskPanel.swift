@@ -2,9 +2,10 @@ import ComposableArchitecture
 import Foundation
 import LeoKit
 
-extension SharedReaderKey where Self == AppStorageKey<Bool>.Default {
-    /// The task panel over Chats is collapsed to its header (per device).
-    public static var progressPanelCollapsed: Self { Self[.appStorage("progressPanelCollapsed"), default: false] }
+extension SharedReaderKey where Self == AppStorageKey<Bool?> {
+    /// Whether the user last left the task panel over Chats collapsed to its
+    /// header (per device); nil until they toggle it, so the width default applies.
+    public static var progressPanelChoice: Self { .appStorage("progressPanelCollapsed") }
 }
 
 /// One row of the floating task panel: a task and the agent running it.
@@ -20,6 +21,10 @@ public struct TaskPanelRow: Equatable, Identifiable, Sendable {
 }
 
 extension Fleet.State {
+    /// What the panel shows: the user's last choice, else collapsed at compact
+    /// width (a full-width card) and expanded at regular width (the corner card).
+    public var isProgressPanelCollapsed: Bool { progressPanelChoice ?? isCompactWidth }
+
     /// Some agent has a running task, so its text needs a moving clock.
     var hasRunningTask: Bool {
         sessions.contains { $0.agents.contains { $0.tasks.contains(where: \.isRunning) } }

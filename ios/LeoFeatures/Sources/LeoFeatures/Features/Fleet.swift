@@ -80,8 +80,11 @@ public struct Fleet {
         public var isShowingStats = false
         @Shared(.appStorage("statsStyle")) public var statsStyle = LeoStatsStyle.default
         public var sessions: IdentifiedArrayOf<DaemonSession> = []
-        /// The floating task panel over Chats is collapsed to its header; kept per device.
-        @Shared(.progressPanelCollapsed) public var isProgressPanelCollapsed
+        /// The user's last collapse choice for the floating task panel over Chats; nil until
+        /// they toggle it. Kept per device. Read `isProgressPanelCollapsed`.
+        @Shared(.progressPanelChoice) public var progressPanelChoice
+        /// Chats is at compact width (iPhone, narrow split view); the screen reports it.
+        public var isCompactWidth = false
         /// Why the last task dismissal failed; the screen shows it, then clears it.
         public var taskDismissError: String?
         /// The time elapsed and ETA text is judged at; ticks every second while
@@ -161,6 +164,7 @@ public struct Fleet {
         /// Dismiss a failed task (swipe, panel button).
         case dismissTask(DaemonSession.ID, agent: String, id: String)
         case progressPanelToggled
+        case widthClassChanged(isCompact: Bool)
         case progressTicked
         case taskDismissErrorShown
         case taskDismissFailed(String)
@@ -334,7 +338,12 @@ public struct Fleet {
                 return .none
 
             case .progressPanelToggled:
-                state.$isProgressPanelCollapsed.withLock { $0.toggle() }
+                let collapsed = state.isProgressPanelCollapsed
+                state.$progressPanelChoice.withLock { $0 = !collapsed }
+                return .none
+
+            case .widthClassChanged(let isCompact):
+                state.isCompactWidth = isCompact
                 return .none
 
             case .taskDismissErrorShown:

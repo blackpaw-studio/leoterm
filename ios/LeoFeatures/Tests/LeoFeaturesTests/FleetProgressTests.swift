@@ -116,23 +116,42 @@ struct FleetProgressTests {
         #expect(state.taskPanelHeader == "Tasks 2 · 62%")
     }
 
-    @Test func thePanelStartsExpandedAndRemembersCollapsing() async {
-        @Shared(.progressPanelCollapsed) var collapsed
-        $collapsed.withLock { $0 = false }
-        let store = Self.store()
-        await store.send(.progressPanelToggled)
-        #expect(collapsed == true)
-        await store.send(.progressPanelToggled)
-        #expect(collapsed == false)
+    private static func freshDefaults() -> UserDefaults {
+        UserDefaults(suiteName: "FleetProgressTests.\(UUID().uuidString)")!
     }
 
-    @Test func aCollapsedPanelIsRestoredFromTheStoredDefault() {
-        let defaults = UserDefaults(suiteName: "FleetProgressTests.\(UUID().uuidString)")!
+    @Test func thePanelStartsExpandedAtRegularWidthAndCollapsedAtCompact() async {
+        let store = withDependencies { $0.defaultAppStorage = Self.freshDefaults() } operation: { Self.store() }
+        #expect(store.state.isProgressPanelCollapsed == false)
+        await store.send(.widthClassChanged(isCompact: true))
+        #expect(store.state.isProgressPanelCollapsed == true)
+        await store.send(.widthClassChanged(isCompact: false))
+        #expect(store.state.isProgressPanelCollapsed == false)
+    }
+
+    @Test func togglingFlipsWhatIsShownAndThatChoiceOutlivesWidthChanges() async {
+        let store = withDependencies { $0.defaultAppStorage = Self.freshDefaults() } operation: { Self.store() }
+        await store.send(.widthClassChanged(isCompact: true))
+        await store.send(.progressPanelToggled)
+        #expect(store.state.isProgressPanelCollapsed == false)
+        await store.send(.widthClassChanged(isCompact: false))
+        #expect(store.state.isProgressPanelCollapsed == false)
+        await store.send(.progressPanelToggled)
+        #expect(store.state.isProgressPanelCollapsed == true)
+        await store.send(.widthClassChanged(isCompact: true))
+        #expect(store.state.isProgressPanelCollapsed == true)
+    }
+
+    @Test func aRememberedChoiceIsRestoredFromTheStoredDefault() {
+        let defaults = Self.freshDefaults()
+        defaults.set(false, forKey: "progressPanelCollapsed")
+        var state = withDependencies { $0.defaultAppStorage = defaults } operation: { Fleet.State(daemons: [.dionysus]) }
+        state.isCompactWidth = true
+        #expect(state.isProgressPanelCollapsed == false)
+
         defaults.set(true, forKey: "progressPanelCollapsed")
-        let state = withDependencies { $0.defaultAppStorage = defaults } operation: {
-            Fleet.State(daemons: [.dionysus])
-        }
-        #expect(state.isProgressPanelCollapsed == true)
+        let collapsed = withDependencies { $0.defaultAppStorage = defaults } operation: { Fleet.State(daemons: [.dionysus]) }
+        #expect(collapsed.isProgressPanelCollapsed == true)
     }
 
     // MARK: Progress clock

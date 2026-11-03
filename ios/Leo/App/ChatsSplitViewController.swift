@@ -6,6 +6,8 @@ import UIKit
 final class ChatsSplitViewController: SelectionSplitViewController {
     private let store: StoreOf<AppFeature>
     private let panel = TaskPanelView()
+    fileprivate var panelRegularConstraints: [NSLayoutConstraint] = []
+    fileprivate var panelCompactConstraints: [NSLayoutConstraint] = []
 
     init(store: StoreOf<AppFeature>) {
         self.store = store
@@ -31,21 +33,31 @@ final class ChatsSplitViewController: SelectionSplitViewController {
 }
 
 extension ChatsSplitViewController {
-    /// Chat panel B: docked top-right, below the navigation bar, over the list
-    /// and the thread.
+    /// Chat panel B: a card below the navigation bar over the list and the
+    /// thread. Regular width: 320 pt, top-right. Compact width: the full width
+    /// less a 16 pt inset, so titles do not truncate.
     private func installTaskPanel() {
         panel.translatesAutoresizingMaskIntoConstraints = false
         panel.isHidden = true
         view.addSubview(panel)
-        NSLayoutConstraint.activate([
-            panel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 52),
-            panel.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
-            panel.widthAnchor.constraint(lessThanOrEqualToConstant: 320),
-            panel.leadingAnchor.constraint(greaterThanOrEqualTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 12),
-        ])
+        let guide = view.safeAreaLayoutGuide
+        let top = panel.topAnchor.constraint(equalTo: guide.topAnchor, constant: 52)
         let widthPreference = panel.widthAnchor.constraint(equalToConstant: 320)
         widthPreference.priority = .defaultHigh
-        widthPreference.isActive = true
+        panelRegularConstraints = [
+            top,
+            panel.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -12),
+            panel.widthAnchor.constraint(lessThanOrEqualToConstant: 320),
+            panel.leadingAnchor.constraint(greaterThanOrEqualTo: guide.leadingAnchor, constant: 12),
+            widthPreference,
+        ]
+        panelCompactConstraints = [
+            top,
+            panel.leadingAnchor.constraint(equalTo: guide.leadingAnchor, constant: 16),
+            panel.trailingAnchor.constraint(equalTo: guide.trailingAnchor, constant: -16),
+        ]
+        syncPanelWidthClass()
+        registerForTraitChanges([UITraitHorizontalSizeClass.self]) { (self: Self, _) in self.syncPanelWidthClass() }
         panel.onToggle = { [store] in store.send(.fleet(.progressPanelToggled)) }
         panel.onOpen = { [store] ref in store.send(.chatOpened(ref)) }
         panel.onDismiss = { [store] row in store.send(.fleet(.dismissTask(row.ref.daemonID, agent: row.ref.name, id: row.task.id))) }
@@ -56,5 +68,14 @@ extension ChatsSplitViewController {
                 isCollapsed: store.fleet.isProgressPanelCollapsed, now: store.fleet.progressClock
             )
         }
+    }
+
+    /// Lays the card out for the current width class and tells the fleet, which
+    /// owns the collapsed-by-default rule.
+    private func syncPanelWidthClass() {
+        let isCompact = traitCollection.horizontalSizeClass == .compact
+        NSLayoutConstraint.deactivate(isCompact ? panelRegularConstraints : panelCompactConstraints)
+        NSLayoutConstraint.activate(isCompact ? panelCompactConstraints : panelRegularConstraints)
+        store.send(.fleet(.widthClassChanged(isCompact: isCompact)))
     }
 }
