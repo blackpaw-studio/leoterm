@@ -12,6 +12,7 @@ struct LeoTaskBar: View {
     var isOnSelection = false
     var height: CGFloat = LeoTaskBar.height
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isWindowVisible = true
 
     var body: some View {
         GeometryReader { geometry in
@@ -26,6 +27,7 @@ struct LeoTaskBar: View {
         }
         .frame(height: height)
         .clipShape(Capsule())
+        .background(LeoWindowVisibilityReader(isVisible: $isWindowVisible))
         .accessibilityHidden(true)
     }
 
@@ -46,7 +48,7 @@ struct LeoTaskBar: View {
         if reduceMotion {
             Capsule().fill(fill).frame(width: segment).offset(x: (width - segment) / 2)
         } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 30)) { context in
+            TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !isWindowVisible)) { context in
                 let phase = context.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.4) / 1.4
                 Capsule().fill(fill).frame(width: segment).offset(x: -segment + (width + segment) * phase)
             }

@@ -11,7 +11,16 @@ struct LeoProgressPanelModel: Equatable {
         let task: LeoAgentTask
         let etaAt: Date?
 
-        var id: String { "\(agent.host.displayName)/\(agent.name)/\(task.id)" }
+        struct ID: Hashable, Comparable {
+            let agent: LeoAgentRow.ID
+            let task: String
+
+            static func < (lhs: ID, rhs: ID) -> Bool {
+                (lhs.agent.host.displayName, lhs.agent.name, lhs.task) < (rhs.agent.host.displayName, rhs.agent.name, rhs.task)
+            }
+        }
+
+        var id: ID { ID(agent: agent, task: task.id) }
     }
 
     /// Failed first (they need dismissing), then running by most recent

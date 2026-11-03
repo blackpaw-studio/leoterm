@@ -59,4 +59,12 @@ struct LeoProgressPanelModelTests {
         #expect(model.entries.first?.emoji == "🏛️")
         #expect(model.entries.first?.displayName == "alpha")
     }
+
+    @Test func entryIdsStayUniqueForSameNamedAgentsOnDifferentHosts() {
+        let model = LeoProgressPanelModel(rows: [
+            Self.row("a", host: .local, [Self.task("x")]),
+            Self.row("a", host: .remote(LeoHostID.local.displayName), [Self.task("x")]),
+        ])
+        #expect(Set(model.entries.map(\.id)).count == 2)
+    }
 }

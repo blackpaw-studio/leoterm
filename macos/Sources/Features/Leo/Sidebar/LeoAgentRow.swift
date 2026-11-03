@@ -128,7 +128,8 @@ struct LeoAgentRowView: View {
         .background(LeoRowClickCatcher(
             identity: row.id, onClick: click,
             trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge,
-            bottomExclusion: hasTaskBar ? LeoAgentRowMetrics.taskBarHitHeight + LeoAgentRowMetrics.verticalPadding : 0
+            bottomExclusion: hasTaskBar ? LeoAgentRowMetrics.taskBarHitHeight + LeoAgentRowMetrics.verticalPadding : 0,
+            bottomLeading: LeoAgentRowMetrics.nameColumnInset, bottomTrailing: LeoAgentRowMetrics.colorBarSlot
         ).accessibilityHidden(true))
         // One element per row: the name's label (name, state), then the
         // detail and time. There's no button in the row to press, so the

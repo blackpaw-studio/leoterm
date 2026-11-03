@@ -114,4 +114,18 @@ struct LeoSidebarFeedProgressTests {
         #expect(await finishes.values.isEmpty)
         await harness.stop()
     }
+
+    @Test func aReconnectSnapshotShowingARunningTaskSucceededUpdatesSilently() async throws {
+        let finishes = Finishes()
+        let harness = TurnHarness(onTaskFinishes: { _, list in Task { await finishes.add(list) } })
+        try await started(harness, seed: [Self.task()])
+        try await harness.pump { $0.rows.first?.tasks.primary?.state == .running }
+        let done = Self.task(state: .succeeded, percent: 100, revision: 2, ended: Self.t0.addingTimeInterval(60))
+        await harness.activity.setTasks([done])
+        await harness.activity.send(Self.hello())
+        try await harness.pump { $0.rows.first?.tasks.primary?.state == .succeeded }
+        await harness.settle()
+        #expect(await finishes.values.isEmpty)
+        await harness.stop()
+    }
 }

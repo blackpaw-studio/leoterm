@@ -26,16 +26,20 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let preferred = dragWidth ?? session.preferredChatWidth
         ZStack(alignment: .topLeading) {
-            VStack(spacing: 0) {
-                // B: the selected agent's tasks, above its terminal.
-                if let row {
-                    LeoTaskStrip(
-                        agentName: row.displayName, tasks: row.tasks,
-                        dismiss: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) }
-                    )
+            // B: the selected agent's tasks, overlaid on the top of the
+            // terminal column so the terminal's size never changes (tmux
+            // reflows on every resize).
+            terminal()
+                .frame(maxHeight: .infinity)
+                .overlay(alignment: .top) {
+                    if let row {
+                        LeoTaskStrip(
+                            agentName: row.displayName, tasks: row.tasks,
+                            dismiss: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) }
+                        )
+                        .id(row.id)
+                    }
                 }
-                terminal().frame(maxHeight: .infinity)
-            }
                 .frame(width: layout.terminalWidth(in: contentWidth, preferred: preferred))
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(!layout.isTerminalVisible)

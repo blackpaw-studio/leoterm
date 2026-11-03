@@ -200,7 +200,15 @@ import LeoKit
         progressNotifier = LeoProgressNotifier(
             center: notificationCenter,
             isEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false },
-            isWatching: { id in NSApp.isActive && weakSelf?.model.selection == id },
+            isWatching: { id in
+                // The chat host's own rule: a terminal tab covering the agent
+                // in the key window means it isn't on screen.
+                let session = (NSApp.keyWindow?.windowController as? TerminalController)?.leoSession
+                return LeoProgressWatching.isWatching(
+                    id, isAppActive: NSApp.isActive && session != nil, showsTerminalTab: session?.terminals.selection != nil,
+                    selected: weakSelf?.model.actionableSelection?.id
+                )
+            },
             isLive: { weakSelf?.feeds.contains($0) ?? false },
             displayName: { id in weakSelf?.model.rows.first { $0.id == id }?.displayName }
         )
