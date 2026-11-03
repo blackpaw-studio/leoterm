@@ -114,6 +114,11 @@ actor LeoSidebarFeed {
     /// Resolved emoji and colors -- see `LeoSidebarFeed+Appearance.swift`.
     var appearance = LeoAgentAppearanceIndex.empty
     var displayNames = LeoAgentDisplayNameIndex.empty
+    /// Agent tasks and their derived ETAs -- see `LeoSidebarFeed+Progress.swift`.
+    var taskReducer = LeoTaskReducer()
+    var taskETA = LeoTaskETA()
+    let onTaskFinishes: @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void
+    let wallClock: @Sendable () -> Date
     var running = false
     var needsState = true
     var recovering = false
@@ -153,6 +158,8 @@ actor LeoSidebarFeed {
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
         onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
         onChat: @escaping @Sendable (LeoHostID, LeoChatFeedSignal) -> Void = { _, _ in },
+        onTaskFinishes: @escaping @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void = { _, _ in },
+        wallClock: @escaping @Sendable () -> Date = { Date() },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
@@ -161,6 +168,8 @@ actor LeoSidebarFeed {
         self.now = now
         self.onAttentionTransitions = onAttentionTransitions
         self.onChat = onChat
+        self.onTaskFinishes = onTaskFinishes
+        self.wallClock = wallClock
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
@@ -187,6 +196,7 @@ actor LeoSidebarFeed {
         resetDispatches()
         resetTurns()
         resetCompactions()
+        resetTasks()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -286,6 +296,9 @@ actor LeoSidebarFeed {
         case .agentAppearanceChanged(_, _, let agent, let appearance):
             receiveAppearance(agent, appearance)
             return
+        case .agentTaskChanged:
+            receiveTask(event)
+            return
         case .hello(_, _, _, _, let bootID, let features):
             receiveFeatures(bootID: bootID, features: features)
             observeCompactionBoot(bootID)
@@ -326,7 +339,7 @@ actor LeoSidebarFeed {
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
             if case .agentSpawned(_, _, let agent, _, _) = event { forgetTurn(agent.name); endCompaction(agent.name) }
-            if case .agentStopped(_, _, let name, _) = event { forgetTurn(name); endCompaction(name) }
+            if case .agentStopped(_, _, let name, _) = event { forgetTurn(name); endCompaction(name); receiveTask(event) }
             receiveEnvironments(event)
             receiveDisplayName(event)
             process(scheduler.reduce(.sseEvent(event)))
@@ -337,7 +350,7 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .chat:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .agentTaskChanged, .chat:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")

@@ -16,6 +16,7 @@ extension LeoSidebarFeed {
             .overlayingEnvironments(environments, features: daemonFeatures)
             .overlayingAppearance(appearance, features: daemonFeatures)
             .overlayingDisplayNames(displayNames)
+            .overlayingTasks({ [self] in rowTasks(for: $0) }, features: daemonFeatures)
     }
 
     /// Asks for a fresh snapshot. A no-op while recovering or while a
@@ -47,6 +48,7 @@ extension LeoSidebarFeed {
         environments = LeoAgentEnvironmentsIndex(state: state)
         appearance = LeoAgentAppearanceIndex(state: state)
         displayNames = LeoAgentDisplayNameIndex(state: state)
+        applyTasks(state: state)
         return true
     }
 

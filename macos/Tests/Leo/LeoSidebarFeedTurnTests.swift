@@ -191,7 +191,7 @@ struct TurnHarness {
 
     let daemon: TurnDaemon
 
-    init(usage: LeoAgentUsage? = nil, wakeOnMessage: Bool? = nil) {
+    init(usage: LeoAgentUsage? = nil, wakeOnMessage: Bool? = nil, onTaskFinishes: @escaping @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void = { _, _ in }) {
         daemon = TurnDaemon(wakeOnMessage: wakeOnMessage)
         let daemon = daemon
         let activity = TurnActivity(usage: usage)
@@ -203,6 +203,7 @@ struct TurnHarness {
             activity: .init(events: { await activity.events() }, observedState: { await activity.fetchState() }),
             sleep: { try await clock.sleep($0) },
             now: { 0 },
+            onTaskFinishes: onTaskFinishes,
             sink: { snapshot in Task { await recorder.append(snapshot) } }
         )
     }
@@ -236,6 +237,7 @@ actor TurnActivity {
     private var usage: LeoAgentUsage?
     private var environments: LeoAgentEnvironments?
     private var appearance: LeoAgentAppearance?
+    private var tasks: [LeoAgentTask] = []
     private(set) var fetchCount = 0
 
     init(usage: LeoAgentUsage?) {
@@ -248,12 +250,13 @@ actor TurnActivity {
     func setUsage(_ usage: LeoAgentUsage?) { self.usage = usage }
     func setEnvironments(_ environments: LeoAgentEnvironments?) { self.environments = environments }
     func setAppearance(_ appearance: LeoAgentAppearance?) { self.appearance = appearance }
+    func setTasks(_ tasks: [LeoAgentTask]) { self.tasks = tasks }
 
     func fetchState() -> LeoObservedState {
         fetchCount += 1
         return LeoObservedState(agents: [
             LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil, startedAt: "t1", usage: usage,
-                             environments: environments, appearance: appearance)
+                             environments: environments, appearance: appearance, tasks: tasks)
         ])
     }
 }
