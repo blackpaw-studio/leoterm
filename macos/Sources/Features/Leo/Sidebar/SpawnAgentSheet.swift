@@ -38,10 +38,7 @@ struct SpawnAgentSheet: View {
             if let source = model.source {
                 worktreeFields(source)
             } else {
-                VStack(alignment: .leading, spacing: 2) {
-                    TextField("Repository", text: $model.repo, prompt: Text("owner/repo (optional)"))
-                    Text("Leave blank to use the template's workspace.").font(.caption).foregroundStyle(.secondary)
-                }
+                TextField("Repository", text: $model.repo, prompt: Text("owner/repo (optional)"))
             }
             TextField("Name", text: $model.name)
             if !model.isWorktree { TextField("Branch", text: $model.branch) }

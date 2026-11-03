@@ -9,7 +9,7 @@ The Repository field in `SpawnAgentSheet` is a text field plus a "Choose…" but
 ## Design
 
 1. **Field.** Repository becomes a plain text field with the placeholder `owner/repo (optional)`. Remove the "Choose…" button, `openPanel`, and `canBrowseRepository`.
-2. **Hint.** Below the field, show a secondary caption: "Leave blank to use the template's workspace."
+2. **Hint.** None. The `(optional)` placeholder is enough (Evan removed the caption after review, 2026-11-03).
 3. **Normalization.** Trim whitespace. If the pasted value is a GitHub URL (`https://github.com/owner/repo`, optionally ending in `.git` or `/`), reduce it to `owner/repo`. Send the normalized value.
 4. **Validation.** Replace the path checks with one rule that mirrors the daemon's `ValidateRepo` exactly. The value must be empty, a bare name, or `owner/repo` with exactly one `/` and no empty segments. The rule is the same on every machine. The error text names the expected format.
 5. **Branch.** If Branch is set while Repository is blank, show the validation error "Branch needs a repository". The daemon already rejects this case, so the error should appear in the sheet before the request is sent.
