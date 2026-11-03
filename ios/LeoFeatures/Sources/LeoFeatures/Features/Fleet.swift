@@ -22,6 +22,10 @@ public struct DaemonSession: Equatable, Identifiable, Sendable {
     /// Consecutive polls that got no sample; the sample is dropped once it
     /// is `Fleet.staleAfterMissedPolls` old.
     var missedStatsPolls = 0
+    /// What the daemon said about every agent's tasks, and the samples their
+    /// ETAs come from (`LeoKit`); `Agent.tasks` is read from here.
+    var taskReducer = LeoTaskReducer()
+    var taskETA = LeoTaskETA()
 
     public var id: String { daemon.id }
 
@@ -76,6 +80,10 @@ public struct Fleet {
         public var isShowingStats = false
         @Shared(.appStorage("statsStyle")) public var statsStyle = LeoStatsStyle.default
         public var sessions: IdentifiedArrayOf<DaemonSession> = []
+        /// The floating task panel over Chats is collapsed to its header; kept per device.
+        @Shared(.progressPanelCollapsed) public var isProgressPanelCollapsed
+        /// Why the last task dismissal failed; the screen shows it, then clears it.
+        public var taskDismissError: String?
 
         public init(daemons: [PairedDaemon] = []) {
             sessions = IdentifiedArray(uniqueElements: daemons.map(DaemonSession.init))
@@ -145,6 +153,13 @@ public struct Fleet {
         case statsVisibilityChanged(Bool)
         case streamEnded(DaemonSession.ID, StreamEnd)
         case task
+        /// Dismiss a failed task (swipe, panel button).
+        case dismissTask(DaemonSession.ID, agent: String, id: String)
+        case progressPanelToggled
+        case taskDismissErrorShown
+        case taskDismissFailed(String)
+        /// A task just finished live (never from a snapshot or replay).
+        case taskFinished(DaemonSession.ID, LeoTaskFinish)
     }
 
     enum CancelID: Hashable {
@@ -160,6 +175,7 @@ public struct Fleet {
 
     @Dependency(\.continuousClock) var clock
     @Dependency(\.daemonClient) var daemonClient
+    @Dependency(\.progressNow) var now
     @Dependency(\.pairedDaemons) var pairedDaemons
     @Dependency(\.secrets) var secrets
 
@@ -179,7 +195,7 @@ public struct Fleet {
                 state.sessions[id: id]?.connection = .connected
                 state.sessions[id: id]?.features = features
                 state.sessions[id: id]?.isStatsUnavailable = false
-                state.sessions[id: id]?.applySnapshot(snapshot, bootID: bootID)
+                state.sessions[id: id]?.applySnapshot(snapshot, bootID: bootID, now: now())
                 return pollStats(id, state: state)
 
             case .daemonAdded(let daemon):
@@ -207,8 +223,8 @@ public struct Fleet {
                 return connectAll(state: &state)
 
             case .eventReceived(let id, let event):
-                state.sessions[id: id]?.apply(event)
-                return .none
+                let finishes = state.sessions[id: id]?.apply(event, now: now()) ?? []
+                return .merge(finishes.map { .send(.taskFinished(id, $0)) })
 
             case .refreshRequested(let id):
                 guard let daemon = state.sessions[id: id]?.daemon else { return .none }
@@ -237,7 +253,7 @@ public struct Fleet {
                 return .merge(state.sessions.ids.flatMap { [.cancel(id: CancelID.connection($0)), .cancel(id: CancelID.stats($0))] })
 
             case .snapshotLoaded(let id, let snapshot):
-                state.sessions[id: id]?.applySnapshot(snapshot)
+                state.sessions[id: id]?.applySnapshot(snapshot, now: now())
                 return .none
 
             case .statsFailed(let id):
@@ -291,6 +307,33 @@ public struct Fleet {
                         .cancellable(id: CancelID.connection(id), cancelInFlight: true)
                     )
                 }
+
+            case .dismissTask(let id, let agent, let task):
+                guard let daemon = state.sessions[id: id]?.daemon else { return .none }
+                let (daemonClient, secrets) = (daemonClient, secrets)
+                return .run { send in
+                    guard let saved = try secrets.load(daemon.id) else { throw MissingToken(daemonName: daemon.name) }
+                    try await daemonClient.dismissTask(DaemonConnection(daemon: daemon, secrets: saved), agent, task)
+                } catch: { error, send in
+                    // Already gone: the event that removed it is on its way.
+                    if case LeoAgentTaskError.notFound = error { return }
+                    await send(.taskDismissFailed(error.localizedDescription))
+                }
+
+            case .progressPanelToggled:
+                state.$isProgressPanelCollapsed.withLock { $0.toggle() }
+                return .none
+
+            case .taskDismissErrorShown:
+                state.taskDismissError = nil
+                return .none
+
+            case .taskDismissFailed(let message):
+                state.taskDismissError = message
+                return .none
+
+            case .taskFinished:
+                return .none
 
             case .task:
                 let pairedDaemons = pairedDaemons
@@ -425,11 +468,14 @@ extension DaemonSession {
     /// already seen at a newer revision (an event that raced the fetch).
     /// Revisions restart with the daemon, so a new `bootID` discards the
     /// attention seen before it.
-    mutating func applySnapshot(_ snapshot: LeoObservedState, bootID: String? = nil) {
+    mutating func applySnapshot(_ snapshot: LeoObservedState, bootID: String? = nil, now: Date = Date()) {
         if let bootID, bootID != self.bootID {
             self.bootID = bootID
             agents = []
+            taskReducer = LeoTaskReducer()
+            taskETA = LeoTaskETA()
         }
+        taskReducer.apply(snapshot: snapshot.agents)
         let previous = agents
         agents = IdentifiedArray(
             snapshot.agents.map { observed in
@@ -442,9 +488,41 @@ extension DaemonSession {
             },
             uniquingIDsWith: { $1 }
         )
+        for name in agents.ids { syncTasks(of: name, now: now) }
     }
 
-    mutating func apply(_ event: LeoObserveEvent) {
+    /// Folds one event in; returns the tasks that just finished live.
+    @discardableResult
+    mutating func apply(_ event: LeoObserveEvent, now: Date = Date()) -> [LeoTaskFinish] {
+        let finishes = taskReducer.apply(event: event)
+        applyAgent(event)
+        switch event {
+        case .agentTaskChanged(_, _, let name, _, _), .agentStopped(_, _, let name, _):
+            syncTasks(of: name, now: now)
+        case .snapshot:
+            for name in agents.ids { syncTasks(of: name, now: now) }
+        default:
+            break
+        }
+        return finishes
+    }
+
+    /// Copies an agent's tasks from the reducer onto the agent, and keeps the
+    /// ETA samples in step. A task event for an agent not in the snapshot is
+    /// ignored (the next snapshot brings it).
+    private mutating func syncTasks(of name: String, now: Date) {
+        let tasks = taskReducer.tasks(for: name)
+        let gone = Set(agents[id: name]?.tasks.map(\.id) ?? []).subtracting(tasks.map(\.id))
+        for id in gone { taskETA.forget(agent: name, id: id) }
+        for task in tasks { taskETA.observe(agent: name, task: task, now: now) }
+        let etas = tasks.reduce(into: [String: Date]()) { $0[$1.id] = taskETA.etaAt(agent: name, task: $1, now: now) }
+        update(name) { agent in
+            agent.tasks = tasks
+            agent.taskETAs = etas
+        }
+    }
+
+    private mutating func applyAgent(_ event: LeoObserveEvent) {
         switch event {
         case .agentSpawned(_, _, let spawned, let attention, let environments):
             var agent = agents[id: spawned.name] ?? Agent(name: spawned.name)
@@ -483,7 +561,7 @@ extension DaemonSession {
             applySnapshot(LeoObservedState(agents: observed))
 
         case .connected, .disconnected, .hello, .gap, .dispatchChanged, .dispatchRemoved,
-             .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .other:
+             .agentTurnCompleted, .agentUsage, .agentCompaction, .chat, .agentTaskChanged, .other:
             return
         }
     }
