@@ -44,6 +44,8 @@ import LeoKit
     let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
+    /// Notifications for agent tasks that finish; same opt-in.
+    let progressNotifier: LeoProgressNotifier
     /// Agents' browsers, and each machine's client tools that drive them.
     let agentBrowsers: LeoAgentBrowserRuntime
     /// One sidebar feed per shown machine.
@@ -128,6 +130,8 @@ import LeoKit
             if let mode = fixture.control { transport = LeoControlFixtureTransport(base: transport, mode: mode) }
             if let environments = fixture.environments { transport = LeoEnvironmentsFixtureTransport(base: transport, fixture: environments) }
         }
+        // LEO_PROGRESS_FIXTURE: scripted agent tasks (see LeoProgressFixture).
+        if let progress = LeoProgressFixture.loadFile() { activity = LeoProgressFixture.wrap(activity, file: progress) }
         #endif
         let daemon = LeoRuntime.makeClient(socketPath: socketPath, transport: transport)
         self.init(
@@ -192,6 +196,13 @@ import LeoKit
         attentionNotifications = LeoAttentionController(
             center: notificationCenter, defaults: defaults, isLive: { weakSelf?.feeds.contains($0) ?? false },
             showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
+        )
+        progressNotifier = LeoProgressNotifier(
+            center: notificationCenter,
+            isEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false },
+            isWatching: { id in NSApp.isActive && weakSelf?.model.selection == id },
+            isLive: { weakSelf?.feeds.contains($0) ?? false },
+            displayName: { id in weakSelf?.model.rows.first { $0.id == id }?.displayName }
         )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
@@ -379,6 +390,10 @@ import LeoKit
             localDaemon: daemon, localActivity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
+            onTaskFinishes: { host, finishes in
+                guard let notifier = weakSelf?.progressNotifier else { return }
+                Task { await notifier.handle(host: host, finishes: finishes) }
+            },
             onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
             onSnapshot: { [weak model] host, snapshot in
                 model?.receive(snapshot, for: host)
