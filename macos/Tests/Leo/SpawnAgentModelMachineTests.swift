@@ -165,16 +165,6 @@ import Testing
         #expect(harness.model().validationError == "This Mac is unavailable")
     }
 
-    @Test func onlyThisMacCanBrowseForARepositoryFolder() {
-        let harness = Harness()
-        let model = harness.model()
-        #expect(model.canBrowseRepository)
-
-        model.choose(Self.work)
-
-        #expect(!model.canBrowseRepository)
-    }
-
     @Test func aWorktreeOnAnUnreachableMachineIsBlocked() {
         let harness = Harness(statuses: [Self.work: .failed("timed out")])
         let model = harness.model(source: Self.sourceRow(on: Self.work))
@@ -208,25 +198,18 @@ import Testing
         #expect(harness.remembered == [Self.work])
     }
 
-    @Test func aRemoteRepositoryPathNeedNotExistOnThisMac() {
+    @Test func theRepositoryRuleIsTheSameOnEveryMachine() {
         let harness = Harness()
         harness.setTemplates(["claude"], for: Self.work)
-        let model = harness.model(context: Self.work)
-        model.template = "claude"
-        model.repo = "/srv/only/on/work"
-        #expect(model.validationError == nil)
-
-        model.repo = "relative/path"
-        #expect(model.validationError == "Enter an absolute path or ~/…")
-    }
-
-    @Test func thisMacStillChecksTheRepositoryOnDisk() {
-        let harness = Harness()
         harness.setTemplates(["claude"], for: .local)
-        let model = harness.model()
-        model.template = "claude"
-        model.repo = "/definitely/not/on/this/mac"
-        #expect(model.validationError == "Choose an existing repository")
+        for host in [Self.work, LeoHostID.local] {
+            let model = harness.model(context: host)
+            model.template = "claude"
+            model.repo = "owner/repo"
+            #expect(model.validationError == nil)
+            model.repo = "/srv/only/on/work"
+            #expect(model.validationError == "Repository must be owner/repo (or a bare name)")
+        }
     }
 
     /// The remote daemon is the one that knows the path is missing; its
@@ -240,7 +223,7 @@ import Testing
             processRunner: LeoRecordingTemplateRunner(templates: ["claude"]), refresh: {})
         let model = harness.model(context: Self.work)
         model.template = "claude"
-        model.repo = "/srv/gone"
+        model.repo = "gone/repo"
         #expect(model.validationError == nil)
 
         model.spawn(model.request(), actions: actions, attach: { _, _ in }, dismiss: {})

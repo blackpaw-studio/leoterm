@@ -10,7 +10,6 @@ struct SpawnAgentSheet: View {
     @StateObject private var model: SpawnAgentModel
     private let dismiss = LeoSheetDismiss()
 
-    private let chooseDirectory: () -> String?
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage(LeoStatsStyle.defaultsKey) private var statsStyleRaw = LeoStatsStyle.default.rawValue
     private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
@@ -21,14 +20,12 @@ struct SpawnAgentSheet: View {
     /// prefilled, the machine locked, and a required new branch.
     init(model: LeoSidebarModel, actions: LeoAgentActions, context: LeoHostID? = nil, source: LeoAgentRow? = nil,
          attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
-         memory: SpawnMachineMemory = SpawnMachineMemory(defaults: .standard),
-         chooseDirectory: @escaping () -> String? = SpawnAgentSheet.openPanel) {
+         memory: SpawnMachineMemory = SpawnMachineMemory(defaults: .standard)) {
         sidebar = model; self.actions = actions; self.attach = attach
         _model = StateObject(wrappedValue: SpawnAgentModel(
             source: source, context: context, lastUsed: memory.lastUsed,
             feeds: .live(sidebar: model, actions: actions), remember: memory.remember
         ))
-        self.chooseDirectory = chooseDirectory
     }
     var body: some View {
         Form {
@@ -41,12 +38,7 @@ struct SpawnAgentSheet: View {
             if let source = model.source {
                 worktreeFields(source)
             } else {
-                LabeledContent("Repository") {
-                    HStack {
-                        TextField("", text: $model.repo)
-                        Button("Choose…") { choose() }.disabled(!model.canBrowseRepository)
-                    }
-                }
+                TextField("Repository", text: $model.repo, prompt: Text("owner/repo (optional)"))
             }
             TextField("Name", text: $model.name)
             if !model.isWorktree { TextField("Branch", text: $model.branch) }
@@ -112,17 +104,7 @@ struct SpawnAgentSheet: View {
         }
     }
 
-    private func choose() {
-        if let path = chooseDirectory() { model.repo = path }
-    }
     private func spawn() {
         model.spawn(model.request(), actions: actions, attach: attach, dismiss: { dismiss() })
-    }
-
-    private static func openPanel() -> String? {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        return panel.runModal() == .OK ? panel.url?.path : nil
     }
 }
