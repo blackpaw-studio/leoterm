@@ -185,8 +185,12 @@ struct LeoAgentRowContent: View {
             // An AppKit target, not a Button: the list would select the row
             // on mouse-down before a SwiftUI button saw the click.
             .overlay(LeoTaskBarClickTarget { showingTasks = true })
+            .accessibilityElement(children: .ignore)
             .accessibilityLabel(progress.accessibilityLabel)
-        .accessibilityHint("Shows this agent's tasks")
+            .accessibilityHint("Shows this agent's tasks")
+            // The AppKit overlay takes the mouse, so VoiceOver needs its own way in.
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { showingTasks = true }
         .popover(isPresented: $showingTasks, arrowEdge: .trailing) {
             LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
         }
