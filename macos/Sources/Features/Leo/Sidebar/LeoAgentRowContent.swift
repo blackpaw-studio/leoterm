@@ -179,15 +179,13 @@ struct LeoAgentRowContent: View {
     /// Row A's bar. Clicking it opens every task of the agent, and is not
     /// a row click (see `LeoAgentRowMetrics.taskBarHitHeight`).
     private func progressBar(_ progress: LeoAgentRowPresentation.Progress) -> some View {
-        Button { showingTasks = true } label: {
-            LeoTaskBar(kind: progress.kind, isOnSelection: isSelected)
-                .frame(maxWidth: .infinity)
-                .frame(height: LeoAgentRowMetrics.taskBarHitHeight)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .leoSelectionDisabled()
-        .accessibilityLabel(progress.accessibilityLabel)
+        LeoTaskBar(kind: progress.kind, isOnSelection: isSelected)
+            .frame(maxWidth: .infinity)
+            .frame(height: LeoAgentRowMetrics.taskBarHitHeight)
+            // An AppKit target, not a Button: the list would select the row
+            // on mouse-down before a SwiftUI button saw the click.
+            .overlay(LeoTaskBarClickTarget { showingTasks = true })
+            .accessibilityLabel(progress.accessibilityLabel)
         .accessibilityHint("Shows this agent's tasks")
         .popover(isPresented: $showingTasks, arrowEdge: .trailing) {
             LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
