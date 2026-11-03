@@ -33,7 +33,7 @@ Updates are upserts: omitted fields keep their value. Strings are trimmed, and c
 - If a running task gets no update for 15 min, it becomes `stale: true`. Any update clears the flag.
 - `succeeded` and `cancelled` tasks are removed 10 min after `ended_at`.
 - `failed` tasks persist until dismissed. They do not count toward the cap of 8.
-- When an agent stops, all of its tasks are removed. A daemon restart clears everything (in-memory only).
+- When an agent stops for any reason (explicit stop, idle-suspend, crash-restart, environment switch), its running, succeeded and cancelled tasks are removed. Failed tasks survive stops and go only on dismiss, on agent deletion, or by the failed-task bound (8 per agent, oldest dropped). A daemon restart clears everything (in-memory only).
 - An update to an ended task with the same `id` starts a fresh run (new `started_at`), except a repeat of the same terminal state with no other fields, which is an idempotent no-op (no event, no notification).
 
 ## Report paths (daemon)
