@@ -33,11 +33,13 @@ enum LeoTaskDetailText {
         return "\(LeoTaskText.duration(max(now.timeIntervalSince(ended), 0))) ago"
     }
 
-    /// "3 active · 2 finished"; a missing half is left out.
+    /// Count by state: "2 running · 1 failed", "1 done"; empty states are left out.
     static func header(_ tasks: [LeoAgentTask]) -> String {
-        let active = tasks.filter(\.isRunning).count
-        let finished = tasks.count - active
-        return [active > 0 ? "\(active) active" : nil, finished > 0 ? "\(finished) finished" : nil]
-            .compactMap { $0 }.joined(separator: " · ")
+        let states: [(LeoAgentTask.State, String)] = [(.running, "running"), (.failed, "failed"), (.succeeded, "done"), (.cancelled, "cancelled")]
+        return states
+            .map { state, label in (tasks.filter { $0.state == state }.count, label) }
+            .filter { $0.0 > 0 }
+            .map { "\($0.0) \($0.1)" }
+            .joined(separator: " · ")
     }
 }

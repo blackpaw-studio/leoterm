@@ -37,10 +37,11 @@ struct LeoTaskDetailTextTests {
         #expect(LeoTaskDetailText.timing(Self.task(.succeeded, ended: 100), etaAt: nil, now: now) == "2m ago")
     }
 
-    @Test func headerCountsActiveAndFinished() {
+    @Test func headerCountsByState() {
         let tasks = [Self.task(), Self.task(), Self.task(.succeeded, ended: 1), Self.task(.failed, ended: 1)]
-        #expect(LeoTaskDetailText.header(tasks) == "2 active · 2 finished")
-        #expect(LeoTaskDetailText.header([Self.task()]) == "1 active")
-        #expect(LeoTaskDetailText.header([Self.task(.failed, ended: 1)]) == "1 finished")
+        #expect(LeoTaskDetailText.header(tasks) == "2 running · 1 failed · 1 done")
+        #expect(LeoTaskDetailText.header([Self.task(), Self.task(), Self.task(.failed, ended: 1)]) == "2 running · 1 failed")
+        #expect(LeoTaskDetailText.header([Self.task(.failed, ended: 1)]) == "1 failed")
+        #expect(LeoTaskDetailText.header([Self.task(.succeeded, ended: 1)]) == "1 done")
     }
 }
