@@ -23,7 +23,7 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.spawn(template: "swift", repo: repo, name: nil) == nil)
     }
 
-    @Test(arguments: ["/srv/app", "~/x", "a/b/c", "owner/", "/repo", "a b/c", "a/b c", "http://example.com/a/b"])
+    @Test(arguments: ["/srv/app", "~/x", "a/b/c", "owner/", "/repo", "a b/c", "a/b c", "http://example.com/a/b", ".", "..", "owner/..", "./repo"])
     func repositoryRejectsEverythingElse(repo: String) {
         #expect(SpawnValidation.spawn(template: "swift", repo: repo, name: nil) == "Repository must be owner/repo (or a bare name)")
     }

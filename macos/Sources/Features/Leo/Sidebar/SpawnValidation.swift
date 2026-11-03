@@ -37,11 +37,11 @@ enum SpawnValidation {
     }
 
     /// Mirrors the daemon's `ValidateRepo`: empty, a bare name, or exactly
-    /// `owner/repo` with no empty segment; no whitespace, and no `~` home path.
+    /// `owner/repo` with no empty segment; no whitespace, no `~` home path, and no `.`/`..` segment.
     private static func isValidRepo(_ repo: String) -> Bool {
         guard !repo.hasPrefix("~"), !repo.contains(where: \.isWhitespace) else { return false }
         let parts = repo.split(separator: "/", omittingEmptySubsequences: false)
-        return repo.isEmpty || (parts.count <= 2 && parts.allSatisfy { !$0.isEmpty })
+        return repo.isEmpty || (parts.count <= 2 && parts.allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." })
     }
 
     private static let githubURLPrefix = "https://github.com/"
