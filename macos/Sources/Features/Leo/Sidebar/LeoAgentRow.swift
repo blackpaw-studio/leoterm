@@ -109,11 +109,13 @@ struct LeoAgentRowView: View {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo, movedTo: row.movedTo)
     }
 
+    private var hasTaskBar: Bool { LeoAgentRowPresentation(row: row, error: error).progress != nil }
+
     var body: some View {
         LeoAgentRowContent(
             row: row, error: error, isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
             nameHighlights: nameHighlights, inWorkingSection: inWorkingSection, unreadCount: unreadCount,
-            subagents: subagents
+            subagents: subagents, dismissTask: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) }
         )
         .contentShape(Rectangle())
         // The whole row is the target, like Finder or Mail (B-049);
@@ -125,7 +127,8 @@ struct LeoAgentRowView: View {
         // own selection.
         .background(LeoRowClickCatcher(
             identity: row.id, onClick: click,
-            trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge
+            trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge,
+            bottomExclusion: hasTaskBar ? LeoAgentRowMetrics.taskBarHitHeight + LeoAgentRowMetrics.verticalPadding : 0
         ).accessibilityHidden(true))
         // One element per row: the name's label (name, state), then the
         // detail and time. There's no button in the row to press, so the

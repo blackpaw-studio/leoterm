@@ -14,6 +14,8 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
+    /// Dismisses failed agent tasks from the strip and the chat's card.
+    let actions: LeoAgentActions
     let contentWidth: CGFloat
     @ViewBuilder let terminal: () -> Terminal
     /// The width under the pointer mid-drag; the session stores it on release.
@@ -24,7 +26,16 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let preferred = dragWidth ?? session.preferredChatWidth
         ZStack(alignment: .topLeading) {
-            terminal()
+            VStack(spacing: 0) {
+                // B: the selected agent's tasks, above its terminal.
+                if let row {
+                    LeoTaskStrip(
+                        agentName: row.displayName, tasks: row.tasks,
+                        dismiss: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) }
+                    )
+                }
+                terminal().frame(maxHeight: .infinity)
+            }
                 .frame(width: layout.terminalWidth(in: contentWidth, preferred: preferred))
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(!layout.isTerminalVisible)
@@ -35,6 +46,16 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
                         close: { session.choose(.terminal, for: row.id) }
                     )
+                    .overlay(alignment: .topTrailing) {
+                        // The chat card (B), docked under the pane's header.
+                        LeoProgressPanelView(
+                            model: LeoProgressPanelModel(rows: model.rows),
+                            select: { model.selectAgentRow($0) },
+                            dismiss: { actions.dismissTask(host: $0.agent.host, agent: $0.agent.name, id: $0.task.id) }
+                        )
+                        .padding(.top, 52)
+                        .padding(.trailing, 12)
+                    }
                 }
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)

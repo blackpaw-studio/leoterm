@@ -17,6 +17,9 @@ struct LeoRowClickCatcher: NSViewRepresentable {
     /// Width of the trailing edge that belongs to a control of the row's
     /// own (the subagents chevron): a click there is not a row click.
     var trailingExclusion: CGFloat = 0
+    /// Height of the bottom edge that belongs to a control of the row's own
+    /// (the task bar): a click there is not a row click.
+    var bottomExclusion: CGFloat = 0
 
     func makeNSView(context: Context) -> LeoRowClickCatcherView { LeoRowClickCatcherView() }
 
@@ -24,6 +27,7 @@ struct LeoRowClickCatcher: NSViewRepresentable {
         view.identity = identity
         view.onClick = onClick
         view.trailingExclusion = trailingExclusion
+        view.bottomExclusion = bottomExclusion
         view.isEnabled = context.environment.isEnabled
     }
 }
@@ -33,6 +37,8 @@ final class LeoRowClickCatcherView: NSView {
     var isEnabled = true
     /// See `LeoRowClickCatcher.trailingExclusion`.
     var trailingExclusion: CGFloat = 0
+    /// See `LeoRowClickCatcher.bottomExclusion`.
+    var bottomExclusion: CGFloat = 0
     /// The row this view backs. Rows re-sort live, and SwiftUI may hand
     /// this view (with a new `onClick`) to another row between mouse-down
     /// and mouse-up; that mouse-up is no click on the new row (B-049).
@@ -80,7 +86,11 @@ final class LeoRowClickCatcherView: NSView {
         guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return false }
         // `visibleRect` alone can reach past the view's own bounds.
         let point = convert(event.locationInWindow, from: nil)
-        let clickable = NSRect(x: bounds.minX, y: bounds.minY, width: max(bounds.width - trailingExclusion, 0), height: bounds.height)
+        let bottom = isFlipped ? 0 : bottomExclusion
+        let clickable = NSRect(
+            x: bounds.minX, y: bounds.minY + bottom, width: max(bounds.width - trailingExclusion, 0),
+            height: max(bounds.height - bottomExclusion, 0)
+        )
         return clickable.contains(point) && visibleRect.contains(point)
     }
 
