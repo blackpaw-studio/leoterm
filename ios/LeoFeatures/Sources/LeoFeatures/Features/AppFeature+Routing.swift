@@ -45,6 +45,17 @@ extension AppFeature.State {
         chat?.ref == ref && chat?.isOnScreen == true
     }
 
+    /// Whether the app is frontmost with `ref`'s detail or thread showing, so
+    /// a finish notification for it would only repeat what is on screen.
+    public func isWatching(_ ref: AgentRef) -> Bool {
+        guard fleet.isActive else { return false }
+        switch selectedTab {
+        case .agents: return detail?.ref == ref
+        case .chats: return isChatOnScreen(ref)
+        case .machines, .settings: return false
+        }
+    }
+
     /// Selects `ref`'s agent detail; the open chat is the Chats tab's and stays.
     mutating func selectAgent(_ ref: AgentRef, session: DaemonSession, agent: Agent) {
         guard detail?.ref != ref else { return }
@@ -143,6 +154,8 @@ extension AppFeature.State {
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
         let moves = moveAvailability(for: ref.daemonID)
         if detail?.moves != moves { detail?.moves = moves }
+        let clock = fleet.progressClock
+        if detail?.progressClock != clock { detail?.progressClock = clock }
     }
 
     /// Keeps the open Appearance sheet in step with the live fleet.

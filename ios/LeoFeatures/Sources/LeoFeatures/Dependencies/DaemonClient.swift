@@ -29,6 +29,8 @@ public struct DaemonClient: Sendable {
     public var setAppearance: @Sendable (
         _ connection: DaemonConnection, _ agent: String, _ emoji: LeoAppearanceChange<String>, _ color: LeoAppearanceChange<LeoAppearanceColor>
     ) async throws -> LeoAgentAppearance?
+    /// `DELETE /api/v1/agents/{name}/tasks/{id}` (`agent_progress`): dismisses a failed task.
+    public var dismissTask: @Sendable (_ connection: DaemonConnection, _ agent: String, _ id: String) async throws -> Void
     /// `GET /api/v1/machine`: one load sample (leo >= 0.57, `machine_stats`).
     public var machineStats: @Sendable (_ connection: DaemonConnection) async throws -> LeoMachineStats
     /// `PUT /api/v1/devices/{id}/push`: how the daemon pushes to this device.
@@ -60,6 +62,9 @@ extension DaemonClient: DependencyKey {
         @Sendable func appearance(_ connection: DaemonConnection) -> any LeoAppearanceAPI {
             LeoConfigHTTPClient(prefix: LeoConfigHTTPClient.webPrefix, transport: LeoHTTPSTransport(endpoint: connection.endpoint, session: session))
         }
+        @Sendable func taskAPI(_ connection: DaemonConnection) -> any LeoAgentTaskAPI {
+            LeoConfigHTTPClient(prefix: LeoConfigHTTPClient.webPrefix, transport: LeoHTTPSTransport(endpoint: connection.endpoint, session: session))
+        }
         @Sendable func hosts(_ connection: DaemonConnection) -> any LeoConfigClient {
             LeoConfigHTTPClient(prefix: LeoConfigHTTPClient.webPrefix, transport: LeoHTTPSTransport(endpoint: connection.endpoint, session: session))
         }
@@ -85,6 +90,7 @@ extension DaemonClient: DependencyKey {
             setAppearance: { connection, agent, emoji, color in
                 try await appearance(connection).setAgentAppearance(name: agent, emoji: emoji, color: color).appearance
             },
+            dismissTask: { connection, agent, id in try await taskAPI(connection).dismissAgentTask(agent: agent, id: id) },
             machineStats: { try await client($0, timeout: machineStatsTimeout).machineStats() },
             setPush: { connection, deviceID, registration in try await client(connection).registerPush(deviceID: deviceID, registration) },
             deletePush: { connection, deviceID in try await client(connection).unregisterPush(deviceID: deviceID) },

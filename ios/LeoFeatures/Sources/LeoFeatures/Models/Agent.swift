@@ -31,6 +31,12 @@ public struct Agent: Equatable, Identifiable, Sendable {
     public var movedAt: String?
     /// The daemon's `display_name`; nil from older daemons. Read `displayName`.
     public var daemonDisplayName: String?
+    /// Tasks the agent advertised (`agent_progress`), oldest first; empty from
+    /// older daemons. Kept by `Fleet` from `/state` and `agent_task_changed`.
+    public var tasks: [LeoAgentTask] = []
+    /// The ETA for each running task by id, from the task or derived from its
+    /// progress samples (`LeoTaskETA`); a task with none has no entry.
+    public var taskETAs: [String: Date] = [:]
 
     /// What the user sees: `display_name` when set, else `name`. `name` stays
     /// the identifier for API calls, refs, and persistence.
@@ -42,7 +48,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         name: String, status: LeoAgentStatus? = nil, activity: LeoActivity? = nil, currentAction: LeoCurrentAction? = nil,
         attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
         environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil,
-        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, tasks: [LeoAgentTask] = []
     ) {
         self.name = name
         self.status = status
@@ -57,6 +63,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         self.movedTo = movedTo
         self.movedAt = movedAt
         daemonDisplayName = displayName
+        self.tasks = tasks
     }
 
     public init(_ observed: LeoObservedAgent) {
@@ -65,7 +72,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
             attention: observed.attention, template: observed.template, harness: observed.harness,
             environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt,
             movedTo: observed.movedTo, movedAt: observed.movedAt,
-            displayName: observed.daemonDisplayName
+            displayName: observed.daemonDisplayName, tasks: observed.tasks
         )
     }
 

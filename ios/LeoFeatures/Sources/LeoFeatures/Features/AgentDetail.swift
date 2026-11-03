@@ -25,6 +25,8 @@ public struct AgentDetail {
         public var isLoadingEnvironments = false
         /// What the Move section offers; kept live by the parent from the daemon's features and hosts.
         public var moves = MoveAvailability.unsupported
+        /// The fleet's progress clock, kept live by the parent; task text reads this.
+        public var progressClock = Date(timeIntervalSince1970: 0)
         @Presents public var alert: AlertState<Never>?
         @Presents public var confirmation: ConfirmationDialogState<Action.Confirmation>?
         @Presents public var destination: Destination.State?
@@ -47,6 +49,8 @@ public struct AgentDetail {
         case alert(PresentationAction<Never>)
         /// Opens the agent's chat thread (the parent swaps the selection).
         case chatButtonTapped
+        /// Swipe on a failed task: the parent asks the daemon to dismiss it.
+        case dismissTaskRequested(String)
         /// Responses carry the agent they were for: the parent swaps the
         /// selection in place, and a late reply must not land on the next.
         case commandFinished(AgentRef, AgentCommand, Result<Void, any Error>)
@@ -80,7 +84,7 @@ public struct AgentDetail {
     public var body: some ReducerOf<Self> {
         Reduce { state, action in
             switch action {
-            case .alert, .chatButtonTapped, .moveRequested:
+            case .alert, .chatButtonTapped, .dismissTaskRequested, .moveRequested:
                 return .none
 
             case .commandFinished(let ref, _, _), .environmentsLoaded(let ref, _):

@@ -90,6 +90,7 @@ public struct AppFeature {
     @Dependency(\.chatNotifier) var chatNotifier
     @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.pairedDaemons) var pairedDaemons
+    @Dependency(\.progressNotifier) var progressNotifier
     @Dependency(\.secrets) var secrets
     private let stripReducer = TerminalStrip()
 
@@ -210,6 +211,13 @@ public struct AppFeature {
                     let toThread: Effect<Action> = state.chat?.ref == ref ? .send(.chat(.chatEvent(event))) : .none
                     return .concatenate(.send(.chats(.chatEvent(id, event, isOpen: state.isChatOnScreen(ref)))), toThread)
 
+                case .fleet(.taskFinished(let id, let finish)):
+                    return notify(finish, daemonID: id, state: state)
+
+                case .detail(.dismissTaskRequested(let taskID)):
+                    guard let ref = state.detail?.ref else { return .none }
+                    return fleet(.dismissTask(ref.daemonID, agent: ref.name, id: taskID), state: &state)
+
                 case .fleet(.daemonsLoaded(let daemons)):
                     state.hasLoadedDaemons = true
                     return push(.daemonsLoaded(daemons), state: &state)
@@ -329,6 +337,17 @@ public struct AppFeature {
             }
             await send(.moveHostsLoaded(id, await daemonClient.moveHosts(DaemonConnection(daemon: daemon, secrets: saved))))
         }
+    }
+
+    /// The finish notification, unless the user is already looking at that
+    /// agent, or turned notifications off.
+    private func notify(_ finish: LeoTaskFinish, daemonID: DaemonSession.ID, state: State) -> Effect<Action> {
+        let ref = AgentRef(daemonID: daemonID, name: finish.agent)
+        guard state.push.isEnabled, !state.isWatching(ref) else { return .none }
+        let outcome: ProgressNotification.Outcome = finish.task.state == .failed ? .failed : .succeeded
+        let name = state.fleet.agent(ref)?.displayName ?? finish.agent
+        let notification = ProgressNotification(ref: ref, agentName: name, taskTitle: finish.task.title, outcome: outcome)
+        return .run { [progressNotifier] _ in await progressNotifier.post(notification) }
     }
 
     private func fleet(_ action: Fleet.Action, state: inout State) -> Effect<Action> {

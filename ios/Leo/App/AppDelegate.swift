@@ -17,6 +17,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if AppearanceFixture.isRequested { prepareDependencies { AppearanceFixture.prepare(&$0) } }
         if SettingsFixture.isRequested { prepareDependencies { SettingsFixture.prepare(&$0) } }
         if MoveFixture.isRequested { prepareDependencies { MoveFixture.prepare(&$0) } }
+        if ProgressFixture.isRequested { prepareDependencies { ProgressFixture.prepare(&$0) } }
         #endif
         return Store(initialState: AppFeature.State()) { AppFeature() }
     }()
@@ -39,6 +40,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // These fixtures are about the Agents list, not the Chats tab the app launches on.
         if AppearanceFixture.isRequested || MoveFixture.isRequested { Self.store.send(.tabSelected(.agents)) }
         if AppearanceFixture.isRequested { AppearanceFixture.open(Self.store) }
+        if ProgressFixture.isRequested { ProgressFixture.open(Self.store) }
         // `-startTab agents`: launches on that tab, for screenshots.
         let arguments = ProcessInfo.processInfo.arguments
         if let flag = arguments.firstIndex(of: "-startTab"), arguments.indices.contains(flag + 1),
