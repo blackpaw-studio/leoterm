@@ -14,6 +14,8 @@ struct LeoAgentRowPresentation: Equatable {
         case error(String)
         /// A named-environment config problem (B-283), drawn plain orange.
         case warning(String)
+        /// The primary task's one-line summary (`title · status · 62% · 4m`).
+        case progress(String)
         case task(String)
         /// The running tool's name only.
         case tool(String)
@@ -24,14 +26,64 @@ struct LeoAgentRowPresentation: Equatable {
 
         var text: String {
             switch self {
-            case .attention(let text), .error(let text), .warning(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):
+            case .attention(let text), .error(let text), .warning(let text), .progress(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):
                 text
             }
         }
     }
 
+    /// The thin bar under the subtitle for the agent's primary task.
+    struct Progress: Equatable {
+        enum Kind: Equatable {
+            /// A running task with a percent, 0...100.
+            case determinate(Double)
+            case indeterminate
+            /// Running, but quiet for too long: drawn dimmed.
+            case stale(Double?)
+            case failed
+            case succeeded
+            case cancelled
+
+            /// 0...1, or nil for an animated (or empty) bar.
+            var fraction: Double? {
+                switch self {
+                case .determinate(let percent): percent / 100
+                case .stale(let percent): percent.map { $0 / 100 }
+                case .failed, .succeeded: 1
+                case .indeterminate, .cancelled: nil
+                }
+            }
+
+            init(_ task: LeoAgentTask) {
+                switch task.state {
+                case .failed: self = .failed
+                case .succeeded: self = .succeeded
+                case .cancelled: self = .cancelled
+                case .running:
+                    if task.stale {
+                        self = .stale(task.mode == .determinate ? task.percent : nil)
+                    } else if task.mode == .determinate, let percent = task.percent {
+                        self = .determinate(percent)
+                    } else {
+                        self = .indeterminate
+                    }
+                }
+            }
+        }
+
+        let kind: Kind
+        /// "+2": the agent's other tasks; nil when there are none.
+        let extraBadge: String?
+        let accessibilityLabel: String
+
+        /// 0...1, or nil for an animated bar.
+        var fraction: Double? { kind.fraction }
+    }
+
     let state: LeoAgentRowState
     let detail: Detail
+    /// Nil when the agent has no task, or needs the user (attention wins).
+    let progress: Progress?
     /// "5m": when the agent was last active; nil without a clock or a time.
     let lastActive: String?
     /// `lastActive` as VoiceOver says it ("last active 5 minutes ago").
@@ -55,7 +107,9 @@ struct LeoAgentRowPresentation: Equatable {
         let resolved = LeoAgentRowState(row: row, error: error, inWorkingSection: inWorkingSection)
         let template = row.template.flatMap { $0.isEmpty ? nil : $0 }
         let usage = row.metadata?.usage.flatMap { LeoUsageFormat.isEmpty($0) ? nil : $0 }
-        detail = Self.detail(row: row, error: error, template: template, usage: usage)
+        let summary = Self.progressSummary(row: row, now: now)
+        progress = summary?.progress
+        detail = Self.detail(row: row, error: error, template: template, usage: usage, progress: summary?.text)
         if case .warning = detail { state = resolved.showingWarning() } else { state = resolved }
         let active = Self.lastActive(row.metadata, now: now)
         lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
@@ -69,9 +123,13 @@ struct LeoAgentRowPresentation: Equatable {
     /// The detail line's ink: the state's, except that the "No activity yet"
     /// placeholder stays a step quieter.
     var detailInk: LeoInk {
+        if case .progress = detail, progress?.kind == .failed { return .tint(.red) }
         if case .fallback(Self.emptyFallback) = detail, state.detailInk == .secondary { return .tertiary }
         return state.detailInk
     }
+
+    /// Whether the row draws a detail line: the state's, or one the task adds.
+    var hasSecondLine: Bool { state.hasSecondLine || progress != nil }
 
     /// A stopped agent's name reads secondary.
     var isNameDimmed: Bool { state.isNameDimmed }
@@ -82,19 +140,31 @@ struct LeoAgentRowPresentation: Equatable {
         ["\(name), \(state.accessibilityLabel)", barColor?.displayName].compactMap { $0 }.joined(separator: ", ")
     }
 
-    private static func detail(row: LeoAgentRow, error: String?, template: String?, usage: LeoAgentUsage?) -> Detail {
+    private static func detail(row: LeoAgentRow, error: String?, template: String?, usage: LeoAgentUsage?, progress: String?) -> Detail {
         let metadata = row.metadata
         let reason = row.attention == .needsInput ? row.attentionReason : nil
         let attention = reason.flatMap { [$0.tool, $0.detail].compactMap { $0 }.nonEmptyJoined(": ") }
         if let attention { return .attention(attention) }
         if let error, !error.isEmpty { return .error(error) }
         if let warning = row.environments?.error, !warning.isEmpty { return .warning(warning) }
+        if let progress { return .progress(progress) }
         if let task = metadata?.task { return .task(task) }
         if let tool = metadata?.tool { return .tool(tool) }
         if let turn = row.lastTurn { return .turnPreview(turnLine(turn)) }
         let environments = overrideNames(row.environments).map { "env: \($0)" }
         let fallback = [template, environments, usage.map { LeoUsageFormat.cost($0.session.costUSD) }].compactMap { $0 }.nonEmptyJoined(" · ")
         return .fallback(fallback ?? emptyFallback)
+    }
+
+    /// The primary task's bar and subtitle. An agent that needs the user
+    /// shows its attention instead. Without a clock the task's own last
+    /// update stands in for "now", so the text is still deterministic.
+    private static func progressSummary(row: LeoAgentRow, now: Date?) -> (progress: Progress, text: String)? {
+        guard row.attention != .needsInput, let task = row.tasks.primary else { return nil }
+        let at = now ?? task.updatedAt
+        let text = LeoTaskText.summary(task, etaAt: row.tasks.eta(for: task), now: at)
+        let label = row.tasks.extraCount > 0 ? "\(text), \(row.tasks.extraCount) more" : text
+        return (Progress(kind: Progress.Kind(task), extraBadge: LeoTaskText.extraBadge(row.tasks.extraCount), accessibilityLabel: label), text)
     }
 
     /// "aws, prod": an override's names, in order; nil for the default.
