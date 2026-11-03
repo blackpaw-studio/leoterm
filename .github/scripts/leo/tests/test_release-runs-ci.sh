@@ -81,42 +81,4 @@ check "every job downstream of leo-build.yml also needs the leo-ci call, with no
 '
 
 echo "-- $pass passed, $fail failed --"
-  exit 1
-fi
-
-# check <desc> <file> <ruby snippet over wf>; the snippet prints a problem,
-# or nothing when the check holds. `on` parses as the boolean true key in
-# YAML 1.1, so look it up both ways.
-check() {
-  local desc="$1" file="$2" snippet="$3" problem
-  problem="$("$ruby" -ryaml -e '
-    wf = YAML.safe_load(File.read(ARGV[0])) || {}
-    triggers = wf["on"] || wf[true] || {}
-    jobs = wf["jobs"] || {}
-    '"$snippet"'
-  ' "$file" 2>&1)" || problem="parse error: $problem"
-  [[ -z "$problem" ]] && result yes "$desc" || result no "$desc" "$problem"
-}
-
-check "leo-ci.yml is callable via workflow_call" "$ci" '
-  puts "no workflow_call trigger" unless triggers.is_a?(Hash) && triggers.key?("workflow_call")
-'
-
-check "leo-release.yml calls leo-ci.yml unconditionally" "$release" '
-  gate = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-ci.yml") }
-  puts "no job calls leo-ci.yml" if gate.empty?
-  gate.each { |id, j| puts "#{id} has an if:" if j.key?("if") }
-'
-
-check "every leo-build.yml call in leo-release.yml needs the leo-ci call" "$release" '
-  gate = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-ci.yml") }.keys
-  builds = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-build.yml") }
-  puts "no job calls leo-build.yml" if builds.empty?
-  builds.each do |id, j|
-    needs = Array(j["needs"])
-    puts "#{id} does not need #{gate.inspect}" if (needs & gate).empty?
-  end
-'
-
-echo "-- $pass passed, $fail failed --"
 [[ "$fail" -eq 0 ]]
