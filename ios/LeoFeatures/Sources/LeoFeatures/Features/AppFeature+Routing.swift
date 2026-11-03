@@ -154,6 +154,8 @@ extension AppFeature.State {
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
         let moves = moveAvailability(for: ref.daemonID)
         if detail?.moves != moves { detail?.moves = moves }
+        let clock = fleet.progressClock
+        if detail?.progressClock != clock { detail?.progressClock = clock }
     }
 
     /// Keeps the open Appearance sheet in step with the live fleet.

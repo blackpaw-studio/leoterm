@@ -18,6 +18,11 @@ public struct TaskPanelRow: Equatable, Identifiable, Sendable {
 }
 
 extension Fleet.State {
+    /// Some agent has a running task, so its text needs a moving clock.
+    var hasRunningTask: Bool {
+        sessions.contains { $0.agents.contains { $0.tasks.contains(where: \.isRunning) } }
+    }
+
     /// Running and undismissed failed tasks across every agent: failed first,
     /// then the most recently updated. Ended-and-lingering ones are left out.
     public var taskPanelRows: [TaskPanelRow] {

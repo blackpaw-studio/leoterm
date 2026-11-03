@@ -12,11 +12,11 @@ struct AppFeatureProgressTests {
     static let done = LeoAgentTask.make("build", title: "Xcode build", state: .succeeded, endedAt: progressEpoch)
 
     static func store(
-        selectedTab: AppTab = .agents, detail: Bool = false, thread: Bool = false, notificationsOn: Bool = true, posted: LockIsolated<[ProgressNotification]>
+        selectedTab: AppTab = .agents, detail: Bool = false, thread: Bool = false, notificationsOn: Bool = true, isActive: Bool = true, posted: LockIsolated<[ProgressNotification]>
     ) -> TestStore<AppFeature.State, AppFeature.Action> {
         var state = AppFeature.State()
         state.fleet = Fleet.State(daemons: [.dionysus])
-        state.fleet.isActive = true
+        state.fleet.isActive = isActive
         state.fleet.sessions[id: ref.daemonID]?.agents = [Agent(name: "zeus", displayName: "Zeus")]
         state.selectedTab = selectedTab
         if detail, let agent = state.fleet.agent(ref) {
@@ -83,5 +83,13 @@ struct AppFeatureProgressTests {
         await store.send(.fleet(.taskFinished(Self.ref.daemonID, LeoTaskFinish(agent: "zeus", task: Self.done))))
         await store.finish()
         #expect(posted.value.isEmpty)
+    }
+
+    @Test func itIsNotSuppressedWhenTheAppIsNotActive() async {
+        let posted = LockIsolated<[ProgressNotification]>([])
+        let store = Self.store(detail: true, isActive: false, posted: posted)
+        await store.send(.fleet(.taskFinished(Self.ref.daemonID, LeoTaskFinish(agent: "zeus", task: Self.done))))
+        await store.finish()
+        #expect(posted.value.count == 1)
     }
 }

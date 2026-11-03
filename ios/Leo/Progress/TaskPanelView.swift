@@ -14,6 +14,15 @@ final class TaskPanelView: UIView {
     private let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThinMaterial))
     private let headerButton = UIButton(type: .system)
     private let rows = UIStackView()
+    private let scroll = UIScrollView()
+    private var lastRender: RenderKey?
+
+    private struct RenderKey: Equatable {
+        let header: String
+        let rows: [TaskPanelRow]
+        let isCollapsed: Bool
+        let now: Date
+    }
     private let stack = UIStackView()
 
     override init(frame: CGRect) {
@@ -38,10 +47,22 @@ final class TaskPanelView: UIView {
         rows.axis = .vertical
         stack.axis = .vertical
         stack.addArrangedSubview(headerButton)
-        stack.addArrangedSubview(rows)
+        scroll.addSubview(rows)
+        rows.translatesAutoresizingMaskIntoConstraints = false
+        scroll.showsVerticalScrollIndicator = true
+        stack.addArrangedSubview(scroll)
         stack.translatesAutoresizingMaskIntoConstraints = false
         blur.contentView.addSubview(stack)
+        // The list is as tall as its rows; the card caps it (see `didMoveToSuperview`) and scrolls.
+        let fitsRows = scroll.heightAnchor.constraint(equalTo: rows.heightAnchor)
+        fitsRows.priority = .defaultHigh
         NSLayoutConstraint.activate([
+            fitsRows,
+            rows.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
+            rows.bottomAnchor.constraint(equalTo: scroll.contentLayoutGuide.bottomAnchor),
+            rows.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor),
+            rows.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor),
+            rows.widthAnchor.constraint(equalTo: scroll.frameLayoutGuide.widthAnchor),
             blur.topAnchor.constraint(equalTo: topAnchor),
             blur.bottomAnchor.constraint(equalTo: bottomAnchor),
             blur.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -56,12 +77,22 @@ final class TaskPanelView: UIView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    /// At most 40% of the safe-area height, so a long list scrolls instead of covering the chat.
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        guard let superview else { return }
+        scroll.heightAnchor.constraint(lessThanOrEqualTo: superview.safeAreaLayoutGuide.heightAnchor, multiplier: 0.4).isActive = true
+    }
+
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {
         super.traitCollectionDidChange(previous)
         layer.borderColor = UIColor.separator.cgColor
     }
 
     func render(header: String, rows items: [TaskPanelRow], isCollapsed: Bool, now: Date) {
+        let key = RenderKey(header: header, rows: items, isCollapsed: isCollapsed, now: now)
+        guard key != lastRender else { return }
+        lastRender = key
         isHidden = items.isEmpty
         var configuration = headerButton.configuration
         configuration?.attributedTitle = AttributedString(header, attributes: AttributeContainer([.font: UIFont.preferredFont(forTextStyle: .subheadline).withWeight(.semibold)]))
@@ -71,7 +102,7 @@ final class TaskPanelView: UIView {
         headerButton.accessibilityLabel = header
         headerButton.accessibilityHint = isCollapsed ? String(localized: "Expands the task list") : String(localized: "Collapses the task list")
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        rows.isHidden = isCollapsed
+        scroll.isHidden = isCollapsed
         guard !isCollapsed else { return }
         for item in items {
             rows.addArrangedSubview(TaskPanelRowView(item, now: now, open: { [weak self] in self?.onOpen(item.ref) }, dismiss: { [weak self] in self?.onDismiss(item) }))

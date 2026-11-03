@@ -249,7 +249,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         var content = UIListContentConfiguration.subtitleCell()
         content.text = task.title
         content.textProperties.font = .preferredFont(forTextStyle: .headline)
-        content.secondaryText = agent.taskDetailLine(task, now: Date())
+        content.secondaryText = agent.taskDetailLine(task, now: store.progressClock)
         content.secondaryTextProperties.color = task.state == .failed ? .systemRed : .secondaryLabel
         content.secondaryTextProperties.numberOfLines = 2
         cell.showBar(task.hasEnded && task.state != .failed ? nil : Agent.style(of: task), in: &content)

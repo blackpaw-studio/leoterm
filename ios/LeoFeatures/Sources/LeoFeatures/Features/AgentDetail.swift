@@ -25,6 +25,8 @@ public struct AgentDetail {
         public var isLoadingEnvironments = false
         /// What the Move section offers; kept live by the parent from the daemon's features and hosts.
         public var moves = MoveAvailability.unsupported
+        /// The fleet's progress clock, kept live by the parent; task text reads this.
+        public var progressClock = Date(timeIntervalSince1970: 0)
         @Presents public var alert: AlertState<Never>?
         @Presents public var confirmation: ConfirmationDialogState<Action.Confirmation>?
         @Presents public var destination: Destination.State?

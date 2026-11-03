@@ -9,6 +9,8 @@ final class TaskBarView: UIView {
     static let height: CGFloat = 3
     private let fill = CALayer()
     private var style: AgentProgress.Style = .indeterminate
+    /// What the running slide animation was built for; it restarts only when this changes.
+    private var animated: (style: AgentProgress.Style, width: CGFloat)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -42,7 +44,6 @@ final class TaskBarView: UIView {
         case .stale(let value): (CGFloat(value ?? 1), .tintColor.withAlphaComponent(0.45))
         case .failed: (1, .systemRed)
         }
-        fill.removeAnimation(forKey: "slide")
         fill.frame = CGRect(x: 0, y: 0, width: width * fraction, height: bounds.height)
         fill.backgroundColor = color.resolvedColor(with: traitCollection).cgColor
         updateAnimation()
@@ -61,9 +62,14 @@ final class TaskBarView: UIView {
     private func updateAnimation() {
         guard case .indeterminate = style, window != nil, bounds.width > 0 else {
             fill.removeAnimation(forKey: "slide")
+            animated = nil
             return
         }
-        guard fill.animation(forKey: "slide") == nil else { return }
+        // Layout runs often (every list update); only a new style or width rebuilds it.
+        let wanted = (style: style, width: bounds.width)
+        if let animated, animated.style == wanted.style, animated.width == wanted.width, fill.animation(forKey: "slide") != nil { return }
+        animated = wanted
+        fill.removeAnimation(forKey: "slide")
         let slide = CABasicAnimation(keyPath: "position.x")
         slide.fromValue = -fill.bounds.width / 2
         slide.toValue = bounds.width + fill.bounds.width / 2

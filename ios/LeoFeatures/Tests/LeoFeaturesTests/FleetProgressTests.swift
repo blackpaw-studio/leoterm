@@ -8,7 +8,7 @@ import Testing
 @MainActor
 struct FleetProgressTests {
     static let id = PairedDaemon.dionysus.id
-    static let now = progressEpoch.addingTimeInterval(60)
+    nonisolated static let now = progressEpoch.addingTimeInterval(60)
 
     static func store(agents: [LeoObservedAgent] = []) -> TestStore<Fleet.State, Fleet.Action> {
         var state = Fleet.State(daemons: [.dionysus])
@@ -124,5 +124,78 @@ struct FleetProgressTests {
         #expect(collapsed == true)
         await store.send(.progressPanelToggled)
         #expect(collapsed == false)
+    }
+
+    // MARK: Progress clock
+
+    @Test func theProgressClockTicksEverySecondWhileATaskRuns() async {
+        let clock = TestClock()
+        let current = LockIsolated(Self.now)
+        var state = Fleet.State(daemons: [.dionysus])
+        state.isActive = true
+        let store = TestStore(initialState: state) {
+            Fleet()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.progressNow = { current.value }
+        }
+        store.exhaustivity = .off
+        await store.send(.snapshotLoaded(Self.id, LeoObservedState(agents: [.make("zeus", tasks: [.make("build", percent: 5)])])))
+        #expect(store.state.progressClock == Self.now)
+        current.setValue(Self.now.addingTimeInterval(1))
+        await clock.advance(by: .seconds(1))
+        await store.receive(\.progressTicked)
+        #expect(store.state.progressClock == Self.now.addingTimeInterval(1))
+
+        await store.send(.snapshotLoaded(Self.id, LeoObservedState(agents: [.make("zeus", tasks: [])])))
+        #expect(store.state.isProgressTicking == false)
+        current.setValue(Self.now.addingTimeInterval(5))
+        await clock.advance(by: .seconds(5))
+        #expect(store.state.progressClock == Self.now.addingTimeInterval(1))
+    }
+
+    @Test func theProgressClockStopsWhenTheAppGoesInactive() async {
+        let clock = TestClock()
+        var state = Fleet.State(daemons: [.dionysus])
+        state.isActive = true
+        let store = TestStore(initialState: state) {
+            Fleet()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.progressNow = { Self.now }
+        }
+        store.exhaustivity = .off
+        await store.send(.snapshotLoaded(Self.id, LeoObservedState(agents: [.make("zeus", tasks: [.make("build", percent: 5)])])))
+        await store.send(.scenePhaseChanged(isActive: false))
+        #expect(store.state.isProgressTicking == false)
+    }
+
+    @Test func aTaskFreeFleetNeverStartsTheClock() async {
+        let store = Self.store(agents: [.make("zeus", tasks: [.make("done", state: .succeeded, endedAt: Self.now)])])
+        await store.send(.snapshotLoaded(Self.id, LeoObservedState(agents: [.make("zeus", tasks: [])])))
+        #expect(store.state.isProgressTicking == false)
+    }
+
+    // MARK: Reconnect stays silent
+
+    @Test(arguments: ["boot-1", "boot-2"])
+    func aReconnectNeverReportsAFinish(_ bootID: String) async {
+        var state = Fleet.State(daemons: [.dionysus])
+        state.sessions[id: Self.id]?.applySnapshot(
+            LeoObservedState(agents: [.make("zeus", tasks: [.make("build", state: .failed, endedAt: progressEpoch)])]), bootID: "boot-1", now: Self.now
+        )
+        let store = TestStore(initialState: state) {
+            Fleet()
+        } withDependencies: {
+            $0.progressNow = { Self.now }
+        }
+        let replay = LeoObservedState(agents: [.make("zeus", tasks: [.make("build", state: .failed, endedAt: Self.now, revision: 3)])])
+        // Exhaustive: any `taskFinished` the reconnect sent would fail here.
+        var expected = state.sessions[id: Self.id]!
+        expected.connection = .connected
+        expected.applySnapshot(replay, bootID: bootID, now: Self.now)
+        await store.send(.connected(Self.id, bootID: bootID, features: LeoDaemonFeatures([]), replay)) {
+            $0.sessions[id: Self.id] = expected
+        }
     }
 }

@@ -53,7 +53,7 @@ extension ChatsSplitViewController {
             guard let self else { return }
             panel.render(
                 header: store.fleet.taskPanelHeader, rows: store.fleet.taskPanelRows,
-                isCollapsed: store.fleet.isProgressPanelCollapsed, now: Date()
+                isCollapsed: store.fleet.isProgressPanelCollapsed, now: store.fleet.progressClock
             )
         }
     }

@@ -84,6 +84,11 @@ public struct Fleet {
         @Shared(.progressPanelCollapsed) public var isProgressPanelCollapsed
         /// Why the last task dismissal failed; the screen shows it, then clears it.
         public var taskDismissError: String?
+        /// The time elapsed and ETA text is judged at; ticks every second while
+        /// the app is active and a task runs. Views read this, never `Date()`.
+        public var progressClock = Date(timeIntervalSince1970: 0)
+        /// The progress ticker is running.
+        public var isProgressTicking = false
 
         public init(daemons: [PairedDaemon] = []) {
             sessions = IdentifiedArray(uniqueElements: daemons.map(DaemonSession.init))
@@ -156,6 +161,7 @@ public struct Fleet {
         /// Dismiss a failed task (swipe, panel button).
         case dismissTask(DaemonSession.ID, agent: String, id: String)
         case progressPanelToggled
+        case progressTicked
         case taskDismissErrorShown
         case taskDismissFailed(String)
         /// A task just finished live (never from a snapshot or replay).
@@ -165,10 +171,13 @@ public struct Fleet {
     enum CancelID: Hashable {
         case connection(DaemonSession.ID)
         case stats(DaemonSession.ID)
+        case progressTicker
     }
 
     /// Seconds between stats samples while the Machines list is open.
     static let statsInterval = Duration.seconds(5)
+    /// Elapsed and ETA text moves in whole seconds.
+    static let progressInterval = Duration.seconds(1)
     /// Missed polls (15s at the poll interval) after which the last sample is
     /// too old to show.
     static let staleAfterMissedPolls = 3
@@ -320,6 +329,10 @@ public struct Fleet {
                     await send(.taskDismissFailed(error.localizedDescription))
                 }
 
+            case .progressTicked:
+                state.progressClock = now()
+                return .none
+
             case .progressPanelToggled:
                 state.$isProgressPanelCollapsed.withLock { $0.toggle() }
                 return .none
@@ -342,6 +355,23 @@ public struct Fleet {
                 }
             }
         }
+        Reduce { state, _ in syncProgressTicker(&state) }
+    }
+
+    /// Starts the 1 s ticker when the app is active and a task runs, and
+    /// cancels it otherwise; a start stamps the clock first so the first
+    /// render is never stale.
+    private func syncProgressTicker(_ state: inout State) -> Effect<Action> {
+        let wantsTicks = state.isActive && state.hasRunningTask
+        guard wantsTicks != state.isProgressTicking else { return .none }
+        state.isProgressTicking = wantsTicks
+        guard wantsTicks else { return .cancel(id: CancelID.progressTicker) }
+        state.progressClock = now()
+        let clock = clock
+        return .run { send in
+            for await _ in clock.timer(interval: Self.progressInterval) { await send(.progressTicked) }
+        }
+        .cancellable(id: CancelID.progressTicker, cancelInFlight: true)
     }
 
     /// 1s, 2s, 4s, ... capped at 30s.
