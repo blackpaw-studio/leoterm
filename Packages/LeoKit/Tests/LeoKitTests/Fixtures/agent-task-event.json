@@ -1,0 +1,1 @@
+{"type":"agent_task_changed","seq":812,"at":"2026-11-03T19:30:00Z","agent":"alfred","id":"build","task":{"id":"build","title":"Xcode build","mode":"determinate","percent":62,"state":"running","started_at":"2026-11-03T19:20:00Z","updated_at":"2026-11-03T19:30:00Z","revision":7}}
