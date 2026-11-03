@@ -15,14 +15,9 @@ final class TaskPanelView: UIView {
     private let headerButton = UIButton(type: .system)
     private let rows = UIStackView()
     private let scroll = UIScrollView()
-    private var lastRender: RenderKey?
+    private var lastRender: TaskPanelRenderKey?
+    private var rowViews: [TaskPanelRowView] = []
 
-    private struct RenderKey: Equatable {
-        let header: String
-        let rows: [TaskPanelRow]
-        let isCollapsed: Bool
-        let now: Date
-    }
     private let stack = UIStackView()
 
     override init(frame: CGRect) {
@@ -90,9 +85,17 @@ final class TaskPanelView: UIView {
     }
 
     func render(header: String, rows items: [TaskPanelRow], isCollapsed: Bool, now: Date) {
-        let key = RenderKey(header: header, rows: items, isCollapsed: isCollapsed, now: now)
-        guard key != lastRender else { return }
+        let key = TaskPanelRenderKey(header: header, rows: items, isCollapsed: isCollapsed, now: now)
+        let plan = TaskPanelRenderPlan(previous: lastRender, next: key)
         lastRender = key
+        switch plan {
+        case .skip: return
+        case .relabel:
+            // Only the clock moved: refresh the labels, keep the views (and their sliding bars).
+            rowViews.forEach { $0.relabel(now: now) }
+            return
+        case .rebuild: break
+        }
         isHidden = items.isEmpty
         var configuration = headerButton.configuration
         configuration?.attributedTitle = AttributedString(header, attributes: AttributeContainer([.font: UIFont.preferredFont(forTextStyle: .subheadline).withWeight(.semibold)]))
@@ -102,16 +105,32 @@ final class TaskPanelView: UIView {
         headerButton.accessibilityLabel = header
         headerButton.accessibilityHint = isCollapsed ? String(localized: "Expands the task list") : String(localized: "Collapses the task list")
         rows.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        rowViews = []
         scroll.isHidden = isCollapsed
         guard !isCollapsed else { return }
         for item in items {
-            rows.addArrangedSubview(TaskPanelRowView(item, now: now, open: { [weak self] in self?.onOpen(item.ref) }, dismiss: { [weak self] in self?.onDismiss(item) }))
+            let view = TaskPanelRowView(item, now: now, open: { [weak self] in self?.onOpen(item.ref) }, dismiss: { [weak self] in self?.onDismiss(item) })
+            rowViews.append(view)
+            rows.addArrangedSubview(view)
         }
     }
 }
 
 private final class TaskPanelRowView: UIView {
+    private let detail = UILabel()
+    private let agent: Agent
+    private let task: LeoAgentTask
+
+    /// Rewrites the detail line (elapsed, ETA) for a new clock; nothing else moves.
+    func relabel(now: Date) {
+        detail.text = agent.taskDetailLine(task, now: now)
+    }
+
     init(_ row: TaskPanelRow, now: Date, open: @escaping () -> Void, dismiss: @escaping () -> Void) {
+        var agent = row.agent
+        agent.taskETAs[row.task.id] = row.etaAt
+        self.agent = agent
+        task = row.task
         super.init(frame: .zero)
         accessibilityIdentifier = "tasks.panel.row.\(row.ref.name).\(row.task.id)"
         let separator = UIView()
@@ -129,9 +148,6 @@ private final class TaskPanelRowView: UIView {
         let title = UILabel()
         title.text = row.task.title
         title.font = .preferredFont(forTextStyle: .footnote).withWeight(.medium)
-        let detail = UILabel()
-        var agent = row.agent
-        agent.taskETAs[row.task.id] = row.etaAt
         detail.text = agent.taskDetailLine(row.task, now: now)
         detail.font = .preferredFont(forTextStyle: .caption2)
         detail.textColor = row.task.state == .failed ? .systemRed : .secondaryLabel
