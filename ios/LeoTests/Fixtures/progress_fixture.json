@@ -1,0 +1,19 @@
+{
+  "tasks": {
+    "alpha": [
+      {"id": "build", "title": "Xcode build", "percent": 62, "status": "Compiling 412/980", "started_ago": 252, "updated_ago": 3, "eta_in": 180, "revision": 4},
+      {"id": "lint", "title": "Lint", "state": "succeeded", "percent": 100, "started_ago": 400, "ended_ago": 360, "revision": 3},
+      {"id": "deploy", "title": "nomad deploy", "mode": "indeterminate", "status": "Waiting on allocs", "started_ago": 63, "revision": 2}
+    ],
+    "beta": [
+      {"id": "export", "title": "image export", "percent": 71, "status": "No update for 18m", "stale": true, "started_ago": 1900, "updated_ago": 1080, "revision": 5}
+    ],
+    "gamma": [
+      {"id": "archive", "title": "Release archive", "state": "failed", "percent": 40, "status": "exit 65: signing failed", "started_ago": 900, "ended_ago": 720, "revision": 6}
+    ],
+    "delta": [
+      {"id": "tests", "title": "Full test suite", "percent": 33, "status": "Running 140/420", "started_ago": 120, "updated_ago": 2, "eta_in": 240, "revision": 3}
+    ]
+  },
+  "script": []
+}

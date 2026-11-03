@@ -6,7 +6,7 @@ import UIKitNavigation
 /// One agent: live state, environment, actions, and what's coming next.
 final class AgentDetailViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int, CaseIterable {
-        case header, claude, live, tasks, status, environment, move, actions
+        case header, claude, tasks, live, status, environment, move, actions
     }
 
     private enum Row: Hashable {

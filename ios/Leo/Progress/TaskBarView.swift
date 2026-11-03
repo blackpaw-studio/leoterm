@@ -12,14 +12,17 @@ final class TaskBarView: UIView {
     /// What the running slide animation was built for; it restarts only when this changes.
     private var animated: (style: AgentProgress.Style, width: CGFloat)?
 
-    override init(frame: CGRect) {
-        super.init(frame: frame)
+    /// `usesFrames`: the owner positions it by frame (a list cell); otherwise it sizes itself with Auto Layout.
+    init(usesFrames: Bool = false) {
+        super.init(frame: .zero)
         backgroundColor = .tertiarySystemFill
         layer.cornerRadius = Self.height / 2
         layer.masksToBounds = true
         layer.addSublayer(fill)
-        translatesAutoresizingMaskIntoConstraints = false
-        heightAnchor.constraint(equalToConstant: Self.height).isActive = true
+        if !usesFrames {
+            translatesAutoresizingMaskIntoConstraints = false
+            heightAnchor.constraint(equalToConstant: Self.height).isActive = true
+        }
         isUserInteractionEnabled = false
         isAccessibilityElement = false
     }
@@ -85,21 +88,31 @@ final class TaskBarView: UIView {
 /// content configuration leaves room for it.
 final class ProgressListCell: UICollectionViewListCell {
     static let barReserve: CGFloat = 12
-    private let bar = TaskBarView()
+    private static let barBottomInset: CGFloat = 10
+    private let bar = TaskBarView(usesFrames: true)
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        contentView.addSubview(bar)
-        NSLayoutConstraint.activate([
-            bar.leadingAnchor.constraint(equalTo: separatorLayoutGuide.leadingAnchor),
-            bar.trailingAnchor.constraint(equalTo: contentView.layoutMarginsGuide.trailingAnchor),
-            bar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -10),
-        ])
+        // The cell, not its contentView: the list cell drops foreign contentView subviews.
+        addSubview(bar)
         bar.isHidden = true
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    /// By frame (cell coordinates): the bar starts where the text does (the separator's leading edge) and runs to the
+    /// content's trailing margin. Auto Layout against the list cell's guides left it at the origin.
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let leading = separatorLayoutGuide.layoutFrame.minX
+        let trailing = contentView.convert(contentView.layoutMarginsGuide.layoutFrame, to: self).maxX
+        bar.frame = CGRect(
+            x: leading, y: bounds.maxY - Self.barBottomInset - TaskBarView.height,
+            width: max(trailing - leading, 0), height: TaskBarView.height
+        )
+        bringSubviewToFront(bar)
+    }
 
     /// Shows `style` under the text, or hides the bar when nil.
     func showBar(_ style: AgentProgress.Style?, in content: inout UIListContentConfiguration) {
@@ -107,6 +120,7 @@ final class ProgressListCell: UICollectionViewListCell {
         if let style {
             bar.apply(style)
             content.directionalLayoutMargins.bottom += Self.barReserve
+            setNeedsLayout()
         }
     }
 }

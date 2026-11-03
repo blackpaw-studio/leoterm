@@ -50,7 +50,8 @@ final class TaskPanelView: UIView {
         blur.contentView.addSubview(stack)
         // The list is as tall as its rows; the card caps it (see `didMoveToSuperview`) and scrolls.
         let fitsRows = scroll.heightAnchor.constraint(equalTo: rows.heightAnchor)
-        fitsRows.priority = .defaultHigh
+        // Below the labels' compression resistance (750): the card never squeezes a row's text, it scrolls.
+        fitsRows.priority = .defaultLow
         NSLayoutConstraint.activate([
             fitsRows,
             rows.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
