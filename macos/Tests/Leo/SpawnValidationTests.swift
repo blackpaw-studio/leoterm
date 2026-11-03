@@ -13,32 +13,37 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.name(value) == expected)
     }
 
-    @Test func templateIsRequiredAndRepositoryIsOptional() {
-        #expect(SpawnValidation.spawn(template: "", repo: "/repo", name: nil, pathExists: { _ in true }) == "Template is required")
-        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, pathExists: { _ in false }) == nil)
-        #expect(SpawnValidation.spawn(template: "swift", repo: "/missing", name: nil, pathExists: { _ in false }) == "Choose an existing repository")
-        #expect(SpawnValidation.spawn(template: "swift", repo: "/repo", name: "ok", pathExists: { _ in true }) == nil)
+    @Test func templateIsRequired() {
+        #expect(SpawnValidation.spawn(template: "", repo: "o/r", name: nil) == "Template is required")
+        #expect(SpawnValidation.spawn(template: nil, repo: "", name: nil) == "Template is required")
     }
 
-    /// This Mac's paths are checked on disk; another machine's can't be, so only
-    /// their shape is, and the remote daemon reports a missing one on spawn.
-    @Test func thisMacChecksThePathOnDisk() {
-        #expect(SpawnValidation.spawn(template: "swift", repo: "/only/remote", name: nil, on: .local, pathExists: { _ in false }) == "Choose an existing repository")
-        #expect(SpawnValidation.spawn(template: "swift", repo: "/here", name: nil, on: .local, pathExists: { _ in true }) == nil)
+    @Test(arguments: ["", "  ", "ancestry", "owner/repo", " owner/repo ", "o/r.js"])
+    func repositoryAcceptsBlankBareNameOrOwnerRepo(repo: String) {
+        #expect(SpawnValidation.spawn(template: "swift", repo: repo, name: nil) == nil)
     }
 
-    @Test(arguments: ["/srv/repos/app", "~/code/app", "/"]) func aRemoteMachineAcceptsAPathThatDoesNotExistHere(path: String) {
-        #expect(SpawnValidation.spawn(template: "swift", repo: path, name: nil, on: .remote("work"), pathExists: { _ in false }) == nil)
+    @Test(arguments: ["/srv/app", "~/x", "a/b/c", "owner/", "/repo", "a b/c", "a/b c", "http://example.com/a/b"])
+    func repositoryRejectsEverythingElse(repo: String) {
+        #expect(SpawnValidation.spawn(template: "swift", repo: repo, name: nil) == "Repository must be owner/repo (or a bare name)")
     }
 
-    @Test(arguments: ["app", "./app", "../app", "~", "~evan/app", " /srv/app", "/srv/a\u{0}pp", "/srv/a\npp", "/srv/a\rpp", "/srv/a\r\npp", "/srv/app\r\n"])
-    func aRemoteMachineRejectsAPathOfTheWrongShape(path: String) {
-        #expect(SpawnValidation.spawn(template: "swift", repo: path, name: nil, on: .remote("work"), pathExists: { _ in true }) == "Enter an absolute path or ~/…")
+    @Test(arguments: [
+        ("https://github.com/owner/repo", "owner/repo"), ("https://github.com/owner/repo.git", "owner/repo"),
+        ("https://github.com/owner/repo/", "owner/repo"), ("  https://github.com/owner/repo.git/ ", "owner/repo"),
+        ("  owner/repo  ", "owner/repo"), ("", ""), ("a/b/c", "a/b/c")
+    ]) func repositoryNormalization(raw: String, expected: String) {
+        #expect(SpawnValidation.normalizedRepo(raw) == expected)
     }
 
-    @Test func aRemoteMachineStillTakesNoRepository() {
-        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, on: .remote("work"), pathExists: { _ in false }) == nil)
-        #expect(SpawnValidation.spawn(template: "", repo: "/srv/app", name: nil, on: .remote("work"), pathExists: { _ in false }) == "Template is required")
+    @Test func aPastedGitHubURLIsValid() {
+        #expect(SpawnValidation.spawn(template: "swift", repo: "https://github.com/o/r.git", name: nil) == nil)
+    }
+
+    @Test func branchNeedsARepository() {
+        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, branch: "feat/x") == "Branch needs a repository")
+        #expect(SpawnValidation.spawn(template: "swift", repo: "o/r", name: nil, branch: "feat/x") == nil)
+        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, branch: "") == nil)
     }
 
     @Test @MainActor func selectedTemplateMustBeFetched() {

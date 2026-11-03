@@ -89,10 +89,6 @@ import LeoKit
     /// only exists on that agent's machine.
     var isMachineLocked: Bool { source != nil }
 
-    /// "Choose…" opens a folder on this Mac, which means nothing on another
-    /// machine, where the path has to be typed.
-    var canBrowseRepository: Bool { machine == .local }
-
     /// A machine missing from the list is not selectable, except This Mac.
     private func isSelectable(_ host: LeoHostID) -> Bool {
         machineOptions.first { $0.host == host }?.isSelectable ?? (host == .local)
@@ -138,13 +134,13 @@ import LeoKit
         if isWorktree {
             return SpawnValidation.worktree(template: template, repo: repo, branch: branch, name: name.nilIfEmpty)
         }
-        return SpawnValidation.spawn(template: template, repo: repo, name: name.nilIfEmpty, on: machine)
+        return SpawnValidation.spawn(template: template, repo: repo, name: name.nilIfEmpty, branch: branch)
     }
 
     /// No `base`: a worktree branch starts from origin's default branch.
     func request() -> LeoSpawnRequest {
         LeoSpawnRequest(
-            template: template, repo: repo, name: name.nilIfEmpty, branch: branch.nilIfEmpty, prompt: prompt.nilIfEmpty,
+            template: template, repo: SpawnValidation.normalizedRepo(repo).nilIfEmpty, name: name.nilIfEmpty, branch: branch.nilIfEmpty, prompt: prompt.nilIfEmpty,
             environments: requestedEnvironments
         )
     }
