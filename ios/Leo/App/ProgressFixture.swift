@@ -15,8 +15,8 @@ import OSLog
 /// from when the step fires, `eta_in` forward from then.
 ///
 /// Launch args: `-startTab agents|chats`, `-progressDetail <agent>` opens that
-/// agent's detail, `-progressPanelCollapsed YES` starts the chat panel
-/// collapsed (the defaults argument domain feeds its `@Shared` key).
+/// agent's detail. A collapsed panel comes from the stored default
+/// (`simctl spawn <udid> defaults write <bundle> progressPanelCollapsed -bool YES`).
 enum ProgressFixture {
     static let environmentKey = "LEO_PROGRESS_FIXTURE"
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.ios", category: "progress-fixture")
@@ -125,10 +125,6 @@ enum ProgressFixture {
     /// `-progressDetail <agent>`: opens that agent's detail once the fleet has it.
     static func open(_ store: StoreOf<AppFeature>) {
         let arguments = ProcessInfo.processInfo.arguments
-        if arguments.contains("-progressPanelCollapsed") {
-            @Shared(.progressPanelCollapsed) var isCollapsed
-            $isCollapsed.withLock { $0 = true }
-        }
         guard let flag = arguments.firstIndex(of: "-progressDetail"), arguments.indices.contains(flag + 1) else { return }
         store.send(.notificationOpened(AgentRef(daemonID: daemon.id, name: arguments[flag + 1])))
     }

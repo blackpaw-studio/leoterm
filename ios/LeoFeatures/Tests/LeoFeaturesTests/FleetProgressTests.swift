@@ -126,6 +126,15 @@ struct FleetProgressTests {
         #expect(collapsed == false)
     }
 
+    @Test func aCollapsedPanelIsRestoredFromTheStoredDefault() {
+        let defaults = UserDefaults(suiteName: "FleetProgressTests.\(UUID().uuidString)")!
+        defaults.set(true, forKey: "progressPanelCollapsed")
+        let state = withDependencies { $0.defaultAppStorage = defaults } operation: {
+            Fleet.State(daemons: [.dionysus])
+        }
+        #expect(state.isProgressPanelCollapsed == true)
+    }
+
     // MARK: Progress clock
 
     @Test func theProgressClockTicksEverySecondWhileATaskRuns() async {

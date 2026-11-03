@@ -93,6 +93,7 @@
 		D53BEAE86E41AC0D887D17D4 /* ChatPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED896422B42A4AB6BD982529 /* ChatPresentation.swift */; };
 		D880CE673551A008F8CAF71C /* NoHistoryBackBarButtonItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */; };
 		DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57636A050F83D8C255CD37DB /* PushClientLive.swift */; };
+		DD8021B4BBC9BF41E43CD1E8 /* TaskPanelViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5519992F268DDD43A627F5 /* TaskPanelViewTests.swift */; };
 		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E092B1F2FD246F8984A737F6 /* MachineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C6F25CCCD87641CD218A9C /* MachineCell.swift */; };
 		E4AD252ED3954D152BA5D5B4 /* LeoNavStackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */; };
@@ -157,6 +158,7 @@
 		1C40E03637E8C2B8531F2901 /* ConfigCollectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigCollectionViewController.swift; sourceTree = "<group>"; };
 		1D628695BAD22845C3CE51C1 /* LeoFeatures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoFeatures; path = LeoFeatures; sourceTree = SOURCE_ROOT; };
 		1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQuestionsFixture.swift; sourceTree = "<group>"; };
+		1F5519992F268DDD43A627F5 /* TaskPanelViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPanelViewTests.swift; sourceTree = "<group>"; };
 		20051536EA35480E82295F58 /* TaskPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPanelView.swift; sourceTree = "<group>"; };
 		20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigItemViewController.swift; sourceTree = "<group>"; };
 		22A905AA871540E60BA88896 /* ConfigEditorNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigEditorNavigationTests.swift; sourceTree = "<group>"; };
@@ -378,6 +380,7 @@
 				87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */,
 				4AF76CE70071EA3957056747 /* SchemaFormTestSupport.swift */,
 				9FF7947A4DAF1A52A076FEFD /* ServiceScreenTests.swift */,
+				1F5519992F268DDD43A627F5 /* TaskPanelViewTests.swift */,
 				866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */,
 				E8A7A34807A2A312D2391F4B /* Fixtures */,
 			);
@@ -767,6 +770,7 @@
 				AC0BFDF8CC92DE3B580B7EAC /* SchemaFormCellTests.swift in Sources */,
 				2BC71F157DD346713AA024CB /* SchemaFormTestSupport.swift in Sources */,
 				D33749F58A6F39A2F0CE3162 /* ServiceScreenTests.swift in Sources */,
+				DD8021B4BBC9BF41E43CD1E8 /* TaskPanelViewTests.swift in Sources */,
 				4A70B7218DD15E34171BB0B2 /* TaskScreensTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
