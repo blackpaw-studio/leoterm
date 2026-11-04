@@ -28,7 +28,6 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private static func makeToolbarIdentifier() -> NSToolbar.Identifier {
         NSToolbar.Identifier("leo.agent.toolbar.\(UUID().uuidString)")
     }
-    private static let separatorIndex = 1
 
     /// Builds the capsule's view when the toolbar asks for the item (set
     /// before `install`).
@@ -79,7 +78,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
             guard let self else { return }
             isSidebarToggleHidden = isVisible
             updateActivityWidth()
-            if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isVisible }
+            if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isVisible } else { syncItemPresence() }
         }.store(in: &subscriptions)
     }
 
@@ -90,7 +89,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         hasActivity.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] hasActivity in
             guard let self else { return }
             self.hasActivity = hasActivity
-            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity }
+            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity } else { updateActivityWidth() }
         }.store(in: &subscriptions)
     }
 
@@ -101,13 +100,44 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         self.splitView = splitView
         if let window { observeLayout(of: window, splitView: splitView) }
         updateActivityWidth()
-        toolbar.insertItem(withItemIdentifier: .leoSplitSeparator, at: min(Self.separatorIndex, toolbar.items.count))
+        let toggleCount = toolbar.items.contains { $0.itemIdentifier == .leoSidebarToggle } ? 1 : 0
+        toolbar.insertItem(withItemIdentifier: .leoSplitSeparator, at: min(toggleCount, toolbar.items.count))
     }
 
     // MARK: NSToolbarDelegate
 
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        Self.itemOrder.filter { $0 != .leoSplitSeparator }
+        Self.itemOrder.filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
+    }
+
+    /// Below macOS 15 `NSToolbarItem.isHidden` does nothing, so the items
+    /// that come and go are added to and removed from the toolbar instead.
+    private func isPresentByDefault(_ identifier: NSToolbarItem.Identifier) -> Bool {
+        if #available(macOS 15.0, *) { return true }
+        switch identifier {
+        case .leoSidebarToggle: return !isSidebarToggleHidden
+        case .leoMore: return showsMoreItem
+        default: return true
+        }
+    }
+
+    /// Inserts or removes the sidebar toggle and the "⋯" item to match the
+    /// bindings (macOS 14 and earlier).
+    private func syncItemPresence() {
+        guard let toolbar else { return }
+        setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
+        setPresence(of: .leoMore, showsMoreItem, in: toolbar) { $0.items.count }
+    }
+
+    private func setPresence(
+        of identifier: NSToolbarItem.Identifier, _ isPresent: Bool, in toolbar: NSToolbar, at index: (NSToolbar) -> Int
+    ) {
+        let current = toolbar.items.firstIndex { $0.itemIdentifier == identifier }
+        switch (isPresent, current) {
+        case (true, nil): toolbar.insertItem(withItemIdentifier: identifier, at: index(toolbar))
+        case (false, let position?): toolbar.removeItem(at: position)
+        default: break
+        }
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
@@ -168,9 +198,12 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
         let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
         let layout = LeoActivityCapsuleSizing.layout(availableToolbarWidth: window.frame.width - sidebar, leadingChrome: leadingChrome)
-        if activityWidth.constant != layout.width { activityWidth.constant = layout.width }
+        // Below macOS 15 a capsule with no task collapses to no width.
+        let width = hasActivity ? layout.width : 0
+        if activityWidth.constant != width { activityWidth.constant = width }
         if #available(macOS 15.0, *) { moreItem?.isHidden = !layout.showsMoreItem }
         showsMoreItem = layout.showsMoreItem
+        if #unavailable(macOS 15.0) { syncItemPresence() }
         let titleVisibility: NSWindow.TitleVisibility = layout.showsTitle ? .visible : .hidden
         if window.titleVisibility != titleVisibility { window.titleVisibility = titleVisibility }
         if showsSubtitle != layout.showsSubtitle {
