@@ -124,6 +124,15 @@ extension TerminalController {
             host.sizingOptions = []
             return host
         }
+        let chat = leoRuntime.chat
+        let toolbarMenu = LeoAgentToolbarMenu(
+            mainMenu: { NSApp.mainMenu },
+            messages: .init(
+                knownTasks: { chat.timeline.knownTasks }, filter: { chat.timeline.taskFilter },
+                hasAgent: { [weak self] in self?.selectedLeoRow != nil },
+                select: { [weak self] in self?.leoShowMessages(forTask: $0) }))
+        window.leoToolbar.moreMenu = toolbarMenu.menu
+        window.leoToolbar.retainedMenu = toolbarMenu
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
         window.leoToolbar.bind(hasActivity: leoActivityChanges)
@@ -133,6 +142,16 @@ extension TerminalController {
             .sink { [weak self] in self?.leoRefreshSubtitle() }
             .store(in: &window.chromeSubscriptions)
         leoRefreshSubtitle()
+    }
+
+    /// "Show Messages ▸" in the toolbar: filters the chat to `task` (nil: all
+    /// messages) and brings Chat up when only the terminal shows, since the
+    /// filter has no effect out of sight.
+    func leoShowMessages(forTask task: String?) {
+        guard let leoRuntime, let leoSession, let row = selectedLeoRow else { return }
+        let chat = leoRuntime.chat
+        Task { await chat.setTaskFilter(task) }
+        if !leoSession.currentChatLayout.showsChat { leoSession.choose(.chat, for: row.id) }
     }
 
     /// Fires (next turn, after the change landed) whenever the shown row or

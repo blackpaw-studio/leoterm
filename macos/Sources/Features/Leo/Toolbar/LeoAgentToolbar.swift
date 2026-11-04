@@ -33,6 +33,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// Builds the capsule's view when the toolbar asks for the item (set
     /// before `install`).
     var makeActivityView: () -> NSView = { NSView() }
+    /// The "⋯" item's menu (set before `install`).
+    var moreMenu = NSMenu()
+    /// Keeps the menu's controller alive: an `NSMenu` holds its delegate weakly.
+    var retainedMenu: AnyObject?
     private weak var toolbar: NSToolbar?
     private weak var window: NSWindow?
     private weak var splitView: NSSplitView?
@@ -174,6 +178,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         let item = NSMenuToolbarItem(itemIdentifier: .leoMore)
         item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "More")
         item.label = "More"
+        item.menu = moreMenu
         // The first to fold into the overflow chevron when the window is narrow.
         item.visibilityPriority = .low
         return item
