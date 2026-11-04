@@ -56,6 +56,7 @@ struct LeoActivityCapsule: View {
             LeoActivityPopover(presentation: presentation.popover) { id in
                 actions.dismissTask(host: row.host, agent: row.name, id: id)
             }
+            .background(LeoEscapeDismiss(isPresented: $showsPopover))
         }
     }
 
