@@ -20,7 +20,7 @@ struct LeoTaskStrip: View {
                     }
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.bar)
                 .overlay(alignment: .bottom) { Divider() }
@@ -35,16 +35,20 @@ struct LeoTaskStrip: View {
                 Text(agentName).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 // Expanded, the list below says it all: just the label here.
                 if !isExpanded {
-                    Text(LeoTaskText.summary(primary, etaAt: tasks.eta(for: primary), now: now))
+                    Text([primary.title, primary.status].compactMap { $0 }.joined(separator: " · "))
                         .font(.body).lineLimit(1).truncationMode(.tail)
                         .foregroundStyle(kind == .failed ? .red : .primary)
-                    LeoTaskBar(kind: kind, height: 4).frame(width: 110)
+                        .layoutPriority(1)
+                    LeoTaskBar(kind: kind, height: 4).frame(minWidth: 120, maxWidth: .infinity)
+                    Text(LeoTaskDetailText.trailing(primary, etaAt: tasks.eta(for: primary), now: now))
+                        .font(.subheadline).monospacedDigit().lineLimit(1).fixedSize()
+                        .foregroundStyle(kind == .failed ? .red : .secondary)
                     if let badge = LeoTaskText.extraBadge(tasks.extraCount) {
                         Text(badge).font(.caption.weight(.medium)).padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Capsule().fill(.quaternary))
                     }
                 }
-                Spacer(minLength: 4)
+                if isExpanded { Spacer(minLength: 4) }
                 Image(systemName: isExpanded ? "chevron.up" : "chevron.down").font(.caption).foregroundStyle(.secondary)
             }
             .contentShape(Rectangle())

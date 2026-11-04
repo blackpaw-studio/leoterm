@@ -184,7 +184,7 @@ import OSLog
         clients.daemon(for: host)?.configClient() as? any LeoAgentTaskAPI
     }
 
-    /// Dismisses a failed task. The feed's `agent_task_changed` removes it
+    /// Dismisses an ended task. The feed's `agent_task_changed` removes it
     /// from every surface; a task that is already gone needs nothing.
     func dismissTask(host: LeoHostID, agent: String, id: String) {
         guard let client = taskClient(for: host) else { return }
@@ -193,6 +193,9 @@ import OSLog
                 try await client.dismissAgentTask(agent: agent, id: id)
             } catch LeoAgentTaskError.notFound {
                 return
+            } catch LeoAgentTaskError.notDismissable(let reason) {
+                // An older daemon (before leo#315) refuses anything but failed: the row just stays.
+                Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").notice("dismiss task refused: \(reason, privacy: .public)")
             } catch {
                 Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").error("dismiss task failed: \(error.localizedDescription, privacy: .public)")
             }

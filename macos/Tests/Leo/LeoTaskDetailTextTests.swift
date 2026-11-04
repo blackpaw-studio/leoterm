@@ -44,4 +44,21 @@ struct LeoTaskDetailTextTests {
         #expect(LeoTaskDetailText.header([Self.task(.failed, ended: 1)]) == "1 failed")
         #expect(LeoTaskDetailText.header([Self.task(.succeeded, ended: 1)]) == "1 done")
     }
+
+    @Test func everyEndedTaskCanBeDismissedButARunningOneCannot() {
+        #expect(!LeoTaskDetailText.canDismiss(Self.task()))
+        for state in [LeoAgentTask.State.succeeded, .failed, .cancelled] {
+            #expect(LeoTaskDetailText.canDismiss(Self.task(state, ended: 5)))
+        }
+    }
+
+    @Test func trailingLabelIsPercentAndEtaWhileRunningThenTheEndState() {
+        let now = Self.t0.addingTimeInterval(120)
+        #expect(LeoTaskDetailText.trailing(Self.task(), etaAt: Self.t0.addingTimeInterval(180), now: now) == "62% · ~1m")
+        #expect(LeoTaskDetailText.trailing(Self.task(), etaAt: nil, now: now) == "62%")
+        #expect(LeoTaskDetailText.trailing(Self.task(percent: nil), etaAt: nil, now: now) == "2m")
+        #expect(LeoTaskDetailText.trailing(Self.task(.succeeded, ended: 5), etaAt: nil, now: now) == "Done")
+        #expect(LeoTaskDetailText.trailing(Self.task(.failed, ended: 5), etaAt: nil, now: now) == "Failed")
+        #expect(LeoTaskDetailText.trailing(Self.task(.cancelled, ended: 5), etaAt: nil, now: now) == "Cancelled")
+    }
 }

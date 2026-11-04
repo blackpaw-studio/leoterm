@@ -43,7 +43,7 @@ struct LeoTaskDetailRow: View {
                 if let percent = LeoTaskDetailText.percent(task) {
                     Text(percent).font(.subheadline).monospacedDigit().foregroundStyle(kind == .failed ? .red : .secondary)
                 }
-                if task.state == .failed, let dismiss {
+                if LeoTaskDetailText.canDismiss(task), let dismiss {
                     Button("Dismiss", action: dismiss).buttonStyle(.link).font(.subheadline)
                 }
             }

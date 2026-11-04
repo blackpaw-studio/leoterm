@@ -5,6 +5,9 @@ import LeoKit
 /// running and failed tasks across every agent. Expanded by default; the
 /// collapsed choice is remembered on this Mac.
 struct LeoProgressPanelView: View {
+    /// The list scrolls past this; the header stays fixed. Leaves room for the
+    /// pane header above and the composer below in a short window.
+    static let listMaxHeight: CGFloat = 320
     static let collapsedKey = "leo.progressPanel.collapsed"
 
     let model: LeoProgressPanelModel
@@ -18,9 +21,14 @@ struct LeoProgressPanelView: View {
                 header
                 if !isCollapsed {
                     TimelineView(.periodic(from: .now, by: 15)) { context in
-                        VStack(alignment: .leading, spacing: 14) {
-                            ForEach(model.entries) { entry in row(entry, now: context.date) }
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 14) {
+                                ForEach(model.entries) { entry in row(entry, now: context.date) }
+                            }
                         }
+                        .scrollIndicators(.automatic)
+                        .frame(maxHeight: Self.listMaxHeight)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
