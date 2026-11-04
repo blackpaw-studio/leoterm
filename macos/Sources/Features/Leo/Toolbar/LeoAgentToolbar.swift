@@ -30,10 +30,18 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     }
     private static let separatorIndex = 1
 
+    /// Builds the capsule's view when the toolbar asks for the item (set
+    /// before `install`).
+    var makeActivityView: () -> NSView = { NSView() }
     private weak var toolbar: NSToolbar?
+    private weak var window: NSWindow?
     private weak var splitView: NSSplitView?
     private var subscriptions: Set<AnyCancellable> = []
     private(set) weak var sidebarToggle: NSToolbarItem?
+    private weak var activityItem: NSToolbarItem?
+    /// What the bindings last said, so an item AppKit builds later starts right.
+    private var isSidebarToggleHidden = true
+    private var hasActivity = false
 
     @MainActor
     func install(on window: NSWindow) {
@@ -45,6 +53,12 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         window.toolbarStyle = .unified
         window.toolbar = toolbar
         self.toolbar = toolbar
+        self.window = window
+        observeLayout(of: window, splitView: nil)
+    }
+
+    deinit {
+        layoutObservers.forEach(NotificationCenter.default.removeObserver)
     }
 
     /// Keeps the sidebar toggle visible exactly while the sidebar is
@@ -52,12 +66,21 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     @MainActor
     func bind(sidebarVisible: some Publisher<Bool, Never>) {
         sidebarVisible.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isVisible in
-            self?.setSidebarToggleHidden(isVisible)
+            guard let self else { return }
+            isSidebarToggleHidden = isVisible
+            if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isVisible }
         }.store(in: &subscriptions)
     }
 
-    private func setSidebarToggleHidden(_ isHidden: Bool) {
-        if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isHidden }
+    /// Shows the capsule while the selected agent has a task; hidden, it
+    /// leaves no gap.
+    @MainActor
+    func bind(hasActivity: some Publisher<Bool, Never>) {
+        hasActivity.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] hasActivity in
+            guard let self else { return }
+            self.hasActivity = hasActivity
+            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity }
+        }.store(in: &subscriptions)
     }
 
     /// The split view is in the window: the tracking separator can join.
@@ -65,6 +88,8 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     func attach(splitView: NSSplitView) {
         guard self.splitView == nil, let toolbar else { return }
         self.splitView = splitView
+        if let window { observeLayout(of: window, splitView: splitView) }
+        updateActivityWidth()
         toolbar.insertItem(withItemIdentifier: .leoSplitSeparator, at: min(Self.separatorIndex, toolbar.items.count))
     }
 
@@ -84,7 +109,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         switch identifier {
         case .leoSidebarToggle: makeSidebarToggle()
         case .leoSplitSeparator: splitView.map { NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: $0, dividerIndex: 0) }
-        case .leoActivity: makeActivityPlaceholder()
+        case .leoActivity: makeActivityItem()
         case .leoMore: makeMorePlaceholder()
         default: nil
         }
@@ -99,22 +124,58 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.action = #selector(TerminalController.toggleLeoSidebar(_:))
         item.isBordered = true
         sidebarToggle = item
-        // Hidden until the session reports the sidebar collapsed.
-        if #available(macOS 15.0, *) { item.isHidden = true }
+        // Hidden unless the session reports the sidebar collapsed.
+        if #available(macOS 15.0, *) { item.isHidden = isSidebarToggleHidden }
         return item
     }
 
-    private func makeActivityPlaceholder() -> NSToolbarItem {
+    private var activityWidth: NSLayoutConstraint?
+    private var layoutObservers: [NSObjectProtocol] = []
+
+    private func makeActivityItem() -> NSToolbarItem {
         let item = NSToolbarItem(itemIdentifier: .leoActivity)
+        let host = makeActivityView()
+        host.translatesAutoresizingMaskIntoConstraints = false
+        let width = host.widthAnchor.constraint(equalToConstant: LeoActivityCapsulePresentation.maxWidth)
+        activityWidth = width
+        NSLayoutConstraint.activate([width, host.heightAnchor.constraint(equalToConstant: LeoActivityCapsule.height)])
+        item.view = host
+        // The capsule draws its own 32 pt glass: AppKit's platter is a fixed 36 pt.
+        item.isBordered = false
+        item.visibilityPriority = .high
         item.label = "Activity"
-        if #available(macOS 15.0, *) { item.isHidden = true }
+        if #available(macOS 15.0, *) { item.isHidden = !hasActivity }
+        activityItem = item
+        updateActivityWidth()
         return item
+    }
+
+    /// Sizes the capsule from the room right of the sidebar
+    /// (`LeoActivityCapsuleSizing`); on every window or split resize.
+    private func updateActivityWidth() {
+        guard let activityWidth, let window else { return }
+        let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
+        let width = LeoActivityCapsuleSizing.width(availableToolbarWidth: window.frame.width - sidebar)
+        if activityWidth.constant != width { activityWidth.constant = width }
+    }
+
+    private func observeLayout(of window: NSWindow, splitView: NSSplitView?) {
+        layoutObservers.forEach(NotificationCenter.default.removeObserver)
+        let center = NotificationCenter.default
+        let update: (Notification) -> Void = { [weak self] _ in MainActor.assumeIsolated { self?.updateActivityWidth() } }
+        layoutObservers = [center.addObserver(forName: NSWindow.didResizeNotification, object: window, queue: .main, using: update)]
+        if let splitView {
+            layoutObservers.append(
+                center.addObserver(forName: NSSplitView.didResizeSubviewsNotification, object: splitView, queue: .main, using: update))
+        }
     }
 
     private func makeMorePlaceholder() -> NSToolbarItem {
         let item = NSMenuToolbarItem(itemIdentifier: .leoMore)
         item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "More")
         item.label = "More"
+        // The first to fold into the overflow chevron when the window is narrow.
+        item.visibilityPriority = .low
         return item
     }
 }

@@ -119,16 +119,37 @@ extension TerminalController {
     /// is a plain `TerminalWindow` and gets neither.
     func leoInstallAgentToolbar() {
         guard let window = window as? LeoAgentTerminalWindow, let leoSession, let leoRuntime else { return }
+        window.leoToolbar.makeActivityView = { [model = leoRuntime.model, terminals = leoSession.terminals, actions = leoRuntime.actions] in
+            let host = NSHostingView(rootView: LeoActivityCapsule(model: model, terminals: terminals, actions: actions))
+            host.sizingOptions = []
+            return host
+        }
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
+        window.leoToolbar.bind(hasActivity: leoActivityChanges)
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
-        leoRuntime.model.objectWillChange.map { _ in () }
-            .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
-            .receive(on: DispatchQueue.main)
+        leoSelectionChanges
             .sink { [weak self] in self?.leoRefreshSubtitle() }
             .store(in: &window.chromeSubscriptions)
         leoRefreshSubtitle()
+    }
+
+    /// Fires (next turn, after the change landed) whenever the shown row or
+    /// the rows' data change.
+    private var leoSelectionChanges: AnyPublisher<Void, Never> {
+        guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
+        return leoRuntime.model.objectWillChange.map { _ in () }
+            .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .eraseToAnyPublisher()
+    }
+
+    /// Whether the selected agent has a task, as the selection changes.
+    private var leoActivityChanges: AnyPublisher<Bool, Never> {
+        leoSelectionChanges.map { [weak self] in self?.selectedLeoRow?.tasks.isEmpty == false }
+            .prepend(selectedLeoRow?.tasks.isEmpty == false)
+            .eraseToAnyPublisher()
     }
 
     /// The selected agent's `<cwd> · <harness>`; empty for a terminal row,
