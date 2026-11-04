@@ -17,7 +17,7 @@ struct LeoTaskListView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 14) {
             ForEach(ordered) { task in
                 LeoTaskDetailRow(task: task, etaAt: tasks.eta(for: task), now: now) { dismiss(task) }
             }
@@ -35,19 +35,19 @@ struct LeoTaskDetailRow: View {
 
     var body: some View {
         let kind = LeoAgentRowPresentation.Progress.Kind(task)
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
-                if kind == .indeterminate { ProgressView().controlSize(.mini) }
-                Text(task.title).font(.callout.weight(.medium)).lineLimit(1)
+                if kind == .indeterminate { ProgressView().controlSize(.small) }
+                Text(task.title).font(.body.weight(.medium)).lineLimit(1)
                 Spacer(minLength: 4)
                 if let percent = LeoTaskDetailText.percent(task) {
-                    Text(percent).font(.caption).monospacedDigit().foregroundStyle(kind == .failed ? .red : .secondary)
+                    Text(percent).font(.subheadline).monospacedDigit().foregroundStyle(kind == .failed ? .red : .secondary)
                 }
                 if task.state == .failed, let dismiss {
-                    Button("Dismiss", action: dismiss).buttonStyle(.link).font(.caption)
+                    Button("Dismiss", action: dismiss).buttonStyle(.link).font(.subheadline)
                 }
             }
-            if kind != .indeterminate { LeoTaskBar(kind: kind) }
+            if kind != .indeterminate { LeoTaskBar(kind: kind, height: 4) }
             HStack(spacing: 6) {
                 if let status = LeoTaskDetailText.status(task, now: now) {
                     Text(status).lineLimit(1).truncationMode(.tail)
@@ -56,7 +56,7 @@ struct LeoTaskDetailRow: View {
                 Spacer(minLength: 4)
                 Text(LeoTaskDetailText.timing(task, etaAt: etaAt, now: now)).monospacedDigit().foregroundStyle(.tertiary)
             }
-            .font(.caption)
+            .font(.subheadline)
         }
         .accessibilityElement(children: .combine)
     }
@@ -82,7 +82,7 @@ struct LeoTaskPopover: View {
                 LeoTaskListView(tasks: tasks, now: context.date, dismiss: dismiss)
             }
             .padding(12)
-            .frame(width: 300)
+            .frame(width: 340)
         }
     }
 }
