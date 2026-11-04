@@ -27,9 +27,18 @@ final class LeoToolbarInset: ObservableObject {
         max(0, contentHeight - contentLayoutMaxY)
     }
 
+    /// In native full screen the toolbar is auto-hidden at rest and
+    /// overlays the content when revealed, so nothing is reserved for it
+    /// (`contentLayoutRect` still excludes it, which left a blank band).
+    nonisolated static func measure(isFullScreen: Bool, contentHeight: CGFloat, contentLayoutMaxY: CGFloat) -> CGFloat {
+        isFullScreen ? 0 : height(contentHeight: contentHeight, contentLayoutMaxY: contentLayoutMaxY)
+    }
+
     func update(from window: NSWindow) {
         guard let content = window.contentView else { return }
-        let measured = Self.height(contentHeight: content.frame.height, contentLayoutMaxY: window.contentLayoutRect.maxY)
+        let measured = Self.measure(
+            isFullScreen: window.styleMask.contains(.fullScreen), contentHeight: content.frame.height,
+            contentLayoutMaxY: window.contentLayoutRect.maxY)
         if measured != height { height = measured }
     }
 }

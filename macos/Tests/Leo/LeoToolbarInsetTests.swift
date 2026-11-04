@@ -25,4 +25,38 @@ struct LeoToolbarInsetTests {
         let inset = LeoToolbarInset(height: 52)
         #expect(inset.headerTop == 52 + LeoSidebarChromeMetrics.topInset)
     }
+
+    /// The window's own state: a titled window with a toolbar leaves a gap
+    /// above its content layout rect; the same window in native full screen
+    /// has its toolbar auto-hidden, and the content reaches the top.
+    private static func makeWindow(fullScreen: Bool) -> NSWindow {
+        let window = (fullScreen ? FullScreenWindow.self : NSWindow.self).init(
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 400),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: true)
+        window.toolbarStyle = .unified
+        window.toolbar = NSToolbar(identifier: "leo.test.toolbar.\(UUID().uuidString)")
+        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 600, height: 400))
+        return window
+    }
+
+    /// A window reporting native full screen: setting the real style bit on
+    /// an off-screen window would try to run the full-screen transition.
+    private final class FullScreenWindow: NSWindow {
+        override var styleMask: NSWindow.StyleMask {
+            get { super.styleMask.union(.fullScreen) }
+            set { super.styleMask = newValue }
+        }
+    }
+
+    @Test func aWindowedToolbarReservesItsHeight() {
+        let inset = LeoToolbarInset()
+        inset.update(from: Self.makeWindow(fullScreen: false))
+        #expect(inset.height > 0)
+    }
+
+    @Test func nativeFullScreenWithTheToolbarAutoHiddenHasNoInset() {
+        let inset = LeoToolbarInset(height: 52)
+        inset.update(from: Self.makeWindow(fullScreen: true))
+        #expect(inset.height == 0)
+    }
 }
