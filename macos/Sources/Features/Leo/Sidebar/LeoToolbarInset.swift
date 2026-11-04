@@ -12,6 +12,10 @@ final class LeoToolbarInset: ObservableObject {
     /// top: 0 while the window shows no toolbar.
     @Published private(set) var height: CGFloat
 
+    /// Whether the window is in native full screen: the terminal then
+    /// ignores the top safe area too, which still holds the hidden toolbar.
+    @Published private(set) var isFullScreen = false
+
     init(height: CGFloat = 0) {
         self.height = height
     }
@@ -36,8 +40,10 @@ final class LeoToolbarInset: ObservableObject {
 
     func update(from window: NSWindow) {
         guard let content = window.contentView else { return }
+        let isFullScreen = window.styleMask.contains(.fullScreen)
+        if isFullScreen != self.isFullScreen { self.isFullScreen = isFullScreen }
         let measured = Self.measure(
-            isFullScreen: window.styleMask.contains(.fullScreen), contentHeight: content.frame.height,
+            isFullScreen: isFullScreen, contentHeight: content.frame.height,
             contentLayoutMaxY: window.contentLayoutRect.maxY)
         if measured != height { height = measured }
     }

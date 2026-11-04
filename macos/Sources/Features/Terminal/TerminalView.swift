@@ -62,6 +62,13 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     /// -- a window resize -- forced a re-evaluation. Mirroring the published
     /// set into view state gives SwiftUI the dependency it needs.
     @State private var leoPlaceholderSurfaceIDs: Set<UUID> = []
+    /// Mirrors `leoSession.toolbarInset.isFullScreen` for the same reason.
+    @State private var leoIsFullScreen = false
+
+    private var leoIsFullScreenPublisher: AnyPublisher<Bool, Never> {
+        leoSession?.toolbarInset.$isFullScreen.eraseToAnyPublisher()
+            ?? Empty(completeImmediately: false).eraseToAnyPublisher()
+    }
 
     /// Publisher for the above; `Empty` keeps the `onReceive` well-typed when
     /// there is no Leo session (a non-Leo window).
@@ -183,6 +190,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
             .onReceive(leoPlaceholderSurfaceIDsPublisher) { leoPlaceholderSurfaceIDs = $0 }
+            .onReceive(leoIsFullScreenPublisher) { leoIsFullScreen = $0 }
         }
     }
 
@@ -261,7 +269,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
         // only its split ignores the top edge (the glass sidebar runs under
         // the toolbar). That also keeps the scroll pocket's blur off the
         // terminal's text.
-        guard leoSession == nil else { return [] }
+        // Native full screen hides the toolbar at rest (it overlays the
+        // content when revealed), so the terminal then reaches the top.
+        guard leoSession == nil else { return leoIsFullScreen ? .top : [] }
         return ghostty.config.macosTitlebarStyle == .hidden ? .top : []
     }
 }

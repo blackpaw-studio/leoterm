@@ -19,7 +19,7 @@ struct LeoAgentControlBar: View {
     let unreadCount: Int
     /// Agents ▸ Message Agent while the prompt field is hidden.
     let focusChat: () -> Void
-    /// The bar's width, which folds Compact, then Clear, away when short.
+    /// The bar's width, which folds Compact, Clear, Interrupt, then Send away when short.
     let barWidth: CGFloat
 
     static let height: CGFloat = 40
@@ -37,12 +37,14 @@ struct LeoAgentControlBar: View {
                     onSubmit: send
                 )
                 .frame(minWidth: LeoControlBarFold.promptMinWidth)
-                sendButton
+                if fold.showsSend { sendButton }
             } else {
                 Spacer(minLength: 0)
             }
-            symbolButton("stop.circle", "Interrupt", "Interrupt \(row.displayName) (⌃⌘.)", availability.canInterrupt) {
-                Task { await control.interrupt(row) }
+            if fold.showsInterrupt {
+                symbolButton("stop.circle", "Interrupt", "Interrupt \(row.displayName) (⌃⌘.)", availability.canInterrupt) {
+                    Task { await control.interrupt(row) }
+                }
             }
             if fold.showsCompact {
                 symbolButton("arrow.down.right.and.arrow.up.left", "Compact", "Compact \(row.displayName)’s context (⌃⌘K)", availability.canCompact) {
@@ -52,7 +54,7 @@ struct LeoAgentControlBar: View {
             if fold.showsClear {
                 symbolButton("eraser", "Clear", "Clear \(row.displayName)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
             }
-            Divider().frame(height: 18)
+            if fold.showsInterrupt { Divider().frame(height: 18) }
             LeoAgentViewSwitch(agentName: row.name, active: layout.activeSegments, choose: choose)
                 .chatSegmentBadge(unreadCount: unreadCount)
         }
