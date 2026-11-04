@@ -19,10 +19,13 @@ struct LeoAgentControlBar: View {
     let unreadCount: Int
     /// Agents ▸ Message Agent while the prompt field is hidden.
     let focusChat: () -> Void
+    /// The bar's width, which folds Compact, then Clear, away when short.
+    let barWidth: CGFloat
 
     static let height: CGFloat = 40
 
     var body: some View {
+        let fold = LeoControlBarFold(barWidth: barWidth)
         HStack(spacing: 8) {
             // Chat in the terminal's place: its composer is the only input.
             if layout.isTerminalVisible {
@@ -33,6 +36,7 @@ struct LeoAgentControlBar: View {
                     handle: handle,
                     onSubmit: send
                 )
+                .frame(minWidth: LeoControlBarFold.promptMinWidth)
                 sendButton
             } else {
                 Spacer(minLength: 0)
@@ -40,10 +44,14 @@ struct LeoAgentControlBar: View {
             symbolButton("stop.circle", "Interrupt", "Interrupt \(row.displayName) (⌃⌘.)", availability.canInterrupt) {
                 Task { await control.interrupt(row) }
             }
-            symbolButton("arrow.down.right.and.arrow.up.left", "Compact", "Compact \(row.displayName)’s context (⌃⌘K)", availability.canCompact) {
-                Task { await control.compact(row) }
+            if fold.showsCompact {
+                symbolButton("arrow.down.right.and.arrow.up.left", "Compact", "Compact \(row.displayName)’s context (⌃⌘K)", availability.canCompact) {
+                    Task { await control.compact(row) }
+                }
             }
-            symbolButton("eraser", "Clear", "Clear \(row.displayName)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
+            if fold.showsClear {
+                symbolButton("eraser", "Clear", "Clear \(row.displayName)’s conversation… (⌃⇧⌘K)", availability.canClear, action: clear)
+            }
             Divider().frame(height: 18)
             LeoAgentViewSwitch(agentName: row.name, active: layout.activeSegments, choose: choose)
                 .chatSegmentBadge(unreadCount: unreadCount)
@@ -176,7 +184,8 @@ struct LeoAgentControlBarHost: View {
             layout: layout,
             choose: { session.select($0, for: row.id) },
             unreadCount: unreadCount,
-            focusChat: session.requestChatFocus
+            focusChat: session.requestChatFocus,
+            barWidth: contentWidth
         )
     }
 }
