@@ -41,7 +41,7 @@ Updates are upserts: omitted fields keep their value. Strings are trimmed, and c
 - **MCP tool `leo_progress`** in the leo MCP server: `{id, title?, percent?, indeterminate?, status?, eta_seconds?, state?}`. It uses the calling agent's identity. An agent can only write its own tasks.
 - **CLI `leo progress <id> [--title] [--percent N | --indeterminate] [--status] [--eta 90s|5m] [--done | --fail | --cancel]`**. It authenticates with the same per-agent token the hook route uses, read from the agent's environment, so scripts inside an agent's pane can report.
 - Both call one token-authenticated route that sits alongside `POST /api/agent/hook`.
-- **Dismiss**: operator-authenticated `DELETE /api/v1/agents/{name}/tasks/{id}`. The apps call it; agents can't.
+- **Dismiss**: operator-authenticated `DELETE /api/v1/agents/{name}/tasks/{id}`. The apps call it; agents can't. Any ended task (`succeeded`, `failed`, `cancelled`) can be dismissed; a running task returns 409.
 - Tasks ride on `/state` agent rows and on a change event on `/events` (unix socket and web). Broadcasts are coalesced to ≤ 2 per second per task.
 
 Daemon changes ship as a PR in `~/.leo/agents/leo`, reviewed and merged by the `leo` agent. The apps tolerate a daemon that doesn't send `tasks` (decode is lenient and the feature stays hidden).
@@ -57,11 +57,11 @@ Daemon changes ship as a PR in `~/.leo/agents/leo`, reviewed and merged by the `
 
 - **Mac sidebar row (A).** A thin bar under the subtitle. The subtitle reads `title · status · 62% · 4m`. Indeterminate tasks get an animated bar. Several tasks add a `+N` badge. Stale tasks get a dimmed bar plus "stale". Failed tasks get a red bar with "Failed: title". **Needs-you attention wins**: when attention is set, the subtitle shows attention and the bar is hidden.
 - **Mac detail (A + B).**
-  - A: clicking the row's bar opens a popover anchored on the row. It lists every task for that agent with its bar or spinner, status, ETA or elapsed time, end state, and a Dismiss control on failed tasks.
+  - A: clicking the row's bar opens a popover anchored on the row. It lists every task for that agent with its bar or spinner, status, ETA or elapsed time, end state, and a Dismiss control on every ended task.
   - B: a strip in the selected agent's pane header, above the terminal. Collapsed, it shows one line with the primary task. Expanded, it shows the same list as the popover. It is hidden when the agent has no tasks.
 - **iOS agent cell (2).** An inline bar under the subtitle. Same text, `+N` and attention rules as the Mac row.
-- **iOS AgentDetail.** A Tasks section listing every task. Swipe to dismiss a failed task.
-- **Chat panel (B), Mac + iOS.** A translucent card docked at the top-right of the chat panel. It lists running and undismissed failed tasks across all agents: emoji, agent name, title, bar or spinner, %/status, ETA. It is expanded by default. It collapses to a "Tasks 3 · 62%" header, and the collapsed state is remembered per device. It is hidden when there are no tasks. Tapping a row selects that agent. Failed rows have Dismiss. On iPhone (compact width) the card spans the width under the nav bar (16 pt inset) and starts collapsed; the remembered collapsed state still applies once the user toggles it.
+- **iOS AgentDetail.** A Tasks section listing every task. Swipe to dismiss any ended task.
+- **Chat panel (B), Mac + iOS.** A translucent card docked at the top-right of the chat panel. It lists running and undismissed failed tasks across all agents: emoji, agent name, title, bar or spinner, %/status, ETA. It is expanded by default. It collapses to a "Tasks 3 · 62%" header, and the collapsed state is remembered per device. It is hidden when there are no tasks. Tapping a row selects that agent. Failed rows have Dismiss (the panel lists no finished tasks). On iPhone (compact width) the card spans the width under the nav bar (16 pt inset) and starts collapsed; the remembered collapsed state still applies once the user toggles it.
 - **Notifications.** A system notification on `succeeded` or `failed`, suppressed when the app is frontmost with that agent selected. Mac: always delivered (the app is long-running). iOS: delivered while the app is receiving events. Remote push while suspended is out of scope.
 
 ## Out of scope
