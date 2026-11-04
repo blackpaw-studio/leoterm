@@ -76,7 +76,7 @@ OSC 9;4 ingestion, persistence across daemon restarts, web dashboard UI, iOS rem
 
 ## Amendment 2026-11-03: automatic tasks and agent guidance
 
-Status: DRAFT (awaiting Evan). Goal: progress shows up without users adding instructions to their config. Leo ships the behavior itself.
+Status: APPROVED (Evan, 2026-11-03). Goal: progress shows up without users adding instructions to their config. Leo ships the behavior itself.
 
 ### 1. Automatic tasks (daemon-originated)
 
