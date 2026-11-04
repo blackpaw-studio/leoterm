@@ -19,11 +19,12 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     let banner = LeoHandoffBanner()
     let pageSlot = LeoAgentBrowserSlot()
     private let emptyLabel = NSTextField(labelWithString: "Waiting for the agent to open a page.")
-    private let headerTopInset: CGFloat?
+    private let headerTopInset: LeoToolbarInset?
     private var subscription: AnyCancellable?
+    private var insetSubscription: AnyCancellable?
 
     /// Binds right away: a collapsed split item's view isn't loaded until it is shown.
-    init(source: any LeoAgentBrowserPaneSource, headerTopInset: CGFloat? = nil) {
+    init(source: any LeoAgentBrowserPaneSource, headerTopInset: LeoToolbarInset? = nil) {
         model = LeoAgentBrowserPaneModel(source: source)
         self.headerTopInset = headerTopInset
         super.init(nibName: nil, bundle: nil)
@@ -69,7 +70,11 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
             spacer.setAccessibilityElement(false)
             stack.insertArrangedSubview(spacer, at: 0)
             spacer.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
-            spacer.heightAnchor.constraint(equalToConstant: headerTopInset).isActive = true
+            let height = spacer.heightAnchor.constraint(equalToConstant: headerTopInset.headerTop)
+            height.isActive = true
+            insetSubscription = headerTopInset.$height.sink { [weak height] toolbarHeight in
+                height?.constant = LeoToolbarInset.headerTop(forHeight: toolbarHeight)
+            }
             topSpacer = spacer
         }
         view = stack

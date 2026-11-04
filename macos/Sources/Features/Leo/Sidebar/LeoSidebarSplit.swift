@@ -186,8 +186,8 @@ struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var actions: LeoAgentActions
     @ObservedObject var unread: LeoChatUnreadStore
     private let terminal: Terminal
-    /// The top safe-area edges the split and the sidebar extend into (the
-    /// hidden titlebar style, B-074). See `LeoTitlebarInsets`.
+    /// The top safe-area edges the split and the sidebar extend into (an
+    /// agent window's toolbar region). See `LeoTitlebarInsets`.
     private let titlebarIgnoredEdges: Edge.Set
     /// The sidebar footer's buttons (B-065): see `LeoSidebarView`.
     private let shortcutHints: LeoShortcutHints
@@ -228,14 +228,16 @@ struct LeoSidebarSplit<Terminal: View>: View {
             sidebar: LeoSidebarView(
                 model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread,
                 searchFocusRequest: session.searchFocusRequest,
-                shortcutHints: shortcutHints, buttonActions: buttonActions
+                shortcutHints: shortcutHints, buttonActions: buttonActions,
+                toolbarInset: session.toolbarInset
             )
             .environment(\.leoAgentBrowserBadges, session.agentBrowserBadges)
             .ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
-            sidePaneHeaderTopInset: LeoTitlebarInsets.sidePaneHeaderTopInset,
+            sidePaneHeaderTopInset: session.toolbarInset,
             panes: session.panes,
             onPaneContainer: { session.adopt($0) },
+            onSplitViewReady: { [weak session] in session?.onSplitViewReady($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.
             onSidebarAutoCollapse: { session.isSidebarVisible = false },

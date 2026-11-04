@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import GhosttyKit
 import SwiftUI
 
@@ -111,6 +112,35 @@ extension TerminalController {
             Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config($0, GHOSTTY_SURFACE_CONTEXT_TAB))
         }
         leoRuntime.routeNewSurface(surfaceTree.isEmpty ? .placeholder : .content, origin: leoSession.id, inheritedConfig: inherited)
+    }
+
+    /// Puts the agent toolbar on an agent window and keeps its subtitle on
+    /// the selected agent's `<cwd> · <harness>`. A window without decorations
+    /// is a plain `TerminalWindow` and gets neither.
+    func leoInstallAgentToolbar() {
+        guard let window = window as? LeoAgentTerminalWindow, let leoSession, let leoRuntime else { return }
+        window.installToolbar(inset: leoSession.toolbarInset)
+        window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
+        leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
+        // `objectWillChange` fires before the change lands: read next turn.
+        leoRuntime.model.objectWillChange.map { _ in () }
+            .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.leoRefreshSubtitle() }
+            .store(in: &window.chromeSubscriptions)
+        leoRefreshSubtitle()
+    }
+
+    /// The selected agent's `<cwd> · <harness>`; empty for a terminal row,
+    /// the start screen, or while disconnected.
+    func leoRefreshSubtitle() {
+        guard let window = window as? LeoAgentTerminalWindow, let leoRuntime else { return }
+        let text = selectedLeoRow.map { row in
+            LeoAgentWindowSubtitle.text(
+                workspace: row.workspace, harness: row.harness, host: row.host,
+                localHome: NSHomeDirectory(), remoteUser: leoRuntime.machines.configuration(for: row.host)?.user)
+        } ?? ""
+        if window.subtitle != text { window.subtitle = text }
     }
 
     @IBAction func toggleLeoSidebar(_ sender: Any?) {

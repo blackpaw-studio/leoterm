@@ -4,11 +4,12 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-100: the side panes' header rows (the workspace browser's and the
-/// editor's) against the window's top edge. In the hidden titlebar style
-/// the split runs to the window's top edge (B-074, D-169), so their headers
-/// take the sidebar header's top inset and centre on its line; the titled
-/// styles take the same inset under the titlebar (B-154).
+/// B-100, reworked for the agent toolbar: the side panes' header rows (the
+/// workspace browser's and the editor's) against the toolbar. The split runs
+/// to the window's top edge in every style (the glass sidebar goes under the
+/// traffic lights), so the panes' headers take the sidebar header's line:
+/// the chrome's top inset under the toolbar's bottom edge
+/// (`contentLayoutRect`), and centre on it together (B-153, B-154).
 ///
 /// Builds the window the way `LeoSidebarTitlebarStyleTests` does (a real
 /// `TerminalController` on a config that sets only the style) and shows
@@ -28,58 +29,14 @@ struct LeoSidePaneTitlebarStyleTests {
     /// off a whole-point line there).
     private static let centreTolerance: CGFloat = 0.5
 
-    /// `.hostOnly`: hosted macos-26 insets the headers differently (30 pt off), AppKit layout rather than ours.
-    @Test(.hostOnly) func theHiddenStyleInsetsTheSidePaneHeadersLikeTheSidebarHeader() async throws {
-        let fixture = try await StyledWindowFixture.make(.hidden)
-        defer { fixture.close() }
-        // Measured before the panes open: that resizes the window.
-        let sidebarTop = fixture.windowTop - fixture.header.maxY
-        let sidebarView = try #require(fixture.split.sidebarItem?.viewController.view, "no sidebar view")
-        let plus = try #require(
-            InkBounds.measure(sidebarView, in: sidebarView.convert(fixture.accessory, from: nil).insetBy(dx: -3, dy: -3)),
-            "the sidebar + button draws nothing")
-        let sidebarButtonCentre = fixture.windowTop - plus.midY
-        let panes = try await SidePaneHeaders.measure(in: fixture, size: Self.windowSize)
-        // Absolute: the sidebar bound above ties the panes to the window's
-        // top edge only through the sidebar header (B-151).
-        let expectedCentre = LeoSidebarChromeMetrics.topInset + LeoSidebarChromeMetrics.headerRowHeight / 2
-
-        // B-153: the sidebar's + and both close glyphs, as drawn, share one
-        // centre line: the one the metrics put them on, and each other's.
-        // (The + was measured before the window resized above.)
-        #expect(
-            abs(sidebarButtonCentre - expectedCentre) <= Self.centreTolerance,
-            "the sidebar + button centres \(sidebarButtonCentre) pt under the window's top edge, not \(expectedCentre); \(panes)"
-        )
-        let centres = [sidebarButtonCentre] + panes.all.map { fixture.windowTop - $0.glyph.midY }
-        let spread = (centres.max() ?? 0) - (centres.min() ?? 0)
-        #expect(
-            spread <= Self.centreTolerance,
-            "the sidebar + (\(sidebarButtonCentre)), browser and editor close glyphs centre \(centres) pt under the window's top edge, \(spread) pt apart; \(panes)"
-        )
-        for pane in panes.all {
-            let top = fixture.windowTop - pane.glyph.maxY
-            let centre = fixture.windowTop - pane.glyph.midY
-            #expect(
-                abs(centre - expectedCentre) <= Self.centreTolerance,
-                "the \(pane.name) close glyph centres \(centre) pt under the window's top edge, not the inset + half a header row, \(expectedCentre); \(panes)"
-            )
-            #expect(
-                top >= sidebarTop - 1,
-                "the \(pane.name) header rises above the sidebar's \(sidebarTop) pt inset to \(top) pt; \(panes)"
-            )
-        }
-    }
-
-    /// B-154: under a titlebar the side panes' close glyphs sit on the
-    /// sidebar header's line (D-258), their centre the chrome's top inset
-    /// plus half a header row under the titlebar's bottom edge, not tight
-    /// under it (the browser's was 8 pt short). The
-    /// sidebar + (measured before the panes open) is the reference; the
-    /// absolute figure pins both, so a shift in the two together still fails.
-    /// `.hostOnly`: hosted macos-26 centres the glyphs 8 pt off the sidebar line, AppKit layout rather than ours.
-    @Test(.hostOnly, arguments: [TitlebarStyle.native, .transparent, .tabs])
-    func titledStylesCentreTheSidePaneCloseGlyphsOnTheSidebarHeaderLine(_ style: TitlebarStyle) async throws {
+    /// The sidebar's + and both close glyphs, as drawn, share one centre
+    /// line: the chrome's top inset plus half a header row under the
+    /// toolbar's bottom edge. The sidebar + (measured before the panes
+    /// open, which resizes the window) is the reference; the absolute
+    /// figure pins both, so a shift in the two together still fails.
+    /// `.hostOnly`: hosted macos-26 centres the glyphs off the sidebar line, AppKit layout rather than ours.
+    @Test(.hostOnly, arguments: TitlebarStyle.allCases)
+    func sidePaneCloseGlyphsCentreOnTheSidebarHeaderLineUnderTheToolbar(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }
         let sidebarView = try #require(fixture.split.sidebarItem?.viewController.view, "no sidebar view")
@@ -91,16 +48,16 @@ struct LeoSidePaneTitlebarStyleTests {
         let expectedLine = LeoSidebarChromeMetrics.topInset + LeoSidebarChromeMetrics.headerRowHeight / 2
         let splitTop = fixture.split.splitView.convert(fixture.split.splitView.bounds, to: nil).maxY
 
-        #expect(splitTop == fixture.titlebarBottom, "\(style): \(fixture.diagnostics)")
+        #expect(splitTop == fixture.windowTop, "\(style): \(fixture.diagnostics)")
         #expect(
             abs(sidebarLine - expectedLine) <= Self.centreTolerance,
-            "\(style): the sidebar + centres \(sidebarLine) pt under the titlebar, not \(expectedLine); \(panes)"
+            "\(style): the sidebar + centres \(sidebarLine) pt under the toolbar, not \(expectedLine); \(panes)"
         )
         for pane in panes.all {
             let line = fixture.titlebarBottom - pane.glyph.midY
             #expect(
-                abs(line - sidebarLine) <= Self.centreTolerance,
-                "\(style): the \(pane.name) close glyph centres \(line) pt under the titlebar, the sidebar + \(sidebarLine); \(panes)"
+                abs(line - expectedLine) <= Self.centreTolerance,
+                "\(style): the \(pane.name) close glyph centres \(line) pt under the toolbar, not \(expectedLine); \(panes)"
             )
         }
     }

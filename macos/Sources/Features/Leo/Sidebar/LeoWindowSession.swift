@@ -51,6 +51,12 @@ struct LeoWindowVisibilityState: Equatable {
     /// switch goes to Terminal: the chat's ✕, the toggle, or the segment.
     let chatViewer = LeoChatViewerModel()
     /// Each agent's Terminal | Chat switch in this window.
+    /// The window's toolbar height, which the glass sidebar and the side
+    /// panes' headers clear (`LeoToolbarInset`).
+    let toolbarInset = LeoToolbarInset()
+    /// The window's `NSSplitView` is in the window: the toolbar's tracking
+    /// separator can bind to it.
+    var onSplitViewReady: (NSSplitView) -> Void = { _ in }
     @Published private(set) var viewChoices = LeoAgentViewChoices()
     /// Bumped when the switch asks for the chat composer to take focus; the
     /// pending flag covers a composer that only appears with the request.

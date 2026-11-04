@@ -12,9 +12,9 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
     let model: LeoWorkspaceBrowserModel
     /// How far below the pane's top edge its header row starts, centred on
-    /// the sidebar header's line; nil keeps the header's own row. See
-    /// `LeoTitlebarInsets.sidePaneHeaderTopInset`.
-    private let headerTopInset: CGFloat?
+    /// the sidebar header's line under the toolbar; nil keeps the header's
+    /// own row. See `LeoTitlebarInsets`.
+    private let headerTopInset: LeoToolbarInset?
     let outlineView = LeoWorkspaceOutlineView()
     /// Escape: back to the terminal beside the browser.
     var onEscape: () -> Void = {}
@@ -35,7 +35,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
 
     /// Binds to the model right away, as the editor pane does: a collapsed
     /// split item's view isn't loaded until it is shown.
-    init(model: LeoWorkspaceBrowserModel, headerTopInset: CGFloat? = nil) {
+    init(model: LeoWorkspaceBrowserModel, headerTopInset: LeoToolbarInset? = nil) {
         self.model = model
         self.headerTopInset = headerTopInset
         super.init(nibName: nil, bundle: nil)
@@ -71,7 +71,7 @@ final class LeoWorkspaceBrowserViewController: NSViewController {
         stack.setHuggingPriority(.defaultLow, for: .vertical)
         stack.setAccessibilityLabel("Workspace files")
         if let headerTopInset {
-            LeoTitlebarInsets.insetHeader(of: stack, at: headerTopInset, centring: close)
+            LeoTitlebarInsets.insetHeader(of: stack, inset: headerTopInset, centring: close).store(in: &subscriptions)
         }
         view = stack
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth).isActive = true

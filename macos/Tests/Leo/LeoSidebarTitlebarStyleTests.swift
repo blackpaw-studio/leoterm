@@ -5,14 +5,15 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-074: the sidebar header against the window's buttons, for every
-/// `macos-titlebar-style`. Each test builds a window the way the app does:
-/// a `Ghostty.App` loaded from a config file that sets the style (and
+/// B-074, reworked for the agent toolbar: every Leo agent window is a
+/// `LeoAgentTerminalWindow` with a unified toolbar whatever
+/// `macos-titlebar-style` says. Each test builds a window the way the app
+/// does: a `Ghostty.App` loaded from a config file that sets the style (and
 /// nothing else), and a real `TerminalController` on it, which picks the
-/// style's nib and window subclass itself. The real `LeoSidebarSplit` lays
-/// out inside; the header's frame and the window buttons' frames are then
-/// compared in window coordinates. The windows are shown, never made key,
-/// so AppKit places the titlebar and buttons.
+/// window's nib itself. The real `LeoSidebarSplit` lays out inside; the
+/// header's frame and the window buttons' frames are then compared in
+/// window coordinates. The windows are shown, never made key, so AppKit
+/// places the toolbar and buttons.
 ///
 /// Needs the test host's `LeoRuntime` and a loadable Ghostty config; either
 /// missing fails the test rather than passing it silently.
@@ -21,6 +22,37 @@ struct LeoSidebarTitlebarStyleTests {
     /// How far a header row may sit from where the chrome metrics put it:
     /// the row's height is the button's, so the title is centred in it.
     private static let rowTolerance: CGFloat = 6
+
+    @Test(arguments: TitlebarStyle.allCases)
+    func everyStyleOpensALeoAgentWindow(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
+        defer { fixture.close() }
+
+        #expect(fixture.window is LeoAgentTerminalWindow, "\(style): \(type(of: fixture.window))")
+        #expect(fixture.window.toolbar != nil, "\(style): no toolbar")
+    }
+
+    @Test(arguments: TitlebarStyle.allCases)
+    func theToolbarHoldsTheAgentItemsWithTheCapsuleCentred(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
+        defer { fixture.close() }
+        let toolbar = try #require(fixture.window.toolbar, "\(style): no toolbar")
+
+        #expect(
+            toolbar.items.map(\.itemIdentifier) == LeoAgentToolbar.itemOrder,
+            "\(style): \(toolbar.items.map(\.itemIdentifier.rawValue))")
+        #expect(toolbar.centeredItemIdentifiers == [.leoActivity], "\(style)")
+        #expect(!toolbar.allowsUserCustomization, "\(style)")
+        #expect(fixture.window.toolbarStyle == .unified, "\(style)")
+    }
+
+    @Test(arguments: TitlebarStyle.allCases)
+    func allThreeWindowButtonsAreVisible(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
+        defer { fixture.close() }
+
+        #expect(fixture.visibleWindowButtons.count == 3, "\(style): \(fixture.visibleWindowButtons)")
+    }
 
     @Test(arguments: TitlebarStyle.allCases)
     func theWindowButtonsNeverOverlapTheSidebarHeader(_ style: TitlebarStyle) async throws {
@@ -32,49 +64,49 @@ struct LeoSidebarTitlebarStyleTests {
         }
     }
 
-    /// Ghostty hides the titlebar and the window buttons in this style, so
-    /// the split (sidebar and terminal) runs to the window's top edge and the
-    /// header takes the top strip with only the chrome's own inset -- no
-    /// room reserved for buttons that aren't drawn.
-    @Test func theHiddenStyleDrawsNoButtonsAndReservesNoRoomForThem() async throws {
-        let fixture = try await StyledWindowFixture.make(.hidden)
-        defer { fixture.close() }
-
-        #expect(fixture.window is HiddenTitlebarTerminalWindow, "\(type(of: fixture.window))")
-        #expect(fixture.visibleWindowButtons.isEmpty, "buttons drawn: \(fixture.visibleWindowButtons)")
-        #expect(fixture.splitTop == fixture.windowTop, "an empty band above the split: \(fixture.diagnostics)")
-    }
-
-    /// The header's inset under the hidden titlebar's top edge.
-    /// `.hostOnly`: hosted macos-26 places the header ~26 pt lower than the chrome metrics, AppKit layout rather than ours.
-    @Test(.hostOnly) func theHiddenStyleHeaderSitsTheChromeInsetUnderTheTopEdge() async throws {
-        let fixture = try await StyledWindowFixture.make(.hidden)
-        defer { fixture.close() }
-
-        let gap = fixture.windowTop - fixture.header.maxY
-        #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "the header sits \(gap) pt under the window's top edge; \(fixture.diagnostics)")
-        #expect(
-            gap <= LeoSidebarChromeMetrics.topInset + Self.rowTolerance,
-            "the header sits \(gap) pt under the window's top edge; \(fixture.diagnostics)"
-        )
-    }
-
-    /// The titled styles (the default, `transparent`, among them) keep
-    /// D-122's layout: the split starts at the titlebar's bottom edge and
-    /// the header clears it by the chrome's top inset.
-    /// `.hostOnly`: hosted macos-26 places the header 2 pt past the tolerance, AppKit layout rather than ours.
-    @Test(.hostOnly, arguments: [TitlebarStyle.native, .transparent, .tabs, .tabsVentura])
-    func titledStylesKeepTheHeaderTheChromeInsetBelowTheTitlebar(_ style: TitlebarStyle) async throws {
+    /// The glass sidebar runs to the window's top edge, under the traffic
+    /// lights; the toolbar's real inset is what the header takes.
+    @Test(arguments: TitlebarStyle.allCases)
+    func theSplitRunsToTheWindowTop(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }
 
-        #expect(fixture.splitTop == fixture.titlebarBottom, "\(style): the split runs under the titlebar; \(fixture.diagnostics)")
+        #expect(fixture.splitTop == fixture.windowTop, "\(style): \(fixture.diagnostics)")
+    }
+
+    /// The header's inset under the toolbar's bottom edge
+    /// (`contentLayoutRect`), whatever height the toolbar has.
+    /// `.hostOnly`: hosted macos-26 places the header differently, AppKit layout rather than ours.
+    @Test(.hostOnly, arguments: TitlebarStyle.allCases)
+    func theHeaderSitsTheChromeInsetBelowTheToolbar(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
+        defer { fixture.close() }
+
         let gap = fixture.titlebarBottom - fixture.header.maxY
-        #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "\(style): the header sits \(gap) pt under the titlebar; \(fixture.diagnostics)")
+        #expect(gap >= LeoSidebarChromeMetrics.topInset - 1, "\(style): the header sits \(gap) pt under the toolbar; \(fixture.diagnostics)")
         #expect(
             gap <= LeoSidebarChromeMetrics.topInset + Self.rowTolerance,
-            "\(style): the header sits \(gap) pt under the titlebar; \(fixture.diagnostics)"
+            "\(style): the header sits \(gap) pt under the toolbar; \(fixture.diagnostics)"
         )
+    }
+
+    /// With decorations off there's no titlebar and so no toolbar.
+    @Test func aWindowWithoutDecorationsHasNoToolbar() async throws {
+        let fixture = try await StyledWindowFixture.make(.native, decorations: false)
+        defer { fixture.close() }
+
+        #expect(!(fixture.window is LeoAgentTerminalWindow), "\(type(of: fixture.window))")
+        #expect(fixture.window.toolbar == nil)
+    }
+
+    /// Only an agent window's split extends into the toolbar's region.
+    @Test func onlyAnAgentWindowSplitIgnoresTheTopEdge() async throws {
+        let fixture = try await StyledWindowFixture.make(.native)
+        defer { fixture.close() }
+
+        #expect(LeoTitlebarInsets.splitIgnoredEdges(in: fixture.window) == .top)
+        #expect(LeoTitlebarInsets.splitIgnoredEdges(in: NSWindow()) == [])
+        #expect(LeoTitlebarInsets.splitIgnoredEdges(in: nil) == [])
     }
 
     /// The split applies the sidebar's stored width after the first layout,
@@ -104,30 +136,24 @@ struct LeoSidebarTitlebarStyleTests {
     }
 }
 
-/// A `macos-titlebar-style` value, plus the pre-Tahoe tabs window, which
-/// config can't select on macOS 26 and later.
+/// A `macos-titlebar-style` value. Leo windows ignore it (they always take
+/// the agent toolbar window), which the tests above pin for every value.
 enum TitlebarStyle: String, CaseIterable, CustomTestStringConvertible {
     case native
     case transparent
     case tabs
     case hidden
-    case tabsVentura
 
     var testDescription: String { rawValue }
 
     /// The config value that selects this style.
-    var configValue: String { self == .tabsVentura ? "tabs" : rawValue }
+    var configValue: String { rawValue }
 }
 
-/// The app's own `TerminalController`, except that the pre-Tahoe tabs
-/// window is forced for `.tabsVentura`; every other style goes through the
-/// controller's own config-driven nib choice.
+/// The app's own `TerminalController` on an empty placeholder tree, so
+/// the window comes up the way the app's does, with no surface to fill.
 private final class StyledTerminalController: TerminalController {
-    private static let venturaTabsNib = "TerminalTabsTitlebarVentura"
-    private let forcesVenturaTabs: Bool
-
-    init(_ ghostty: Ghostty.App, style: TitlebarStyle) {
-        forcesVenturaTabs = style == .tabsVentura
+    init(_ ghostty: Ghostty.App) {
         super.init(ghostty, withSurfaceTree: .init(), leoIsPlaceholder: true)
     }
 
@@ -135,8 +161,6 @@ private final class StyledTerminalController: TerminalController {
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
     }
-
-    override var windowNibName: NSNib.Name? { forcesVenturaTabs ? Self.venturaTabsNib : super.windowNibName }
 
     /// The nibs live in the app, not in the test bundle this subclass
     /// comes from.
@@ -183,11 +207,11 @@ struct StyledWindowFixture {
         controller.closeTabImmediately(registerRedo: false)
     }
 
-    static func make(_ style: TitlebarStyle) async throws -> StyledWindowFixture {
+    static func make(_ style: TitlebarStyle, decorations: Bool = true) async throws -> StyledWindowFixture {
         try #require((NSApp.delegate as? AppDelegate)?.leoRuntime != nil, "the test host has no LeoRuntime")
-        let ghostty = try StyleConfig.app(for: style)
+        let ghostty = try StyleConfig.app(for: style, decorations: decorations)
         try #require(ghostty.readiness == .ready, "\(style): the Ghostty app didn't load its config")
-        let controller = StyledTerminalController(ghostty, style: style)
+        let controller = StyledTerminalController(ghostty)
         do {
             return try await measure(controller, style: style)
         } catch {
@@ -203,6 +227,10 @@ struct StyledWindowFixture {
         window.contentView?.layoutSubtreeIfNeeded()
 
         let (split, sidebar) = try #require(await sidebarHosting(in: window), "\(style): no sidebar in the split")
+        // The tracking separator joins once the split hands itself over.
+        if let toolbar = window.toolbar {
+            try #require(await toolbarIsComplete(toolbar), "\(style): the toolbar never got its separator: \(toolbar.items.map(\.itemIdentifier.rawValue))")
+        }
         let frames = HeaderProbe()
         let relative = try #require(await frames.settledHeader(probing: sidebar), "\(style): \(frames)")
         let relativeAccessory = try #require(frames.relativeAccessory, "\(style): \(frames)")
@@ -218,6 +246,15 @@ struct StyledWindowFixture {
         return StyledWindowFixture(
             controller: controller, window: window, split: split, header: header, accessory: accessory,
             splitTop: splitTop, diagnostics: diagnostics)
+    }
+
+    /// Whether the toolbar settles on `LeoAgentToolbar.itemOrder`.
+    private static func toolbarIsComplete(_ toolbar: NSToolbar) async -> Bool {
+        for _ in 0 ..< 100 {
+            if toolbar.items.map(\.itemIdentifier) == LeoAgentToolbar.itemOrder { return true }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        return false
     }
 
     /// The sidebar's hosting controller, once the split view is built.
@@ -244,12 +281,12 @@ struct StyledWindowFixture {
 /// a temporary file (never the user's config).
 @MainActor
 private enum StyleConfig {
-    static func app(for style: TitlebarStyle) throws -> Ghostty.App {
+    static func app(for style: TitlebarStyle, decorations: Bool = true) throws -> Ghostty.App {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("leo-b074-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         let file = directory.appendingPathComponent("config")
-        try "macos-titlebar-style = \(style.configValue)\n".write(to: file, atomically: true, encoding: .utf8)
+        try "macos-titlebar-style = \(style.configValue)\nwindow-decoration = \(decorations)\n".write(to: file, atomically: true, encoding: .utf8)
         let app = Ghostty.App(configPath: file.path)
         try #require(app.config.macosTitlebarStyle.rawValue == style.configValue, "\(style): the config didn't take")
         return app

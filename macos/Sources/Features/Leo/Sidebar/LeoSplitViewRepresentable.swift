@@ -37,15 +37,18 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// The window's workspace browser, an item on the editor's leading
     /// edge that collapses while it's closed (B-005).
     var browser: LeoWorkspaceBrowserModel?
-    /// Where the side panes' header rows start below the split's top edge;
-    /// nil keeps their own rows. Fixed when the panes are built, as
-    /// the window's titlebar style is (D-170).
-    var sidePaneHeaderTopInset: CGFloat?
+    /// The toolbar height the side panes' header rows start below, plus
+    /// the chrome's gap (they follow it as it changes); nil keeps their
+    /// own rows.
+    var sidePaneHeaderTopInset: LeoToolbarInset?
     /// The window's rows' panes (B-274): the editor and browser items show
     /// the pane of the row on screen. Takes the place of `editor` and
     /// `browser`.
     var panes: LeoRowPanes?
     var onPaneContainer: (LeoRowPaneContainerViewController) -> Void = { _ in }
+    /// The split view is in a window and has laid out once: the window's
+    /// toolbar can bind its tracking separator to it. Called once.
+    var onSplitViewReady: (NSSplitView) -> Void = { _ in }
     /// The sidebar collapsed, or stayed collapsed, to keep the terminal at
     /// its floor (D-036, D-058).
     var onSidebarAutoCollapse: () -> Void = {}
@@ -70,6 +73,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             onSidebarAutoCollapse: onSidebarAutoCollapse,
             onSidebarAutoRestore: onSidebarAutoRestore)
 
+        components.controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
         for item in components.controller.splitViewItems {
@@ -83,6 +87,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         controller.onDividerWidthChange = onDividerWidthChange
         controller.onSidebarAutoCollapse = onSidebarAutoCollapse
         controller.onSidebarAutoRestore = onSidebarAutoRestore
+        controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting?.rootView = AnyView(sidebar)
         context.coordinator.detailHosting?.rootView = AnyView(detail)
 
@@ -151,7 +156,7 @@ enum LeoSplitViewControllerFactory {
         editor: LeoEditorTabs? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
         panes: LeoRowPanes? = nil,
-        sidePaneHeaderTopInset: CGFloat? = nil,
+        sidePaneHeaderTopInset: LeoToolbarInset? = nil,
         onSidebarAutoCollapse: @escaping () -> Void = {},
         onSidebarAutoRestore: @escaping () -> Void = {}
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
@@ -225,6 +230,10 @@ final class LeoSplitViewController: NSSplitViewController {
     /// The terminal's item.
     var detailItem: NSSplitViewItem?
     var onDividerWidthChange: ((CGFloat) -> Void)?
+    /// Handed the split view the first time it lays out inside a window;
+    /// see `LeoSplitViewRepresentable.onSplitViewReady`.
+    var onSplitViewReady: ((NSSplitView) -> Void)?
+    private var hasHandedOverSplitView = false
     /// The sidebar was collapsed to keep the terminal at its floor; the
     /// window's session records it as hidden (not persisted).
     var onSidebarAutoCollapse: () -> Void = {}
@@ -551,9 +560,20 @@ final class LeoSplitViewController: NSSplitViewController {
             DispatchQueue.main.async { [weak self] in self?.openAtHalfWidth(item) }
         }
         keepTerminalFloor()
+        handOverSplitViewOnce()
         guard let width = pendingWidth, isReadyToPositionDivider else { return }
         pendingWidth = nil
         applyProgrammaticWidth(width)
+    }
+
+    /// Hands the split view to the window's toolbar the first time it lays
+    /// out inside a window, outside this layout pass: the toolbar changes
+    /// the window's content layout.
+    private func handOverSplitViewOnce() {
+        guard !hasHandedOverSplitView, view.window != nil, let handOver = onSplitViewReady else { return }
+        hasHandedOverSplitView = true
+        let splitView = splitView
+        DispatchQueue.main.async { handOver(splitView) }
     }
 
     /// Ties the sidebar's maximum to the split's width (B-091), so a wide

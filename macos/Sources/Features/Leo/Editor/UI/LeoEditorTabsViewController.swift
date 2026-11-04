@@ -22,7 +22,7 @@ final class LeoEditorTabsViewController: NSViewController {
     /// The agent browser's view, while it is the pane's content.
     private(set) var shownBrowser: LeoAgentBrowserPaneViewController?
     private let rowPane: LeoRowPane?
-    private let headerTopInset: CGFloat?
+    private let headerTopInset: LeoToolbarInset?
     private var tabViews: [ObjectIdentifier: LeoEditorPaneViewController] = [:]
     private var browserViews: [ObjectIdentifier: LeoAgentBrowserPaneViewController] = [:]
     private var subscriptions: Set<AnyCancellable> = []
@@ -30,7 +30,7 @@ final class LeoEditorTabsViewController: NSViewController {
 
     /// Binds right away, as the pane view does: a collapsed split item's
     /// view isn't loaded until it is shown.
-    init(tabs: LeoEditorTabs, rowPane: LeoRowPane? = nil, headerTopInset: CGFloat? = nil) {
+    init(tabs: LeoEditorTabs, rowPane: LeoRowPane? = nil, headerTopInset: LeoToolbarInset? = nil) {
         self.tabs = tabs
         self.rowPane = rowPane
         self.headerTopInset = headerTopInset

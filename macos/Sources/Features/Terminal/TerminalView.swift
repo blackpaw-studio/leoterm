@@ -51,8 +51,8 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     // MARK: Leo
     let leoSession: LeoWindowSession?
 
-    /// The window edges the sidebar split extends into, past the safe area
-    /// (B-074). See `LeoTitlebarInsets`.
+    /// The window edges the sidebar split extends into, past the safe area.
+    /// See `LeoTitlebarInsets`.
     let leoSplitIgnoredEdges: Edge.Set
 
     /// Mirrors `leoSession.placeholderSurfaceIDs`. `leoSession` is a plain
@@ -158,7 +158,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     // The open chat file over the whole split. A sibling
                     // above it, not a split item, so the split is untouched.
                     LeoChatFullWindowHost(
-                        viewer: leoSession.chatViewer, session: leoSession, ignoredEdges: leoSplitIgnoredEdges
+                        // Not the split's edges: its Back row sits under
+                        // the toolbar, not behind it.
+                        viewer: leoSession.chatViewer, session: leoSession, ignoredEdges: []
                     )
                 } else {
                     terminalContent
@@ -252,11 +254,14 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
     // MARK: Leo
 
-    /// In a Leo window, the same window-keyed edges as the sidebar split
-    /// (B-074), so the terminal and the sidebar can't disagree
-    /// after a config reload; upstream's live-config check otherwise.
+    /// In a Leo window, none (see below); upstream's live-config check
+    /// otherwise.
     private var terminalIgnoredEdges: Edge.Set {
-        guard leoSession == nil else { return leoSplitIgnoredEdges }
+        // A Leo window's terminal starts under the toolbar, not behind it:
+        // only its split ignores the top edge (the glass sidebar runs under
+        // the toolbar). That also keeps the scroll pocket's blur off the
+        // terminal's text.
+        guard leoSession == nil else { return [] }
         return ghostty.config.macosTitlebarStyle == .hidden ? .top : []
     }
 }
