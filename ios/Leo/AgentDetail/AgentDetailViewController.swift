@@ -258,10 +258,10 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         cell.accessibilityIdentifier = "agent.task.\(id)"
     }
 
-    /// Swipe on a failed task: Dismiss.
+    /// Swipe on any ended task (succeeded, failed, cancelled): Dismiss. Running tasks get none.
     private func dismissAction(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
         guard case .task(let id) = dataSource.itemIdentifier(for: indexPath),
-              store.agent?.tasks.first(where: { $0.id == id })?.state == .failed else { return nil }
+              store.agent?.tasks.first(where: { $0.id == id })?.hasEnded == true else { return nil }
         let action = UIContextualAction(style: .destructive, title: String(localized: "Dismiss")) { [weak self] _, _, done in
             self?.store.send(.dismissTaskRequested(id))
             done(true)

@@ -74,6 +74,19 @@ struct FleetProgressTests {
         #expect(store.state.taskDismissError == nil)
     }
 
+    @Test(arguments: [LeoAgentTask.State.succeeded, .cancelled])
+    func dismissCallsTheDaemonForAnyEndedTask(state: LeoAgentTask.State) async {
+        let dismissed = LockIsolated<[String]>([])
+        let store = Self.store(agents: [.make("zeus", tasks: [.make("build", state: state, endedAt: Self.now)])])
+        store.dependencies.daemonClient.dismissTask = { _, agent, id in
+            dismissed.withValue { $0.append("\(agent) \(id)") }
+        }
+        await store.send(.dismissTask(Self.id, agent: "zeus", id: "build"))
+        await store.finish()
+        #expect(dismissed.value == ["zeus build"])
+        #expect(store.state.taskDismissError == nil)
+    }
+
     @Test func aGoneTaskIsNotAnError() async {
         let store = Self.store()
         store.dependencies.daemonClient.dismissTask = { _, _, _ in throw LeoAgentTaskError.notFound }
