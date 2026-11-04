@@ -197,6 +197,12 @@ struct LeoAgentViewSwitch: NSViewRepresentable {
             target: context.coordinator, action: #selector(Coordinator.clicked(_:))
         )
         control.segmentStyle = .rounded
+        if #available(macOS 26.0, *) {
+            // The native capsule: selected segments accent-filled with white
+            // text; side by side the two join into one capsule.
+            control.borderShape = .capsule
+            control.selectedSegmentBezelColor = .controlAccentColor
+        }
         control.setContentHuggingPriority(.required, for: .horizontal)
         control.setContentCompressionResistancePriority(.required, for: .horizontal)
         control.setAccessibilityLabel("View")
