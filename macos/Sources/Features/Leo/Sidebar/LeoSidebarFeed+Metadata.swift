@@ -16,6 +16,7 @@ extension LeoSidebarFeed {
             .overlayingEnvironments(environments, features: daemonFeatures)
             .overlayingAppearance(appearance, features: daemonFeatures)
             .overlayingDisplayNames(displayNames)
+            .overlayingHarness(harnesses)
             .overlayingTasks({ [self] in rowTasks(for: $0) }, features: daemonFeatures)
     }
 
@@ -48,6 +49,7 @@ extension LeoSidebarFeed {
         environments = LeoAgentEnvironmentsIndex(state: state)
         appearance = LeoAgentAppearanceIndex(state: state)
         displayNames = LeoAgentDisplayNameIndex(state: state)
+        harnesses = LeoAgentHarnessIndex(state: state)
         // Agents a task event touched after this `/state` was asked for keep
         // their event-driven tasks (the snapshot may predate the event);
         // every other agent takes the snapshot's. No refetch: the events
@@ -69,6 +71,7 @@ extension LeoSidebarFeed {
         environments = .empty
         appearance = .empty
         displayNames = .empty
+        harnesses = .empty
     }
 
     private func startMetadataFetch() {
