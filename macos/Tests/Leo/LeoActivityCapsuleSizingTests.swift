@@ -2,22 +2,63 @@ import Testing
 
 @testable import Ghostty
 
-/// The capsule's width follows the room right of the sidebar: it caps at
-/// 500 pt, and gives way to a small minimum so it still shows in a narrow
-/// window.
+/// The capsule is centred, so whatever sits left of it (the sidebar toggle
+/// and traffic lights when the sidebar is collapsed, then the window title)
+/// is also taken from its right. AppKit folds an item that doesn't fit into
+/// the overflow chevron instead of shrinking it, so the width is chosen from
+/// the room: the title yields before the capsule does, then the "⋯" item.
 struct LeoActivityCapsuleSizingTests {
-    @Test func aWideToolbarGetsTheMaximumWidth() {
-        #expect(LeoActivityCapsuleSizing.width(availableToolbarWidth: 1400) == LeoActivityCapsulePresentation.maxWidth)
+    private typealias Sizing = LeoActivityCapsuleSizing
+
+    @Test func aWideToolbarKeepsEverythingAndTheMaximumWidth() {
+        let layout = Sizing.layout(availableToolbarWidth: 1400, leadingChrome: 0)
+
+        #expect(layout == .init(width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsMoreItem: true))
     }
 
-    @Test func aNarrowerToolbarGivesTheCapsuleWhatTheTitleAndMenuLeave() {
-        let width = LeoActivityCapsuleSizing.width(availableToolbarWidth: 550)
+    @Test func theCapsuleGetsWhatTheSubtitleLeavesOnEachSide() {
+        let layout = Sizing.layout(availableToolbarWidth: 550, leadingChrome: 0)
 
-        #expect(width == 550 - LeoActivityCapsuleSizing.titleReserve - LeoActivityCapsuleSizing.moreReserve)
+        #expect(layout.width == 550 - 2 * Sizing.subtitleSideReserve)
+        #expect(layout.showsSubtitle)
     }
 
-    @Test func aNarrowWindowStillShowsTheMinimumCapsule() {
-        #expect(LeoActivityCapsuleSizing.width(availableToolbarWidth: 220) == LeoActivityCapsuleSizing.minimumWidth)
-        #expect(LeoActivityCapsuleSizing.width(availableToolbarWidth: 0) == LeoActivityCapsuleSizing.minimumWidth)
+    @Test func theSubtitleGoesWhenTheMinimumCapsuleNoLongerFitsBesideIt() {
+        let fits = Sizing.minimumWidth + 2 * Sizing.subtitleSideReserve
+
+        #expect(Sizing.layout(availableToolbarWidth: fits, leadingChrome: 0).showsSubtitle)
+        let layout = Sizing.layout(availableToolbarWidth: fits - 1, leadingChrome: 0)
+        #expect(!layout.showsSubtitle && layout.showsTitle)
+        #expect(layout.width == fits - 1 - 2 * Sizing.titleSideReserve)
+    }
+
+    @Test func theTitleGoesWhenEvenTheTitleAloneLeavesNoRoom() {
+        let layout = Sizing.layout(availableToolbarWidth: 280, leadingChrome: 0)
+
+        #expect(!layout.showsSubtitle && !layout.showsTitle)
+        #expect(layout.showsMoreItem)
+        #expect(layout.width == 280 - 2 * Sizing.moreSideReserve)
+    }
+
+    @Test func theCollapsedSidebarsChromeCountsAgainstTheRoomOnTheLeft() {
+        let open = Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0)
+        let collapsed = Sizing.layout(availableToolbarWidth: 700, leadingChrome: Sizing.collapsedSidebarChrome)
+
+        #expect(collapsed.width < open.width)
+    }
+
+    @Test func aNarrowCollapsedWindowDropsTheTitleAndStillShowsTheCapsule() {
+        let layout = Sizing.layout(availableToolbarWidth: 480, leadingChrome: Sizing.collapsedSidebarChrome)
+
+        #expect(!layout.showsTitle)
+        #expect(layout.width >= Sizing.minimumWidth)
+        #expect(layout.width == 480 - 2 * Sizing.collapsedSidebarChrome)
+    }
+
+    @Test func theMoreItemGoesOnlyWhenTheMinimumCapsuleFitsWithoutIt() {
+        let layout = Sizing.layout(availableToolbarWidth: 100, leadingChrome: 0)
+
+        #expect(!layout.showsMoreItem)
+        #expect(layout.width == Sizing.minimumWidth)
     }
 }

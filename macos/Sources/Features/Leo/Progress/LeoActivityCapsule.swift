@@ -61,7 +61,7 @@ struct LeoActivityCapsule: View {
 
     private func capsule(_ presentation: LeoActivityCapsulePresentation) -> some View {
         HStack(spacing: 8) {
-            glyph(presentation.glyph)
+            glyph(presentation.glyph).fixedSize().layoutPriority(2)
             if let title = presentation.title {
                 Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
                     .layoutPriority(1)
@@ -103,6 +103,8 @@ struct LeoActivityCapsule: View {
             .padding(.horizontal, 7).padding(.vertical, 1)
             .foregroundStyle(badge.isRed ? Color.white : Color.primary)
             .background(Capsule().fill(badge.isRed ? Color.red : Color.primary.opacity(0.15)))
+            .fixedSize()
+            .layoutPriority(2)
             .accessibilityHidden(true)
     }
 }

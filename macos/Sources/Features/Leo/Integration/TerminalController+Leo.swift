@@ -136,6 +136,7 @@ extension TerminalController {
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
         window.leoToolbar.bind(hasActivity: leoActivityChanges)
+        window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
         leoSelectionChanges
@@ -179,7 +180,7 @@ extension TerminalController {
             LeoAgentWindowSubtitle.text(
                 workspace: row.workspace, harness: row.harness, host: row.host,
                 localHome: NSHomeDirectory(), remoteUser: leoRuntime.machines.configuration(for: row.host)?.user)
-        } ?? ""
+        }.flatMap { window.leoToolbar.showsSubtitle ? $0 : nil } ?? ""
         if window.subtitle != text { window.subtitle = text }
     }
 

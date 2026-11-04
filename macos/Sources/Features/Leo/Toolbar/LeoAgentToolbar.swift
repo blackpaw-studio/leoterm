@@ -44,6 +44,12 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private(set) weak var sidebarToggle: NSToolbarItem?
     private weak var activityItem: NSToolbarItem?
     /// What the bindings last said, so an item AppKit builds later starts right.
+    /// Whether the window subtitle has room beside the capsule; the owner
+    /// of the subtitle reads it (`onSubtitleVisibilityChange` says when it flips).
+    private(set) var showsSubtitle = true
+    var onSubtitleVisibilityChange: () -> Void = {}
+    private weak var moreItem: NSToolbarItem?
+    private var showsMoreItem = true
     private var isSidebarToggleHidden = true
     private var hasActivity = false
 
@@ -72,6 +78,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         sidebarVisible.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isVisible in
             guard let self else { return }
             isSidebarToggleHidden = isVisible
+            updateActivityWidth()
             if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isVisible }
         }.store(in: &subscriptions)
     }
@@ -159,8 +166,17 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private func updateActivityWidth() {
         guard let activityWidth, let window else { return }
         let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
-        let width = LeoActivityCapsuleSizing.width(availableToolbarWidth: window.frame.width - sidebar)
-        if activityWidth.constant != width { activityWidth.constant = width }
+        let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
+        let layout = LeoActivityCapsuleSizing.layout(availableToolbarWidth: window.frame.width - sidebar, leadingChrome: leadingChrome)
+        if activityWidth.constant != layout.width { activityWidth.constant = layout.width }
+        if #available(macOS 15.0, *) { moreItem?.isHidden = !layout.showsMoreItem }
+        showsMoreItem = layout.showsMoreItem
+        let titleVisibility: NSWindow.TitleVisibility = layout.showsTitle ? .visible : .hidden
+        if window.titleVisibility != titleVisibility { window.titleVisibility = titleVisibility }
+        if showsSubtitle != layout.showsSubtitle {
+            showsSubtitle = layout.showsSubtitle
+            onSubtitleVisibilityChange()
+        }
     }
 
     private func observeLayout(of window: NSWindow, splitView: NSSplitView?) {
@@ -179,8 +195,11 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "More")
         item.label = "More"
         item.menu = moreMenu
+        item.showsIndicator = false
         // The first to fold into the overflow chevron when the window is narrow.
         item.visibilityPriority = .low
+        if #available(macOS 15.0, *) { item.isHidden = !showsMoreItem }
+        moreItem = item
         return item
     }
 }
