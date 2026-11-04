@@ -1,6 +1,6 @@
 # Mac agent window toolbar + activity capsule
 
-Status: DRAFT 2026-11-04 · Platform: **Mac only**. iOS already has a nav bar and its own progress panel, so it doesn't change.
+Status: APPROVED 2026-11-04 · Platform: **Mac only**. iOS already has a nav bar and its own progress panel, so it doesn't change.
 Mockup: `docs/mockups/2026-11-03-agent-progress/v2-C.png` (option C, branch `docs/progress-design-v2` e057eb4f1).
 This spec supersedes the Mac surfaces in `2026-11-03-agent-progress.md`: the pane-header strip (Detail B) and the chat progress card (Chat panel B). The row popover (Detail A), the iOS surfaces, and the daemon contract don't change.
 
