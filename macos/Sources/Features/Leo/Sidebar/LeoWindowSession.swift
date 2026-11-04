@@ -301,9 +301,11 @@ struct LeoWindowVisibilityState: Equatable {
         }
     }
 
-    /// "Show Messages" was picked: the task filter only means something with
-    /// Chat on screen, so a window showing just the terminal switches to it.
-    func revealChatForMessages(of agent: LeoAgentID) {
+    /// "Show Messages" was picked: applies the task filter, which only means
+    /// something with Chat on screen, so a window showing just the terminal
+    /// switches to Chat.
+    func showMessages(of agent: LeoAgentID, applyingFilter applyFilter: () -> Void) {
+        applyFilter()
         guard !currentChatLayout.showsChat else { return }
         choose(.chat, for: agent)
     }

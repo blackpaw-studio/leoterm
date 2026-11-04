@@ -122,13 +122,16 @@ private struct LeoActivityGlass: ViewModifier {
     }
 }
 
-/// Makes the capsule a keyboard stop: Space (the button's own) or Return opens the popover.
+/// Return opens the popover while the capsule has keyboard focus (Space is
+/// the button's own). No `.focusable()`: it made a click give the capsule
+/// the keyboard, so typing after the popover closed never reached the
+/// terminal. Under Full Keyboard Access the button is still focusable.
 private struct LeoActivityKeyboard: ViewModifier {
     let activate: () -> Void
 
     func body(content: Content) -> some View {
         if #available(macOS 14.0, *) {
-            content.focusable().onKeyPress(.return) {
+            content.onKeyPress(.return) {
                 activate()
                 return .handled
             }

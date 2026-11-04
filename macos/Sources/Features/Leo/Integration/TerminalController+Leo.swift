@@ -151,8 +151,7 @@ extension TerminalController {
     func leoShowMessages(forTask task: String?) {
         guard let leoRuntime, let leoSession, let row = selectedLeoRow else { return }
         let chat = leoRuntime.chat
-        Task { await chat.setTaskFilter(task) }
-        leoSession.revealChatForMessages(of: row.id)
+        leoSession.showMessages(of: row.id) { Task { await chat.setTaskFilter(task) } }
     }
 
     /// Fires (next turn, after the change landed) whenever the shown row or

@@ -89,7 +89,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         hasActivity.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] hasActivity in
             guard let self else { return }
             self.hasActivity = hasActivity
-            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity } else { updateActivityWidth() }
+            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity }
+            // The width is 0 while there is no task, so a task arriving must resize
+            // the capsule too: a zero-width hosting view takes no clicks.
+            updateActivityWidth()
         }.store(in: &subscriptions)
     }
 
