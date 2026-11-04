@@ -31,15 +31,16 @@ struct LeoTaskStrip: View {
     private func header(_ primary: LeoAgentTask, now: Date) -> some View {
         let kind = LeoAgentRowPresentation.Progress.Kind(primary)
         return Button { withAnimation(.easeInOut(duration: 0.15)) { isExpanded.toggle() } } label: {
-            HStack(alignment: .center, spacing: 8) {
+            HStack(alignment: .center, spacing: 6) {
                 Text(agentName).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                    .lineLimit(1).truncationMode(.tail)
                 // Expanded, the list below says it all: just the label here.
                 if !isExpanded {
                     Text([primary.title, primary.status].compactMap { $0 }.joined(separator: " · "))
                         .font(.body).lineLimit(1).truncationMode(.tail)
                         .foregroundStyle(kind == .failed ? .red : .primary)
                         .layoutPriority(1)
-                    LeoTaskBar(kind: kind, height: 6).frame(minWidth: 120, maxWidth: .infinity)
+                    LeoTaskBar(kind: kind, height: 6).frame(minWidth: 60, maxWidth: .infinity)
                     Text(LeoTaskDetailText.trailing(primary, etaAt: tasks.eta(for: primary), now: now))
                         .font(.subheadline).monospacedDigit().lineLimit(1).fixedSize()
                         .foregroundStyle(kind == .failed ? .red : .secondary)

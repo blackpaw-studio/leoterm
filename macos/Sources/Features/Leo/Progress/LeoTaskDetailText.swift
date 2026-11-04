@@ -27,7 +27,8 @@ enum LeoTaskDetailText {
     static func canDismiss(_ task: LeoAgentTask) -> Bool { task.hasEnded }
 
     /// The strip's right-hand label: "62% · ~1m" (percent, remaining time) or
-    /// the elapsed time while running without a percent; "Done", "Failed" or
+    /// the elapsed time while running without a percent; "stale" replaces the
+    /// ETA once the task stops updating; "Done", "Failed" or
     /// "Cancelled" once ended.
     static func trailing(_ task: LeoAgentTask, etaAt: Date?, now: Date) -> String {
         switch task.state {
@@ -38,7 +39,11 @@ enum LeoTaskDetailText {
         }
         var parts: [String] = []
         if task.mode == .determinate, let percent = task.percent { parts.append(LeoTaskText.percent(percent)) }
-        if !task.stale, task.mode == .determinate, let etaAt, etaAt > now { parts.append("~\(LeoTaskText.duration(etaAt.timeIntervalSince(now)))") }
+        if task.stale {
+            parts.append("stale")
+        } else if task.mode == .determinate, let etaAt, etaAt > now {
+            parts.append("~\(LeoTaskText.duration(etaAt.timeIntervalSince(now)))")
+        }
         if parts.isEmpty { parts.append(LeoTaskText.duration(max(now.timeIntervalSince(task.startedAt), 0))) }
         return parts.joined(separator: " · ")
     }

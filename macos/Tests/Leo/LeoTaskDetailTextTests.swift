@@ -61,4 +61,11 @@ struct LeoTaskDetailTextTests {
         #expect(LeoTaskDetailText.trailing(Self.task(.failed, ended: 5), etaAt: nil, now: now) == "Failed")
         #expect(LeoTaskDetailText.trailing(Self.task(.cancelled, ended: 5), etaAt: nil, now: now) == "Cancelled")
     }
+
+    @Test func trailingLabelSaysStaleForAStaleRunningTaskInsteadOfAnEta() {
+        let now = Self.t0.addingTimeInterval(120)
+        let eta = Self.t0.addingTimeInterval(180)
+        #expect(LeoTaskDetailText.trailing(Self.task(stale: true), etaAt: eta, now: now) == "62% · stale")
+        #expect(LeoTaskDetailText.trailing(Self.task(percent: nil, stale: true), etaAt: nil, now: now) == "stale")
+    }
 }
