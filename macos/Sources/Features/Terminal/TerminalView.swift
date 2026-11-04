@@ -132,7 +132,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 VStack(spacing: 0) {
                                     LeoChatLayoutHost(
                                         model: runtime.model, chat: runtime.chat, terminals: leoSession.terminals,
-                                        session: leoSession, actions: runtime.actions, contentWidth: geometry.size.width
+                                        session: leoSession, contentWidth: geometry.size.width
                                     ) {
                                         ZStack {
                                             terminalContent

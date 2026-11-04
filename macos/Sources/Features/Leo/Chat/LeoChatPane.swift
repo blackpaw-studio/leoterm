@@ -14,8 +14,6 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
-    /// Dismisses failed agent tasks from the strip and the chat's card.
-    let actions: LeoAgentActions
     let contentWidth: CGFloat
     @ViewBuilder let terminal: () -> Terminal
     /// The width under the pointer mid-drag; the session stores it on release.
@@ -26,20 +24,8 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let preferred = dragWidth ?? session.preferredChatWidth
         ZStack(alignment: .topLeading) {
-            // B: the selected agent's tasks, overlaid on the top of the
-            // terminal column so the terminal's size never changes (tmux
-            // reflows on every resize).
             terminal()
                 .frame(maxHeight: .infinity)
-                .overlay(alignment: .top) {
-                    if let row {
-                        LeoTaskStrip(
-                            agentName: row.displayName, tasks: row.tasks,
-                            dismiss: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) }
-                        )
-                        .id(row.id)
-                    }
-                }
                 .frame(width: layout.terminalWidth(in: contentWidth, preferred: preferred))
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(!layout.isTerminalVisible)
@@ -50,16 +36,6 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
                         close: { session.choose(.terminal, for: row.id) }
                     )
-                    .overlay(alignment: .topTrailing) {
-                        // The chat card (B), docked under the pane's header.
-                        LeoProgressPanelView(
-                            model: LeoProgressPanelModel(rows: model.rows),
-                            select: { model.selectAgentRow($0) },
-                            dismiss: { actions.dismissTask(host: $0.agent.host, agent: $0.agent.name, id: $0.task.id) }
-                        )
-                        .padding(.top, 52)
-                        .padding(.trailing, 12)
-                    }
                 }
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
@@ -115,8 +91,12 @@ struct LeoChatPane: View {
     var body: some View {
         let document = viewer.document(for: row.id)
         VStack(spacing: 0) {
-            if let document { viewerHeader(document) } else { header }
-            Divider()
+            // The thread's own header moved to the toolbar (name, task
+            // filter) and the switcher (Close Chat); the file viewer keeps its.
+            if let document {
+                viewerHeader(document)
+                Divider()
+            }
             if let notice = chat.notice { noticeBanner(notice) }
             // The thread stays mounted under the viewer, so Back finds it
             // at the same scroll position.
@@ -156,19 +136,6 @@ struct LeoChatPane: View {
         .onDisappear { Task { await chat.setOnScreen(false) } }
     }
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "bubble.left.and.bubble.right").foregroundStyle(.secondary)
-            Text(row.displayName).font(.headline).lineLimit(1).truncationMode(.middle)
-            Spacer(minLength: 8)
-            taskFilterMenu
-            LeoChatViewerIconButton(systemImage: "xmark", title: "Close Chat", action: close)
-        }
-        .padding(.horizontal, 12)
-        .frame(height: 36)
-        .background(.bar)
-    }
-
     private func viewerHeader(_ document: LeoChatViewerDocument) -> some View {
         HStack(spacing: 8) {
             LeoChatViewerIconButton(systemImage: "chevron.backward", title: "Back to Chat", action: session.closeChatViewer)
@@ -191,25 +158,6 @@ struct LeoChatPane: View {
         LeoChatFileViewerRepresentable(document: document, onBack: session.closeChatViewer, openExternally: { NSWorkspace.shared.open($0) })
             .id(document.attachmentID)
             .background(Color(nsColor: .textBackgroundColor))
-    }
-
-    @ViewBuilder private var taskFilterMenu: some View {
-        let tasks = chat.timeline.knownTasks.sorted()
-        if !tasks.isEmpty || chat.timeline.taskFilter != nil {
-            Menu {
-                Button("All Messages") { Task { await chat.setTaskFilter(nil) } }
-                Divider()
-                ForEach(tasks, id: \.self) { task in
-                    Button(task) { Task { await chat.setTaskFilter(task) } }
-                }
-            } label: {
-                Label(chat.timeline.taskFilter ?? "All Messages", systemImage: "line.3.horizontal.decrease.circle")
-                    .labelStyle(.titleAndIcon)
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .help("Show one task's cards")
-        }
     }
 
     private func noticeBanner(_ text: String) -> some View {
