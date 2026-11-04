@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import GhosttyKit
 import SwiftUI
 
@@ -111,6 +112,75 @@ extension TerminalController {
             Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config($0, GHOSTTY_SURFACE_CONTEXT_TAB))
         }
         leoRuntime.routeNewSurface(surfaceTree.isEmpty ? .placeholder : .content, origin: leoSession.id, inheritedConfig: inherited)
+    }
+
+    /// Puts the agent toolbar on an agent window and keeps its subtitle on
+    /// the selected agent's `<cwd> · <harness>`. A window without decorations
+    /// is a plain `TerminalWindow` and gets neither.
+    func leoInstallAgentToolbar() {
+        guard let window = window as? LeoAgentTerminalWindow, let leoSession, let leoRuntime else { return }
+        window.leoToolbar.makeActivityView = { [model = leoRuntime.model, terminals = leoSession.terminals, actions = leoRuntime.actions] in
+            let host = NSHostingView(rootView: LeoActivityCapsule(model: model, terminals: terminals, actions: actions))
+            host.sizingOptions = []
+            return host
+        }
+        let chat = leoRuntime.chat
+        let toolbarMenu = LeoAgentToolbarMenu(
+            mainMenu: { NSApp.mainMenu },
+            messages: .init(
+                knownTasks: { chat.timeline.knownTasks }, filter: { chat.timeline.taskFilter },
+                hasAgent: { [weak self] in self?.selectedLeoRow != nil },
+                select: { [weak self] in self?.leoShowMessages(forTask: $0) }))
+        window.leoToolbar.moreMenu = toolbarMenu.menu
+        window.leoToolbar.retainedMenu = toolbarMenu
+        window.installToolbar(inset: leoSession.toolbarInset)
+        window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
+        window.leoToolbar.bind(hasActivity: leoActivityChanges)
+        window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
+        leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
+        // `objectWillChange` fires before the change lands: read next turn.
+        leoSelectionChanges
+            .sink { [weak self] in self?.leoRefreshSubtitle() }
+            .store(in: &window.chromeSubscriptions)
+        leoRefreshSubtitle()
+    }
+
+    /// "Show Messages ▸" in the toolbar: filters the chat to `task` (nil: all
+    /// messages) and brings Chat up when only the terminal shows, since the
+    /// filter has no effect out of sight.
+    func leoShowMessages(forTask task: String?) {
+        guard let leoRuntime, let leoSession, let row = selectedLeoRow else { return }
+        let chat = leoRuntime.chat
+        leoSession.showMessages(of: row.id) { Task { await chat.setTaskFilter(task) } }
+    }
+
+    /// Fires (next turn, after the change landed) whenever the shown row or
+    /// the rows' data change.
+    private var leoSelectionChanges: AnyPublisher<Void, Never> {
+        guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
+        return leoRuntime.model.objectWillChange.map { _ in () }
+            .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .eraseToAnyPublisher()
+    }
+
+    /// Whether the selected agent has a task, as the selection changes.
+    private var leoActivityChanges: AnyPublisher<Bool, Never> {
+        leoSelectionChanges.map { [weak self] in self?.selectedLeoRow?.tasks.isEmpty == false }
+            .prepend(selectedLeoRow?.tasks.isEmpty == false)
+            .eraseToAnyPublisher()
+    }
+
+    /// The selected agent's `<cwd> · <harness>`; empty for a terminal row,
+    /// the start screen, or while disconnected.
+    func leoRefreshSubtitle() {
+        guard let window = window as? LeoAgentTerminalWindow, let leoRuntime else { return }
+        let text = selectedLeoRow.map { row in
+            LeoAgentWindowSubtitle.text(
+                workspace: row.workspace, harness: row.harness, host: row.host,
+                localHome: NSHomeDirectory(), remoteUser: leoRuntime.machines.configuration(for: row.host)?.user)
+        }.flatMap { window.leoToolbar.showsSubtitle ? $0 : nil } ?? ""
+        if window.subtitle != text { window.subtitle = text }
     }
 
     @IBAction func toggleLeoSidebar(_ sender: Any?) {

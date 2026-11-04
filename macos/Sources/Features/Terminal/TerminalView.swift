@@ -51,8 +51,8 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     // MARK: Leo
     let leoSession: LeoWindowSession?
 
-    /// The window edges the sidebar split extends into, past the safe area
-    /// (B-074). See `LeoTitlebarInsets`.
+    /// The window edges the sidebar split extends into, past the safe area.
+    /// See `LeoTitlebarInsets`.
     let leoSplitIgnoredEdges: Edge.Set
 
     /// Mirrors `leoSession.placeholderSurfaceIDs`. `leoSession` is a plain
@@ -62,6 +62,13 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
     /// -- a window resize -- forced a re-evaluation. Mirroring the published
     /// set into view state gives SwiftUI the dependency it needs.
     @State private var leoPlaceholderSurfaceIDs: Set<UUID> = []
+    /// Mirrors `leoSession.toolbarInset.isFullScreen` for the same reason.
+    @State private var leoIsFullScreen = false
+
+    private var leoIsFullScreenPublisher: AnyPublisher<Bool, Never> {
+        leoSession?.toolbarInset.$isFullScreen.eraseToAnyPublisher()
+            ?? Empty(completeImmediately: false).eraseToAnyPublisher()
+    }
 
     /// Publisher for the above; `Empty` keeps the `onReceive` well-typed when
     /// there is no Leo session (a non-Leo window).
@@ -132,7 +139,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                 VStack(spacing: 0) {
                                     LeoChatLayoutHost(
                                         model: runtime.model, chat: runtime.chat, terminals: leoSession.terminals,
-                                        session: leoSession, actions: runtime.actions, contentWidth: geometry.size.width
+                                        session: leoSession, contentWidth: geometry.size.width
                                     ) {
                                         ZStack {
                                             terminalContent
@@ -158,7 +165,9 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                     // The open chat file over the whole split. A sibling
                     // above it, not a split item, so the split is untouched.
                     LeoChatFullWindowHost(
-                        viewer: leoSession.chatViewer, session: leoSession, ignoredEdges: leoSplitIgnoredEdges
+                        // Not the split's edges: its Back row sits under
+                        // the toolbar, not behind it.
+                        viewer: leoSession.chatViewer, session: leoSession, ignoredEdges: []
                     )
                 } else {
                     terminalContent
@@ -181,6 +190,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
             }
             .frame(maxWidth: .greatestFiniteMagnitude, maxHeight: .greatestFiniteMagnitude)
             .onReceive(leoPlaceholderSurfaceIDsPublisher) { leoPlaceholderSurfaceIDs = $0 }
+            .onReceive(leoIsFullScreenPublisher) { leoIsFullScreen = $0 }
         }
     }
 
@@ -252,11 +262,16 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
 
     // MARK: Leo
 
-    /// In a Leo window, the same window-keyed edges as the sidebar split
-    /// (B-074), so the terminal and the sidebar can't disagree
-    /// after a config reload; upstream's live-config check otherwise.
+    /// In a Leo window, none (see below); upstream's live-config check
+    /// otherwise.
     private var terminalIgnoredEdges: Edge.Set {
-        guard leoSession == nil else { return leoSplitIgnoredEdges }
+        // A Leo window's terminal starts under the toolbar, not behind it:
+        // only its split ignores the top edge (the glass sidebar runs under
+        // the toolbar). That also keeps the scroll pocket's blur off the
+        // terminal's text.
+        // Native full screen hides the toolbar at rest (it overlays the
+        // content when revealed), so the terminal then reaches the top.
+        guard leoSession == nil else { return leoIsFullScreen ? .top : [] }
         return ghostty.config.macosTitlebarStyle == .hidden ? .top : []
     }
 }

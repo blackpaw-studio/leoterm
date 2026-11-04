@@ -51,6 +51,12 @@ struct LeoWindowVisibilityState: Equatable {
     /// switch goes to Terminal: the chat's ✕, the toggle, or the segment.
     let chatViewer = LeoChatViewerModel()
     /// Each agent's Terminal | Chat switch in this window.
+    /// The window's toolbar height, which the glass sidebar and the side
+    /// panes' headers clear (`LeoToolbarInset`).
+    let toolbarInset = LeoToolbarInset()
+    /// The window's `NSSplitView` is in the window: the toolbar's tracking
+    /// separator can bind to it.
+    var onSplitViewReady: (NSSplitView) -> Void = { _ in }
     @Published private(set) var viewChoices = LeoAgentViewChoices()
     /// Bumped when the switch asks for the chat composer to take focus; the
     /// pending flag covers a composer that only appears with the request.
@@ -293,6 +299,15 @@ struct LeoWindowVisibilityState: Equatable {
                 routeTerminalFocus { Self.focusTerminal(in: self.window, isAllowed: $0) }
             }
         }
+    }
+
+    /// "Show Messages" was picked: applies the task filter, which only means
+    /// something with Chat on screen, so a window showing just the terminal
+    /// switches to Chat.
+    func showMessages(of agent: LeoAgentID, applyingFilter applyFilter: () -> Void) {
+        applyFilter()
+        guard !currentChatLayout.showsChat else { return }
+        choose(.chat, for: agent)
     }
 
     func setObservedContentWidth(_ width: CGFloat) { observedContentWidth = width }

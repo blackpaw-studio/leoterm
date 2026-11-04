@@ -114,6 +114,7 @@ actor LeoSidebarFeed {
     /// Resolved emoji and colors -- see `LeoSidebarFeed+Appearance.swift`.
     var appearance = LeoAgentAppearanceIndex.empty
     var displayNames = LeoAgentDisplayNameIndex.empty
+    var harnesses = LeoAgentHarnessIndex.empty
     /// Agent tasks and their derived ETAs -- see `LeoSidebarFeed+Progress.swift`.
     var taskReducer = LeoTaskReducer()
     var taskETA = LeoTaskETA()

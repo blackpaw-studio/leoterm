@@ -15,9 +15,9 @@ final class LeoEditorPaneViewController: NSViewController {
 
     let model: LeoEditorPaneModel
     /// How far below the pane's top edge its header row starts, centred on
-    /// the sidebar header's line; nil keeps the header's own row. See
-    /// `LeoTitlebarInsets.sidePaneHeaderTopInset`.
-    private let headerTopInset: CGFloat?
+    /// the sidebar header's line under the toolbar; nil keeps the header's
+    /// own row. See `LeoTitlebarInsets`.
+    private let headerTopInset: LeoToolbarInset?
     private let header = LeoEditorHeaderView()
     private let separator = NSBox()
     let banner = LeoEditorBannerView()
@@ -45,7 +45,7 @@ final class LeoEditorPaneViewController: NSViewController {
 
     /// Binds to the model right away: a collapsed split item's view isn't
     /// loaded until it is shown, so binding in `loadView` would never show it.
-    init(model: LeoEditorPaneModel, headerTopInset: CGFloat? = nil) {
+    init(model: LeoEditorPaneModel, headerTopInset: LeoToolbarInset? = nil) {
         self.model = model
         self.headerTopInset = headerTopInset
         let (scrollView, textView) = LeoEditorTextView.make()
@@ -85,7 +85,7 @@ final class LeoEditorPaneViewController: NSViewController {
         // the pane.
         NSLayoutConstraint.activate(rows.map { $0.widthAnchor.constraint(equalTo: stack.widthAnchor) })
         if let headerTopInset {
-            LeoTitlebarInsets.insetHeader(of: stack, at: headerTopInset, centring: header.closeControl)
+            LeoTitlebarInsets.insetHeader(of: stack, inset: headerTopInset, centring: header.closeControl).store(in: &modelSubscriptions)
         }
         view = stack
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: Self.minimumWidth).isActive = true

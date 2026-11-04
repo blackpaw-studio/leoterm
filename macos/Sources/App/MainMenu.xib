@@ -367,6 +367,20 @@
                                     <action selector="decreaseFontSize:" target="-1" id="Zlz-QZ-t8K"/>
                                 </connections>
                             </menuItem>
+                            <!-- MARK: Leo Terminal | Chat switch (agent toolbar) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-ViewPane-Separator"/>
+                            <menuItem title="Terminal" keyEquivalent="1" id="Leo-View-Terminal">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showLeoTerminal:" target="-1" id="Leo-View-Terminal-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Chat" keyEquivalent="2" id="Leo-View-Chat">
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
+                                <connections>
+                                    <action selector="showLeoChat:" target="-1" id="Leo-View-Chat-Action"/>
+                                </connections>
+                            </menuItem>
                             <!-- MARK: Leo subagent rows (B-331) -->
                             <menuItem isSeparatorItem="YES" id="Leo-Subagents-View-Separator"/>
                             <menuItem title="Hide Subagents" keyEquivalent="s" id="Leo-Subagents-Hide">

@@ -13,9 +13,25 @@ public enum LeoAgentTasks {
         return newest(tasks, by: \.recency)
     }
 
+    /// Every task in primary order: failed, then running, then ended, each
+    /// newest first with ties broken by id. `ordered(t).first == primary(t)`.
+    public static func ordered(_ tasks: [LeoAgentTask]) -> [LeoAgentTask] {
+        let failed = tasks.filter { $0.state == .failed }
+        let running = tasks.filter(\.isRunning)
+        let ended = tasks.filter { $0.state != .failed && !$0.isRunning }
+        return sorted(failed, by: \.recency) + sorted(running, by: \.updatedAt) + sorted(ended, by: \.recency)
+    }
+
     /// The `+N` badge: every task that is not the primary one.
     public static func extraCount(_ tasks: [LeoAgentTask]) -> Int {
         max(tasks.count - 1, 0)
+    }
+
+    private static func sorted(_ tasks: [LeoAgentTask], by date: (LeoAgentTask) -> Date) -> [LeoAgentTask] {
+        tasks.sorted { lhs, rhs in
+            let (l, r) = (date(lhs), date(rhs))
+            return l != r ? l > r : lhs.id < rhs.id
+        }
     }
 
     private static func newest(_ tasks: [LeoAgentTask], by date: (LeoAgentTask) -> Date) -> LeoAgentTask? {

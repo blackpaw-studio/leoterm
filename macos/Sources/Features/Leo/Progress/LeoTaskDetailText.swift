@@ -23,6 +23,31 @@ enum LeoTaskDetailText {
         }
     }
 
+    /// Any ended task (succeeded, failed, cancelled) can be dismissed; a running one cannot.
+    static func canDismiss(_ task: LeoAgentTask) -> Bool { task.hasEnded }
+
+    /// The strip's right-hand label: "62% · ~1m" (percent, remaining time) or
+    /// the elapsed time while running without a percent; "stale" replaces the
+    /// ETA once the task stops updating; "Done", "Failed" or
+    /// "Cancelled" once ended.
+    static func trailing(_ task: LeoAgentTask, etaAt: Date?, now: Date) -> String {
+        switch task.state {
+        case .succeeded: return "Done"
+        case .failed: return "Failed"
+        case .cancelled: return "Cancelled"
+        case .running: break
+        }
+        var parts: [String] = []
+        if task.mode == .determinate, let percent = task.percent { parts.append(LeoTaskText.percent(percent)) }
+        if task.stale {
+            parts.append("stale")
+        } else if task.mode == .determinate, let etaAt, etaAt > now {
+            parts.append("~\(LeoTaskText.duration(etaAt.timeIntervalSince(now)))")
+        }
+        if parts.isEmpty { parts.append(LeoTaskText.duration(max(now.timeIntervalSince(task.startedAt), 0))) }
+        return parts.joined(separator: " · ")
+    }
+
     /// "4m · ETA ~3m" while running, "6m ago" once ended.
     static func timing(_ task: LeoAgentTask, etaAt: Date?, now: Date) -> String {
         guard let ended = task.endedAt, task.hasEnded else {

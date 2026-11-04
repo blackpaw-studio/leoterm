@@ -255,6 +255,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return defaultValue
         }
 
+        // MARK: Leo -- an agent window ignores `macos-titlebar-style`: every
+        // style but `native` conflicts with its unified toolbar.
+        if leoRuntime != nil { return "TerminalLeoAgent" }
+
         let nib = switch config.macosTitlebarStyle {
         case .native: "Terminal"
         case .hidden: "TerminalHiddenTitlebar"
@@ -1462,6 +1466,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         container.initialContentSize = leoConfiguredContentSize
 
         window.contentView = container
+        // MARK: Leo
+        leoInstallAgentToolbar()
         // MARK: Leo -- not the sidebar's search field (B-075).
         leoLeaveInitialFocusToContent(container)
 
@@ -2159,6 +2165,12 @@ extension TerminalController {
 
         case #selector(clearSelectedLeoAgent(_:)):
             return validateLeoControlMenuItem(\.canClear)
+
+        case #selector(showLeoTerminal(_:)):
+            return validateLeoViewMenuItem(item, .terminal)
+
+        case #selector(showLeoChat(_:)):
+            return validateLeoViewMenuItem(item, .chat)
 
         case #selector(jumpToNextLeoAgentNeedingAttention(_:)):
             return validateLeoJumpToAttentionMenuItem(item)

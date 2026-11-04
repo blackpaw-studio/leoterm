@@ -102,6 +102,9 @@ struct LeoSidebarView: View {
     private let buttonActions: LeoSidebarButtonActions
     /// When the selected terminal row's reveal is armed (B-149).
     private let revealScheduler: LeoRevealScheduler
+    /// The window's toolbar height: the header clears it (the sidebar
+    /// runs under the toolbar).
+    @ObservedObject private var toolbarInset: LeoToolbarInset
     @State private var showingSpawn = false
     /// The machine a header's "New Agent Here…" spawns on.
     @State private var spawnMachine: LeoMachineSpawnItem?
@@ -121,7 +124,8 @@ struct LeoSidebarView: View {
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
         buttonActions: LeoSidebarButtonActions = .none,
-        revealScheduler: LeoRevealScheduler = .nextTurn
+        revealScheduler: LeoRevealScheduler = .nextTurn,
+        toolbarInset: LeoToolbarInset? = nil
     ) {
         self.model = model
         self.windowID = windowID
@@ -132,6 +136,7 @@ struct LeoSidebarView: View {
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
         self.revealScheduler = revealScheduler
+        _toolbarInset = ObservedObject(wrappedValue: toolbarInset ?? LeoToolbarInset())
     }
 
     var body: some View {
@@ -171,7 +176,7 @@ struct LeoSidebarView: View {
             }
             LeoSidebarButtonBar(hints: shortcutHints, perform: buttonActions.perform)
         }
-        .padding(.top, LeoSidebarChromeMetrics.topInset)
+        .padding(.top, toolbarInset.headerTop)
         .padding(.horizontal, LeoSidebarChromeMetrics.horizontalInset)
         .padding(.bottom, LeoSidebarChromeMetrics.itemSpacing)
         .onChange(of: searchFocusRequest) { _ in searchField.focus() }
