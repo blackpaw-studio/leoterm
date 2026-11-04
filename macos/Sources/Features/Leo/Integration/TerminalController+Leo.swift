@@ -152,7 +152,7 @@ extension TerminalController {
         guard let leoRuntime, let leoSession, let row = selectedLeoRow else { return }
         let chat = leoRuntime.chat
         Task { await chat.setTaskFilter(task) }
-        if !leoSession.currentChatLayout.showsChat { leoSession.choose(.chat, for: row.id) }
+        leoSession.revealChatForMessages(of: row.id)
     }
 
     /// Fires (next turn, after the change landed) whenever the shown row or

@@ -301,6 +301,13 @@ struct LeoWindowVisibilityState: Equatable {
         }
     }
 
+    /// "Show Messages" was picked: the task filter only means something with
+    /// Chat on screen, so a window showing just the terminal switches to it.
+    func revealChatForMessages(of agent: LeoAgentID) {
+        guard !currentChatLayout.showsChat else { return }
+        choose(.chat, for: agent)
+    }
+
     func setObservedContentWidth(_ width: CGFloat) { observedContentWidth = width }
 
     /// The layout the selected agent's remembered mode gives right now. The
