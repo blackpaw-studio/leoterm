@@ -39,7 +39,7 @@ Today an agent window has a hidden titlebar. The terminal has no header, progres
 - The chat pane header: name, filter and Close Chat move to the toolbar or the switcher. The file-viewer header (Back, file name, actions) stays in the content area.
 
 ## Terminal/Chat switcher
-- It stays in the bottom control bar beside the composer, but becomes a capsule. Each segment is a capsule, and the selected one is accent-filled with white text, matching the mockup.
+- It stays in the bottom control bar beside the composer, but becomes a capsule: the native `borderShape = .capsule` control, with the selected segment accent-filled with white text. When both panes are shown, the two lit segments join into one capsule with a hairline between them.
 - It is still a system segmented control. If AppKit can't produce the shape (verify), a custom control has to match its accessibility: the "View" label and the selected-state trait.
 - New: View ▸ Terminal and View ▸ Chat menu items with shortcuts. The plan picks shortcuts that collide with nothing existing (Ghostty binds ⌘1–9).
 - The unread badge stays.
