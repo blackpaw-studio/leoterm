@@ -34,6 +34,16 @@ public enum LeoAgentStatus: Codable, Equatable, Sendable {
     }
 }
 
+/// The daemon's additive `display_name` (leo >= 0.66.0) shown in place of the
+/// raw `name`; a missing, blank, or malformed value falls back to `name`.
+/// `name` remains the identifier for API calls, persistence, and matching.
+public enum LeoAgentDisplayName {
+    public static func resolve(displayName: String?, name: String) -> String {
+        guard let displayName, !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return name }
+        return displayName
+    }
+}
+
 public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
     public let name: String
     public let template: String?
@@ -50,16 +60,21 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
     /// A moved agent stays here as a stopped, dormant record.
     public let movedTo: String?
     public let movedAt: String?
+    /// The daemon's `display_name`, nil from older daemons; read `displayName`.
+    public let daemonDisplayName: String?
 
     public var id: String { name }
+    /// What the user sees: `display_name` when set, else `name`.
+    public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
 
     public init(
         name: String, template: String? = nil, repo: String? = nil, workspace: String? = nil, branch: String? = nil,
         canonicalPath: String? = nil, status: LeoAgentStatus? = nil, startedAt: String? = nil, restarts: Int? = nil,
         stoppedReason: String? = nil, wakeOnMessage: Bool? = nil,
-        movedTo: String? = nil, movedAt: String? = nil
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil
     ) {
         self.name = name
+        self.daemonDisplayName = displayName
         self.template = template
         self.repo = repo
         self.workspace = workspace
@@ -82,6 +97,25 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
         case wakeOnMessage = "wake_on_message"
         case movedTo = "moved_to"
         case movedAt = "moved_at"
+        case daemonDisplayName = "display_name"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        template = try c.decodeIfPresent(String.self, forKey: .template)
+        repo = try c.decodeIfPresent(String.self, forKey: .repo)
+        workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
+        branch = try c.decodeIfPresent(String.self, forKey: .branch)
+        canonicalPath = try c.decodeIfPresent(String.self, forKey: .canonicalPath)
+        status = try c.decodeIfPresent(LeoAgentStatus.self, forKey: .status)
+        startedAt = try c.decodeIfPresent(String.self, forKey: .startedAt)
+        restarts = try c.decodeIfPresent(Int.self, forKey: .restarts)
+        stoppedReason = try c.decodeIfPresent(String.self, forKey: .stoppedReason)
+        wakeOnMessage = try c.decodeIfPresent(Bool.self, forKey: .wakeOnMessage)
+        movedTo = try c.decodeIfPresent(String.self, forKey: .movedTo)
+        movedAt = try c.decodeIfPresent(String.self, forKey: .movedAt)
+        daemonDisplayName = (try? c.decodeIfPresent(String.self, forKey: .daemonDisplayName)) ?? nil
     }
 }
 

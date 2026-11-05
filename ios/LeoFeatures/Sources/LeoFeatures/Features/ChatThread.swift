@@ -59,6 +59,8 @@ public struct ChatThread {
 
         public var id: AgentRef { ref }
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
+        /// What the user sees for this agent; `agentName` stays the identifier.
+        public var displayName: String { agent?.displayName ?? agentName }
 
         public init(daemon: PairedDaemon, agent name: String, live: Agent? = nil) {
             self.daemon = daemon
@@ -66,7 +68,7 @@ public struct ChatThread {
             agent = live
             strip = TerminalStrip.State(
                 daemon: daemon, agentName: name, isAgentRunning: live?.canOpenTerminal ?? false,
-                isAgentWorking: live?.priority == .working
+                isAgentWorking: live?.priority == .working, displayName: live?.displayName
             )
         }
 
@@ -271,7 +273,7 @@ public struct ChatThread {
                 return .none
 
             case .terminalButtonTapped:
-                state.terminal = Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: state.agent?.canOpenTerminal ?? false)
+                state.terminal = Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: state.agent?.canOpenTerminal ?? false, displayName: state.displayName)
                 return .none
 
             case .loadOlderTriggered:

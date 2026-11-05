@@ -46,6 +46,12 @@ import SwiftUI
 /// window to have been built around a content view controller in the first
 /// place.
 @MainActor final class LeoSpawnAgentSheetPresenter: LeoSpawnSheetPresenting {
+    private let presenter: LeoSheetPresenter
+
+    init(presenter: LeoSheetPresenter = .live) {
+        self.presenter = presenter
+    }
+
     func present(
         on window: NSWindow,
         sidebar: LeoSidebarModel,
@@ -63,7 +69,7 @@ import SwiftUI
         }
         let hosting = LeoSpawnSheetHostingController(rootView: AnyView(sheetView.leoSheetClose(in: window)))
         hosting.onDisappear = { resolve(nil) }
-        if !window.presentLeoSheet(hosting) { resolve(nil) }
+        if !presenter.presentController(hosting, window) { resolve(nil) }
     }
 }
 

@@ -46,6 +46,10 @@ import Testing
 
     // MARK: In a window
 
+    // Widths are read with LeoSplitViewController.paneWidth, not view frames:
+    // macOS 26 insets a sidebar item's view inside its pane, so frames sit
+    // 7-8 pt short of the width the split actually gives the pane.
+
     @Test func aWideStoredSidebarLeavesTheContentItsMinimum() async {
         let defaults = LeoInMemoryDefaults()
         defaults.set(Double(LeoSidebarSplitMetrics.maximumWidth), forKey: LeoWindowSession.sidebarWidthKey)
@@ -194,8 +198,12 @@ import Testing
         }
 
         var sidebarItem: NSSplitViewItem? { components.controller.sidebarItem }
-        var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
-        var contentWidth: CGFloat { components.detailHosting.view.frame.width }
+        var sidebarWidth: CGFloat {
+            LeoSplitViewController.paneWidth(of: components.sidebarHosting.view, in: components.controller.splitView)
+        }
+        var contentWidth: CGFloat {
+            LeoSplitViewController.paneWidth(of: components.detailHosting.view, in: components.controller.splitView)
+        }
 
         func close() { window.close() }
 
@@ -247,5 +255,14 @@ import Testing
         private static func flexibleView() -> AnyView {
             AnyView(Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity))
         }
+    }
+}
+
+/// The sidebar item's thickness limits clamp its view, which macOS 26 insets
+/// inside the pane the limits are meant for.
+struct LeoSidebarItemThicknessTests {
+    @Test(arguments: [(349, 8, 341), (349, 0, 349), (200, 8, 192), (5, 8, 0), (349, -3, 349)] as [(CGFloat, CGFloat, CGFloat)])
+    func aPaneLimitLosesTheViewsInset(pane: CGFloat, inset: CGFloat, expected: CGFloat) {
+        #expect(LeoSidebarSplitMetrics.itemThickness(forPaneWidth: pane, inset: inset) == expected)
     }
 }

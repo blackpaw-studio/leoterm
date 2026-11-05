@@ -9,7 +9,7 @@ import Testing
 /// dirty banner, Keep Mine, deleted). Every external change alters the
 /// file's size, since SFTP v3 mtimes are whole seconds.
 @MainActor
-@Suite(LeoSSHEndToEnd.trait)
+@Suite(.hostOnly, LeoSSHEndToEnd.trait)
 struct LeoEditorDocumentTests {
     private func open(
         _ path: String,

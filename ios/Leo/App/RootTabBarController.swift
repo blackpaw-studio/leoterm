@@ -119,7 +119,7 @@ final class RootTabBarController: UITabBarController, UITabBarControllerDelegate
         guard let flow = store.move, flow.isAskingName, !isShowingNamePrompt else { return }
         isShowingNamePrompt = true
         let prompt = UIAlertController(
-            title: flow.intent == .duplicate ? String(localized: "Duplicate \(flow.agentName)") : String(localized: "Copy \(flow.agentName)"),
+            title: flow.intent == .duplicate ? String(localized: "Duplicate \(flow.displayName)") : String(localized: "Copy \(flow.displayName)"),
             message: String(localized: "Name the copy, or leave it blank to let the daemon pick one."),
             preferredStyle: .alert
         )
@@ -234,9 +234,9 @@ private final class MoveProgressView: UIView {
         isHidden = flow == nil
         guard let flow else { return }
         label.text = switch flow.intent {
-        case .move(let host): String(localized: "Moving \(flow.agentName) to \(host)…")
-        case .copy(let host): String(localized: "Copying \(flow.agentName) to \(host)…")
-        case .duplicate: String(localized: "Duplicating \(flow.agentName)…")
+        case .move(let host): String(localized: "Moving \(flow.displayName) to \(host)…")
+        case .copy(let host): String(localized: "Copying \(flow.displayName) to \(host)…")
+        case .duplicate: String(localized: "Duplicating \(flow.displayName)…")
         }
         UIAccessibility.post(notification: .announcement, argument: label.text)
     }

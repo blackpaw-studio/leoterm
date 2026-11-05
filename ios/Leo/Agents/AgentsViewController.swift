@@ -75,7 +75,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             }
             // With any tile on screen every row's image gets the tile's width, so names stay aligned.
             if self?.showsTiles == true { content.imageProperties.reservedLayoutSize = AgentRowTile.size }
-            content.text = agent.name
+            content.text = agent.displayName
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
             content.secondaryText = agent.summary
             content.secondaryTextProperties.color = .secondaryLabel
@@ -176,54 +176,20 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
         }
     }
 
-    /// Long press: Move To ▸, Copy To ▸ and Duplicate… (B-324), and Appearance on
-    /// a daemon that can resolve it. No menu when there is nothing to offer.
+    /// Long press: the shared agent menu (Move/Copy/Duplicate, Appearance).
     func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
         guard let indexPath = indexPaths.first, let ref = dataSource.itemIdentifier(for: indexPath) else { return nil }
-        let supportsAppearance = store.fleet.sessions[id: ref.daemonID]?.supportsAppearance == true
-        let moves = moveMenu(for: ref)
-        guard supportsAppearance || !moves.isEmpty else { return nil }
-        return UIContextMenuConfiguration(actionProvider: { [weak self] _ in
-            var children: [UIMenuElement] = self?.moveMenu(for: ref) ?? []
-            if supportsAppearance {
-                let appearance = UIAction(title: String(localized: "Appearance…"), image: UIImage(systemName: "paintpalette")) { _ in
-                    self?.store.send(.appearanceRequested(ref))
-                }
-                appearance.accessibilityIdentifier = "agent.appearance"
-                children.append(appearance)
-            }
-            return UIMenu(children: children)
-        })
+        return AgentContextMenu.configuration(for: ref, store: store)
     }
 
-    /// Move To ▸ and Copy To ▸ over the daemon's hosts, then Duplicate…; empty
-    /// for an agent that can't move or a daemon without `agent_move`.
-    private func moveMenu(for ref: AgentRef) -> [UIMenuElement] {
-        guard agent(ref)?.canMove == true else { return [] }
-        let availability = store.withState { $0.moveAvailability(for: ref.daemonID) }
-        guard availability.offersDuplicate else { return [] }
-        var elements: [UIMenuElement] = []
-        if !availability.hosts.isEmpty {
-            let move = UIMenu(title: String(localized: "Move To"), image: UIImage(systemName: "arrow.right.circle"), children: availability.hosts.map { host in
-                UIAction(title: host) { [weak self] _ in self?.store.send(.moveRequested(ref, .move(to: host))) }
-            })
-            let copy = UIMenu(title: String(localized: "Copy To"), image: UIImage(systemName: "doc.on.doc"), children: availability.hosts.map { host in
-                UIAction(title: host) { [weak self] _ in self?.store.send(.moveRequested(ref, .copy(to: host))) }
-            })
-            move.accessibilityIdentifier = "agent.move.to"
-            copy.accessibilityIdentifier = "agent.move.copyTo"
-            elements += [move, copy]
-        }
-        let duplicate = UIAction(title: String(localized: "Duplicate…"), image: UIImage(systemName: "plus.square.on.square")) { [weak self] _ in
-            self?.store.send(.moveRequested(ref, .duplicate))
-        }
-        duplicate.accessibilityIdentifier = "agent.move.duplicate"
-        return elements + [duplicate]
+    /// Whether the row can move: gates the swipe action.
+    private func offersMove(for ref: AgentRef) -> Bool {
+        AgentContextMenu.offering(for: ref, store: store).offersDuplicate
     }
 
     /// Trailing swipe: Move opens the same choices as a sheet.
     private func swipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        guard let ref = dataSource.itemIdentifier(for: indexPath), !moveMenu(for: ref).isEmpty else { return nil }
+        guard let ref = dataSource.itemIdentifier(for: indexPath), offersMove(for: ref) else { return nil }
         let action = UIContextualAction(style: .normal, title: String(localized: "Move")) { [weak self] _, _, done in
             self?.presentMoveSheet(for: ref, at: indexPath)
             done(true)
@@ -235,7 +201,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
 
     private func presentMoveSheet(for ref: AgentRef, at indexPath: IndexPath) {
         let availability = store.withState { $0.moveAvailability(for: ref.daemonID) }
-        let sheet = UIAlertController(title: ref.name, message: nil, preferredStyle: .actionSheet)
+        let sheet = UIAlertController(title: agent(ref)?.displayName ?? ref.name, message: nil, preferredStyle: .actionSheet)
         for host in availability.hosts {
             sheet.addAction(UIAlertAction(title: String(localized: "Move to \(host)"), style: .default) { [weak self] _ in
                 self?.store.send(.moveRequested(ref, .move(to: host)))

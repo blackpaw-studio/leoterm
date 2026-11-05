@@ -10,7 +10,7 @@ import Testing
 /// windows and `Ghostty.SurfaceView`s. Requires the app's real `Ghostty.App`
 /// (via `AppDelegate`), which is why these tests bail out (rather than
 /// fail) when that isn't available.
-@MainActor struct GhosttyAttachContentHostRebirthTests {
+@MainActor @Suite struct GhosttyAttachContentHostRebirthTests {
     private func makeDefaults() -> UserDefaults {
         LeoInMemoryDefaults()
     }

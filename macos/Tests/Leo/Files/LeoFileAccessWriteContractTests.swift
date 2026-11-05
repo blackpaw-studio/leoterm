@@ -7,7 +7,7 @@ import Testing
 /// The shared write contract for `LeoFileAccess`: atomic replace, permission
 /// preservation, symlinks, conflict detection and large files. Runs once per
 /// backend, like `LeoFileAccessContractTests`.
-@Suite(LeoSSHEndToEnd.trait)
+@Suite(.hostOnly, LeoSSHEndToEnd.trait)
 struct LeoFileAccessWriteContractTests {
     @Test(arguments: LeoFileBackendKind.allCases)
     func createsExclusivelyWithoutReplacingAClash(_ kind: LeoFileBackendKind) async throws {

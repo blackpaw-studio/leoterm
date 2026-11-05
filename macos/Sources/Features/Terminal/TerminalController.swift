@@ -198,7 +198,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// was made) takes the configured size, computed as `windowDidLoad`
     /// does: never read from the SwiftUI view, which hasn't caught up with
     /// the new surface yet and reports a far smaller size.
-    func leoApplyInitialSize() {
+    /// `visibleFrame` is the screen area the window must fit; it defaults to
+    /// the window's screen, and a test injects a fixed one.
+    func leoApplyInitialSize(visibleFrame: NSRect? = nil) {
         // B-097: what `windowDidLoad` gives the container, so Reset Window
         // Size (and its menu item's enabled state) reads the configured
         // size, not the SwiftUI view's -- whether or not the window is
@@ -216,10 +218,14 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
-        guard let size = leoConfiguredContentSize else { return }
-        window.setContentSize(size)
-        window.constrainToScreen()
-        if let screen = window.screen ?? NSScreen.main {
+        guard let asked = leoConfiguredContentSize else { return }
+        let screen = window.screen ?? NSScreen.main
+        let area = visibleFrame ?? screen?.visibleFrame
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let chrome = CGSize(width: window.frame.width - content.width, height: window.frame.height - content.height)
+        window.setContentSize(area.map { LeoInitialSizeDecision.fittedContentSize(asked, chrome: chrome, visibleFrame: $0) } ?? asked)
+        window.constrainToScreen(visibleFrame: area)
+        if visibleFrame == nil, let screen {
             let frame = adjustForWindowPosition(frame: window.frame, on: screen)
             window.setFrameOrigin(frame.origin)
         }

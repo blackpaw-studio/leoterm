@@ -328,7 +328,7 @@ final class LeoSplitViewController: NSSplitViewController {
     private func widestSidebarKeepingTerminalFloor(_ sidebarItem: NSSplitViewItem) -> CGFloat {
         guard let detailItem, sidePaneItems.contains(where: { !$0.isCollapsed }) else { return .greatestFiniteMagnitude }
         let room = detailItem.viewController.view.frame.width - LeoSidebarSplitMetrics.terminalFloor
-        return sidebarItem.viewController.view.frame.width + max(0, room)
+        return sidebarWidth(of: sidebarItem) + max(0, room)
     }
 
     /// Before `item` (the browser or the editor) is shown: if the terminal
@@ -339,7 +339,9 @@ final class LeoSplitViewController: NSSplitViewController {
     func makeRoom(forShowing item: NSSplitViewItem) {
         guard isReadyToPositionDivider, let sidebarItem, !sidebarItem.isCollapsed else { return }
         let paneWidths = splitViewItems.filter { ($0 !== detailItem && !$0.isCollapsed) || $0 === item }.map { pane in
-            pane === item ? max(pane.minimumThickness, pane.viewController.view.frame.width) : pane.viewController.view.frame.width
+            // Pane widths (the sidebar's view sits inset inside its pane on macOS 26).
+            let width = Self.paneWidth(of: pane.viewController.view, in: splitView)
+            return pane === item ? max(pane.minimumThickness, width) : width
         }
         guard squeezesTerminal(paneWidths) else { return }
         autoCollapseSidebar()
@@ -352,7 +354,7 @@ final class LeoSplitViewController: NSSplitViewController {
     func sidebarSqueezesTerminal(atWidth width: CGFloat) -> Bool {
         let sidePanes = sidePaneItems.filter { !$0.isCollapsed }
         guard isReadyToPositionDivider, let sidebarItem, !sidePanes.isEmpty else { return false }
-        let sidebarWidth = min(max(width, sidebarItem.minimumThickness), sidebarItem.maximumThickness)
+        let sidebarWidth = min(max(width, sidebarItem.minimumThickness + sidebarInset), sidebarItem.maximumThickness + sidebarInset)
         return squeezesTerminal([sidebarWidth] + sidePanes.map { $0.viewController.view.frame.width })
     }
 
@@ -370,7 +372,7 @@ final class LeoSplitViewController: NSSplitViewController {
     /// width, to come back as the window widens.
     private func autoCollapseSidebar() {
         guard let sidebarItem else { return }
-        floorCollapsedSidebarWidth = sidebarItem.viewController.view.frame.width
+        floorCollapsedSidebarWidth = sidebarWidth(of: sidebarItem)
         sidebarItem.isCollapsed = true
         lastKnownVisible = false
         onSidebarAutoCollapse()
@@ -562,12 +564,48 @@ final class LeoSplitViewController: NSSplitViewController {
     /// width back (`narrowingTheWindowNarrowsAWideSidebarBeforeTheContent`).
     /// Setting it asks for another layout before the window draws, so the
     /// clamp never shows; an unchanged maximum isn't set, so that settles.
+    /// How far the sidebar's view sits inside its pane (8 pt on macOS 26,
+    /// 0 on 27). Item thickness limits clamp the view, the divider and the
+    /// content minimum are about the pane, so limits convert through this.
+    /// Kept from the last layout that had both, so a collapsed sidebar
+    /// (stale frame) doesn't zero it.
+    private var sidebarInset = CGFloat(0)
+
+    private func refreshSidebarInset() {
+        guard let sidebarItem, !sidebarItem.isCollapsed else { return }
+        let view = sidebarItem.viewController.view
+        let pane = Self.paneWidth(of: view, in: splitView)
+        guard pane > 0, view.frame.width > 0 else { return }
+        sidebarInset = max(0, pane - view.frame.width)
+    }
+
     private func updateSidebarMaximum() {
         guard let sidebarItem, splitView.bounds.width > 0 else { return }
-        let maximum = LeoSidebarSplitMetrics.sidebarMaximumWidth(
-            splitWidth: splitView.bounds.width, dividerThickness: splitView.dividerThickness)
+        refreshSidebarInset()
+        let maximum = LeoSidebarSplitMetrics.itemThickness(
+            forPaneWidth: LeoSidebarSplitMetrics.sidebarMaximumWidth(
+                splitWidth: splitView.bounds.width, dividerThickness: splitView.dividerThickness),
+            inset: sidebarInset)
+        let minimum = LeoSidebarSplitMetrics.itemThickness(
+            forPaneWidth: LeoSidebarSplitMetrics.minimumWidth, inset: sidebarInset)
+        if abs(sidebarItem.minimumThickness - minimum) > 0.5 { sidebarItem.minimumThickness = minimum }
         guard abs(sidebarItem.maximumThickness - maximum) > 0.5 else { return }
         sidebarItem.maximumThickness = maximum
+    }
+
+    /// The sidebar's width as the divider sets it: its pane's, not its
+    /// view's. On macOS 26 the sidebar's view sits inside the pane with an
+    /// 8 pt inset, so reading the view undercounts the width `setPosition`
+    /// set and stores (and restores) the sidebar 8 pt narrower than the
+    /// user left it.
+    func sidebarWidth(of item: NSSplitViewItem) -> CGFloat {
+        Self.paneWidth(of: item.viewController.view, in: splitView)
+    }
+
+    /// The width of the arranged subview of `splitView` that holds `view`,
+    /// or `view`'s own when it isn't in one.
+    static func paneWidth(of view: NSView, in splitView: NSSplitView) -> CGFloat {
+        splitView.arrangedSubviews.first { view === $0 || view.isDescendant(of: $0) }?.frame.width ?? view.frame.width
     }
 
     /// Whether `setPosition(_:ofDividerAt:)` can actually take effect.
@@ -596,7 +634,7 @@ final class LeoSplitViewController: NSSplitViewController {
         guard isReadyToPositionDivider else { return }
         view.layoutSubtreeIfNeeded()
         guard let sidebarItem, !sidebarItem.isCollapsed else { return }
-        lastPersistedWidth = sidebarItem.viewController.view.frame.width
+        lastPersistedWidth = sidebarWidth(of: sidebarItem)
     }
 
     /// Persists the sidebar's width when the user moves its divider, as
@@ -625,7 +663,7 @@ final class LeoSplitViewController: NSSplitViewController {
         guard Self.isSidebarDividerMove(notification.userInfo) else { return }
         guard !isApplyingProgrammaticWidth, pendingWidth == nil, isReadyToPositionDivider else { return }
         guard let sidebarItem, !sidebarItem.isCollapsed else { return }
-        let width = sidebarItem.viewController.view.frame.width
+        let width = sidebarWidth(of: sidebarItem)
         guard LeoSidebarSplitMetrics.shouldPersist(newWidth: width, lastPersistedWidth: lastPersistedWidth, isCollapsed: false) else {
             return
         }

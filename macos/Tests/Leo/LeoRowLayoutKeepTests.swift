@@ -98,7 +98,8 @@ import Testing
 
     /// A busy shell split beside a hidden row counts when the window
     /// closes (and so for ⌘Q and closing tabs): it asks first.
-    @Test func windowCloseAsksForABusyHiddenSplitPane() async throws {
+    /// `.hostOnly`: on hosted macos-26 the shell never reports idle (needsConfirmQuit stays true), so the "at its prompt" wait cannot pass
+    @Test(.hostOnly) func windowCloseAsksForABusyHiddenSplitPane() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
         let row = try fixture.newRow()

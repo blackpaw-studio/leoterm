@@ -349,7 +349,7 @@ import LeoKit
                     return
                 }
                 dismiss(); refresh()
-                attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil, wakeOnMessage: agent.wakeOnMessage), .content)
+                attach(LeoAgentRow(host: host, name: agent.name, displayName: agent.displayName, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil, wakeOnMessage: agent.wakeOnMessage), .content)
             } catch {
                 failure(Self.message(error, host: host))
                 self.offerOnboardingIfClaudeMissing(error, host: host)

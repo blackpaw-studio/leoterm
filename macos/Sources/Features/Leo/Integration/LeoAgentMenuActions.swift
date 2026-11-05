@@ -445,10 +445,12 @@ private struct LeoTemplateSelection {
 @MainActor struct LeoAgentMenuSheets {
     let model: LeoSidebarModel
     let actions: LeoAgentActions
+    let presenter: LeoSheetPresenter
 
-    init(model: LeoSidebarModel, actions: LeoAgentActions) {
+    init(model: LeoSidebarModel, actions: LeoAgentActions, presenter: LeoSheetPresenter = .live) {
         self.model = model
         self.actions = actions
+        self.presenter = presenter
     }
 
     init(runtime: LeoRuntime) {
@@ -456,15 +458,17 @@ private struct LeoTemplateSelection {
     }
 
     func presentRename(_ row: LeoAgentRow, in window: NSWindow?) {
-        window?.presentLeoSheet(NSHostingController(
+        guard let window else { return }
+        _ = presenter.presentController(NSHostingController(
             rootView: LeoRenameAgentSheet(row: row, actions: actions).leoSheetClose(in: window)
-        ))
+        ), window)
     }
 
     func presentDelete(_ row: LeoAgentRow, in window: NSWindow?) {
-        window?.presentLeoSheet(NSHostingController(
+        guard let window else { return }
+        _ = presenter.presentController(NSHostingController(
             rootView: LeoDeleteAgentSheetContainer(row: row, model: model, actions: actions).leoSheetClose(in: window)
-        ))
+        ), window)
     }
 }
 

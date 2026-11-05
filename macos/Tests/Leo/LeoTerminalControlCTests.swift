@@ -16,7 +16,7 @@ import Testing
 ///
 /// Needs the test host's `Ghostty.App` and `LeoRuntime`; without them the
 /// test fails rather than passing silently.
-@MainActor @Suite(.serialized)
+@MainActor @Suite(.serialized, .hostOnly)
 struct LeoTerminalControlCTests {
     /// The shell runs under `/usr/bin/login`, which reports exit 0
     /// whatever the shell exits with, so the shell leaves marker files

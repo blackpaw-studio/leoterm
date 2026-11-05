@@ -35,13 +35,18 @@ struct LeoMachineConnectionEnvironment {
     static let defaultControlSocketInstance = LeoHostConfiguration.controlSocketInstance(
         bundleIdentifier: Bundle.main.bundleIdentifier ?? "studio.blackpaw.leo"
     )
-    static let realTunnel: LeoTunnelFactory = { launch in
-        LeoTunnel(
-            executable: launch.executable,
-            arguments: launch.arguments,
-            localSocketPath: launch.localSocketPath,
-            healthProbe: launch.healthProbe
-        )
+    static let realTunnel: LeoTunnelFactory = tunnelFactory(readinessTimeout: LeoTunnel.defaultReadinessTimeout)
+
+    static func tunnelFactory(readinessTimeout: Duration) -> LeoTunnelFactory {
+        { launch in
+            LeoTunnel(
+                executable: launch.executable,
+                arguments: launch.arguments,
+                localSocketPath: launch.localSocketPath,
+                healthProbe: launch.healthProbe,
+                readinessTimeout: readinessTimeout
+            )
+        }
     }
 
     let orphanStore: LeoTunnelOrphanStore

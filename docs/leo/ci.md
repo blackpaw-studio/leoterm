@@ -1,22 +1,53 @@
 # Leo CI and releases
 
-All Leo CI runs on one self-hosted runner: the Mac mini **Dionysus**
-(`dionysus-leo`, labels `self-hosted,macOS,ARM64,leo`). Upstream Ghostty
-workflows are **disabled**, not deleted, so upstream syncs stay clean.
+All Leo CI runs on GitHub-hosted runners: `macos-26` (arm64) for the Mac and
+iOS workflows, `ubuntu-24.04` for `leo-relay`. The repo is public, so standard
+runners are free. The old self-hosted runner (Mac mini Dionysus) is retired.
+Upstream Ghostty workflows are **disabled**, not deleted, so upstream syncs
+stay clean.
 
 ## Workflows
 
 | File | Trigger | What it does |
 | --- | --- | --- |
-| `leo-ci.yml` | push to `main`, same-repo PRs | CI script tests (`.github/scripts/leo/run-tests.sh`: every `tests/test_*.sh`), SwiftLint `--strict`, Zig GhosttyKit, `GhosttyTests` unit bundle (no UI tests) |
+| `leo-ci.yml` | push to `main`, PRs, `workflow_dispatch` | CI script tests (`.github/scripts/leo/run-tests.sh`: every `tests/test_*.sh`), SwiftLint `--strict`, Zig GhosttyKit, `GhosttyTests` unit bundle (no UI tests) |
 | `leo-build.yml` | `workflow_dispatch`, `workflow_call` | ReleaseFast GhosttyKit, Release `Leo.app` with the bundled leo + tmux, Developer ID sign, DMG, notarize, staple; uploads `Leo.dmg` + zip (14 days) |
-| `leo-release.yml` | tag `leo-vX.Y.Z` | Calls `leo-ci` (must pass), then `leo-build`, signs the DMG for Sparkle, appends `appcast.xml`, publishes a GitHub Release |
+| `leo-release.yml` | tag `leo-vX.Y.Z`, `workflow_dispatch` (dry run) | Calls `leo-ci` (must pass), then `leo-build`, signs the DMG for Sparkle, appends `appcast.xml`, publishes a GitHub Release |
 | `leo-bump.yml` | `repository_dispatch` `leo-release`, `workflow_dispatch` | Verifies a new leo release and opens a PR that bumps `macos/Bundled/LEO_VERSION` (see "Bumping the bundled leo") |
 | `leo-bump-release.yml` | merged PR from `bump/leo-*` into `main` | Tags the next patch `leo-vX.Y.Z`, which fires `leo-release` |
 
 The build logic lives in `.github/scripts/leo/`, so you can run it locally.
-Fork PRs never reach the runner: `leo-ci` skips PRs whose head repo differs.
-The repo is private, so fork PR workflows are disabled at the repo level too.
+Fork PRs run on hosted runners with a read-only token and no secrets, and
+GitHub's first-time-contributor approval applies. Only `leo-bump-release`
+keeps a same-repo guard.
+
+### Test tiers
+
+`leo-ci` runs the **portable tier** only (`LEO_HOST_TESTS` unset): the host
+tier (real key focus, surfaces, WebKit, titlebar insets, split-view drags)
+fails or skips on hosted macOS runners, so it is a local pre-release check:
+
+```sh
+LEO_HOST_TESTS=1 .github/scripts/leo/run-unit-tests.sh
+```
+
+Run it on a Mac with a logged-in desktop before cutting a `leo-v` tag.
+`leo-ci` saves caches (zig, LeoKit `.build`, DerivedData) only on `main`
+pushes; PRs and tag calls restore them. Bump `CACHE_SALT` to start cold.
+The Tart bundled-daemon e2e is a manual check on any Apple-silicon Mac.
+
+### Dry runs (no release, no upload)
+
+```sh
+gh -R blackpaw-studio/leoterm workflow run leo-build.yml            # signed + notarized build, 14-day artifact
+gh -R blackpaw-studio/leoterm workflow run leo-release.yml          # dev-version build + signed appcast artifact; never publishes
+gh -R blackpaw-studio/leoterm workflow run leo-ios-testflight.yml -f upload=false   # match + archive + export only
+```
+
+`leo-release` and `leo-build` share a concurrency group with real releases:
+do not dry-run while cutting one. Check the `leo-build` log for
+`source=Notarized Developer ID` (Gatekeeper assessments must be on;
+`sign-package.sh` enables them and fails if it cannot).
 
 Versioning:
 
@@ -55,9 +86,7 @@ directly (not a draft), with `Leo.dmg`, `Leo-macos-universal.zip` and
 `https://github.com/blackpaw-studio/leoterm/releases/latest/download/appcast.xml`
 (`macos/Sources/Features/Update/UpdateFeed.swift`).
 
-> The repo is **private**. Until it is public or the appcast moves to a
-> public host, anonymous clients (Sparkle) get a 404 on that URL, so
-> auto-update will not find releases.
+The repo is public, so anonymous clients (Sparkle) can fetch that URL.
 
 ## One-off signed build
 
@@ -132,7 +161,7 @@ contain `-` and send nothing) dispatches `leo-release` to this repo with
 4. The tag fires `leo-release`, as in "Cut a release". Close the bump PR to
    skip a release; tag by hand to release some other change.
 
-Both run on Dionysus like the rest of CI. `repository_dispatch` only runs the
+Both run on `macos-26` like the rest of CI. `repository_dispatch` only runs the
 workflow file on `main`. To test, dispatch by hand (needs a real release's
 sha256, e.g. from its `checksums.txt`):
 
@@ -145,13 +174,10 @@ gh api repos/blackpaw-studio/leoterm/dispatches -f event_type=leo-release \
 ## Where keys live
 
 All signing material lives in GitHub Actions secrets on
-`blackpaw-studio/leoterm`, not on Dionysus. Each signing job builds a
+`blackpaw-studio/leoterm`, not on any runner. Each signing job builds a
 throwaway keychain under `$RUNNER_TEMP` (`.github/scripts/leo/keychain.sh`),
-uses it, then deletes it in an `if: always()` step — nothing persists on the
-runner between jobs, and the same steps would work unmodified on
-`macos-latest`. Dionysus stays the `runs-on` target only for cost/speed, not
-because it holds credentials; the runner is still a LaunchAgent
-(`~/actions-runner`, `./svc.sh status|stop|start`).
+uses it, then deletes it in an `if: always()` step; hosted runners are
+ephemeral anyway.
 
 Secrets:
 
@@ -169,7 +195,7 @@ Secrets:
 The Developer ID's private key also stays in Dionysus's **login** keychain
 (unrelated to CI) because Evan signs local builds there.
 
-- **Toolchain**: `DEVELOPER_DIR=/Applications/Xcode-26.3.0.app` (Xcode 26.5's SDK breaks Zig linking) and Zig 0.16 from `~/.local/bin`.
+- **Toolchain**: `DEVELOPER_DIR=/Applications/Xcode_26.3.app/Contents/Developer` (Xcode 26.5's SDK breaks Zig linking; the job fails if 26.3 is missing from the image, never falls back) and Zig 0.16.0 via `mlugg/setup-zig`. iOS workflows use `/Applications/Xcode_26.5.app` (Xcode 27 crashes on this code), xcodegen 2.42.0 and, for TestFlight, `ruby/setup-ruby` 3.3.4.
 - **Public key**: `macos/Ghostty-Info.plist`'s `SUPublicEDKey` is the single source of truth (Xcode bakes it into the built app; there is no separate workflow copy). Keep it in sync with the `public key` field on the 1Password item. `sparkle-key-check.sh` derives the expected public key from `SPARKLE_PRIVATE_KEY` and diffs it against this same plist value before every release signs anything.
 
 ### Rotating a secret

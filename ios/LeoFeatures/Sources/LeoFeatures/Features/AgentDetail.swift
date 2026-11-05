@@ -37,6 +37,8 @@ public struct AgentDetail {
         }
 
         public var ref: AgentRef { AgentRef(daemonID: daemon.id, name: agentName) }
+        /// What the user sees for this agent; `agentName` stays the identifier.
+        public var displayName: String { agent?.displayName ?? agentName }
         public var id: AgentRef { ref }
         public var isBusy: Bool { inFlight != nil || isLoadingEnvironments }
     }
@@ -93,11 +95,11 @@ public struct AgentDetail {
 
             case .terminalButtonTapped:
                 let isRunning = state.agent?.canOpenTerminal ?? false
-                state.destination = .terminal(Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: isRunning))
+                state.destination = .terminal(Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: isRunning, displayName: state.displayName))
                 return .none
 
             case .interruptButtonTapped:
-                state.confirmation = Self.confirmation(for: .interrupt, agent: state.agentName)
+                state.confirmation = Self.confirmation(for: .interrupt, agent: state.displayName)
                 return .none
 
             case .openInClaudeButtonTapped:
@@ -105,14 +107,14 @@ public struct AgentDetail {
                 return .run { _ in await openURL(Self.claudeCodeURL) }
 
             case .restartButtonTapped:
-                state.confirmation = Self.confirmation(for: .restart, agent: state.agentName)
+                state.confirmation = Self.confirmation(for: .restart, agent: state.displayName)
                 return .none
 
             case .startButtonTapped:
                 return perform(.start, state: &state)
 
             case .stopButtonTapped:
-                state.confirmation = Self.confirmation(for: .stop, agent: state.agentName)
+                state.confirmation = Self.confirmation(for: .stop, agent: state.displayName)
                 return .none
 
             case .switchEnvironmentButtonTapped:
@@ -136,11 +138,11 @@ public struct AgentDetail {
         case .commandFinished(_, let command, let result):
             if state.inFlight == command { state.inFlight = nil }
             if case .failure(let error) = result {
-                state.alert = Self.failureAlert("Couldn't \(command.verb) \(state.agentName)", error)
+                state.alert = Self.failureAlert("Couldn't \(command.verb) \(state.displayName)", error)
             }
         case .environmentsLoaded(_, .success(let names)):
             state.isLoadingEnvironments = false
-            state.confirmation = Self.environmentPicker(names: names, current: state.agent?.environments, agent: state.agentName)
+            state.confirmation = Self.environmentPicker(names: names, current: state.agent?.environments, agent: state.displayName)
         case .environmentsLoaded(_, .failure(let error)):
             state.isLoadingEnvironments = false
             state.alert = Self.failureAlert("Couldn't Load Environments", error)

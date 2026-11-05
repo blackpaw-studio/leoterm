@@ -22,7 +22,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private static let stripRenderInterval: Duration = .milliseconds(100)
 
     @UIBindable private var store: StoreOf<ChatThread>
-    private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
+    private lazy var collectionView = ChatCollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
     private lazy var composer = ComposerView(
         store: store.scope(state: \.composer, action: \.composer),
@@ -50,6 +50,10 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private var shownSpacing: [String: CGFloat] = [:]
     private var pendingPlay: String?
     private var settleReveal = SettleReveal()
+    /// Whether the list follows its newest message; see `ChatScrollPin`.
+    private var pin = ChatScrollPin()
+    private var isCorrectingScroll = false
+    private var wasSending = false
 
     init(store: StoreOf<ChatThread>) {
         self.store = store
@@ -71,6 +75,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         terminalButton.accessibilityIdentifier = "chat.terminal"
         terminalButton.primaryAction = UIAction(image: terminalButton.image) { [weak self] _ in self?.store.send(.terminalButtonTapped) }
         collectionView.delegate = self
+        collectionView.onLayout = { [weak self] in self?.keepPinnedToBottom() }
         collectionView.keyboardDismissMode = .interactive
         collectionView.accessibilityIdentifier = "chat.thread"
         voice.onChange = { [weak self] in self?.reconfigureAll() }
@@ -182,8 +187,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     }
 
     private func render() {
-        title = store.agentName
-        titleView.configure(agentName: store.agentName, agent: store.agent, daemonName: store.daemon.name)
+        title = store.displayName
+        titleView.configure(agentName: store.agentName, displayName: store.displayName, agent: store.agent, daemonName: store.daemon.name)
         renderReplyBanner()
         renderStrip()
         renderMoreMenu()
@@ -192,7 +197,6 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         let ids = items.map(\.id)
         let newItems = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         let changed = ids.filter { shownItems[$0] != newItems[$0] }
-        let wasAtBottom = isNearBottom
         let prepended = !shownIDs.isEmpty && ids.count > shownIDs.count && ids.last == shownIDs.last
         let previousHeight = collectionView.contentSize.height
         shownItems = newItems
@@ -206,13 +210,17 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         snapshot.reconfigureItems(snapshot.itemIdentifiers.filter { changed.contains($0) || shownIDs.contains($0) })
         dataSource.apply(snapshot, animatingDifferences: false)
         let isFirstFill = shownIDs.isEmpty && !ids.isEmpty
+        // Any send (text or voice note) starts as the composer's draft going out.
+        if store.composer.isSending, !wasSending { pin.userSent() }
+        wasSending = store.composer.isSending
         shownIDs = ids
 
         collectionView.layoutIfNeeded()
         if prepended {
             // Keep the reader's place when an older page lands on top.
             collectionView.contentOffset.y += collectionView.contentSize.height - previousHeight
-        } else if isFirstFill || wasAtBottom {
+        } else if isFirstFill || pin.isPinned {
+            if isFirstFill { pin = ChatScrollPin() }
             scrollToBottom()
         }
         revealSettledQuestionCards()
@@ -308,7 +316,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             var configuration = UIContentUnavailableConfiguration.empty()
             configuration.image = UIImage(systemName: "bubble.left.and.bubble.right")
             configuration.text = store.taskFilter == nil ? String(localized: "No Messages Yet") : String(localized: "No Output from \(store.taskFilter ?? "")")
-            configuration.secondaryText = store.taskFilter == nil ? String(localized: "Say hello to \(store.agentName).") : nil
+            configuration.secondaryText = store.taskFilter == nil ? String(localized: "Say hello to \(store.displayName).") : nil
             contentUnavailableConfiguration = configuration
         } else {
             contentUnavailableConfiguration = nil
@@ -364,24 +372,39 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
               let frame = collectionView.layoutAttributesForItem(at: indexPath)?.frame else { return }
         let inset = collectionView.adjustedContentInset
         guard frame.minY < collectionView.contentOffset.y + inset.top else { return }
+        pin.release()
         let lowest = collectionView.contentSize.height - collectionView.bounds.height + inset.bottom
         let top = min(frame.minY - inset.top - Self.focusedFieldMargin, lowest)
         collectionView.setContentOffset(CGPoint(x: 0, y: max(top, -inset.top)), animated: true)
     }
 
-    private var isNearBottom: Bool {
-        let visibleBottom = collectionView.contentOffset.y + collectionView.bounds.height - collectionView.adjustedContentInset.bottom
-        return collectionView.contentSize.height - visibleBottom < 80
+    private var scrollMetrics: ChatScrollMetrics {
+        ChatScrollMetrics(
+            offsetY: collectionView.contentOffset.y, contentHeight: collectionView.contentSize.height,
+            boundsHeight: collectionView.bounds.height, insetTop: collectionView.adjustedContentInset.top,
+            insetBottom: collectionView.adjustedContentInset.bottom
+        )
     }
 
     private func scrollToBottom() {
-        guard let last = shownIDs.last, let indexPath = dataSource.indexPath(for: last) else { return }
-        collectionView.scrollToItem(at: indexPath, at: .bottom, animated: false)
+        collectionView.contentOffset.y = scrollMetrics.bottomOffsetY
+    }
+
+    /// Runs after every layout pass of the list: the keyboard or composer
+    /// resizing it, and cells settling on their real heights, move the bottom.
+    /// A reader mid-drag is left alone.
+    private func keepPinnedToBottom() {
+        guard !isCorrectingScroll, !collectionView.isDragging, !collectionView.isDecelerating,
+              let offset = pin.correction(for: scrollMetrics) else { return }
+        isCorrectingScroll = true
+        collectionView.contentOffset.y = offset
+        isCorrectingScroll = false
     }
 
     @objc private func revealFocusedAskField() {
         let cells = collectionView.visibleCells.compactMap { $0 as? ChatMessageCell }
         guard let frame = cells.lazy.compactMap({ $0.focusedTextFrame(in: self.collectionView) }).first else { return }
+        pin.release()
         collectionView.scrollRectToVisible(frame.insetBy(dx: 0, dy: -Self.focusedFieldMargin), animated: true)
     }
 
@@ -451,8 +474,17 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool { false }
 
+    /// The status bar tap isn't a drag: let go of the bottom so the list
+    /// doesn't fight the scroll back down.
+    func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
+        pin.release()
+        return true
+    }
+
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
-        guard scrollView.isDragging || scrollView.isDecelerating, scrollView.contentOffset.y < Self.olderPageThreshold else { return }
+        guard scrollView.isDragging || scrollView.isDecelerating else { return }
+        pin.userScrolled(scrollMetrics)
+        guard scrollView.contentOffset.y < Self.olderPageThreshold else { return }
         if store.hasMore, !store.isLoadingOlder { store.send(.loadOlderTriggered) }
     }
 
@@ -483,6 +515,16 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
 
     private lazy var pickerDelegate = AttachmentPickerDelegate { [weak self] file in
         self?.store.send(.composer(.attachmentPicked(file)))
+    }
+}
+
+/// Reports each layout pass so the thread can follow its bottom as it moves.
+final class ChatCollectionView: UICollectionView {
+    var onLayout: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
     }
 }
 

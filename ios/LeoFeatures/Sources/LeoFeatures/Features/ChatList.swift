@@ -15,6 +15,8 @@ public struct ChatRow: Equatable, Identifiable, Sendable {
     }
 
     public let ref: AgentRef
+    /// What the user sees for this agent; `ref.name` stays the identifier.
+    public var displayName: String { agent?.displayName ?? ref.name }
     /// Set only when more than one daemon is paired.
     public let daemonName: String?
     public let lastMessage: LeoChatMessage?
@@ -234,7 +236,7 @@ public struct ChatList {
 
     private static func matches(_ row: ChatRow, _ query: String) -> Bool {
         let message = row.lastMessage
-        return [row.ref.name, message?.text, message?.transcript].contains { $0?.localizedCaseInsensitiveContains(query) == true }
+        return [row.ref.name, row.displayName, message?.text, message?.transcript].contains { $0?.localizedCaseInsensitiveContains(query) == true }
     }
 
     /// Needs you, then Working, then everything else (done, idle, unknown).
@@ -252,6 +254,6 @@ public struct ChatList {
         if left != right { return left }
         let (leftDate, rightDate) = (lhs.lastMessage?.ts ?? .distantPast, rhs.lastMessage?.ts ?? .distantPast)
         if leftDate != rightDate { return leftDate > rightDate }
-        return (lhs.ref.name, lhs.daemonName ?? "") < (rhs.ref.name, rhs.daemonName ?? "")
+        return (lhs.displayName, lhs.ref.name, lhs.daemonName ?? "") < (rhs.displayName, rhs.ref.name, rhs.daemonName ?? "")
     }
 }

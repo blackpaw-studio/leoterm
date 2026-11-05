@@ -1,4 +1,5 @@
 import AppKit
+import Foundation
 import Testing
 
 /// Tests that drive real key status (a palette panel taking key, `NSApp.sendEvent`
@@ -113,10 +114,40 @@ struct LeoFocusProbe {
     }
 }
 
+/// Which test tiers run. Portable tests always run; the host tier (real key
+/// status, real surfaces, WebKit, child processes) runs only when
+/// `LEO_HOST_TESTS` is exactly `1`, so hosted CI never touches it.
+struct LeoTestTier: Sendable {
+    static let hostTestsVariable = "LEO_HOST_TESTS"
+    static let hostTestsSkipReason = "host tier: set \(hostTestsVariable)=1"
+    static let current = LeoTestTier(environment: ProcessInfo.processInfo.environment)
+
+    let runsHostTests: Bool
+
+    init(environment: [String: String]) {
+        runsHostTests = environment[Self.hostTestsVariable] == "1"
+    }
+
+    /// Tier first, then the focus probe: with the tier off no probe is built,
+    /// so no window is ever created.
+    @MainActor
+    func focusAvailable(probe: @MainActor () -> LeoFocusProbe) async -> Bool {
+        guard runsHostTests else { return false }
+        return await probe().runLoggingSkip() == .available
+    }
+}
+
 extension Trait where Self == ConditionTrait {
+    /// Host tier: the behaviour under test is real AppKit, Ghostty, WebKit or
+    /// process interaction. Skipped unless `LEO_HOST_TESTS=1`.
+    static var hostOnly: Self {
+        enabled(if: LeoTestTier.current.runsHostTests, Comment(rawValue: LeoTestTier.hostTestsSkipReason))
+    }
+
+    /// Host tier plus a working focus probe, for tests that need key status.
     static var requiresActiveHost: Self {
         enabled(Comment(rawValue: LeoFocusProbe.unavailableReason)) {
-            await LeoFocusProbe.live().runLoggingSkip() == .available
+            await LeoTestTier.current.focusAvailable { LeoFocusProbe.live() }
         }
     }
 }

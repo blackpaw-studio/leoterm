@@ -118,6 +118,10 @@ public struct LeoLocalFileBackend: LeoFileAccessBackend {
         }
     }
 
+    public func makeDirectory(_ path: String, permissions: UInt16?) async throws {
+        guard mkdir(path, mode_t(permissions ?? 0o777)) == 0 else { throw Self.error(errno, path: path) }
+    }
+
     public func remove(_ path: String) async throws {
         guard unlink(path) == 0 else { throw Self.error(errno, path: path) }
     }

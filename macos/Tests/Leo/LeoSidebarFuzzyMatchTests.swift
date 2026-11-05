@@ -177,7 +177,21 @@ struct LeoSidebarFuzzyMatchTests {
         #expect(LeoFuzzyMatcher.highlightRuns(name: "brand", offsets: []) == [.init(text: "brand", isMatched: false)])
     }
 
-    private func row(_ name: String, template: String? = nil) -> LeoAgentRow {
-        LeoAgentRow(host: .local, name: name, template: template, status: .running, activity: .idle, actionDetail: nil)
+    // MARK: Display name vs. raw name
+
+    @Test func rawNameStillFindsAnAgentThatShowsADisplayName() {
+        let alfred = row("leo-alfred", displayName: "Alfred")
+        #expect(LeoFuzzyMatcher.rank([row("zeta"), alfred], query: "leo-alfred").map(\.name) == ["leo-alfred"])
+        #expect(LeoFuzzyMatcher.rank([row("zeta"), alfred], query: "alfr").map(\.name) == ["leo-alfred"])
+    }
+
+    @Test func highlightsFollowTheFieldThatMatched() {
+        let alfred = row("leo-alfred", displayName: "Alfred")
+        #expect(LeoFuzzyMatcher.nameHighlights(for: alfred, query: "alf") == [0, 1, 2], "displayName matched, so its characters are bold")
+        #expect(LeoFuzzyMatcher.nameHighlights(for: alfred, query: "leo-alfred").isEmpty, "only the raw name matched: nothing in 'Alfred' to bold")
+    }
+
+    private func row(_ name: String, template: String? = nil, displayName: String? = nil) -> LeoAgentRow {
+        LeoAgentRow(host: .local, name: name, displayName: displayName, template: template, status: .running, activity: .idle, actionDetail: nil)
     }
 }

@@ -10,8 +10,8 @@ import UniformTypeIdentifiers
 final class ComposerView: UIView, UITextViewDelegate {
     enum Source { case camera, files, photos }
 
-    /// How far a drag off the mic cancels the recording.
-    private static let cancelDistance: CGFloat = 80
+    /// The mic/send touch target: the 44pt HIG minimum, with the 36pt look kept by insets.
+    private static let actionSide: CGFloat = 44
     private static let maximumTextHeight: CGFloat = 140
 
     private let store: StoreOf<Composer>
@@ -21,6 +21,7 @@ final class ComposerView: UIView, UITextViewDelegate {
     private let placeholder = UILabel()
     private let attachButton = UIButton(type: .system)
     private let actionButton = UIButton(type: .system)
+    private var holdStart = CGPoint.zero
     private let hintLabel = UILabel()
     private let chips = UIStackView()
     private let chipScroller = UIScrollView()
@@ -71,6 +72,9 @@ final class ComposerView: UIView, UITextViewDelegate {
             UIAction(title: String(localized: "Files"), image: UIImage(systemName: "folder")) { [weak self] _ in self?.pick(.files) },
         ])
 
+        var actionConfiguration = UIButton.Configuration.plain()
+        actionConfiguration.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 8, bottom: 0, trailing: 0)
+        actionButton.configuration = actionConfiguration
         actionButton.addAction(UIAction { [weak self] _ in self?.actionTapped() }, for: .primaryActionTriggered)
         let hold = UILongPressGestureRecognizer(target: self, action: #selector(held(_:)))
         hold.minimumPressDuration = 0.15
@@ -94,6 +98,8 @@ final class ComposerView: UIView, UITextViewDelegate {
         let row = UIStackView(arrangedSubviews: [attachButton, field, actionButton])
         row.alignment = .bottom
         row.spacing = 8
+        // The 44pt button's inset (8) stands in for the gap, so the field keeps its width.
+        row.setCustomSpacing(0, after: field)
         let column = UIStackView(arrangedSubviews: [hintLabel, chipScroller, row])
         column.axis = .vertical
         column.spacing = 6
@@ -111,8 +117,8 @@ final class ComposerView: UIView, UITextViewDelegate {
             placeholder.topAnchor.constraint(equalTo: textView.topAnchor, constant: 8),
             attachButton.widthAnchor.constraint(equalToConstant: 36),
             attachButton.heightAnchor.constraint(equalToConstant: 36),
-            actionButton.widthAnchor.constraint(equalToConstant: 36),
-            actionButton.heightAnchor.constraint(equalToConstant: 36),
+            actionButton.widthAnchor.constraint(equalToConstant: Self.actionSide),
+            actionButton.heightAnchor.constraint(equalToConstant: Self.actionSide),
             chipScroller.heightAnchor.constraint(equalToConstant: 34),
             chips.topAnchor.constraint(equalTo: chipScroller.contentLayoutGuide.topAnchor),
             chips.bottomAnchor.constraint(equalTo: chipScroller.contentLayoutGuide.bottomAnchor),
@@ -127,7 +133,7 @@ final class ComposerView: UIView, UITextViewDelegate {
         placeholder.isHidden = !store.text.isEmpty
         showsMic = store.outgoing == nil
         let symbol = store.isRecording ? "mic.circle.fill" : (showsMic ? "mic.circle" : "arrow.up.circle.fill")
-        actionButton.setImage(UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 28)), for: .normal)
+        actionButton.configuration?.image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 28))
         actionButton.tintColor = store.isRecording ? .systemRed : .tintColor
         actionButton.isEnabled = !store.isSending
         actionButton.accessibilityLabel = showsMic ? String(localized: "Hold to record a voice note") : String(localized: "Send")
@@ -187,7 +193,7 @@ final class ComposerView: UIView, UITextViewDelegate {
 
     private func updateRecordingLabel() {
         let elapsed = Date().timeIntervalSince(recordingStart)
-        recordingLabel.text = String(localized: "● \(ChatPresentation.duration(elapsed)) — slide away to cancel")
+        recordingLabel.text = String(localized: "● \(ChatPresentation.duration(elapsed)) — slide left to cancel")
     }
 
     private func actionTapped() {
@@ -202,11 +208,11 @@ final class ComposerView: UIView, UITextViewDelegate {
         guard showsMic || store.isRecording else { return }
         switch recognizer.state {
         case .began:
+            holdStart = recognizer.location(in: self)
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             store.send(.recordButtonPressed)
         case .changed:
-            let point = recognizer.location(in: actionButton)
-            if hypot(point.x - actionButton.bounds.midX, point.y - actionButton.bounds.midY) > Self.cancelDistance {
+            if RecordingGesture.shouldCancel(start: holdStart, current: recognizer.location(in: self)) {
                 recognizer.state = .cancelled
             }
         case .ended:

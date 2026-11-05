@@ -16,7 +16,9 @@ struct LeoAttentionNotification: Equatable, Sendable {
     let body: String
     let userInfo: [String: String]
 
-    init?(_ transition: LeoAttentionTransition) {
+    /// `displayName` is the row's shown name; the identifier and userInfo
+    /// stay on the raw `id.name`, which is what routes a click.
+    init?(_ transition: LeoAttentionTransition, displayName: String? = nil) {
         guard transition.shouldNotify else { return nil }
         switch transition.to {
         case .needsInput:
@@ -27,9 +29,11 @@ struct LeoAttentionNotification: Equatable, Sendable {
         }
         let id = transition.id
         identifier = "\(Self.identifierPrefix)\(Self.identifierHostKey(id.host)).\(id.name).\(transition.bootID ?? "-").\(transition.revision)"
-        title = "\(id.name) · \(id.host.displayName)"
+        title = Self.title(displayName ?? id.name, host: id.host)
         userInfo = [Self.hostKey: Self.encode(id.host), Self.agentKey: id.name]
     }
+
+    private static func title(_ agent: String, host: LeoHostID) -> String { "\(agent) · \(host.displayName)" }
 
     /// The agent a clicked notification refers to, or `nil` when it isn't
     /// one of ours.
@@ -102,12 +106,14 @@ struct LeoAttentionNotification: Equatable, Sendable {
 
     var rememberedPostCount: Int { lastPosted.count }
 
-    func handle(_ transitions: [LeoAttentionTransition]) async {
+    /// `displayNames` maps agents to the name their row shows; one it omits
+    /// is titled by its raw name.
+    func handle(_ transitions: [LeoAttentionTransition], displayNames: [LeoAgentRow.ID: String] = [:]) async {
         guard isEnabled else { return }
         for transition in transitions {
             // Batches arrive via unordered tasks, so one can land after its machine left.
             guard isLive(transition.id.host) else { continue }
-            guard let notification = LeoAttentionNotification(transition), !alreadyPosted(transition) else { continue }
+            guard let notification = LeoAttentionNotification(transition, displayName: displayNames[transition.id]), !alreadyPosted(transition) else { continue }
             lastPosted = lastPosted.filter { isLive($0.key.host) }
             lastPosted[transition.id] = transition
             await center.post(notification)
@@ -160,9 +166,9 @@ extension LeoAttentionNotification {
     /// An agent's `browser_handoff`: its own message is the body, so Evan can
     /// tell what it wants without opening the pane. Clicking it opens the
     /// agent's row, like the attention ones.
-    init(handoffFrom id: LeoAgentRow.ID, requestID: String, message: String) {
+    init(handoffFrom id: LeoAgentRow.ID, displayName: String? = nil, requestID: String, message: String) {
         identifier = "\(Self.identifierPrefix)handoff.\(Self.identifierHostKey(id.host)).\(id.name).\(requestID)"
-        title = "\(id.name) · \(id.host.displayName)"
+        title = Self.title(displayName ?? id.name, host: id.host)
         let collapsed = message.split(whereSeparator: \.isWhitespace).joined(separator: " ")
         body = collapsed.isEmpty ? "Needs your help in the browser" : String(collapsed.prefix(Self.handoffBodyLimit))
         userInfo = [Self.hostKey: Self.encode(id.host), Self.agentKey: id.name]

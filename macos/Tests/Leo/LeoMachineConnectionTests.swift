@@ -186,7 +186,8 @@ import Testing
             transport: LeoAlwaysHealthyTransport(),
             localSocketPath: LeoMachineTunnelTestSupport.localSocketPath,
             legacySocketDirectory: socketDirectory,
-            controlSocketDirectory: socketDirectory
+            controlSocketDirectory: socketDirectory,
+            makeTunnel: LeoMachineConnectionEnvironment.tunnelFactory(readinessTimeout: LeoTunnelTestSupport.readinessTimeout)
         )
         var generation = 0
         let connection = LeoMachineConnection(target: .remote(configuration), environment: environment, nextGeneration: {

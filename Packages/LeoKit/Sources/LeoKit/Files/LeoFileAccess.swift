@@ -52,6 +52,11 @@ public protocol LeoFileAccess: Sendable {
     @discardableResult
     func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat
 
+    /// `mkdir -p`: makes `path` and any missing parents, each private to the
+    /// user (0700). Already-present directories (symlinks to one included)
+    /// are left untouched; anything else in the way fails.
+    func ensureDirectory(_ path: String) async throws
+
     /// Releases any connection the accessor holds (the SFTP session) at
     /// once, without waiting for what's in flight, which fails. Final: every
     /// later call fails with `.closed` and nothing reconnects. Safe to call
@@ -65,6 +70,10 @@ extension LeoFileAccess {
     /// `LeoFileAccessor`'s exclusive implementation.
     public func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
         throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating files")
+    }
+
+    public func ensureDirectory(_ path: String) async throws {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating folders")
     }
 
     public func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat {
