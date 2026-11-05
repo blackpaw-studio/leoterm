@@ -50,7 +50,6 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private weak var moreItem: NSToolbarItem?
     private var showsMoreItem = true
     private var isSidebarToggleHidden = true
-    private var hasActivity = false
     private var sideBySideChatWidth: CGFloat = 0
 
     @MainActor
@@ -80,20 +79,6 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
             isSidebarToggleHidden = isVisible
             updateActivityWidth()
             if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isVisible } else { syncItemPresence() }
-        }.store(in: &subscriptions)
-    }
-
-    /// Shows the capsule while the selected agent has a task; hidden, it
-    /// leaves no gap.
-    @MainActor
-    func bind(hasActivity: some Publisher<Bool, Never>) {
-        hasActivity.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] hasActivity in
-            guard let self else { return }
-            self.hasActivity = hasActivity
-            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity }
-            // The width is 0 while there is no task, so a task arriving must resize
-            // the capsule too: a zero-width hosting view takes no clicks.
-            updateActivityWidth()
         }.store(in: &subscriptions)
     }
 
@@ -216,7 +201,6 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.isBordered = false
         item.visibilityPriority = .high
         item.label = "Activity"
-        if #available(macOS 15.0, *) { item.isHidden = !hasActivity }
         activityItem = item
         updateActivityWidth()
         return item
@@ -232,9 +216,8 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
             windowWidth: window.frame.width, sidebarWidth: sidebar, chatLeadingEdge: chatLeadingEdge(in: window),
             leadingChrome: leadingChrome)
         let layout = placement.layout
-        // Below macOS 15 a capsule with no task collapses to no width.
-        let width = hasActivity ? layout.width : 0
-        let containerWidth = hasActivity ? layout.width + placement.trailingPad : 0
+        let width = layout.width
+        let containerWidth = width + placement.trailingPad
         if activityWidth.constant != width { activityWidth.constant = width }
         if activityContainerWidth.constant != containerWidth { activityContainerWidth.constant = containerWidth }
         if #available(macOS 15.0, *) { moreItem?.isHidden = !layout.showsMoreItem }

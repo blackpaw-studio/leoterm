@@ -27,11 +27,67 @@ struct LeoActivityCapsulePresentationTests {
         )
     }
 
-    @Test func hiddenWithNoTasks() {
+    private static func idle(_ state: LeoActivityCapsulePresentation.AgentState, width: CGFloat = 500) -> LeoActivityCapsulePresentation {
+        LeoActivityCapsulePresentation(tasks: .none, state: state, now: t0, availableWidth: width, measure: measure)
+    }
+
+    // MARK: Always shown (spec amendment 2026-11-04)
+
+    @Test func anAgentWithNoTasksStillShowsTheCapsule() {
         let capsule = Self.make([])
-        #expect(!capsule.isVisible)
-        #expect(capsule.title == nil)
-        #expect(capsule.badge == nil)
+        #expect(capsule.isVisible)
+        #expect(capsule.kind == .agentState)
+        #expect(capsule.isEnabled)
+        #expect(capsule.width == 500)
+    }
+
+    @Test func theStateTextFollowsTheAttentionState() {
+        typealias State = LeoActivityCapsulePresentation.AgentState
+        #expect(State(attention: .needsInput, isWorking: false).text == "Needs you")
+        #expect(State(attention: .errored, isWorking: false).text == "Errored")
+        #expect(State(attention: .working, isWorking: false).text == "Working")
+        #expect(State(attention: nil, isWorking: true).text == "Working")
+        #expect(State(attention: .finished, isWorking: false).text == "Idle")
+        #expect(State(attention: nil, isWorking: false).text == "Idle")
+    }
+
+    @Test func needsYouAndErrorOutrankWorking() {
+        typealias State = LeoActivityCapsulePresentation.AgentState
+        #expect(State(attention: .needsInput, isWorking: true) == .needsYou)
+        #expect(State(attention: .errored, isWorking: true) == .errored)
+    }
+
+    @Test func noTasksShowsTheStateAsPlainTextWithATintedDotAndNoBarOrBadge() {
+        for state in [.working, .idle, .needsYou, .errored] as [LeoActivityCapsulePresentation.AgentState] {
+            let capsule = Self.idle(state)
+            #expect(capsule.title == state.text)
+            #expect(capsule.statusText == nil)
+            #expect(capsule.glyph == .dot(state))
+            #expect(capsule.bar == nil)
+            #expect(capsule.badge == nil)
+            #expect(capsule.variant == .full)
+        }
+    }
+
+    @Test func noTasksReadsAsTheStateInVoiceOver() {
+        #expect(Self.idle(.needsYou).accessibilityLabel == "Needs you, no tasks")
+    }
+
+    @Test func noTasksOpensAPopoverWithANoTasksEmptyState() {
+        let capsule = Self.idle(.idle)
+        #expect(capsule.popover.rows.isEmpty)
+        #expect(capsule.popover.emptyMessage == "No tasks")
+        #expect(Self.make([Self.task("a")]).popover.emptyMessage == nil)
+    }
+
+    @Test func aTerminalRowOrTheStartScreenShowsNoAgentAndIsDisabled() {
+        let capsule = LeoActivityCapsulePresentation.noAgent(availableWidth: 500)
+        #expect(capsule.isVisible)
+        #expect(capsule.kind == .noAgent)
+        #expect(capsule.title == "No agent")
+        #expect(!capsule.isEnabled)
+        #expect(capsule.glyph == .dot(nil))
+        #expect(capsule.bar == nil && capsule.badge == nil)
         #expect(capsule.popover.rows.isEmpty)
     }
 

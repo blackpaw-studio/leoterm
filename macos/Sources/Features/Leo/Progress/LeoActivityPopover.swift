@@ -14,12 +14,15 @@ struct LeoActivityPopover: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
                 Text("Tasks").font(.headline)
-                Text(presentation.summary).font(.subheadline).foregroundStyle(.secondary)
+                if !presentation.summary.isEmpty { Text(presentation.summary).font(.subheadline).foregroundStyle(.secondary) }
                 Spacer(minLength: 0)
             }
             .accessibilityElement(children: .combine)
             ForEach(presentation.rows) { row in
                 rowView(row)
+            }
+            if presentation.rows.isEmpty, let message = presentation.emptyMessage {
+                Text(message).font(.subheadline).foregroundStyle(.secondary)
             }
         }
         .padding(14)

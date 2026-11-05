@@ -15,8 +15,9 @@ enum LeoActivityCapsuleFonts {
 
 /// The toolbar's activity capsule: a 32 pt glass capsule with the selected
 /// agent's primary task, a 4 pt bar along its bottom edge and a count badge.
-/// Not drawn (and the toolbar item hidden, so no gap is left) when the
-/// agent has no task. Click opens the Tasks popover.
+/// Always present: with no task it says the agent's state as plain text
+/// beside a tinted dot ("No agent", disabled, for a terminal row or the
+/// start screen). Click opens the Tasks popover.
 struct LeoActivityCapsule: View {
     static let height: CGFloat = 32
     static let barHeight: CGFloat = 4
@@ -32,29 +33,34 @@ struct LeoActivityCapsule: View {
     private var row: LeoAgentRow? { terminals.selection == nil ? model.actionableSelection : nil }
 
     var body: some View {
-        if let row, !row.tasks.isEmpty {
-            GeometryReader { proxy in
-                TimelineView(.periodic(from: .now, by: Self.refreshInterval)) { context in
-                    content(row, now: context.date, width: proxy.size.width)
-                }
+        GeometryReader { proxy in
+            TimelineView(.periodic(from: .now, by: Self.refreshInterval)) { context in
+                content(row, now: context.date, width: proxy.size.width)
             }
-            .frame(height: Self.height)
         }
+        .frame(height: Self.height)
     }
 
-    private func content(_ row: LeoAgentRow, now: Date, width: CGFloat) -> some View {
-        let presentation = LeoActivityCapsulePresentation(
-            tasks: row.tasks, now: now, availableWidth: width, measure: LeoActivityCapsuleFonts.width(of:role:))
+    private func presentation(for row: LeoAgentRow?, now: Date, width: CGFloat) -> LeoActivityCapsulePresentation {
+        guard let row else { return .noAgent(availableWidth: width) }
+        return LeoActivityCapsulePresentation(
+            tasks: row.tasks, state: .init(attention: row.attention, isWorking: row.activity == .working), now: now,
+            availableWidth: width, measure: LeoActivityCapsuleFonts.width(of:role:))
+    }
+
+    private func content(_ row: LeoAgentRow?, now: Date, width: CGFloat) -> some View {
+        let presentation = presentation(for: row, now: now, width: width)
         return Button { showsPopover.toggle() } label: {
             capsule(presentation)
         }
         .buttonStyle(.plain)
+        .disabled(!presentation.isEnabled)
         .modifier(LeoActivityKeyboard { showsPopover.toggle() })
         .accessibilityLabel(presentation.accessibilityLabel)
-        .accessibilityHint("Shows every task")
+        .accessibilityHint(presentation.isEnabled ? "Shows every task" : "")
         .popover(isPresented: $showsPopover, arrowEdge: .bottom) {
             LeoActivityPopover(presentation: presentation.popover) { id in
-                actions.dismissTask(host: row.host, agent: row.name, id: id)
+                if let row { actions.dismissTask(host: row.host, agent: row.name, id: id) }
             }
             .background(LeoEscapeDismiss(isPresented: $showsPopover))
         }
@@ -64,8 +70,9 @@ struct LeoActivityCapsule: View {
         HStack(spacing: 8) {
             glyph(presentation.glyph).fixedSize().layoutPriority(2)
             if let title = presentation.title {
-                Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1).truncationMode(.tail)
-                    .layoutPriority(1)
+                Text(title).font(.system(size: 13, weight: presentation.kind == .tasks ? .semibold : .regular))
+                    .foregroundStyle(presentation.isEnabled ? Color.primary : Color.secondary)
+                    .lineLimit(1).truncationMode(.tail).layoutPriority(1)
             }
             if presentation.variant == .full, let status = presentation.statusText {
                 Text(status).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).monospacedDigit()
@@ -95,6 +102,18 @@ struct LeoActivityCapsule: View {
         case .succeeded: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
         case .cancelled: Image(systemName: "slash.circle").foregroundStyle(.secondary)
+        case .dot(let state): Circle().fill(Self.dotTint(state)).frame(width: 8, height: 8).frame(width: 14, height: 14)
+        }
+    }
+
+    /// The idle dot's tint by state; no agent is muted.
+    private static func dotTint(_ state: LeoActivityCapsulePresentation.AgentState?) -> Color {
+        switch state {
+        case .working: .blue
+        case .idle: Color.secondary
+        case .needsYou: .orange
+        case .errored: .red
+        case nil: Color.secondary.opacity(0.5)
         }
     }
 
