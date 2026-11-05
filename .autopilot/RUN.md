@@ -1,6 +1,6 @@
-Status: finished
-Started: 2026-10-31T19:11:09Z
-Budget: 20 items, until 2026-10-31T23:11:09Z
+Status: running
+Started: 2026-11-05T23:52:44Z
+Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 0
 Filed: 0/3 bugs, 0/5 ideas
 Untracked-left: default.profraw scratchpad/
@@ -42,6 +42,4 @@ Lane: B-334
   Call: Treat chained and leader bindings as "not this action" — VISION (no shortcut beats a wrong or shared one)
 
 Progress:
-- Preflight: main merged (16bb4a6ab); inbox applied: created B-338 (bug). B-334 recovered from wip 3d2b0d723 as first pick (tier full). Lanes B-233, B-332 exist unlanded with no RUN.md block and items already done — left in place.
-- B-334 runner: leo dispatch d-ee5a104b7f77 (implement, pane %868).
-- Early stop 2026-10-31T19:16Z: B-334 runner reported Error: nested implementer d-c89bb7689811 stuck in needs_input on a permission prompt (`rm zig-out`); leo_send_dispatch refused ("permission decisions belong to the orchestrator; a leo_dispatch subagent ... cannot answer them"); runner cancelled it. Lane clean at 3d2b0d723, plan saved; B-334 stays building for next run's recovery.
+- Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
