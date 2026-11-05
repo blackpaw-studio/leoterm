@@ -46,6 +46,9 @@ struct LeoAgentToolbarActivityTests {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1100, height: 600),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        // close() must not over-release: ARC owns the window, and the default
+        // (true) crashes the host at the next autorelease-pool drain.
+        window.isReleasedWhenClosed = false
         window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 1100, height: 600))
         let capsule = CapsuleStandIn()
         let toolbar = LeoAgentToolbar()
