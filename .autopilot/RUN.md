@@ -36,10 +36,11 @@ Lane: B-334
   Wip: 3d2b0d723
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-10-31T19:14:00Z
+  Dispatched: 2026-11-05T23:56:00Z
   Tokens: 3.26M in (3.05M cache read), ≥22.5k out, 41 requests
   Call: Keep the minimal Zig C export `ghostty_config_key_is_binding_for_action` instead of a Swift-only workaround — AUTONOMY (Zig minimal) + VISION (menu keys reflect real keybinds)
   Call: Treat chained and leader bindings as "not this action" — VISION (no shortcut beats a wrong or shared one)
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
+- B-334 runner: leo dispatch d-1bd4c6d2f725 (implement, pane %250).
