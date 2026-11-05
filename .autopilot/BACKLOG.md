@@ -2464,6 +2464,7 @@ Source: owner (/issue, 2026-10-31)
 Inbox: 20261031T131808467645Z-783e5176#1
 
 ## B-339 · Managed daemon ships with its web API off. On a Mac where Leo.app…   [ready]
+Issue: #319
 Type: bug
 Report: Managed daemon ships with its web API off. On a Mac where Leo.app manages the bundled daemon (the laptop), the generated ~/.leo/leo.yaml had no `web:` section, so nothing listened on 127.0.0.1:8370. Every agent's leo_* MCP tools (leo_dispatch etc.) failed with "dial tcp 127.0.0.1:8370: connect: connection refused", and the agent misreported it as "daemon isn't running". Claude attention hooks (POST /api/agent/hook) and the upcoming /api/agent/progress route need that port too. Fix (2026-11-03): manually added web {enabled: true, port: 8370, bind: 127.0.0.1} on the laptop and kickstarted the daemon. Wanted: managed installs get a loopback-only web API by default (daemon default, or the app's managed setup writes it), plus a migration for existing managed configs. Likely touches the daemon repo (PR via the leo agent).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2471,6 +2472,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261103T195636106164Z-13f82e96#1
 
 ## B-340 · Moving a stopped agent whose resume transcript is gone spins, then…   [ready]
+Issue: #320
 Type: bug
 Report: Moving a stopped agent whose resume transcript is gone spins, then fails with "session_missing". widgeon's record resumes Claude session 8513c333-e795-45a7-bc3f-596b9a1fc19f, but ~/.claude/projects/-Users-evan--leo-agents-widgeon/ has no .jsonl for it (last ran 2026-09-29; likely removed by Claude Code's 30-day transcript cleanup). Preflight is internal/agentmove/job.go:318 checkTranscript (daemon repo). Wanted: detect it up front and offer "move with a fresh session" (or fail fast with a clear message) instead of spinning then erroring. Likely a daemon change (PR via the leo agent) plus the Mac move UI.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2478,6 +2480,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261103T195636289038Z-51977dcd#1
 
 ## B-341 · Dispatch viewers split the caller's window on app-managed daemons. The…   [ready]
+Issue: #321
 Type: bug
 Report: Dispatch viewers split the caller's window on app-managed daemons. The daemon default `defaults.dispatch.viewer.placement` is `pane`, which splits the caller window when it has a pane and <3 live viewers; on the laptop dispatches opened as split panes instead of background windows you switch to from the Leo sidebar. Evan's rule (2026-11-03): always window placement with leoterm. Set manually on Dionysus + laptop. Wanted: managed installs default to `placement: window` (and the app migrates existing managed configs), alongside the managed web-API default bug.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2485,6 +2488,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261103T200609794532Z-2f365b57#1
 
 ## B-343 · iOS chat: message bubbles sometimes aren't full width. Likely cause:…   [ready]
+Issue: #322
 Type: bug
 Report: iOS chat: message bubbles sometimes aren't full width. Likely cause: sending a very tall, narrow image squeezes the chat bubble so it renders really thin.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2492,6 +2496,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T122228255636Z-50f002b2#1
 
 ## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [ready]
+Issue: #323
 Type: bug
 Report: Sometimes when I switch to an agent with the chat open, the chat messages don't appear until I try scrolling the chat view.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2499,6 +2504,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T154513337291Z-78d24f9d#1
 
 ## B-345 · Sometimes it requires two clicks on the agent in the sidebar to…   [ready]
+Issue: #324
 Type: bug
 Report: Sometimes it requires two clicks on the agent in the sidebar to actually get it to switch to that agent.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2506,6 +2512,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T154822663074Z-3790a2cb#1
 
 ## B-347 · iOS: while you're viewing an agent's chat and that agent sends a…   [ready]
+Issue: #325
 Type: bug
 Report: iOS: while you're viewing an agent's chat and that agent sends a message, you still get an unread badge, both on the agent in the list and on the tab bar. No badge should appear for the chat you're currently looking at, since you're already seeing the message.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2513,6 +2520,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T125026187252Z-d813a012#1
 
 ## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [ready]
+Issue: #326
 Type: bug
 Report: Mac test fixtures create NSWindow without `isReleasedWhenClosed = false`. If a test calls close() on such a window, the window is released twice and the test host can crash on CI (this blocked 0.29.6; the fix in LeoAgentToolbarActivityTests was 8842ad404). Check and fix LeoWindowSessionRegistryTests, LeoSidebarTitlebarStyleTests, LeoTaskBarClickTargetTests, LeoChatFileViewerTests, LeoTerminalsViewportTests, LeoPickerPresentationTests, LeoLaunchPlaceholderIntegrationTests and LeoWindowPickerRouterTests.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2520,6 +2528,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T133834863366Z-4f2a978a#1
 
 ## B-349 · the update badge is weird now with the sidebar   [ready]
+Issue: #327
 Type: bug
 Report: the update badge is weird now with the sidebar
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2528,6 +2537,7 @@ Inbox: 20261105T234107409652Z-4eb7588d#1
 Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
 
 ## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [ready]
+Issue: #328
 Why: Files in a chat message (images, logs, documents) can be saved anywhere on the Mac without hunting for them on the agent's host — P4 Everything through Leo, P3 Local = remote. Chat companion to B-279.
 Accept: dragging a chat attachment (image or file chip) to Finder/Desktop saves a copy there, using file promises so attachments from a remote host download on drop; right-clicking an attachment shows "Download to…", which opens a save panel defaulting to the original filename and writes the file; multiple attachments in one message can each be dragged or downloaded; tests cover the promise/download path for local and remote daemons; shots from the isolated debug build show the context menu and a completed drop.
 Out: iOS (it has its own share sheet; a separate item if wanted); dragging whole messages or text; folders; bulk "download all"; progress UI beyond a simple in-flight indicator.
@@ -2535,6 +2545,7 @@ Source: owner (/feature, 2026-11-05)
 Inbox: 20261104T234957605872Z-51261d99#1
 
 ## B-342 · iOS chat image viewer swipes between a message's images   [ready]
+Issue: #329
 Why: When a chat message has several images, opening one shows them all in a full-screen viewer, so Evan can review a batch without closing and reopening each image (mobile-first chat).
 Accept: tapping any image in a multi-image message opens a full-screen viewer at that image; swiping left/right pages through every image in that message, in order, with a position indicator (e.g. 2 of 4); a single-image message opens the same viewer with no paging; the viewer dismisses by swipe-down or a close button; shots from the iOS simulator with a fixture message of 3+ images.
 Out: paging across different messages; Mac chat; image editing or saving changes; video.
