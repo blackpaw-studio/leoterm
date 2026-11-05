@@ -16,7 +16,7 @@ public struct TaskPanelRenderKey: Equatable, Sendable {
 }
 
 /// What the panel does for a new render. Only the clock moving is a relabel:
-/// the row views stay, so their indeterminate bars keep sliding.
+/// the row views stay rather than being rebuilt.
 public enum TaskPanelRenderPlan: Equatable, Sendable {
     case skip, relabel, rebuild
 

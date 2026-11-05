@@ -95,7 +95,7 @@ final class TaskPanelView: UIView {
         switch plan {
         case .skip: return
         case .relabel:
-            // Only the clock moved: refresh the labels, keep the views (and their sliding bars).
+            // Only the clock moved: refresh the labels, keep the views.
             rowViews.forEach { $0.relabel(now: now) }
             return
         case .rebuild: break

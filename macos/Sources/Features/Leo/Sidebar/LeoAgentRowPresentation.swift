@@ -44,7 +44,7 @@ struct LeoAgentRowPresentation: Equatable {
             case succeeded
             case cancelled
 
-            /// 0...1, or nil for an animated (or empty) bar.
+            /// 0...1, or nil for a still (indeterminate or empty) bar.
             var fraction: Double? {
                 switch self {
                 case .determinate(let percent): percent / 100
@@ -76,7 +76,7 @@ struct LeoAgentRowPresentation: Equatable {
         let extraBadge: String?
         let accessibilityLabel: String
 
-        /// 0...1, or nil for an animated bar.
+        /// 0...1, or nil for a still indeterminate bar.
         var fraction: Double? { kind.fraction }
     }
 

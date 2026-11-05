@@ -3,14 +3,12 @@ import UIKit
 
 /// The thin progress bar under an agent's subtitle, in the detail and in the
 /// chat panel: a track and a fill. Determinate fills to the fraction, an
-/// indeterminate bar slides (still under Reduce Motion), stale is dashed and
+/// indeterminate bar is a still full-width tint at low opacity, stale is dashed and
 /// dim, failed is full and red.
 final class TaskBarView: UIView {
     static let height: CGFloat = 3
     private let fill = CALayer()
     private var style: AgentProgress.Style = .indeterminate
-    /// What the running slide animation was built for; it restarts only when this changes.
-    private var animated: (style: AgentProgress.Style, width: CGFloat)?
 
     /// `usesFrames`: the owner positions it by frame (a list cell); otherwise it sizes itself with Auto Layout.
     init(usesFrames: Bool = false) {
@@ -34,7 +32,6 @@ final class TaskBarView: UIView {
         self.style = style
         setNeedsLayout()
         layoutIfNeeded()
-        updateAnimation()
     }
 
     override func layoutSubviews() {
@@ -43,43 +40,17 @@ final class TaskBarView: UIView {
         fill.cornerRadius = Self.height / 2
         let (fraction, color): (CGFloat, UIColor) = switch style {
         case .determinate(let value): (CGFloat(min(max(value, 0), 1)), .tintColor)
-        case .indeterminate: (0.34, .tintColor)
+        case .indeterminate: (1, .tintColor.withAlphaComponent(0.3))
         case .stale(let value): (CGFloat(value ?? 1), .tintColor.withAlphaComponent(0.45))
         case .failed: (1, .systemRed)
         }
         fill.frame = CGRect(x: 0, y: 0, width: width * fraction, height: bounds.height)
         fill.backgroundColor = color.resolvedColor(with: traitCollection).cgColor
-        updateAnimation()
     }
 
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {
         super.traitCollectionDidChange(previous)
         setNeedsLayout()
-    }
-
-    override func didMoveToWindow() {
-        super.didMoveToWindow()
-        updateAnimation()
-    }
-
-    private func updateAnimation() {
-        guard case .indeterminate = style, window != nil, bounds.width > 0 else {
-            fill.removeAnimation(forKey: "slide")
-            animated = nil
-            return
-        }
-        // Layout runs often (every list update); only a new style or width rebuilds it.
-        let wanted = (style: style, width: bounds.width)
-        if let animated, animated.style == wanted.style, animated.width == wanted.width, fill.animation(forKey: "slide") != nil { return }
-        animated = wanted
-        fill.removeAnimation(forKey: "slide")
-        let slide = CABasicAnimation(keyPath: "position.x")
-        slide.fromValue = -fill.bounds.width / 2
-        slide.toValue = bounds.width + fill.bounds.width / 2
-        slide.duration = 1.5
-        slide.repeatCount = .infinity
-        slide.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        fill.add(slide, forKey: "slide")
     }
 }
 
