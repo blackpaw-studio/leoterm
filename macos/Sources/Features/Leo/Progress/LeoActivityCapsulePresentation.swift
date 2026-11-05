@@ -8,7 +8,37 @@ import LeoKit
 struct LeoActivityCapsulePresentation: Equatable {
     enum TextRole: Equatable { case title, status }
 
-    enum Glyph: Equatable { case spinner, succeeded, failed, cancelled }
+    enum Glyph: Equatable {
+        case spinner, succeeded, failed, cancelled
+        /// A static dot tinted by the agent's state (nil: no agent, muted).
+        case dot(AgentState?)
+    }
+
+    /// What the capsule says when the agent has no task.
+    enum AgentState: Equatable {
+        case working, idle, needsYou, errored
+
+        /// Needs-you and an error outrank working, as in the sidebar row.
+        init(attention: LeoAttentionBadge?, isWorking: Bool) {
+            switch attention {
+            case .needsInput: self = .needsYou
+            case .errored: self = .errored
+            case .working: self = .working
+            case .finished, nil: self = isWorking ? .working : .idle
+            }
+        }
+
+        var text: String {
+            switch self {
+            case .working: "Working"
+            case .idle: "Idle"
+            case .needsYou: "Needs you"
+            case .errored: "Errored"
+            }
+        }
+    }
+
+    enum Kind: Equatable { case tasks, agentState, noAgent }
 
     enum Variant: Equatable {
         /// Title and status text.
@@ -37,6 +67,8 @@ struct LeoActivityCapsulePresentation: Equatable {
         /// "3 · 1 failed"; the failed part is omitted at zero.
         let summary: String
         let rows: [Row]
+        /// Shown in place of the rows when there are none.
+        let emptyMessage: String?
     }
 
     static let maxWidth: CGFloat = 500
@@ -48,7 +80,11 @@ struct LeoActivityCapsulePresentation: Equatable {
     /// Width of everything that is not text; the capsule never shrinks below it.
     static func chromeWidth(badge: Bool) -> CGFloat { baseChrome + (badge ? badgeChrome : 0) }
 
+    /// Always true: the capsule never leaves an agent window (spec amendment 2026-11-04).
     let isVisible: Bool
+    let kind: Kind
+    /// False for "No agent": nothing to open.
+    let isEnabled: Bool
     let glyph: Glyph
     let title: String?
     let statusText: String?
@@ -60,10 +96,14 @@ struct LeoActivityCapsulePresentation: Equatable {
     let accessibilityLabel: String
     let popover: Popover
 
-    init(tasks: LeoRowTasks, now: Date, availableWidth: CGFloat, measure: (String, TextRole) -> CGFloat) {
+    init(
+        tasks: LeoRowTasks, state: AgentState = .idle, now: Date, availableWidth: CGFloat, measure: (String, TextRole) -> CGFloat
+    ) {
         let ordered = LeoAgentTasks.ordered(tasks.tasks)
         guard let primary = ordered.first else {
-            self = .hidden
+            self = Self(
+                kind: .agentState, isEnabled: true, glyph: .dot(state), title: state.text,
+                width: min(availableWidth, Self.maxWidth), accessibilityLabel: "\(state.text), no tasks")
             return
         }
         let status = LeoTaskDetailText.status(primary, now: now) ?? LeoTaskDetailText.trailing(primary, etaAt: tasks.eta(for: primary), now: now)
@@ -72,6 +112,8 @@ struct LeoActivityCapsulePresentation: Equatable {
         let needed = Self.chromeWidth(badge: badge != nil) + measure(primary.title, .title) + Self.textGap + measure(status, .status)
 
         isVisible = true
+        kind = .tasks
+        isEnabled = true
         glyph = Glyph(primary.state)
         title = primary.title
         statusText = status
@@ -82,24 +124,33 @@ struct LeoActivityCapsulePresentation: Equatable {
         accessibilityLabel = "\(primary.title), \(status), \(ordered.count) \(ordered.count == 1 ? "task" : "tasks")"
         popover = Popover(
             summary: Self.summary(ordered),
-            rows: ordered.map { Row($0, etaAt: tasks.eta(for: $0), now: now) }
+            rows: ordered.map { Row($0, etaAt: tasks.eta(for: $0), now: now) },
+            emptyMessage: nil
         )
     }
 
-    private init() {
-        isVisible = false
-        glyph = .spinner
-        title = nil
+    /// A capsule with no task to show: the agent's state, or "No agent".
+    private init(kind: Kind, isEnabled: Bool, glyph: Glyph, title: String, width: CGFloat, accessibilityLabel: String) {
+        isVisible = true
+        self.kind = kind
+        self.isEnabled = isEnabled
+        self.glyph = glyph
+        self.title = title
         statusText = nil
         bar = nil
         badge = nil
         variant = .full
-        width = 0
-        accessibilityLabel = ""
-        popover = Popover(summary: "", rows: [])
+        self.width = width
+        self.accessibilityLabel = accessibilityLabel
+        popover = Popover(summary: "", rows: [], emptyMessage: isEnabled ? "No tasks" : nil)
     }
 
-    private static let hidden = LeoActivityCapsulePresentation()
+    /// A terminal row or the start screen: nothing to open.
+    static func noAgent(availableWidth: CGFloat) -> Self {
+        Self(
+            kind: .noAgent, isEnabled: false, glyph: .dot(nil), title: "No agent", width: min(availableWidth, maxWidth),
+            accessibilityLabel: "No agent")
+    }
 
     private static func summary(_ tasks: [LeoAgentTask]) -> String {
         let failed = tasks.filter { $0.state == .failed }.count

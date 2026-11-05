@@ -50,7 +50,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private weak var moreItem: NSToolbarItem?
     private var showsMoreItem = true
     private var isSidebarToggleHidden = true
-    private var hasActivity = false
+    private var sideBySideChatWidth: CGFloat = 0
 
     @MainActor
     func install(on window: NSWindow) {
@@ -82,16 +82,13 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }.store(in: &subscriptions)
     }
 
-    /// Shows the capsule while the selected agent has a task; hidden, it
-    /// leaves no gap.
+    /// Keeps the capsule over the terminal column while Chat is beside the
+    /// terminal (0 when it is not), live as the divider moves.
     @MainActor
-    func bind(hasActivity: some Publisher<Bool, Never>) {
-        hasActivity.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] hasActivity in
+    func bind(sideBySideChatWidth: some Publisher<CGFloat, Never>) {
+        sideBySideChatWidth.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] width in
             guard let self else { return }
-            self.hasActivity = hasActivity
-            if #available(macOS 15.0, *) { activityItem?.isHidden = !hasActivity }
-            // The width is 0 while there is no task, so a task arriving must resize
-            // the capsule too: a zero-width hosting view takes no clicks.
+            self.sideBySideChatWidth = width
             updateActivityWidth()
         }.store(in: &subscriptions)
     }
@@ -174,21 +171,36 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     }
 
     private var activityWidth: NSLayoutConstraint?
+    private var activityContainerWidth: NSLayoutConstraint?
     private var layoutObservers: [NSObjectProtocol] = []
 
     private func makeActivityItem() -> NSToolbarItem {
         let item = NSToolbarItem(itemIdentifier: .leoActivity)
         let host = makeActivityView()
         host.translatesAutoresizingMaskIntoConstraints = false
+        // AppKit centres the item's view in the region right of the sidebar.
+        // The capsule leads a container that is wider by the offset (see
+        // `LeoActivityCapsuleSizing.placement`), which moves the capsule's
+        // centre left, over the terminal column, while Chat is beside it.
+        let container = LeoActivityCapsuleContainer()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(host)
         let width = host.widthAnchor.constraint(equalToConstant: LeoActivityCapsulePresentation.maxWidth)
+        let containerWidth = container.widthAnchor.constraint(equalToConstant: LeoActivityCapsulePresentation.maxWidth)
         activityWidth = width
-        NSLayoutConstraint.activate([width, host.heightAnchor.constraint(equalToConstant: LeoActivityCapsule.height)])
-        item.view = host
+        activityContainerWidth = containerWidth
+        NSLayoutConstraint.activate([
+            width, containerWidth,
+            host.heightAnchor.constraint(equalToConstant: LeoActivityCapsule.height),
+            container.heightAnchor.constraint(equalToConstant: LeoActivityCapsule.height),
+            host.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            host.topAnchor.constraint(equalTo: container.topAnchor),
+        ])
+        item.view = container
         // The capsule draws its own 32 pt glass: AppKit's platter is a fixed 36 pt.
         item.isBordered = false
         item.visibilityPriority = .high
         item.label = "Activity"
-        if #available(macOS 15.0, *) { item.isHidden = !hasActivity }
         activityItem = item
         updateActivityWidth()
         return item
@@ -197,13 +209,17 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// Sizes the capsule from the room right of the sidebar
     /// (`LeoActivityCapsuleSizing`); on every window or split resize.
     private func updateActivityWidth() {
-        guard let activityWidth, let window else { return }
+        guard let activityWidth, let activityContainerWidth, let window else { return }
         let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
         let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
-        let layout = LeoActivityCapsuleSizing.layout(availableToolbarWidth: window.frame.width - sidebar, leadingChrome: leadingChrome)
-        // Below macOS 15 a capsule with no task collapses to no width.
-        let width = hasActivity ? layout.width : 0
+        let placement = LeoActivityCapsuleSizing.placement(
+            windowWidth: window.frame.width, sidebarWidth: sidebar, chatLeadingEdge: chatLeadingEdge(in: window),
+            leadingChrome: leadingChrome)
+        let layout = placement.layout
+        let width = layout.width
+        let containerWidth = width + placement.trailingPad
         if activityWidth.constant != width { activityWidth.constant = width }
+        if activityContainerWidth.constant != containerWidth { activityContainerWidth.constant = containerWidth }
         if #available(macOS 15.0, *) { moreItem?.isHidden = !layout.showsMoreItem }
         showsMoreItem = layout.showsMoreItem
         if #unavailable(macOS 15.0) { syncItemPresence() }
@@ -213,6 +229,14 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
             showsSubtitle = layout.showsSubtitle
             onSubtitleVisibilityChange()
         }
+    }
+
+    /// Where the chat pane starts while it is beside the terminal: its width
+    /// back from the detail column's trailing edge.
+    private func chatLeadingEdge(in window: NSWindow) -> CGFloat? {
+        guard sideBySideChatWidth > 0 else { return nil }
+        let detailMaxX = splitView.flatMap { $0.arrangedSubviews.dropFirst().first?.frame.maxX } ?? window.frame.width
+        return detailMaxX - sideBySideChatWidth
     }
 
     private func observeLayout(of window: NSWindow, splitView: NSSplitView?) {
@@ -237,5 +261,14 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         if #available(macOS 15.0, *) { item.isHidden = !showsMoreItem }
         moreItem = item
         return item
+    }
+}
+
+/// The capsule's container: only the capsule takes clicks, and the empty
+/// room beside it drags the window like the rest of the toolbar.
+private final class LeoActivityCapsuleContainer: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
     }
 }

@@ -135,7 +135,7 @@ extension TerminalController {
         window.leoToolbar.retainedMenu = toolbarMenu
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
-        window.leoToolbar.bind(hasActivity: leoActivityChanges)
+        window.leoToolbar.bind(sideBySideChatWidth: leoSession.$sideBySideChatWidth)
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
@@ -161,13 +161,6 @@ extension TerminalController {
         return leoRuntime.model.objectWillChange.map { _ in () }
             .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
             .receive(on: DispatchQueue.main)
-            .eraseToAnyPublisher()
-    }
-
-    /// Whether the selected agent has a task, as the selection changes.
-    private var leoActivityChanges: AnyPublisher<Bool, Never> {
-        leoSelectionChanges.map { [weak self] in self?.selectedLeoRow?.tasks.isEmpty == false }
-            .prepend(selectedLeoRow?.tasks.isEmpty == false)
             .eraseToAnyPublisher()
     }
 

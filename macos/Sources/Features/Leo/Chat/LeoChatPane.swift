@@ -23,6 +23,7 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         let row = terminals.selection == nil ? model.actionableSelection : nil
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let preferred = dragWidth ?? session.preferredChatWidth
+        let sideBySideChatWidth = layout == .sideBySide ? layout.chatWidth(in: contentWidth, preferred: preferred) : 0
         ZStack(alignment: .topLeading) {
             terminal()
                 .frame(maxHeight: .infinity)
@@ -36,12 +37,22 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
                         close: { session.choose(.terminal, for: row.id) }
                     )
+                    // The detail column starts at the toolbar's bottom edge (the real
+                    // safe area, as for the terminal), but a `ScrollView` draws
+                    // outside its frame at the top: the thread scrolled up under
+                    // the toolbar. Clip the pane, not the HStack: the divider's
+                    // resize handle reaches 3 pt left of the pane.
+                    .clipped()
                 }
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
         }
-        .onAppear { session.setObservedContentWidth(contentWidth) }
+        .onAppear {
+            session.setObservedContentWidth(contentWidth)
+            session.setSideBySideChatWidth(sideBySideChatWidth)
+        }
+        .onChange(of: sideBySideChatWidth) { session.setSideBySideChatWidth($0) }
         .onChange(of: contentWidth) { session.setObservedContentWidth($0) }
         .onChange(of: layout) { _ in handBackHiddenTerminalFocus(layout) }
         .onChange(of: row?.id) {
