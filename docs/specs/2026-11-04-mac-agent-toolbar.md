@@ -64,3 +64,10 @@ Today an agent window has a hidden titlebar. The terminal has no header, progres
 - Toolbar customization (`allowsUserCustomization` stays off).
 - The browser and editor pane headers.
 - The apps half of automatic tasks (plan D2): it lands after this, into the popover.
+
+## Amendment 2026-11-04: the capsule is always shown
+Evan found it odd that the capsule appears and disappears as he switches between agents. The capsule is now always present on an agent window, as in Xcode, where the activity view never leaves the toolbar.
+- **With tasks:** unchanged.
+- **With no tasks:** it shows the agent's state as plain text (for example "Working", "Idle", "Needs you" or "Errored", from the attention state), with no bar and no badge. The glyph is static: a small dot tinted by state. Clicking it opens the Tasks popover with a "No tasks" empty state.
+- **Non-agent rows** (a plain terminal or the start screen): the capsule shows "No agent" and is disabled.
+- The "Removed" behavior "hidden when there are none and leaves no gap" no longer applies. The macOS <15 width-collapse fallback goes too.
