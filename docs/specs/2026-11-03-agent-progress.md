@@ -119,3 +119,6 @@ The daemon creates tasks from signals it already receives. A task gains `source`
 - **Daemon, with a fake clock:** the 20 s threshold (a command ending at 19 s publishes nothing); Pre/Post pairing by `tool_use_id`; failure → failed then removed at 60 s; background shell held open until its notification; `Stop` cancels strays; dispatch status mapping and roll-up to the root; dedupe on `leo_progress`; the cap; no secrets in titles (only description or program and first argument).
 - **MCP:** `initialize` carries `instructions`.
 - **LeoKit:** `source` decode default and the primary-task ordering with auto tasks.
+
+## Amendment 2026-11-04: no automatic tasks for dispatches
+Evan decided to remove automatic tasks for `leo_dispatch` runs (`auto.dispatch.*`). The sidebar already shows every dispatch as its own row with its own status, so the task was a duplicate. With several runs going, dispatch tasks also took over the capsule and hid real long-running commands. The "Dispatches" subsection above, the dispatch roll-up test, and "and dispatches" in the MCP instruction text no longer apply. Automatic tasks for long shell commands are unchanged.
