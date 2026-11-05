@@ -58,6 +58,12 @@ struct LeoActivityCapsule: View {
         .modifier(LeoActivityKeyboard { showsPopover.toggle() })
         .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityHint(presentation.isEnabled ? "Shows every task" : "")
+        // A selection change with no click (a shortcut) can land on a
+        // non-agent row while the popover is open: close it, or it stays up
+        // empty and can't be reopened.
+        .onChange(of: presentation.isEnabled) { isEnabled in
+            if !isEnabled { showsPopover = false }
+        }
         .popover(isPresented: $showsPopover, arrowEdge: .bottom) {
             LeoActivityPopover(presentation: presentation.popover) { id in
                 if let row { actions.dismissTask(host: row.host, agent: row.name, id: id) }

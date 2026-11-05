@@ -37,14 +37,15 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
                         close: { session.choose(.terminal, for: row.id) }
                     )
+                    // The detail column starts at the toolbar's bottom edge (the real
+                    // safe area, as for the terminal), but a `ScrollView` draws
+                    // outside its frame at the top: the thread scrolled up under
+                    // the toolbar. Clip the pane, not the HStack: the divider's
+                    // resize handle reaches 3 pt left of the pane.
+                    .clipped()
                 }
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                // The detail column starts at the toolbar's bottom edge (the real
-                // safe area, as for the terminal), but a `ScrollView` draws
-                // outside its frame at the top: the thread scrolled up under
-                // the toolbar. Clip it to the column.
-                .clipped()
             }
         }
         .onAppear {
