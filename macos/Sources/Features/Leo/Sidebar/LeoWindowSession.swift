@@ -67,6 +67,10 @@ struct LeoWindowVisibilityState: Equatable {
     /// The content area's width as last rendered; the chat layout host
     /// keeps it current. Not published: it is read, never observed.
     private(set) var observedContentWidth: CGFloat = 0
+    /// The chat pane's width while it sits beside the terminal, else 0: the
+    /// toolbar keeps its activity capsule over the terminal column. Follows
+    /// the divider while it is dragged.
+    @Published private(set) var sideBySideChatWidth: CGFloat = 0
     /// The agent the sidebar has selected right now (nil for a terminal
     /// row, or none). Wired by the runtime, which owns the selection.
     var selectedAgent: () -> LeoAgentID? = { nil }
@@ -311,6 +315,10 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     func setObservedContentWidth(_ width: CGFloat) { observedContentWidth = width }
+
+    func setSideBySideChatWidth(_ width: CGFloat) {
+        if width != sideBySideChatWidth { sideBySideChatWidth = width }
+    }
 
     /// The layout the selected agent's remembered mode gives right now. The
     /// selection and the switch are read live, not from the last render, so

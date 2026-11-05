@@ -136,6 +136,7 @@ extension TerminalController {
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
         window.leoToolbar.bind(hasActivity: leoActivityChanges)
+        window.leoToolbar.bind(sideBySideChatWidth: leoSession.$sideBySideChatWidth)
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.

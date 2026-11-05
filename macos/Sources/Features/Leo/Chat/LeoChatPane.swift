@@ -23,6 +23,7 @@ struct LeoChatLayoutHost<Terminal: View>: View {
         let row = terminals.selection == nil ? model.actionableSelection : nil
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let preferred = dragWidth ?? session.preferredChatWidth
+        let sideBySideChatWidth = layout == .sideBySide ? layout.chatWidth(in: contentWidth, preferred: preferred) : 0
         ZStack(alignment: .topLeading) {
             terminal()
                 .frame(maxHeight: .infinity)
@@ -41,7 +42,11 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
         }
-        .onAppear { session.setObservedContentWidth(contentWidth) }
+        .onAppear {
+            session.setObservedContentWidth(contentWidth)
+            session.setSideBySideChatWidth(sideBySideChatWidth)
+        }
+        .onChange(of: sideBySideChatWidth) { session.setSideBySideChatWidth($0) }
         .onChange(of: contentWidth) { session.setObservedContentWidth($0) }
         .onChange(of: layout) { _ in handBackHiddenTerminalFocus(layout) }
         .onChange(of: row?.id) {
