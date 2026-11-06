@@ -17,6 +17,10 @@ struct LeoRowClickCatcher: NSViewRepresentable {
     /// Width of the trailing edge that belongs to a control of the row's
     /// own (the subagents chevron): a click there is not a row click.
     var trailingExclusion: CGFloat = 0
+    /// How far down from the row's top that trailing strip reaches (B-345):
+    /// the control sits on the name line, so the lines below it stay row
+    /// clicks. Defaults to the row's full height.
+    var trailingExclusionHeight: CGFloat = .infinity
 
     func makeNSView(context: Context) -> LeoRowClickCatcherView { LeoRowClickCatcherView() }
 
@@ -24,6 +28,7 @@ struct LeoRowClickCatcher: NSViewRepresentable {
         view.identity = identity
         view.onClick = onClick
         view.trailingExclusion = trailingExclusion
+        view.trailingExclusionHeight = trailingExclusionHeight
         view.isEnabled = context.environment.isEnabled
     }
 }
@@ -33,6 +38,8 @@ final class LeoRowClickCatcherView: NSView {
     var isEnabled = true
     /// See `LeoRowClickCatcher.trailingExclusion`.
     var trailingExclusion: CGFloat = 0
+    /// See `LeoRowClickCatcher.trailingExclusionHeight`.
+    var trailingExclusionHeight: CGFloat = .infinity
     /// The row this view backs. Rows re-sort live, and SwiftUI may hand
     /// this view (with a new `onClick`) to another row between mouse-down
     /// and mouse-up; that mouse-up is no click on the new row (B-049).
@@ -80,8 +87,16 @@ final class LeoRowClickCatcherView: NSView {
         guard let window, event.window === window, !isHiddenOrHasHiddenAncestor else { return false }
         // `visibleRect` alone can reach past the view's own bounds.
         let point = convert(event.locationInWindow, from: nil)
-        let clickable = NSRect(x: bounds.minX, y: bounds.minY, width: max(bounds.width - trailingExclusion, 0), height: bounds.height)
-        return clickable.contains(point) && visibleRect.contains(point)
+        guard bounds.contains(point), visibleRect.contains(point) else { return false }
+        return !isInTrailingExclusion(point)
+    }
+
+    /// The control's strip: the trailing edge, from the row's top down to
+    /// `trailingExclusionHeight` (the top is `maxY` unless flipped).
+    private func isInTrailingExclusion(_ point: NSPoint) -> Bool {
+        guard point.x >= bounds.maxX - trailingExclusion else { return false }
+        let distanceFromTop = isFlipped ? point.y - bounds.minY : bounds.maxY - point.y
+        return distanceFromTop <= trailingExclusionHeight
     }
 
     private func removeMonitor() {

@@ -31,6 +31,10 @@ enum LeoAgentRowMetrics {
     /// chevron plus the color bar's slot it sits inside of.
     static var disclosureTrailingEdge: CGFloat { disclosureSize + colorBarSlot }
 
+    /// How far down from a row's top the chevron's strip reaches (B-345): the
+    /// row's top padding and the name line it sits on, not the lines below.
+    static var disclosureTrailingHeight: CGFloat { verticalPadding + nameLineHeight }
+
     /// Where the name starts, from the row's leading edge. A dispatch row's
     /// glyph sits on this column.
     static var nameColumnInset: CGFloat { symbolColumnWidth + symbolSpacing }
