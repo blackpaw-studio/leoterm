@@ -36,7 +36,7 @@ extension LeoActivityCapsuleSizing {
         }
         let terminalWidth = chatLeadingEdge - LeoChatLayout.dividerWidth - sidebarWidth
         let terminalCentre = sidebarWidth + terminalWidth / 2
-        let layout = layout(availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome)
+        let layout = layout(availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve)
         return Placement(
             layout: layout, minX: terminalCentre - layout.width / 2, trailingPad: max(0, 2 * (regionCentre - terminalCentre)))
     }

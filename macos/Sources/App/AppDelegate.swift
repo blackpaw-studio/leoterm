@@ -385,6 +385,9 @@ class AppDelegate: NSObject,
         LeoLaunchTiming.markOnFirst(NSWindow.didBecomeKeyNotification, as: "firstWindowKey")
         #endif
         // MARK: Leo
+        #if DEBUG
+        LeoUpdateFixture.apply(to: updateViewModel)
+        #endif
         leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }
         if let leoManaged {
             leoRuntime.managedStartup = {

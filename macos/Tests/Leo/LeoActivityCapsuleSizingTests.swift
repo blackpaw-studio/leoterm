@@ -13,7 +13,7 @@ struct LeoActivityCapsuleSizingTests {
     @Test func aWideToolbarKeepsEverythingAndTheMaximumWidth() {
         let layout = Sizing.layout(availableToolbarWidth: 1400, leadingChrome: 0)
 
-        #expect(layout == .init(width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsMoreItem: true))
+        #expect(layout == .init(width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsMoreItem: true, showsUpdateItem: true))
     }
 
     @Test func theCapsuleGetsWhatTheSubtitleLeavesOnEachSide() {
@@ -68,6 +68,32 @@ struct LeoActivityCapsuleSizingTests {
         // Centred: what sits right of the capsule (beside "⋯") is also taken from its left.
         #expect(layout.width == 700 - 2 * (Sizing.moreSideReserve + 200))
         #expect(layout.showsMoreItem)
+    }
+
+    @Test func thePillGivesWayAfterTheSubtitleAndBeforeTheTitle() {
+        let pill: CGFloat = 100
+        func layout(_ width: CGFloat) -> Sizing.Layout { Sizing.layout(availableToolbarWidth: width, leadingChrome: 0, trailingReserve: pill) }
+
+        // Room for everything: the subtitle needs 190 a side, the pill 156.
+        let roomy = layout(Sizing.minimumWidth + 2 * Sizing.subtitleSideReserve)
+        #expect(roomy.showsSubtitle && roomy.showsUpdateItem && roomy.showsTitle)
+        // Less: the subtitle goes first, the pill stays.
+        let noSubtitle = layout(Sizing.minimumWidth + 2 * Sizing.subtitleSideReserve - 1)
+        #expect(!noSubtitle.showsSubtitle && noSubtitle.showsUpdateItem && noSubtitle.showsTitle)
+        // Less still: the pill goes, the title stays.
+        let noPill = layout(Sizing.minimumWidth + 2 * (Sizing.moreSideReserve + pill) - 1)
+        #expect(!noPill.showsUpdateItem && noPill.showsTitle && noPill.showsMoreItem)
+        // Only then the title, then "⋯".
+        let noTitle = layout(Sizing.minimumWidth + 2 * Sizing.titleSideReserve - 1)
+        #expect(!noTitle.showsTitle && !noTitle.showsUpdateItem && noTitle.showsMoreItem)
+        #expect(!layout(100).showsMoreItem)
+    }
+
+    @Test func aDroppedPillReservesNothing() {
+        let layout = Sizing.layout(availableToolbarWidth: 400, leadingChrome: 0, trailingReserve: 100)
+
+        #expect(!layout.showsUpdateItem)
+        #expect(layout.width == 400 - 2 * Sizing.titleSideReserve)
     }
 
     @Test func noUpdateItemLeavesTheLayoutUnchanged() {

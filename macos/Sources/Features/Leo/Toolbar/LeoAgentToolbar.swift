@@ -54,6 +54,16 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private weak var moreItem: NSToolbarItem?
     private weak var updateItem: NSToolbarItem?
     private var isUpdateShowing = false
+    private var showsUpdateItem = true
+    /// Whether `NSToolbarItem.isHidden` takes effect (macOS 15+). Below that
+    /// the items that come and go are inserted and removed instead; tests
+    /// turn this off (before `install`) to exercise that path here.
+    var hidesItemsInPlace: Bool = {
+        if #available(macOS 15.0, *) { return true }
+        return false
+    }()
+    /// The gap the toolbar keeps around the update pill.
+    static let updateItemSpacing: CGFloat = 10
     private var showsMoreItem = true
     private var isSidebarToggleHidden = true
     private var sideBySideChatWidth: CGFloat = 0
@@ -84,7 +94,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
             guard let self else { return }
             isSidebarToggleHidden = isVisible
             updateActivityWidth()
-            if #available(macOS 15.0, *) { sidebarToggle?.isHidden = isVisible } else { syncItemPresence() }
+            if hidesItemsInPlace { setHidden(sidebarToggle, isVisible) } else { syncItemPresence() }
         }.store(in: &subscriptions)
     }
 
@@ -100,14 +110,17 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     }
 
     /// Keeps the update pill's item in the toolbar exactly while an update
-    /// state is showing, and the capsule clear of it.
+    /// state is showing and has room, and the capsule clear of it. Every
+    /// state change is sent, not only visibility flips: the pill's text, so
+    /// its width, changes with the state, and the capsule is sized from it.
     @MainActor
     func bind(updateVisible: some Publisher<Bool, Never>) {
-        updateVisible.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isVisible in
+        updateVisible.receive(on: DispatchQueue.main).sink { [weak self] isVisible in
             guard let self else { return }
             isUpdateShowing = isVisible
             updateActivityWidth()
-            if #available(macOS 15.0, *) { updateItem?.isHidden = !isVisible } else { syncItemPresence() }
+            // SwiftUI lays the pill out for its new text after this turn.
+            DispatchQueue.main.async { [weak self] in self?.updateActivityWidth() }
         }.store(in: &subscriptions)
     }
 
@@ -131,10 +144,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// Below macOS 15 `NSToolbarItem.isHidden` does nothing, so the items
     /// that come and go are added to and removed from the toolbar instead.
     private func isPresentByDefault(_ identifier: NSToolbarItem.Identifier) -> Bool {
-        if #available(macOS 15.0, *) { return true }
+        if hidesItemsInPlace { return true }
         switch identifier {
         case .leoSidebarToggle: return !isSidebarToggleHidden
-        case .leoUpdate: return isUpdateShowing
+        case .leoUpdate: return isUpdateShowing && showsUpdateItem
         case .leoMore: return showsMoreItem
         default: return true
         }
@@ -145,7 +158,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private func syncItemPresence() {
         guard let toolbar else { return }
         setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
-        setPresence(of: .leoUpdate, isUpdateShowing, in: toolbar) { toolbar in
+        setPresence(of: .leoUpdate, isUpdateShowing && showsUpdateItem, in: toolbar) { toolbar in
             toolbar.items.firstIndex { $0.itemIdentifier == .leoMore } ?? toolbar.items.count
         }
         setPresence(of: .leoMore, showsMoreItem, in: toolbar) { $0.items.count }
@@ -189,7 +202,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.isBordered = true
         sidebarToggle = item
         // Hidden unless the session reports the sidebar collapsed.
-        if #available(macOS 15.0, *) { item.isHidden = isSidebarToggleHidden }
+        setHidden(item, isSidebarToggleHidden)
         return item
     }
 
@@ -237,21 +250,39 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
         let placement = LeoActivityCapsuleSizing.placement(
             windowWidth: window.frame.width, sidebarWidth: sidebar, chatLeadingEdge: chatLeadingEdge(in: window),
-            leadingChrome: leadingChrome, trailingReserve: isUpdateShowing ? LeoActivityCapsuleSizing.updateItemReserve : 0)
+            leadingChrome: leadingChrome, trailingReserve: isUpdateShowing ? updateReserve() : 0)
         let layout = placement.layout
         let width = layout.width
         let containerWidth = width + placement.trailingPad
         if activityWidth.constant != width { activityWidth.constant = width }
         if activityContainerWidth.constant != containerWidth { activityContainerWidth.constant = containerWidth }
-        if #available(macOS 15.0, *) { moreItem?.isHidden = !layout.showsMoreItem }
         showsMoreItem = layout.showsMoreItem
-        if #unavailable(macOS 15.0) { syncItemPresence() }
+        showsUpdateItem = layout.showsUpdateItem
+        if hidesItemsInPlace {
+            setHidden(moreItem, !showsMoreItem)
+            setHidden(updateItem, !(isUpdateShowing && showsUpdateItem))
+        } else {
+            syncItemPresence()
+        }
         let titleVisibility: NSWindow.TitleVisibility = layout.showsTitle ? .visible : .hidden
         if window.titleVisibility != titleVisibility { window.titleVisibility = titleVisibility }
         if showsSubtitle != layout.showsSubtitle {
             showsSubtitle = layout.showsSubtitle
             onSubtitleVisibilityChange()
         }
+    }
+
+    /// What the pill takes right of the capsule: its measured width (it
+    /// changes with the update state's text) and the toolbar's spacing.
+    private func updateReserve() -> CGFloat {
+        let measured = updateItem?.view?.fittingSize.width ?? 0
+        return (measured > 0 ? measured : LeoActivityCapsuleSizing.updateFallbackReserve) + Self.updateItemSpacing
+    }
+
+    /// `isHidden` where it takes effect; the callers insert and remove otherwise.
+    private func setHidden(_ item: NSToolbarItem?, _ isHidden: Bool) {
+        guard hidesItemsInPlace, let item else { return }
+        if #available(macOS 15.0, *) { item.isHidden = isHidden }
     }
 
     /// Where the chat pane starts while it is beside the terminal: its width
@@ -282,7 +313,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.isBordered = false
         item.visibilityPriority = .high
         item.label = "Update"
-        if #available(macOS 15.0, *) { item.isHidden = !isUpdateShowing }
+        setHidden(item, !(isUpdateShowing && showsUpdateItem))
         updateItem = item
         return item
     }
@@ -295,7 +326,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.showsIndicator = false
         // The first to fold into the overflow chevron when the window is narrow.
         item.visibilityPriority = .low
-        if #available(macOS 15.0, *) { item.isHidden = !showsMoreItem }
+        setHidden(item, !showsMoreItem)
         moreItem = item
         return item
     }
