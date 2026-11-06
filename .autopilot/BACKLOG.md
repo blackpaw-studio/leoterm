@@ -2508,13 +2508,15 @@ Inbox: 20261104T122228255636Z-50f002b2#1
 Done: 56ccb4ab0, a82a2ec8e, 1422127bc
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-343-1.png (iOS sim screen capture; 300×3000 and 400×4000 images give near-full-width bubbles; Mac chat not visually verified)
 
-## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [ready]
+## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [blocked]
 Issue: #323
 Type: bug
 Report: Sometimes when I switch to an agent with the chat open, the chat messages don't appear until I try scrolling the chat view.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T154513337291Z-78d24f9d#1
+Question: couldn't reproduce — five Swift Testing cases drove the real LeoChatThreadView in an NSWindow (60 messages per agent, real LeoChatPaneModel, fake client): alpha→bravo switches with the page landing in the same pass or after the empty thread rendered, alpha at bottom or scrolled up, and a fresh remount — all pass, and the scroll-pin reset reads correct. Remaining suspect: SwiftUI `proxy.scrollTo` inside `onPreferenceChange` over a LazyVStack that just swapped content; not covered: full LeoChatPane in a visible key window, uneven-height rows (image/ask-card), live messages arriving mid-switch. Reply "B-344: close" to close it, or "B-344: <more detail>" (does the thread have images or ask cards? were messages arriving during the switch?) to retry. Work kept on autopilot-shelved/B-344.
+Answer:
 
 ## B-345 · Sometimes it requires two clicks on the agent in the sidebar to…   [ready]
 Issue: #324

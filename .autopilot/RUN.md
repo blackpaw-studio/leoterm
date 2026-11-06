@@ -126,12 +126,14 @@ Lane: B-344
   Branch: autopilot-lane/B-344
   Base: d6f90bb063c8bb92db55ef291542a44f991461a3
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-06T03:35:00Z
+  Tokens: 4.37M in (4.21M cache read), ≥24.1k out, 46 requests
+  Call: Mac only (provisional; iOS chat not checked) — Mac/iOS parity rule
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
@@ -139,6 +141,7 @@ Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visuall
 Finished 4: B-340 landed b667ecddca9e430ed0ffcacf26210a35210b8db9 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png
 Finished 5: B-341 landed abe7021d41134b40981895eb5c888a984ecaf502 · not visually verified
 Finished 6: B-343 landed b05f35934b8265b3d4f55407b57e8dfac74099ba · screen capture, not attached
+Finished 7: B-344 blocked
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -157,3 +160,4 @@ Progress:
 - B-343 runner: leo dispatch d-743cec0f84b1 (implement, pane %320), light.
 - B-343 landed b05f35934 (Mac+iOS via LeoKit; 1 fix round; LeoKit 1026 + Mac 4042 green; iOS sim screen captures only).
 - B-344 runner: leo dispatch d-fd9c72ed4822 (implement, pane %345), light.
+- B-344 blocked: could not reproduce (5 NSWindow-hosted LeoChatThreadView switch tests pass); repro tests kept on autopilot-shelved/B-344.
