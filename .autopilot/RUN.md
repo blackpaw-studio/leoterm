@@ -138,3 +138,4 @@ Progress:
 - leo agent reply (leo v0.75.0): B-339 managed first-start config now seeds loopback web (existing configs untouched; keep app workaround). B-340 contract: field/MCP param `fresh_session`, CLI `--fresh-session`, /state feature `agent_move_fresh_session`; missing transcript → synchronous 409 code `session_missing`; refused-start messages no longer carry a `code:` prefix (bears on B-352). Fresh copy only when both hosts advertise the feature. Follow-up for owner: Mac/iOS "Move with a fresh session" offer (not self-filed; owner to /feature).
 - B-341 landed abe7021d4 (implement.hard; concurrency review; 4042 green on 2nd run, 2 unrelated failures at load 50-130 on 1st). Sent leo agent the managed placement default + config setter request. Runner note: shared GhosttyKit.xcframework predates B-334 export and needs rebuilding.
 - Inbox applied: B-353, B-354 (bugs).
+- B-343 runner: leo dispatch d-743cec0f84b1 (implement, pane %320), light.
