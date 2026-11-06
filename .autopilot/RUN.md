@@ -27,5 +27,17 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-349
+  Branch: autopilot-lane/B-349
+  Base: b8bcdffc772a88b2ba44273bfcebf5e8dc35228e
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-06T17:47:53Z
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
+- B-349, B-353, B-354 picked ahead of B-348 (owner asked to retry those three).
 - Preflight: autopilot fast-forwarded to main ce80156fc (shipped leo-v0.30.0); inbox applied: answered B-348 (accept your recommendation (land it as is)), B-349 (retry), B-353 (retry), B-354 (retry); B-355 promoted.
