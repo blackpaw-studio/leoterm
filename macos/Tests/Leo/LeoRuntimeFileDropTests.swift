@@ -7,7 +7,7 @@ import Testing
 
 @MainActor @Suite
 struct LeoRuntimeFileDropTests {
-    private final class State: @unchecked Sendable {
+    @MainActor private final class State {
         var context: LeoTerminalFileDropContext?
         var requestedHosts: [LeoHostID] = []
         var accesses: [any LeoFileAccess] = []
@@ -45,6 +45,8 @@ struct LeoRuntimeFileDropTests {
                 makeAccess: { host in
                     state.requestedHosts.append(host)
                     if let error = state.accessError { throw error }
+                    // An empty queue is a failed test, not a trap that kills the host.
+                    guard !state.accesses.isEmpty else { throw LeoFileAccessError.unavailable(reason: "no access queued for the test") }
                     return state.accesses.removeFirst()
                 },
                 insertText: { _, text in state.inserted.append(text) },
@@ -126,7 +128,7 @@ struct LeoRuntimeFileDropTests {
         #expect(!exists(home.path(".cache")))
 
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition(timeout: 10) { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(state.requestedHosts == [.remote("work")])
         #expect(state.inserted == [Ghostty.Shell.escape(scratchPath) + " "])
@@ -156,7 +158,7 @@ struct LeoRuntimeFileDropTests {
         var job = LeoTerminalFileDropQueue.Job(sources: [file], context: try #require(state.context), ownedFiles: [file])
         job.destination = .pasteScratch
         queue.enqueue(job)
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(try home.contents(".cache/leo/paste/" + pasteName) == "png")
         runtime.shutdown()
@@ -177,12 +179,12 @@ struct LeoRuntimeFileDropTests {
         // path would be overwritten, then deleted under the second job.
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
-        await awaitCondition { state.inserted.count == 2 }
+        await awaitCondition { await MainActor.run { state.inserted.count == 2 } }
 
         #expect(state.inserted.count == 2)
         #expect(surface.leoFileDropStatus == nil)
         for home in homes { #expect(exists(home.path(".cache/leo/paste/" + pasteName)), "each paste must upload its own file") }
-        await awaitCondition { state.leftoverFiles.isEmpty }
+        await awaitCondition { await MainActor.run { state.leftoverFiles.isEmpty } }
         #expect(state.leftoverFiles.isEmpty)
         runtime.shutdown()
     }
@@ -199,7 +201,7 @@ struct LeoRuntimeFileDropTests {
         let surface = try makeSurface()
 
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
-        await awaitCondition { state.requestedHosts.count == 1 && state.leftoverFiles.isEmpty && surface.leoFileDropStatus != nil }
+        await awaitCondition { await MainActor.run { state.requestedHosts.count == 1 && state.leftoverFiles.isEmpty && surface.leoFileDropStatus != nil } }
 
         guard case .failed = surface.leoFileDropStatus else {
             Issue.record("expected a failure status")
@@ -228,7 +230,7 @@ struct LeoRuntimeFileDropTests {
         let surface = try makeSurface()
 
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(state.inserted == [workspace.path("drop.txt") + " "])
         #expect(try workspace.contents("drop.txt") == "dropped")
@@ -335,7 +337,7 @@ struct LeoRuntimeFileDropTests {
         let surface = try makeSurface()
 
         enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(try destination.contents("paste.png") == "pixels")
         #expect(!exists(path))
@@ -428,7 +430,7 @@ struct LeoRuntimeFileDropTests {
         let surface = try makeSurface()
 
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(exists(path))
         runtime.shutdown()
@@ -453,11 +455,11 @@ struct LeoRuntimeFileDropTests {
 
             #expect(runtime.acceptsFileDrop(board, from: surface))
             #expect(runtime.performFileDrop(board, from: surface))
-            await awaitCondition { !state.inserted.isEmpty }
+            await awaitCondition(timeout: 10) { await MainActor.run { !state.inserted.isEmpty } }
 
             #expect(state.requestedHosts == [host])
             #expect(state.inserted == [Ghostty.Shell.escape(destination.path("two words.txt")) + " "])
-            #expect(!state.inserted[0].contains(source.root))
+            #expect(!(try #require(state.inserted.first)).contains(source.root))
             #expect(try destination.contents("two words.txt") == "payload")
             runtime.shutdown()
         }
@@ -605,7 +607,7 @@ struct LeoRuntimeFileDropTests {
         #expect(state.requestedHosts.count == 1, "the second drop must remain queued")
         #expect(state.inserted.isEmpty)
         await gate.release()
-        await awaitCondition { state.inserted.count == 2 }
+        await awaitCondition { await MainActor.run { state.inserted.count == 2 } }
 
         #expect(state.inserted.joined() == destination.path("first.txt") + " " + destination.path("second.txt") + " ")
         guard case .failed(let message) = surface.leoFileDropStatus else {
@@ -642,7 +644,7 @@ struct LeoRuntimeFileDropTests {
         await gate.waitUntilEntered()
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: second)]), from: surface))
         await gate.release()
-        await awaitCondition { state.inserted.count == 2 }
+        await awaitCondition { await MainActor.run { state.inserted.count == 2 } }
 
         #expect(state.inserted.joined() == Ghostty.Shell.escape(destination.path("first one.txt")) + " " + destination.path("second.txt") + " ")
         runtime.shutdown()
@@ -692,7 +694,7 @@ struct LeoRuntimeFileDropTests {
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: newPath)]), from: surface))
         await newGate.waitUntilEntered()
         await newGate.release()
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(state.inserted == [newDestination.path("new.txt") + " "])
         #expect(try newDestination.contents("new.txt") == "new")
@@ -726,7 +728,7 @@ struct LeoRuntimeFileDropTests {
         #expect(state.inserted.isEmpty)
 
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: newPath)]), from: surface))
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
         #expect(state.inserted == [newDestination.path("new.txt") + " "])
         runtime.shutdown()
     }
@@ -758,7 +760,7 @@ struct LeoRuntimeFileDropTests {
         }
         state.context = context(workspace: newDestination.root, generation: 2)
         #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: good)]), from: surface))
-        await awaitCondition { !state.inserted.isEmpty }
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
 
         #expect(surface.leoFileDropStatus == nil)
         #expect(state.inserted == [newDestination.path("good.txt") + " "])
