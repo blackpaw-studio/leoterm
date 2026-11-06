@@ -2,10 +2,11 @@ Status: running
 Started: 2026-11-06T17:47:04Z
 Budget: 20 items, until 2026-11-07T05:47:04Z
 Digested-through: 0
-Filed: 1/3 bugs, 2/5 ideas
+Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-349 → B-358 bug — Reset-zoom titlebar accessory likely sits low in the unified toolbar
 Self-filed: B-349 → B-359 idea — Show the update pill in the toolbar's » overflow menu at narrow widths
 Self-filed: B-349 → B-360 idea — Update popover shows a blank "Version:" line
+Self-filed: B-353 → B-361 idea — Activity capsule title truncates at moderate window widths
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -51,12 +52,15 @@ Lane: B-353
   Branch: autopilot-lane/B-353
   Base: 6febf7a1a55c82d5cb525a1ae72198593b1151d4
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-06T18:57:33Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 2906a408e98d185e8c6f75bfed3786d7cc1cbfba
+  Call: Mac only: iOS drives its own clock in AgentsViewController; the tick policy lives in LeoKit if iOS wants it later — P1/P2
+  Call: The Tasks popover and the sidebar row share the capsule's tick schedule (same durations, same staleness) — P2
+  Call: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible duration is under a minute, else a coarse 15 s grid — P2 calm/steady status
 
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 

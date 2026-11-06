@@ -2649,3 +2649,7 @@ Source: autopilot polish (B-349)
 Note: seen under the debug update fixture; probably a fixture artifact, worth confirming with a real appcast — P1 polish
 Source: autopilot polish (B-349)
 
+## B-361 · Activity capsule title truncates at moderate window widths   [idea]
+Note: the capsule showed "B353 verify b…" and no elapsed text at the verifier's window width; it should keep the elapsed time visible and truncate the title later — P1 first-party feel
+Source: autopilot polish (B-353)
+
