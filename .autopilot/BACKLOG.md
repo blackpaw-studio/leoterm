@@ -2592,13 +2592,15 @@ Inbox: 20261104T234957605872Z-51261d99#1
 Done: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-346-2.png (bubble; B-346-3..6 screen captures show the Download to… menu, save sheet, and chip/image drops in Finder; remote download unit-tested only)
 
-## B-342 · iOS chat image viewer swipes between a message's images   [ready]
+## B-342 · iOS chat image viewer swipes between a message's images   [done]
 Issue: #329
 Why: When a chat message has several images, opening one shows them all in a full-screen viewer, so Evan can review a batch without closing and reopening each image (mobile-first chat).
 Accept: tapping any image in a multi-image message opens a full-screen viewer at that image; swiping left/right pages through every image in that message, in order, with a position indicator (e.g. 2 of 4); a single-image message opens the same viewer with no paging; the viewer dismisses by swipe-down or a close button; shots from the iOS simulator with a fixture message of 3+ images.
 Out: paging across different messages; Mac chat; image editing or saving changes; video.
 Source: owner (/feature, 2026-11-05)
 Inbox: 20261104T122151614541Z-47a1c3a1#1
+Done: 2bab3994b, 4da8b4da9, 4949276a3
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-342-1.png (iOS simulator screen capture, 2 of 4; B-342-2..5 show 3 of 4 tall image, 1 of 4, single image, thread after close; drag-dismiss and pinch by tests only)
 
 ## B-350 · Edit menu ignores key-table rebinds of ⌘C/⌘V   [idea]
 Note: B-334 review: key tables aren't consulted, so Edit ▸ Copy/Paste can still show ⌘C/⌘V while a key table rebinds them (Keyboard-first: no shortcut beats a wrong one)

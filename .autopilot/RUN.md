@@ -217,12 +217,13 @@ Lane: B-342
   Branch: autopilot-lane/B-342
   Base: d07680fd47552d11addb61ef5d99b2123112d12b
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 3451bd0d5aff46b4059032fd27b23162cd5253de
   Dispatched: 2026-11-06T06:01:00Z
+  Tokens: 13.8M in (13.3M cache read), ≥76.4k out, 128 requests
   Call: iOS only; the gallery helper lives in LeoKit so Mac can reuse it later — Out; shared logic in LeoKit (AGENTS.md)
   Call: Paging UIPageViewController with pinch/double-tap zoom, drag-down dismiss, close button and an "N of M" label — Mobile-first, native UX
   Call: Present .overFullScreen so the chat stays "viewing" while the viewer is up — D-676/D-677
@@ -245,6 +246,7 @@ Finished 11: B-349 blocked
 Finished 12: B-353 blocked
 Finished 13: B-354 blocked
 Finished 14: B-346 landed d696b80fd1da8ae92d1082f2f396364ec5d71b22 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-346-2.png
+Finished 15: B-342 landed cdd50da27bbde22aec536f6fce0ddd79fef7db58 · screen capture, not attached
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -275,3 +277,4 @@ Progress:
 - B-346 runner: leo dispatch d-376e1d631204 (implement, pane %396), full, Mac only.
 - B-346 landed d696b80fd (full suite 4056 green — B-355 did not reproduce this time). Runner notes: a stale "Leo[DEBUG] quit unexpectedly" dialog from a 00:18 crash is on Dionysus; a Finder window on scratch drop2 left open; scratch under /private/tmp/claude-501/b346e2e.
 - B-342 runner: leo dispatch d-a35738c93d18 (implement, pane %401), full, iOS only.
+- B-342 landed cdd50da27 (iOS 48 + LeoKit 1030 + LeoFeatures 445 green; simulator screen captures). Lane leftovers before land: restored verifier-churned ios/LeoFeatures/Package.resolved; moved untracked .autopilot-shots/ to session scratchpad. Parity follow-up for owner: Mac chat image viewer paging.

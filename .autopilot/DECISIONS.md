@@ -265,3 +265,52 @@ Chose: Download from the machine fixed at drag/click start, reusing the chat dow
 Why: P3 Local = remote
 Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
 Veto: [ ]
+
+## D-685 · 2026-11-06 · B-342 is iOS only, gallery in LeoKit
+Context: B-342 (runner call).
+Chose: iOS only; the gallery helper lives in LeoKit so Mac can reuse it later
+Why: Out; shared logic in LeoKit (AGENTS.md)
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
+
+## D-686 · 2026-11-06 · Photos-style chat image viewer
+Context: B-342 (runner call).
+Chose: Paging UIPageViewController with pinch/double-tap zoom, drag-down dismiss, close button and an "N of M" label
+Why: Mobile-first, native UX
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
+
+## D-687 · 2026-11-06 · Viewer keeps the chat counted as viewing
+Context: B-342 (runner call).
+Chose: Present .overFullScreen so the chat stays "viewing" while the viewer is up
+Why: D-676/D-677
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
+
+## D-688 · 2026-11-06 · Viewer shows uncropped originals
+Context: B-342 (runner call).
+Chose: The viewer shows the full uncropped original, aspect-fit
+Why: D-671–D-673
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
+
+## D-689 · 2026-11-06 · Viewer pages images only
+Context: B-342 (runner call).
+Chose: "of N" counts only the message's images; non-image files keep Quick Look
+Why: Agent-decides UX
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
+
+## D-690 · 2026-11-06 · Loading and failure inside the viewer
+Context: B-342 (runner call).
+Chose: Not-yet-loaded or failed images open the viewer with a spinner or a reason plus Try Again, replacing the "Couldn't Open" alert for images
+Why: Calm; agent-decides UX
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
+
+## D-691 · 2026-11-06 · Viewer decode cap 4096 px
+Context: B-342 (runner call).
+Chose: Decode with ImageIO, longest side capped at 4096 px
+Why: Memory bound
+Commit: 2bab3994b, 4da8b4da9, 4949276a3
+Veto: [ ]
