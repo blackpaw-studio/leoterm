@@ -93,6 +93,17 @@ Lane: B-348
   Call: Mac only (AppKit test fixtures); flag-line idiom (isReleasedWhenClosed = false per fixture) rather than a makeTestWindow helper — test infrastructure is agent-decides
   Call: Reused the shelved fix by cherry-pick, per the owner's answer (D-692)
 
+Lane: B-355
+  Branch: autopilot-lane/B-355
+  Base: 376f563bc042d86c1b3d179f34f99e26857d9abf
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-06T20:55:47Z
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
 Finished 3: B-354 landed 0b8212e1f817f41d33a5d0e77537481b31662d43 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-354-1.png
