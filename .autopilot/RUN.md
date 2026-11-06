@@ -2,11 +2,11 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 5
-Filed: 0/3 bugs, 4/5 ideas
+Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Self-filed: B-340 → B-351 idea — Show the full move error without hovering
 Self-filed: B-340 → B-352 idea — Word job failures plainly instead of "<code>: " prefixes
-Self-filed: B-347 → B-355 idea — Add an iOS simulator GUI recipe to verify.md
+Self-filed: B-347 → dropped (dup of B-312) — Add an iOS simulator GUI recipe to verify.md
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -154,12 +154,13 @@ Lane: B-347
   Branch: autopilot-lane/B-347
   Base: 59fd82270396204df5e6dfd51c78b2c3fafd623d
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 0413bde9c10b327dc7a5934ed1a536ac38875dc4
   Dispatched: 2026-11-06T04:02:00Z
+  Tokens: 15.2M in (14.7M cache read), ≥73.1k out, 148 requests
   Call: iOS only: Mac has its own guard and shared LeoChatUnreadCounts already exempts the on-screen chat — Mac/iOS parity rule; bug fixes are agent-decides
   Call: "Viewing" means the chat is on screen and the app is foregrounded; a backgrounded badge is correct — Calm, attention-driven
 
@@ -171,6 +172,7 @@ Finished 5: B-341 landed abe7021d41134b40981895eb5c888a984ecaf502 · not visuall
 Finished 6: B-343 landed b05f35934b8265b3d4f55407b57e8dfac74099ba · screen capture, not attached
 Finished 7: B-344 blocked
 Finished 8: B-345 landed deb68493da9985ab466dc1e2ec74b742d5c067dc · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-345-1.png
+Finished 9: B-347 landed 279c052305954addbee9c1c58185d4884d78d717 · not visually verified
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -193,3 +195,4 @@ Progress:
 - B-345 runner: leo dispatch d-04b798193b52 (implement, pane %352), light; hinted B-337 chevron strip as lead suspect.
 - B-345 landed deb68493d: root cause = B-337 full-height chevron click strip (now capped at the name line). B-337 idea is covered — suggest owner drop it. 4043 green.
 - B-347 runner: leo dispatch d-95e5b8c9f009 (implement, pane %367), light.
+- B-347 landed 279c05230 (iOS only; 4 badge paths fixed; 1 fix round). B-355 self-file corrected to dup of B-312. Note for B-338: LeoMoveTests Duplicate test timed out under host load here and passed alone in 11s — supports the environmental theory.

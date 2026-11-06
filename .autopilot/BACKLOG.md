@@ -2529,13 +2529,16 @@ Done: 2ba773d59
 Verified: not visually verified — changed path needs a row with dispatches (autopilot-scratch has none; real rows would attach real agents); failing-then-passing unit test LeoRowClickCatcherTests; plain-row shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-345-1.png
 Note: root cause was B-337's full-height chevron click strip; B-337 is covered by this fix
 
-## B-347 · iOS: while you're viewing an agent's chat and that agent sends a…   [ready]
+## B-347 · iOS: while you're viewing an agent's chat and that agent sends a…   [done]
 Issue: #325
 Type: bug
 Report: iOS: while you're viewing an agent's chat and that agent sends a message, you still get an unread badge, both on the agent in the list and on the tab bar. No badge should appear for the chat you're currently looking at, since you're already seeing the message.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T125026187252Z-d813a012#1
+Done: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
+Verified: not visually verified — no iOS simulator GUI recipe (B-312); reducer tests cover four paths that left an open chat badged; LeoKit 1026, LeoFeatures 445 pass
+Note: the plain live case (message arrives with the chat fully open) traced as already exempt; if it still badges on device, it needs an onScreenChanged trace
 
 ## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [ready]
 Issue: #326
@@ -2598,7 +2601,3 @@ Source: autopilot polish (B-340)
 ## B-352 · Word job failures plainly instead of "<code>: " prefixes   [idea]
 Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
 Source: autopilot polish (B-340)
-
-## B-355 · Add an iOS simulator GUI recipe to verify.md   [idea]
-Note: B-347 verify: verify.md has no iOS simulator GUI recipe, so iOS fixes can't get a visual check (each flow has tests plus a screenshot)
-Source: autopilot polish (B-347)

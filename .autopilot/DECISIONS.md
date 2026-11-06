@@ -202,3 +202,17 @@ Chose: The subagent chevron stays the disclosure control; its trailing click exc
 Why: D-651; the sidebar is the navigation
 Commit: 2ba773d59
 Veto: [ ]
+
+## D-676 · 2026-11-05 · B-347 is iOS only
+Context: B-347 (runner call).
+Chose: iOS only: Mac has its own guard and shared LeoChatUnreadCounts already exempts the on-screen chat
+Why: Mac/iOS parity rule; bug fixes are agent-decides
+Commit: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
+Veto: [ ]
+
+## D-677 · 2026-11-05 · Viewing = on screen and foregrounded
+Context: B-347 (runner call).
+Chose: "Viewing" means the chat is on screen and the app is foregrounded; a backgrounded badge is correct
+Why: Calm, attention-driven
+Commit: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
+Veto: [ ]
