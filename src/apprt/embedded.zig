@@ -1744,6 +1744,31 @@ pub const CAPI = struct {
         return config.keyEventIsBinding(core_event);
     }
 
+    /// Like ghostty_config_key_is_binding, but true only when the binding
+    /// is a single action of the same kind as the given action string
+    /// (e.g. "copy_to_clipboard"); a key bound to another action, a chain,
+    /// or a sequence leader is false. Leo: lets the Edit menu tell its own
+    /// performable default binding apart from a rebind of the key (B-334).
+    export fn ghostty_config_key_is_binding_for_action(
+        config: *Config,
+        event: KeyEvent,
+        action_ptr: [*]const u8,
+        action_len: usize,
+    ) bool {
+        const core_event = event.keyEvent().core() orelse {
+            log.warn("error processing key event", .{});
+            return false;
+        };
+        if (core_event.action == .release) return false;
+
+        const expected = input.Binding.Action.parse(action_ptr[0..action_len]) catch return false;
+        const entry = config.keybind.set.getEvent(core_event) orelse return false;
+        return switch (entry.value_ptr.*) {
+            .leaf => |leaf| std.meta.activeTag(leaf.action) == std.meta.activeTag(expected),
+            .leader, .leaf_chained => false,
+        };
+    }
+
     /// Notify the app that the keyboard was changed. This causes the
     /// keyboard layout to be reloaded from the OS.
     export fn ghostty_app_keyboard_changed(v: *App) void {
