@@ -210,12 +210,16 @@ extension LeoDaemonError: LocalizedError {
     /// Move refusals whose daemon text names CLI commands; the app words them itself.
     static let busyCode: String? = "agent_busy"
     static let movedCode: String? = "agent_moved"
+    /// The move preflight found no transcript for the agent's resume session;
+    /// the daemon's text carries a filesystem path the app leaves out.
+    static let sessionMissingCode: String? = "session_missing"
 
     public var errorDescription: String? {
         switch self {
         case .daemon(Self.restoringCode, _, _): return "leo is still restoring agents — try again in a moment"
         case .daemon(Self.busyCode, _, _): return "This agent is in the middle of a turn."
         case .daemon(Self.movedCode, _, _): return "This agent was moved to another machine."
+        case .daemon(Self.sessionMissingCode, _, _): return "This agent's previous session is no longer on disk, so there is nothing to resume. Nothing was moved."
         case .daemon(_, let message, _): return message
         case .transport(let message): return "Connection to the Leo daemon failed: \(message)"
         case .timeout: return "The Leo daemon did not respond in time"
