@@ -2540,46 +2540,50 @@ Done: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
 Verified: not visually verified — no iOS simulator GUI recipe (B-312); reducer tests cover four paths that left an open chat badged; LeoKit 1026, LeoFeatures 445 pass
 Note: the plain live case (message arrives with the chat fully open) traced as already exempt; if it still badges on device, it needs an onScreenChanged trace
 
-## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [blocked]
+## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [ready]
 Issue: #326
 Type: bug
 Report: Mac test fixtures create NSWindow without `isReleasedWhenClosed = false`. If a test calls close() on such a window, the window is released twice and the test host can crash on CI (this blocked 0.29.6; the fix in LeoAgentToolbarActivityTests was 8842ad404). Check and fix LeoWindowSessionRegistryTests, LeoSidebarTitlebarStyleTests, LeoTaskBarClickTargetTests, LeoChatFileViewerTests, LeoTerminalsViewportTests, LeoPickerPresentationTests, LeoLaunchPlaceholderIntegrationTests and LeoWindowPickerRouterTests.
+Update (2026-11-06): accept your recommendation (land it as is)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T133834863366Z-4f2a978a#1
 Question: land on targeted evidence? The fix is test-only (13 files set isReleasedWhenClosed = false; new LeoTestWindowGuardTests scan found 15 offenders before, 0 after, and passes), and the 13 touched suites pass apart from one untouched test that passes alone. Verify failed only because the full Mac suite can't finish on baseline either: LeoRuntimeFileDropTests fails and the host aborts (ContiguousArrayBuffer index out of range, exit 6), filed as B-355. I'd pick: land it as is. Work kept on autopilot-shelved/B-348.
-Answer:
+Answer: accept your recommendation (land it as is)
 
-## B-349 · the update badge is weird now with the sidebar   [blocked]
+## B-349 · the update badge is weird now with the sidebar   [ready]
 Issue: #327
 Type: bug
 Report: the update badge is weird now with the sidebar
+Update (2026-11-06): retry
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T234107409652Z-4eb7588d#1
 Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-349: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict. Work kept on autopilot-shelved/B-349.
-Answer:
+Answer: retry
 Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
 
-## B-353 · the time elapsed in the bar at the top is not updated frequently…   [blocked]
+## B-353 · the time elapsed in the bar at the top is not updated frequently…   [ready]
 Issue: #331
 Type: bug
 Report: the time elapsed in the bar at the top is not updated frequently enough when it displays seconds. it should update every second but right now it varies like 1-3 seconds so its weird
+Update (2026-11-06): retry
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261106T015152303110Z-50ee06ee#1
 Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-353: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
-Answer:
+Answer: retry
 
-## B-354 · this green is way too intense (Image #2)   [blocked]
+## B-354 · this green is way too intense (Image #2)   [ready]
 Issue: #332
 Type: bug
 Report: this green is way too intense [Image #2]
+Update (2026-11-06): retry
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261106T015521888748Z-4aa922b2#1
 Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-354: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
-Answer:
+Answer: retry
 Attachments: .autopilot/bugs/B-354/leo-paste-20261106-015514-377.png
 
 ## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [done]

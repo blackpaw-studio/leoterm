@@ -314,3 +314,31 @@ Chose: Decode with ImageIO, longest side capped at 4096 px
 Why: Memory bound
 Commit: 2bab3994b, 4da8b4da9, 4949276a3
 Veto: [ ]
+
+## D-692 · 2026-11-06 · Answer to B-348: Mac test fixtures create NSWindow without…
+Context: B-348 (Mac test fixtures create NSWindow without `isReleasedWhenClosed =…) blocked question
+Chose: accept your recommendation (land it as is)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-693 · 2026-11-06 · Answer to B-349: the update badge is weird now with the sidebar
+Context: B-349 (the update badge is weird now with the sidebar) blocked question
+Chose: retry
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-694 · 2026-11-06 · Answer to B-353: the time elapsed in the bar at the top is not updated…
+Context: B-353 (the time elapsed in the bar at the top is not updated frequently…) blocked question
+Chose: retry
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-695 · 2026-11-06 · Answer to B-354: this green is way too intense (Image #2)
+Context: B-354 (this green is way too intense (Image #2)) blocked question
+Chose: retry
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
