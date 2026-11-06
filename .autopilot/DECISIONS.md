@@ -342,3 +342,33 @@ Chose: retry
 Why: the owner's answer
 Commit:
 Veto: n/a (owner)
+
+## D-696 · 2026-11-06 · B-349: Pill moves from a titlebar accessory to a native trailing toolbar item (.leoUpdate), left 
+Chose: Pill moves from a titlebar accessory to a native trailing toolbar item (.leoUpdate), left of "⋯"; corner overlay stays off for agent windows — P1
+Item: B-349 · the update badge is weird now with the sidebar
+Commit: 486bf611d, 0df90da27
+Veto: [ ]
+
+## D-697 · 2026-11-06 · B-349: Narrow-width give-way order: subtitle, then pill, then title, then "⋯"; "Check for Updates
+Chose: Narrow-width give-way order: subtitle, then pill, then title, then "⋯"; "Check for Updates…" stays in the app menu — P2
+Item: B-349 · the update badge is weird now with the sidebar
+Commit: 486bf611d, 0df90da27
+Veto: [ ]
+
+## D-698 · 2026-11-06 · B-349: Mac only; iOS has no Sparkle pill
+Chose: Mac only; iOS has no Sparkle pill
+Item: B-349 · the update badge is weird now with the sidebar
+Commit: 486bf611d, 0df90da27
+Veto: [ ]
+
+## D-699 · 2026-11-06 · B-349: Pill width is measured (fittingSize + 10, 200 fallback) and re-measured on every state cha
+Chose: Pill width is measured (fittingSize + 10, 200 fallback) and re-measured on every state change
+Item: B-349 · the update badge is weird now with the sidebar
+Commit: 486bf611d, 0df90da27
+Veto: [ ]
+
+## D-700 · 2026-11-06 · B-349: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoAgentToolbar.hides
+Chose: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoAgentToolbar.hidesItemsInPlace test seam
+Item: B-349 · the update badge is weird now with the sidebar
+Commit: 486bf611d, 0df90da27
+Veto: [ ]

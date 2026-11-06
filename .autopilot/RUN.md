@@ -16,12 +16,7 @@ Lane: B-058
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: 0df90da27212820f6a1534348953c7ae5a4260ba
-  Call: Pill moves from a titlebar accessory to a native trailing toolbar item (.leoUpdate), left of "⋯"; corner overlay stays off for agent windows — P1
-  Call: Narrow-width give-way order: subtitle, then pill, then title, then "⋯"; "Check for Updates…" stays in the app menu — P2
-  Call: Mac only; iOS has no Sparkle pill
-  Call: Pill width is measured (fittingSize + 10, 200 fallback) and re-measured on every state change
-  Call: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoAgentToolbar.hidesItemsInPlace test seam
+  Reviewed-tip: none
 
 Lane: B-143
   Branch: autopilot-lane/B-143
@@ -39,12 +34,20 @@ Lane: B-349
   Branch: autopilot-lane/B-349
   Base: b8bcdffc772a88b2ba44273bfcebf5e8dc35228e
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Dispatched: 2026-11-06T17:47:53Z
   Reverifies: 0
-  Reviewed-tip: none
+  Tokens: 19.5M in (18.8M cache read), ≥108k out, 185 requests
+  Reviewed-tip: 0df90da27212820f6a1534348953c7ae5a4260ba
+  Call: Pill moves from a titlebar accessory to a native trailing toolbar item (.leoUpdate), left of "⋯"; corner overlay stays off for agent windows — P1
+  Call: Narrow-width give-way order: subtitle, then pill, then title, then "⋯"; "Check for Updates…" stays in the app menu — P2
+  Call: Mac only; iOS has no Sparkle pill
+  Call: Pill width is measured (fittingSize + 10, 200 fallback) and re-measured on every state change
+  Call: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoAgentToolbar.hidesItemsInPlace test seam
+
+Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 
 Progress:
 - B-349, B-353, B-354 picked ahead of B-348 (owner asked to retry those three).

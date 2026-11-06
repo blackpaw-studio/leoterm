@@ -2551,7 +2551,7 @@ Inbox: 20261105T133834863366Z-4f2a978a#1
 Question: land on targeted evidence? The fix is test-only (13 files set isReleasedWhenClosed = false; new LeoTestWindowGuardTests scan found 15 offenders before, 0 after, and passes), and the 13 touched suites pass apart from one untouched test that passes alone. Verify failed only because the full Mac suite can't finish on baseline either: LeoRuntimeFileDropTests fails and the host aborts (ContiguousArrayBuffer index out of range, exit 6), filed as B-355. I'd pick: land it as is. Work kept on autopilot-shelved/B-348.
 Answer: accept your recommendation (land it as is)
 
-## B-349 · the update badge is weird now with the sidebar   [ready]
+## B-349 · the update badge is weird now with the sidebar   [done]
 Issue: #327
 Type: bug
 Report: the update badge is weird now with the sidebar
@@ -2562,6 +2562,8 @@ Inbox: 20261105T234107409652Z-4eb7588d#1
 Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-349: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict. Work kept on autopilot-shelved/B-349.
 Answer: retry
 Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
+Done: 486bf611d, 0df90da27
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png (dark mode only; light mode not verified)
 
 ## B-353 · the time elapsed in the bar at the top is not updated frequently…   [ready]
 Issue: #331
