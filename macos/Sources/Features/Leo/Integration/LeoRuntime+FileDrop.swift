@@ -28,6 +28,8 @@ struct LeoTerminalFileDropDependencies {
     let insertText: @MainActor (Ghostty.SurfaceView, String) -> Void
     /// Names a pasted image's temp file.
     var now: @MainActor () -> Date = { Date() }
+    /// Where a pasted image's temp directory is made.
+    var temporaryDirectory: @MainActor () -> URL = { FileManager.default.temporaryDirectory }
 }
 
 @MainActor final class LeoTerminalFileDropQueue {
@@ -273,17 +275,22 @@ extension LeoRuntime {
         // so it doesn't fall through and send a stray 0x16 to the pty.
         if isRepeat { return true }
         guard let png = LeoImagePaste.pngData(from: pasteboard) else { return false }
-        let file = FileManager.default.temporaryDirectory
-            .appendingPathComponent(LeoImagePaste.fileName(at: terminalFileDropDependencies?.now() ?? Date()))
+        // The name is a timestamp, so each paste gets its own directory: two
+        // pastes in one instant must not share (or delete) each other's file.
+        let directory = (terminalFileDropDependencies?.temporaryDirectory() ?? FileManager.default.temporaryDirectory)
+            .appendingPathComponent("leo-paste-\(UUID().uuidString)", isDirectory: true)
+        let file = directory.appendingPathComponent(LeoImagePaste.fileName(at: terminalFileDropDependencies?.now() ?? Date()))
         do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
             try png.write(to: file, options: .atomic)
         } catch {
+            try? FileManager.default.removeItem(at: directory)
             imagePasteLogger.error("image paste: could not write temp PNG: \(error.localizedDescription, privacy: .public)")
             return false
         }
         let queue = terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: self, surface: surface)
         terminalFileDropQueues[surface.id] = queue
-        var job = LeoTerminalFileDropQueue.Job(sources: [file], context: context, ownedFiles: [file])
+        var job = LeoTerminalFileDropQueue.Job(sources: [file], context: context, ownedFiles: [directory])
         job.destination = .pasteScratch
         queue.enqueue(job)
         return true
