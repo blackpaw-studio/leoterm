@@ -14,6 +14,20 @@ struct LeoRuntimeFileDropTests {
         var inserted: [String] = []
         var accessError: LeoFileAccessError?
         var now = Date()
+        /// A pasted image's temp directory lives under here, never the shared system temp dir.
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("leo-file-drop-tests-\(UUID().uuidString)", isDirectory: true)
+
+        init() { try? FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true) }
+        deinit { try? FileManager.default.removeItem(at: temp) }
+
+        /// Every file still under the temp base, relative to it.
+        var leftoverFiles: [String] {
+            let walker = FileManager.default.enumerator(at: temp, includingPropertiesForKeys: [.isRegularFileKey])
+            return (walker?.compactMap { $0 as? URL } ?? [])
+                .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+                .map { String($0.path.dropFirst(temp.path.count)) }
+        }
     }
 
     private func makeSurface() throws -> Ghostty.SurfaceView {
@@ -34,7 +48,8 @@ struct LeoRuntimeFileDropTests {
                     return state.accesses.removeFirst()
                 },
                 insertText: { _, text in state.inserted.append(text) },
-                now: { state.now }
+                now: { state.now },
+                temporaryDirectory: { state.temp }
             ),
             chatClient: FakeChatClient()
         )
@@ -118,7 +133,7 @@ struct LeoRuntimeFileDropTests {
         let uploaded = try Data(contentsOf: URL(fileURLWithPath: scratchPath))
         #expect(uploaded.prefix(4) == Data([0x89, 0x50, 0x4E, 0x47]))
         #expect(try workspace.names().isEmpty, "nothing may land in the workspace")
-        #expect(!exists(FileManager.default.temporaryDirectory.appendingPathComponent(pasteName).path))
+        #expect(state.leftoverFiles.isEmpty)
         runtime.shutdown()
     }
 
@@ -134,7 +149,7 @@ struct LeoRuntimeFileDropTests {
         let surface = try makeSurface()
 
         // `.local` is not remote, so drive the queue the way a paste does.
-        let file = FileManager.default.temporaryDirectory.appendingPathComponent(pasteName)
+        let file = state.temp.appendingPathComponent(pasteName)
         try Data("png".utf8).write(to: file)
         let queue = LeoTerminalFileDropQueue(runtime: runtime, surface: surface)
         runtime.terminalFileDropQueues[surface.id] = queue
@@ -144,6 +159,31 @@ struct LeoRuntimeFileDropTests {
         await awaitCondition { !state.inserted.isEmpty }
 
         #expect(try home.contents(".cache/leo/paste/" + pasteName) == "png")
+        runtime.shutdown()
+    }
+
+    @Test func twoPastesInTheSameInstantEachKeepTheirOwnTempFile() async throws {
+        // Separate homes: the scratch name is the same, and must not collide on the host.
+        let homes = try (0..<2).map { _ in try LeoFileSandbox() }
+        defer { homes.forEach { $0.cleanUp() } }
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accesses = homes.map { FileDropHomeAccess(base: LeoFileAccessor.local(), home: $0.root) }
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        // Both pastes land before the first upload runs, so a shared temp
+        // path would be overwritten, then deleted under the second job.
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        await awaitCondition { state.inserted.count == 2 }
+
+        #expect(state.inserted.count == 2)
+        #expect(surface.leoFileDropStatus == nil)
+        for home in homes { #expect(exists(home.path(".cache/leo/paste/" + pasteName)), "each paste must upload its own file") }
+        await awaitCondition { state.leftoverFiles.isEmpty }
+        #expect(state.leftoverFiles.isEmpty)
         runtime.shutdown()
     }
 
@@ -157,10 +197,9 @@ struct LeoRuntimeFileDropTests {
         state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
         let runtime = makeRuntime(state)
         let surface = try makeSurface()
-        let temp = FileManager.default.temporaryDirectory.appendingPathComponent(pasteName).path
 
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
-        await awaitCondition { !exists(temp) }
+        await awaitCondition { state.requestedHosts.count == 1 && state.leftoverFiles.isEmpty && surface.leoFileDropStatus != nil }
 
         guard case .failed = surface.leoFileDropStatus else {
             Issue.record("expected a failure status")
@@ -231,10 +270,9 @@ struct LeoRuntimeFileDropTests {
         state.accessError = .unavailable(reason: "must not be reached")
         let runtime = makeRuntime(state)
         let surface = try makeSurface()
-        let temp = FileManager.default.temporaryDirectory.appendingPathComponent("leo-paste-20261101-000901-000.png").path
 
         #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), isRepeat: true, from: surface))
-        #expect(!exists(temp))
+        #expect(state.leftoverFiles.isEmpty)
         #expect(state.requestedHosts.isEmpty)
         runtime.shutdown()
     }
