@@ -2565,7 +2565,7 @@ Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
 Done: 486bf611d, 0df90da27
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png (dark mode only; light mode not verified)
 
-## B-353 · the time elapsed in the bar at the top is not updated frequently…   [ready]
+## B-353 · the time elapsed in the bar at the top is not updated frequently…   [done]
 Issue: #331
 Type: bug
 Report: the time elapsed in the bar at the top is not updated frequently enough when it displays seconds. it should update every second but right now it varies like 1-3 seconds so its weird
@@ -2575,6 +2575,8 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261106T015152303110Z-50ee06ee#1
 Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-353: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
 Answer: retry
+Done: 07299f8c9
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png (1 Hz tick watched on the sidebar row; capsule/popover share the schedule)
 
 ## B-354 · this green is way too intense (Image #2)   [ready]
 Issue: #332

@@ -372,3 +372,21 @@ Chose: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoA
 Item: B-349 · the update badge is weird now with the sidebar
 Commit: 486bf611d, 0df90da27
 Veto: [ ]
+
+## D-701 · 2026-11-06 · B-353: Mac only: iOS drives its own clock in AgentsViewController; the tick policy lives in LeoKi
+Chose: Mac only: iOS drives its own clock in AgentsViewController; the tick policy lives in LeoKit if iOS wants it later — P1/P2
+Item: B-353 · the time elapsed in the bar at the top is not updated frequently…
+Commit: 07299f8c9
+Veto: [ ]
+
+## D-702 · 2026-11-06 · B-353: The Tasks popover and the sidebar row share the capsule's tick schedule (same durations, s
+Chose: The Tasks popover and the sidebar row share the capsule's tick schedule (same durations, same staleness) — P2
+Item: B-353 · the time elapsed in the bar at the top is not updated frequently…
+Commit: 07299f8c9
+Veto: [ ]
+
+## D-703 · 2026-11-06 · B-353: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible duration is under 
+Chose: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible duration is under a minute, else a coarse 15 s grid — P2 calm/steady status
+Item: B-353 · the time elapsed in the bar at the top is not updated frequently…
+Commit: 07299f8c9
+Veto: [ ]

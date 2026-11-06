@@ -52,17 +52,19 @@ Lane: B-353
   Branch: autopilot-lane/B-353
   Base: 6febf7a1a55c82d5cb525a1ae72198593b1151d4
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-06T18:57:33Z
   Reverifies: 0
+  Tokens: 7.4M in (7.11M cache read), ≥41.5k out, 84 requests
   Reviewed-tip: 2906a408e98d185e8c6f75bfed3786d7cc1cbfba
   Call: Mac only: iOS drives its own clock in AgentsViewController; the tick policy lives in LeoKit if iOS wants it later — P1/P2
   Call: The Tasks popover and the sidebar row share the capsule's tick schedule (same durations, same staleness) — P2
   Call: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible duration is under a minute, else a coarse 15 s grid — P2 calm/steady status
 
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
+Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
 
 Progress:
 - B-349, B-353, B-354 picked ahead of B-348 (owner asked to retry those three).
