@@ -195,12 +195,13 @@ Lane: B-346
   Branch: autopilot-lane/B-346
   Base: a8c9bc0929d2241462166d6a7f3195aa53e8bee6
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 5ff47c5601110de9ffe94de06b56bbaa84a7a24a
   Dispatched: 2026-11-06T05:36:00Z
+  Tokens: 18.2M in (17.7M cache read), ≥97.3k out, 169 requests
   Call: Mac only; iOS is Out and has its own share sheet — Mac/iOS parity rule
   Call: A drop onto a taken name keeps both (reuses B-279); Download to… replaces only after the save panel confirms — Agent-decides UX
   Call: "Download to…" sits under a divider in both the image and file-chip context menus — Mac-native HIG
@@ -222,6 +223,7 @@ Finished 10: B-348 blocked
 Finished 11: B-349 blocked
 Finished 12: B-353 blocked
 Finished 13: B-354 blocked
+Finished 14: B-346 landed d696b80fd1da8ae92d1082f2f396364ec5d71b22 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-346-2.png
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -250,3 +252,4 @@ Progress:
 - B-349 runner: leo dispatch d-cb202515f10b (implement, pane %394), light; brief tells verifier to skip LeoRuntimeFileDropTests (B-355) and treat base-reproducible failures as pre-existing.
 - B-349 blocked by runner: autopilot lacks origin/main's toolbar/capsule (local main 88 behind origin/main). B-353 (capsule elapsed time) and B-354 (capsule green) blocked at Decide for the same reason (capsule code absent on autopilot). Owner must sync local main; merging origin/main will conflict with B-345 in LeoAgentRow/LeoRowClickCatcher.
 - B-346 runner: leo dispatch d-376e1d631204 (implement, pane %396), full, Mac only.
+- B-346 landed d696b80fd (full suite 4056 green — B-355 did not reproduce this time). Runner notes: a stale "Leo[DEBUG] quit unexpectedly" dialog from a 00:18 crash is on Dionysus; a Finder window on scratch drop2 left open; scratch under /private/tmp/claude-501/b346e2e.

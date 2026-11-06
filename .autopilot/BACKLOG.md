@@ -2582,13 +2582,15 @@ Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac a
 Answer:
 Attachments: .autopilot/bugs/B-354/leo-paste-20261106-015514-377.png
 
-## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [ready]
+## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [done]
 Issue: #328
 Why: Files in a chat message (images, logs, documents) can be saved anywhere on the Mac without hunting for them on the agent's host — P4 Everything through Leo, P3 Local = remote. Chat companion to B-279.
 Accept: dragging a chat attachment (image or file chip) to Finder/Desktop saves a copy there, using file promises so attachments from a remote host download on drop; right-clicking an attachment shows "Download to…", which opens a save panel defaulting to the original filename and writes the file; multiple attachments in one message can each be dragged or downloaded; tests cover the promise/download path for local and remote daemons; shots from the isolated debug build show the context menu and a completed drop.
 Out: iOS (it has its own share sheet; a separate item if wanted); dragging whole messages or text; folders; bulk "download all"; progress UI beyond a simple in-flight indicator.
 Source: owner (/feature, 2026-11-05)
 Inbox: 20261104T234957605872Z-51261d99#1
+Done: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-346-2.png (bubble; B-346-3..6 screen captures show the Download to… menu, save sheet, and chip/image drops in Finder; remote download unit-tested only)
 
 ## B-342 · iOS chat image viewer swipes between a message's images   [ready]
 Issue: #329

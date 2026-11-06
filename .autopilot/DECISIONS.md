@@ -216,3 +216,52 @@ Chose: "Viewing" means the chat is on screen and the app is foregrounded; a back
 Why: Calm, attention-driven
 Commit: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
 Veto: [ ]
+
+## D-678 · 2026-11-06 · B-346 is Mac only
+Context: B-346 (runner call).
+Chose: Mac only; iOS is Out and has its own share sheet
+Why: Mac/iOS parity rule
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
+
+## D-679 · 2026-11-06 · Name collisions on attachment save
+Context: B-346 (runner call).
+Chose: A drop onto a taken name keeps both (reuses B-279); Download to… replaces only after the save panel confirms
+Why: Agent-decides UX
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
+
+## D-680 · 2026-11-06 · Download to… menu placement
+Context: B-346 (runner call).
+Chose: "Download to…" sits under a divider in both the image and file-chip context menus
+Why: Mac-native HIG
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
+
+## D-681 · 2026-11-06 · Save panel default folder
+Context: B-346 (runner call).
+Chose: The save panel leaves directoryURL unset (system remembers the last folder)
+Why: Agent-decides UX
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
+
+## D-682 · 2026-11-06 · Attachment drag image
+Context: B-346 (runner call).
+Chose: The drag image is the scaled image, or the file icon for chips
+Why: Agent-decides UX
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
+
+## D-683 · 2026-11-06 · AppKit drag bridge for chat attachments
+Context: B-346 (runner call).
+Chose: Drag via an AppKit overlay bridge modelled on SurfaceDragSource
+Why: Mac-native; safer default, verified in the debug GUI
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
+
+## D-684 · 2026-11-06 · Attachment downloads pin the source machine
+Context: B-346 (runner call).
+Chose: Download from the machine fixed at drag/click start, reusing the chat download cache
+Why: P3 Local = remote
+Commit: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Veto: [ ]
