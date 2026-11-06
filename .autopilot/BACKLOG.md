@@ -2578,7 +2578,7 @@ Answer: retry
 Done: 07299f8c9
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png (1 Hz tick watched on the sidebar row; capsule/popover share the schedule)
 
-## B-354 · this green is way too intense (Image #2)   [ready]
+## B-354 · this green is way too intense (Image #2)   [done]
 Issue: #332
 Type: bug
 Report: this green is way too intense [Image #2]
@@ -2589,6 +2589,8 @@ Inbox: 20261106T015521888748Z-4aa922b2#1
 Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-354: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
 Answer: retry
 Attachments: .autopilot/bugs/B-354/leo-paste-20261106-015514-377.png
+Done: 7edc407da
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-354-1.png (dark; light in B-354-2.png)
 
 ## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [done]
 Issue: #328

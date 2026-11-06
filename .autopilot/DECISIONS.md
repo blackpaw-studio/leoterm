@@ -390,3 +390,21 @@ Chose: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible d
 Item: B-353 · the time elapsed in the bar at the top is not updated frequently…
 Commit: 07299f8c9
 Veto: [ ]
+
+## D-704 · 2026-11-06 · B-354: Mac only (iOS has no task bar)
+Chose: Mac only (iOS has no task bar) — P1
+Item: B-354 · this green is way too intense (Image #2)
+Commit: 7edc407da
+Veto: [ ]
+
+## D-705 · 2026-11-06 · B-354: Only the done bar's fill is softened; the checkmark glyph, popover and sidebar tints keep 
+Chose: Only the done bar's fill is softened; the checkmark glyph, popover and sidebar tints keep full green — P2
+Item: B-354 · this green is way too intense (Image #2)
+Commit: 7edc407da
+Veto: [ ]
+
+## D-706 · 2026-11-06 · B-354: Done-bar opacity 0.55
+Chose: Done-bar opacity 0.55 — P2
+Item: B-354 · this green is way too intense (Image #2)
+Commit: 7edc407da
+Veto: [ ]

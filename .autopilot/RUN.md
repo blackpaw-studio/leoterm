@@ -68,11 +68,12 @@ Lane: B-354
   Branch: autopilot-lane/B-354
   Base: 3dd100793c86bf6b3fea446c574e63ff827b3c2d
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-06T19:22:57Z
   Reverifies: 0
+  Tokens: 6.3M in (6.05M cache read), ≥27.6k out, 76 requests
   Reviewed-tip: 0adcfdc1bde7097d6b0f06d6db47e0932779d24a
   Call: Mac only (iOS has no task bar) — P1
   Call: Only the done bar's fill is softened; the checkmark glyph, popover and sidebar tints keep full green — P2
@@ -80,6 +81,7 @@ Lane: B-354
 
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
+Finished 3: B-354 landed 0b8212e1f817f41d33a5d0e77537481b31662d43 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-354-1.png
 
 Progress:
 - B-349, B-353, B-354 picked ahead of B-348 (owner asked to retry those three).
