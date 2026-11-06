@@ -159,18 +159,10 @@ struct AppFeatureChatTests {
     }
 
     @Test func anAgentMessageWhileYouViewItsChatNeverBadges() async {
-        var state = Self.connected()
-        state.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "zeus", unread: 1)], host: .remote(Self.zeus.daemonID))
-        let store = TestStore(initialState: state) {
-            AppFeature()
-        } withDependencies: {
-            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
-            $0.chatClient.messages = { _, _, _ in LeoChatPage(messages: [], hasMore: false) }
-            $0.chatClient.markRead = { _, _, _ in }
-        }
-        store.exhaustivity = .off
+        let store = Self.viewingStore()
         await store.send(.chats(.rowTapped(Self.zeus)))
         await store.send(.chat(.onScreenChanged(true)))
+        #expect(store.state.isChatOnScreen(Self.zeus))
         await store.send(.fleet(.eventReceived(Self.zeus.daemonID, .chat(seq: 3, .message(.make("01", "hi"))))))
         await store.finish()
         #expect(store.state.chats.unreadTotal == 0)
