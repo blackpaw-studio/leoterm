@@ -71,6 +71,17 @@ Lane: B-339
   Call: Mac only; the bundled daemon is a Mac app concern — Mac/iOS parity rule
   Call: Daemon-side default (seed loopback `web` for managed installs) sent as a non-blocking request to the `leo` agent — AUTONOMY (messaging leo is agent-decides)
 
+Lane: B-340
+  Branch: autopilot-lane/B-340
+  Base: 0c246d854efa4356ee04c97048c23f2539aa0fe5
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T01:16:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -83,3 +94,4 @@ Progress:
 - B-338 blocked: could not reproduce (passes locally 10/10 and on hosted CI run 41953539577); shelved to autopilot-shelved/B-338 (no commits).
 - B-339 runner: leo dispatch d-b30640b6c865 (implement, pane %257), full, Mac only.
 - B-339 landed b5e70b98d (concurrency review full + delta; 1 fix round; 4030 tests green; not visually verified — would restart the real daemon). max_turns: 0 confirmed = unset in leo config.go. Sent leo agent the managed-default request.
+- B-340 runner: leo dispatch d-9c7ae0157135 (implement, pane %265), full.
