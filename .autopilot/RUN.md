@@ -135,6 +135,17 @@ Lane: B-344
   Tokens: 4.37M in (4.21M cache read), ≥24.1k out, 46 requests
   Call: Mac only (provisional; iOS chat not checked) — Mac/iOS parity rule
 
+Lane: B-345
+  Branch: autopilot-lane/B-345
+  Base: f34f79bf22f4e704750ea213ab751400d8ad1957
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T03:43:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
