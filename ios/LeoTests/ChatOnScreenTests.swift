@@ -1,3 +1,4 @@
+// Smoke coverage of the real UIKit wiring: these pass without the B-347 fix too; the reducer tests in AppFeatureChatTests are the regression guards.
 import ComposableArchitecture
 import Foundation
 import LeoFeatures
