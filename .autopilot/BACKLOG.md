@@ -2547,6 +2547,21 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T234107409652Z-4eb7588d#1
 Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
 
+## B-353 · the time elapsed in the bar at the top is not updated frequently…   [ready]
+Type: bug
+Report: the time elapsed in the bar at the top is not updated frequently enough when it displays seconds. it should update every second but right now it varies like 1-3 seconds so its weird
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261106T015152303110Z-50ee06ee#1
+
+## B-354 · this green is way too intense (Image #2)   [ready]
+Type: bug
+Report: this green is way too intense [Image #2]
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261106T015521888748Z-4aa922b2#1
+Attachments: .autopilot/bugs/B-354/leo-paste-20261106-015514-377.png
+
 ## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [ready]
 Issue: #328
 Why: Files in a chat message (images, logs, documents) can be saved anywhere on the Mac without hunting for them on the agent's host — P4 Everything through Leo, P3 Local = remote. Chat companion to B-279.
