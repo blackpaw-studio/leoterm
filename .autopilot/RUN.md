@@ -74,3 +74,4 @@ Progress:
 - B-334 landed e54d3a530 (review general full; verify pass; 4014 tests green). Self-filed B-350 idea.
 - B-338 runner: leo dispatch d-1ec0acf6fe5c (implement, pane %255), light, iOS only.
 - B-338 blocked: could not reproduce (passes locally 10/10 and on hosted CI run 41953539577); shelved to autopilot-shelved/B-338 (no commits).
+- B-339 runner: leo dispatch d-b30640b6c865 (implement, pane %257), full, Mac only.
