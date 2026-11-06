@@ -39,10 +39,20 @@ extension AppFeature.State {
         }
     }
 
-    /// Whether `ref`'s thread is the one on screen (its banners are
-    /// suppressed and its messages count as read).
+    /// Whether `ref`'s thread is being viewed: its screen is up and the app
+    /// is in the foreground (its banners are suppressed and its messages
+    /// count as read).
     public func isChatOnScreen(_ ref: AgentRef) -> Bool {
-        chat?.ref == ref && chat?.isOnScreen == true
+        chat?.ref == ref && chat?.isOnScreen == true && fleet.isActive
+    }
+
+    /// The chat being viewed never carries a badge: whatever raised its count
+    /// (a message before the screen finished appearing, a reload of the
+    /// daemon's count, a return from another tab or the background) the
+    /// thread's own read mark has covered.
+    mutating func clearViewedChatUnread() {
+        guard let ref = chat?.ref, isChatOnScreen(ref), chats.unreadCounts[ref.leoAgentID] > 0 else { return }
+        chats.unreadCounts = chats.unreadCounts.clearing(ref.leoAgentID)
     }
 
     /// Selects `ref`'s agent detail; the open chat is the Chats tab's and stays.
