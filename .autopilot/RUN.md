@@ -210,6 +210,17 @@ Lane: B-346
   Call: Drag via an AppKit overlay bridge modelled on SurfaceDragSource — Mac-native; safer default, verified in the debug GUI
   Call: Download from the machine fixed at drag/click start, reusing the chat download cache — P3 Local = remote
 
+Lane: B-342
+  Branch: autopilot-lane/B-342
+  Base: d07680fd47552d11addb61ef5d99b2123112d12b
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T06:01:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -253,3 +264,4 @@ Progress:
 - B-349 blocked by runner: autopilot lacks origin/main's toolbar/capsule (local main 88 behind origin/main). B-353 (capsule elapsed time) and B-354 (capsule green) blocked at Decide for the same reason (capsule code absent on autopilot). Owner must sync local main; merging origin/main will conflict with B-345 in LeoAgentRow/LeoRowClickCatcher.
 - B-346 runner: leo dispatch d-376e1d631204 (implement, pane %396), full, Mac only.
 - B-346 landed d696b80fd (full suite 4056 green — B-355 did not reproduce this time). Runner notes: a stale "Leo[DEBUG] quit unexpectedly" dialog from a 00:18 crash is on Dionysus; a Finder window on scratch drop2 left open; scratch under /private/tmp/claude-501/b346e2e.
+- B-342 runner: leo dispatch d-a35738c93d18 (implement, pane %401), full, iOS only.
