@@ -20,7 +20,7 @@ struct LeoTestWindowGuardTests {
 
     @Test func everyFixtureWindowIsSafeToClose() throws {
         let sources = try Self.swiftSources()
-        let offenders = try Self.unsafeConstructions(in: sources, allowlist: Self.allowlist.keys)
+        let offenders = Self.unsafeConstructions(in: sources, allowlist: Self.allowlist.keys)
         #expect(
             offenders.isEmpty,
             """
@@ -30,7 +30,7 @@ struct LeoTestWindowGuardTests {
         )
     }
 
-    @Test func theScanFlagsAnUnsafeWindowAndAcceptsSafeOnes() throws {
+    @Test func theScanFlagsAnUnsafeWindowAndAcceptsSafeOnes() {
         let unsafe = ["let w = NSWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: false)", "w.title = \"x\""]
         let flagged = ["let w = NSWindow()", "w.isReleasedWhenClosed = false"]
         let helper = ["let w = makeTestWindow()"]
@@ -38,7 +38,7 @@ struct LeoTestWindowGuardTests {
         let sources = ["a.swift": unsafe, "b.swift": flagged, "c.swift": helper, "d.swift": subclass]
             .mapValues { $0.joined(separator: "\n") }
 
-        let offenders = try Self.unsafeConstructions(in: sources, allowlist: [])
+        let offenders = Self.unsafeConstructions(in: sources, allowlist: [])
 
         #expect(offenders.count == 2)
         #expect(offenders.contains { $0.hasPrefix("a.swift:1") })
@@ -55,15 +55,14 @@ struct LeoTestWindowGuardTests {
     }
 
     /// `path:line: text` for each direct window construction without the flag.
-    static func unsafeConstructions(in sources: [String: String], allowlist: some Collection<String>) throws -> [String] {
+    static func unsafeConstructions(in sources: [String: String], allowlist: some Collection<String>) -> [String] {
         let allLines = sources.mapValues { $0.components(separatedBy: "\n") }
         let subclasses = allLines.values.joined().compactMap(subclassName)
-        let names = (["NSWindow", "NSPanel"] + subclasses).joined(separator: "|")
-        let construction = try Regex("(?:^|[^\\w.])(?:\(names))\\(")
+        let calls = (["NSWindow", "NSPanel"] + subclasses).map { "\($0)(" }
         return allLines.sorted { $0.key < $1.key }.flatMap { path, lines in
             lines.indices.compactMap { index -> String? in
                 let line = lines[index].trimmingCharacters(in: .whitespaces)
-                guard !line.hasPrefix("//"), line.contains(construction) else { return nil }
+                guard !line.hasPrefix("//"), constructs(line, calls: calls) else { return nil }
                 let following = lines[index..<min(lines.count, index + flagWindowLines + 1)]
                 guard !following.contains(where: { $0.contains("isReleasedWhenClosed = false") }) else { return nil }
                 guard !allowlist.contains("\(path):\(line)") else { return nil }
@@ -72,7 +71,22 @@ struct LeoTestWindowGuardTests {
         }
     }
 
+    /// Whether `line` calls one of `calls` (`Name(`) as a bare initializer, not
+    /// as a member (`.NSWindow(`) or the tail of a longer name (`makeNSWindow(`).
+    private static func constructs(_ line: String, calls: [String]) -> Bool {
+        calls.contains { call in
+            var searchStart = line.startIndex
+            while let found = line.range(of: call, range: searchStart..<line.endIndex) {
+                let before = found.lowerBound == line.startIndex ? nil : line[line.index(before: found.lowerBound)]
+                if before.map({ !($0.isLetter || $0.isNumber || $0 == "_" || $0 == ".") }) ?? true { return true }
+                searchStart = found.upperBound
+            }
+            return false
+        }
+    }
+
     private static func subclassName(_ line: String) -> String? {
+        guard line.contains("class "), line.contains("NSWindow") || line.contains("NSPanel") else { return nil }
         guard let match = line.firstMatch(of: /class\s+(\w+)\s*:\s*(?:NSWindow|NSPanel)\b/) else { return nil }
         return String(match.1)
     }
