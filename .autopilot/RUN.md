@@ -156,3 +156,4 @@ Progress:
 - Inbox applied: B-353, B-354 (bugs).
 - B-343 runner: leo dispatch d-743cec0f84b1 (implement, pane %320), light.
 - B-343 landed b05f35934 (Mac+iOS via LeoKit; 1 fix round; LeoKit 1026 + Mac 4042 green; iOS sim screen captures only).
+- B-344 runner: leo dispatch d-fd9c72ed4822 (implement, pane %345), light.
