@@ -111,12 +111,15 @@ Lane: B-343
   Branch: autopilot-lane/B-343
   Base: 545e7bffd97eeceacf1c018e91bae6cfa0d08fb1
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1422127bc36ee61a00d980d16a3f5fbb3442202a
   Dispatched: 2026-11-06T02:45:00Z
+  Call: Fix on both platforms; the sizing rule lives in LeoKit `LeoChatImageLayout`, each app keeps only its image view — Mac/iOS parity rule
+  Call: Tall images crop aspect-fill (like iMessage) to a frame at least 200 pt wide; tapping opens the full image — Bug fixes are agent-decides; Mac-native feel
+  Call: iOS sizes chat images from the original file's pixel dimensions, not the thumbnail — Bug fix
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
