@@ -71,6 +71,10 @@ struct LeoSFTPClient: Sendable {
         try expectOK(try await transport.send(.remove(path: path)), path: path)
     }
 
+    func makeDirectory(_ path: String, permissions: UInt32?) async throws {
+        try expectOK(try await transport.send(.mkdir(path: path, attributes: .init(permissions: permissions))), path: path)
+    }
+
     /// Plain v3 RENAME: OpenSSH refuses to replace an existing `destination`.
     func rename(_ source: String, to destination: String) async throws {
         try expectOK(try await transport.send(.rename(from: source, to: destination)), path: destination)

@@ -117,7 +117,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     private func configureDataSource() {
         let header = UICollectionView.CellRegistration<AgentHeaderCell, Row> { [weak self] cell, _, _ in
             guard let self else { return }
-            cell.configure(name: store.agentName, daemon: store.daemon.name, agent: store.agent)
+            cell.configure(name: store.displayName, daemon: store.daemon.name, agent: store.agent)
         }
         let row = UICollectionView.CellRegistration<UICollectionViewListCell, Row> { [weak self] cell, _, row in
             self?.configure(cell, row)
@@ -209,7 +209,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             var content = UIListContentConfiguration.subtitleCell()
             let moved = store.agent?.isMoved == true
             content.text = String(localized: "Chat")
-            content.secondaryText = moved ? String(localized: "Moved — message it on \(store.agent?.movedTo ?? "")") : String(localized: "Message \(store.agentName)")
+            content.secondaryText = moved ? String(localized: "Moved — message it on \(store.agent?.movedTo ?? "")") : String(localized: "Message \(store.displayName)")
             content.image = UIImage(systemName: "bubble.left.and.text.bubble.right")
             content.secondaryTextProperties.color = .secondaryLabel
             if moved { Self.dim(&content) }
@@ -244,7 +244,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     }
 
     private func render() {
-        title = store.agentName
+        title = store.displayName
         guard let agent = store.agent else {
             var configuration = UIContentUnavailableConfiguration.empty()
             configuration.image = UIImage(systemName: "questionmark.circle")

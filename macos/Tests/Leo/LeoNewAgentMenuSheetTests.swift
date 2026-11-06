@@ -7,7 +7,8 @@ import Testing
 /// B-284: Agents ▸ New Agent… must open the spawn sheet on a real terminal
 /// window. `TerminalController` sets `window.contentView` directly and never
 /// a `contentViewController`, so presenting through that property was a
-/// silent no-op. Needs the app's real `Ghostty.App`.
+/// silent no-op. Host tier: the subject is `TerminalController` itself on a
+/// real window, which needs the app's real `Ghostty.App`.
 @MainActor @Suite(.serialized) struct LeoNewAgentMenuSheetTests {
     @Test func newLeoAgentPresentsTheSpawnSheetOnATerminalWindow() throws {
         let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "needs the app's Ghostty.App")

@@ -70,6 +70,51 @@ struct LeoSidebarFeedMetadataTests {
         await harness.stop()
     }
 
+    /// `/agents/list` never carries `display_name`; the rows get it from
+    /// `/state` and `agent.spawned`.
+    @Test func aStateAgentsDisplayNamePaintsItsListRow() async throws {
+        let harness = MetadataHarness(
+            agents: [("leo-alfred", "s1"), ("beta", "s2")],
+            state: [observed("leo-alfred", "s1", task: nil, displayName: "Alfred"), observed("beta", "s2", task: nil)]
+        )
+        await harness.start()
+        try await harness.pump { $0.rows.first?.displayName == "Alfred" }
+        let rows = try #require(await harness.recorder.last?.rows)
+        #expect(rows.map(\.name) == ["leo-alfred", "beta"])
+        #expect(rows.map(\.displayName) == ["Alfred", "beta"], "no display_name falls back to the name")
+        await harness.stop()
+    }
+
+    @Test func aSpawnedEventsNewDisplayNameUpdatesTheRow() async throws {
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: nil, displayName: "Old")])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.displayName == "Old" }
+        await harness.settle()
+
+        // The refetch the spawn triggers is held back, so only the event's own field can paint.
+        await harness.activity.holdNext()
+        await harness.activity.send(.agentSpawned(seq: 2, at: nil, agent: agent("alpha", "s1", displayName: "New")))
+        try await harness.pump { $0.rows.first?.displayName == "New" }
+        await harness.activity.releaseHeld()
+        await harness.stop()
+    }
+
+    @Test func aRecreatedNamesakeWithoutADisplayNameDoesNotInheritTheOldOne() async throws {
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: nil, displayName: "Old")])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.displayName == "Old" }
+        await harness.settle()
+
+        await harness.daemon.setAgents([("alpha", "s2")])
+        await harness.activity.setState([observed("alpha", "s2", task: nil)])
+        await harness.activity.send(.agentStopped(seq: 3, at: nil, agent: "alpha", wakeOnMessage: nil))
+        await harness.activity.send(.agentSpawned(seq: 4, at: nil, agent: agent("alpha", "s2")))
+        try await harness.pump { $0.rows.first?.startedAt == "s2" }
+        await harness.settle()
+        #expect(await harness.recorder.last?.rows.first?.displayName == "alpha")
+        await harness.stop()
+    }
+
     @Test func aHostSwitchMidFetchDropsTheOldHostsSnapshot() async throws {
         let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: "host A")])
         await harness.start()
@@ -302,10 +347,12 @@ struct LeoSidebarFeedMetadataTests {
     }
 }
 
-private func observed(_ name: String, _ startedAt: String, task: String?, at lastActivityAt: String = "2026-09-24T15:00:00Z") -> LeoObservedAgent {
+private func observed(
+    _ name: String, _ startedAt: String, task: String?, at lastActivityAt: String = "2026-09-24T15:00:00Z", displayName: String? = nil
+) -> LeoObservedAgent {
     LeoObservedAgent(
         name: name, status: .running, activity: .idle, currentAction: task.map { .init(kind: "pane", detail: $0) },
-        lastActivityAt: lastActivityAt, startedAt: startedAt
+        lastActivityAt: lastActivityAt, startedAt: startedAt, displayName: displayName
     )
 }
 
@@ -318,10 +365,10 @@ private func order(_ harness: MetadataHarness, _ model: LeoSidebarModel) async -
     }
 }
 
-private func agent(_ name: String, _ startedAt: String) -> LeoAgent {
+private func agent(_ name: String, _ startedAt: String, displayName: String? = nil) -> LeoAgent {
     LeoAgent(
         name: name, template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running,
-        startedAt: startedAt, restarts: nil, stoppedReason: nil, wakeOnMessage: nil
+        startedAt: startedAt, restarts: nil, stoppedReason: nil, wakeOnMessage: nil, displayName: displayName
     )
 }
 

@@ -70,7 +70,7 @@ struct LeoAgentRowContent: View {
                     .fontWeight(.medium)
                     .foregroundStyle(presentation.isNameDimmed ? .secondary : .primary)
                     .lineLimit(1)
-                    .accessibilityLabel(presentation.accessibilityLabel(name: row.name))
+                    .accessibilityLabel(presentation.accessibilityLabel(name: row.displayName))
             }
             Spacer(minLength: 4)
             LeoAgentBrowserBadge(host: row.host, agent: row.name, isSelected: isSelected)
@@ -106,7 +106,7 @@ struct LeoAgentRowContent: View {
     }
 
     private var nameText: Text {
-        LeoFuzzyMatcher.highlightRuns(name: row.name, offsets: nameHighlights).reduce(Text("")) { text, run in
+        LeoFuzzyMatcher.highlightRuns(name: row.displayName, offsets: nameHighlights).reduce(Text("")) { text, run in
             text + Text(run.text).fontWeight(run.isMatched ? .bold : nil)
         }
     }

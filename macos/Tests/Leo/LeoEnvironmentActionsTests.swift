@@ -71,46 +71,67 @@ import Testing
 
     // MARK: Edit Order sheet (fix round 2): the presenter owns the sheet
 
-    private func terminalLikeWindow() -> NSWindow {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
-        window.contentView = NSView() // like TerminalController: no content view controller
-        window.makeKeyAndOrderFront(nil)
-        return window
-    }
-
     private func overrideRow() -> LeoAgentRow {
         row.withEnvironments(LeoAgentEnvironments(names: ["aws", "prod"], source: .override, error: nil))
     }
 
+    private func present(_ daemon: EnvironmentDaemon, _ recorder: RecordingSheetPresenter, on window: NSWindow) -> LeoEnvironmentsSheetSession? {
+        LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window, presenter: recorder.presenter)
+    }
+
     @Test func editOrderCancelClosesTheSheetWithoutPosting() async throws {
-        let window = terminalLikeWindow()
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        let session = try #require(present(daemon, recorder, on: window))
+        #expect(recorder.presentedSheets == [session.sheetWindow])
+        session.cancel()
+        #expect(recorder.dismissedSheets == [session.sheetWindow])
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func editOrderConfirmPostsAndClosesTheSheet() async throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        let session = try #require(present(daemon, recorder, on: window))
+        session.confirm(["prod", "aws"])
+        #expect(recorder.dismissedSheets == [session.sheetWindow])
+        await awaitCondition { await daemon.calls == ["set:alpha:prod,aws"] }
+    }
+
+    @Test func escapeClosesTheEditOrderSheet() async throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        let session = try #require(present(daemon, recorder, on: window))
+        session.sheetWindow.cancelOperation(nil)
+        #expect(recorder.presentedSheets.count == 1)
+        #expect(recorder.dismissedSheets == [session.sheetWindow])
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func aSecondEditOrderSheetIsRefusedWhileOneIsUp() throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        _ = try #require(present(daemon, recorder, on: window))
+        #expect(present(daemon, recorder, on: window) == nil)
+        #expect(recorder.presentedSheets.count == 1)
+    }
+
+    /// The one case whose subject is AppKit itself: a real `beginSheet` on a
+    /// terminal-like window (no content view controller), ended by Escape.
+    @Test func escapeEndsARealSheetOnATerminalLikeWindow() async throws {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSView() // like TerminalController: no content view controller
+        window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)
+        window.makeKeyAndOrderFront(nil)
         defer { window.close() }
         #expect(window.contentViewController == nil)
         let daemon = EnvironmentDaemon()
         let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
         #expect(window.attachedSheet === session.sheetWindow)
-        session.cancel()
-        await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
-        try? await Task.sleep(nanoseconds: 50_000_000)
-        #expect(await daemon.calls.isEmpty)
-    }
-
-    @Test func editOrderConfirmPostsAndClosesTheSheet() async throws {
-        let window = terminalLikeWindow()
-        defer { window.close() }
-        let daemon = EnvironmentDaemon()
-        let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
-        #expect(window.attachedSheet != nil)
-        session.confirm(["prod", "aws"])
-        await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
-        await awaitCondition { await daemon.calls == ["set:alpha:prod,aws"] }
-    }
-
-    @Test func escapeClosesTheEditOrderSheet() async throws {
-        let window = terminalLikeWindow()
-        defer { window.close() }
-        let daemon = EnvironmentDaemon()
-        let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
         session.sheetWindow.cancelOperation(nil)
         await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
         #expect(await daemon.calls.isEmpty)

@@ -5,6 +5,11 @@ name: Leo iOS TestFlight
 
 on:
   workflow_dispatch:
+    inputs:
+      upload:
+        description: "Upload to TestFlight (off = match/archive/export only)"
+        type: boolean
+        default: false
   push:
     tags:
       - "leo-ios-v[0-9]+.[0-9]+.[0-9]+"
@@ -17,9 +22,8 @@ permissions:
   contents: read
 
 env:
-  DEVELOPER_DIR: /Applications/Xcode-26.5.0.app/Contents/Developer
-  # The runner is a launchd service with no locale; without UTF-8 fastlane's
-  # xcodebuild/pty handling crashes.
+  DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
+  # Without a UTF-8 locale fastlane's xcodebuild/pty handling crashes.
   LANG: en_US.UTF-8
   LC_ALL: en_US.UTF-8
   FASTLANE_SKIP_UPDATE_CHECK: "1"
@@ -27,7 +31,7 @@ env:
 
 jobs:
   testflight:
-    runs-on: [self-hosted, macOS, leo]
+    runs-on: macos-26
     timeout-minutes: 60
     env:
       ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
@@ -37,8 +41,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          clean: true
           persist-credentials: false
+
+      - name: Check Xcode
+        run: |
+          test -d "$DEVELOPER_DIR" || { echo "::error::$DEVELOPER_DIR missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
+          xcodebuild -version
 
       - name: Set paths
         run: |
@@ -62,17 +70,12 @@ jobs:
             fi
           done
 
-      # ruby/setup-ruby's prebuilt Rubies only work under the GitHub-hosted
-      # /Users/runner tool cache, which this self-hosted runner can't write.
-      # Use the host's rbenv Ruby and keep gems in the runner tool cache.
       - name: Set up Ruby
-        working-directory: ios
-        run: |
-          ruby_bin="$HOME/.rbenv/versions/3.3.4/bin"
-          test -x "$ruby_bin/ruby" || { echo "::error::Ruby 3.3.4 missing at $ruby_bin (rbenv install 3.3.4)"; exit 1; }
-          echo "$ruby_bin" >> "$GITHUB_PATH"
-          echo "BUNDLE_PATH=$RUNNER_TOOL_CACHE/leo-ios-gems" >> "$GITHUB_ENV"
-          BUNDLE_PATH="$RUNNER_TOOL_CACHE/leo-ios-gems" "$ruby_bin/bundle" install --jobs 4
+        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+        with:
+          ruby-version: "3.3.4"
+          bundler-cache: true
+          working-directory: ios
 
       # fastlane match imports the certificate and installs profiles; confine
       # both to a per-job keychain and profile snapshot (removed in the
@@ -124,6 +127,8 @@ jobs:
             -project Leo.xcodeproj -scheme Leo -configuration Release \
             -destination "generic/platform=iOS" \
             -archivePath "$ARCHIVE" \
+            -skipPackagePluginValidation -skipMacroValidation \
+            -onlyUsePackageVersionsFromResolvedFile \
             OTHER_CODE_SIGN_FLAGS="--keychain $LEO_IOS_KEYCHAIN" \
             CURRENT_PROJECT_VERSION="$BUILD_NUMBER"
 
@@ -142,6 +147,7 @@ jobs:
       # Returns once the upload is accepted; App Store Connect processes the
       # build afterwards and it shows up in TestFlight.
       - name: Upload to TestFlight
+        if: github.event_name == 'push' || inputs.upload
         working-directory: ios
         run: |
           bundle exec fastlane pilot upload \

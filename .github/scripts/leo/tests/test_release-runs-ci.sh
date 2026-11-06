@@ -5,8 +5,12 @@
 # script tests. Checks, parsed as YAML:
 #   1. leo-ci.yml is callable (on: workflow_call).
 #   2. leo-release.yml has a job that calls leo-ci.yml with no `if:`.
-#   3. every job that calls leo-build.yml needs that job, so the signed
-#      build (and therefore publish, which needs build) waits for green CI.
+#   3. ci and build run in parallel, so the gate is on what ships: every job
+#      that depends (directly or transitively) on a leo-build.yml call also
+#      needs the leo-ci job, and none of them has a job-level `if:` that can
+#      bypass a failed dependency (always(), !cancelled(), failure()).
+#   4. leo-ci.yml's concurrency group includes github.workflow, so a release
+#      calling it can't cancel push CI on the same ref (and vice versa).
 # Run directly:
 #   ./test_release-runs-ci.sh
 set -euo pipefail
@@ -31,7 +35,12 @@ result() {
 
 if [[ ! -x "$ruby" ]]; then
   result no "YAML parser available" "$ruby not found"
-  echo "-- $pass passed, $fail failed --"
+  check "leo-ci.yml concurrency group includes github.workflow" "$ci" '
+  group = (wf["concurrency"] || {})["group"].to_s
+  puts "group #{group.inspect} lacks github.workflow" unless group.include?("github.workflow")
+'
+
+echo "-- $pass passed, $fail failed --"
   exit 1
 fi
 
@@ -59,14 +68,28 @@ check "leo-release.yml calls leo-ci.yml unconditionally" "$release" '
   gate.each { |id, j| puts "#{id} has an if:" if j.key?("if") }
 '
 
-check "every leo-build.yml call in leo-release.yml needs the leo-ci call" "$release" '
+check "every job downstream of leo-build.yml also needs the leo-ci call, with no bypassing if:" "$release" '
   gate = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-ci.yml") }.keys
-  builds = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-build.yml") }
+  builds = jobs.select { |_, j| j["uses"].to_s.end_with?("/leo-build.yml") }.keys
   puts "no job calls leo-build.yml" if builds.empty?
-  builds.each do |id, j|
-    needs = Array(j["needs"])
-    puts "#{id} does not need #{gate.inspect}" if (needs & gate).empty?
+  needs_of = ->(id) { Array(jobs[id]["needs"]) }
+  down = []
+  loop do
+    more = jobs.keys.select { |id| !down.include?(id) && !(needs_of.(id) & (builds + down)).empty? }
+    break if more.empty?
+    down += more
   end
+  puts "nothing depends on leo-build.yml (no publish job?)" if down.empty?
+  down.each do |id|
+    puts "#{id} does not need #{gate.inspect}" if (needs_of.(id) & gate).empty?
+    cond = jobs[id]["if"].to_s
+    puts "#{id} has bypassing if: #{cond}" if cond =~ /always\(\)|cancelled\(\)|failure\(\)/
+  end
+'
+
+check "leo-ci.yml concurrency group includes github.workflow" "$ci" '
+  group = (wf["concurrency"] || {})["group"].to_s
+  puts "group #{group.inspect} lacks github.workflow" unless group.include?("github.workflow")
 '
 
 echo "-- $pass passed, $fail failed --"

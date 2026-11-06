@@ -104,8 +104,8 @@ struct LeoEnvironmentsSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Environments for \(row.name)").font(.headline)
-                Text("Applied in this order. Changing them restarts \(row.name) and resumes its session.")
+                Text("Environments for \(row.displayName)").font(.headline)
+                Text("Applied in this order. Changing them restarts \(row.displayName) and resumes its session.")
                     .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             LeoEnvironmentListEditor(list: $list, available: actions.environmentCatalog(for: row.host).catalog?.names ?? [])
@@ -138,11 +138,13 @@ final class LeoSheetWindow: NSWindow {
 
     let sheetWindow: LeoSheetWindow
     private weak var parent: NSWindow?
+    private let presenter: LeoSheetPresenter
     private let row: LeoAgentRow
     private let actions: LeoAgentActions
     private var isFinished = false
 
-    private init(row: LeoAgentRow, actions: LeoAgentActions, parent: NSWindow) {
+    private init(row: LeoAgentRow, actions: LeoAgentActions, parent: NSWindow, presenter: LeoSheetPresenter) {
+        self.presenter = presenter
         self.row = row
         self.actions = actions
         self.parent = parent
@@ -160,12 +162,14 @@ final class LeoSheetWindow: NSWindow {
 
     /// Nil when `window` already has a sheet up.
     @discardableResult
-    static func present(_ row: LeoAgentRow, actions: LeoAgentActions, on window: NSWindow) -> LeoEnvironmentsSheetSession? {
-        guard window.attachedSheet == nil else { return nil }
-        let session = LeoEnvironmentsSheetSession(row: row, actions: actions, parent: window)
+    static func present(
+        _ row: LeoAgentRow, actions: LeoAgentActions, on window: NSWindow, presenter: LeoSheetPresenter = .live
+    ) -> LeoEnvironmentsSheetSession? {
+        guard !presenter.hasSheet(window) else { return nil }
+        let session = LeoEnvironmentsSheetSession(row: row, actions: actions, parent: window, presenter: presenter)
         let key = ObjectIdentifier(session)
         live[key] = session
-        window.beginSheet(session.sheetWindow) { _ in live[key] = nil }
+        presenter.presentWindow(session.sheetWindow, window) { live[key] = nil }
         return session
     }
 
@@ -180,7 +184,7 @@ final class LeoSheetWindow: NSWindow {
     private func finish() {
         guard !isFinished else { return }
         isFinished = true
-        if let parent { parent.endSheet(sheetWindow) } else { sheetWindow.close() }
+        presenter.dismissWindow(sheetWindow, parent)
     }
 }
 

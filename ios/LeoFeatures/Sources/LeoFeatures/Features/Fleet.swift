@@ -88,7 +88,7 @@ public struct Fleet {
                 .map { session in
                     AgentSection(
                         daemon: session.daemon, connection: session.connection,
-                        agents: session.agents.sorted { ($0.priority, $0.name) < ($1.priority, $1.name) }
+                        agents: session.agents.sorted { ($0.priority, $0.displayName, $0.name) < ($1.priority, $1.displayName, $1.name) }
                     )
                 }
                 .sorted { lhs, rhs in
@@ -449,6 +449,7 @@ extension DaemonSession {
         case .agentSpawned(_, _, let spawned, let attention, let environments):
             var agent = agents[id: spawned.name] ?? Agent(name: spawned.name)
             agent.status = spawned.status ?? .starting
+            agent.daemonDisplayName = spawned.daemonDisplayName
             agent.template = spawned.template ?? agent.template
             agent.startedAt = spawned.startedAt ?? agent.startedAt
             agent.adopt(attention)

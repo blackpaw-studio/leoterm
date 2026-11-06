@@ -8,12 +8,11 @@ import Testing
 /// Suites that post to or consume from the process-wide AppKit event queue.
 @Suite(.serialized)
 struct LeoAppEventQueueTests {
-/// B-048: clicks on a sidebar row, through the real list. The clicks are
-/// posted to the app's event queue, so they reach the list the way the
-/// window server delivers them. The sidebar's window is never key here:
-/// another window holds key (or the app is in the background), as when a
-/// ⌘-click lands on a background window, which doesn't make it key. That
-/// keeps these tests independent of which app is frontmost.
+/// B-048: clicks on a sidebar row, through the real list. Each click is handed
+/// to the row's click catcher (the production event→click step) without
+/// real event delivery, so no window server, key status or frontmost app is
+/// needed. The table's own highlight (and its ⌘-click toggle) comes from real
+/// event delivery, so it isn't asserted here; the model's selection is.
 ///
 /// ⌘-click opens a new window (D-104) and the clicked
 /// row stays selected -- the table's own ⌘-click (toggle the row off)
@@ -40,7 +39,6 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.attaches.first?.2 == .newWindow)
         #expect(harness.focusRequests == [worker.id])
         #expect(harness.model.selection == worker.id, "the list's ⌘-click must not toggle the row off")
-        #expect(harness.table.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
     }
 
     @Test func commandClickOnAnUnselectedRowSelectsItAndOpensANewWindow() async throws {
@@ -52,7 +50,6 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.attaches.map(\.0) == [worker.id])
         #expect(harness.attaches.first?.2 == .newWindow)
         #expect(harness.model.selection == worker.id)
-        #expect(harness.table.selectedRow == harness.agentRowIndex)
     }
 
     @Test func plainClickOnARowWithALiveAttachFocusesIt() async throws {
@@ -91,6 +88,18 @@ struct LeoSidebarCommandClickTests {
         #expect(harness.model.selection == worker.id)
     }
 
+    /// The table's own highlight comes from real event delivery, so this one
+    /// posts real events to the app queue (host tier with a working focus probe; serialized with the other event-queue suites by LeoAppEventQueueTests).
+    @Test(.requiresActiveHost) func aRealCommandClickKeepsTheRowHighlighted() async throws {
+        let harness = try await CommandClickHarness(row: worker)
+        defer { harness.close() }
+
+        try await harness.postRealClickOnRow(.command)
+
+        #expect(harness.model.selection == worker.id)
+        #expect(harness.table.selectedRow == harness.agentRowIndex, "the row keeps its highlight")
+    }
+
     /// Intended, as in Finder's sidebar: once a row is selected, clicking
     /// empty space keeps it (the list's selection is required, which is
     /// also what stops ⌘-click toggling the row off).
@@ -104,7 +113,6 @@ struct LeoSidebarCommandClickTests {
         try await harness.clickEmptySpace()
 
         #expect(harness.model.selection == worker.id)
-        #expect(harness.table.selectedRow == harness.agentRowIndex)
         #expect(harness.attaches.count == attachesBefore, "empty space is not a row click")
         #expect(harness.focusRequests.isEmpty)
     }
@@ -120,10 +128,8 @@ struct LeoSidebarCommandClickTests {
     let origin = LeoWindowID()
     private(set) var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
     private(set) var focusRequests: [LeoAgentRow.ID] = []
-    /// Holds key, so the sidebar's window never has it.
+    /// Holds key, so the sidebar's window never has it (a ⌘-click on a background window).
     private let keyWindow: NSWindow
-    private var mouseUps = 0
-    private var monitor: Any?
 
     init(row: LeoAgentRow) async throws {
         model = LeoSidebarModel(snapshot: LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: 1))
@@ -140,10 +146,6 @@ struct LeoSidebarCommandClickTests {
             self?.attaches.append((row.id, windowID, disposition))
         }
         model.focusExistingRequested = { [weak self] row, _ in self?.focusRequests.append(row.id) }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
-            if let self, event.window === window { mouseUps += 1 }
-            return event
-        }
     }
 
     /// The agent's row: the last one, below its section header.
@@ -157,7 +159,7 @@ struct LeoSidebarCommandClickTests {
     func doubleClickRow(_ modifierFlags: NSEvent.ModifierFlags = []) async throws {
         let rect = table.rect(ofRow: agentRowIndex)
         let center = NSPoint(x: rect.midX, y: rect.midY)
-        try await click(at: center, modifierFlags, clickCount: 1, waitsOutDoubleClick: false)
+        try await click(at: center, modifierFlags, clickCount: 1)
         try await click(at: center, modifierFlags, clickCount: 2)
     }
 
@@ -174,32 +176,52 @@ struct LeoSidebarCommandClickTests {
         keyWindow.close()
     }
 
-    /// Posts a down/up pair at `point` (table coordinates), waits until the
-    /// up has been dispatched, then (by default) waits out the double-click
-    /// interval so the next click is a new single click.
-    private func click(
-        at point: NSPoint, _ modifierFlags: NSEvent.ModifierFlags,
-        clickCount: Int = 1, waitsOutDoubleClick: Bool = true
-    ) async throws {
-        try await holdKey()
-        let location = table.convert(point, to: nil)
+    private var mouseUps = 0
+    private var monitor: Any?
+
+    /// Posts a down/up pair on the row to the app's event queue, so the table
+    /// sees it as the window server would deliver it, and waits for the up.
+    /// The sidebar's window is not key (another window holds it).
+    func postRealClickOnRow(_ modifierFlags: NSEvent.ModifierFlags) async throws {
+        if monitor == nil {
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { [weak self] event in
+                if let self, event.window === window { mouseUps += 1 }
+                return event
+            }
+        }
+        keyWindow.makeKeyAndOrderFront(nil)
+        let rect = table.rect(ofRow: agentRowIndex)
+        let location = table.convert(NSPoint(x: rect.midX, y: rect.midY), to: nil)
         let expectedUps = mouseUps + 1
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
             let event = try #require(NSEvent.mouseEvent(
                 with: type, location: location, modifierFlags: modifierFlags,
                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
-                context: nil, eventNumber: 0, clickCount: clickCount, pressure: 1))
+                context: nil, eventNumber: 0, clickCount: 1, pressure: 1))
             NSApp.postEvent(event, atStart: false)
         }
         try await Self.settle { mouseUps >= expectedUps }
         try #require(mouseUps >= expectedUps, "the posted click was never dispatched")
-        if waitsOutDoubleClick { try await Task.sleep(for: .seconds(NSEvent.doubleClickInterval + 0.1)) }
     }
 
-    /// A plain click makes the sidebar's window key; take it back.
-    private func holdKey() async throws {
-        keyWindow.makeKeyAndOrderFront(nil)
-        try #require(!window.isKeyWindow, "the sidebar's window must not be key")
+    /// Hands a down/up pair at `point` (table coordinates) straight to the
+    /// row's click catcher, the production event→click step, with no event
+    /// delivery through the app queue (hosted CI has no window server to
+    /// dispatch them). The double-click interval needs no waiting: the click
+    /// count is passed explicitly.
+    private func click(
+        at point: NSPoint, _ modifierFlags: NSEvent.ModifierFlags,
+        clickCount: Int = 1
+    ) async throws {
+        let location = table.convert(point, to: nil)
+        let catchers = Self.views(LeoRowClickCatcherView.self, in: window.contentView)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            let event = try #require(NSEvent.mouseEvent(
+                with: type, location: location, modifierFlags: modifierFlags,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: clickCount, pressure: 1))
+            for catcher in catchers { catcher.handle(event) }
+        }
     }
 
     private static func makeWindow(at origin: NSPoint) -> NSWindow {

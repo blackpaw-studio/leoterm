@@ -23,4 +23,16 @@ final class LeoAppearanceTests: XCTestCase {
         app.cells.matching(NSPredicate(format: "label == %@", "Red")).firstMatch.tap()
         XCTAssertTrue(app.staticTexts["Red, set on this agent"].waitForExistence(timeout: 5))
     }
+
+    func testChatsRowLongPressOffersAppearance() throws {
+        let app = launch()
+        app.tabBars.buttons["Chats"].tap()
+        let all = app.buttons["chats.filter.all"]
+        XCTAssertTrue(all.waitForExistence(timeout: 5))
+        all.tap()
+        let row = app.cells["chat.apollo"]
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.press(forDuration: 1.2)
+        XCTAssertTrue(app.buttons["Appearance…"].waitForExistence(timeout: 5), "the Chats row offers the same menu")
+    }
 }

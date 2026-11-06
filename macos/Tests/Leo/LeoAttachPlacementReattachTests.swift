@@ -26,7 +26,7 @@ import Testing
         coordinator.daemonFeaturesChanged()
 
         #expect(host.reattachCalls.map(\.handle) == [before])
-        #expect(host.reattachCalls.first?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --dispatch-placement background -- 'worker'")
+        #expect(host.reattachCalls.first?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost --dispatch-placement background -- 'worker'")
         let after = try #require(host.handles.last)
         #expect(after != before)
         #expect(coordinator.identity(forSurface: after.surfaceID) == worker)
@@ -50,7 +50,7 @@ import Testing
         host.resumeConfirmation(true)
         await task.value
 
-        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --dispatch-placement background -- 'worker'")
+        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost --dispatch-placement background -- 'worker'")
     }
 
     @Test func hiddenAttachFromBeforeHelloIsLetGoSoItsNextShowCarriesTheFlag() async throws {
@@ -71,7 +71,7 @@ import Testing
         #expect(host.reattachCalls.map(\.handle) == [shown])
         await coordinator.attach(identity: worker, from: origin, disposition: .content)
         #expect(host.contentCalls.count == 3)
-        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --dispatch-placement background -- 'worker'")
+        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost --dispatch-placement background -- 'worker'")
     }
 
     @Test func sweepIsIdempotentAndSkipsAttachesThatAlreadyCarryTheFlag() async {

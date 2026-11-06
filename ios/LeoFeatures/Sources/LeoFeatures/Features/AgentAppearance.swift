@@ -12,6 +12,8 @@ public struct AgentAppearance {
     public struct State: Equatable, Identifiable {
         public var daemon: PairedDaemon
         public let agentName: String
+        /// What the user sees; `agentName` stays the identifier.
+        public let displayName: String
         /// Kept live by the parent from `Fleet`.
         public var appearance: LeoAgentAppearance?
         /// The fleet's value last seen, so only a change in it reaches the sheet.
@@ -23,9 +25,10 @@ public struct AgentAppearance {
         public var isSaving = false
         var appearanceBeforeWrite: LeoAgentAppearance?
 
-        public init(daemon: PairedDaemon, agentName: String, appearance: LeoAgentAppearance?) {
+        public init(daemon: PairedDaemon, agentName: String, appearance: LeoAgentAppearance?, displayName: String? = nil) {
             self.daemon = daemon
             self.agentName = agentName
+            self.displayName = displayName ?? agentName
             self.appearance = appearance
             fleetAppearance = appearance
         }

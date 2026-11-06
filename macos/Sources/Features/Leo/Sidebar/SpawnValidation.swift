@@ -14,29 +14,37 @@ enum SpawnValidation {
         guard !value.contains(where: { $0.isWhitespace || $0 == "/" }) else { return "Name cannot contain whitespace or /" }
         return name(value, current: current)
     }
-    /// `repo` is optional. On This Mac a path must exist on disk; another
-    /// machine's can't be checked from here, so only its shape is, and that
-    /// machine's daemon reports a missing path when the spawn runs.
-    static func spawn(
-        template: String?, repo: String, name: String?, on host: LeoHostID = .local,
-        pathExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
-    ) -> String? {
+    /// `repo` is optional: blank, a bare name, or `owner/repo`, the daemon's
+    /// `ValidateRepo` rule, which is the same on every machine. A repository
+    /// is required once a branch is given.
+    static func spawn(template: String?, repo: String, name: String?, branch: String = "") -> String? {
         guard let template, !template.isEmpty else { return "Template is required" }
-        if !repo.isEmpty {
-            if host == .local {
-                guard pathExists(repo) else { return "Choose an existing repository" }
-            } else if !isRemotePath(repo) {
-                return "Enter an absolute path or ~/…"
-            }
-        }
+        let normalized = normalizedRepo(repo)
+        if normalized.isEmpty, !branch.isEmpty { return "Branch needs a repository" }
+        guard isValidRepo(normalized) else { return "Repository must be owner/repo (or a bare name)" }
         return name.flatMap { Self.name($0) }
     }
 
-    /// An absolute path or `~/…`, with no NUL or line break. Scalars, not
-    /// Characters: "\r\n" is one Character that equals neither "\r" nor "\n".
-    static func isRemotePath(_ path: String) -> Bool {
-        (path.hasPrefix("/") || path.hasPrefix("~/")) && !path.unicodeScalars.contains(where: { "\0\n\r".unicodeScalars.contains($0) })
+    /// Trimmed, with a pasted `https://github.com/owner/repo[.git][/]` reduced
+    /// to `owner/repo`.
+    static func normalizedRepo(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let range = trimmed.range(of: githubURLPrefix, options: [.anchored, .caseInsensitive]) else { return trimmed }
+        var rest = String(trimmed[range.upperBound...])
+        if rest.hasSuffix("/") { rest.removeLast() }
+        if rest.hasSuffix(".git") { rest.removeLast(4) }
+        return rest
     }
+
+    /// Mirrors the daemon's `ValidateRepo`: empty, a bare name, or exactly
+    /// `owner/repo` with no empty segment; no whitespace, no `~` home path, and no `.`/`..` segment.
+    private static func isValidRepo(_ repo: String) -> Bool {
+        guard !repo.hasPrefix("~"), !repo.contains(where: \.isWhitespace) else { return false }
+        let parts = repo.split(separator: "/", omittingEmptySubsequences: false)
+        return repo.isEmpty || (parts.count <= 2 && parts.allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." })
+    }
+
+    private static let githubURLPrefix = "https://github.com/"
 
     /// `repo` when it is the daemon's GitHub `owner/repo` form (exactly one
     /// "/", both sides non-empty, no whitespace), which a worktree spawn

@@ -4,7 +4,7 @@ import Testing
 @testable import Ghostty
 
 @MainActor
-@Suite(.enabled(if: LeoWKTestHost.hasWindowServer, "needs a window-server session"))
+@Suite
 struct LeoAgentBrowserParkingWindowTests {
     @Test func movesPastEveryScreenWhenTheScreensChange() {
         var screens = [NSRect(x: 0, y: 0, width: 1_000, height: 800)]

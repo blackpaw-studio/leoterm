@@ -34,7 +34,7 @@ final class TerminalViewController: UIViewController, UIScrollViewDelegate {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = store.agentName
+        title = store.displayName
         navigationItem.largeTitleDisplayMode = .never
         view.backgroundColor = TerminalPalette.background
 
@@ -70,14 +70,6 @@ final class TerminalViewController: UIViewController, UIScrollViewDelegate {
             banner.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 16),
         ])
 
-        let ref = store.ref
-        let stream = output.output(for: ref)
-        outputTask = Task { [weak self] in
-            for await chunk in stream {
-                self?.apply(chunk)
-            }
-        }
-
         observe { [weak self] in
             guard let self else { return }
             render()
@@ -86,12 +78,27 @@ final class TerminalViewController: UIViewController, UIScrollViewDelegate {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        subscribeToOutput()
         store.send(.appeared)
     }
 
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
+        outputTask?.cancel()
+        outputTask = nil
         store.send(.disappeared)
+    }
+
+    /// The bus allows one subscriber per agent, so the screen holds it only
+    /// while visible: a chat's terminal strip takes it back when this pops.
+    private func subscribeToOutput() {
+        guard outputTask == nil else { return }
+        let stream = output.output(for: store.ref)
+        outputTask = Task { [weak self] in
+            for await chunk in stream {
+                self?.apply(chunk)
+            }
+        }
     }
 
     override func viewDidLayoutSubviews() {
@@ -145,7 +152,7 @@ final class TerminalViewController: UIViewController, UIScrollViewDelegate {
             configuration.secondaryText = String(localized: "\(store.daemon.name) no longer accepts this device. Pair it again to watch \(store.agentName).")
         case .notRunning:
             configuration.image = UIImage(systemName: "stop.circle")
-            configuration.text = String(localized: "\(store.agentName) Isn't Running")
+            configuration.text = String(localized: "\(store.displayName) Isn't Running")
             configuration.secondaryText = String(localized: "Start the agent to watch its terminal. This view reconnects when it starts.")
         default:
             return nil

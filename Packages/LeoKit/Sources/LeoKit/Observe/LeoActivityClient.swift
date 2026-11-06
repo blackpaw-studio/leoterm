@@ -37,12 +37,20 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// The host this agent was moved to, and when (RFC 3339); nil unless moved.
     public let movedTo: String?
     public let movedAt: String?
+    /// The daemon's `display_name` (leo >= 0.66.0), nil from older daemons;
+    /// read `displayName`.
+    public let daemonDisplayName: String?
+
+    /// What the user sees: `display_name` when set, else `name`.
+    public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
 
     public init(name: String, host: String? = nil, status: LeoAgentStatus?, activity: LeoActivity?,
                 currentAction: LeoCurrentAction?, lastActivityAt: String?, attention: LeoAttentionSignal? = nil,
                 startedAt: String? = nil, usage: LeoAgentUsage? = nil,
                 environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil,
-                appearance: LeoAgentAppearance? = nil, movedTo: String? = nil, movedAt: String? = nil) {
+                appearance: LeoAgentAppearance? = nil, movedTo: String? = nil, movedAt: String? = nil,
+                displayName: String? = nil) {
+        self.daemonDisplayName = displayName
         self.movedTo = movedTo
         self.movedAt = movedAt
         self.template = template
@@ -68,6 +76,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         case usage, template, harness
         case movedTo = "moved_to"
         case movedAt = "moved_at"
+        case daemonDisplayName = "display_name"
     }
 
     /// Hand-written only so a malformed optional `attention` degrades to
@@ -89,6 +98,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         appearance = LeoAppearanceWire.agent(from: decoder)
         movedTo = (try? container.decodeIfPresent(String.self, forKey: .movedTo)) ?? nil
         movedAt = (try? container.decodeIfPresent(String.self, forKey: .movedAt)) ?? nil
+        daemonDisplayName = (try? container.decodeIfPresent(String.self, forKey: .daemonDisplayName)) ?? nil
     }
 
 }

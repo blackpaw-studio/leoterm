@@ -27,7 +27,8 @@ struct LeoTunnelReadinessTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         defer { tunnel.terminateAndWait() }
 
@@ -42,7 +43,8 @@ struct LeoTunnelReadinessTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         defer { tunnel.terminateAndWait() }
 
@@ -58,7 +60,8 @@ struct LeoTunnelReadinessTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         defer { tunnel.terminateAndWait() }
 
@@ -328,4 +331,44 @@ actor ProbeGate {
             releaseValue = value
         }
     }
+}
+
+@Suite(.serialized)
+struct LeoTunnelReadinessTimeoutTests {
+    @Test func theInjectedReadinessTimeoutReplacesTheSixSecondDefault() async throws {
+        LeoTunnelTestSupport.setEnvironment("FAKE_SSH_UNHEALTHY", "1")
+        defer { LeoTunnelTestSupport.setEnvironment("FAKE_SSH_UNHEALTHY", nil) }
+        let clock = LeoTunnelManualClock()
+        let path = LeoTunnelTestSupport.socketPath()
+        let tunnel = LeoTunnel(
+            executable: URL(fileURLWithPath: "/usr/bin/python3"),
+            arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
+            localSocketPath: path,
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            clock: clock,
+            readinessTimeout: .seconds(30)
+        )
+        defer { tunnel.terminateAndWait() }
+        let outcome = ReadinessOutcome()
+        let task = Task {
+            do { try await tunnel.start(); outcome.set("ready") } catch { outcome.set("\(error)") }
+        }
+        defer { task.cancel() }
+        await awaitCondition { tunnel.pid != nil }
+
+        clock.advance(by: .seconds(6))
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(outcome.value == nil, "still waiting past the 6 s default")
+
+        clock.advance(by: .seconds(24))
+        await task.value
+        #expect(outcome.value?.contains("notReady") == true, "\(outcome.value ?? "nil")")
+    }
+}
+
+private final class ReadinessOutcome: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: String?
+    var value: String? { lock.withLock { stored } }
+    func set(_ text: String) { lock.withLock { stored = text } }
 }

@@ -51,7 +51,7 @@ final class AgentAppearanceViewController: UIViewController, UICollectionViewDel
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
-        navigationItem.subtitle = store.agentName
+        navigationItem.subtitle = store.displayName
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             systemItem: .done, primaryAction: UIAction { [weak self] _ in self?.store.send(.doneTapped) }
         )

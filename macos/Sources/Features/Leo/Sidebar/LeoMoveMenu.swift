@@ -65,7 +65,7 @@ enum LeoMoveMenu {
     static func makeForceAlert(_ offer: LeoMoveForceOffer) -> NSAlert {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "\(offer.row.name) is busy"
+        alert.messageText = "\(offer.row.displayName) is busy"
         alert.informativeText = offer.message
         alert.addButton(withTitle: cancelTitle)
         let force = alert.addButton(withTitle: forceTitle)
@@ -91,7 +91,7 @@ enum LeoMoveMenu {
 @MainActor enum LeoMoveFlow {
     static func move(_ row: LeoAgentRow, to host: String, actions: LeoAgentActions, in window: NSWindow?) {
         Task { @MainActor in
-            guard await LeoMoveConfirmation.confirmMove(agent: row.name, host: host, in: window) else { return }
+            guard await LeoMoveConfirmation.confirmMove(agent: row.displayName, host: host, in: window) else { return }
             actions.move(row, to: host)
         }
     }

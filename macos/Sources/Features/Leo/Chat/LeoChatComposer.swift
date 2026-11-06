@@ -29,6 +29,7 @@ struct LeoChatComposer: View {
         }
         .padding(10)
         .background(.bar)
+        .background(LeoChatPasteMonitor(isActive: isTextFocused) { chat.attachPaste(to: agent) })
         .onAppear(perform: takeFocus)
         .onChange(of: focusRequest) { _ in takeFocus() }
     }

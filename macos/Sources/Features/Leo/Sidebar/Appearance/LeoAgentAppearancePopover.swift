@@ -85,7 +85,7 @@ private struct LeoAgentAppearanceEditor: View {
             .frame(width: 32, height: 32)
             .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
-                Text(row.name).font(.headline).lineLimit(1)
+                Text(row.displayName).font(.headline).lineLimit(1)
                 Text([SpawnMachineOption.title(for: row.host), row.template].compactMap { $0 }.joined(separator: " · "))
                     .font(.caption)
                     .foregroundStyle(.secondary)

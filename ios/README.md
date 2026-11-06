@@ -54,7 +54,7 @@ Debug builds still use automatic signing.
   `match AppStore studio.blackpaw.leo.ios` and
   `match AppStore studio.blackpaw.leo.ios.notification-service`; `project.yml`
   and `ExportOptions.plist` reference them by name.
-- Fastlane is pinned by `ios/Gemfile.lock` (installed with the host rbenv Ruby 3.3.4).
+- Fastlane is pinned by `ios/Gemfile.lock` (installed by `ruby/setup-ruby` 3.3.4 with `bundler-cache` in CI).
 - To renew or add a profile, run `bundle exec fastlane match appstore` (without
   `--readonly`) from `ios/` on a trusted machine, then re-run the workflow.
 
@@ -81,7 +81,7 @@ Debug builds still use automatic signing.
    `Leo.entitlements`); regenerate the match profiles after changing them.
 4. App Store Connect → Apps → New App: bundle ID `studio.blackpaw.leo.ios`,
    name "Leo". The first upload fails until this record exists.
-5. The runner needs rbenv Ruby 3.3.4 at `~/.rbenv/versions/3.3.4` and `jq`.
+5. CI runs on a GitHub-hosted `macos-26` runner: Ruby 3.3.4 comes from `ruby/setup-ruby`, and `jq` is preinstalled. The workflow only uploads on a `leo-ios-v*` tag or a dispatch with `upload=true`.
    `.github/scripts/leo/ios-signing.sh` gives each run a throwaway keychain
    (first in the search list, and the default) plus a profile-directory
    snapshot. The `always()` cleanup step deletes the keychain, restores the

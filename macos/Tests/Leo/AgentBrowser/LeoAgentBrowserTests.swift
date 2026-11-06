@@ -10,7 +10,7 @@ import WebKit
 /// machine and agent every time, and stopping the agent closes the browser
 /// but keeps the store.
 @MainActor
-@Suite(.serialized, .enabled(if: LeoWKTestHost.hasWindowServer, "needs a window-server session"))
+@Suite(.serialized)
 struct LeoAgentBrowserTests {
     private static let pages = [
         "links": """

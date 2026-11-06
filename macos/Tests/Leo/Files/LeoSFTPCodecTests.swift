@@ -37,6 +37,11 @@ struct LeoSFTPCodecTests {
         #expect(packet == leoHex("00000019 06 00000002 00000001 68 0000000000000005 00000003 78797a"))
     }
 
+    @Test func encodesMkdirWithPermissions() {
+        let packet = LeoSFTPCodec.encode(.mkdir(path: "/a", attributes: .init(permissions: 0o700)), id: 3)
+        #expect(packet == leoHex("00000013 0e 00000003 00000002 2f61 00000004 000001c0"))
+    }
+
     @Test func encodesFsetstatPermissions() {
         let packet = LeoSFTPCodec.encode(.fsetstat(handle: Data("h".utf8), attributes: .init(permissions: 0o644)), id: 3)
         #expect(packet == leoHex("00000012 0a 00000003 00000001 68 00000004 000001a4"))

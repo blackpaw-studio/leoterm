@@ -30,6 +30,7 @@ final class LeoE2ETests: XCTestCase {
         let agentName = environment["LEO_AGENT"] ?? "apollo"
 
         // Pair by pasting.
+        app.tabBars.buttons["Agents"].tap()
         app.buttons["Pair a Daemon"].tap()
         let field = app.textViews["pairing.payload"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))
@@ -41,9 +42,9 @@ final class LeoE2ETests: XCTestCase {
 
         // With one machine paired the Agents list has no machine header, so
         // its status is read off the Machines screen.
-        app.navigationBars["Agents"].buttons["Machines"].tap()
+        app.tabBars.buttons["Machines"].tap()
         XCTAssertTrue(app.staticTexts["Connected"].waitForExistence(timeout: 20), "daemon never connected")
-        app.navigationBars["Machines"].buttons.element(boundBy: 0).tap()
+        app.tabBars.buttons["Agents"].tap()
 
         // The harness spawns the agent once the device is paired; it must
         // appear without any refresh.
@@ -52,10 +53,10 @@ final class LeoE2ETests: XCTestCase {
         captureBothAppearances("agents")
 
         // Daemons screen.
-        app.navigationBars["Agents"].buttons["Machines"].tap()
+        app.tabBars.buttons["Machines"].tap()
         XCTAssertTrue(app.navigationBars["Machines"].waitForExistence(timeout: 5))
         captureBothAppearances("daemons")
-        app.navigationBars["Machines"].buttons.element(boundBy: 0).tap()
+        app.tabBars.buttons["Agents"].tap()
 
         // Agent screen, then stop it with confirmation.
         XCTAssertTrue(row.waitForExistence(timeout: 5))
@@ -80,6 +81,7 @@ final class LeoE2ETests: XCTestCase {
         let payload = try XCTUnwrap(environment["LEO_PAIRING_PAYLOAD"])
         let agentName = environment["LEO_AGENT"] ?? "apollo"
 
+        app.tabBars.buttons["Agents"].tap()
         app.buttons["Pair a Daemon"].tap()
         let field = app.textViews["pairing.payload"]
         XCTAssertTrue(field.waitForExistence(timeout: 5))

@@ -153,7 +153,7 @@ private struct LeoAgentPaletteRowView: View {
 
     /// Same bolding as the sidebar row (B-009).
     private func nameText(_ agentRow: LeoAgentRow) -> Text {
-        LeoFuzzyMatcher.highlightRuns(name: agentRow.name, offsets: nameHighlights(agentRow)).reduce(Text("")) { text, run in
+        LeoFuzzyMatcher.highlightRuns(name: agentRow.displayName, offsets: nameHighlights(agentRow)).reduce(Text("")) { text, run in
             text + Text(run.text).fontWeight(run.isMatched ? .bold : nil)
         }
     }
