@@ -46,17 +46,20 @@ Lane: B-338
   Branch: autopilot-lane/B-338
   Base: 64a82ce1e5afed45ec5b34fbeaa7d82b6416912c
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-06T00:24:00Z
+  Tokens: 3.15M in (3.02M cache read), ≥11.2k out, 38 requests
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
+Finished 2: B-338 blocked
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
 - B-334 runner: leo dispatch d-1bd4c6d2f725 (implement, pane %250).
 - B-334 landed e54d3a530 (review general full; verify pass; 4014 tests green). Self-filed B-350 idea.
 - B-338 runner: leo dispatch d-1ec0acf6fe5c (implement, pane %255), light, iOS only.
+- B-338 blocked: could not reproduce (passes locally 10/10 and on hosted CI run 41953539577); shelved to autopilot-shelved/B-338 (no commits).

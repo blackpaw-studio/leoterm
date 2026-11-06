@@ -2457,13 +2457,15 @@ Source: autopilot polish (B-333)
 Note: B-331 verify: the chevron click-exclusion strip is full row height, so the trailing 23pt of a row with dispatches (including the detail line) no longer selects or attaches on click (Mac-native)
 Source: autopilot polish (B-331)
 
-## B-338 · iOS UI test…   [ready]
+## B-338 · iOS UI test…   [blocked]
 Issue: #309
 Type: bug
 Report: iOS UI test LeoMoveTests.testDuplicateAsksForAnOptionalNameThenAddsTheCopy fails on main CI since 0b240ddbe (agent-move UI merge, 2026-10-28) and again on ac11050ab (Leo iOS CI run 41202201931). Assertion at ios/LeoUITests/LeoMoveTests.swift:119: after Duplicate… → name "twin" → Copy, cell "agent.twin" never appears within 10s. Unknown whether Duplicate is actually broken in the app or the test/fixture is wrong; it passed in the chat-first branch's local full-scheme run after fixture fix 24b91fcc2. Find out which and fix; CI should be green.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-31)
 Inbox: 20261031T131808467645Z-783e5176#1
+Question: couldn't reproduce — testDuplicateAsksForAnOptionalNameThenAddsTheCopy passes locally (iPhone 17 Pro, Xcode 26.5) and the whole LeoMoveTests class passes 10/10; it also passes on hosted-runner CI (run 41953539577, 2026-11-05) and the last four main runs are green. No defect found in the app path or fixture; the reported failures came from the old self-hosted runner and look environmental (slow simulator vs the 10s wait), unproven. Reply "B-338: close" to close it, or "B-338: <more detail>" to retry. Work kept on autopilot-shelved/B-338.
+Answer:
 
 ## B-339 · Managed daemon ships with its web API off. On a Mac where Leo.app…   [ready]
 Issue: #319
