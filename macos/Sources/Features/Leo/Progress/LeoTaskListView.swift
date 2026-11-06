@@ -70,7 +70,7 @@ struct LeoTaskPopover: View {
     let dismiss: (LeoAgentTask) -> Void
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 15)) { context in
+        TimelineView(LeoTaskTickSchedule(tasks)) { context in
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 6) {
                     if let emoji { Text(emoji) }

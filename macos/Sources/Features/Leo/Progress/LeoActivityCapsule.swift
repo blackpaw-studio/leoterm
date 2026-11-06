@@ -21,7 +21,6 @@ enum LeoActivityCapsuleFonts {
 struct LeoActivityCapsule: View {
     static let height: CGFloat = 32
     static let barHeight: CGFloat = 4
-    private static let refreshInterval: TimeInterval = 15
 
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var terminals: LeoWindowTerminals
@@ -34,7 +33,7 @@ struct LeoActivityCapsule: View {
 
     var body: some View {
         GeometryReader { proxy in
-            TimelineView(.periodic(from: .now, by: Self.refreshInterval)) { context in
+            TimelineView(LeoTaskTickSchedule(row?.tasks ?? .none)) { context in
                 content(row, now: context.date, width: proxy.size.width)
             }
         }

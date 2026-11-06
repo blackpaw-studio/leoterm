@@ -47,7 +47,7 @@ struct LeoAgentRowContent: View {
             content(now: nil)
         } else {
             // The elapsed and remaining times move on their own.
-            TimelineView(.periodic(from: .now, by: 30)) { context in content(now: context.date) }
+            TimelineView(LeoTaskTickSchedule(row.tasks)) { context in content(now: context.date) }
         }
     }
 
