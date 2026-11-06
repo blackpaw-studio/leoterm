@@ -2626,12 +2626,14 @@ Source: autopilot polish (B-340)
 Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
 Source: autopilot polish (B-340)
 
-## B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host   [ready]
+## B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host   [done]
 Issue: #333
 Type: bug
 Report: LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs — the remote image paste test and aSecondPasteReusesTheExistingScratchDirectory fail, then the host dies with ContiguousArrayBuffer.swift:695 Index out of range (exit 6), so ~1800 later tests report failed and a red full suite hides real regressions. Seen on autopilot 77d35ab95 (B-348 verify, 2026-11-06); the paste file name carries a 2026-11-01 timestamp, so it may be date-dependent. Earlier full runs that evening (B-345, B-347) were green.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-348)
+Done: 513ac9c8d, 50fc4c72c
+Verified: not visually verified — no non-live remote host for a GUI paste; per-paste temp dir unit-tested; full Mac suite 4205 passed, no host abort
 
 ## B-356 · First click on a chat attachment in an inactive window should only activate it   [idea]
 Note: B-346 review: image/file-chip attachments now accept first mouse, so a first click into an inactive window opens the attachment instead of just activating the window (Mac-native)

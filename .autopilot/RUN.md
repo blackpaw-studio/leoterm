@@ -97,11 +97,12 @@ Lane: B-355
   Branch: autopilot-lane/B-355
   Base: 376f563bc042d86c1b3d179f34f99e26857d9abf
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Dispatched: 2026-11-06T20:55:47Z
   Reverifies: 0
+  Tokens: 12.6M in (12.1M cache read), ≥77.1k out, 131 requests
   Reviewed-tip: 50fc4c72cac512792d0c6c8b9450c6537ca822dc
   Call: Fix the app, not just the tests: each image paste gets its own leo-paste-<uuid>/ temp directory; temp base injectable (LeoTerminalFileDropDependencies.temporaryDirectory); remote scratch name unchanged — P3
   Call: Suite hardening: try #require on first insert, throwing makeAccess, 10 s ceiling on the two SFTP-backed waits, @MainActor State — test infrastructure
@@ -111,6 +112,7 @@ Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users
 Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
 Finished 3: B-354 landed 0b8212e1f817f41d33a5d0e77537481b31662d43 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-354-1.png
 Finished 4: B-348 landed 8871c5d660f9d5efffaa3e759e5120ee547b80cf · not visually verified
+Finished 5: B-355 landed c64e26f3a81c0fb423f218bd76dcc3fc96b77e04 · not visually verified
 
 Progress:
 - B-349, B-353, B-354 picked ahead of B-348 (owner asked to retry those three).

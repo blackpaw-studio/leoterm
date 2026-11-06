@@ -420,3 +420,21 @@ Chose: Reused the shelved fix by cherry-pick, per the owner's answer (D-692)
 Item: B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…
 Commit: 5cfe63596, 1d03ef3ac, ac8ce9d31
 Veto: [ ]
+
+## D-709 · 2026-11-06 · B-355: Fix the app, not just the tests: each image paste gets its own leo-paste-<uuid>/ temp dire
+Chose: Fix the app, not just the tests: each image paste gets its own leo-paste-<uuid>/ temp directory; temp base injectable (LeoTerminalFileDropDependencies.temporaryDirectory); remote scratch name unchanged — P3
+Item: B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host
+Commit: 513ac9c8d, 50fc4c72c
+Veto: [ ]
+
+## D-710 · 2026-11-06 · B-355: Suite hardening: try #require on first insert, throwing makeAccess, 10 s ceiling on the tw
+Chose: Suite hardening: try #require on first insert, throwing makeAccess, 10 s ceiling on the two SFTP-backed waits, @MainActor State — test infrastructure
+Item: B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host
+Commit: 513ac9c8d, 50fc4c72c
+Veto: [ ]
+
+## D-711 · 2026-11-06 · B-355: Mac only: image paste is Mac-only, LeoKit untouched
+Chose: Mac only: image paste is Mac-only, LeoKit untouched
+Item: B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host
+Commit: 513ac9c8d, 50fc4c72c
+Veto: [ ]
