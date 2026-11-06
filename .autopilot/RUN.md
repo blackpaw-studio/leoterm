@@ -114,3 +114,4 @@ Progress:
 - B-339 landed b5e70b98d (concurrency review full + delta; 1 fix round; 4030 tests green; not visually verified — would restart the real daemon). max_turns: 0 confirmed = unset in leo config.go. Sent leo agent the managed-default request.
 - B-340 runner: leo dispatch d-9c7ae0157135 (implement, pane %265), full.
 - B-340 landed b667ecddc (general review; verify pass; 4030 green). Sent leo agent the fail-fast + fresh_session contract request. Runner note: a Gatekeeper dialog ("GhosttyUITests-Runner.app is damaged") was left on Dionysus's screen; lane zig-out/xcframework symlinks replaced with real dirs; lane DerivedData moved to ~/.Trash/b340-DD-*.
+- B-341 runner: leo dispatch d-01d272d979de (implement, pane %273), full, Mac only.
