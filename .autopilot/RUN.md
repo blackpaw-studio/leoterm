@@ -135,6 +135,17 @@ Lane: B-344
   Tokens: 4.37M in (4.21M cache read), ≥24.1k out, 46 requests
   Call: Mac only (provisional; iOS chat not checked) — Mac/iOS parity rule
 
+Lane: B-345
+  Branch: autopilot-lane/B-345
+  Base: f34f79bf22f4e704750ea213ab751400d8ad1957
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T03:43:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -161,3 +172,4 @@ Progress:
 - B-343 landed b05f35934 (Mac+iOS via LeoKit; 1 fix round; LeoKit 1026 + Mac 4042 green; iOS sim screen captures only).
 - B-344 runner: leo dispatch d-fd9c72ed4822 (implement, pane %345), light.
 - B-344 blocked: could not reproduce (5 NSWindow-hosted LeoChatThreadView switch tests pass); repro tests kept on autopilot-shelved/B-344.
+- B-345 runner: leo dispatch d-04b798193b52 (implement, pane %352), light; hinted B-337 chevron strip as lead suspect.
