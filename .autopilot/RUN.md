@@ -264,3 +264,4 @@ Progress:
 - B-349 blocked by runner: autopilot lacks origin/main's toolbar/capsule (local main 88 behind origin/main). B-353 (capsule elapsed time) and B-354 (capsule green) blocked at Decide for the same reason (capsule code absent on autopilot). Owner must sync local main; merging origin/main will conflict with B-345 in LeoAgentRow/LeoRowClickCatcher.
 - B-346 runner: leo dispatch d-376e1d631204 (implement, pane %396), full, Mac only.
 - B-346 landed d696b80fd (full suite 4056 green — B-355 did not reproduce this time). Runner notes: a stale "Leo[DEBUG] quit unexpectedly" dialog from a 00:18 crash is on Dionysus; a Finder window on scratch drop2 left open; scratch under /private/tmp/claude-501/b346e2e.
+- B-342 runner: leo dispatch d-a35738c93d18 (implement, pane %401), full, iOS only.
