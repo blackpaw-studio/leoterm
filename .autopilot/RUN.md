@@ -2,10 +2,11 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 5
-Filed: 0/3 bugs, 3/5 ideas
+Filed: 0/3 bugs, 4/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Self-filed: B-340 → B-351 idea — Show the full move error without hovering
 Self-filed: B-340 → B-352 idea — Word job failures plainly instead of "<code>: " prefixes
+Self-filed: B-347 → B-355 idea — Add an iOS simulator GUI recipe to verify.md
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -153,12 +154,14 @@ Lane: B-347
   Branch: autopilot-lane/B-347
   Base: 59fd82270396204df5e6dfd51c78b2c3fafd623d
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0413bde9c10b327dc7a5934ed1a536ac38875dc4
   Dispatched: 2026-11-06T04:02:00Z
+  Call: iOS only: Mac has its own guard and shared LeoChatUnreadCounts already exempts the on-screen chat — Mac/iOS parity rule; bug fixes are agent-decides
+  Call: "Viewing" means the chat is on screen and the app is foregrounded; a backgrounded badge is correct — Calm, attention-driven
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked

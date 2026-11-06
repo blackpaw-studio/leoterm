@@ -2598,3 +2598,7 @@ Source: autopilot polish (B-340)
 ## B-352 · Word job failures plainly instead of "<code>: " prefixes   [idea]
 Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
 Source: autopilot polish (B-340)
+
+## B-355 · Add an iOS simulator GUI recipe to verify.md   [idea]
+Note: B-347 verify: verify.md has no iOS simulator GUI recipe, so iOS fixes can't get a visual check (each flow has tests plus a screenshot)
+Source: autopilot polish (B-347)
