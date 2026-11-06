@@ -37,6 +37,7 @@ import Testing
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
         )
+        window.isReleasedWhenClosed = false
         let sidebar = LeoSidebarModel()
         let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let router = LeoNewSurfaceRouter(
@@ -72,6 +73,7 @@ import Testing
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
         )
+        window.isReleasedWhenClosed = false
         let sidebar = LeoSidebarModel()
         let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let router = LeoNewSurfaceRouter(

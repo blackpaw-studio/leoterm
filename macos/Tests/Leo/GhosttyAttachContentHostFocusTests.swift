@@ -98,6 +98,7 @@ struct GhosttyAttachContentHostFocusTests {
     @Test func anInactiveAppOrNoKeyWindowSuspendsFocusRatherThanClearingIt() {
         let host = GhosttyAttachContentHost(registry: LeoWindowSessionRegistry(), requestConfigStore: LeoRequestConfigStore())
         let window = NSWindow()
+        window.isReleasedWhenClosed = false
         #expect(host.focusEvent(isActive: false, keyWindow: window) == .focusSuspended)
         #expect(host.focusEvent(isActive: true, keyWindow: nil) == .focusSuspended)
         #expect(host.focusEvent(isActive: true, keyWindow: window) == .focusChanged(nil), "a non-terminal key window")

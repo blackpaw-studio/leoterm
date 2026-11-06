@@ -15,6 +15,7 @@ struct LeoEditorPaneMarkdownToggleTests {
             let model = LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
             let pane = LeoEditorPaneViewController(model: model)
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 500), styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
             window.contentView = pane.view
             defer { window.contentView = nil }
             try await model.open(LeoEditorFileID(host: .local, path: try sandbox.file("README.md", "# Title\n")))

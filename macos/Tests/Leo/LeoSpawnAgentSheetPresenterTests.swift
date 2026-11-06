@@ -50,6 +50,7 @@ import Testing
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         window.contentView = NSView() // mirrors TerminalController: no content view controller
         window.makeKeyAndOrderFront(nil)
         #expect(window.contentViewController == nil)

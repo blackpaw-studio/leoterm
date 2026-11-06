@@ -16,6 +16,7 @@ struct LeoEditorPaneLayoutTests {
             let model = LeoEditorPaneModel(makeAccess: { _ in access })
             let pane = LeoEditorPaneViewController(model: model)
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 500), styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
             window.contentView = pane.view
             // Even when a `#require` below ends the test early: no held
             // save or window outlives it.

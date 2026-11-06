@@ -359,6 +359,7 @@ struct LeoWorkspaceBrowserViewTests {
         let model = LeoWorkspaceBrowserModel(makeAccess: { _ in LeoFileAccessor.local() }, openFile: { _ in .opened })
         let browser = LeoWorkspaceBrowserViewController(model: model)
         let window = NSWindow(contentViewController: browser)
+        window.isReleasedWhenClosed = false
         await model.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: nil))
         browser.sync()
 
