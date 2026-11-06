@@ -88,6 +88,17 @@ Lane: B-340
   Call: Defer "Move with a fresh session" until the daemon supports it — never invent a state the daemon didn't report
   Call: A stale-transcript move shows a plain message with no Force offer — calm, plain failures
 
+Lane: B-341
+  Branch: autopilot-lane/B-341
+  Base: f2910239dd0508861ab740a2a9a0fc3795c00a9c
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T01:38:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -103,3 +114,4 @@ Progress:
 - B-339 landed b5e70b98d (concurrency review full + delta; 1 fix round; 4030 tests green; not visually verified — would restart the real daemon). max_turns: 0 confirmed = unset in leo config.go. Sent leo agent the managed-default request.
 - B-340 runner: leo dispatch d-9c7ae0157135 (implement, pane %265), full.
 - B-340 landed b667ecddc (general review; verify pass; 4030 green). Sent leo agent the fail-fast + fresh_session contract request. Runner note: a Gatekeeper dialog ("GhosttyUITests-Runner.app is damaged") was left on Dionysus's screen; lane zig-out/xcframework symlinks replaced with real dirs; lane DerivedData moved to ~/.Trash/b340-DD-*.
+- B-341 runner: leo dispatch d-01d272d979de (implement, pane %273), full, Mac only.
