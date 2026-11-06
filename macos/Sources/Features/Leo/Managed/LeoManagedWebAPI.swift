@@ -26,7 +26,7 @@ struct LeoManagedWebAPI: Sendable {
     let configPath: String
 
     func enable() async -> Outcome {
-        let arguments = ["web", "enable", "--bind", Self.loopback, "--config", configPath, "--json"]
+        let arguments = ["web", "enable", "--bind", Self.loopback, "--graceful", "--config", configPath, "--json"]
         let result: LeoProcessResult
         do {
             result = try await runner.run(executable: bundledLeo, arguments: arguments, timeout: LeoHandover.timeout)

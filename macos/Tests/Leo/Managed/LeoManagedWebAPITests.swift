@@ -12,7 +12,7 @@ import Testing
 
     static let helper = LeoManagedSetupTests.helper
     static let config = "/home/test/.leo/leo.yaml"
-    static let enable = [helper, "web", "enable", "--bind", "127.0.0.1", "--config", config, "--json"]
+    static let enable = [helper, "web", "enable", "--bind", "127.0.0.1", "--graceful", "--config", config, "--json"]
     static let changedAndRestarted = #"{"ok":true,"changed":true,"restarted":true}"#
     /// Shaped like the laptop's config: no `web`.
     static let laptopConfig = """
