@@ -149,6 +149,17 @@ Lane: B-345
   Call: Mac only (iOS has no sidebar rows) — Mac/iOS parity rule
   Call: Chevron stays the disclosure control; its click exclusion is capped at the name line — D-651; sidebar is the navigation
 
+Lane: B-347
+  Branch: autopilot-lane/B-347
+  Base: 59fd82270396204df5e6dfd51c78b2c3fafd623d
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T04:02:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -178,3 +189,4 @@ Progress:
 - B-344 blocked: could not reproduce (5 NSWindow-hosted LeoChatThreadView switch tests pass); repro tests kept on autopilot-shelved/B-344.
 - B-345 runner: leo dispatch d-04b798193b52 (implement, pane %352), light; hinted B-337 chevron strip as lead suspect.
 - B-345 landed deb68493d: root cause = B-337 full-height chevron click strip (now capped at the name line). B-337 idea is covered — suggest owner drop it. 4043 green.
+- B-347 runner: leo dispatch d-95e5b8c9f009 (implement, pane %367), light.
