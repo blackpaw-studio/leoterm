@@ -125,7 +125,8 @@ struct LeoAgentRowView: View {
         // own selection.
         .background(LeoRowClickCatcher(
             identity: row.id, onClick: click,
-            trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge
+            trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge,
+            trailingExclusionHeight: LeoAgentRowMetrics.disclosureTrailingHeight
         ).accessibilityHidden(true))
         // One element per row: the name's label (name, state), then the
         // detail and time. There's no button in the row to press, so the

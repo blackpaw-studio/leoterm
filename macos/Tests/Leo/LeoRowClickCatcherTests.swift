@@ -83,6 +83,21 @@ import Testing
         #expect(harness.clicks.count == 1)
     }
 
+    /// B-345: the chevron only covers the name line, so a click at the
+    /// trailing edge of the lines below it still selects the row.
+    @Test func theExclusionStopsAtTheControlsOwnLine() {
+        let harness = Harness()
+        harness.catcher.trailingExclusion = 30
+        harness.catcher.trailingExclusionHeight = 20
+        let top = harness.catcher.frame.maxY  // not flipped: the row's top edge
+
+        harness.click(at: NSPoint(x: 110, y: top - 10))
+        #expect(harness.clicks.isEmpty)
+
+        harness.click(at: NSPoint(x: 110, y: top - 30))
+        #expect(harness.clicks.count == 1)
+    }
+
     @Test func aDisabledRowIgnoresClicks() {
         let harness = Harness()
         harness.catcher.isEnabled = false
