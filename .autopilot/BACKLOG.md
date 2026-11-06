@@ -2488,13 +2488,15 @@ Done: d74ccc2bc, ba91e697d
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png (fixture stale-agent move shows a plain error, no spinner, no Force)
 Note: fail-fast + "Move with a fresh session" need the daemon; contract request sent to the leo agent 2026-11-05
 
-## B-341 · Dispatch viewers split the caller's window on app-managed daemons. The…   [ready]
+## B-341 · Dispatch viewers split the caller's window on app-managed daemons. The…   [done]
 Issue: #321
 Type: bug
 Report: Dispatch viewers split the caller's window on app-managed daemons. The daemon default `defaults.dispatch.viewer.placement` is `pane`, which splits the caller window when it has a pane and <3 live viewers; on the laptop dispatches opened as split panes instead of background windows you switch to from the Leo sidebar. Evan's rule (2026-11-03): always window placement with leoterm. Set manually on Dionysus + laptop. Wanted: managed installs default to `placement: window` (and the app migrates existing managed configs), alongside the managed web-API default bug.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261103T200609794532Z-2f365b57#1
+Done: d60cdfbcd, 1dd5672dc, 9380313e1
+Verified: not visually verified — launch-time config migration, no UI change; 4042 tests green; real leo 0.74.0 `config show` read Placement: window from the edited scratch config
 
 ## B-343 · iOS chat: message bubbles sometimes aren't full width. Likely cause:…   [ready]
 Issue: #322

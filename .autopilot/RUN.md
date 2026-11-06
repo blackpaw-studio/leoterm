@@ -92,12 +92,13 @@ Lane: B-341
   Branch: autopilot-lane/B-341
   Base: f2910239dd0508861ab740a2a9a0fc3795c00a9c
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 8fea67e06c5fe7eed3a9d072af9a306c937d336a
   Dispatched: 2026-11-06T01:38:00Z
+  Tokens: 27.6M in (27M cache read), ≥161k out, 211 requests
   Call: Swift inserts the missing placement line (validated via `leo config show` on a temp copy, atomic replace) since no leo CLI sets this key — deliberate exception to D-656 for this key only — Swift under macos/ is agent-decides; never clobber user-authored config
   Call: Skip configs with a top-level `follow:`, since an explicit placement may come from the lead — An explicit user value wins
   Call: Migration failures only log, no notice; the old pane behaviour stays — Sidebar is the navigation; calm by default
@@ -110,6 +111,7 @@ Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
 Finished 4: B-340 landed b667ecddca9e430ed0ffcacf26210a35210b8db9 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png
+Finished 5: B-341 landed abe7021d41134b40981895eb5c888a984ecaf502 · not visually verified
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -123,3 +125,4 @@ Progress:
 - B-340 landed b667ecddc (general review; verify pass; 4030 green). Sent leo agent the fail-fast + fresh_session contract request. Runner note: a Gatekeeper dialog ("GhosttyUITests-Runner.app is damaged") was left on Dionysus's screen; lane zig-out/xcframework symlinks replaced with real dirs; lane DerivedData moved to ~/.Trash/b340-DD-*.
 - B-341 runner: leo dispatch d-01d272d979de (implement, pane %273), full, Mac only.
 - leo agent reply (leo v0.75.0): B-339 managed first-start config now seeds loopback web (existing configs untouched; keep app workaround). B-340 contract: field/MCP param `fresh_session`, CLI `--fresh-session`, /state feature `agent_move_fresh_session`; missing transcript → synchronous 409 code `session_missing`; refused-start messages no longer carry a `code:` prefix (bears on B-352). Fresh copy only when both hosts advertise the feature. Follow-up for owner: Mac/iOS "Move with a fresh session" offer (not self-filed; owner to /feature).
+- B-341 landed abe7021d4 (implement.hard; concurrency review; 4042 green on 2nd run, 2 unrelated failures at load 50-130 on 1st). Sent leo agent the managed placement default + config setter request. Runner note: shared GhosttyKit.xcframework predates B-334 export and needs rebuilding.

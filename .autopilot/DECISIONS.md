@@ -118,3 +118,52 @@ Chose: A stale-transcript move shows a plain message with no Force offer
 Why: Calm, plain failures
 Commit: d74ccc2bc, ba91e697d
 Veto: [ ]
+
+## D-664 · 2026-11-05 · Swift-side placement insert, validated by leo
+Context: B-341 (runner call).
+Chose: Swift inserts the missing placement line (validated via `leo config show` on a temp copy, atomic replace) since no leo CLI sets this key — deliberate exception to D-656 for this key only
+Why: Swift under macos/ is agent-decides; never clobber user-authored config
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
+
+## D-665 · 2026-11-05 · Skip follower configs
+Context: B-341 (runner call).
+Chose: Skip configs with a top-level `follow:`, since an explicit placement may come from the lead
+Why: An explicit user value wins
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
+
+## D-666 · 2026-11-05 · Placement migration fails quietly
+Context: B-341 (runner call).
+Chose: Migration failures only log, no notice; the old pane behaviour stays
+Why: Sidebar is the navigation; calm by default
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
+
+## D-667 · 2026-11-05 · Placement block position
+Context: B-341 (runner call).
+Chose: With no `defaults` key, insert the block before the first top-level key
+Why: Never clobber user-authored config
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
+
+## D-668 · 2026-11-05 · Skip ambiguous YAML
+Context: B-341 (runner call).
+Chose: Skip on anchors/aliases at a scanned level and on compact sequences
+Why: Never clobber user-authored config
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
+
+## D-669 · 2026-11-05 · One restart per launch covers both
+Context: B-341 (runner call).
+Chose: Run after `restartIfUpdated()` and before `ensureWebAPI()`, no restart of its own (daemon reads leo.yaml per dispatch)
+Why: D-657
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
+
+## D-670 · 2026-11-05 · B-341 is Mac only
+Context: B-341 (runner call).
+Chose: Mac only
+Why: Mac/iOS parity rule (D-659)
+Commit: d60cdfbcd, 1dd5672dc, 9380313e1
+Veto: [ ]
