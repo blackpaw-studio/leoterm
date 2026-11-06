@@ -32,17 +32,19 @@ Lane: B-334
   Branch: autopilot-lane/B-334
   Base: c18a40f8e34f237f97655f7bb0da70ad7f7ef7c4
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: 3d2b0d723
   Reverifies: 0
   Reviewed-tip: c75a2c155778eaae1e1e9e79f22fe44aabc156a0
   Dispatched: 2026-11-05T23:56:00Z
-  Tokens: 3.26M in (3.05M cache read), ≥22.5k out, 41 requests
+  Tokens: 7.55M in (7.17M cache read), ≥40.4k out, 91 requests
   Call: Keep the minimal Zig C export `ghostty_config_key_is_binding_for_action` instead of a Swift-only workaround — AUTONOMY (Zig minimal) + VISION (menu keys reflect real keybinds)
   Call: Treat chained and leader bindings as "not this action" — VISION (no shortcut beats a wrong or shared one)
   Call: Mac only: iOS has no Edit-menu key equivalents — Mac/iOS parity rule
+Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
 - B-334 runner: leo dispatch d-1bd4c6d2f725 (implement, pane %250).
+- B-334 landed e54d3a530 (review general full; verify pass; 4014 tests green). Self-filed B-350 idea.

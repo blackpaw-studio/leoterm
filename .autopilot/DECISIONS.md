@@ -41,3 +41,24 @@ Chose: B-331 is Mac only; iOS is Out
 Why: Mac+iOS parity rule
 Commit: 0ce86a7d5
 Veto: [ ]
+
+## D-653 · 2026-11-05 · Minimal Zig export for binding-for-action lookup
+Context: B-334 (runner call).
+Chose: Keep the minimal Zig C export `ghostty_config_key_is_binding_for_action` instead of a Swift-only workaround
+Why: AUTONOMY (Zig minimal) + VISION (menu keys reflect real keybinds)
+Commit: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
+Veto: [ ]
+
+## D-654 · 2026-11-05 · Chained and leader bindings count as not this action
+Context: B-334 (runner call).
+Chose: Treat chained and leader bindings as "not this action" for Edit ▸ Copy/Paste
+Why: VISION (no shortcut beats a wrong or shared one)
+Commit: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
+Veto: [ ]
+
+## D-655 · 2026-11-05 · B-334 is Mac only
+Context: B-334 (runner call).
+Chose: Mac only: iOS has no Edit-menu key equivalents
+Why: Mac/iOS parity rule
+Commit: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
+Veto: [ ]

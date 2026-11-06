@@ -2436,12 +2436,14 @@ Inbox: 20261029T005956057206Z-1410c522#1
 Done: de466ff24
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png (collapsed with Working and running count; B-331-1/3 expanded; View menu via menu list; VoiceOver action and tooltip by tests only)
 
-## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready]
+## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [done]
 Issue: #308
 Type: bug
 Report: Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything — with `keybind = super+v=new_window`, Edit ▸ Paste still shows ⌘V and two menu items share the key (LeoStandardEditShortcut.swift:39; same gap in B-318's Copy logic)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-325)
+Done: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png (Paste ⌘V default; B-334-2.png no shortcut with super+v rebound; Copy by tests only)
 
 ## B-335 · Set Environments and Switch menu parents stay enabled for a pending agent row   [idea]
 Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
