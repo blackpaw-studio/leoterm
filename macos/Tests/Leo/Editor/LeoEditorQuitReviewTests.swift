@@ -18,7 +18,9 @@ struct LeoEditorQuitReviewTests {
     }
 
     private func window() -> NSWindow {
-        NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        return window
     }
 
     @Test func editsInTheWindowsItClosesAreAskedAboutFirst() async throws {
@@ -111,6 +113,7 @@ struct LeoEditorEntryWindowTests {
                 chatClient: FakeChatClient()
             )
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+            window.isReleasedWhenClosed = false
             let session = runtime.registry.makeSession(window: window, defaults: defaults, makeFileAccess: { _ in LeoFileAccessor.local() })
             try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
 

@@ -123,7 +123,9 @@ struct LeoSidebarTitlebarStyleTests {
         defer { fixture.close() }
 
         #expect(LeoTitlebarInsets.splitIgnoredEdges(in: fixture.window) == .top)
-        #expect(LeoTitlebarInsets.splitIgnoredEdges(in: NSWindow()) == [])
+        let plainWindow = NSWindow()
+        plainWindow.isReleasedWhenClosed = false
+        #expect(LeoTitlebarInsets.splitIgnoredEdges(in: plainWindow) == [])
         #expect(LeoTitlebarInsets.splitIgnoredEdges(in: nil) == [])
     }
 

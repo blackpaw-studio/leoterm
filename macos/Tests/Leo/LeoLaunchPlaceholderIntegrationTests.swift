@@ -233,6 +233,7 @@ struct LeoLaunchPlaceholderIntegrationTests {
         let closed = CloseFlag(window)
         defer { closed.stop() }
         let sheet = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        sheet.isReleasedWhenClosed = false
         window.beginSheet(sheet, completionHandler: nil)
         defer { window.endSheet(sheet) }
 

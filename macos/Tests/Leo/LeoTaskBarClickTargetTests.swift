@@ -8,6 +8,7 @@ import Testing
 @MainActor struct LeoTaskBarClickTargetTests {
     private func makeView() -> (NSWindow, LeoTaskBarClickTarget.TargetView, () -> Int) {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
         let view = LeoTaskBarClickTarget.TargetView(frame: NSRect(x: 20, y: 40, width: 100, height: 10))
         window.contentView?.addSubview(view)
         var count = 0

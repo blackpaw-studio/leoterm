@@ -68,6 +68,7 @@ import Testing
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         let session = LeoWindowSession(window: window, defaults: makeDefaults())
         var closeCount = 0
         session.onWindowWillClose = { closeCount += 1 }

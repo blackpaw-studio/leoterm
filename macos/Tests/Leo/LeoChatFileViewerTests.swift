@@ -88,6 +88,7 @@ struct LeoChatFileViewerTests {
     private func viewerInWindow(_ document: LeoChatViewerDocument) -> (LeoChatFileViewerView, NSWindow) {
         let viewer = makeViewer()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
         window.contentView = viewer
         viewer.show(document)
         viewer.layoutSubtreeIfNeeded()

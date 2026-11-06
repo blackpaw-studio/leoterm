@@ -49,6 +49,7 @@ import Testing
     private func makeEnvironment(rows: [LeoAgentRow] = [], machines: LeoMachineRegistry? = nil) -> Environment {
         let machines = machines ?? .isolatedForTesting()
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
         let sidebar = makeSidebar(rows: rows)
         let actions = makeActions(sidebar: sidebar)
         let pickerRouter = LeoWindowPickerRouter()
