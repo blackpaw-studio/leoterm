@@ -652,3 +652,58 @@ Interim updates: 1 posted, through item 5
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-29T23:36:23Z — paused by owner
+🛠 leoterm autopilot — 0 fixed, 0 shipped, 0 blocked
+Stopped at your request (2026-10-29T23:42:01Z) — paused mid-item.
+B-334 (Paste/Copy ⌘V/⌘C conflict) was in its first build; partial test work saved as wip 8b05121bb on autopilot-lane/B-334; the next run resumes it first.
+Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332 (finish judged unlanded), B-334 (wip).
+
+## Run 2026-10-30T00:56Z — stopped by owner
+🛠 leoterm autopilot — 0 fixed, 0 shipped, 0 blocked
+Stopped at your request (2026-10-30T01:06:08Z) — halted mid-item.
+B-334 was in its build (planner done; implementer mid-change touching LeoStandardEditShortcut.swift, include/ghostty.h, src/apprt/embedded.zig); saved as wip 3d2b0d723 on autopilot-lane/B-334; next run resumes it first.
+Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332, B-334 (wip).
+
+## Run 2026-10-31T19:11Z (early stop)
+🛠 leoterm autopilot — 0 shipped, 0 blocked
+Early stop: B-334 runner's nested implementer stuck on a permission prompt (`rm zig-out`) that a leo_dispatch subagent can't answer; runner cancelled it. Nothing built.
+B-334 left building on autopilot-lane/B-334 (3d2b0d723, plan saved) for next run's recovery. B-338 (iOS Duplicate UI test) not started.
+Spend: B-334 ≈$1.99 est. (lower bound).
+
+## Run 2026-11-05T23:52:44Z
+
+🛠 leoterm autopilot — 7 fixed, 2 shipped, 6 blocked
+Fixed
+• B-334 Edit ▸ Copy/Paste show ⌘C/⌘V only when bound to copy/paste (verified: screenshot) · full
+• B-339 Managed installs turn on the loopback web API via `leo web enable` (not visually verified) · full
+• B-340 Missing-transcript move shows a plain error, no spinner (verified: screenshot) · full
+• B-341 Managed installs default dispatch viewers to windows (not visually verified) · full
+• B-343 Tall chat images no longer squeeze bubbles; Mac+iOS (sim screen capture) · light
+• B-345 Sidebar row switches on the first click; root cause was B-337's chevron strip (verified: screenshot) · light
+• B-347 iOS: the chat you're viewing never badges (not visually verified) · light
+Shipped
+• B-346 Drag chat attachments to Finder + "Download to…" (verified: screenshot) · full
+• B-342 iOS full-screen image viewer pages a message's images (sim screen capture) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-653–655 B-334 · D-656–660 B-339 · D-661–663 B-340 · D-664–670 B-341 (D-664: Swift-side leo.yaml insert, exception to D-656) · D-671–673 B-343 · D-674–675 B-345 · D-676–677 B-347 · D-678–684 B-346 · D-685–691 B-342
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• Sync main: local main is 88 behind origin/main (toolbar/capsule). Fast-forward it, then "B-349/B-353/B-354: retry". Merging will conflict with B-345 in LeoAgentRow/LeoRowClickCatcher.
+• B-348 shelved on autopilot-shelved/B-348 — fix done; land despite the pre-existing full-suite abort (B-355)? I'd pick yes.
+• B-338 couldn't reproduce (environmental timeout) — "B-338: close".
+• B-344 couldn't reproduce — "close" or more detail.
+• drop B-337 (fixed by B-345). Calls in shelved work, not logged: B-344 Mac only; B-348 flag-per-fixture + guard.
+• Follow-ups to /feature: Mac/iOS "Move with a fresh session" (leo v0.75.0 contract ready); Mac image viewer paging.
+• Left on Dionysus: Gatekeeper + "Leo[DEBUG] quit unexpectedly" dialogs, a scratch Finder window. Shared GhosttyKit.xcframework needs a rebuild.
+Self-filed
+• B-355 bug (from B-348) — LeoRuntimeFileDropTests aborts the Mac test host
+• B-350 (B-334), B-351, B-352 (B-340), B-356 (B-346), B-357 (B-342) ideas
+• dropped: iOS sim recipe (dup of B-312); 2 B-342 polish (over cap)
+Ideas parked — "/feature B-0xx": 70 incl. B-058, B-180, B-181, B-182, B-184
+Next up: B-355 (next run); blocked items above
+Spend (est., lower bound · prices 2026-10-09): ≈$54.97 — B-341 $11.87, B-346 $6.12, B-339 $6.10 highest
+Interim updates: 2 posted, through item 10
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

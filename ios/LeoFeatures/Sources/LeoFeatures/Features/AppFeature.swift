@@ -294,6 +294,7 @@ public struct AppFeature {
                 state.syncAppearance()
                 state.syncChat()
                 state.decideChatFilter()
+                state.clearViewedChatUnread()
                 return .merge(opening, state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
             }
         }

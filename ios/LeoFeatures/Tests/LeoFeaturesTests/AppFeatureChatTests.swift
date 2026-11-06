@@ -121,6 +121,7 @@ struct AppFeatureChatTests {
         var state = Self.connected()
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         state.chat?.isOnScreen = true
+        state.fleet.isActive = true
         state.chat?.strip.userChoice = false
         let reads = LockIsolated<[String]>([])
         let store = TestStore(initialState: state) {
@@ -138,6 +139,91 @@ struct AppFeatureChatTests {
         await store.receive(\.chat.chatEvent) { $0.chat?.messages = [message] }
         await store.finish()
         #expect(reads.value == ["01"])
+    }
+
+    @Test func aThreadsLoadNeverBadgesTheChatOnScreen() async {
+        // A reconnect's reload can carry the daemon's count from before the
+        // thread's read mark landed.
+        var state = Self.connected()
+        state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        state.chat?.isOnScreen = true
+        state.fleet.isActive = true
+        let store = TestStore(initialState: state) { AppFeature() }
+        let threads = [LeoChatThread(agent: "zeus", unread: 2), LeoChatThread(agent: "hera", unread: 1)]
+
+        await store.send(.chats(.threadsResponse(Self.zeus.daemonID, .success(threads)))) {
+            $0.chats.threads[Self.zeus.daemonID] = IdentifiedArray(uniqueElements: threads)
+            $0.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "hera", unread: 1)], host: .remote(Self.zeus.daemonID))
+        }
+        #expect(store.state.chats.unreadTotal == 1)
+    }
+
+    @Test func anAgentMessageWhileYouViewItsChatNeverBadges() async {
+        let store = Self.viewingStore()
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(.chat(.onScreenChanged(true)))
+        #expect(store.state.isChatOnScreen(Self.zeus))
+        await store.send(.fleet(.eventReceived(Self.zeus.daemonID, .chat(seq: 3, .message(.make("01", "hi"))))))
+        await store.finish()
+        #expect(store.state.chats.unreadTotal == 0)
+    }
+
+    @Test func aMessageThatLandsBeforeTheThreadAppearsIsReadOnceItDoes() async {
+        // The push animation: the thread is open but not yet on screen.
+        let store = Self.viewingStore()
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .chat(seq: 3, .message(.make("01", "hi")))))
+        await store.send(.chat(.onScreenChanged(true)))
+        await store.finish()
+        #expect(store.state.chats.unreadTotal == 0)
+    }
+
+    @Test func aChatLeftAndReturnedToIsNotBadgedForWhatArrivedMeanwhile() async {
+        let store = Self.viewingStore()
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(.chat(.onScreenChanged(true)))
+        await store.send(.chat(.onScreenChanged(false)))
+        await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .chat(seq: 3, .message(.make("01", "hi")))))
+        await store.skipReceivedActions()
+        #expect(store.state.chats.unreadTotal == 1)
+        await store.send(.chat(.onScreenChanged(true)))
+        await store.finish()
+        #expect(store.state.chats.unreadTotal == 0)
+    }
+
+    @Test func aBackgroundedAppIsNotViewingItsOpenChat() async {
+        let store = Self.viewingStore()
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(.chat(.onScreenChanged(true)))
+        #expect(store.state.isChatOnScreen(Self.zeus))
+        await store.send(.scenePhaseChanged(isActive: false))
+        #expect(!store.state.isChatOnScreen(Self.zeus))
+        await store.send(\.chats.chatEvent, (Self.zeus.daemonID, .message(.make("01", "hi")), isOpen: store.state.isChatOnScreen(Self.zeus)))
+        #expect(store.state.chats.unreadTotal == 1)
+        await store.send(.scenePhaseChanged(isActive: true))
+        await store.skipReceivedActions()
+        #expect(store.state.chats.unreadTotal == 0)
+        await store.send(.scenePhaseChanged(isActive: false))
+    }
+
+    /// A foregrounded app on a connected machine with `zeus`, and a stubbed daemon.
+    static func viewingStore() -> TestStoreOf<AppFeature> {
+        var state = connected()
+        state.fleet.isActive = true
+        let store = TestStore(initialState: state) {
+            AppFeature()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.messages = { _, _, _ in LeoChatPage(messages: [], hasMore: false) }
+            $0.chatClient.threads = { _ in [] }
+            $0.chatClient.markRead = { _, _, _ in }
+            $0.pushClient = .granted
+            $0.pushCleanup = .inMemory(LockIsolated([:]))
+            $0.continuousClock = TestClock()
+            $0.daemonClient.events = { _ in AsyncThrowingStream { _ in } }
+        }
+        store.exhaustivity = .off
+        return store
     }
 
     @Test func aMessageForAnotherThreadCountsAsUnread() async {
@@ -333,6 +419,7 @@ struct AppFeatureChatTests {
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus")
         #expect(!state.isChatOnScreen(Self.zeus))
         state.chat?.isOnScreen = true
+        state.fleet.isActive = true
         #expect(state.isChatOnScreen(Self.zeus))
         #expect(!state.isChatOnScreen(AgentRef(daemonID: Self.zeus.daemonID, name: "hera")))
     }

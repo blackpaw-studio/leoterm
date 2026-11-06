@@ -40,7 +40,7 @@ struct LeoChatAttachmentView: View {
         switch state {
         case .loaded(let url):
             LeoChatImage(url: url)
-                .onTapGesture { open() }
+                .overlay { dragSource(preview: LeoChatAttachmentDragSource.thumbnail(of: url, fallback: fileIcon)) }
                 .help(attachment.filename)
                 .contextMenu { openMenu }
         case .failed:
@@ -63,8 +63,7 @@ struct LeoChatAttachmentView: View {
     private func fileRow(subtitle: String, isEnabled: Bool) -> some View {
         Button { open() } label: {
             HStack(spacing: 8) {
-                Image(nsImage: NSWorkspace.shared.icon(for: .init(mimeType: attachment.mime) ?? .data))
-                    .resizable().frame(width: 28, height: 28)
+                Image(nsImage: fileIcon).resizable().frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(attachment.filename).lineLimit(1).truncationMode(.middle)
                     Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -74,6 +73,7 @@ struct LeoChatAttachmentView: View {
         }
         .buttonStyle(.plain)
         .disabled(!isEnabled)
+        .overlay { if isEnabled { dragSource(preview: fileIcon) } }
         .help(isEnabled ? "Open \(attachment.filename)" : "")
         .contextMenu { if isEnabled { openMenu } }
     }
@@ -81,6 +81,28 @@ struct LeoChatAttachmentView: View {
     @ViewBuilder private var openMenu: some View {
         Button("Open Full Window") { open(fullWindow: true) }
         Button("Open in Default App", action: openInDefaultApp)
+        Divider()
+        Button(LeoChatAttachmentExport.downloadMenuTitle, action: downloadTo)
+    }
+
+    private var fileIcon: NSImage { NSWorkspace.shared.icon(for: .init(mimeType: attachment.mime) ?? .data) }
+
+    /// Dragging the attachment to Finder saves its original file there;
+    /// a plain click still opens it.
+    private func dragSource(preview: @autoclosure @escaping () -> NSImage) -> some View {
+        LeoChatAttachmentDragSource(
+            makePromise: { [attachment, chat] in
+                LeoChatAttachmentExport.promise(for: attachment, host: nil, chat: chat)
+            },
+            preview: preview,
+            onClick: { open() }
+        )
+    }
+
+    private func downloadTo() {
+        LeoChatAttachmentExport.presentSavePanel(
+            for: attachment, host: nil, chat: chat, in: NSApp.keyWindow ?? NSApp.mainWindow
+        )
     }
 
     private func open(fullWindow: Bool = false) {
@@ -103,8 +125,11 @@ struct LeoChatImage: View {
     var body: some View {
         Group {
             if let image {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 260, maxHeight: 260)
+                // The shared layout keeps a tall image from squeezing the bubble thin: it crops past 2:1 and is at least readable wide.
+                let size = LeoChatImageLayout.frameSize(for: image.size)
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             } else {
                 RoundedRectangle(cornerRadius: 8).fill(.quaternary).frame(width: 200, height: 120)

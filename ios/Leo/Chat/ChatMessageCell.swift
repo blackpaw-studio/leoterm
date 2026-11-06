@@ -225,6 +225,9 @@ final class ChatMessageCell: UICollectionViewCell {
     private static let chipBackground = UIColor.white.withAlphaComponent(0.2)
     private static let taskCardRadius: CGFloat = 18
 
+    /// Thumbnail bounds: wide enough that a tall image's cropped frame stays sharp.
+    private static let imageThumbnailBounds = CGSize(width: 600, height: 4096)
+
     private static func isMine(_ message: LeoChatMessage) -> Bool {
         message.direction == .inbound && message.kind != .system && message.kind != .task
     }
@@ -294,17 +297,26 @@ final class ChatMessageCell: UICollectionViewCell {
         }
         let file = model.files[attachment.id]
         if attachment.isImage {
-            if case .loaded(let url) = file, let image = UIImage(contentsOfFile: url.path())?.preparingThumbnail(of: CGSize(width: 600, height: 600)) {
+            // Sized from the file's own pixels, not the thumbnail, so a tall image isn't judged by a squeezed one.
+            if case .loaded(let url) = file, let pixels = LeoChatImageLayout.pixelSize(ofImageAt: url),
+                let image = UIImage(contentsOfFile: url.path())?.preparingThumbnail(of: Self.imageThumbnailBounds) {
                 let imageView = UIImageView(image: image)
-                imageView.contentMode = .scaleAspectFit
+                imageView.contentMode = .scaleAspectFill
                 imageView.layer.cornerRadius = 12
                 imageView.clipsToBounds = true
                 imageView.isUserInteractionEnabled = true
-                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 260).isActive = true
-                let ratio = image.size.height / max(image.size.width, 1)
-                imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: ratio).withPriority(.defaultHigh).isActive = true
+                // A cropped frame (see LeoChatImageLayout) of fixed height. It is at least readable wide but
+                // fills the bubble, so a caption beside it keeps room; never pinned, so a narrow cell still fits.
+                let frame = LeoChatImageLayout.frameSize(for: pixels)
+                imageView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+                imageView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+                imageView.widthAnchor.constraint(greaterThanOrEqualToConstant: frame.width).withPriority(.defaultHigh + 1).isActive = true
+                imageView.widthAnchor.constraint(equalToConstant: frame.width).withPriority(.defaultHigh - 1).isActive = true
+                imageView.heightAnchor.constraint(equalToConstant: frame.height).isActive = true
                 imageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageTapped(_:))))
                 imageView.accessibilityLabel = attachment.filename
+                imageView.accessibilityIdentifier = "chat.image.\(attachment.id)"
+                imageView.accessibilityTraits = [.image, .button]
                 imageView.isAccessibilityElement = true
                 tappedAttachments[ObjectIdentifier(imageView)] = attachment
                 return imageView

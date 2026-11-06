@@ -2436,12 +2436,14 @@ Inbox: 20261029T005956057206Z-1410c522#1
 Done: de466ff24
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-331-2.png (collapsed with Working and running count; B-331-1/3 expanded; View menu via menu list; VoiceOver action and tooltip by tests only)
 
-## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [ready (next run)]
+## B-334 · Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything   [done]
 Issue: #308
 Type: bug
 Report: Paste/Copy menu gets ⌘V/⌘C whenever the key is bound to anything — with `keybind = super+v=new_window`, Edit ▸ Paste still shows ⌘V and two menu items share the key (LeoStandardEditShortcut.swift:39; same gap in B-318's Copy logic)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-325)
+Done: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png (Paste ⌘V default; B-334-2.png no shortcut with super+v rebound; Copy by tests only)
 
 ## B-335 · Set Environments and Switch menu parents stay enabled for a pending agent row   [idea]
 Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
@@ -2454,3 +2456,175 @@ Source: autopilot polish (B-333)
 ## B-337 · Clip the subagent chevron's click area to the name line   [idea]
 Note: B-331 verify: the chevron click-exclusion strip is full row height, so the trailing 23pt of a row with dispatches (including the detail line) no longer selects or attaches on click (Mac-native)
 Source: autopilot polish (B-331)
+
+## B-338 · iOS UI test…   [blocked]
+Issue: #309
+Type: bug
+Report: iOS UI test LeoMoveTests.testDuplicateAsksForAnOptionalNameThenAddsTheCopy fails on main CI since 0b240ddbe (agent-move UI merge, 2026-10-28) and again on ac11050ab (Leo iOS CI run 41202201931). Assertion at ios/LeoUITests/LeoMoveTests.swift:119: after Duplicate… → name "twin" → Copy, cell "agent.twin" never appears within 10s. Unknown whether Duplicate is actually broken in the app or the test/fixture is wrong; it passed in the chat-first branch's local full-scheme run after fixture fix 24b91fcc2. Find out which and fix; CI should be green.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-10-31)
+Inbox: 20261031T131808467645Z-783e5176#1
+Question: couldn't reproduce — testDuplicateAsksForAnOptionalNameThenAddsTheCopy passes locally (iPhone 17 Pro, Xcode 26.5) and the whole LeoMoveTests class passes 10/10; it also passes on hosted-runner CI (run 41953539577, 2026-11-05) and the last four main runs are green. No defect found in the app path or fixture; the reported failures came from the old self-hosted runner and look environmental (slow simulator vs the 10s wait), unproven. Reply "B-338: close" to close it, or "B-338: <more detail>" to retry. Work kept on autopilot-shelved/B-338.
+Answer:
+
+## B-339 · Managed daemon ships with its web API off. On a Mac where Leo.app…   [done]
+Issue: #319
+Type: bug
+Report: Managed daemon ships with its web API off. On a Mac where Leo.app manages the bundled daemon (the laptop), the generated ~/.leo/leo.yaml had no `web:` section, so nothing listened on 127.0.0.1:8370. Every agent's leo_* MCP tools (leo_dispatch etc.) failed with "dial tcp 127.0.0.1:8370: connect: connection refused", and the agent misreported it as "daemon isn't running". Claude attention hooks (POST /api/agent/hook) and the upcoming /api/agent/progress route need that port too. Fix (2026-11-03): manually added web {enabled: true, port: 8370, bind: 127.0.0.1} on the laptop and kickstarted the daemon. Wanted: managed installs get a loopback-only web API by default (daemon default, or the app's managed setup writes it), plus a migration for existing managed configs. Likely touches the daemon repo (PR via the leo agent).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261103T195636106164Z-13f82e96#1
+Done: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Verified: not visually verified — launch step restarts the real daemon, unsafe on Dionysus; 4030 tests green, bundled leo 0.67.0 run against a scratch leo.yaml added loopback web and was idempotent
+
+## B-340 · Moving a stopped agent whose resume transcript is gone spins, then…   [done]
+Issue: #320
+Type: bug
+Report: Moving a stopped agent whose resume transcript is gone spins, then fails with "session_missing". widgeon's record resumes Claude session 8513c333-e795-45a7-bc3f-596b9a1fc19f, but ~/.claude/projects/-Users-evan--leo-agents-widgeon/ has no .jsonl for it (last ran 2026-09-29; likely removed by Claude Code's 30-day transcript cleanup). Preflight is internal/agentmove/job.go:318 checkTranscript (daemon repo). Wanted: detect it up front and offer "move with a fresh session" (or fail fast with a clear message) instead of spinning then erroring. Likely a daemon change (PR via the leo agent) plus the Mac move UI.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261103T195636289038Z-51977dcd#1
+Done: d74ccc2bc, ba91e697d
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png (fixture stale-agent move shows a plain error, no spinner, no Force)
+Note: fail-fast + "Move with a fresh session" need the daemon; contract request sent to the leo agent 2026-11-05
+
+## B-341 · Dispatch viewers split the caller's window on app-managed daemons. The…   [done]
+Issue: #321
+Type: bug
+Report: Dispatch viewers split the caller's window on app-managed daemons. The daemon default `defaults.dispatch.viewer.placement` is `pane`, which splits the caller window when it has a pane and <3 live viewers; on the laptop dispatches opened as split panes instead of background windows you switch to from the Leo sidebar. Evan's rule (2026-11-03): always window placement with leoterm. Set manually on Dionysus + laptop. Wanted: managed installs default to `placement: window` (and the app migrates existing managed configs), alongside the managed web-API default bug.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261103T200609794532Z-2f365b57#1
+Done: d60cdfbcd, 1dd5672dc, 9380313e1
+Verified: not visually verified — launch-time config migration, no UI change; 4042 tests green; real leo 0.74.0 `config show` read Placement: window from the edited scratch config
+
+## B-343 · iOS chat: message bubbles sometimes aren't full width. Likely cause:…   [done]
+Issue: #322
+Type: bug
+Report: iOS chat: message bubbles sometimes aren't full width. Likely cause: sending a very tall, narrow image squeezes the chat bubble so it renders really thin.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261104T122228255636Z-50f002b2#1
+Done: 56ccb4ab0, a82a2ec8e, 1422127bc
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-343-1.png (iOS sim screen capture; 300×3000 and 400×4000 images give near-full-width bubbles; Mac chat not visually verified)
+
+## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [blocked]
+Issue: #323
+Type: bug
+Report: Sometimes when I switch to an agent with the chat open, the chat messages don't appear until I try scrolling the chat view.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261104T154513337291Z-78d24f9d#1
+Question: couldn't reproduce — five Swift Testing cases drove the real LeoChatThreadView in an NSWindow (60 messages per agent, real LeoChatPaneModel, fake client): alpha→bravo switches with the page landing in the same pass or after the empty thread rendered, alpha at bottom or scrolled up, and a fresh remount — all pass, and the scroll-pin reset reads correct. Remaining suspect: SwiftUI `proxy.scrollTo` inside `onPreferenceChange` over a LazyVStack that just swapped content; not covered: full LeoChatPane in a visible key window, uneven-height rows (image/ask-card), live messages arriving mid-switch. Reply "B-344: close" to close it, or "B-344: <more detail>" (does the thread have images or ask cards? were messages arriving during the switch?) to retry. Work kept on autopilot-shelved/B-344.
+Answer:
+
+## B-345 · Sometimes it requires two clicks on the agent in the sidebar to…   [done]
+Issue: #324
+Type: bug
+Report: Sometimes it requires two clicks on the agent in the sidebar to actually get it to switch to that agent.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261104T154822663074Z-3790a2cb#1
+Done: 2ba773d59
+Verified: not visually verified — changed path needs a row with dispatches (autopilot-scratch has none; real rows would attach real agents); failing-then-passing unit test LeoRowClickCatcherTests; plain-row shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-345-1.png
+Note: root cause was B-337's full-height chevron click strip; B-337 is covered by this fix
+
+## B-347 · iOS: while you're viewing an agent's chat and that agent sends a…   [done]
+Issue: #325
+Type: bug
+Report: iOS: while you're viewing an agent's chat and that agent sends a message, you still get an unread badge, both on the agent in the list and on the tab bar. No badge should appear for the chat you're currently looking at, since you're already seeing the message.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261105T125026187252Z-d813a012#1
+Done: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
+Verified: not visually verified — no iOS simulator GUI recipe (B-312); reducer tests cover four paths that left an open chat badged; LeoKit 1026, LeoFeatures 445 pass
+Note: the plain live case (message arrives with the chat fully open) traced as already exempt; if it still badges on device, it needs an onScreenChanged trace
+
+## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [blocked]
+Issue: #326
+Type: bug
+Report: Mac test fixtures create NSWindow without `isReleasedWhenClosed = false`. If a test calls close() on such a window, the window is released twice and the test host can crash on CI (this blocked 0.29.6; the fix in LeoAgentToolbarActivityTests was 8842ad404). Check and fix LeoWindowSessionRegistryTests, LeoSidebarTitlebarStyleTests, LeoTaskBarClickTargetTests, LeoChatFileViewerTests, LeoTerminalsViewportTests, LeoPickerPresentationTests, LeoLaunchPlaceholderIntegrationTests and LeoWindowPickerRouterTests.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261105T133834863366Z-4f2a978a#1
+Question: land on targeted evidence? The fix is test-only (13 files set isReleasedWhenClosed = false; new LeoTestWindowGuardTests scan found 15 offenders before, 0 after, and passes), and the 13 touched suites pass apart from one untouched test that passes alone. Verify failed only because the full Mac suite can't finish on baseline either: LeoRuntimeFileDropTests fails and the host aborts (ContiguousArrayBuffer index out of range, exit 6), filed as B-355. I'd pick: land it as is. Work kept on autopilot-shelved/B-348.
+Answer:
+
+## B-349 · the update badge is weird now with the sidebar   [blocked]
+Issue: #327
+Type: bug
+Report: the update badge is weird now with the sidebar
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261105T234107409652Z-4eb7588d#1
+Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-349: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict. Work kept on autopilot-shelved/B-349.
+Answer:
+Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
+
+## B-353 · the time elapsed in the bar at the top is not updated frequently…   [blocked]
+Issue: #331
+Type: bug
+Report: the time elapsed in the bar at the top is not updated frequently enough when it displays seconds. it should update every second but right now it varies like 1-3 seconds so its weird
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261106T015152303110Z-50ee06ee#1
+Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-353: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
+Answer:
+
+## B-354 · this green is way too intense (Image #2)   [blocked]
+Issue: #332
+Type: bug
+Report: this green is way too intense [Image #2]
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-05)
+Inbox: 20261106T015521888748Z-4aa922b2#1
+Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-354: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
+Answer:
+Attachments: .autopilot/bugs/B-354/leo-paste-20261106-015514-377.png
+
+## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [done]
+Issue: #328
+Why: Files in a chat message (images, logs, documents) can be saved anywhere on the Mac without hunting for them on the agent's host — P4 Everything through Leo, P3 Local = remote. Chat companion to B-279.
+Accept: dragging a chat attachment (image or file chip) to Finder/Desktop saves a copy there, using file promises so attachments from a remote host download on drop; right-clicking an attachment shows "Download to…", which opens a save panel defaulting to the original filename and writes the file; multiple attachments in one message can each be dragged or downloaded; tests cover the promise/download path for local and remote daemons; shots from the isolated debug build show the context menu and a completed drop.
+Out: iOS (it has its own share sheet; a separate item if wanted); dragging whole messages or text; folders; bulk "download all"; progress UI beyond a simple in-flight indicator.
+Source: owner (/feature, 2026-11-05)
+Inbox: 20261104T234957605872Z-51261d99#1
+Done: 12a26cf2e, 8c86a5073, bcdaca1ea, 1391a1bda
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-346-2.png (bubble; B-346-3..6 screen captures show the Download to… menu, save sheet, and chip/image drops in Finder; remote download unit-tested only)
+
+## B-342 · iOS chat image viewer swipes between a message's images   [done]
+Issue: #329
+Why: When a chat message has several images, opening one shows them all in a full-screen viewer, so Evan can review a batch without closing and reopening each image (mobile-first chat).
+Accept: tapping any image in a multi-image message opens a full-screen viewer at that image; swiping left/right pages through every image in that message, in order, with a position indicator (e.g. 2 of 4); a single-image message opens the same viewer with no paging; the viewer dismisses by swipe-down or a close button; shots from the iOS simulator with a fixture message of 3+ images.
+Out: paging across different messages; Mac chat; image editing or saving changes; video.
+Source: owner (/feature, 2026-11-05)
+Inbox: 20261104T122151614541Z-47a1c3a1#1
+Done: 2bab3994b, 4da8b4da9, 4949276a3
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-342-1.png (iOS simulator screen capture, 2 of 4; B-342-2..5 show 3 of 4 tall image, 1 of 4, single image, thread after close; drag-dismiss and pinch by tests only)
+
+## B-350 · Edit menu ignores key-table rebinds of ⌘C/⌘V   [idea]
+Note: B-334 review: key tables aren't consulted, so Edit ▸ Copy/Paste can still show ⌘C/⌘V while a key table rebinds them (Keyboard-first: no shortcut beats a wrong one)
+Source: autopilot polish (B-334)
+
+## B-351 · Show the full move error without hovering   [idea]
+Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
+Source: autopilot polish (B-340)
+
+## B-352 · Word job failures plainly instead of "<code>: " prefixes   [idea]
+Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
+Source: autopilot polish (B-340)
+
+## B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host   [ready (next run)]
+Issue: #333
+Type: bug
+Report: LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs — the remote image paste test and aSecondPasteReusesTheExistingScratchDirectory fail, then the host dies with ContiguousArrayBuffer.swift:695 Index out of range (exit 6), so ~1800 later tests report failed and a red full suite hides real regressions. Seen on autopilot 77d35ab95 (B-348 verify, 2026-11-06); the paste file name carries a 2026-11-01 timestamp, so it may be date-dependent. Earlier full runs that evening (B-345, B-347) were green.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-348)
+
+## B-356 · First click on a chat attachment in an inactive window should only activate it   [idea]
+Note: B-346 review: image/file-chip attachments now accept first mouse, so a first click into an inactive window opens the attachment instead of just activating the window (Mac-native)
+Source: autopilot polish (B-346)
+
+## B-357 · Hide the status bar in the iOS image viewer   [idea]
+Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
+Source: autopilot polish (B-342)

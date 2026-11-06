@@ -8,7 +8,7 @@ import UIKit
 /// (`-navFixture`), for driving the Agents → detail → chat navigation stack
 /// in UI tests. No daemon is needed.
 enum NavFixture {
-    static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains("-navFixture") || isRichInbox || ChatScrollFixture.isRequested }
+    static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains("-navFixture") || isRichInbox || ChatScrollFixture.isRequested || ChatImagesFixture.isRequested }
 
     /// `-inboxFixture`: agents in every status, with chat history, for inbox screenshots.
     static var isRichInbox: Bool { ProcessInfo.processInfo.arguments.contains("-inboxFixture") }
@@ -83,6 +83,7 @@ enum NavFixture {
         }
         values.chatClient.markRead = { _, _, _ in }
         if ChatScrollFixture.isRequested { ChatScrollFixture.prepare(&values) }
+        if ChatImagesFixture.isRequested { ChatImagesFixture.prepare(&values) }
     }
 }
 #endif

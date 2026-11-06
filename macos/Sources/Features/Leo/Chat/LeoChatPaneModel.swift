@@ -399,19 +399,22 @@ import LeoKit
     // MARK: Attachments
 
     /// Downloads `attachment` once into the attachment folder; a failure
-    /// can be retried, and a call during a download waits for it.
-    func loadAttachment(_ attachment: LeoChatAttachment) async {
+    /// can be retried, and a call during a download waits for it. `host`
+    /// is the machine to fetch it from; nil is the shown agent's (a drag
+    /// out passes the machine it started on, which the pane may have left
+    /// by the time Finder asks for the file).
+    func loadAttachment(_ attachment: LeoChatAttachment, from host: LeoHostID? = nil) async {
         guard attachment.available else { return }
         if let inFlight = attachmentLoads[attachment.id] { return await inFlight.value }
         if case .loaded = attachmentFiles[attachment.id] { return }
-        let load = Task { await download(attachment) }
+        let load = Task { await download(attachment, from: host) }
         attachmentLoads[attachment.id] = load
         await load.value
         attachmentLoads[attachment.id] = nil
     }
 
-    private func download(_ attachment: LeoChatAttachment) async {
-        guard let shown = agent else {
+    private func download(_ attachment: LeoChatAttachment, from host: LeoHostID?) async {
+        guard let host = host ?? agent?.host else {
             attachmentFiles[attachment.id] = .failed("Open a chat to download attachments.")
             return
         }
@@ -425,7 +428,7 @@ import LeoKit
         }
         attachmentFiles[attachment.id] = .loading
         do {
-            let client = try connectedClient(for: shown.host)
+            let client = try connectedClient(for: host)
             let data = try await client.download(attachmentID: attachment.id)
             try await Task.detached {
                 try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -439,8 +442,8 @@ import LeoKit
 
     /// The attachment's local file once downloaded, nil when the download
     /// failed (`attachmentFiles` holds the reason) or is still in flight.
-    func downloadedFile(_ attachment: LeoChatAttachment) async -> URL? {
-        await loadAttachment(attachment)
+    func downloadedFile(_ attachment: LeoChatAttachment, from host: LeoHostID? = nil) async -> URL? {
+        await loadAttachment(attachment, from: host)
         guard case .loaded(let url) = attachmentFiles[attachment.id] else { return nil }
         return url
     }

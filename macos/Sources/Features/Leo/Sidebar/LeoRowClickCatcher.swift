@@ -17,6 +17,10 @@ struct LeoRowClickCatcher: NSViewRepresentable {
     /// Width of the trailing edge that belongs to a control of the row's
     /// own (the subagents chevron): a click there is not a row click.
     var trailingExclusion: CGFloat = 0
+    /// How far down from the row's top that trailing strip reaches (B-345):
+    /// the control sits on the name line, so the lines below it stay row
+    /// clicks. Defaults to the row's full height.
+    var trailingExclusionHeight: CGFloat = .infinity
     /// Height of the bottom edge that belongs to a control of the row's own
     /// (the task bar): a click there is not a row click.
     var bottomExclusion: CGFloat = 0
@@ -32,6 +36,7 @@ struct LeoRowClickCatcher: NSViewRepresentable {
         view.identity = identity
         view.onClick = onClick
         view.trailingExclusion = trailingExclusion
+        view.trailingExclusionHeight = trailingExclusionHeight
         view.bottomExclusion = bottomExclusion
         view.bottomLeading = bottomLeading
         view.bottomTrailing = bottomTrailing
@@ -44,6 +49,8 @@ final class LeoRowClickCatcherView: NSView {
     var isEnabled = true
     /// See `LeoRowClickCatcher.trailingExclusion`.
     var trailingExclusion: CGFloat = 0
+    /// See `LeoRowClickCatcher.trailingExclusionHeight`.
+    var trailingExclusionHeight: CGFloat = .infinity
     /// See `LeoRowClickCatcher.bottomExclusion`.
     var bottomExclusion: CGFloat = 0
     var bottomLeading: CGFloat = 0
@@ -96,8 +103,8 @@ final class LeoRowClickCatcherView: NSView {
         // `visibleRect` alone can reach past the view's own bounds.
         let point = convert(event.locationInWindow, from: nil)
         let region = LeoRowClickRegion(
-            trailingExclusion: trailingExclusion, bottomExclusion: bottomExclusion,
-            bottomLeading: bottomLeading, bottomTrailing: bottomTrailing
+            trailingExclusion: trailingExclusion, trailingExclusionHeight: trailingExclusionHeight,
+            bottomExclusion: bottomExclusion, bottomLeading: bottomLeading, bottomTrailing: bottomTrailing
         )
         return region.contains(point, in: bounds, isFlipped: isFlipped) && visibleRect.contains(point)
     }
@@ -121,18 +128,23 @@ enum LeoRowAccessibility {
 }
 
 /// Which points of a row are row clicks: everything but the trailing edge
-/// (the subagents chevron) and the task bar's own frame at the bottom,
-/// spanning `bottomLeading` ... `bounds.width - bottomTrailing`.
+/// (the subagents chevron, from the row's top down to
+/// `trailingExclusionHeight`, B-345) and the task bar's own frame at the
+/// bottom, spanning `bottomLeading` ... `bounds.width - bottomTrailing`.
 struct LeoRowClickRegion: Equatable {
     var trailingExclusion: CGFloat = 0
+    var trailingExclusionHeight: CGFloat = .infinity
     var bottomExclusion: CGFloat = 0
     var bottomLeading: CGFloat = 0
     var bottomTrailing: CGFloat = 0
 
     func contains(_ point: NSPoint, in bounds: NSRect, isFlipped: Bool) -> Bool {
-        guard point.x >= bounds.minX, point.x <= bounds.maxX - trailingExclusion,
+        guard point.x >= bounds.minX, point.x <= bounds.maxX,
               point.y >= bounds.minY, point.y <= bounds.maxY else { return false }
         let fromBottom = isFlipped ? bounds.maxY - point.y : point.y - bounds.minY
+        let overTrailing = point.x > bounds.maxX - trailingExclusion
+            && bounds.height - fromBottom <= trailingExclusionHeight
+        if overTrailing { return false }
         let overBar = fromBottom < bottomExclusion
             && point.x >= bounds.minX + bottomLeading && point.x <= bounds.maxX - bottomTrailing
         return !overBar

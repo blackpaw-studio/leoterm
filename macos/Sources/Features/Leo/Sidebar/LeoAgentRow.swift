@@ -128,6 +128,7 @@ struct LeoAgentRowView: View {
         .background(LeoRowClickCatcher(
             identity: row.id, onClick: click,
             trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge,
+            trailingExclusionHeight: LeoAgentRowMetrics.disclosureTrailingHeight,
             bottomExclusion: hasTaskBar ? LeoAgentRowMetrics.taskBarHitHeight + LeoAgentRowMetrics.verticalPadding : 0,
             bottomLeading: LeoAgentRowMetrics.nameColumnInset, bottomTrailing: LeoAgentRowMetrics.colorBarSlot
         ).accessibilityHidden(true))
