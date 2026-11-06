@@ -2655,3 +2655,7 @@ Source: autopilot polish (B-349)
 Note: the capsule showed "B353 verify b…" and no elapsed text at the verifier's window width; it should keep the elapsed time visible and truncate the title later — P1 first-party feel
 Source: autopilot polish (B-353)
 
+## B-362 · Done task bar is thin and low-contrast in light mode   [idea]
+Note: after B-354 softened the done green (0.55 opacity), the light-mode bar reads faint; fine as calm ambient status, strengthen only if wanted — P2
+Source: autopilot polish (B-354)
+

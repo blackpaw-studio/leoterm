@@ -2,11 +2,12 @@ Status: running
 Started: 2026-11-06T17:47:04Z
 Budget: 20 items, until 2026-11-07T05:47:04Z
 Digested-through: 0
-Filed: 1/3 bugs, 3/5 ideas
+Filed: 1/3 bugs, 4/5 ideas
 Self-filed: B-349 → B-358 bug — Reset-zoom titlebar accessory likely sits low in the unified toolbar
 Self-filed: B-349 → B-359 idea — Show the update pill in the toolbar's » overflow menu at narrow widths
 Self-filed: B-349 → B-360 idea — Update popover shows a blank "Version:" line
 Self-filed: B-353 → B-361 idea — Activity capsule title truncates at moderate window widths
+Self-filed: B-354 → B-362 idea — Done task bar is thin and low-contrast in light mode
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -67,12 +68,15 @@ Lane: B-354
   Branch: autopilot-lane/B-354
   Base: 3dd100793c86bf6b3fea446c574e63ff827b3c2d
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-06T19:22:57Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0adcfdc1bde7097d6b0f06d6db47e0932779d24a
+  Call: Mac only (iOS has no task bar) — P1
+  Call: Only the done bar's fill is softened; the checkmark glyph, popover and sidebar tints keep full green — P2
+  Call: Done-bar opacity 0.55 — P2
 
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
