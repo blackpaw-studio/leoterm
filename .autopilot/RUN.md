@@ -225,3 +225,4 @@ Progress:
 - B-347 landed 279c05230 (iOS only; 4 badge paths fixed; 1 fix round). B-355 self-file corrected to dup of B-312. Note for B-338: LeoMoveTests Duplicate test timed out under host load here and passed alone in 11s — supports the environmental theory.
 - B-348 runner: leo dispatch d-90d90422d6dc (implement, pane %385), light.
 - B-348 shelved (Result: shelve, 0 fix rounds): fix + guard test done on autopilot-shelved/B-348 (f3d44c03b), but the full Mac suite aborts on baseline too (LeoRuntimeFileDropTests → ContiguousArrayBuffer index out of range, host exit 6). Filed B-355 bug (ready next run). First runner was cancelled after it asked to rm zig-out (permission prompt).
+- B-349 runner: leo dispatch d-cb202515f10b (implement, pane %394), light; brief tells verifier to skip LeoRuntimeFileDropTests (B-355) and treat base-reproducible failures as pre-existing.
