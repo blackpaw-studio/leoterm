@@ -2,11 +2,12 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 5
-Filed: 0/3 bugs, 3/5 ideas
+Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Self-filed: B-340 → B-351 idea — Show the full move error without hovering
 Self-filed: B-340 → B-352 idea — Word job failures plainly instead of "<code>: " prefixes
 Self-filed: B-347 → dropped (dup of B-312) — Add an iOS simulator GUI recipe to verify.md
+Self-filed: B-348 → B-355 bug — LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -168,12 +169,15 @@ Lane: B-348
   Branch: autopilot-lane/B-348
   Base: e76ccd76b5d6294a1b1933b3e9b7c6a6a576b784
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-06T04:55:00Z
+  Tokens: 15.4M in (14.9M cache read), ≥77.7k out, 155 requests
+  Call: Mac only (AppKit test fixtures) — Mac/iOS parity rule
+  Call: Flag `isReleasedWhenClosed = false` at each fixture instead of a shared makeTestWindow helper; a guard test scans for regressions — agent-decides test infra
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
@@ -184,6 +188,7 @@ Finished 6: B-343 landed b05f35934b8265b3d4f55407b57e8dfac74099ba · screen capt
 Finished 7: B-344 blocked
 Finished 8: B-345 landed deb68493da9985ab466dc1e2ec74b742d5c067dc · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-345-1.png
 Finished 9: B-347 landed 279c052305954addbee9c1c58185d4884d78d717 · not visually verified
+Finished 10: B-348 blocked
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -208,3 +213,4 @@ Progress:
 - B-347 runner: leo dispatch d-95e5b8c9f009 (implement, pane %367), light.
 - B-347 landed 279c05230 (iOS only; 4 badge paths fixed; 1 fix round). B-355 self-file corrected to dup of B-312. Note for B-338: LeoMoveTests Duplicate test timed out under host load here and passed alone in 11s — supports the environmental theory.
 - B-348 runner: leo dispatch d-90d90422d6dc (implement, pane %385), light.
+- B-348 shelved (Result: shelve, 0 fix rounds): fix + guard test done on autopilot-shelved/B-348 (f3d44c03b), but the full Mac suite aborts on baseline too (LeoRuntimeFileDropTests → ContiguousArrayBuffer index out of range, host exit 6). Filed B-355 bug (ready next run). First runner was cancelled after it asked to rm zig-out (permission prompt).

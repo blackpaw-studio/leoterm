@@ -2540,13 +2540,15 @@ Done: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
 Verified: not visually verified — no iOS simulator GUI recipe (B-312); reducer tests cover four paths that left an open chat badged; LeoKit 1026, LeoFeatures 445 pass
 Note: the plain live case (message arrives with the chat fully open) traced as already exempt; if it still badges on device, it needs an onScreenChanged trace
 
-## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [ready]
+## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [blocked]
 Issue: #326
 Type: bug
 Report: Mac test fixtures create NSWindow without `isReleasedWhenClosed = false`. If a test calls close() on such a window, the window is released twice and the test host can crash on CI (this blocked 0.29.6; the fix in LeoAgentToolbarActivityTests was 8842ad404). Check and fix LeoWindowSessionRegistryTests, LeoSidebarTitlebarStyleTests, LeoTaskBarClickTargetTests, LeoChatFileViewerTests, LeoTerminalsViewportTests, LeoPickerPresentationTests, LeoLaunchPlaceholderIntegrationTests and LeoWindowPickerRouterTests.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T133834863366Z-4f2a978a#1
+Question: land on targeted evidence? The fix is test-only (13 files set isReleasedWhenClosed = false; new LeoTestWindowGuardTests scan found 15 offenders before, 0 after, and passes), and the 13 touched suites pass apart from one untouched test that passes alone. Verify failed only because the full Mac suite can't finish on baseline either: LeoRuntimeFileDropTests fails and the host aborts (ContiguousArrayBuffer index out of range, exit 6), filed as B-355. I'd pick: land it as is. Work kept on autopilot-shelved/B-348.
+Answer:
 
 ## B-349 · the update badge is weird now with the sidebar   [ready]
 Issue: #327
@@ -2601,3 +2603,9 @@ Source: autopilot polish (B-340)
 ## B-352 · Word job failures plainly instead of "<code>: " prefixes   [idea]
 Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
 Source: autopilot polish (B-340)
+
+## B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host   [ready (next run)]
+Type: bug
+Report: LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs — the remote image paste test and aSecondPasteReusesTheExistingScratchDirectory fail, then the host dies with ContiguousArrayBuffer.swift:695 Index out of range (exit 6), so ~1800 later tests report failed and a red full suite hides real regressions. Seen on autopilot 77d35ab95 (B-348 verify, 2026-11-06); the paste file name carries a 2026-11-01 timestamp, so it may be date-dependent. Earlier full runs that evening (B-345, B-347) were green.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-348)
