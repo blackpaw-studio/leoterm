@@ -63,6 +63,17 @@ Lane: B-353
   Call: The Tasks popover and the sidebar row share the capsule's tick schedule (same durations, same staleness) — P2
   Call: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible duration is under a minute, else a coarse 15 s grid — P2 calm/steady status
 
+Lane: B-354
+  Branch: autopilot-lane/B-354
+  Base: 3dd100793c86bf6b3fea446c574e63ff827b3c2d
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-06T19:22:57Z
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
 
