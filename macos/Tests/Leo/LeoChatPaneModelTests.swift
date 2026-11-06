@@ -251,6 +251,16 @@ struct LeoChatPaneModelTests {
         }
     }
 
+    @Test func anAttachmentDownloadsFromTheMachineItIsRequestedFor() async {
+        await boxClient.setDownload("f1", .success(Data("r".utf8)))
+        let model = makeWithBox()
+        await model.show(Self.alpha)
+        let url = await model.downloadedFile(LeoChatAttachment(id: "f1", filename: "a.txt", mime: "text/plain", bytes: 1), from: Self.box)
+        #expect(url?.lastPathComponent == "a.txt")
+        #expect(await boxClient.downloadCount == 1)
+        #expect(await client.downloadCount == 0)
+    }
+
     // MARK: Read marks
 
     @Test func marksReadOnlyWhileOnScreenAndUnfiltered() async {
