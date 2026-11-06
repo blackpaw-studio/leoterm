@@ -58,12 +58,17 @@ Lane: B-339
   Branch: autopilot-lane/B-339
   Base: d99f557640a2ab3c27a9fef210e8eea91f1017c2
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 2999f93418d3755ab278e3384274555dcbc68149
   Dispatched: 2026-11-06T00:31:00Z
+  Call: Use the daemon's own `leo web enable --bind 127.0.0.1 --graceful` instead of editing YAML in Swift — Everything through Leo; app-side fix lands without a daemon change
+  Call: Restart with a graceful drain at launch, after `restartIfUpdated()`; on drain timeout or failure show a notice — agent tools must reach the daemon
+  Call: Act only on a regular-file `~/.leo/leo.yaml` with no top-level `web` key and the managed marker; skip anything ambiguous — loopback only, never clobber user config
+  Call: Mac only; the bundled daemon is a Mac app concern — Mac/iOS parity rule
+  Call: Daemon-side default (seed loopback `web` for managed installs) sent as a non-blocking request to the `leo` agent — AUTONOMY (messaging leo is agent-decides)
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
