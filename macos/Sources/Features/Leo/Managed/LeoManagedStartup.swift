@@ -91,6 +91,14 @@ struct LeoManagedDependencies: Sendable {
         await exclusively { await self.restartAfterUpdate(running: running) }
     }
 
+    /// B-339, after `restartIfUpdated()`: a managed daemon whose `leo.yaml`
+    /// has no `web:` section serves no API on 127.0.0.1:8370, so every agent's
+    /// leo_* tools fail. Turn on the loopback listener, once.
+    func ensureWebAPI() async {
+        guard case .managed = status, markerStore.read().ours != nil else { return }
+        await exclusively { await self.enableWebAPI() }
+    }
+
     func applicationDidBecomeActive() async {
         guard status == .awaitingApproval else { return }
         await exclusively {
@@ -335,6 +343,53 @@ struct LeoManagedDependencies: Sendable {
             let sentence = message.hasSuffix(".") ? message : message + "."
             notice = LeoManagedNotice(title: "Leo couldn’t update its daemon", message: "\(sentence) \(doctor)")
         }
+    }
+
+    // MARK: the web API (B-339)
+
+    private func enableWebAPI() async {
+        let configURL = dependencies.paths.configURL
+        switch webAPIDefault(of: configURL) {
+        case .present: return
+        case .skip(let reason):
+            Self.logger.notice("web API default skipped: \(reason, privacy: .public)")
+            return
+        case .missing: break
+        }
+        let outcome = await LeoManagedWebAPI(
+            runner: dependencies.runner, bundledLeo: dependencies.paths.bundledLeo.path, configPath: configURL.path
+        ).enable()
+        let advice = "Leo’s agent tools can’t reach the daemon until it’s on. Run “leo web enable” in Terminal to see why."
+        switch outcome {
+        case .enabled(restarted: false):
+            break
+        case .enabled(restarted: true):
+            if let version = await helloWait.version() {
+                status = .managed(version: version)
+                daemonChanged()
+            } else {
+                status = .failed(message: "Leo’s daemon isn’t answering after turning on its web API. See ~/.leo/state/service.log, or run leo doctor.")
+            }
+        case .drainTimedOut:
+            notice = LeoManagedNotice(
+                title: "Leo’s web API is saved but not on yet",
+                message: "Agents were busy, so the daemon wasn’t restarted. Choose Restart Daemon in the menu bar when they’re done; Leo’s agent tools need it."
+            )
+        case .notRegistered(let message), .failed(let message):
+            let sentence = message.hasSuffix(".") ? message : message + "."
+            notice = LeoManagedNotice(title: "Leo couldn’t turn on its web API", message: "\(sentence) \(advice)")
+        }
+    }
+
+    /// An unreadable or non-UTF-8 file is `.skip`: never rewrite what can't be read.
+    private func webAPIDefault(of configURL: URL) -> LeoWebAPIDefault {
+        let fileSystem = dependencies.fileSystem
+        let kind = fileSystem.kind(at: configURL)
+        guard kind == .file else { return LeoWebAPIDefault.classify(yaml: "", pathKind: kind) }
+        guard let data = try? fileSystem.read(configURL), let yaml = String(data: data, encoding: .utf8) else {
+            return .skip(reason: "leo.yaml couldn’t be read as text")
+        }
+        return LeoWebAPIDefault.classify(yaml: yaml, pathKind: kind)
     }
 
     // MARK: a daemon outside the app's job (B10)

@@ -30,6 +30,8 @@ struct LeoInstallPaths: Equatable, Sendable {
 
     var stateDirectory: URL { home.appendingPathComponent(".leo/state", isDirectory: true) }
     var markerURL: URL { stateDirectory.appendingPathComponent(Self.markerFileName) }
+    /// The daemon's config; the managed daemon reads it from here.
+    var configURL: URL { home.appendingPathComponent(".leo/leo.yaml") }
 
     // MARK: app-owned, space-free root
 
