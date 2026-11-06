@@ -2477,13 +2477,16 @@ Inbox: 20261103T195636106164Z-13f82e96#1
 Done: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
 Verified: not visually verified — launch step restarts the real daemon, unsafe on Dionysus; 4030 tests green, bundled leo 0.67.0 run against a scratch leo.yaml added loopback web and was idempotent
 
-## B-340 · Moving a stopped agent whose resume transcript is gone spins, then…   [ready]
+## B-340 · Moving a stopped agent whose resume transcript is gone spins, then…   [done]
 Issue: #320
 Type: bug
 Report: Moving a stopped agent whose resume transcript is gone spins, then fails with "session_missing". widgeon's record resumes Claude session 8513c333-e795-45a7-bc3f-596b9a1fc19f, but ~/.claude/projects/-Users-evan--leo-agents-widgeon/ has no .jsonl for it (last ran 2026-09-29; likely removed by Claude Code's 30-day transcript cleanup). Preflight is internal/agentmove/job.go:318 checkTranscript (daemon repo). Wanted: detect it up front and offer "move with a fresh session" (or fail fast with a clear message) instead of spinning then erroring. Likely a daemon change (PR via the leo agent) plus the Mac move UI.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261103T195636289038Z-51977dcd#1
+Done: d74ccc2bc, ba91e697d
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png (fixture stale-agent move shows a plain error, no spinner, no Force)
+Note: fail-fast + "Move with a fresh session" need the daemon; contract request sent to the leo agent 2026-11-05
 
 ## B-341 · Dispatch viewers split the caller's window on app-managed daemons. The…   [ready]
 Issue: #321

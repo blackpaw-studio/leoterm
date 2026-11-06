@@ -97,3 +97,24 @@ Chose: Ask the `leo` agent (non-blocking) to seed loopback `web` in the default 
 Why: AUTONOMY (messaging leo is agent-decides)
 Commit: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
 Veto: [ ]
+
+## D-661 · 2026-11-05 · session_missing worded in LeoKit for Mac and iOS
+Context: B-340 (runner call).
+Chose: Word `session_missing` in LeoKit (LeoAgentMover), so Mac and iOS both get it with no UI change
+Why: Mac/iOS parity rule
+Commit: d74ccc2bc, ba91e697d
+Veto: [ ]
+
+## D-662 · 2026-11-05 · Fresh-session move deferred to the daemon contract
+Context: B-340 (runner call).
+Chose: Defer "Move with a fresh session" until the daemon supports it; contract request sent to the leo agent
+Why: Never invent a state the daemon didn't report
+Commit: d74ccc2bc, ba91e697d
+Veto: [ ]
+
+## D-663 · 2026-11-05 · No Force offer for a stale-transcript move
+Context: B-340 (runner call).
+Chose: A stale-transcript move shows a plain message with no Force offer
+Why: Calm, plain failures
+Commit: d74ccc2bc, ba91e697d
+Veto: [ ]

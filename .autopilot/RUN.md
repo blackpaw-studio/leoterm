@@ -77,12 +77,13 @@ Lane: B-340
   Branch: autopilot-lane/B-340
   Base: 0c246d854efa4356ee04c97048c23f2539aa0fe5
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: e2259e7f1df9842940a143519f89c3423c94d944
   Dispatched: 2026-11-06T01:16:00Z
+  Tokens: 10.4M in (9.99M cache read), ≥47.9k out, 118 requests
   Call: Word `session_missing` in LeoKit (LeoAgentMover), so Mac and iOS both get it — Mac/iOS parity rule
   Call: Defer "Move with a fresh session" until the daemon supports it — never invent a state the daemon didn't report
   Call: A stale-transcript move shows a plain message with no Force offer — calm, plain failures
@@ -90,6 +91,7 @@ Lane: B-340
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
+Finished 4: B-340 landed b667ecddca9e430ed0ffcacf26210a35210b8db9 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -100,3 +102,4 @@ Progress:
 - B-339 runner: leo dispatch d-b30640b6c865 (implement, pane %257), full, Mac only.
 - B-339 landed b5e70b98d (concurrency review full + delta; 1 fix round; 4030 tests green; not visually verified — would restart the real daemon). max_turns: 0 confirmed = unset in leo config.go. Sent leo agent the managed-default request.
 - B-340 runner: leo dispatch d-9c7ae0157135 (implement, pane %265), full.
+- B-340 landed b667ecddc (general review; verify pass; 4030 green). Sent leo agent the fail-fast + fresh_session contract request. Runner note: a Gatekeeper dialog ("GhosttyUITests-Runner.app is damaged") was left on Dionysus's screen; lane zig-out/xcframework symlinks replaced with real dirs; lane DerivedData moved to ~/.Trash/b340-DD-*.
