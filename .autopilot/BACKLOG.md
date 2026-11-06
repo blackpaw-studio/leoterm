@@ -2518,13 +2518,16 @@ Inbox: 20261104T154513337291Z-78d24f9d#1
 Question: couldn't reproduce — five Swift Testing cases drove the real LeoChatThreadView in an NSWindow (60 messages per agent, real LeoChatPaneModel, fake client): alpha→bravo switches with the page landing in the same pass or after the empty thread rendered, alpha at bottom or scrolled up, and a fresh remount — all pass, and the scroll-pin reset reads correct. Remaining suspect: SwiftUI `proxy.scrollTo` inside `onPreferenceChange` over a LazyVStack that just swapped content; not covered: full LeoChatPane in a visible key window, uneven-height rows (image/ask-card), live messages arriving mid-switch. Reply "B-344: close" to close it, or "B-344: <more detail>" (does the thread have images or ask cards? were messages arriving during the switch?) to retry. Work kept on autopilot-shelved/B-344.
 Answer:
 
-## B-345 · Sometimes it requires two clicks on the agent in the sidebar to…   [ready]
+## B-345 · Sometimes it requires two clicks on the agent in the sidebar to…   [done]
 Issue: #324
 Type: bug
 Report: Sometimes it requires two clicks on the agent in the sidebar to actually get it to switch to that agent.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T154822663074Z-3790a2cb#1
+Done: 2ba773d59
+Verified: not visually verified — changed path needs a row with dispatches (autopilot-scratch has none; real rows would attach real agents); failing-then-passing unit test LeoRowClickCatcherTests; plain-row shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-345-1.png
+Note: root cause was B-337's full-height chevron click strip; B-337 is covered by this fix
 
 ## B-347 · iOS: while you're viewing an agent's chat and that agent sends a…   [ready]
 Issue: #325

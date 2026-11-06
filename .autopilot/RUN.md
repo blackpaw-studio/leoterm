@@ -139,12 +139,13 @@ Lane: B-345
   Branch: autopilot-lane/B-345
   Base: f34f79bf22f4e704750ea213ab751400d8ad1957
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: bb277e5819215b6282b5ec628b5be6b5f1ce181b
   Dispatched: 2026-11-06T03:43:00Z
+  Tokens: 5.9M in (5.65M cache read), ≥26.6k out, 72 requests
   Call: Mac only (iOS has no sidebar rows) — Mac/iOS parity rule
   Call: Chevron stays the disclosure control; its click exclusion is capped at the name line — D-651; sidebar is the navigation
 
@@ -155,6 +156,7 @@ Finished 4: B-340 landed b667ecddca9e430ed0ffcacf26210a35210b8db9 · shot /Users
 Finished 5: B-341 landed abe7021d41134b40981895eb5c888a984ecaf502 · not visually verified
 Finished 6: B-343 landed b05f35934b8265b3d4f55407b57e8dfac74099ba · screen capture, not attached
 Finished 7: B-344 blocked
+Finished 8: B-345 landed deb68493da9985ab466dc1e2ec74b742d5c067dc · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-345-1.png
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -175,3 +177,4 @@ Progress:
 - B-344 runner: leo dispatch d-fd9c72ed4822 (implement, pane %345), light.
 - B-344 blocked: could not reproduce (5 NSWindow-hosted LeoChatThreadView switch tests pass); repro tests kept on autopilot-shelved/B-344.
 - B-345 runner: leo dispatch d-04b798193b52 (implement, pane %352), light; hinted B-337 chevron strip as lead suspect.
+- B-345 landed deb68493d: root cause = B-337 full-height chevron click strip (now capped at the name line). B-337 idea is covered — suggest owner drop it. 4043 green.

@@ -188,3 +188,17 @@ Chose: iOS sizes chat images from the original file's pixel dimensions, not the 
 Why: Bug fix
 Commit: 56ccb4ab0, a82a2ec8e, 1422127bc
 Veto: [ ]
+
+## D-674 · 2026-11-05 · B-345 is Mac only
+Context: B-345 (runner call).
+Chose: Mac only (iOS has no sidebar rows)
+Why: Mac/iOS parity rule
+Commit: 2ba773d59
+Veto: [ ]
+
+## D-675 · 2026-11-05 · Chevron click exclusion capped at its own line
+Context: B-345 (runner call).
+Chose: The subagent chevron stays the disclosure control; its trailing click exclusion is capped at the name line so the rest of the row selects on one click
+Why: D-651; the sidebar is the navigation
+Commit: 2ba773d59
+Veto: [ ]
