@@ -707,3 +707,34 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-06 (17:46Z)
+
+🛠 leoterm autopilot — 5 fixed, 0 shipped, 0 blocked
+Fixed
+• B-349 Update badge with the sidebar — pill is now a native toolbar item left of "⋯" (verified: screenshot, dark only) · full
+• B-353 Elapsed time ticks every second while it shows seconds (verified: screenshot; 1 Hz watched on the sidebar row) · light
+• B-354 Done task bar green muted to 55% opacity (verified: screenshot, dark + light) · light
+• B-348 Test windows opt out of release-on-close + guard test (not visually verified: test-only) · full
+• B-355 Each image paste gets its own temp dir; file-drop tests can't trap the host (not visually verified: no non-live remote host) · full
+B-349, B-353, B-354 built before B-348 (owner asked to retry those three)
+Calls I made — reply "veto D-0xx" to undo
+• D-696–D-700 update pill in toolbar; give-way order subtitle → pill → title → "⋯"; DEBUG-only LEO_UPDATE_FIXTURE seam
+• D-701–D-703 LeoTask tick: 1 s grid under a minute, else 15 s; popover + sidebar share it; Mac only
+• D-704–D-706 only the done bar's fill softened (0.55); glyph/popover/sidebar keep full green
+• D-707–D-711 flag-line isReleasedWhenClosed idiom; per-paste leo-paste-<uuid>/ dir; paste-suite hardening
+Needs you
+• theProbeSurvivesTheSidebarResizingAfterItReported flakes on every full run; B-348's A/B points to pre-existing, its verifier saw 3/6 on lane vs 0/6 on base — unproven either way
+• B-355's real crash was never reproduced; fix removes both trap sites and the temp-dir collision
+• B-338 / B-344 still await "close" or more detail
+Self-filed
+• B-358 bug (from B-349) — Reset-zoom titlebar accessory likely sits low in the toolbar
+• B-359 idea (from B-349) — Update pill in the » overflow menu at narrow widths
+• B-360 idea (from B-349) — Blank "Version:" in the update popover
+• B-361 idea (from B-353) — Activity capsule title truncates, hiding elapsed time
+• B-362 idea (from B-354) — Done bar faint in light mode
+Next up: B-358 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$19.55 est. — B-349 ≈$7.19, B-353 ≈$2.52, B-354 ≈$2.10, B-348 ≈$2.45, B-355 ≈$5.28
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

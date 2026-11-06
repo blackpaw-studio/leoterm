@@ -1,7 +1,7 @@
-Status: running
+Status: finished
 Started: 2026-11-06T17:47:04Z
 Budget: 20 items, until 2026-11-07T05:47:04Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 4/5 ideas
 Self-filed: B-349 → B-358 bug — Reset-zoom titlebar accessory likely sits low in the unified toolbar
 Self-filed: B-349 → B-359 idea — Show the update pill in the toolbar's » overflow menu at narrow widths

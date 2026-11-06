@@ -2644,6 +2644,7 @@ Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set 
 Source: autopilot polish (B-342)
 
 ## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [ready (next run)]
+Issue: #334
 Type: bug
 Report: Reset-zoom titlebar accessory likely sits low in the unified toolbar — `resetZoomAccessory` is a `.right` titlebar accessory like the old update pill was, so it probably misaligns in agent windows (suspected, not checked)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
