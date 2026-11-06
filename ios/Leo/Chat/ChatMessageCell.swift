@@ -296,12 +296,15 @@ final class ChatMessageCell: UICollectionViewCell {
         if attachment.isImage {
             if case .loaded(let url) = file, let image = UIImage(contentsOfFile: url.path())?.preparingThumbnail(of: CGSize(width: 600, height: 600)) {
                 let imageView = UIImageView(image: image)
-                imageView.contentMode = .scaleAspectFit
+                imageView.contentMode = .scaleAspectFill
                 imageView.layer.cornerRadius = 12
                 imageView.clipsToBounds = true
                 imageView.isUserInteractionEnabled = true
-                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: 260).isActive = true
-                let ratio = image.size.height / max(image.size.width, 1)
+                // The shared layout keeps a tall image from squeezing the bubble thin: it crops past 2:1.
+                let size = LeoChatImageLayout.displaySize(for: image.size)
+                imageView.widthAnchor.constraint(greaterThanOrEqualToConstant: size.width).isActive = true
+                imageView.heightAnchor.constraint(lessThanOrEqualToConstant: size.height).isActive = true
+                let ratio = size.height / max(size.width, 1)
                 imageView.heightAnchor.constraint(equalTo: imageView.widthAnchor, multiplier: ratio).withPriority(.defaultHigh).isActive = true
                 imageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageTapped(_:))))
                 imageView.accessibilityLabel = attachment.filename

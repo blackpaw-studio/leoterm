@@ -103,8 +103,11 @@ struct LeoChatImage: View {
     var body: some View {
         Group {
             if let image {
-                Image(nsImage: image).resizable().aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: 260, maxHeight: 260)
+                // The shared layout keeps a tall image from squeezing the bubble thin: it crops past 2:1.
+                let size = LeoChatImageLayout.displaySize(for: image.size)
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
                     .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             } else {
                 RoundedRectangle(cornerRadius: 8).fill(.quaternary).frame(width: 200, height: 120)
