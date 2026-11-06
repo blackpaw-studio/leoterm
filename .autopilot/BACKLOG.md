@@ -2550,30 +2550,36 @@ Inbox: 20261105T133834863366Z-4f2a978a#1
 Question: land on targeted evidence? The fix is test-only (13 files set isReleasedWhenClosed = false; new LeoTestWindowGuardTests scan found 15 offenders before, 0 after, and passes), and the 13 touched suites pass apart from one untouched test that passes alone. Verify failed only because the full Mac suite can't finish on baseline either: LeoRuntimeFileDropTests fails and the host aborts (ContiguousArrayBuffer index out of range, exit 6), filed as B-355. I'd pick: land it as is. Work kept on autopilot-shelved/B-348.
 Answer:
 
-## B-349 · the update badge is weird now with the sidebar   [ready]
+## B-349 · the update badge is weird now with the sidebar   [blocked]
 Issue: #327
 Type: bug
 Report: the update badge is weird now with the sidebar
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T234107409652Z-4eb7588d#1
+Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-349: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict. Work kept on autopilot-shelved/B-349.
+Answer:
 Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
 
-## B-353 · the time elapsed in the bar at the top is not updated frequently…   [ready]
+## B-353 · the time elapsed in the bar at the top is not updated frequently…   [blocked]
 Issue: #331
 Type: bug
 Report: the time elapsed in the bar at the top is not updated frequently enough when it displays seconds. it should update every second but right now it varies like 1-3 seconds so its weird
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261106T015152303110Z-50ee06ee#1
+Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-353: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
+Answer:
 
-## B-354 · this green is way too intense (Image #2)   [ready]
+## B-354 · this green is way too intense (Image #2)   [blocked]
 Issue: #332
 Type: bug
 Report: this green is way too intense [Image #2]
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261106T015521888748Z-4aa922b2#1
+Question: Local `main` is 88 commits behind `origin/main` (8842ad404): the Mac agent toolbar and activity capsule (f43e1c7af and follow-ups) never reached `autopilot`, so this bug's code isn't on the branch. Merging origin/main into autopilot conflicts in LeoAgentRow.swift and LeoRowClickCatcher.swift (B-345's trailingExclusionHeight vs main's bottomExclusion/LeoRowClickRegion). I'd pick: fast-forward local main to origin/main yourself (`git -C ~/.leo/agents/leoterm fetch && git -C ~/.leo/agents/leoterm branch -f main origin/main` or a pull on main), then reply "B-354: retry" — the next preflight merges main into autopilot and a runner resolves the B-345 conflict.
+Answer:
 Attachments: .autopilot/bugs/B-354/leo-paste-20261106-015514-377.png
 
 ## B-346 · Save chat attachments: drag out to Finder and "Download to…"   [ready]
