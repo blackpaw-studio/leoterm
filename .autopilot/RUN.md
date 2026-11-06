@@ -210,6 +210,17 @@ Lane: B-346
   Call: Drag via an AppKit overlay bridge modelled on SurfaceDragSource — Mac-native; safer default, verified in the debug GUI
   Call: Download from the machine fixed at drag/click start, reusing the chat download cache — P3 Local = remote
 
+Lane: B-342
+  Branch: autopilot-lane/B-342
+  Base: d07680fd47552d11addb61ef5d99b2123112d12b
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T06:01:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
