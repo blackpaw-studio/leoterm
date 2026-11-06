@@ -140,6 +140,22 @@ struct AppFeatureChatTests {
         #expect(reads.value == ["01"])
     }
 
+    @Test func aThreadsLoadNeverBadgesTheChatOnScreen() async {
+        // A reconnect's reload can carry the daemon's count from before the
+        // thread's read mark landed.
+        var state = Self.connected()
+        state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
+        state.chat?.isOnScreen = true
+        let store = TestStore(initialState: state) { AppFeature() }
+        let threads = [LeoChatThread(agent: "zeus", unread: 2), LeoChatThread(agent: "hera", unread: 1)]
+
+        await store.send(.chats(.threadsResponse(Self.zeus.daemonID, .success(threads)))) {
+            $0.chats.threads[Self.zeus.daemonID] = IdentifiedArray(uniqueElements: threads)
+            $0.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "hera", unread: 1)], host: .remote(Self.zeus.daemonID))
+        }
+        #expect(store.state.chats.unreadTotal == 1)
+    }
+
     @Test func aMessageForAnotherThreadCountsAsUnread() async {
         var state = Self.connected()
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
