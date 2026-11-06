@@ -103,8 +103,8 @@ struct LeoChatImage: View {
     var body: some View {
         Group {
             if let image {
-                // The shared layout keeps a tall image from squeezing the bubble thin: it crops past 2:1.
-                let size = LeoChatImageLayout.displaySize(for: image.size)
+                // The shared layout keeps a tall image from squeezing the bubble thin: it crops past 2:1 and is at least readable wide.
+                let size = LeoChatImageLayout.frameSize(for: image.size)
                 Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
                     .frame(width: size.width, height: size.height)
                     .clipped()
