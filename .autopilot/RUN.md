@@ -47,6 +47,17 @@ Lane: B-349
   Call: Pill width is measured (fittingSize + 10, 200 fallback) and re-measured on every state change
   Call: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoAgentToolbar.hidesItemsInPlace test seam
 
+Lane: B-353
+  Branch: autopilot-lane/B-353
+  Base: 6febf7a1a55c82d5cb525a1ae72198593b1151d4
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-06T18:57:33Z
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 
 Progress:
