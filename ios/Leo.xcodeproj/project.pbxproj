@@ -31,6 +31,7 @@
 		4A17426C8214D9DDEFD25D26 /* ConfigItemViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */; };
 		4A70B7218DD15E34171BB0B2 /* TaskScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */; };
 		4F2A4BB3AA8CBE3BA1F79B5F /* AgentsSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */; };
+		505C3961A5D43DB0621E0ADE /* ChatOnScreenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78B5106878B48CE319D76193 /* ChatOnScreenTests.swift */; };
 		52267BE6F859097A09775A73 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 02FB66C3DAF86096FDC01F27 /* LeoKit */; };
 		52AF27E75BC9A3FA5D427A81 /* LeoAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */; };
 		54AACE07CCCE7DDA96ABD6F8 /* SettingsFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DF3E4D91083291F99E925A1 /* SettingsFixture.swift */; };
@@ -187,6 +188,7 @@
 		6E33C69E01DC3265B930EAB6 /* MachinesFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesFixture.swift; sourceTree = "<group>"; };
 		6FE85C9DD0A3B8FC29B35A3E /* MachinesListTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesListTests.swift; sourceTree = "<group>"; };
 		71B44191ECF376EEECB29058 /* DialogAnchors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DialogAnchors.swift; sourceTree = "<group>"; };
+		78B5106878B48CE319D76193 /* ChatOnScreenTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatOnScreenTests.swift; sourceTree = "<group>"; };
 		79366C4E5F3E01AFDCC19AA8 /* NameEntryViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NameEntryViewController.swift; sourceTree = "<group>"; };
 		7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoHistoryBackBarButtonItem.swift; sourceTree = "<group>"; };
 		7DF3E4D91083291F99E925A1 /* SettingsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixture.swift; sourceTree = "<group>"; };
@@ -348,6 +350,7 @@
 			children = (
 				A1EA4EF66046A17E93D84449 /* AgentContextMenuTests.swift */,
 				E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */,
+				78B5106878B48CE319D76193 /* ChatOnScreenTests.swift */,
 				22A905AA871540E60BA88896 /* ConfigEditorNavigationTests.swift */,
 				3D066856306A48A2C49D8EB4 /* ConfigGolden.swift */,
 				2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */,
@@ -718,6 +721,7 @@
 			files = (
 				F5E3C42B16983822B7EE13C1 /* AgentContextMenuTests.swift in Sources */,
 				EF4A0166AFD67220A7139538 /* AgentPresentationTests.swift in Sources */,
+				505C3961A5D43DB0621E0ADE /* ChatOnScreenTests.swift in Sources */,
 				9EE030FDA72503DABA19F046 /* ConfigEditorNavigationTests.swift in Sources */,
 				22CFEEF91B2AC9283F168F37 /* ConfigGolden.swift in Sources */,
 				8EA25F32175AB6CB49437F95 /* DialogAnchorTests.swift in Sources */,

@@ -134,14 +134,6 @@ public struct AppFeature {
                     state.chat = nil
                     return closing
 
-                case .chats(.threadsResponse(_, .success)):
-                    // The daemon's count can predate the thread's read mark;
-                    // the chat being looked at never badges.
-                    if let ref = state.chat?.ref, state.isChatOnScreen(ref) {
-                        state.chats.unreadCounts = state.chats.unreadCounts.clearing(ref.leoAgentID)
-                    }
-                    return .none
-
                 case .chatsEntryAppeared:
                     guard !state.chats.isActive else { return .none }
                     state.chats.isActive = true
@@ -294,6 +286,7 @@ public struct AppFeature {
                 state.syncAppearance()
                 state.syncChat()
                 state.decideChatFilter()
+                state.clearViewedChatUnread()
                 return .merge(opening, state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
             }
         }
