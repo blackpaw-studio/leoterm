@@ -2,12 +2,13 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 10
-Filed: 1/3 bugs, 3/5 ideas
+Filed: 1/3 bugs, 4/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Self-filed: B-340 → B-351 idea — Show the full move error without hovering
 Self-filed: B-340 → B-352 idea — Word job failures plainly instead of "<code>: " prefixes
 Self-filed: B-347 → dropped (dup of B-312) — Add an iOS simulator GUI recipe to verify.md
 Self-filed: B-348 → B-355 bug — LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs
+Self-filed: B-346 → B-356 idea — First click on a chat attachment in an inactive window should only activate it
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -194,12 +195,19 @@ Lane: B-346
   Branch: autopilot-lane/B-346
   Base: a8c9bc0929d2241462166d6a7f3195aa53e8bee6
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 5ff47c5601110de9ffe94de06b56bbaa84a7a24a
   Dispatched: 2026-11-06T05:36:00Z
+  Call: Mac only; iOS is Out and has its own share sheet — Mac/iOS parity rule
+  Call: A drop onto a taken name keeps both (reuses B-279); Download to… replaces only after the save panel confirms — Agent-decides UX
+  Call: "Download to…" sits under a divider in both the image and file-chip context menus — Mac-native HIG
+  Call: The save panel leaves directoryURL unset (system remembers the last folder) — Agent-decides UX
+  Call: The drag image is the scaled image, or the file icon for chips — Agent-decides UX
+  Call: Drag via an AppKit overlay bridge modelled on SurfaceDragSource — Mac-native; safer default, verified in the debug GUI
+  Call: Download from the machine fixed at drag/click start, reusing the chat download cache — P3 Local = remote
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
