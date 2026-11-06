@@ -1203,6 +1203,9 @@ class BaseTerminalController: NSWindowController,
             return true
         }
 
+        // The toolbar carries the pill, not the overlay.
+        if window.showsUpdateInToolbar { return false }
+
         // Show the overlay if the window isn't.
         return !window.supportsUpdateAccessory
     }

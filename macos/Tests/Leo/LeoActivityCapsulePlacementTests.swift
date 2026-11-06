@@ -74,4 +74,14 @@ struct LeoActivityCapsulePlacementTests {
             }
         }
     }
+
+    @Test func sideBySideThePillsReserveIsTakenFromTheTerminalColumn() {
+        let terminalWidth: CGFloat = 1400 - 448 - LeoChatLayout.dividerWidth - 220
+        let plain = placement(window: 1400, sidebar: 220, chatWidth: 448)
+        let withPill = Sizing.placement(
+            windowWidth: 1400, sidebarWidth: 220, chatLeadingEdge: 1400 - 448, leadingChrome: 0, trailingReserve: 200)
+
+        #expect(withPill.layout == Sizing.layout(availableToolbarWidth: terminalWidth, leadingChrome: 0, trailingReserve: 200))
+        #expect(withPill.width < plain.width)
+    }
 }

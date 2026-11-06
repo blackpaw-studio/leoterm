@@ -19,6 +19,11 @@ final class LeoAgentTerminalWindow: TerminalWindow {
     private var contentLayoutObservation: NSKeyValueObservation?
     private var fullScreenObservers: [NSObjectProtocol] = []
 
+    /// B-349: the pill is a toolbar item here (`LeoAgentToolbar`); a titlebar
+    /// accessory hangs under the unified toolbar, off its row.
+    override var supportsUpdateAccessory: Bool { false }
+    override var showsUpdateInToolbar: Bool { true }
+
     override func awakeFromNib() {
         super.awakeFromNib()
         styleMask.insert(.fullSizeContentView)
