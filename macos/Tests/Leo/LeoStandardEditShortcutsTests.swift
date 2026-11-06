@@ -6,6 +6,8 @@ import Testing
 /// B-318, B-325: Edit ▸ Copy and Paste keep ⌘C and ⌘V although Ghostty's
 /// default bindings for them are `performable`, which its reverse lookup (the
 /// menu sync's source) leaves out.
+/// B-334: but only while the key is bound to that same action; a rebind to
+/// another action (or a sequence leader) leaves the menu item without the key.
 @MainActor
 struct LeoStandardEditShortcutsTests {
     private func syncedCopyItem(config text: String) throws -> NSMenuItem {
@@ -58,6 +60,20 @@ struct LeoStandardEditShortcutsTests {
 
         #expect(item.keyEquivalent.isEmpty)
         #expect(item.keyEquivalentModifierMask.isEmpty)
+    }
+
+    @Test func aCommandVSequenceLeaderLeavesPasteWithoutAShortcut() throws {
+        let item = try syncedPasteItem(config: "keybind = super+v>x=new_window")
+
+        #expect(item.keyEquivalent.isEmpty)
+        #expect(item.keyEquivalentModifierMask.isEmpty)
+    }
+
+    @Test func aPerformableCopyWithAFormatParameterKeepsCommandC() throws {
+        let item = try syncedCopyItem(config: "keybind = performable:super+c=copy_to_clipboard:plain")
+
+        #expect(item.keyEquivalent == "c")
+        #expect(item.keyEquivalentModifierMask == .command)
     }
 
     @Test func pasteShowsCommandVWithTheDefaultConfig() throws {
