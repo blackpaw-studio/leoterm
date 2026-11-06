@@ -28,6 +28,7 @@ enum LeoStandardEditShortcut {
     /// still binds that key to `action`; false when there is none to give (an
     /// `unbind` hands the key to the terminal program, and a rebind to another
     /// action gives it to that action, so the menu must not take it either).
+    /// Mac only (B-334): iOS has no Edit-menu key equivalents.
     @MainActor static func apply(_ config: Ghostty.Config, action: String?, to item: NSMenuItem) -> Bool {
         guard let action, let shortcut = shortcuts[action], isBound(shortcut, to: action, in: config) else { return false }
         item.keyEquivalent = String(shortcut.key)
