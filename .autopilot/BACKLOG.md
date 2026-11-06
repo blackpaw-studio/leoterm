@@ -2632,3 +2632,18 @@ Source: autopilot polish (B-346)
 ## B-357 · Hide the status bar in the iOS image viewer   [idea]
 Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
 Source: autopilot polish (B-342)
+
+## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [ready (next run)]
+Type: bug
+Report: Reset-zoom titlebar accessory likely sits low in the unified toolbar — `resetZoomAccessory` is a `.right` titlebar accessory like the old update pill was, so it probably misaligns in agent windows (suspected, not checked)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-349)
+
+## B-359 · Show the update pill in the toolbar's » overflow menu at narrow widths   [idea]
+Note: at ≤640 pt the pill drops out and isn't in the overflow menu, so a narrow window has no visible update entry point (app menu still works) — P2
+Source: autopilot polish (B-349)
+
+## B-360 · Update popover shows a blank "Version:" line   [idea]
+Note: seen under the debug update fixture; probably a fixture artifact, worth confirming with a real appcast — P1 polish
+Source: autopilot polish (B-349)
+
