@@ -2551,3 +2551,7 @@ Accept: tapping any image in a multi-image message opens a full-screen viewer at
 Out: paging across different messages; Mac chat; image editing or saving changes; video.
 Source: owner (/feature, 2026-11-05)
 Inbox: 20261104T122151614541Z-47a1c3a1#1
+
+## B-350 · Edit menu ignores key-table rebinds of ⌘C/⌘V   [idea]
+Note: B-334 review: key tables aren't consulted, so Edit ▸ Copy/Paste can still show ⌘C/⌘V while a key table rebinds them (Keyboard-first: no shortcut beats a wrong one)
+Source: autopilot polish (B-334)

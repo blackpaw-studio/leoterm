@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -31,15 +32,16 @@ Lane: B-334
   Branch: autopilot-lane/B-334
   Base: c18a40f8e34f237f97655f7bb0da70ad7f7ef7c4
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: 3d2b0d723
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: c75a2c155778eaae1e1e9e79f22fe44aabc156a0
   Dispatched: 2026-11-05T23:56:00Z
   Tokens: 3.26M in (3.05M cache read), ≥22.5k out, 41 requests
   Call: Keep the minimal Zig C export `ghostty_config_key_is_binding_for_action` instead of a Swift-only workaround — AUTONOMY (Zig minimal) + VISION (menu keys reflect real keybinds)
   Call: Treat chained and leader bindings as "not this action" — VISION (no shortcut beats a wrong or shared one)
+  Call: Mac only: iOS has no Edit-menu key equivalents — Mac/iOS parity rule
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
