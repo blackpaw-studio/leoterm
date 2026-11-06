@@ -2615,6 +2615,7 @@ Note: B-340 review: other agent-move job failures still show a "<code>: " prefix
 Source: autopilot polish (B-340)
 
 ## B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host   [ready (next run)]
+Issue: #333
 Type: bug
 Report: LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs — the remote image paste test and aSecondPasteReusesTheExistingScratchDirectory fail, then the host dies with ContiguousArrayBuffer.swift:695 Index out of range (exit 6), so ~1800 later tests report failed and a red full suite hides real regressions. Seen on autopilot 77d35ab95 (B-348 verify, 2026-11-06); the paste file name carries a 2026-11-01 timestamp, so it may be date-dependent. Earlier full runs that evening (B-345, B-347) were green.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
