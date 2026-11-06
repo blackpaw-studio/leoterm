@@ -315,6 +315,8 @@ final class ChatMessageCell: UICollectionViewCell {
                 imageView.heightAnchor.constraint(equalToConstant: frame.height).isActive = true
                 imageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(imageTapped(_:))))
                 imageView.accessibilityLabel = attachment.filename
+                imageView.accessibilityIdentifier = "chat.image.\(attachment.id)"
+                imageView.accessibilityTraits = [.image, .button]
                 imageView.isAccessibilityElement = true
                 tappedAttachments[ObjectIdentifier(imageView)] = attachment
                 return imageView

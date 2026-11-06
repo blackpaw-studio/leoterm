@@ -54,6 +54,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private var pin = ChatScrollPin()
     private var isCorrectingScroll = false
     private var wasSending = false
+    /// The full-screen image viewer, while one is up.
+    private weak var imageViewer: ChatImageViewerController?
 
     init(store: StoreOf<ChatThread>) {
         self.store = store
@@ -229,6 +231,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             voice.toggle(id: id, url: url)
         }
         renderEmptyState()
+        imageViewer?.refresh()
     }
 
     // MARK: Terminal strip
@@ -434,7 +437,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             if event.settlesCard { settleReveal.acted(on: message.id) }
             event.questionsAction(messageID: message.id).map { store.send($0) }
         case .openAttachment(let attachment):
-            open(attachment)
+            open(attachment, in: message)
         case .playVoice(let attachment):
             if case .loaded(let url) = store.attachmentFiles[attachment.id] {
                 voice.toggle(id: attachment.id, url: url)
@@ -446,6 +449,19 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             store.send(.replyTapped(message.id))
             composer.focus()
         }
+    }
+
+    private func open(_ attachment: LeoChatAttachment, in message: LeoChatMessage) {
+        guard let gallery = LeoChatImageGallery(message: message, tappedID: attachment.id) else {
+            open(attachment)
+            return
+        }
+        // An image that hasn't loaded opens too: the viewer asks for it and shows it loading, or why it failed.
+        imageViewer = ChatImageViewerController.present(
+            from: self, gallery: gallery,
+            file: { [weak self] id in self?.store.attachmentFiles[id] ?? .loading },
+            need: { [weak self] in self?.store.send(.attachmentNeeded($0)) }
+        )
     }
 
     private func open(_ attachment: LeoChatAttachment) {
