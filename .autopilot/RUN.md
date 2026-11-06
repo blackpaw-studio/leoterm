@@ -59,4 +59,4 @@ Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
 - B-334 runner: leo dispatch d-1bd4c6d2f725 (implement, pane %250).
 - B-334 landed e54d3a530 (review general full; verify pass; 4014 tests green). Self-filed B-350 idea.
-- B-338 runner dispatched (light, iOS only).
+- B-338 runner: leo dispatch d-1ec0acf6fe5c (implement, pane %255), light, iOS only.
