@@ -2548,6 +2548,7 @@ Inbox: 20261105T234107409652Z-4eb7588d#1
 Attachments: .autopilot/bugs/B-349/leo-paste-20261105-234102-017.png
 
 ## B-353 · the time elapsed in the bar at the top is not updated frequently…   [ready]
+Issue: #331
 Type: bug
 Report: the time elapsed in the bar at the top is not updated frequently enough when it displays seconds. it should update every second but right now it varies like 1-3 seconds so its weird
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2555,6 +2556,7 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261106T015152303110Z-50ee06ee#1
 
 ## B-354 · this green is way too intense (Image #2)   [ready]
+Issue: #332
 Type: bug
 Report: this green is way too intense [Image #2]
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
