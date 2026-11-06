@@ -61,4 +61,17 @@ struct LeoActivityCapsuleSizingTests {
         #expect(!layout.showsMoreItem)
         #expect(layout.width == Sizing.minimumWidth)
     }
+
+    @Test func theUpdateItemsWidthIsTakenFromBothSidesOfTheCentredCapsule() {
+        let layout = Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0, trailingReserve: 200)
+
+        // Centred: what sits right of the capsule (beside "⋯") is also taken from its left.
+        #expect(layout.width == 700 - 2 * (Sizing.moreSideReserve + 200))
+        #expect(layout.showsMoreItem)
+    }
+
+    @Test func noUpdateItemLeavesTheLayoutUnchanged() {
+        #expect(Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0, trailingReserve: 0)
+            == Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0))
+    }
 }

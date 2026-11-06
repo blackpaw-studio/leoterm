@@ -51,6 +51,10 @@ class TerminalWindow: NSWindow {
         true
     }
 
+    /// Whether this window's own toolbar carries the update pill, so neither
+    /// the titlebar accessory nor the corner overlay should.
+    var showsUpdateInToolbar: Bool { false }
+
     /// Glass effect view for liquid glass background when transparency is enabled
     private var glassEffectView: NSView?
 

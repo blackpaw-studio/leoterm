@@ -92,4 +92,22 @@ struct LeoAgentToolbarActivityTests {
 
         #expect(container.frame.width == fixture.capsule.frame.width, "\(container.frame) \(fixture.capsule.frame)")
     }
+
+    @Test func theUpdateItemShowsOnlyWhileAnUpdateStateIsShowing() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.window.close() }
+        fixture.window.orderFrontRegardless()
+        let visibility = PassthroughSubject<Bool, Never>()
+        fixture.toolbar.bind(updateVisible: visibility)
+        await fixture.settle()
+        let item = try #require(fixture.window.toolbar?.items.first { $0.itemIdentifier == .leoUpdate })
+
+        #expect(item.isHidden)
+        visibility.send(true)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!item.isHidden)
+        visibility.send(false)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(item.isHidden)
+    }
 }

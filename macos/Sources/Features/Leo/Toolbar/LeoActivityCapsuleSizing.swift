@@ -18,6 +18,10 @@ enum LeoActivityCapsuleSizing {
     static let titleSideReserve: CGFloat = 100
     static let moreSideReserve: CGFloat = 56
     static let bareSideReserve: CGFloat = 16
+    /// What the update pill (with its toolbar spacing) takes right of the
+    /// capsule while an update state shows: its widest text, "Update
+    /// Available: 0.00.0", is about 190 pt.
+    static let updateItemReserve: CGFloat = 220
     /// The traffic lights and the sidebar toggle, from the window's left
     /// edge, while the sidebar is collapsed.
     static let collapsedSidebarChrome: CGFloat = 140
@@ -46,16 +50,17 @@ enum LeoActivityCapsuleSizing {
     ]
 
     /// `leadingChrome` is what sits left of the title inside the region
-    /// (`collapsedSidebarChrome` or 0).
-    static func layout(availableToolbarWidth: CGFloat, leadingChrome: CGFloat) -> Layout {
+    /// (`collapsedSidebarChrome` or 0); `trailingReserve` is what sits right
+    /// of the capsule beyond the "⋯" item (`updateItemReserve` or 0).
+    static func layout(availableToolbarWidth: CGFloat, leadingChrome: CGFloat, trailingReserve: CGFloat = 0) -> Layout {
         func layout(_ tier: Tier) -> Layout {
-            let side = max(leadingChrome + tier.leftReserve, tier.rightReserve)
+            let side = max(leadingChrome + tier.leftReserve, tier.rightReserve + trailingReserve)
             return Layout(
                 width: min(LeoActivityCapsulePresentation.maxWidth, max(minimumWidth, availableToolbarWidth - 2 * side)),
                 showsSubtitle: tier.showsSubtitle, showsTitle: tier.showsTitle, showsMoreItem: tier.showsMoreItem)
         }
         func fits(_ tier: Tier) -> Bool {
-            availableToolbarWidth - 2 * max(leadingChrome + tier.leftReserve, tier.rightReserve) >= minimumWidth
+            availableToolbarWidth - 2 * max(leadingChrome + tier.leftReserve, tier.rightReserve + trailingReserve) >= minimumWidth
         }
         return layout(tiers.first(where: fits) ?? tiers[tiers.count - 1])
     }

@@ -124,6 +124,11 @@ extension TerminalController {
             host.sizingOptions = []
             return host
         }
+        let updateModel = (NSApp.delegate as? AppDelegate)?.updateViewModel
+        window.leoToolbar.makeUpdateView = {
+            guard let updateModel else { return NSView() }
+            return NonDraggableHostingView(rootView: UpdatePill(model: updateModel))
+        }
         let chat = leoRuntime.chat
         let toolbarMenu = LeoAgentToolbarMenu(
             mainMenu: { NSApp.mainMenu },
@@ -136,6 +141,9 @@ extension TerminalController {
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
         window.leoToolbar.bind(sideBySideChatWidth: leoSession.$sideBySideChatWidth)
+        if let updateModel {
+            window.leoToolbar.bind(updateVisible: updateModel.$state.map { !$0.isHidden })
+        }
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.

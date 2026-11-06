@@ -5,6 +5,7 @@ extension NSToolbarItem.Identifier {
     static let leoSidebarToggle = NSToolbarItem.Identifier("leo.toolbar.sidebarToggle")
     static let leoSplitSeparator = NSToolbarItem.Identifier("leo.toolbar.splitSeparator")
     static let leoActivity = NSToolbarItem.Identifier("leo.toolbar.activity")
+    static let leoUpdate = NSToolbarItem.Identifier("leo.toolbar.update")
     static let leoMore = NSToolbarItem.Identifier("leo.toolbar.more")
 }
 
@@ -20,7 +21,7 @@ extension NSToolbarItem.Identifier {
 final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// The items in order once the split has been handed over.
     static let itemOrder: [NSToolbarItem.Identifier] = [
-        .leoSidebarToggle, .leoSplitSeparator, .flexibleSpace, .leoActivity, .flexibleSpace, .leoMore,
+        .leoSidebarToggle, .leoSplitSeparator, .flexibleSpace, .leoActivity, .flexibleSpace, .leoUpdate, .leoMore,
     ]
     /// Toolbars with one identifier are a family: AppKit mirrors item
     /// inserts across them. Each window's separator binds to its own split
@@ -32,6 +33,9 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// Builds the capsule's view when the toolbar asks for the item (set
     /// before `install`).
     var makeActivityView: () -> NSView = { NSView() }
+    /// Builds the update pill's view when the toolbar asks for the item (set
+    /// before `install`).
+    var makeUpdateView: () -> NSView = { NSView() }
     /// The "⋯" item's menu (set before `install`).
     var moreMenu = NSMenu()
     /// Keeps the menu's controller alive: an `NSMenu` holds its delegate weakly.
@@ -48,6 +52,8 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private(set) var showsSubtitle = true
     var onSubtitleVisibilityChange: () -> Void = {}
     private weak var moreItem: NSToolbarItem?
+    private weak var updateItem: NSToolbarItem?
+    private var isUpdateShowing = false
     private var showsMoreItem = true
     private var isSidebarToggleHidden = true
     private var sideBySideChatWidth: CGFloat = 0
@@ -93,6 +99,18 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }.store(in: &subscriptions)
     }
 
+    /// Keeps the update pill's item in the toolbar exactly while an update
+    /// state is showing, and the capsule clear of it.
+    @MainActor
+    func bind(updateVisible: some Publisher<Bool, Never>) {
+        updateVisible.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isVisible in
+            guard let self else { return }
+            isUpdateShowing = isVisible
+            updateActivityWidth()
+            if #available(macOS 15.0, *) { updateItem?.isHidden = !isVisible } else { syncItemPresence() }
+        }.store(in: &subscriptions)
+    }
+
     /// The split view is in the window: the tracking separator can join.
     @MainActor
     func attach(splitView: NSSplitView) {
@@ -116,6 +134,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         if #available(macOS 15.0, *) { return true }
         switch identifier {
         case .leoSidebarToggle: return !isSidebarToggleHidden
+        case .leoUpdate: return isUpdateShowing
         case .leoMore: return showsMoreItem
         default: return true
         }
@@ -126,6 +145,9 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private func syncItemPresence() {
         guard let toolbar else { return }
         setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
+        setPresence(of: .leoUpdate, isUpdateShowing, in: toolbar) { toolbar in
+            toolbar.items.firstIndex { $0.itemIdentifier == .leoMore } ?? toolbar.items.count
+        }
         setPresence(of: .leoMore, showsMoreItem, in: toolbar) { $0.items.count }
     }
 
@@ -151,6 +173,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         case .leoSidebarToggle: makeSidebarToggle()
         case .leoSplitSeparator: splitView.map { NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: $0, dividerIndex: 0) }
         case .leoActivity: makeActivityItem()
+        case .leoUpdate: makeUpdateItem()
         case .leoMore: makeMorePlaceholder()
         default: nil
         }
@@ -214,7 +237,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
         let placement = LeoActivityCapsuleSizing.placement(
             windowWidth: window.frame.width, sidebarWidth: sidebar, chatLeadingEdge: chatLeadingEdge(in: window),
-            leadingChrome: leadingChrome)
+            leadingChrome: leadingChrome, trailingReserve: isUpdateShowing ? LeoActivityCapsuleSizing.updateItemReserve : 0)
         let layout = placement.layout
         let width = layout.width
         let containerWidth = width + placement.trailingPad
@@ -248,6 +271,20 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
             layoutObservers.append(
                 center.addObserver(forName: NSSplitView.didResizeSubviewsNotification, object: splitView, queue: .main, using: update))
         }
+    }
+
+    /// The update pill, left of "⋯". It sizes itself (the pill's text is
+    /// fixed-width per state) and is hidden while no update state shows.
+    private func makeUpdateItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoUpdate)
+        item.view = makeUpdateView()
+        // The pill draws its own capsule.
+        item.isBordered = false
+        item.visibilityPriority = .high
+        item.label = "Update"
+        if #available(macOS 15.0, *) { item.isHidden = !isUpdateShowing }
+        updateItem = item
+        return item
     }
 
     private func makeMorePlaceholder() -> NSToolbarItem {

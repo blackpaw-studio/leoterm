@@ -46,6 +46,24 @@ struct LeoSidebarTitlebarStyleTests {
         #expect(fixture.window.toolbarStyle == .unified, "\(style)")
     }
 
+    /// B-349: the update pill used to hang in a titlebar accessory under the
+    /// unified toolbar, off its row; it is a toolbar item now, and neither
+    /// the accessory nor the corner overlay shows a second copy.
+    @Test(arguments: TitlebarStyle.allCases)
+    func theUpdatePillIsAToolbarItemNotATitlebarAccessory(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
+        defer { fixture.close() }
+        let window = try #require(fixture.window as? TerminalWindow)
+
+        let accessories = window.titlebarAccessoryViewControllers.filter {
+            $0.view is NonDraggableHostingView<TerminalWindow.UpdateAccessoryView>
+        }
+        #expect(accessories.isEmpty, "\(style): the update pill is still a titlebar accessory")
+        #expect(!fixture.controller.updateOverlayIsVisible, "\(style): the update pill also shows as a corner overlay")
+        let identifiers = fixture.window.toolbar?.items.map(\.itemIdentifier) ?? []
+        #expect(identifiers.contains(.leoUpdate), "\(style): \(identifiers.map(\.rawValue))")
+    }
+
     @Test(arguments: TitlebarStyle.allCases)
     func allThreeWindowButtonsAreVisible(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
