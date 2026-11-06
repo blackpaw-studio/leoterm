@@ -2,13 +2,16 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 10
-Filed: 1/3 bugs, 4/5 ideas
+Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Self-filed: B-340 → B-351 idea — Show the full move error without hovering
 Self-filed: B-340 → B-352 idea — Word job failures plainly instead of "<code>: " prefixes
 Self-filed: B-347 → dropped (dup of B-312) — Add an iOS simulator GUI recipe to verify.md
 Self-filed: B-348 → B-355 bug — LeoRuntimeFileDropTests fails and aborts the Mac test host in full-suite runs
 Self-filed: B-346 → B-356 idea — First click on a chat attachment in an inactive window should only activate it
+Self-filed: B-342 → B-357 idea — Hide the status bar in the iOS image viewer
+Self-filed: B-342 → dropped (over cap) — Exact min-zoom check before relayout in the image viewer
+Self-filed: B-342 → dropped (over cap) — Keep a diagonal drag from paging and dismissing at once
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -214,12 +217,19 @@ Lane: B-342
   Branch: autopilot-lane/B-342
   Base: d07680fd47552d11addb61ef5d99b2123112d12b
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3451bd0d5aff46b4059032fd27b23162cd5253de
   Dispatched: 2026-11-06T06:01:00Z
+  Call: iOS only; the gallery helper lives in LeoKit so Mac can reuse it later — Out; shared logic in LeoKit (AGENTS.md)
+  Call: Paging UIPageViewController with pinch/double-tap zoom, drag-down dismiss, close button and an "N of M" label — Mobile-first, native UX
+  Call: Present .overFullScreen so the chat stays "viewing" while the viewer is up — D-676/D-677
+  Call: The viewer shows the full uncropped original, aspect-fit — D-671–D-673
+  Call: "of N" counts only the message's images; non-image files keep Quick Look — Agent-decides UX
+  Call: Not-yet-loaded or failed images open the viewer with a spinner or a reason plus Try Again, replacing the "Couldn't Open" alert for images — Calm; agent-decides UX
+  Call: Decode with ImageIO, longest side capped at 4096 px — Memory bound
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked

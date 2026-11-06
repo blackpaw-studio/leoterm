@@ -2621,3 +2621,7 @@ Source: autopilot bug (B-348)
 ## B-356 · First click on a chat attachment in an inactive window should only activate it   [idea]
 Note: B-346 review: image/file-chip attachments now accept first mouse, so a first click into an inactive window opens the attachment instead of just activating the window (Mac-native)
 Source: autopilot polish (B-346)
+
+## B-357 · Hide the status bar in the iOS image viewer   [idea]
+Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
+Source: autopilot polish (B-342)
