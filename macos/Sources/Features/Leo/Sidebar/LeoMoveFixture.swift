@@ -8,7 +8,9 @@ import LeoKit
 /// move, copy and duplicate flows can be screenshotted without a real
 /// daemon or real agents: a moved agent's dormant row, a move refused
 /// mid-turn (`busy-agent`, until Force), and a duplicate that appears as a
-/// new row once the "daemon" reports it.
+/// new row once the "daemon" reports it. `stale-agent` is a stopped agent
+/// whose resume transcript is gone: its move or copy fails at once with
+/// `session_missing`.
 @MainActor final class LeoMoveFixture {
     static let environmentKey = "LEO_MOVE_FIXTURE"
     private static let nas = LeoHostID.remote("nas")
@@ -77,10 +79,11 @@ import LeoKit
         let live = ["alpha", "busy-agent"].filter { movedAway[$0] == nil }
             .map { row($0, activity: $0 == "busy-agent" ? .working : .idle, action: $0 == "busy-agent" ? "Editing LeoSidebarView.swift" : nil) }
         let copied = copies.map { row($0) }
+        let stale = [row("stale-agent", status: .stopped)]
         let moved = movedAway.sorted { $0.key < $1.key }.map { name, host in
             row(name, status: .stopped, movedTo: host, movedAt: name == "old-agent" ? Self.movedAt : "2026-10-28T15:55:00Z")
         }
-        return live + copied + moved
+        return live + copied + stale + moved
     }
 
     private var remote: [LeoAgentRow] { onNAS.map { row($0, host: Self.nas) } }
@@ -124,18 +127,27 @@ actor LeoMoveFixtureDaemon: LeoDaemonClient {
 
     func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob {
         let isBusy = name == "busy-agent" && request.mode == .move && !request.force
+        let isStale = name == "stale-agent"
         let id = "mv-\(jobs.count + 1)"
         let mode = request.mode.rawValue
         let to = request.to.map { #","to":"\#($0)""# } ?? ""
-        let failure = #","error":{"code":"agent_busy","message":"agent is mid-turn; pass --force"}"#
-        jobs[id] = #"{"id":"\#(id)","request":{"mode":"\#(mode)"\#(to)},"state":"\#(isBusy ? "failed" : "done")"\#(isBusy ? failure : "")}"#
-        if !isBusy, let world { await MainActor.run { world.apply(request, to: name) } }
+        let failure = isStale ? Self.sessionMissingFailure(name) : #","error":{"code":"agent_busy","message":"agent is mid-turn; pass --force"}"#
+        let fails = isBusy || isStale
+        jobs[id] = #"{"id":"\#(id)","request":{"mode":"\#(mode)"\#(to)},"state":"\#(fails ? "failed" : "done")"\#(fails ? failure : "")}"#
+        if !fails, let world { await MainActor.run { world.apply(request, to: name) } }
         return try Self.decode(#"{"id":"\#(id)","request":{"mode":"\#(mode)"\#(to)},"state":"running"}"#)
     }
 
     func moveJob(id: String) async throws -> LeoMoveJob {
         guard let json = jobs[id] else { throw LeoDaemonError.daemon(code: "not_found", message: "no such move job", matches: []) }
         return try Self.decode(json)
+    }
+
+    /// The daemon's own shape: the error message is code-prefixed, and the
+    /// problem carries the bare text, path and session id included.
+    private static func sessionMissingFailure(_ name: String) -> String {
+        let text = "\(name)'s session 8513c333-e795-45a7-bc3f-596b9a1fc19f has no transcript (looked for /Users/evan/.claude/projects/-Users-evan--leo-agents-\(name)/8513c333-e795-45a7-bc3f-596b9a1fc19f.jsonl); there is nothing to resume, so it was not moved"
+        return #","error":{"code":"session_missing","message":"session_missing: \#(text)"},"problems":[{"code":"session_missing","message":"\#(text)"}]"#
     }
 
     private static func decode(_ json: String) throws -> LeoMoveJob {

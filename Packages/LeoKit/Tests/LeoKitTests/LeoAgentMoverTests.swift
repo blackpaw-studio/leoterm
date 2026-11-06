@@ -34,6 +34,22 @@ struct LeoAgentMoverTests {
         #expect(outcome == .refused(code: "agent_busy", message: "This agent is in the middle of a turn.", offersForce: true))
     }
 
+    @Test func aMissingTranscriptIsRefusedWithAClearMessageAndNoForce() async throws {
+        let daemonText = "widgeon's session 8513c333 has no transcript (looked for /Users/evan/.claude/projects/x); there is nothing to resume, so it was not moved"
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .success(Self.job("failed", extra: """
+            ,"error":{"code":"session_missing","message":"session_missing: \(daemonText)"},
+            "problems":[{"code":"session_missing","message":"\(daemonText)"}]
+            """)),
+        ])
+        let outcome = try await mover(client).run("widgeon", .move(to: "nas"))
+        #expect(outcome == .refused(
+            code: "session_missing",
+            message: "This agent's previous session is no longer on disk, so there is nothing to resume. Nothing was moved.",
+            offersForce: false
+        ))
+    }
+
     @Test func aBusyCopyOffersNoForce() async throws {
         let client = ScriptedMoveClient(start: .success(Self.job("running", mode: "copy")), polls: [
             .success(Self.job("failed", mode: "copy", extra: #","error":{"code":"agent_busy","message":"busy"}"#)),
