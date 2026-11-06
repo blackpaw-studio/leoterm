@@ -107,6 +107,17 @@ Lane: B-341
   Call: Run after `restartIfUpdated()` and before `ensureWebAPI()`, no restart of its own (daemon reads leo.yaml per dispatch) — D-657
   Call: Mac only — Mac/iOS parity rule (D-659)
 
+Lane: B-343
+  Branch: autopilot-lane/B-343
+  Base: 545e7bffd97eeceacf1c018e91bae6cfa0d08fb1
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T02:45:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -127,3 +138,4 @@ Progress:
 - leo agent reply (leo v0.75.0): B-339 managed first-start config now seeds loopback web (existing configs untouched; keep app workaround). B-340 contract: field/MCP param `fresh_session`, CLI `--fresh-session`, /state feature `agent_move_fresh_session`; missing transcript → synchronous 409 code `session_missing`; refused-start messages no longer carry a `code:` prefix (bears on B-352). Fresh copy only when both hosts advertise the feature. Follow-up for owner: Mac/iOS "Move with a fresh session" offer (not self-filed; owner to /feature).
 - B-341 landed abe7021d4 (implement.hard; concurrency review; 4042 green on 2nd run, 2 unrelated failures at load 50-130 on 1st). Sent leo agent the managed placement default + config setter request. Runner note: shared GhosttyKit.xcframework predates B-334 export and needs rebuilding.
 - Inbox applied: B-353, B-354 (bugs).
+- B-343 runner: leo dispatch d-743cec0f84b1 (implement, pane %320), light.
