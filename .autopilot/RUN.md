@@ -172,3 +172,4 @@ Progress:
 - B-343 landed b05f35934 (Mac+iOS via LeoKit; 1 fix round; LeoKit 1026 + Mac 4042 green; iOS sim screen captures only).
 - B-344 runner: leo dispatch d-fd9c72ed4822 (implement, pane %345), light.
 - B-344 blocked: could not reproduce (5 NSWindow-hosted LeoChatThreadView switch tests pass); repro tests kept on autopilot-shelved/B-344.
+- B-345 runner: leo dispatch d-04b798193b52 (implement, pane %352), light; hinted B-337 chevron strip as lead suspect.
