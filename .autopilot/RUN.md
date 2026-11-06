@@ -54,6 +54,17 @@ Lane: B-338
   Dispatched: 2026-11-06T00:24:00Z
   Tokens: 3.15M in (3.02M cache read), ≥11.2k out, 38 requests
 
+Lane: B-339
+  Branch: autopilot-lane/B-339
+  Base: d99f557640a2ab3c27a9fef210e8eea91f1017c2
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T00:31:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 
