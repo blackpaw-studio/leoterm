@@ -122,6 +122,17 @@ Lane: B-343
   Call: Tall images crop aspect-fill (like iMessage) to a frame at least 200 pt wide; tapping opens the full image — Bug fixes are agent-decides; Mac-native feel
   Call: iOS sizes chat images from the original file's pixel dimensions, not the thumbnail — Bug fix
 
+Lane: B-344
+  Branch: autopilot-lane/B-344
+  Base: d6f90bb063c8bb92db55ef291542a44f991461a3
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T03:35:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
