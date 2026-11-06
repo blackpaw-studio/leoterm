@@ -207,3 +207,4 @@ Progress:
 - B-345 landed deb68493d: root cause = B-337 full-height chevron click strip (now capped at the name line). B-337 idea is covered — suggest owner drop it. 4043 green.
 - B-347 runner: leo dispatch d-95e5b8c9f009 (implement, pane %367), light.
 - B-347 landed 279c05230 (iOS only; 4 badge paths fixed; 1 fix round). B-355 self-file corrected to dup of B-312. Note for B-338: LeoMoveTests Duplicate test timed out under host load here and passed alone in 11s — supports the environmental theory.
+- B-348 runner: leo dispatch d-90d90422d6dc (implement, pane %385), light.
