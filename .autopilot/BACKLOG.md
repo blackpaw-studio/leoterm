@@ -2467,13 +2467,15 @@ Inbox: 20261031T131808467645Z-783e5176#1
 Question: couldn't reproduce — testDuplicateAsksForAnOptionalNameThenAddsTheCopy passes locally (iPhone 17 Pro, Xcode 26.5) and the whole LeoMoveTests class passes 10/10; it also passes on hosted-runner CI (run 41953539577, 2026-11-05) and the last four main runs are green. No defect found in the app path or fixture; the reported failures came from the old self-hosted runner and look environmental (slow simulator vs the 10s wait), unproven. Reply "B-338: close" to close it, or "B-338: <more detail>" to retry. Work kept on autopilot-shelved/B-338.
 Answer:
 
-## B-339 · Managed daemon ships with its web API off. On a Mac where Leo.app…   [ready]
+## B-339 · Managed daemon ships with its web API off. On a Mac where Leo.app…   [done]
 Issue: #319
 Type: bug
 Report: Managed daemon ships with its web API off. On a Mac where Leo.app manages the bundled daemon (the laptop), the generated ~/.leo/leo.yaml had no `web:` section, so nothing listened on 127.0.0.1:8370. Every agent's leo_* MCP tools (leo_dispatch etc.) failed with "dial tcp 127.0.0.1:8370: connect: connection refused", and the agent misreported it as "daemon isn't running". Claude attention hooks (POST /api/agent/hook) and the upcoming /api/agent/progress route need that port too. Fix (2026-11-03): manually added web {enabled: true, port: 8370, bind: 127.0.0.1} on the laptop and kickstarted the daemon. Wanted: managed installs get a loopback-only web API by default (daemon default, or the app's managed setup writes it), plus a migration for existing managed configs. Likely touches the daemon repo (PR via the leo agent).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261103T195636106164Z-13f82e96#1
+Done: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Verified: not visually verified — launch step restarts the real daemon, unsafe on Dionysus; 4030 tests green, bundled leo 0.67.0 run against a scratch leo.yaml added loopback web and was idempotent
 
 ## B-340 · Moving a stopped agent whose resume transcript is gone spins, then…   [ready]
 Issue: #320

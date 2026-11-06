@@ -62,3 +62,38 @@ Chose: Mac only: iOS has no Edit-menu key equivalents
 Why: Mac/iOS parity rule
 Commit: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
 Veto: [ ]
+
+## D-656 · 2026-11-05 · Managed web API via `leo web enable`, not Swift YAML edits
+Context: B-339 (runner call).
+Chose: Use the daemon's own `leo web enable --bind 127.0.0.1 --graceful` instead of editing YAML in Swift
+Why: Everything through Leo; app-side fix lands without a daemon change
+Commit: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Veto: [ ]
+
+## D-657 · 2026-11-05 · Graceful restart at launch to turn on the web API
+Context: B-339 (runner call).
+Chose: Restart with a graceful drain at launch, after `restartIfUpdated()`; on drain timeout or failure show a notice
+Why: Agent tools must reach the daemon
+Commit: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Veto: [ ]
+
+## D-658 · 2026-11-05 · Only touch an unambiguous managed leo.yaml
+Context: B-339 (runner call).
+Chose: Act only on a regular-file `~/.leo/leo.yaml` with no top-level `web` key and the managed marker; skip anything ambiguous
+Why: Security: loopback only, never clobber user config
+Commit: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Veto: [ ]
+
+## D-659 · 2026-11-05 · B-339 is Mac only
+Context: B-339 (runner call).
+Chose: Mac only; the bundled daemon is a Mac app concern
+Why: Mac/iOS parity rule
+Commit: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Veto: [ ]
+
+## D-660 · 2026-11-05 · Daemon default requested from the leo agent
+Context: B-339 (runner call).
+Chose: Ask the `leo` agent (non-blocking) to seed loopback `web` in the default config for managed installs
+Why: AUTONOMY (messaging leo is agent-decides)
+Commit: 736a17d24, ab3711f77, 59e4a3761, 2999f9341
+Veto: [ ]

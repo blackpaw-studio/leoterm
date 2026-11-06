@@ -58,12 +58,13 @@ Lane: B-339
   Branch: autopilot-lane/B-339
   Base: d99f557640a2ab3c27a9fef210e8eea91f1017c2
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 2999f93418d3755ab278e3384274555dcbc68149
   Dispatched: 2026-11-06T00:31:00Z
+  Tokens: 16.7M in (16.1M cache read), ≥83.4k out, 158 requests
   Call: Use the daemon's own `leo web enable --bind 127.0.0.1 --graceful` instead of editing YAML in Swift — Everything through Leo; app-side fix lands without a daemon change
   Call: Restart with a graceful drain at launch, after `restartIfUpdated()`; on drain timeout or failure show a notice — agent tools must reach the daemon
   Call: Act only on a regular-file `~/.leo/leo.yaml` with no top-level `web` key and the managed marker; skip anything ambiguous — loopback only, never clobber user config
@@ -72,6 +73,7 @@ Lane: B-339
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
+Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -80,3 +82,4 @@ Progress:
 - B-338 runner: leo dispatch d-1ec0acf6fe5c (implement, pane %255), light, iOS only.
 - B-338 blocked: could not reproduce (passes locally 10/10 and on hosted CI run 41953539577); shelved to autopilot-shelved/B-338 (no commits).
 - B-339 runner: leo dispatch d-b30640b6c865 (implement, pane %257), full, Mac only.
+- B-339 landed b5e70b98d (concurrency review full + delta; 1 fix round; 4030 tests green; not visually verified — would restart the real daemon). max_turns: 0 confirmed = unset in leo config.go. Sent leo agent the managed-default request.
