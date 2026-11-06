@@ -189,3 +189,4 @@ Progress:
 - B-344 blocked: could not reproduce (5 NSWindow-hosted LeoChatThreadView switch tests pass); repro tests kept on autopilot-shelved/B-344.
 - B-345 runner: leo dispatch d-04b798193b52 (implement, pane %352), light; hinted B-337 chevron strip as lead suspect.
 - B-345 landed deb68493d: root cause = B-337 full-height chevron click strip (now capped at the name line). B-337 idea is covered — suggest owner drop it. 4043 green.
+- B-347 runner: leo dispatch d-95e5b8c9f009 (implement, pane %367), light.
