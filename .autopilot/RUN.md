@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
-Digested-through: 0
+Digested-through: 5
 Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
 Self-filed: B-340 → B-351 idea — Show the full move error without hovering
