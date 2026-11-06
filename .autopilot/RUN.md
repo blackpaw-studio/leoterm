@@ -111,12 +111,13 @@ Lane: B-343
   Branch: autopilot-lane/B-343
   Base: 545e7bffd97eeceacf1c018e91bae6cfa0d08fb1
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 1422127bc36ee61a00d980d16a3f5fbb3442202a
   Dispatched: 2026-11-06T02:45:00Z
+  Tokens: 12.2M in (11.7M cache read), ≥64.5k out, 133 requests
   Call: Fix on both platforms; the sizing rule lives in LeoKit `LeoChatImageLayout`, each app keeps only its image view — Mac/iOS parity rule
   Call: Tall images crop aspect-fill (like iMessage) to a frame at least 200 pt wide; tapping opens the full image — Bug fixes are agent-decides; Mac-native feel
   Call: iOS sizes chat images from the original file's pixel dimensions, not the thumbnail — Bug fix
@@ -126,6 +127,7 @@ Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
 Finished 4: B-340 landed b667ecddca9e430ed0ffcacf26210a35210b8db9 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-340-1.png
 Finished 5: B-341 landed abe7021d41134b40981895eb5c888a984ecaf502 · not visually verified
+Finished 6: B-343 landed b05f35934b8265b3d4f55407b57e8dfac74099ba · screen capture, not attached
 
 Progress:
 - Preflight: main merged (a24754cb4); inbox applied: created B-339..B-349 (11 entries). B-334 recovered (lane clean at 3d2b0d723, no new wip) as first pick, tier full. Lanes B-233, B-332 still unlanded with no block (items done) — left in place.
@@ -142,3 +144,4 @@ Progress:
 - B-341 landed abe7021d4 (implement.hard; concurrency review; 4042 green on 2nd run, 2 unrelated failures at load 50-130 on 1st). Sent leo agent the managed placement default + config setter request. Runner note: shared GhosttyKit.xcframework predates B-334 export and needs rebuilding.
 - Inbox applied: B-353, B-354 (bugs).
 - B-343 runner: leo dispatch d-743cec0f84b1 (implement, pane %320), light.
+- B-343 landed b05f35934 (Mac+iOS via LeoKit; 1 fix round; LeoKit 1026 + Mac 4042 green; iOS sim screen captures only).

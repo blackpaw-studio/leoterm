@@ -167,3 +167,24 @@ Chose: Mac only
 Why: Mac/iOS parity rule (D-659)
 Commit: d60cdfbcd, 1dd5672dc, 9380313e1
 Veto: [ ]
+
+## D-671 · 2026-11-05 · Chat image sizing shared in LeoKit, Mac and iOS
+Context: B-343 (runner call).
+Chose: Fix on both platforms; the sizing rule lives in LeoKit `LeoChatImageLayout`, each app keeps only its image view
+Why: Mac/iOS parity rule
+Commit: 56ccb4ab0, a82a2ec8e, 1422127bc
+Veto: [ ]
+
+## D-672 · 2026-11-05 · Tall chat images crop to a readable width
+Context: B-343 (runner call).
+Chose: Tall images crop aspect-fill (like iMessage) to a frame at least 200 pt wide; tapping opens the full image
+Why: Bug fixes are agent-decides; Mac-native feel
+Commit: 56ccb4ab0, a82a2ec8e, 1422127bc
+Veto: [ ]
+
+## D-673 · 2026-11-05 · Size chat images from original pixels
+Context: B-343 (runner call).
+Chose: iOS sizes chat images from the original file's pixel dimensions, not the thumbnail
+Why: Bug fix
+Commit: 56ccb4ab0, a82a2ec8e, 1422127bc
+Veto: [ ]

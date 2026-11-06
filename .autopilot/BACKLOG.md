@@ -2498,13 +2498,15 @@ Inbox: 20261103T200609794532Z-2f365b57#1
 Done: d60cdfbcd, 1dd5672dc, 9380313e1
 Verified: not visually verified — launch-time config migration, no UI change; 4042 tests green; real leo 0.74.0 `config show` read Placement: window from the edited scratch config
 
-## B-343 · iOS chat: message bubbles sometimes aren't full width. Likely cause:…   [ready]
+## B-343 · iOS chat: message bubbles sometimes aren't full width. Likely cause:…   [done]
 Issue: #322
 Type: bug
 Report: iOS chat: message bubbles sometimes aren't full width. Likely cause: sending a very tall, narrow image squeezes the chat bubble so it renders really thin.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T122228255636Z-50f002b2#1
+Done: 56ccb4ab0, a82a2ec8e, 1422127bc
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-343-1.png (iOS sim screen capture; 300×3000 and 400×4000 images give near-full-width bubbles; Mac chat not visually verified)
 
 ## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [ready]
 Issue: #323
