@@ -97,12 +97,15 @@ Lane: B-355
   Branch: autopilot-lane/B-355
   Base: 376f563bc042d86c1b3d179f34f99e26857d9abf
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Dispatched: 2026-11-06T20:55:47Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 50fc4c72cac512792d0c6c8b9450c6537ca822dc
+  Call: Fix the app, not just the tests: each image paste gets its own leo-paste-<uuid>/ temp directory; temp base injectable (LeoTerminalFileDropDependencies.temporaryDirectory); remote scratch name unchanged — P3
+  Call: Suite hardening: try #require on first insert, throwing makeAccess, 10 s ceiling on the two SFTP-backed waits, @MainActor State — test infrastructure
+  Call: Mac only: image paste is Mac-only, LeoKit untouched
 
 Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
 Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
