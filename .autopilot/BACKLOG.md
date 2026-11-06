@@ -2540,7 +2540,7 @@ Done: e64610753, 8a3393dab, db5c8be6b, 0413bde9c
 Verified: not visually verified — no iOS simulator GUI recipe (B-312); reducer tests cover four paths that left an open chat badged; LeoKit 1026, LeoFeatures 445 pass
 Note: the plain live case (message arrives with the chat fully open) traced as already exempt; if it still badges on device, it needs an onScreenChanged trace
 
-## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [ready]
+## B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…   [done]
 Issue: #326
 Type: bug
 Report: Mac test fixtures create NSWindow without `isReleasedWhenClosed = false`. If a test calls close() on such a window, the window is released twice and the test host can crash on CI (this blocked 0.29.6; the fix in LeoAgentToolbarActivityTests was 8842ad404). Check and fix LeoWindowSessionRegistryTests, LeoSidebarTitlebarStyleTests, LeoTaskBarClickTargetTests, LeoChatFileViewerTests, LeoTerminalsViewportTests, LeoPickerPresentationTests, LeoLaunchPlaceholderIntegrationTests and LeoWindowPickerRouterTests.
@@ -2550,6 +2550,8 @@ Source: owner (/issue, 2026-11-05)
 Inbox: 20261105T133834863366Z-4f2a978a#1
 Question: land on targeted evidence? The fix is test-only (13 files set isReleasedWhenClosed = false; new LeoTestWindowGuardTests scan found 15 offenders before, 0 after, and passes), and the 13 touched suites pass apart from one untouched test that passes alone. Verify failed only because the full Mac suite can't finish on baseline either: LeoRuntimeFileDropTests fails and the host aborts (ContiguousArrayBuffer index out of range, exit 6), filed as B-355. I'd pick: land it as is. Work kept on autopilot-shelved/B-348.
 Answer: accept your recommendation (land it as is)
+Done: 5cfe63596, 1d03ef3ac, ac8ce9d31
+Verified: not visually verified — test-only change (guard test reproduces: 2 new offenders before, 0 after; full Mac suite 4204 tests, 1 known flake)
 
 ## B-349 · the update badge is weird now with the sidebar   [done]
 Issue: #327

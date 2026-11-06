@@ -408,3 +408,15 @@ Chose: Done-bar opacity 0.55 — P2
 Item: B-354 · this green is way too intense (Image #2)
 Commit: 7edc407da
 Veto: [ ]
+
+## D-707 · 2026-11-06 · B-348: Mac only (AppKit test fixtures); flag-line idiom (isReleasedWhenClosed = false per fixture
+Chose: Mac only (AppKit test fixtures); flag-line idiom (isReleasedWhenClosed = false per fixture) rather than a makeTestWindow helper — test infrastructure is agent-decides
+Item: B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…
+Commit: 5cfe63596, 1d03ef3ac, ac8ce9d31
+Veto: [ ]
+
+## D-708 · 2026-11-06 · B-348: Reused the shelved fix by cherry-pick, per the owner's answer (D-692)
+Chose: Reused the shelved fix by cherry-pick, per the owner's answer (D-692)
+Item: B-348 · Mac test fixtures create NSWindow without `isReleasedWhenClosed =…
+Commit: 5cfe63596, 1d03ef3ac, ac8ce9d31
+Veto: [ ]
