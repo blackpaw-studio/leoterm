@@ -107,6 +107,17 @@ Lane: B-341
   Call: Run after `restartIfUpdated()` and before `ensureWebAPI()`, no restart of its own (daemon reads leo.yaml per dispatch) — D-657
   Call: Mac only — Mac/iOS parity rule (D-659)
 
+Lane: B-343
+  Branch: autopilot-lane/B-343
+  Base: 545e7bffd97eeceacf1c018e91bae6cfa0d08fb1
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T02:45:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
