@@ -190,6 +190,17 @@ Lane: B-349
   Reviewed-tip: none
   Dispatched: 2026-11-06T05:32:00Z
 
+Lane: B-346
+  Branch: autopilot-lane/B-346
+  Base: a8c9bc0929d2241462166d6a7f3195aa53e8bee6
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-06T05:36:00Z
+
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
 Finished 3: B-339 landed b5e70b98dfea156fc7c2dd1593835f943e89b745 · not visually verified
@@ -230,3 +241,4 @@ Progress:
 - B-348 shelved (Result: shelve, 0 fix rounds): fix + guard test done on autopilot-shelved/B-348 (f3d44c03b), but the full Mac suite aborts on baseline too (LeoRuntimeFileDropTests → ContiguousArrayBuffer index out of range, host exit 6). Filed B-355 bug (ready next run). First runner was cancelled after it asked to rm zig-out (permission prompt).
 - B-349 runner: leo dispatch d-cb202515f10b (implement, pane %394), light; brief tells verifier to skip LeoRuntimeFileDropTests (B-355) and treat base-reproducible failures as pre-existing.
 - B-349 blocked by runner: autopilot lacks origin/main's toolbar/capsule (local main 88 behind origin/main). B-353 (capsule elapsed time) and B-354 (capsule green) blocked at Decide for the same reason (capsule code absent on autopilot). Owner must sync local main; merging origin/main will conflict with B-345 in LeoAgentRow/LeoRowClickCatcher.
+- B-346 runner: leo dispatch d-376e1d631204 (implement, pane %396), full, Mac only.
