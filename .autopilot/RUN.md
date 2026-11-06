@@ -94,3 +94,4 @@ Progress:
 - B-338 blocked: could not reproduce (passes locally 10/10 and on hosted CI run 41953539577); shelved to autopilot-shelved/B-338 (no commits).
 - B-339 runner: leo dispatch d-b30640b6c865 (implement, pane %257), full, Mac only.
 - B-339 landed b5e70b98d (concurrency review full + delta; 1 fix round; 4030 tests green; not visually verified — would restart the real daemon). max_turns: 0 confirmed = unset in leo config.go. Sent leo agent the managed-default request.
+- B-340 runner: leo dispatch d-9c7ae0157135 (implement, pane %265), full.
