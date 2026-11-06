@@ -92,12 +92,19 @@ Lane: B-341
   Branch: autopilot-lane/B-341
   Base: f2910239dd0508861ab740a2a9a0fc3795c00a9c
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8fea67e06c5fe7eed3a9d072af9a306c937d336a
   Dispatched: 2026-11-06T01:38:00Z
+  Call: Swift inserts the missing placement line (validated via `leo config show` on a temp copy, atomic replace) since no leo CLI sets this key — deliberate exception to D-656 for this key only — Swift under macos/ is agent-decides; never clobber user-authored config
+  Call: Skip configs with a top-level `follow:`, since an explicit placement may come from the lead — An explicit user value wins
+  Call: Migration failures only log, no notice; the old pane behaviour stays — Sidebar is the navigation; calm by default
+  Call: With no `defaults` key, insert the block before the first top-level key — Never clobber user-authored config
+  Call: Skip on anchors/aliases at a scanned level and on compact sequences — Never clobber user-authored config
+  Call: Run after `restartIfUpdated()` and before `ensureWebAPI()`, no restart of its own (daemon reads leo.yaml per dispatch) — D-657
+  Call: Mac only — Mac/iOS parity rule (D-659)
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked
