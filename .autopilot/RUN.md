@@ -2,8 +2,10 @@ Status: running
 Started: 2026-11-05T23:52:44Z
 Budget: 20 items, until 2026-11-06T11:52:44Z
 Digested-through: 0
-Filed: 0/3 bugs, 1/5 ideas
+Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-334 → B-350 idea — Edit menu ignores key-table rebinds of ⌘C/⌘V
+Self-filed: B-340 → B-351 idea — Show the full move error without hovering
+Self-filed: B-340 → B-352 idea — Word job failures plainly instead of "<code>: " prefixes
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -75,12 +77,15 @@ Lane: B-340
   Branch: autopilot-lane/B-340
   Base: 0c246d854efa4356ee04c97048c23f2539aa0fe5
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e2259e7f1df9842940a143519f89c3423c94d944
   Dispatched: 2026-11-06T01:16:00Z
+  Call: Word `session_missing` in LeoKit (LeoAgentMover), so Mac and iOS both get it — Mac/iOS parity rule
+  Call: Defer "Move with a fresh session" until the daemon supports it — never invent a state the daemon didn't report
+  Call: A stale-transcript move shows a plain message with no Force offer — calm, plain failures
 
 Finished 1: B-334 landed e54d3a530f4393a55d176576ed2202b971a933a3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png
 Finished 2: B-338 blocked

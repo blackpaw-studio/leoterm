@@ -2561,3 +2561,11 @@ Inbox: 20261104T122151614541Z-47a1c3a1#1
 ## B-350 · Edit menu ignores key-table rebinds of ⌘C/⌘V   [idea]
 Note: B-334 review: key tables aren't consulted, so Edit ▸ Copy/Paste can still show ⌘C/⌘V while a key table rebinds them (Keyboard-first: no shortcut beats a wrong one)
 Source: autopilot polish (B-334)
+
+## B-351 · Show the full move error without hovering   [idea]
+Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
+Source: autopilot polish (B-340)
+
+## B-352 · Word job failures plainly instead of "<code>: " prefixes   [idea]
+Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
+Source: autopilot polish (B-340)
