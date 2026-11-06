@@ -140,6 +140,7 @@ final class LeoScriptedRunner: LeoProcessRunning, @unchecked Sendable {
     private let lock = NSLock()
     private let log: LeoManagedEventLog
     private var replies: [[String]: [Reply]] = [:]
+    private var sideEffects: [[String]: @Sendable () -> Void] = [:]
     private(set) var timeouts: [[String]: TimeInterval] = [:]
 
     init(log: LeoManagedEventLog) { self.log = log }
@@ -147,9 +148,14 @@ final class LeoScriptedRunner: LeoProcessRunning, @unchecked Sendable {
     /// Queues replies for `argv`; the last one repeats.
     func on(_ argv: [String], _ replies: Reply...) { lock.withLock { self.replies[argv] = replies } }
 
+    /// Runs `body` each time `argv` runs, before it answers: what the world
+    /// does while the command is in flight.
+    func whileRunning(_ argv: [String], _ body: @escaping @Sendable () -> Void) { lock.withLock { sideEffects[argv] = body } }
+
     func run(executable: String, arguments: [String], timeout: TimeInterval) async throws -> LeoProcessResult {
         let argv = [executable] + arguments
         log.append(.run(argv))
+        lock.withLock { sideEffects[argv] }?()
         let reply = lock.withLock { () -> Reply in
             timeouts[argv] = timeout
             guard var queue = replies[argv], !queue.isEmpty else { return .exit(127, stderr: "not scripted") }
