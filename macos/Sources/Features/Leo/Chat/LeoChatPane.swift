@@ -31,11 +31,19 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                 .frame(width: layout.terminalWidth(in: contentWidth, preferred: preferred))
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(!layout.isTerminalVisible)
+                // Over the terminal's own column only (never the chat pane's
+                // composer), and an overlay: no height change, no tmux reflow.
+                .overlay(alignment: .bottom) {
+                    if LeoControlFeedbackPlacement(layout: layout) == .overTerminal, let row {
+                        LeoControlFeedbackBanner(row: row, control: control)
+                    }
+                }
             if layout.showsChat, let row {
                 HStack(spacing: 0) {
                     if layout == .sideBySide { divider(layout, preferred: preferred) }
                     LeoChatPane(
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
+                        feedbackControl: LeoControlFeedbackPlacement(layout: layout) == .aboveComposer ? control : nil,
                         close: { session.choose(.terminal, for: row.id) }
                     )
                     // The detail column starts at the toolbar's bottom edge (the real
@@ -48,10 +56,6 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
-        }
-        // Control feedback floats over the bottom edge; no height change.
-        .overlay(alignment: .bottom) {
-            if let row { LeoControlFeedbackBanner(row: row, control: control) }
         }
         .onAppear {
             session.setObservedContentWidth(contentWidth)
@@ -101,6 +105,9 @@ struct LeoChatPane: View {
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var session: LeoWindowSession
     @ObservedObject var viewer: LeoChatViewerModel
+    /// Set when Chat replaces the terminal: control feedback then shows here,
+    /// above the composer.
+    var feedbackControl: LeoAgentControlModel?
     let close: () -> Void
     @State private var isDropTargeted = false
 
@@ -125,6 +132,7 @@ struct LeoChatPane: View {
                 // overlay holds it, so there is a single Escape monitor.
                 if let document, !viewer.isFullWindow { fileViewer(document) }
             }
+            if let feedbackControl { LeoControlFeedbackBanner(row: row, control: feedbackControl) }
             if document == nil {
                 Divider()
                 LeoChatComposer(

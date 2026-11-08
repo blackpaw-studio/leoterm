@@ -1,8 +1,19 @@
 import SwiftUI
 
+/// Where control feedback shows: over the terminal column while a terminal
+/// is visible (an overlay, so the column's height never changes and tmux
+/// never reflows), else above the chat composer, which it must not cover.
+enum LeoControlFeedbackPlacement: Equatable {
+    case overTerminal
+    case aboveComposer
+
+    init(layout: LeoChatLayout) {
+        self = layout.isTerminalVisible ? .overTerminal : .aboveComposer
+    }
+}
+
 /// The result of an agent-control verb (Interrupt, Compact, Clear, a denied
-/// host), floated over the detail column's bottom edge. It is an overlay, never
-/// a row: the column's height must not change, because a resize reflows tmux.
+/// host), shown per `LeoControlFeedbackPlacement`.
 struct LeoControlFeedbackBanner: View {
     let row: LeoAgentRow
     @ObservedObject var control: LeoAgentControlModel
