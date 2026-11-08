@@ -160,3 +160,11 @@ Answer each in the isolated debug build and record the answers under "Step 0 fin
 3. Agent idle (Interrupt disabled).
 4. A 480 pt narrow window (capsule degraded, trailing items visible).
 5. Full screen.
+
+## Step 0 findings
+Throwaway AppKit app (`scratchpad/chrome/spike/spike.swift`, unified toolbar, macOS 26 SDK), screenshots in `scratchpad/spike-shots/` (light + dark). Answers:
+1. **Custom-view bordered `NSSegmentedControl`** (`segmentStyle = .automatic`, two SF Symbol images, `.selectAny`): yes, it draws on its own glass platter at toolbar height, accent-filled selected segment, light and dark. No `borderShape` tweak needed. `NSToolbarItemGroup(.selectAny, .expanded)` also works but tints the segment images grey, so it stays the fallback only.
+2. **Glass grouping.** Interrupt with `isBordered = true` directly next to the `NSMenuToolbarItem` ⋯ shares ONE glass platter with it, and the switch sits in its own platter. A `.space` item between switch and Interrupt changes nothing visible, so no space item. With `isBordered = false` the Interrupt glyph floats outside any platter, so the spec's "share one glass group" needs `isBordered = true` (deviation from the plan's "borderless" wording; the spec's intent is the shared group).
+3. **Accent dot.** A non-template composite (template glyph tinted by hand + accent dot in the top-right) renders correctly in light and dark. The glyph colour must be set by hand for the selected state (white on the accent fill); the presentation re-composes on every state change.
+4. **Validation.** `NSToolbarItem` with `target = nil` reaches an `NSToolbarItemValidation` on the window controller via the responder chain (autovalidated on window events). A model change with no window event needs `toolbar.validateVisibleItems()`: toggling the flag then calling it flipped `isEnabled` to true.
+5. **Measured widths** (720 pt window): switch ≈ 78 pt, Interrupt+⋯ group ≈ 74 pt, ≈ 7 pt trailing margin, so the trailing groups need ≈ 177 pt; `trailingGroupsReserve` is set to 190 pt (re-checked in the Leo build at 480 pt).
