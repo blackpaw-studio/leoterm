@@ -4,8 +4,8 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-262: drafts, in-flight, inline feedback and per-host denial behind the
-/// control bar, against a stub transport (never a real agent).
+/// B-262: in-flight, inline feedback and per-host denial behind the
+/// control verbs, against a stub transport (never a real agent).
 @MainActor @Suite(.timeLimit(.minutes(1)))
 struct LeoAgentControlModelTests {
     private static let row = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
@@ -18,68 +18,6 @@ struct LeoAgentControlModelTests {
             clients: FakeMachineClients(daemon: LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)),
             confirmClear: { row, _ in await confirm(row) }
         )
-    }
-
-    @Test func sendClearsDraftOnSuccess() async {
-        let transport = ControlModelTransport(status: 200, body: Self.ok)
-        let model = make(transport)
-        model.setDraft("  hello  ", for: Self.row.id)
-        await model.send(Self.row)
-        #expect(model.draft(for: Self.row.id) == "")
-        #expect(model.feedback[Self.row.id] == nil)
-        #expect(await transport.paths == ["/agents/alpha/message"])
-        #expect(await transport.bodies == [#"{"text":"hello"}"#])
-    }
-
-    @Test func sendKeepsDraftAndShowsErrorOnFailure() async {
-        let transport = ControlModelTransport(status: 503, body: #"{"ok":false,"error":"agent control is unavailable"}"#)
-        let model = make(transport)
-        model.setDraft("hello", for: Self.row.id)
-        await model.send(Self.row)
-        #expect(model.draft(for: Self.row.id) == "hello")
-        #expect(model.feedback[Self.row.id] == .error("agent control is unavailable"))
-        #expect(model.deniedHosts.isEmpty)
-    }
-
-    @Test func queuedClearsDraftAndShowsQuietNotice() async {
-        let model = make(ControlModelTransport(status: 202, body: #"{"ok":true,"data":{"queued":true}}"#))
-        model.setDraft("hello", for: Self.row.id)
-        await model.send(Self.row)
-        #expect(model.draft(for: Self.row.id) == "")
-        guard case .notice? = model.feedback[Self.row.id] else {
-            Issue.record("expected a notice")
-            return
-        }
-    }
-
-    @Test func whitespaceOnlyCannotSend() async {
-        let transport = ControlModelTransport(status: 200, body: Self.ok)
-        let model = make(transport)
-        model.setDraft("  \n ", for: Self.row.id)
-        #expect(!model.canSendDraft(for: Self.row.id))
-        await model.send(Self.row)
-        #expect(await transport.paths.isEmpty)
-    }
-
-    @Test func over256KiBShowsInlineErrorWithoutRequest() async {
-        let transport = ControlModelTransport(status: 200, body: Self.ok)
-        let model = make(transport)
-        model.setDraft(String(repeating: "a", count: LeoAgentControlModel.maxMessageBytes + 1), for: Self.row.id)
-        await model.send(Self.row)
-        #expect(await transport.paths.isEmpty)
-        guard case .error? = model.feedback[Self.row.id] else {
-            Issue.record("expected an error")
-            return
-        }
-    }
-
-    @Test func forbiddenMarksHostDeniedAndShowsInlineError() async {
-        let model = make(ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#))
-        model.setDraft("hi", for: Self.row.id)
-        await model.send(Self.row)
-        #expect(model.deniedHosts == [.local])
-        #expect(model.feedback[Self.row.id] == .error("operator token required"))
-        #expect(model.draft(for: Self.row.id) == "hi")
     }
 
     @Test func unauthorizedAlsoDenies() async {
@@ -122,32 +60,28 @@ struct LeoAgentControlModelTests {
         #expect(model.feedback[Self.row.id] == .error("localhost isn't connected."))
     }
 
-    @Test func aMachineComingBackKeepsDraftsAndLetsItsRowsSend() async {
+    @Test func aMachineComingBackLetsItsRowsAct() async {
         let transport = ControlModelTransport(status: 200, body: Self.ok)
         let clients = FakeMachineClients()
         let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
-        model.setDraft("keep me", for: Self.row.id)
-        await model.send(Self.row)
+        await model.interrupt(Self.row)
         #expect(model.feedback[Self.row.id] == .error("localhost isn't connected."))
-        #expect(model.draft(for: Self.row.id) == "keep me")
 
         clients.connect(.local, LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport))
-        await model.send(Self.row)
+        await model.interrupt(Self.row)
 
-        #expect(await transport.paths == ["/agents/alpha/message"])
-        #expect(model.draft(for: Self.row.id) == "")
+        #expect(await transport.paths == ["/agents/alpha/interrupt"])
         #expect(model.feedback[Self.row.id] == nil)
     }
 
     @Test func secondActionWhileInFlightIsIgnored() async throws {
         let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
         let model = make(transport)
-        model.setDraft("hi", for: Self.row.id)
-        let first = Task { await model.send(Self.row) }
+        let first = Task { await model.interrupt(Self.row) }
         try await until { await transport.paths.count == 1 }
-        #expect(model.inFlight[Self.row.id] == .message)
+        #expect(model.inFlight[Self.row.id] == .interrupt)
+        await model.compact(Self.row)
         await model.interrupt(Self.row)
-        await model.send(Self.row)
         #expect(await transport.paths.count == 1)
         await transport.release()
         await first.value
@@ -162,27 +96,6 @@ struct LeoAgentControlModelTests {
         let accepted = make(transport, confirm: { _ in true })
         await accepted.clear(Self.row)
         #expect(await transport.paths == ["/agents/alpha/clear"])
-    }
-
-    @Test func typingDuringAnInFlightSendSurvivesSuccess() async throws {
-        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
-        let model = make(transport)
-        model.setDraft("hi", for: Self.row.id)
-        let first = Task { await model.send(Self.row) }
-        try await until { await transport.paths.count == 1 }
-        model.setDraft("hi there", for: Self.row.id)
-        await transport.release()
-        await first.value
-        #expect(model.draft(for: Self.row.id) == "hi there")
-    }
-
-    @Test func queuedNoticeClearsOnTheNextEdit() async {
-        let model = make(ControlModelTransport(status: 202, body: #"{"ok":true,"data":{"queued":true}}"#))
-        model.setDraft("hello", for: Self.row.id)
-        await model.send(Self.row)
-        #expect(model.feedback[Self.row.id] != nil)
-        model.setDraft("next", for: Self.row.id)
-        #expect(model.feedback[Self.row.id] == nil)
     }
 
     @Test func dismissingFeedbackClearsIt() async {
@@ -258,15 +171,13 @@ struct LeoAgentControlModelTests {
         let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
         let clients = FakeMachineClients(daemon: local)
         let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
-        model.setDraft("hi", for: Self.row.id)
-        let first = Task { await model.send(Self.row) }
+        let first = Task { await model.interrupt(Self.row) }
         try await until { await transport.paths.count == 1 }
         clients.connect(.local, local)
         await transport.release()
         await first.value
         #expect(model.deniedHosts == [.local])
         #expect(model.feedback[Self.row.id] == .error("operator token required"))
-        #expect(model.draft(for: Self.row.id) == "hi")
     }
 
     @Test func clearAsksAgainAfterACancelledConfirmation() async {

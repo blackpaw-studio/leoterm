@@ -22,16 +22,3 @@ struct LeoUnreadCountBadge: View {
         }
     }
 }
-
-extension View {
-    /// The unread capsule on the top trailing corner of the Terminal | Chat
-    /// switch, where its Chat segment ends. NSSegmentedControl can't badge,
-    /// so this is an overlay that leaves clicks to the control.
-    func chatSegmentBadge(unreadCount: Int) -> some View {
-        overlay(alignment: .topTrailing) {
-            LeoUnreadCountBadge(count: unreadCount)
-                .offset(x: 6, y: -6)
-                .allowsHitTesting(false)
-        }
-    }
-}

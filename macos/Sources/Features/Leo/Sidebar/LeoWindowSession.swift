@@ -42,11 +42,6 @@ struct LeoWindowVisibilityState: Equatable {
     /// Bumped by Agents ▸ Find Agent… (B-009); the sidebar's search field
     /// takes focus whenever it changes.
     @Published private(set) var searchFocusRequest = 0
-    /// Bumped by Agents ▸ Message Agent (B-262); the control bar's prompt
-    /// field takes focus whenever it changes.
-    @Published private(set) var controlFocusRequest = 0
-    /// The control bar's prompt field, for focus in and back out.
-    let controlPrompt = LeoControlPromptFieldHandle()
     /// The attachment open in this window's chat pane. Closes whenever the
     /// switch goes to Terminal: the chat's ✕, the toggle, or the segment.
     let chatViewer = LeoChatViewerModel()
@@ -245,12 +240,6 @@ struct LeoWindowVisibilityState: Equatable {
         chatViewer.exitFullWindow()
         if !isSidebarVisible { setSidebarVisible(true) }
         searchFocusRequest += 1
-    }
-
-    /// Agents ▸ Message Agent: focus the control bar's prompt field.
-    func requestControlFocus() {
-        chatViewer.exitFullWindow()
-        controlFocusRequest += 1
     }
 
     /// How the selected agent's terminal and chat share `contentWidth`.
