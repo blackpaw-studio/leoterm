@@ -14,6 +14,10 @@ struct LeoChatComposer: View {
     let takeFocusRequest: () -> Bool
     @FocusState private var isTextFocused: Bool
 
+    /// The field's inset from the pane's edges.
+    private static let edgeInset: CGFloat = 12
+    private static let fieldCornerRadius: CGFloat = 18
+
     private var draft: LeoChatComposerDraft { chat.draft(for: agent) }
     private var isSending: Bool { chat.isSending(agent) }
 
@@ -27,8 +31,8 @@ struct LeoChatComposer: View {
                 inputRow
             }
         }
-        .padding(10)
-        .background(.bar)
+        .padding(.horizontal, Self.edgeInset)
+        .padding(.vertical, Self.edgeInset)
         .background(LeoChatPasteMonitor(isActive: isTextFocused) { chat.attachPaste(to: agent) })
         .onAppear(perform: takeFocus)
         .onChange(of: focusRequest) { _ in takeFocus() }
@@ -41,34 +45,51 @@ struct LeoChatComposer: View {
         DispatchQueue.main.async { isTextFocused = true }
     }
 
+    /// A rounded field with attach, mic and send inside it, growing with the text.
     private var inputRow: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            Button(action: pickFiles) { Image(systemName: "paperclip").imageScale(.large) }
-                .buttonStyle(.borderless)
-                .help("Attach Files…")
-                .accessibilityLabel("Attach Files")
+        HStack(alignment: .bottom, spacing: 8) {
+            fieldButton("paperclip", "Attach Files…", label: "Attach Files", action: pickFiles)
             TextField("Message \(agentName)", text: Binding(get: { draft.text }, set: { chat.setText($0) }), axis: .vertical)
-                .textFieldStyle(.roundedBorder)
+                .textFieldStyle(.plain)
                 .lineLimit(1...6)
                 .focused($isTextFocused)
                 .onSubmit(send)
-            Button { Task { await chat.toggleRecording() } } label: { Image(systemName: "mic").imageScale(.large) }
-                .buttonStyle(.borderless)
+                .padding(.vertical, 2)
+            fieldButton("mic", "Record a Voice Note", label: "Record a Voice Note") { Task { await chat.toggleRecording() } }
                 .disabled(isSending || chat.recording == .requesting)
-                .help("Record a Voice Note")
-                .accessibilityLabel("Record a Voice Note")
-            Button(action: send) {
-                if isSending {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: "arrow.up.circle.fill").imageScale(.large)
-                }
-            }
-            .buttonStyle(.borderless)
-            .disabled(!chat.canSend)
-            .help("Send (Return)")
-            .accessibilityLabel("Send")
+            sendButton
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(fieldShape.fill(.quaternary))
+        .overlay(fieldShape.strokeBorder(Color(nsColor: .separatorColor), lineWidth: 0.5))
+    }
+
+    private var fieldShape: RoundedRectangle {
+        RoundedRectangle(cornerRadius: Self.fieldCornerRadius, style: .continuous)
+    }
+
+    private func fieldButton(_ symbol: String, _ help: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Image(systemName: symbol).imageScale(.large).foregroundStyle(.secondary) }
+            .buttonStyle(.borderless)
+            .help(help)
+            .accessibilityLabel(label)
+    }
+
+    private var sendButton: some View {
+        Button(action: send) {
+            if isSending {
+                ProgressView().controlSize(.small)
+            } else {
+                Image(systemName: "arrow.up.circle.fill")
+                    .imageScale(.large)
+                    .foregroundStyle(chat.canSend ? Color.accentColor : Color.secondary.opacity(0.5))
+            }
+        }
+        .buttonStyle(.borderless)
+        .disabled(!chat.canSend)
+        .help("Send (Return)")
+        .accessibilityLabel("Send")
     }
 
     private func recordingBar(since start: Date) -> some View {
