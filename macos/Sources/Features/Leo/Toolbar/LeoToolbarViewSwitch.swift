@@ -15,7 +15,7 @@ final class LeoToolbarViewSwitch: NSSegmentedControl {
     var onSelect: (LeoAgentViewChoice) -> Void = { _ in }
     var showsUnreadDot: Bool { presentation.showsUnreadDot }
 
-    override class var cellClass: AnyClass? {
+    override static var cellClass: AnyClass? {
         get { LeoViewSwitchCell.self }
         set {}
     }
