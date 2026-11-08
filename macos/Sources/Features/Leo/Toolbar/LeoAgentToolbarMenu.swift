@@ -94,19 +94,11 @@ final class LeoAgentToolbarMenu: NSObject, NSMenuDelegate, NSMenuItemValidation 
     /// Copies each control item's title and shortcut from the live Agents menu.
     private func refreshControlItems() {
         for item in controlItems {
-            guard let action = item.action, let live = Self.findItem(for: action, in: mainMenu()) else { continue }
+            guard let action = item.action, let live = LeoMenuShortcutHint.menuItem(action: action, in: mainMenu()) else { continue }
             item.title = live.title
             item.keyEquivalent = live.keyEquivalent
             item.keyEquivalentModifierMask = live.keyEquivalentModifierMask
         }
-    }
-
-    private static func findItem(for action: Selector, in menu: NSMenu?) -> NSMenuItem? {
-        for item in menu?.items ?? [] {
-            if item.action == action { return item }
-            if let found = findItem(for: action, in: item.submenu) { return found }
-        }
-        return nil
     }
 
     private func rebuildMessagesMenu() {

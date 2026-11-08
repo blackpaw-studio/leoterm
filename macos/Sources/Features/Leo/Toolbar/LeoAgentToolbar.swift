@@ -6,13 +6,17 @@ extension NSToolbarItem.Identifier {
     static let leoSplitSeparator = NSToolbarItem.Identifier("leo.toolbar.splitSeparator")
     static let leoActivity = NSToolbarItem.Identifier("leo.toolbar.activity")
     static let leoUpdate = NSToolbarItem.Identifier("leo.toolbar.update")
+    static let leoViewSwitch = NSToolbarItem.Identifier("leo.toolbar.viewSwitch")
+    static let leoInterrupt = NSToolbarItem.Identifier("leo.toolbar.interrupt")
     static let leoMore = NSToolbarItem.Identifier("leo.toolbar.more")
 }
 
 /// The agent window's toolbar: the sidebar toggle (shown only while the
 /// sidebar is collapsed), a tracking separator that keeps the title and the
-/// items over the detail column, the activity capsule centred, and a "⋯"
-/// menu trailing.
+/// items over the detail column, the activity capsule centred, and the
+/// trailing groups: the Terminal | Chat switch, then Interrupt and a "⋯"
+/// menu (one glass group). The trailing items are always present, at every
+/// width (`LeoActivityCapsuleSizing.trailingGroupsReserve`).
 ///
 /// The tracking separator needs the window's `NSSplitView`, which exists
 /// only after SwiftUI's first layout, so the toolbar goes up at once (the
@@ -21,7 +25,8 @@ extension NSToolbarItem.Identifier {
 final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// The items in order once the split has been handed over.
     static let itemOrder: [NSToolbarItem.Identifier] = [
-        .leoSidebarToggle, .leoSplitSeparator, .flexibleSpace, .leoActivity, .flexibleSpace, .leoUpdate, .leoMore,
+        .leoSidebarToggle, .leoSplitSeparator, .flexibleSpace, .leoActivity, .flexibleSpace, .leoUpdate,
+        .leoViewSwitch, .leoInterrupt, .leoMore,
     ]
     /// Toolbars with one identifier are a family: AppKit mirrors item
     /// inserts across them. Each window's separator binds to its own split
@@ -36,6 +41,9 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// Builds the update pill's view when the toolbar asks for the item (set
     /// before `install`).
     var makeUpdateView: () -> NSView = { NSView() }
+    /// The live main menu, where Interrupt's tooltip reads its shortcut (set
+    /// before `install`).
+    var mainMenu: () -> NSMenu? = { nil }
     /// The "⋯" item's menu (set before `install`).
     var moreMenu = NSMenu()
     /// Keeps the menu's controller alive: an `NSMenu` holds its delegate weakly.
@@ -51,8 +59,13 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// of the subtitle reads it (`onSubtitleVisibilityChange` says when it flips).
     private(set) var showsSubtitle = true
     var onSubtitleVisibilityChange: () -> Void = {}
-    private weak var moreItem: NSToolbarItem?
     private weak var updateItem: NSToolbarItem?
+    private weak var viewSwitchControl: LeoToolbarViewSwitch?
+    private weak var interruptItem: NSToolbarItem?
+    private var interruptIsEnabled = false
+    /// What the switch binding last said, so a switch AppKit builds later starts right.
+    private var viewSwitchPresentation = LeoViewSwitchPresentation(layout: nil, unreadCount: 0)
+    private var selectView: (LeoAgentViewChoice) -> Void = { _ in }
     private var isUpdateShowing = false
     private var showsUpdateItem = true
     /// Whether `NSToolbarItem.isHidden` takes effect (macOS 15+). Below that
@@ -64,7 +77,6 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     }()
     /// The gap the toolbar keeps around the update pill.
     static let updateItemSpacing: CGFloat = 10
-    private var showsMoreItem = true
     private var isSidebarToggleHidden = true
     private var sideBySideChatWidth: CGFloat = 0
 
@@ -124,6 +136,32 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }.store(in: &subscriptions)
     }
 
+    /// Keeps the switch showing `presentation` and sends clicks to `select`.
+    @MainActor
+    func bind(viewSwitch: some Publisher<LeoViewSwitchPresentation, Never>, select: @escaping (LeoAgentViewChoice) -> Void) {
+        selectView = select
+        viewSwitchControl?.onSelect = select
+        viewSwitch.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] presentation in
+            guard let self else { return }
+            viewSwitchPresentation = presentation
+            viewSwitchControl?.apply(presentation)
+        }.store(in: &subscriptions)
+    }
+
+    /// Keeps Interrupt enabled exactly while `isEnabled` says so. Pushed, not
+    /// autovalidated: AppKit validates toolbar items on window events only,
+    /// and an agent going idle is a model change. The caller feeds it the
+    /// same availability rule as Agents ▸ Interrupt.
+    @MainActor
+    func bind(interruptEnabled isEnabled: some Publisher<Bool, Never>) {
+        isEnabled.receive(on: DispatchQueue.main).sink { [weak self] isEnabled in
+            guard let self else { return }
+            interruptIsEnabled = isEnabled
+            refreshInterruptTooltip()
+            if interruptItem?.isEnabled != isEnabled { interruptItem?.isEnabled = isEnabled }
+        }.store(in: &subscriptions)
+    }
+
     /// The split view is in the window: the tracking separator can join.
     @MainActor
     func attach(splitView: NSSplitView) {
@@ -148,20 +186,18 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         switch identifier {
         case .leoSidebarToggle: return !isSidebarToggleHidden
         case .leoUpdate: return isUpdateShowing && showsUpdateItem
-        case .leoMore: return showsMoreItem
         default: return true
         }
     }
 
-    /// Inserts or removes the sidebar toggle and the "⋯" item to match the
+    /// Inserts or removes the sidebar toggle and the update pill to match the
     /// bindings (macOS 14 and earlier).
     private func syncItemPresence() {
         guard let toolbar else { return }
         setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
         setPresence(of: .leoUpdate, isUpdateShowing && showsUpdateItem, in: toolbar) { toolbar in
-            toolbar.items.firstIndex { $0.itemIdentifier == .leoMore } ?? toolbar.items.count
+            toolbar.items.firstIndex { $0.itemIdentifier == .leoViewSwitch } ?? toolbar.items.count
         }
-        setPresence(of: .leoMore, showsMoreItem, in: toolbar) { $0.items.count }
     }
 
     private func setPresence(
@@ -187,7 +223,9 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         case .leoSplitSeparator: splitView.map { NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: $0, dividerIndex: 0) }
         case .leoActivity: makeActivityItem()
         case .leoUpdate: makeUpdateItem()
-        case .leoMore: makeMorePlaceholder()
+        case .leoViewSwitch: makeViewSwitchItem()
+        case .leoInterrupt: makeInterruptItem()
+        case .leoMore: makeMoreItem()
         default: nil
         }
     }
@@ -244,6 +282,12 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
 
     /// Sizes the capsule from the room right of the sidebar
     /// (`LeoActivityCapsuleSizing`); on every window or split resize.
+    /// The trailing items never fold into the overflow chevron: `.user` is the
+    /// toolbar's last-to-go priority. (`.high` makes the toolbar re-lay out
+    /// against the capsule's width constraint as the sidebar resizes, which
+    /// stalls the sidebar's own re-layout: `LeoSidebarTitlebarStyleTests`.)
+    private static let trailingPriority = NSToolbarItem.VisibilityPriority.user
+
     private func updateActivityWidth() {
         guard let activityWidth, let activityContainerWidth, let window else { return }
         let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
@@ -256,10 +300,8 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         let containerWidth = width + placement.trailingPad
         if activityWidth.constant != width { activityWidth.constant = width }
         if activityContainerWidth.constant != containerWidth { activityContainerWidth.constant = containerWidth }
-        showsMoreItem = layout.showsMoreItem
         showsUpdateItem = layout.showsUpdateItem
         if hidesItemsInPlace {
-            setHidden(moreItem, !showsMoreItem)
             setHidden(updateItem, !(isUpdateShowing && showsUpdateItem))
         } else {
             syncItemPresence()
@@ -318,16 +360,61 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         return item
     }
 
-    private func makeMorePlaceholder() -> NSToolbarItem {
+    /// The Terminal | Chat switch, in its own glass group. Never hidden.
+    private func makeViewSwitchItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoViewSwitch)
+        let control = MainActor.assumeIsolated {
+            let control = LeoToolbarViewSwitch()
+            control.onSelect = selectView
+            control.apply(viewSwitchPresentation)
+            return control
+        }
+        item.view = control
+        item.label = LeoViewSwitchPresentation.groupLabel
+        item.visibilityPriority = Self.trailingPriority
+        viewSwitchControl = control
+        return item
+    }
+
+    /// Interrupt, sharing one glass group with "⋯" (bordered items side by
+    /// side). Always present, never hidden; `bind(interruptEnabled:)` enables
+    /// it. The click goes down the responder chain like the menu item's.
+    private func makeInterruptItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoInterrupt)
+        item.image = NSImage(systemSymbolName: "stop.circle", accessibilityDescription: Self.interruptTitle)
+        item.label = Self.interruptTitle
+        item.target = nil
+        item.action = #selector(TerminalController.interruptSelectedLeoAgent(_:))
+        item.isBordered = true
+        item.visibilityPriority = Self.trailingPriority
+        // Nothing to interrupt until the binding says so.
+        item.autovalidates = false
+        item.isEnabled = interruptIsEnabled
+        interruptItem = item
+        refreshInterruptTooltip()
+        return item
+    }
+
+    private static let interruptTitle = "Interrupt"
+
+    /// "Interrupt (⌃⌘.)": the shortcut is read from the live Agents menu, so
+    /// a rebind never leaves the tooltip lying.
+    private func refreshInterruptTooltip() {
+        let shortcut = MainActor.assumeIsolated {
+            LeoMenuShortcutHint.text(
+                for: LeoMenuShortcutHint.menuItem(action: #selector(TerminalController.interruptSelectedLeoAgent(_:)), in: mainMenu()))
+        }
+        let tooltip = shortcut.map { "\(Self.interruptTitle) (\($0))" } ?? Self.interruptTitle
+        if interruptItem?.toolTip != tooltip { interruptItem?.toolTip = tooltip }
+    }
+
+    private func makeMoreItem() -> NSToolbarItem {
         let item = NSMenuToolbarItem(itemIdentifier: .leoMore)
         item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "More")
         item.label = "More"
         item.menu = moreMenu
         item.showsIndicator = false
-        // The first to fold into the overflow chevron when the window is narrow.
-        item.visibilityPriority = .low
-        setHidden(item, !showsMoreItem)
-        moreItem = item
+        item.visibilityPriority = Self.trailingPriority
         return item
     }
 }
