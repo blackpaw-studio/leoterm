@@ -301,6 +301,11 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         if activityWidth.constant != width { activityWidth.constant = width }
         if activityContainerWidth.constant != containerWidth { activityContainerWidth.constant = containerWidth }
         showsUpdateItem = layout.showsUpdateItem
+        // With no room to centre the capsule beside the trailing groups it
+        // flows left of them instead; a centred item that doesn't fit would
+        // fold into the overflow chevron.
+        let centered: Set<NSToolbarItem.Identifier> = layout.isCentered ? [.leoActivity] : []
+        if let toolbar, toolbar.centeredItemIdentifiers != centered { toolbar.centeredItemIdentifiers = centered }
         if hidesItemsInPlace {
             setHidden(updateItem, !(isUpdateShowing && showsUpdateItem))
         } else {

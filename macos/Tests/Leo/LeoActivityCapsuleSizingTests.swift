@@ -15,7 +15,7 @@ struct LeoActivityCapsuleSizingTests {
     @Test func aWideToolbarKeepsEverythingAndTheMaximumWidth() {
         let layout = Sizing.layout(availableToolbarWidth: 1400, leadingChrome: 0)
 
-        #expect(layout == .init(width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsUpdateItem: true))
+        #expect(layout == .init(width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsUpdateItem: true, isCentered: true))
     }
 
     @Test func theCapsuleGetsWhatTheSubtitleLeavesOnEachSide() {
@@ -60,15 +60,32 @@ struct LeoActivityCapsuleSizingTests {
     }
 
     @Test func theTrailingGroupsStayReservedAtEveryWidth() {
-        // A 480 pt window: the capsule degrades to its floor; nothing takes back the trailing room.
-        let narrow = Sizing.layout(availableToolbarWidth: 480, leadingChrome: 0)
+        // Too narrow to centre the capsule: it gives up centring and takes what the trailing groups leave.
+        let narrow = Sizing.layout(availableToolbarWidth: 450, leadingChrome: 0)
         #expect(narrow.width == Sizing.minimumWidth)
-        #expect(!narrow.showsSubtitle && !narrow.showsTitle && !narrow.showsUpdateItem)
+        #expect(!narrow.showsSubtitle && !narrow.showsTitle && !narrow.showsUpdateItem && !narrow.isCentered)
 
-        // Narrower than the floor: the capsule stops shrinking at `minimumWidth`.
-        for width in [300, 100, 0] as [CGFloat] {
-            #expect(Sizing.layout(availableToolbarWidth: width, leadingChrome: 0).width == Sizing.minimumWidth)
+        let tight = Sizing.layout(availableToolbarWidth: 300, leadingChrome: 0)
+        #expect(tight.width == 300 - Sizing.trailingGroupsReserve - Sizing.capsuleGap)
+
+        // Narrower than the compact capsule: it stops shrinking there.
+        for width in [100, 0] as [CGFloat] {
+            #expect(Sizing.layout(availableToolbarWidth: width, leadingChrome: 0).width == Sizing.compactWidth)
         }
+    }
+
+    @Test func aWindowAt480WithTheSidebarOpenLeavesRoomForEveryTrailingItem() {
+        // 480 pt window, 200 pt sidebar: 280 pt of toolbar. Nothing may overflow into the chevron.
+        let layout = Sizing.layout(availableToolbarWidth: 280, leadingChrome: 0)
+
+        #expect(!layout.isCentered)
+        #expect(layout.width >= Sizing.compactWidth)
+        #expect(layout.width + Sizing.capsuleGap + Sizing.trailingGroupsReserve <= 280)
+    }
+
+    @Test func theCapsuleStaysCentredWhileItFitsCentred() {
+        #expect(Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingGroupsReserve, leadingChrome: 0).isCentered)
+        #expect(!Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingGroupsReserve - 1, leadingChrome: 0).isCentered)
     }
 
     @Test func theCapsuleKeepsTheTrailingGroupsRoomOnBothSides() {
@@ -106,7 +123,7 @@ struct LeoActivityCapsuleSizingTests {
         // Only then the title; the capsule itself shrinks last, to its floor.
         let noTitle = layout(fits(left: Sizing.titleSideReserve, pill: false) - 1)
         #expect(!noTitle.showsTitle && !noTitle.showsUpdateItem)
-        #expect(layout(100).width == Sizing.minimumWidth)
+        #expect(layout(100).width == Sizing.compactWidth)
     }
 
     @Test func aDroppedPillReservesNothing() {
