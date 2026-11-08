@@ -168,3 +168,13 @@ Throwaway AppKit app (`scratchpad/chrome/spike/spike.swift`, unified toolbar, ma
 3. **Accent dot.** A non-template composite (template glyph tinted by hand + accent dot in the top-right) renders correctly in light and dark. The glyph colour must be set by hand for the selected state (white on the accent fill); the presentation re-composes on every state change.
 4. **Validation.** `NSToolbarItem` with `target = nil` reaches an `NSToolbarItemValidation` on the window controller via the responder chain (autovalidated on window events). A model change with no window event needs `toolbar.validateVisibleItems()`: toggling the flag then calling it flipped `isEnabled` to true.
 5. **Measured widths** (720 pt window): switch ≈ 78 pt, Interrupt+⋯ group ≈ 74 pt, ≈ 7 pt trailing margin, so the trailing groups need ≈ 177 pt; `trailingGroupsReserve` is set to 190 pt (re-checked in the Leo build at 480 pt).
+
+## Implementation deviations (2026-11-07)
+
+- Trailing toolbar items use `visibilityPriority = .user`, not `.high`: `.high` stalled the sidebar toolbar relayout (`LeoSidebarTitlebarStyleTests` probe). The activity and update items keep `.high`.
+- Interrupt availability is pushed (`leoInterruptAvailability` → `bind(interruptEnabled:)`, `autovalidates = false`, starts disabled) instead of `validateToolbarItem`: the AppKit validation pass was unreliable for a custom item.
+- `findItem` was removed from `LeoAgentToolbarMenu`; it uses `LeoMenuShortcutHint.menuItem(action:in:)`.
+- `LeoAgentControlAvailability` lost `isOffered`, `canCompose`, `canSend`, `reason` and `deniedReason`, along with the bar. Stopped + wake-on-message rows now enable nothing (the only verb they had was Send).
+- `LeoChatLayoutHost` takes the `LeoAgentControlModel` and overlays `LeoControlFeedbackBanner` itself.
+- Unread dot: the live harness can't show it. `LeoChatAutoOpen` switches the window to Chat on any agent message, so the dot only shows for permission/system messages. Covered by `LeoAgentToolbarTrailingTests` (dot image differs) and `LeoViewSwitchPresentationTests`.
+- `LeoSidebarTitlebarStyleTests.theProbeSurvivesTheSidebarResizingAfterItReported` is flaky on the baseline too (1 failure in 4 runs on a clean worktree).
