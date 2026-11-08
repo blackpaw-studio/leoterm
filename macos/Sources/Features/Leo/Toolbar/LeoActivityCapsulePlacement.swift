@@ -24,8 +24,8 @@ extension LeoActivityCapsuleSizing {
     /// Beside Chat the terminal column is the capsule's room: it gets the
     /// width and variant the column leaves, as if the column were the whole
     /// toolbar region, and is centred on it. That keeps it clear of the chat
-    /// pane by at least `chatClearance` (the "⋯" item's reserve on the
-    /// column's far side is the larger gap).
+    /// pane by at least `chatClearance` (`sideBySideFarSideReserve` on the
+    /// column's far side is the larger gap; the trailing groups are over the chat pane).
     static func placement(windowWidth: CGFloat, sidebarWidth: CGFloat, chatLeadingEdge: CGFloat?, leadingChrome: CGFloat, trailingReserve: CGFloat = 0
     ) -> Placement {
         let regionWidth = windowWidth - sidebarWidth
@@ -36,7 +36,9 @@ extension LeoActivityCapsuleSizing {
         }
         let terminalWidth = chatLeadingEdge - LeoChatLayout.dividerWidth - sidebarWidth
         let terminalCentre = sidebarWidth + terminalWidth / 2
-        let layout = layout(availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve)
+        let layout = layout(
+            availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve,
+            farSideReserve: sideBySideFarSideReserve)
         return Placement(
             layout: layout, minX: terminalCentre - layout.width / 2, trailingPad: max(0, 2 * (regionCentre - terminalCentre)))
     }

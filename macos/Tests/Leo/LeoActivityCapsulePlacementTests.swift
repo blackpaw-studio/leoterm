@@ -81,7 +81,9 @@ struct LeoActivityCapsulePlacementTests {
         let withPill = Sizing.placement(
             windowWidth: 1400, sidebarWidth: 220, chatLeadingEdge: 1400 - 448, leadingChrome: 0, trailingReserve: 200)
 
-        #expect(withPill.layout == Sizing.layout(availableToolbarWidth: terminalWidth, leadingChrome: 0, trailingReserve: 200))
+        #expect(
+            withPill.layout == Sizing.layout(
+                availableToolbarWidth: terminalWidth, leadingChrome: 0, trailingReserve: 200, farSideReserve: Sizing.sideBySideFarSideReserve))
         #expect(withPill.width < plain.width)
     }
 }
