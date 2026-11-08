@@ -40,7 +40,10 @@ struct LeoAgentControlAvailability: Equatable, Sendable {
         let idle = inFlight == nil
         switch row.status {
         case .running:
-            self.init(isOffered: true, canCompose: true, canSend: idle, canInterrupt: idle, canCompact: idle, canClear: idle, reason: nil)
+            // Interrupt stops work in progress: an idle agent has none. An unknown
+            // activity (a daemon without activity data) counts as working.
+            let canInterrupt = idle && row.activity != .idle
+            self.init(isOffered: true, canCompose: true, canSend: idle, canInterrupt: canInterrupt, canCompact: idle, canClear: idle, reason: nil)
         case .stopped where row.wakeOnMessage == true:
             self.init(isOffered: true, canCompose: true, canSend: idle, canInterrupt: false, canCompact: false, canClear: false, reason: nil)
         case .starting:

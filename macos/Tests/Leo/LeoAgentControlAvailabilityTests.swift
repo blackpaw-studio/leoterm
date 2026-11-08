@@ -8,8 +8,8 @@ import Testing
 struct LeoAgentControlAvailabilityTests {
     private static let control = LeoDaemonFeatures(["agent_control"])
 
-    private static func row(_ status: LeoAgentStatus, host: LeoHostID = .local, wake: Bool? = nil, movedTo: String? = nil) -> LeoAgentRow {
-        LeoAgentRow(host: host, name: "alpha", template: nil, status: status, activity: .idle, actionDetail: nil, wakeOnMessage: wake, movedTo: movedTo)
+    private static func row(_ status: LeoAgentStatus, host: LeoHostID = .local, wake: Bool? = nil, movedTo: String? = nil, activity: LeoActivity = .working) -> LeoAgentRow {
+        LeoAgentRow(host: host, name: "alpha", template: nil, status: status, activity: activity, actionDetail: nil, wakeOnMessage: wake, movedTo: movedTo)
     }
 
     private static func all(_ a: LeoAgentControlAvailability) -> [Bool] { [a.canSend, a.canInterrupt, a.canCompact, a.canClear] }
@@ -83,6 +83,18 @@ struct LeoAgentControlAvailabilityTests {
         #expect(onWork.reason == LeoAgentControlAvailability.deniedReason)
         let onLocal = LeoAgentControlAvailability(row: Self.row(.running), features: Self.control, deniedHosts: denied, inFlight: nil)
         #expect(Self.all(onLocal) == [true, true, true, true])
+    }
+
+    @Test func idleAgentCannotBeInterruptedButStillCompactsAndClears() {
+        let availability = LeoAgentControlAvailability(row: Self.row(.running, activity: .idle), features: Self.control, deniedHosts: [], inFlight: nil)
+        #expect(!availability.canInterrupt)
+        #expect([availability.canSend, availability.canCompact, availability.canClear] == [true, true, true])
+    }
+
+    @Test(arguments: [LeoActivity.working, .unknown])
+    func workingOrUnknownActivityAllowsInterrupt(activity: LeoActivity) {
+        let availability = LeoAgentControlAvailability(row: Self.row(.running, activity: activity), features: Self.control, deniedHosts: [], inFlight: nil)
+        #expect(availability.canInterrupt)
     }
 
     @Test func inFlightActionDisablesTheRest() {
