@@ -201,11 +201,13 @@ extension TerminalController {
 
     /// Whether Interrupt may act on the shown agent: the rule behind Agents ▸
     /// Interrupt, re-read whenever the row's status or activity, the daemon's
-    /// features, the selection or an in-flight verb change.
+    /// features, the machines' connections, the selection or an in-flight verb change.
     private var leoInterruptAvailability: AnyPublisher<Bool, Never> {
         guard let leoRuntime else { return Empty().eraseToAnyPublisher() }
         return leoSelectionChanges
             .merge(with: leoRuntime.control.objectWillChange.map { _ in () }.receive(on: DispatchQueue.main))
+            // A host connecting or dropping swaps the clients and features behind the rule.
+            .merge(with: leoRuntime.machines.objectWillChange.map { _ in () }.receive(on: DispatchQueue.main))
             .prepend(())
             .map { [weak self] in self?.validateLeoControlMenuItem(\.canInterrupt) ?? false }
             .eraseToAnyPublisher()

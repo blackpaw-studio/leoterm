@@ -11,7 +11,9 @@ extension TerminalController {
     }
 
     @IBAction func interruptSelectedLeoAgent(_ sender: Any?) {
-        guard let control = leoRuntime?.control, let row = selectedLeoRow else { return }
+        // The toolbar's item can be stale for a turn after a disconnect: the
+        // action re-checks the rule the menu item and the item both read.
+        guard validateLeoControlMenuItem(\.canInterrupt), let control = leoRuntime?.control, let row = selectedLeoRow else { return }
         Task { await control.interrupt(row) }
     }
 
