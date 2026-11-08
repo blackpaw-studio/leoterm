@@ -48,6 +48,59 @@ struct LeoViewMenuTests {
         #expect(LeoViewMenuActions.state(of: .chat, in: session) == .init(isEnabled: true, isChecked: false))
     }
 
+    // MARK: The toolbar switch's presentation
+
+    @Test func theSwitchIsDisabledWithNoAgentShown() {
+        let session = LeoWindowSession(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+
+        let presentation = LeoViewMenuActions.switchPresentation(in: session, unread: { _ in 5 })
+
+        #expect(presentation == LeoViewSwitchPresentation(layout: nil, unreadCount: 0))
+    }
+
+    @Test func theSwitchShowsTheShownAgentsLayoutAndUnreadCount() {
+        let session = makeSession()
+
+        let terminalOnly = LeoViewMenuActions.switchPresentation(in: session, unread: { $0 == agent ? 3 : 0 })
+        #expect(terminalOnly == LeoViewSwitchPresentation(layout: .terminal, unreadCount: 3))
+        #expect(terminalOnly.showsUnreadDot)
+
+        session.setObservedContentWidth(2000)
+        session.choose(.chat, for: agent)
+        let sideBySide = LeoViewMenuActions.switchPresentation(in: session, unread: { _ in 3 })
+        #expect(sideBySide.selected == [.terminal, .chat])
+        #expect(!sideBySide.showsUnreadDot)
+    }
+
+    // MARK: Message Agent
+
+    @Test func messageAgentShowsChatAndFocusesItsComposer() {
+        let session = makeSession()
+        session.setObservedContentWidth(800)
+        let before = session.chatFocusRequest
+
+        LeoViewMenuActions.messageAgent(in: session)
+
+        #expect(session.viewChoices[agent] == .chat)
+        #expect(session.chatFocusRequest == before + 1)
+    }
+
+    @Test func messageAgentKeepsChatOpenWhenItAlreadyShows() {
+        let session = makeSession()
+        session.setObservedContentWidth(800)
+        session.choose(.chat, for: agent)
+
+        LeoViewMenuActions.messageAgent(in: session)
+
+        // Unlike the View ▸ Chat toggle, it never closes chat.
+        #expect(session.viewChoices[agent] == .chat)
+    }
+
+    @Test func messageAgentIsEnabledWheneverAnAgentIsShown() {
+        #expect(LeoViewMenuActions.canMessage(in: makeSession()))
+        #expect(!LeoViewMenuActions.canMessage(in: LeoWindowSession(defaults: UserDefaults(suiteName: UUID().uuidString)!)))
+    }
+
     @Test func theMainMenuHasTheTwoItemsOnControlCommandOneAndTwo() throws {
         let shortcuts = try LeoMenuXib.shortcuts()
         let terminal = try #require(shortcuts.first { $0.action == "showLeoTerminal:" })

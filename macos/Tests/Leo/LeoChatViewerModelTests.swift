@@ -341,8 +341,9 @@ struct LeoChatViewerModelTests {
     @Test(arguments: [false, true], [false, true])
     func findAndMessageAgentLeaveFullWindowInsteadOfFocusingCoveredChrome(fromContextMenu: Bool, isFind: Bool) async throws {
         let session = try await fullWindowSession(fromContextMenu: fromContextMenu)
-        if isFind { session.requestSearchFocus() } else { session.requestControlFocus() }
+        if isFind { session.requestSearchFocus() } else { LeoViewMenuActions.messageAgent(in: session) }
         #expect(!session.chatViewer.isFullWindow)
-        #expect(!session.takeChatFocusRequest())
+        // Find has nothing to focus in the chat; Message Agent focuses the composer it just uncovered.
+        #expect(session.takeChatFocusRequest() == !isFind)
     }
 }
