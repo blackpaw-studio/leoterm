@@ -15,6 +15,11 @@ final class LeoToolbarViewSwitch: NSSegmentedControl {
     var onSelect: (LeoAgentViewChoice) -> Void = { _ in }
     var showsUnreadDot: Bool { presentation.showsUnreadDot }
 
+    override class var cellClass: AnyClass? {
+        get { LeoViewSwitchCell.self }
+        set {}
+    }
+
     init() {
         super.init(frame: .zero)
         segmentCount = LeoViewSwitchPresentation.choices.count
@@ -41,6 +46,7 @@ final class LeoToolbarViewSwitch: NSSegmentedControl {
     func apply(_ presentation: LeoViewSwitchPresentation) {
         self.presentation = presentation
         isEnabled = presentation.isEnabled
+        (cell as? LeoViewSwitchCell)?.segmentLabels = [LeoViewSwitchPresentation.tooltips[0], presentation.chatAccessibilityLabel]
         setImage(LeoViewSwitchImages.terminal(), forSegment: 0)
         setImage(LeoViewSwitchImages.chat(showsDot: presentation.showsUnreadDot, label: presentation.chatAccessibilityLabel), forSegment: 1)
         syncSelection()
@@ -57,6 +63,21 @@ final class LeoToolbarViewSwitch: NSSegmentedControl {
         let choice = presentation.clicked(segmentStates: states)
         syncSelection()
         if let choice { onSelect(choice) }
+    }
+}
+
+/// The segmented cell, whose segment accessibility elements VoiceOver reads
+/// by their own label: the image's description isn't enough, and "Chat, n
+/// unread" has to be there.
+private final class LeoViewSwitchCell: NSSegmentedCell {
+    var segmentLabels: [String] = []
+
+    override func accessibilityChildren() -> [Any]? {
+        let segments = super.accessibilityChildren()
+        for (index, segment) in (segments ?? []).enumerated() where index < segmentLabels.count {
+            (segment as? NSObject)?.perform(Selector(("setAccessibilityLabel:")), with: segmentLabels[index])
+        }
+        return segments
     }
 }
 

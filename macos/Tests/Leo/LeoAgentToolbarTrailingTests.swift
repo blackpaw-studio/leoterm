@@ -192,6 +192,28 @@ struct LeoAgentToolbarTrailingTests {
         #expect(!control.isSelected(forSegment: 1))
     }
 
+    /// What VoiceOver reads per segment: the control's cell is its only
+    /// accessibility child, and the cell's children are the segments.
+    private static func segmentLabels(of control: NSSegmentedControl) -> [String] {
+        func children(of object: NSObject) -> [NSObject] {
+            (object.perform(Selector(("accessibilityChildren")))?.takeUnretainedValue() as? [Any] ?? []).compactMap { $0 as? NSObject }
+        }
+        let segments = children(of: control).flatMap(children(of:))
+        return segments.compactMap { $0.perform(Selector(("accessibilityLabel")))?.takeUnretainedValue() as? String }
+    }
+
+    @Test func theSegmentsExposeTheirLabelsToVoiceOver() {
+        let control = LeoToolbarViewSwitch()
+        control.apply(LeoViewSwitchPresentation(layout: .terminal, unreadCount: 3))
+
+        let labels = Self.segmentLabels(of: control)
+        #expect(labels == ["Terminal", "Chat, 3 unread"])
+
+        control.apply(LeoViewSwitchPresentation(layout: .terminal, unreadCount: 0))
+        let plain = Self.segmentLabels(of: control)
+        #expect(plain == ["Terminal", "Chat"])
+    }
+
     @Test func theSwitchNeverTakesFocusFromTheTerminal() throws {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
