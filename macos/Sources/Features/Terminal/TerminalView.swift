@@ -136,27 +136,19 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                             // width decides whether chat replaces the
                             // terminal or sits beside it.
                             GeometryReader { geometry in
-                                VStack(spacing: 0) {
-                                    LeoChatLayoutHost(
-                                        model: runtime.model, chat: runtime.chat, terminals: leoSession.terminals,
-                                        session: leoSession, contentWidth: geometry.size.width
-                                    ) {
-                                        ZStack {
-                                            terminalContent
+                                // The agent's controls live in the toolbar; the
+                                // terminal reaches the window's bottom edge.
+                                LeoChatLayoutHost(
+                                    model: runtime.model, chat: runtime.chat, terminals: leoSession.terminals,
+                                    session: leoSession, control: runtime.control, contentWidth: geometry.size.width
+                                ) {
+                                    ZStack {
+                                        terminalContent
 
-                                            if viewModel.surfaceTree.isEmpty {
-                                                leoPlaceholder(session: leoSession, runtime: runtime)
-                                            }
+                                        if viewModel.surfaceTree.isEmpty {
+                                            leoPlaceholder(session: leoSession, runtime: runtime)
                                         }
                                     }
-
-                                    // B-262: the prompt box, its verbs and
-                                    // the Terminal | Chat switch.
-                                    LeoAgentControlBarHost(
-                                        model: runtime.model, control: runtime.control, terminals: leoSession.terminals,
-                                        session: leoSession, unread: runtime.unread, handle: leoSession.controlPrompt,
-                                        contentWidth: geometry.size.width
-                                    )
                                 }
                             }
                         }

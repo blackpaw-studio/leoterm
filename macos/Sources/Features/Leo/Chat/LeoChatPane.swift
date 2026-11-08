@@ -14,6 +14,7 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
+    @ObservedObject var control: LeoAgentControlModel
     let contentWidth: CGFloat
     @ViewBuilder let terminal: () -> Terminal
     /// The width under the pointer mid-drag; the session stores it on release.
@@ -47,6 +48,10 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                 .frame(width: layout.chatWidth(in: contentWidth, preferred: preferred))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
             }
+        }
+        // Control feedback floats over the bottom edge; no height change.
+        .overlay(alignment: .bottom) {
+            if let row { LeoControlFeedbackBanner(row: row, control: control) }
         }
         .onAppear {
             session.setObservedContentWidth(contentWidth)
