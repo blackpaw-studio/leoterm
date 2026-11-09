@@ -118,7 +118,7 @@ Lane: B-366
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: e9de76f0b484ca3cdb4c7e96be86f92fe98f4a57
+  Reviewed-tip: 210fec712bfca1cf9d8a5025a7963e27d2b5aafe
   Dispatched: 2026-11-09T05:17:26Z
   Call: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
   Call: Version link opens the leoterm release tag leo-v<version> — P1
