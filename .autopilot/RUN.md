@@ -68,6 +68,16 @@ Lane: B-364
   Reviewed-tip: none
   Dispatched: 2026-11-09T01:29:45Z
 
+Lane: B-365
+  Branch: autopilot-lane/B-365
+  Base: 738ac477e3d166a10423b58bfea424738a1b966d
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 
@@ -77,3 +87,5 @@ Progress:
 - B-358 landed 060569e20 (light, 0 fixes).
 - B-363: restored lane's ios/LeoFeatures/Package.resolved (Xcode 26.5 resolver artifact from test runs, not item work) before landing.
 - B-363 landed 581bfebf3 (light, 0 fixes).
+- Inbox applied: B-369
+- Parallel builds on (owner, 2026-11-08); B-364 runner predates the test-host lock rule.
