@@ -2708,5 +2708,5 @@ Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T173642828275Z-d4a6f986#1
 Attachments: .autopilot/bugs/B-367/Voice_note.m4a
 Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
-Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end (or "drop" it via park/close if you're satisfied).
+Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end. Otherwise "drop B-367" removes it from the queue.
 Answer:
