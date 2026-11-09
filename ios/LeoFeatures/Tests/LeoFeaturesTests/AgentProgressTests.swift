@@ -18,44 +18,62 @@ struct AgentProgressTests {
         #expect(Self.agent([]).progress(now: Self.now) == nil)
     }
 
-    @Test func aRunningDeterminateTaskShowsTitleStatusPercentAndEta() throws {
+    @Test func aRunningDeterminateTaskShowsAPieAndItsTitle() throws {
         let task = LeoAgentTask.make("build", title: "Xcode build", percent: 62, status: "Compiling 412/980")
         let eta = Self.now.addingTimeInterval(240)
         let progress = try #require(Self.agent([task], etas: ["build": eta]).progress(now: Self.now))
-        #expect(progress.text == "Xcode build · Compiling 412/980 · 62% · 4m")
-        #expect(progress.style == .determinate(0.62))
-        #expect(progress.badge == nil)
+        #expect(progress.text == "Xcode build")
+        #expect(progress.indicator == .progress(fraction: 0.62))
+        #expect(progress.spokenValue == "Xcode build, 62 percent")
+        #expect(progress.tooltip == "Xcode build · Compiling 412/980 · 62% · 4m")
     }
 
-    @Test func anIndeterminateTaskShowsElapsedTime() throws {
+    @Test func anIndeterminateTaskShowsTheSpinner() throws {
         let progress = try #require(Self.agent([.make("sync", title: "Sync")]).progress(now: Self.now))
-        #expect(progress.text == "Sync · 4m")
-        #expect(progress.style == .indeterminate)
+        #expect(progress.text == "Sync")
+        #expect(progress.indicator == .progress(fraction: nil))
     }
 
-    @Test func aStaleTaskIsMarkedAndDimmed() throws {
-        let progress = try #require(Self.agent([.make("build", title: "Build", percent: 40, stale: true)]).progress(now: Self.now))
-        #expect(progress.text == "Build · 40% · stale")
-        #expect(progress.style == .stale(0.4))
+    @Test func aStaleTaskIsMutedAndSaysHowLongAgo() throws {
+        let task = LeoAgentTask.make("build", title: "Build", percent: 40, stale: true, updatedAt: progressEpoch)
+        let progress = try #require(Self.agent([task]).progress(now: Self.now))
+        #expect(progress.text == "Build · no update for 4m")
+        #expect(progress.indicator == .stalled(fraction: 0.4))
     }
 
-    @Test func aFailedTaskWinsAndShowsAFullRedBar() throws {
+    @Test func aFailedTaskWinsTheTextAndShowsTheGlyphWhileNothingIsLive() throws {
         let tasks = [
-            LeoAgentTask.make("a", title: "Tests", percent: 10, updatedAt: progressEpoch.addingTimeInterval(100)),
+            LeoAgentTask.make("a", title: "Tests", percent: 10, state: .cancelled, endedAt: progressEpoch.addingTimeInterval(100)),
             LeoAgentTask.make("b", title: "Deploy", state: .failed, endedAt: progressEpoch.addingTimeInterval(50)),
         ]
         let progress = try #require(Self.agent(tasks).progress(now: Self.now))
         #expect(progress.text == "Failed: Deploy")
-        #expect(progress.style == .failed)
-        #expect(progress.badge == "+1")
+        #expect(progress.indicator == .failed)
+    }
+
+    @Test func severalRunningTasksNameTheOthers() throws {
+        let tasks = [
+            LeoAgentTask.make("a", title: "Sweep", percent: 40, updatedAt: progressEpoch.addingTimeInterval(100)),
+            LeoAgentTask.make("b", title: "Lint", percent: 60), LeoAgentTask.make("c", title: "Docs"),
+        ]
+        let progress = try #require(Self.agent(tasks).progress(now: Self.now))
+        #expect(progress.text == "Sweep and 2 more")
+        #expect(progress.spokenValue == "Sweep and 2 more, 50 percent")
+    }
+
+    @Test func aFinishedTaskLeavesTheRowItsOwnSummary() throws {
+        let task = LeoAgentTask.make("build", state: .succeeded, endedAt: progressEpoch)
+        let progress = try #require(Self.agent([task]).progress(now: Self.now))
+        #expect(progress.text == nil)
+        #expect(progress.indicator == nil)
     }
 
     @Test(arguments: [LeoAttentionState.needsInput, .errored, .finished])
-    func attentionHidesTheBar(_ state: LeoAttentionState) {
+    func attentionHidesTheIndicator(_ state: LeoAttentionState) {
         #expect(Self.agent([.make("build", percent: 50)], attention: state).progress(now: Self.now) == nil)
     }
 
-    @Test func workingAttentionStillShowsTheBar() {
+    @Test func workingAttentionStillShowsTheIndicator() {
         #expect(Self.agent([.make("build", percent: 50)], attention: .working).progress(now: Self.now) != nil)
     }
 }
