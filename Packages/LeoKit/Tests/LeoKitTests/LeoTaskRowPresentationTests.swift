@@ -85,6 +85,17 @@ struct LeoTaskRowPresentationTests {
         #expect(s?.detail == "Failed: bad")
     }
 
+    @Test func spokenValueNamesTheTaskThatDecidesTheIndicator() {
+        let s = summary([task("bad", title: "Deploy", .failed), task("run", title: "Build", percent: 62)])
+        #expect(s?.spokenValue == "Build, 62 percent")
+        #expect(s?.detail == "Failed: Deploy")
+    }
+
+    @Test func spokenOthersCountExcludesEndedTasks() {
+        let s = summary([task("bad", title: "Deploy", .failed), task("a", title: "Build", percent: 40, updated: 9_995), task("b", percent: 60)])
+        #expect(s?.spokenValue == "Build and 1 more, 50 percent")
+    }
+
     @Test func succeededAndCancelledFallThrough() {
         #expect(summary([task("a", .succeeded)])?.indicator == nil)
         #expect(summary([task("a", .succeeded)])?.detail == nil)

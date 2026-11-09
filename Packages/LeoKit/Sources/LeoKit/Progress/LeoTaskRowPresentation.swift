@@ -42,9 +42,12 @@ public enum LeoTaskRowPresentation {
         let liveFraction = meanFraction(live)
         let indicator: LeoTaskIndicator?
         let spoken: String?
-        if !live.isEmpty {
+        if let livePrimary = LeoAgentTasks.primary(live) {
             indicator = .progress(fraction: liveFraction)
-            spoken = liveFraction.map { "\(title), \(Int(($0 * 100).rounded())) percent" } ?? "In progress"
+            // Named for the live tasks that decide the indicator, not for a
+            // failed primary that only owns the detail line.
+            let liveTitle = runningTitle(livePrimary, otherRunning: tasks.filter { $0.isRunning && $0.id != livePrimary.id }.count)
+            spoken = liveFraction.map { "\(liveTitle), \(Int(($0 * 100).rounded())) percent" } ?? "In progress"
         } else if let latest = stale.max(by: { $0.updatedAt < $1.updatedAt }) {
             indicator = .stalled(fraction: fraction(of: latest))
             spoken = "Stalled"
