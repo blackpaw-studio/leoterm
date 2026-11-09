@@ -174,9 +174,15 @@ import WebKit
         return webView.isFlipped ? center : CGPoint(x: center.x, y: webView.bounds.height - center.y)
     }
 
-    /// Runs `js` as the body of an async function in the page's own world
-    /// and returns its result as JSON (`null` for undefined).
+    /// Evaluates `js` in the page's own world and returns the result as JSON
+    /// (`null` for undefined). `js` is first tried as a single expression
+    /// (awaited, so `1+1` and `fetch(u).then(r => r.json())` just work); if it
+    /// doesn't parse as one, it runs as the body of an async function and
+    /// needs an explicit `return`.
     func eval(_ js: String) async throws -> String {
+        let result = try await run(LeoBrowserScripts.evalExpression, ["js": js], in: .page)
+        if let thrown = (result as? [String: Any])?["thrown"] as? String { throw LeoBrowserError.javaScript(thrown) }
+        if let json = result as? String { return json }
         let body = "return JSON.stringify(await (async () => {\n\(js)\n})()) ?? 'null';"
         return try await run(body, [:], in: .page) as? String ?? "null"
     }

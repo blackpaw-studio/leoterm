@@ -215,6 +215,25 @@ public enum LeoBrowserScripts {
     return { text: lines.join('\n'), truncated };
     """#
 
+    /// Body of an async function run in the page's own world, with argument
+    /// `js`: evaluates `js` as a single expression and returns its awaited
+    /// value as JSON (`'null'` for undefined), `{thrown: message}` when it
+    /// throws, or `{statements: true}` when it doesn't parse as an
+    /// expression (or the page's CSP forbids compiling one), so the caller
+    /// runs it as a function body instead. Compiling through the
+    /// constructor keeps a parse failure out of the page's console.
+    public static let evalExpression = #"""
+    const AsyncFunction = (async () => {}).constructor;
+    let fn = null;
+    try { fn = new AsyncFunction('return (' + js + '\n)'); } catch (_) {}
+    if (!fn) return { statements: true };
+    try {
+      return JSON.stringify(await fn()) ?? 'null';
+    } catch (error) {
+      return { thrown: String((error && error.message) ?? error) };
+    }
+    """#
+
     /// Body of an async function run in the snapshot's content world, with
     /// argument `ref`: scrolls the element into view and returns its
     /// border box in viewport (CSS) pixels as `{x, y, width, height}`, or
