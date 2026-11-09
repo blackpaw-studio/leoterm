@@ -118,6 +118,23 @@ struct LeoAgentRowProgressPresentationTests {
         #expect(!presentation([Self.task(stale: true)], activity: .working).symbolRotates)
     }
 
+    /// The only state that rotates is working, so this covers every rotating
+    /// state against every moving indicator (determinate, indeterminate, stale,
+    /// and a failed task beside a live one).
+    @Test func noMovingIndicatorEverSharesARowWithATurningSymbol() {
+        let moving: [[LeoAgentTask]] = [
+            [Self.task()],
+            [Self.task(mode: .indeterminate, percent: nil)],
+            [Self.task(stale: true)],
+            [Self.task("a", title: "Broke", state: .failed, updated: 10), Self.task("b", updated: 200)],
+        ]
+        for tasks in moving {
+            let p = presentation(tasks, activity: .working)
+            #expect(p.state.rotates)
+            #expect(!p.symbolRotates, "indicator \(String(describing: p.task?.indicator))")
+        }
+    }
+
     @Test func workingSymbolSpinsWithNoIndicator() {
         #expect(presentation([], activity: .working).symbolRotates)
         #expect(presentation([Self.task(state: .succeeded)], activity: .working).symbolRotates)
