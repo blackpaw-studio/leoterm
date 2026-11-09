@@ -91,14 +91,13 @@ struct LeoManagedDependencies: Sendable {
         await exclusively { await self.restartAfterUpdate(running: running) }
     }
 
-    /// B-341, after `restartIfUpdated()` and before `ensureWebAPI()`: a
-    /// managed `leo.yaml` with no dispatch viewer placement gets `window`, so
-    /// viewers open as windows reached from the sidebar instead of splitting
-    /// the caller's window. The daemon reads `leo.yaml` for every dispatch,
-    /// so this needs no restart.
-    func ensureViewerPlacement() async {
-        guard case .managed = status, markerStore.read().ours != nil else { return }
-        await exclusively { await self.defaultViewerPlacement() }
+    /// Everything that follows `run()` off the launch path, in order: B6 drains
+    /// agents first, so it must not hold up the sidebar. The web API step
+    /// follows it: B6 re-points the marker's tmux, and a second restart would
+    /// skip that.
+    func runPostLaunchSteps() async {
+        await restartIfUpdated()
+        await ensureWebAPI()
     }
 
     /// B-339, after `restartIfUpdated()`: a managed daemon whose `leo.yaml`
@@ -352,23 +351,6 @@ struct LeoManagedDependencies: Sendable {
             status = .managed(version: running)
             let sentence = message.hasSuffix(".") ? message : message + "."
             notice = LeoManagedNotice(title: "Leo couldn’t update its daemon", message: "\(sentence) \(doctor)")
-        }
-    }
-
-    // MARK: the dispatch viewer placement (B-341)
-
-    /// Logs only: on any failure, dispatches keep the daemon's `pane` default.
-    private func defaultViewerPlacement() async {
-        let d = dependencies
-        let outcome = await LeoManagedViewerPlacement(
-            runner: d.runner, fileSystem: d.fileSystem, bundledLeo: d.paths.bundledLeo.path,
-            configURL: d.paths.configURL, makeToken: d.makeToken
-        ).apply()
-        switch outcome {
-        case .written: Self.logger.log("leo.yaml: dispatch viewers now open as windows")
-        case .present: break
-        case .skipped(let reason): Self.logger.notice("viewer placement default skipped: \(reason, privacy: .public)")
-        case .failed(let message): Self.logger.error("viewer placement default failed: \(message, privacy: .public)")
         }
     }
 

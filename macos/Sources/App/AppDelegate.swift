@@ -392,15 +392,7 @@ class AppDelegate: NSObject,
         if let leoManaged {
             leoRuntime.managedStartup = {
                 await leoManaged.run()
-                // B6 drains agents first, so it must not hold up the sidebar.
-                // The web API step follows it: B6 re-points the marker's tmux, and a second restart would skip that.
-                // B-341's placement default needs no restart (the daemon reads leo.yaml for every dispatch); it
-                // runs before the web API step so that step's one restart, if any, picks up both changes.
-                Task { @MainActor in
-                    await leoManaged.restartIfUpdated()
-                    await leoManaged.ensureViewerPlacement()
-                    await leoManaged.ensureWebAPI()
-                }
+                Task { @MainActor in await leoManaged.runPostLaunchSteps() }
             }
         }
         leoRuntime.start()
