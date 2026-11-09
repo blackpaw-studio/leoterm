@@ -76,12 +76,15 @@ extension ChatsSplitViewController {
         panel.onDismiss = { [store] row in store.send(.fleet(.dismissTask(row.ref.daemonID, agent: row.ref.name, id: row.task.id))) }
         observe { [weak self] in
             guard let self else { return }
+            // An open thread shows only its own agent's tasks; the list shows the fleet's.
+            let scope = store.chat?.ref
+            let rows = store.fleet.taskPanelRows(scopedTo: scope)
             panel.render(
-                header: store.fleet.taskPanelHeader, rows: store.fleet.taskPanelRows,
+                header: store.fleet.taskPanelHeader(scopedTo: scope), rows: rows,
                 isCollapsed: store.fleet.isProgressPanelCollapsed, now: store.fleet.progressClock
             )
             // Compact: the list and thread start below the collapsed card, so it never hides content.
-            let reservesSpace = store.fleet.isCompactWidth && !store.fleet.taskPanelRows.isEmpty
+            let reservesSpace = store.fleet.isCompactWidth && !rows.isEmpty
             topContentInset = reservesSpace ? Self.compactPanelGap * 2 + panel.collapsedHeight : 0
         }
     }
