@@ -35,7 +35,8 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                     if layout == .sideBySide { divider(layout, preferred: preferred) }
                     LeoChatPane(
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
-                        close: { session.choose(.terminal, for: row.id) }
+                        close: { session.choose(.terminal, for: row.id) },
+                        start: { model.startRequested(row) { _ in } }
                     )
                     // The detail column starts at the toolbar's bottom edge (the real
                     // safe area, as for the terminal), but a `ScrollView` draws
@@ -97,6 +98,9 @@ struct LeoChatPane: View {
     @ObservedObject var session: LeoWindowSession
     @ObservedObject var viewer: LeoChatViewerModel
     let close: () -> Void
+    /// Starts the agent when it isn't running (B-369: its history is
+    /// readable meanwhile; starting is this one explicit action).
+    let start: () -> Void
     @State private var isDropTargeted = false
 
     var body: some View {
@@ -121,6 +125,10 @@ struct LeoChatPane: View {
                 if let document, !viewer.isFullWindow { fileViewer(document) }
             }
             if document == nil {
+                if let prompt = LeoChatStartBar.prompt(for: row.status) {
+                    Divider()
+                    startBar(prompt)
+                }
                 Divider()
                 LeoChatComposer(
                     chat: chat, agent: row.id, agentName: row.displayName,
@@ -145,6 +153,17 @@ struct LeoChatPane: View {
         .task(id: row.id) { await chat.show(row.id) }
         .onAppear { Task { await chat.setOnScreen(true) } }
         .onDisappear { Task { await chat.setOnScreen(false) } }
+    }
+
+    private func startBar(_ prompt: LeoChatStartBar) -> some View {
+        HStack(spacing: 8) {
+            Text("\(row.displayName) \(prompt.message)").font(.callout).foregroundStyle(.secondary).lineLimit(1)
+            Spacer(minLength: 8)
+            if prompt.offersStart { Button("Start", action: start).controlSize(.small) }
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 32)
+        .background(.bar)
     }
 
     private func viewerHeader(_ document: LeoChatViewerDocument) -> some View {
@@ -208,6 +227,22 @@ extension LeoChatPaneModel {
             try addFiles(urls, to: agent)
         } catch {
             showNotice(error.localizedDescription)
+        }
+    }
+}
+
+/// B-369: what the chat shows above its composer for an agent that isn't
+/// running. Reading history never waits on this; Start is one explicit,
+/// non-blocking action, and nothing starts by itself.
+struct LeoChatStartBar: Equatable {
+    let message: String
+    let offersStart: Bool
+
+    static func prompt(for status: LeoAgentStatus) -> LeoChatStartBar? {
+        switch status {
+        case .running: nil
+        case .starting, .restoring: LeoChatStartBar(message: "is starting\u{2026}", offersStart: false)
+        case .stopped, .unknown: LeoChatStartBar(message: "isn\u{2019}t running.", offersStart: true)
         }
     }
 }
