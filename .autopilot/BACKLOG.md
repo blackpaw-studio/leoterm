@@ -2699,7 +2699,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T012952605012Z-96d7a589#1
 
-## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [ready]
+## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [blocked]
 Issue: #342
 Type: bug
 Report: Sometimes when you message the agent in the chat, it doesn't respond in the chat, which is fine on desktop, but on iOS that means I don't see it unless I peek into what the terminal looks like. When a message is sent in chat (desktop app or iOS), make sure it gets replied to in chat if necessary. I don't know if there are any situations where we'd want to break that rule. If this is a change that needs to go into the daemon, message the leo agent to make the change.
@@ -2707,3 +2707,6 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T173642828275Z-d4a6f986#1
 Attachments: .autopilot/bugs/B-367/Voice_note.m4a
+Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
+Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end (or "drop" it via park/close if you're satisfied).
+Answer:
