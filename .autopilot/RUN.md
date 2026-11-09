@@ -27,9 +27,32 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-376
+  Branch: autopilot-lane/B-376
+  Base: 3ec165a37d6f8415965f1751b367817267634763
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-09T22:09:30Z
+
+Lane: B-377
+  Branch: autopilot-lane/B-377
+  Base: 3ec165a37d6f8415965f1751b367817267634763
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-09T22:09:30Z
+
 Progress:
 - Budget arg "1hr" read as a 1h time budget.
 - Preflight: merged main 2109fe5a3 into autopilot.
 - Inbox applied: created B-375, B-376, B-377 (bugs).
 - Inbox applied: order B-376 B-377 B-368 B-375 (owner in session: browser fixes first).
 - B-376 and B-377 run in parallel: same file (LeoWKBrowserPage.swift) but separate regions (console hook/UA vs browser_eval).
+- Runners: B-376 d-890551eda115, B-377 d-b9124e701e92 (leo implement role).
