@@ -2750,7 +2750,7 @@ Source: autopilot polish (B-369)
 Note: B-369 verifier observation, unconfirmed whether it predates B-369 — P2 never invent a state the daemon didn't report
 Source: autopilot polish (B-369)
 
-## B-373 · the update button on macos overflows now. not good. [Image #4] (Image…   [ready]
+## B-373 · the update button on macos overflows now. not good. [Image #4] (Image…   [blocked]
 Issue: #346
 Type: bug
 Report: the update button on macos overflows now. not good. [Image #4] [Image #5]
@@ -2758,6 +2758,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T135506634887Z-bb368b80#1
 Attachments: .autopilot/bugs/B-373/leo-paste-20261109-135455-137.png, .autopilot/bugs/B-373/leo-paste-20261109-135457-164.png
+Question: couldn't reproduce — the reproducing test never failed. Reading the screenshots as .leoUpdate folding into the toolbar overflow chevron, it asserted toolbar.visibleItems contains .leoUpdate with the real UpdatePill in a titled window with sidebar split and title/subtitle, sweeping widths 800–1700 pt, Chat beside the terminal and not, short and ~75-char pill states: 92/92 passed. The harness lacks the real LeoActivityCapsule, reset-zoom item, sidebar toggle/traffic lights and real macOS 26 chrome. Unconfirmed lead: with Chat beside the terminal, sideBySideFarSideReserve (56) may leave too little room for the pill and trailing groups; needs a GUI check in the debug app with a forced update state. Non-reproducing test diff kept at /private/tmp/claude-501/-Users-evan--leo-agents-leoterm--git-autopilot-lanes-B-373/80c932e0-43bd-49d9-931f-6aff9cf6ad63/scratchpad/b373-nonrepro-test.diff. Reply "B-373: close", or "B-373: <more detail>" (window width, pill text, Chat beside the terminal or not) to retry. Work kept on autopilot-shelved/B-373.
+Answer: 
 
 ## B-374 · when i switch to an agent thats stopped to view the chat, it auto…   [blocked]
 Issue: #347
