@@ -42,14 +42,18 @@ Lane: B-374
   Branch: autopilot-lane/B-374
   Base: 62032c9376e2f9563385fb3928ba8fe20c17607d
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-09T14:12:00Z
+  Tokens: 3.91M in (3.75M cache read), ≥21.2k out, 40 requests
+
+Finished 1: B-374 blocked
 
 Progress:
 - B-373 and B-374 built before B-368 (owner's fresh reports this morning; 2-item cap).
 - Preflight: local main is stale (ab72de1f0); merged origin/main 487d73a33 (leo-v0.32.0 release merge) into autopilot.
 - Inbox applied: created B-373, B-374 (bugs); B-368 promoted.
+- B-374 blocked: runner could not reproduce (no GUI repro; load >40); suspects a late focus report via receiveAttachLinks → selectFocusedRow. Shelved to autopilot-shelved/B-374 (no commits).
