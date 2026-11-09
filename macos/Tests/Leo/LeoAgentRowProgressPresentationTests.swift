@@ -4,7 +4,7 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// Row A: the thin task bar and the subtitle it replaces; attention wins.
+/// The row's trailing task indicator and the task text on line 2; attention wins.
 struct LeoAgentRowProgressPresentationTests {
     private static let t0 = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -20,88 +20,106 @@ struct LeoAgentRowProgressPresentationTests {
 
     private func presentation(
         _ tasks: [LeoAgentTask], eta: [String: Date] = [:], attention: LeoAttentionBadge? = nil,
-        reason: LeoAttentionReason? = nil, error: String? = nil, now: Date? = nil
+        reason: LeoAttentionReason? = nil, error: String? = nil, now: Date? = nil, activity: LeoActivity = .idle
     ) -> LeoAgentRowPresentation {
         let row = LeoAgentRow(
-            host: .local, name: "alpha", template: "claude", status: .running, activity: .idle, actionDetail: nil,
+            host: .local, name: "alpha", template: "claude", status: .running, activity: activity, actionDetail: nil,
             attention: attention, attentionReason: reason, tasks: LeoRowTasks(tasks: tasks, etaAt: eta)
         )
         return LeoAgentRowPresentation(row: row, error: error, now: now)
     }
 
-    @Test func determinateTaskShowsBarAndSummary() {
+    @Test func determinateTaskShowsPieAndTitleOnly() {
         let eta = Self.t0.addingTimeInterval(100 + 240)
         let p = presentation([Self.task()], eta: ["build": eta])
-        #expect(p.progress?.kind == .determinate(62))
-        #expect(p.progress?.fraction == 0.62)
-        #expect(p.detail == .progress("Xcode build · Compiling · 62% · 4m"))
+        #expect(p.task?.indicator == .progress(fraction: 0.62))
+        #expect(p.detail == .progress("Xcode build"))
+        #expect(p.task?.tooltip == "Xcode build · Compiling · 62% · 4m")
         #expect(p.hasSecondLine)
     }
 
-    @Test func indeterminateTaskGetsAnAnimatedBar() {
+    @Test func indeterminateTaskGetsTheSpinner() {
         let p = presentation([Self.task(mode: .indeterminate, percent: nil, status: nil)], now: Self.t0.addingTimeInterval(125))
-        #expect(p.progress?.kind == .indeterminate)
-        #expect(p.progress?.fraction == nil)
-        #expect(p.detail == .progress("Xcode build · 2m"))
+        #expect(p.task?.indicator == .progress(fraction: nil))
+        #expect(p.detail == .progress("Xcode build"))
     }
 
-    @Test func staleTaskIsDimmedAndSaysStale() {
-        let p = presentation([Self.task(stale: true)])
-        #expect(p.progress?.kind == .stale(62))
-        #expect(p.detail == .progress("Xcode build · Compiling · 62% · stale"))
+    @Test func staleTaskIsMutedAndSaysHowLongAgo() {
+        let p = presentation([Self.task(stale: true)], now: Self.t0.addingTimeInterval(100 + 1_200))
+        #expect(p.task?.indicator == .stalled(fraction: 0.62))
+        #expect(p.detail == .progress("Xcode build · no update for 20m"))
     }
 
-    @Test func failedTaskIsRedAndNamed() {
+    @Test func failedTaskIsGlyphRedAndNamed() {
         let p = presentation([Self.task(state: .failed)])
-        #expect(p.progress?.kind == .failed)
+        #expect(p.task?.indicator == .failed)
         #expect(p.detail == .progress("Failed: Xcode build"))
         #expect(p.detailInk == .tint(.red))
     }
 
-    @Test func extraTasksAddABadge() {
-        let p = presentation([Self.task(), Self.task("lint", title: "Lint", updated: 50), Self.task("docs", title: "Docs", updated: 40)])
-        #expect(p.progress?.extraBadge == "+2")
-        #expect(presentation([Self.task()]).progress?.extraBadge == nil)
+    @Test func failedTaskOnAnErroredAgentHasNoGlyphButKeepsTheText() {
+        let p = presentation([Self.task(state: .failed)], attention: .errored)
+        #expect(p.task?.indicator == nil)
+        #expect(p.detail == .progress("Failed: Xcode build"))
     }
 
-    @Test func needsInputAttentionHidesTheBarAndKeepsTheReason() {
+    @Test func severalRunningTasksNameTheOthersInTheText() {
+        let p = presentation([Self.task(), Self.task("lint", title: "Lint", updated: 50), Self.task("docs", title: "Docs", updated: 40)])
+        #expect(p.detail == .progress("Xcode build and 2 more"))
+    }
+
+    @Test func needsInputAttentionHidesTheTaskAndKeepsTheReason() {
         let reason = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm -rf build")
         let p = presentation([Self.task()], attention: .needsInput, reason: reason)
-        #expect(p.progress == nil)
+        #expect(p.task == nil)
         #expect(p.detail == .attention("Bash: rm -rf build"))
     }
 
-    @Test func needsInputWithoutAReasonStillHidesTheBar() {
+    @Test func needsInputWithoutAReasonStillHidesTheTask() {
         let p = presentation([Self.task()], attention: .needsInput)
-        #expect(p.progress == nil)
+        #expect(p.task == nil)
         if case .progress = p.detail { Issue.record("subtitle must not show the task") }
     }
 
-    @Test func workingAttentionDoesNotHideTheBar() {
-        #expect(presentation([Self.task()], attention: .working).progress != nil)
+    @Test func workingAttentionDoesNotHideTheTask() {
+        #expect(presentation([Self.task()], attention: .working).task != nil)
     }
 
-    @Test func errorAndWarningOutrankTheSubtitleButNotTheBar() {
+    @Test func errorAndWarningOutrankTheTaskTextButNotTheIndicator() {
         let p = presentation([Self.task()], error: "Start failed")
         #expect(p.detail == .error("Start failed"))
-        #expect(p.progress?.kind == .determinate(62))
+        #expect(p.task?.indicator == .progress(fraction: 0.62))
     }
 
     @Test func noTasksChangesNothing() {
         let p = presentation([])
-        #expect(p.progress == nil)
+        #expect(p.task == nil)
         #expect(p.detail == .fallback("claude"))
     }
 
-    @Test func finishedTasksShowDoneAndCancelled() {
-        #expect(presentation([Self.task(state: .succeeded)]).detail == .progress("Done: Xcode build"))
-        #expect(presentation([Self.task(state: .succeeded)]).progress?.kind == .succeeded)
-        #expect(presentation([Self.task(state: .cancelled)]).progress?.kind == .cancelled)
+    @Test func finishedTasksFallThroughToTheNextDetail() {
+        let p = presentation([Self.task(state: .succeeded)])
+        #expect(p.detail == .fallback("claude"))
+        #expect(p.task?.indicator == nil)
+        #expect(p.hasSecondLine)
+        #expect(presentation([Self.task(state: .cancelled)]).detail == .fallback("claude"))
     }
 
     @Test func failedTaskIsTheRowsPrimaryEvenAmongRunning() {
         let p = presentation([Self.task("a", title: "Running", updated: 200), Self.task("b", title: "Broke", state: .failed, updated: 10)])
-        #expect(p.progress?.kind == .failed)
-        #expect(p.progress?.extraBadge == "+1")
+        #expect(p.detail == .progress("Failed: Broke"))
+        #expect(p.task?.indicator == .progress(fraction: 0.62))
+    }
+
+    @Test func workingSymbolIsStillWhileAnIndicatorShows() {
+        let working = presentation([Self.task()], activity: .working)
+        #expect(working.state.rotates)
+        #expect(!working.symbolRotates)
+        #expect(!presentation([Self.task(stale: true)], activity: .working).symbolRotates)
+    }
+
+    @Test func workingSymbolSpinsWithNoIndicator() {
+        #expect(presentation([], activity: .working).symbolRotates)
+        #expect(presentation([Self.task(state: .succeeded)], activity: .working).symbolRotates)
     }
 }
