@@ -49,6 +49,37 @@ struct AgentCellTests {
         #expect(findBadge(in: laidOut(cell)) === first)
     }
 
+    /// A cell in a window, where trait overrides resolve.
+    private func hosted() -> (AgentCell, UIWindow) {
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: 200))
+        let cell = AgentCell()
+        window.addSubview(cell)
+        window.isHidden = false
+        return (cell, window)
+    }
+
+    @Test func aTextSizeChangeRemeasuresTheBadgeInsteadOfKeepingItsPinnedFrame() throws {
+        let (cell, window) = hosted()
+        defer { window.isHidden = true }
+        let badge = AgentCell.Badge(text: "Needs Input", tint: .systemOrange)
+        cell.setAccessories(badge: badge, indicator: nil)
+        let first = try #require(findBadge(in: laidOut(cell)))
+        cell.traitOverrides.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        cell.setAccessories(badge: badge, indicator: nil)
+        let second = try #require(findBadge(in: laidOut(cell)))
+        #expect(second !== first)
+    }
+
+    @Test func theCellRemeasuresItselfWhenTheTextSizeChanges() throws {
+        let (cell, window) = hosted()
+        defer { window.isHidden = true }
+        cell.setAccessories(badge: .init(text: "Needs Input", tint: .systemOrange), indicator: nil)
+        let first = try #require(findBadge(in: laidOut(cell)))
+        cell.traitOverrides.preferredContentSizeCategory = .accessibilityExtraExtraExtraLarge
+        let second = try #require(findBadge(in: laidOut(cell)))
+        #expect(second !== first)
+    }
+
     @Test func applyingAnUnchangedIndicatorLeavesTheSpinnerAlone() throws {
         let view = TaskIndicatorView()
         view.apply(.progress(fraction: nil))

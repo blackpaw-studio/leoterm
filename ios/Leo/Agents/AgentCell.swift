@@ -7,6 +7,7 @@ import UIKit
 final class AgentCell: UICollectionViewListCell {
     let taskIndicator = TaskIndicatorView()
     private var accessoryShape: AccessoryShape?
+    private var accessoryContent: (badge: Badge?, indicator: LeoTaskIndicator?)?
     /// The text a stale task's line is fitted from, and the width it was last
     /// fitted to. The width is known only once the cell has laid out.
     private var detail: (text: String, suffix: String)?
@@ -18,6 +19,9 @@ final class AgentCell: UICollectionViewListCell {
     private struct AccessoryShape: Equatable {
         let badge: Badge?
         let hasIndicator: Bool
+        /// The badge's frame is measured once and pinned, so a text size change
+        /// must rebuild it.
+        let sizeCategory: UIContentSizeCategory
     }
 
     struct Badge: Equatable {
@@ -29,8 +33,9 @@ final class AgentCell: UICollectionViewListCell {
     /// disclosure chevron. The accessory list is rebuilt only when its shape
     /// changes; the indicator is updated in place.
     func setAccessories(badge: Badge?, indicator: LeoTaskIndicator?) {
+        accessoryContent = (badge, indicator)
         if let indicator { taskIndicator.apply(indicator) }
-        let shape = AccessoryShape(badge: badge, hasIndicator: indicator != nil)
+        let shape = AccessoryShape(badge: badge, hasIndicator: indicator != nil, sizeCategory: traitCollection.preferredContentSizeCategory)
         guard shape != accessoryShape else { return }
         accessoryShape = shape
         var accessories: [UICellAccessory] = [.disclosureIndicator()]
@@ -47,6 +52,17 @@ final class AgentCell: UICollectionViewListCell {
         }
         self.accessories = accessories
     }
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (cell: AgentCell, _) in
+            guard let content = cell.accessoryContent else { return }
+            cell.setAccessories(badge: content.badge, indicator: content.indicator)
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     /// The line to show for `text`: the title truncated so `suffix` stays
     /// whole, at the width the cell last laid out to (whole until then).
