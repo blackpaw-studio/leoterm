@@ -84,8 +84,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             let progress = agent.progress(now: self?.clock ?? Date())
             content.secondaryText = cell.fittedDetail(progress?.text, suffix: progress?.textSuffix, font: content.secondaryTextProperties.font) ?? agent.summary
             content.secondaryTextProperties.color = .secondaryLabel
-            // A task's line is one line, tail-truncated: it must not grow the row.
-            content.secondaryTextProperties.numberOfLines = progress == nil ? 2 : 1
+            content.secondaryTextProperties.numberOfLines = cell.detailLineLimit(hasTask: progress != nil)
             content.textToSecondaryTextVerticalPadding = 3
             cell.contentConfiguration = content
             cell.setAccessories(badge: agent.priority.needsAttention ? .init(text: badge.label, tint: badge.tint) : nil, indicator: progress?.indicator)

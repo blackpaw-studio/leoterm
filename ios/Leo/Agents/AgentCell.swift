@@ -5,6 +5,9 @@ import UIKit
 /// update the same view in place and the spinner keeps turning, rather than
 /// a new indicator replacing it on every reconfigure.
 final class AgentCell: UICollectionViewListCell {
+    /// The most of the row a badge may take; the title and detail keep the rest.
+    static let badgeWidthFraction: CGFloat = 0.35
+
     let taskIndicator = TaskIndicatorView()
     private var accessoryShape: AccessoryShape?
     private var accessoryContent: (badge: Badge?, indicator: LeoTaskIndicator?)?
@@ -12,6 +15,7 @@ final class AgentCell: UICollectionViewListCell {
     /// fitted to. The width is known only once the cell has laid out.
     private var detail: (text: String, suffix: String)?
     private var fittedWidth: CGFloat?
+    private var hasTaskDetail = false
 
     /// What the trailing accessories show. Equal values leave the accessories
     /// (and their views) alone: rebuilding them on the 1 s tick would restart
@@ -19,9 +23,11 @@ final class AgentCell: UICollectionViewListCell {
     private struct AccessoryShape: Equatable {
         let badge: Badge?
         let hasIndicator: Bool
-        /// The badge's frame is measured once and pinned, so a text size change
-        /// must rebuild it.
+        /// The badge's frame is measured once and pinned, so a text size or
+        /// row width change must rebuild it.
         let sizeCategory: UIContentSizeCategory
+        /// The widest the badge may be; 0 until the cell has a width.
+        let badgeMaxWidth: CGFloat
     }
 
     struct Badge: Equatable {
@@ -35,22 +41,38 @@ final class AgentCell: UICollectionViewListCell {
     func setAccessories(badge: Badge?, indicator: LeoTaskIndicator?) {
         accessoryContent = (badge, indicator)
         if let indicator { taskIndicator.apply(indicator) }
-        let shape = AccessoryShape(badge: badge, hasIndicator: indicator != nil, sizeCategory: traitCollection.preferredContentSizeCategory)
+        let shape = shape(badge: badge, hasIndicator: indicator != nil)
         guard shape != accessoryShape else { return }
         accessoryShape = shape
         var accessories: [UICellAccessory] = [.disclosureIndicator()]
         if indicator != nil {
             accessories.insert(.customView(configuration: .init(customView: taskIndicator, placement: .trailing(), maintainsFixedSize: true)), at: 0)
         }
-        if let badge {
+        if let badge = shape.badge {
             // The badge is wider than the standard accessory slot, so reserve its
             // actual width (else it spills over the chevron), and give it its
-            // fitted frame: a fixed-size accessory keeps the frame it has now.
+            // fitted frame, capped so the title keeps its room: a fixed-size
+            // accessory keeps the frame it has now.
             let view = BadgeView(text: badge.text, tint: badge.tint)
-            view.frame.size = view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+            var size = view.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+            if shape.badgeMaxWidth > 0 { size.width = min(size.width, shape.badgeMaxWidth) }
+            view.frame.size = size
             accessories.insert(.customView(configuration: .init(customView: view, placement: .trailing(), reservedLayoutWidth: .actual, maintainsFixedSize: true)), at: 0)
         }
         self.accessories = accessories
+    }
+
+    /// At accessibility text sizes there is no room for a badge: the title and
+    /// detail line take the row, and the status dot and the detail line say
+    /// the same thing.
+    private func shape(badge: Badge?, hasIndicator: Bool) -> AccessoryShape {
+        let category = traitCollection.preferredContentSizeCategory
+        return AccessoryShape(
+            badge: category.isAccessibilityCategory ? nil : badge,
+            hasIndicator: hasIndicator,
+            sizeCategory: category,
+            badgeMaxWidth: (bounds.width * Self.badgeWidthFraction).rounded(.down)
+        )
     }
 
     override init(frame: CGRect) {
@@ -58,6 +80,7 @@ final class AgentCell: UICollectionViewListCell {
         registerForTraitChanges([UITraitPreferredContentSizeCategory.self]) { (cell: AgentCell, _) in
             guard let content = cell.accessoryContent else { return }
             cell.setAccessories(badge: content.badge, indicator: content.indicator)
+            cell.refreshDetail()
         }
     }
 
@@ -69,13 +92,41 @@ final class AgentCell: UICollectionViewListCell {
     func fittedDetail(_ text: String?, suffix: String?, font: UIFont) -> String? {
         // Always replaced, so a row that stops being stale stops being refitted.
         detail = text.flatMap { text in suffix.map { (text, $0) } }
-        guard let text, let fittedWidth else { return text }
+        // A wrapped line has the room: no title truncation to keep the suffix whole.
+        guard let text, let fittedWidth, !isAccessibilitySize else { return text }
         return DetailLineFit.fit(text: text, suffix: suffix, font: font, width: fittedWidth)
+    }
+
+    private var isAccessibilitySize: Bool { traitCollection.preferredContentSizeCategory.isAccessibilityCategory }
+
+    /// How many lines the detail line gets (0 is unlimited). A task's line is
+    /// one line, tail-truncated, so it cannot grow the row; at accessibility
+    /// text sizes it wraps in full instead (a task title is short), as it
+    /// cannot fit on one line there.
+    func detailLineLimit(hasTask: Bool) -> Int {
+        hasTaskDetail = hasTask
+        guard hasTask else { return 2 }
+        return isAccessibilitySize ? 0 : 1
+    }
+
+    /// Re-applies the line limit and the fit after a text size change.
+    private func refreshDetail() {
+        guard var content = contentConfiguration as? UIListContentConfiguration else { return }
+        content.secondaryTextProperties.numberOfLines = detailLineLimit(hasTask: hasTaskDetail)
+        if let detail {
+            fittedWidth = nil
+            content.secondaryText = isAccessibilitySize ? detail.text : content.secondaryText
+        }
+        contentConfiguration = content
     }
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        guard let detail, var content = contentConfiguration as? UIListContentConfiguration,
+        // The badge's cap follows the row's width, known only once laid out.
+        if let content = accessoryContent, shape(badge: content.badge, hasIndicator: content.indicator != nil) != accessoryShape {
+            setAccessories(badge: content.badge, indicator: content.indicator)
+        }
+        guard let detail, !isAccessibilitySize, var content = contentConfiguration as? UIListContentConfiguration,
               let width = secondaryTextWidth, width != fittedWidth else { return }
         fittedWidth = width
         let fitted = DetailLineFit.fit(text: detail.text, suffix: detail.suffix, font: content.secondaryTextProperties.font, width: width)
