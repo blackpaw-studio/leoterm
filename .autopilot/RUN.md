@@ -79,12 +79,13 @@ Lane: B-365
   Branch: autopilot-lane/B-365
   Base: 738ac477e3d166a10423b58bfea424738a1b966d
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 1d8ce79db3a5eb66e0a0b2b41be1201cc018db20
   Dispatched: 2026-11-09T02:09:17Z
+  Tokens: 18.2M in (17.8M cache read), ≥50.5k out, 179 requests
   Call: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac feel)
   Call: Mac only: the menu bar has no iOS equivalent — repo rule
   Call: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ untouched — verify.md
@@ -103,6 +104,7 @@ Lane: B-369
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
+Finished 4: B-365 landed 6455f1a0974e47b9f77472b9f6ca50f173a38170 · screen capture, not attached
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
@@ -115,3 +117,4 @@ Progress:
 - B-364 landed d6421b4df.
 - B-364 verifier saw unrelated flakes (allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList, theProbe…) while B-365 ran in parallel without a parent baseline.
 - B-369 built before B-366 (independent; B-366 overlaps B-365's AppDelegate footprint).
+- B-365 landed 6455f1a09.

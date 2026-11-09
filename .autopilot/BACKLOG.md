@@ -2688,7 +2688,7 @@ Inbox: 20261108T005707514436Z-893ef814#1
 Done: c2be26f86
 Verified: not visually verified — launch-time removal with no UI; a debug launch would touch the owner's real ~/.leo config; fixture-driven test covers it
 
-## B-365 · some menu items still reference Ghostty   [ready]
+## B-365 · some menu items still reference Ghostty   [done]
 Issue: #340
 Type: bug
 Report: some menu items still reference Ghostty
@@ -2696,6 +2696,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T012907592548Z-04c8f9f1#1
 Attachments: .autopilot/bugs/B-365/leo-paste-20261108-012858-715.png
+Done: f4ae9a545
+Verified: screen capture, not attached — /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-365-2.png, -3.png (menus open, Leo titles); LeoAppMenuTests red→green
 
 ## B-366 · buttons in the about window link to ghostty repo and docs instead of…   [ready]
 Issue: #341

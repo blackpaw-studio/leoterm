@@ -486,3 +486,21 @@ Chose: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps
 Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
 Commit: c2be26f86
 Veto: [ ]
+
+## D-720 · 2026-11-08 · B-365: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac fee
+Chose: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac feel)
+Item: B-365 · some menu items still reference Ghostty
+Commit: f4ae9a545
+Veto: [ ]
+
+## D-721 · 2026-11-08 · B-365: Mac only: the menu bar has no iOS equivalent — repo rule
+Chose: Mac only: the menu bar has no iOS equivalent — repo rule
+Item: B-365 · some menu items still reference Ghostty
+Commit: f4ae9a545
+Veto: [ ]
+
+## D-722 · 2026-11-08 · B-365: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ unto
+Chose: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ untouched — verify.md
+Item: B-365 · some menu items still reference Ghostty
+Commit: f4ae9a545
+Veto: [ ]
