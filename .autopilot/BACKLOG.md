@@ -2668,13 +2668,15 @@ Source: autopilot polish (B-353)
 Note: after B-354 softened the done green (0.55 opacity), the light-mode bar reads faint; fine as calm ambient status, strengthen only if wanted — P2
 Source: autopilot polish (B-354)
 
-## B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…   [ready]
+## B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…   [done]
 Issue: #338
 Type: bug
 Report: On iOS, tasks from one agent show in the chat of other agents. A task should only show in the chat of the agent that owns it.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261107T141622663467Z-b32b5d50#1
+Done: 71b459eda
+Verified: not visually verified — panel needs two agents with live daemon tasks and no UI-test fixture covers it; LeoFeatures 486, LeoKit 1106, iOS app 58 tests pass
 
 ## B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…   [ready]
 Issue: #339

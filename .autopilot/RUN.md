@@ -47,7 +47,7 @@ Lane: B-363
   Branch: autopilot-lane/B-363
   Base: ee4c648d6b9b9f75a2ed0fec7d9c464c39338452
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -57,9 +57,11 @@ Lane: B-363
   Call: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
 
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
+Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
 - B-367 blocked before pick: leo agent says the fix is daemon-side (leo PR #327); no app change.
 - B-358 landed 060569e20 (light, 0 fixes).
 - B-363: restored lane's ios/LeoFeatures/Package.resolved (Xcode 26.5 resolver artifact from test runs, not item work) before landing.
+- B-363 landed 581bfebf3 (light, 0 fixes).

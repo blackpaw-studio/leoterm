@@ -456,3 +456,15 @@ Chose: Item uses visibilityPriority .high and never gives way to the activity ca
 Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
 Commit: 2596f13ca
 Veto: [ ]
+
+## D-715 · 2026-11-08 · B-363: Scope the task panel to the open thread only, not to the list (iPad regular width hides ot
+Chose: Scope the task panel to the open thread only, not to the list (iPad regular width hides other agents' tasks while a thread is open) — P2 calm, attention-driven
+Item: B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…
+Commit: 71b459eda
+Veto: [ ]
+
+## D-716 · 2026-11-08 · B-363: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
+Chose: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
+Item: B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…
+Commit: 71b459eda
+Veto: [ ]
