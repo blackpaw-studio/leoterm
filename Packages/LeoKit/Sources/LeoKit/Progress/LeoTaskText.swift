@@ -43,11 +43,6 @@ public enum LeoTaskText {
         return remainder == 0 ? "\(minutes / 60)h" : "\(minutes / 60)h \(remainder)m"
     }
 
-    /// "+2" for the agent's other tasks; nil when there are none.
-    public static func extraBadge(_ count: Int) -> String? {
-        count > 0 ? "+\(count)" : nil
-    }
-
     private static func ended(_ label: String, _ task: LeoAgentTask) -> String {
         "\(label): \(task.title)"
     }

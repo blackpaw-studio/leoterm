@@ -22,11 +22,6 @@ public enum LeoAgentTasks {
         return sorted(failed, by: \.recency) + sorted(running, by: \.updatedAt) + sorted(ended, by: \.recency)
     }
 
-    /// The `+N` badge: every task that is not the primary one.
-    public static func extraCount(_ tasks: [LeoAgentTask]) -> Int {
-        max(tasks.count - 1, 0)
-    }
-
     private static func sorted(_ tasks: [LeoAgentTask], by date: (LeoAgentTask) -> Date) -> [LeoAgentTask] {
         tasks.sorted { lhs, rhs in
             let (l, r) = (date(lhs), date(rhs))

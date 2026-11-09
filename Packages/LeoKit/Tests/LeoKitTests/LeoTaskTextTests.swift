@@ -63,9 +63,4 @@ struct LeoTaskTextTests {
         let line = LeoTaskText.summary(task(), etaAt: now.addingTimeInterval(-5), now: now)
         #expect(line == "Xcode build · Compiling 412/980 · 62%")
     }
-
-    @Test func extraBadge() {
-        #expect(LeoTaskText.extraBadge(0) == nil)
-        #expect(LeoTaskText.extraBadge(3) == "+3")
-    }
 }

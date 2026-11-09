@@ -13,7 +13,6 @@ struct LeoAgentTasksTests {
 
     @Test func emptyHasNoPrimary() {
         #expect(LeoAgentTasks.primary([]) == nil)
-        #expect(LeoAgentTasks.extraCount([]) == 0)
     }
 
     @Test func failedBeatsRunning() {
@@ -39,11 +38,6 @@ struct LeoAgentTasksTests {
     @Test func newestFinishedWhenNothingElse() {
         let tasks = [task("s", .succeeded, ended: 5), task("c", .cancelled, ended: 8)]
         #expect(LeoAgentTasks.primary(tasks)?.id == "c")
-    }
-
-    @Test func extraCountIsEveryOtherTask() {
-        #expect(LeoAgentTasks.extraCount([task("a")]) == 0)
-        #expect(LeoAgentTasks.extraCount([task("a"), task("b", .failed, ended: 1), task("c", .succeeded, ended: 1)]) == 2)
     }
 
     @Test func tieBreaksByIDForStability() {
