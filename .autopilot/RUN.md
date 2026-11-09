@@ -46,12 +46,14 @@ Lane: B-377
   Branch: autopilot-lane/B-377
   Base: 3ec165a37d6f8415965f1751b367817267634763
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6db045d58348390be13e4ef06a89a42e0ec04d18
   Dispatched: 2026-11-09T22:09:30Z
+  Call: browser_eval auto-returns a bare expression (with a CSP-safe path) instead of rewording the tool description, which already says "expression or statements" — P4
+  Call: Mac only (agent browser is a Mac WKWebView pane) — platform rule
 
 Finished 1: B-376 landed 2ada34003 · not visually verified
 
