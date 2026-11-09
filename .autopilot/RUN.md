@@ -96,12 +96,13 @@ Lane: B-369
   Branch: autopilot-lane/B-369
   Base: ee9831926b78d9e6a7a2191a13134e24abce8813
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 84062b174ea1df864a0067f9375f2081ee31a306
   Dispatched: 2026-11-09T02:17:01Z
+  Tokens: 30.6M in (29.9M cache read), ≥77.9k out, 236 requests
   Call: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo Mac/iOS rule
   Call: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-starts — P2/P5
   Call: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting…" while starting) — P2/P5
@@ -122,6 +123,7 @@ Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
 Finished 4: B-365 landed 6455f1a0974e47b9f77472b9f6ca50f173a38170 · screen capture, not attached
+Finished 5: B-369 landed fc9af1308bedc3bb122c45eac34177947411090a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-369-1.png
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
@@ -135,3 +137,4 @@ Progress:
 - B-364 verifier saw unrelated flakes (allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList, theProbe…) while B-365 ran in parallel without a parent baseline.
 - B-369 built before B-366 (independent; B-366 overlaps B-365's AppDelegate footprint).
 - B-365 landed 6455f1a09.
+- B-369 landed fc9af1308.

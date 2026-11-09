@@ -504,3 +504,27 @@ Chose: Built the xcframework inside the lane because shared/ predates the B-334 
 Item: B-365 · some menu items still reference Ghostty
 Commit: f4ae9a545
 Veto: [ ]
+
+## D-723 · 2026-11-08 · B-369: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo 
+Chose: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo Mac/iOS rule
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-724 · 2026-11-08 · B-369: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-
+Chose: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-starts — P2/P5
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-725 · 2026-11-08 · B-369: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting
+Chose: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting…" while starting) — P2/P5
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-726 · 2026-11-08 · B-369: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet, since they need
+Chose: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet, since they need a running agent — P1
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]

@@ -2726,13 +2726,15 @@ Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red inter
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-358)
 
-## B-369 · i should be able to view the chat of a stopped agent without the start…   [ready]
+## B-369 · i should be able to view the chat of a stopped agent without the start…   [done]
 Issue: #345
 Type: bug
 Report: i should be able to view the chat of a stopped agent without the start agent question modal blocking the whole screen
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261109T020523131001Z-a7853633#1
+Done: 168f074d3, aa255f832
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-369-1.png
 
 ## B-370 · verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog   [idea]
 Note: the debug app parses the flag as Ghostty config and opens a "Configuration Errors" dialog during verify; fix the launch line in verify.md — verify infrastructure, not a product bug
