@@ -480,6 +480,10 @@ import LeoKit
             model?.selectAgentRow(row.id)
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
         }
+        model.chatRequested = { [weak registry, weak model] row, origin in
+            model?.selectAgentRow(row.id)
+            registry?.session(for: origin)?.choose(.chat, for: row.id)
+        }
         model.dispatchAttachRequested = { [weak attachCoordinator] identity, origin, disposition in
             Task { await attachCoordinator?.attach(identity: identity, from: origin, disposition: disposition) }
         }
