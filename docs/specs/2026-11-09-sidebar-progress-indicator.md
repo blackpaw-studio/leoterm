@@ -1,6 +1,6 @@
 # Sidebar task progress: HIG-native trailing indicator
 
-Status: draft for approval (2026-11-09)
+Status: approved by Evan (2026-11-09)
 Mockup: `docs/mockups/2026-11-09-sidebar-progress/options.html` (published at https://claude.ai/artifact/7R3n8SNioPMo4pxuMvxnyd)
 Supersedes the row treatment in `docs/specs/2026-11-03-agent-progress.md` (row bar only). The data model, daemon contract, popover, toolbar capsule and notifications are unchanged.
 
