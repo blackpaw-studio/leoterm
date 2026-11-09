@@ -2721,12 +2721,13 @@ Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks fr
 Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
 Answer:
 
-## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready]
-Issue: #344
+## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [ready]
+Issue: #349
 Type: bug
-Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
+Report: agent browser can't load hyatt.com (every page blank with an empty title; example.com loads fine). Kasada bot-check ips.js errors in a loop. Unverified hypotheses, test one at a time against hyatt.com: (1) the page-world console hook at LeoWKBrowserPage.swift:79 (LeoBrowserScripts.console at .atDocumentStart in .page) replaces console methods with non-native wrappers and exposes webkit.messageHandlers.leoConsole to the page; move it to the LeoAgent world without a page-visible handler, or install it only when browser_console is used. (2) The default WKWebView UA lacks the 'Version/x Safari/605.1.15' suffix; set configuration.applicationNameForUserAgent to match the installed Safari. If both fail, record it as a known WKWebView limitation, where the fix is handing the tab to the user. Reported by agent family; repro details on request.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
-Source: autopilot bug (B-358)
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261109T210810161402Z-9b4a683b#1
 
 ## B-369 · i should be able to view the chat of a stopped agent without the start…   [done]
 Issue: #345
@@ -2771,23 +2772,25 @@ Inbox: 20261109T140334166280Z-ab1265a0#1
 Question: couldn't reproduce — the implementer traced every path that writes the sidebar selection after a click on a stopped row and found none that snaps it back. The click path (rowClicked → selectAgentRow, then chatRequested → showChat) is correct; the only other writer is receiveAttachLinks → selectFocusedRow (Sidebar/LeoSidebarModel+AttachLinks.swift:109, the B-006 follow-focus rule). Best guess, unconfirmed: the previous agent's terminal stays in the window beside or under the chat, and a late focus report on it moves the selection back. Not tried: a GUI repro (host load was over 40) or focus tracing. Useful detail: window width, whether the previous agent was running with its terminal showing, click vs ⌃⇥/⌘N. Reply "B-374: close" to close it, "B-374: <more detail>" to retry, or "B-374: trace" to allow a debug-only focus/selection trace. Work kept on autopilot-shelved/B-374.
 Answer: 
 
-## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [ready]
-Type: bug
-Report: the task dismiss buttons in the popover from the toolbar dont work
-Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
-Source: owner (/issue, 2026-11-09)
-Inbox: 20261109T193908985898Z-13120181#1
-
-## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [ready]
-Type: bug
-Report: agent browser can't load hyatt.com (every page blank with an empty title; example.com loads fine). Kasada bot-check ips.js errors in a loop. Unverified hypotheses, test one at a time against hyatt.com: (1) the page-world console hook at LeoWKBrowserPage.swift:79 (LeoBrowserScripts.console at .atDocumentStart in .page) replaces console methods with non-native wrappers and exposes webkit.messageHandlers.leoConsole to the page; move it to the LeoAgent world without a page-visible handler, or install it only when browser_console is used. (2) The default WKWebView UA lacks the 'Version/x Safari/605.1.15' suffix; set configuration.applicationNameForUserAgent to match the installed Safari. If both fail, record it as a known WKWebView limitation, where the fix is handing the tab to the user. Reported by agent family; repro details on request.
-Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
-Source: owner (/issue, 2026-11-09)
-Inbox: 20261109T210810161402Z-9b4a683b#1
-
 ## B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…   [ready]
+Issue: #350
 Type: bug
 Report: browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function body, so a bare expression like `1+1` returns "null", although the tool description says "expression or statements". Auto-return a single expression, or fix the description. Reported by agent family.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T210810339036Z-880b9051#1
+
+## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready]
+Issue: #344
+Type: bug
+Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-358)
+
+## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [ready]
+Issue: #348
+Type: bug
+Report: the task dismiss buttons in the popover from the toolbar dont work
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261109T193908985898Z-13120181#1
