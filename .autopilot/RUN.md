@@ -57,6 +57,17 @@ Lane: B-363
   Call: Scope the task panel to the open thread only, not to the list (iPad regular width hides other agents' tasks while a thread is open) — P2 calm, attention-driven
   Call: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
 
+Lane: B-364
+  Branch: autopilot-lane/B-364
+  Base: 42ee099741936e2f2ba1a09db0d28b6a40b904ea
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-09T01:29:45Z
+
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 
