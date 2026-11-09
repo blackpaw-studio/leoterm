@@ -36,6 +36,7 @@ Lane: B-358
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-09T00:07:58Z
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
