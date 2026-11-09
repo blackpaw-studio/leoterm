@@ -252,16 +252,64 @@ public enum LeoBrowserScripts {
     /// A user script for the page world, at document start in the main
     /// frame: forwards `console.*` calls, uncaught errors and unhandled
     /// promise rejections to the `consoleHandlerName` message handler as
-    /// `{level, text}`.
+    /// `{level, text}`. Arguments are described from own data properties
+    /// only, so the page's getters and `toString` never run.
     public static let console = #"""
     (() => {
       const handlers = window.webkit && window.webkit.messageHandlers;
       const handler = handlers && handlers.\#(consoleHandlerName);
       if (!handler) return;
+      // Reads only own data properties: never a getter, `toString` or
+      // `toJSON` of the page's. Bot checks (Kasada on hyatt.com) log objects whose getters
+      // report that the console is being inspected, and a hook that runs them
+      // gets the page blocked.
+      const own = (object, key) => {
+        const descriptor = Object.getOwnPropertyDescriptor(object, key);
+        return descriptor && 'value' in descriptor ? descriptor.value : undefined;
+      };
+      const plain = (value, depth) => {
+        if (value === null || value === undefined) return value === null ? null : '[undefined]';
+        const type = typeof value;
+        if (type === 'string' || type === 'boolean') return value;
+        if (type === 'number') return Number.isFinite(value) ? value : String(value);
+        if (type !== 'object') return `[${type}]`;
+        if (depth >= 3) return '[object]';
+        if (Array.isArray(value)) {
+          const length = own(value, 'length');
+          const count = Math.min(typeof length === 'number' ? length : 0, 100);
+          return Array.from({ length: count }, (_, index) => plain(own(value, String(index)), depth + 1));
+        }
+        const result = {};
+        for (const key of Object.keys(value).slice(0, 100)) {
+          if (Object.getOwnPropertyDescriptor(value, key)?.get) { result[key] = '[getter]'; continue; }
+          result[key] = plain(own(value, key), depth + 1);
+        }
+        return result;
+      };
+      // The first data `name` up the prototype chain (TypeError, RangeError…).
+      const errorName = error => {
+        let object = error;
+        for (let depth = 0; object && depth < 20; depth++, object = Object.getPrototypeOf(object)) {
+          const name = own(object, 'name');
+          if (typeof name === 'string' && name) return name;
+        }
+        return 'Error';
+      };
+      // What the console prints for a top-level argument: bare primitives,
+      // JSON for objects.
       const describe = value => {
-        if (typeof value === 'string') return value;
-        if (value instanceof Error) return value.stack ? `${value}\n${value.stack}` : String(value);
-        try { return JSON.stringify(value) ?? String(value); } catch (_) { return String(value); }
+        const type = typeof value;
+        if (type === 'string') return value;
+        if (value === null) return 'null';
+        if (type === 'function') return '[function]';
+        if (type !== 'object') return String(value);
+        if (value instanceof Error) {
+          const stack = own(value, 'stack');
+          const message = own(value, 'message');
+          const header = `${errorName(value)}: ${typeof message === 'string' ? message : ''}`;
+          return typeof stack === 'string' && stack ? `${header}\n${stack}` : header;
+        }
+        try { return JSON.stringify(plain(value, 0)); } catch (_) { return '[unprintable]'; }
       };
       const post = (level, values) => {
         try {
