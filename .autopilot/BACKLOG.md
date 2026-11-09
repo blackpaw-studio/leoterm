@@ -2721,7 +2721,7 @@ Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks fr
 Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
 Answer:
 
-## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready (next run)]
+## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready]
 Issue: #344
 Type: bug
 Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
