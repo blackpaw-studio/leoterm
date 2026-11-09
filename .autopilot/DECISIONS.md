@@ -528,3 +528,27 @@ Chose: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet
 Item: B-369 · i should be able to view the chat of a stopped agent without the start…
 Commit: 168f074d3, aa255f832
 Veto: [ ]
+
+## D-727 · 2026-11-08 · B-366: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
+Chose: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]
+
+## D-728 · 2026-11-08 · B-366: Version link opens the leoterm release tag leo-v<version> — P1
+Chose: Version link opens the leoterm release tag leo-v<version> — P1
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]
+
+## D-729 · 2026-11-08 · B-366: Commit link opens leoterm commits/<sha> — P1
+Chose: Commit link opens leoterm commits/<sha> — P1
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]
+
+## D-730 · 2026-11-08 · B-366: Mac only; the About window exists only on Mac — repo rule
+Chose: Mac only; the About window exists only on Mac — repo rule
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]

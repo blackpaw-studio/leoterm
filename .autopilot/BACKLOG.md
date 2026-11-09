@@ -2699,13 +2699,15 @@ Attachments: .autopilot/bugs/B-365/leo-paste-20261108-012858-715.png
 Done: f4ae9a545
 Verified: screen capture, not attached — /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-365-2.png, -3.png (menus open, Leo titles); LeoAppMenuTests red→green
 
-## B-366 · buttons in the about window link to ghostty repo and docs instead of…   [ready]
+## B-366 · buttons in the about window link to ghostty repo and docs instead of…   [done]
 Issue: #341
 Type: bug
 Report: buttons in the about window link to ghostty repo and docs instead of leo/leoterm
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T012952605012Z-96d7a589#1
+Done: 3d87c55b0
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png (re-verify: AboutView unchanged since; full suite 4210 green)
 
 ## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [blocked]
 Issue: #342

@@ -114,12 +114,13 @@ Lane: B-366
   Branch: autopilot-lane/B-366
   Base: 1239bee56117fdf3d8cbc0ad0248de87427ca677
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 1
   Reviewed-tip: 210fec712bfca1cf9d8a5025a7963e27d2b5aafe
   Dispatched: 2026-11-09T05:17:26Z
+  Tokens: 7.84M in (7.43M cache read), ≥34k out, 99 requests
   Call: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
   Call: Version link opens the leoterm release tag leo-v<version> — P1
   Call: Commit link opens leoterm commits/<sha> — P1
@@ -130,6 +131,7 @@ Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visuall
 Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
 Finished 4: B-365 landed 6455f1a0974e47b9f77472b9f6ca50f173a38170 · screen capture, not attached
 Finished 5: B-369 landed fc9af1308bedc3bb122c45eac34177947411090a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-369-1.png
+Finished 6: B-366 landed 2dc7ff9af23c177a4e63919d8f5982845202712a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
@@ -144,3 +146,4 @@ Progress:
 - B-369 built before B-366 (independent; B-366 overlaps B-365's AppDelegate footprint).
 - B-365 landed 6455f1a09.
 - B-369 landed fc9af1308.
+- B-366 landed 2dc7ff9af.
