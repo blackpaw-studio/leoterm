@@ -2667,6 +2667,7 @@ Note: after B-354 softened the done green (0.55 opacity), the light-mode bar rea
 Source: autopilot polish (B-354)
 
 ## B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…   [ready]
+Issue: #338
 Type: bug
 Report: On iOS, tasks from one agent show in the chat of other agents. A task should only show in the chat of the agent that owns it.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2674,6 +2675,7 @@ Source: owner (/issue, 2026-11-08)
 Inbox: 20261107T141622663467Z-b32b5d50#1
 
 ## B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…   [ready]
+Issue: #339
 Type: bug
 Report: (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335, ab72de1f0), whose managed daemons default dispatch viewer placement to window on their own. Remove the Swift-side launch migration that writes `dispatch.viewer.placement: window` into the managed config, and its tests; if the app still needs to set it, use the daemon's `PUT /config/defaults {"dispatch_viewer":{"placement":"window"}}` instead of editing YAML.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2681,6 +2683,7 @@ Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T005707514436Z-893ef814#1
 
 ## B-365 · some menu items still reference Ghostty   [ready]
+Issue: #340
 Type: bug
 Report: some menu items still reference Ghostty
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2689,6 +2692,7 @@ Inbox: 20261108T012907592548Z-04c8f9f1#1
 Attachments: .autopilot/bugs/B-365/leo-paste-20261108-012858-715.png
 
 ## B-366 · buttons in the about window link to ghostty repo and docs instead of…   [ready]
+Issue: #341
 Type: bug
 Report: buttons in the about window link to ghostty repo and docs instead of leo/leoterm
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2696,6 +2700,7 @@ Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T012952605012Z-96d7a589#1
 
 ## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [ready]
+Issue: #342
 Type: bug
 Report: Sometimes when you message the agent in the chat, it doesn't respond in the chat, which is fine on desktop, but on iOS that means I don't see it unless I peek into what the terminal looks like. When a message is sent in chat (desktop app or iOS), make sure it gets replied to in chat if necessary. I don't know if there are any situations where we'd want to break that rule. If this is a change that needs to go into the daemon, message the leo agent to make the change.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
