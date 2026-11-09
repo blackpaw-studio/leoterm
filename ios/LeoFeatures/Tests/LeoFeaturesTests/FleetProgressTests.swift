@@ -123,6 +123,19 @@ struct FleetProgressTests {
         #expect(state.taskPanelHeader == "Tasks 3 · 62%")
     }
 
+    @Test func anOpenChatsPanelShowsOnlyThatAgentsTasks() {
+        var state = Fleet.State(daemons: [.dionysus])
+        state.sessions[id: Self.id]?.applySnapshot(LeoObservedState(agents: [
+            .make("zeus", tasks: [.make("a", percent: 62)]),
+            .make("apollo", tasks: [.make("b", state: .failed, endedAt: progressEpoch), .make("c")]),
+        ]), now: Self.now)
+        let apollo = AgentRef(daemonID: Self.id, name: "apollo")
+        #expect(state.taskPanelRows(scopedTo: apollo).map(\.task.id) == ["b", "c"])
+        #expect(state.taskPanelHeader(scopedTo: apollo) == "Tasks 2")
+        #expect(state.taskPanelRows(scopedTo: AgentRef(daemonID: Self.id, name: "hera")).isEmpty)
+        #expect(state.taskPanelRows(scopedTo: nil).count == 3)
+    }
+
     @Test func theCollapsedHeaderCarriesTheLeadRunningPercent() {
         var state = Fleet.State(daemons: [.dionysus])
         state.sessions[id: Self.id]?.applySnapshot(LeoObservedState(agents: [.make("zeus", tasks: [.make("a", percent: 62), .make("b")])]), now: Self.now)

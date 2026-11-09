@@ -32,7 +32,11 @@ extension Fleet.State {
 
     /// Running and undismissed failed tasks across every agent: failed first,
     /// then the most recently updated. Ended-and-lingering ones are left out.
-    public var taskPanelRows: [TaskPanelRow] {
+    public var taskPanelRows: [TaskPanelRow] { taskPanelRows(scopedTo: nil) }
+
+    /// The same rows, limited to one agent's own tasks when a chat is open, so a
+    /// thread never shows another agent's work. `nil` is the whole fleet (the list).
+    public func taskPanelRows(scopedTo ref: AgentRef?) -> [TaskPanelRow] {
         let rows = sessions.flatMap { session in
             session.agents.filter { !$0.isStopped }.flatMap { agent in
                 agent.tasks.filter { $0.isRunning || $0.state == .failed }.map {
@@ -40,7 +44,7 @@ extension Fleet.State {
                 }
             }
         }
-        return rows.sorted { lhs, rhs in
+        return rows.filter { ref == nil || $0.ref == ref }.sorted { lhs, rhs in
             let (l, r) = (lhs.task, rhs.task)
             if (l.state == .failed) != (r.state == .failed) { return l.state == .failed }
             if l.updatedAt != r.updatedAt { return l.updatedAt > r.updatedAt }
@@ -50,8 +54,10 @@ extension Fleet.State {
 
     /// "Tasks 3 · 62%": the count, and the percent of the first running
     /// determinate task when there is one.
-    public var taskPanelHeader: String {
-        let rows = taskPanelRows
+    public var taskPanelHeader: String { taskPanelHeader(scopedTo: nil) }
+
+    public func taskPanelHeader(scopedTo ref: AgentRef?) -> String {
+        let rows = taskPanelRows(scopedTo: ref)
         let lead = rows.first { $0.task.isRunning && $0.task.mode == .determinate && $0.task.percent != nil }
         return ["Tasks \(rows.count)", lead?.task.percent.map(LeoTaskText.percent)].compactMap { $0 }.joined(separator: " · ")
     }
