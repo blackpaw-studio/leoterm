@@ -2,8 +2,11 @@ Status: running
 Started: 2026-11-09T00:06:13Z
 Budget: 20 items, until 2026-11-09T12:06:13Z
 Digested-through: 0
-Filed: 1/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 1/5 ideas
 Self-filed: B-358 → B-368 bug — theProbeSurvivesTheSidebarResizingAfterItReported is flaky
+Self-filed: B-365 → dropped (dup of B-218) — "Quit Ghostty?" confirm alert still says Ghostty
+Self-filed: B-365 → dropped (dup of B-218) — Window menu entry and titlebar still read "👻 Ghostty"
+Self-filed: B-365 → B-370 idea — verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -76,12 +79,15 @@ Lane: B-365
   Branch: autopilot-lane/B-365
   Base: 738ac477e3d166a10423b58bfea424738a1b966d
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1d8ce79db3a5eb66e0a0b2b41be1201cc018db20
   Dispatched: 2026-11-09T02:09:17Z
+  Call: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac feel)
+  Call: Mac only: the menu bar has no iOS equivalent — repo rule
+  Call: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ untouched — verify.md
 
 Lane: B-369
   Branch: autopilot-lane/B-369

@@ -2731,3 +2731,7 @@ Report: i should be able to view the chat of a stopped agent without the start a
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261109T020523131001Z-a7853633#1
+
+## B-370 · verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog   [idea]
+Note: the debug app parses the flag as Ghostty config and opens a "Configuration Errors" dialog during verify; fix the launch line in verify.md — verify infrastructure, not a product bug
+Source: autopilot polish (B-365)
