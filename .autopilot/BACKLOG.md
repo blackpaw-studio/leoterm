@@ -2721,13 +2721,15 @@ Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks fr
 Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
 Answer:
 
-## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [ready]
+## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [done]
 Issue: #349
 Type: bug
 Report: agent browser can't load hyatt.com (every page blank with an empty title; example.com loads fine). Kasada bot-check ips.js errors in a loop. Unverified hypotheses, test one at a time against hyatt.com: (1) the page-world console hook at LeoWKBrowserPage.swift:79 (LeoBrowserScripts.console at .atDocumentStart in .page) replaces console methods with non-native wrappers and exposes webkit.messageHandlers.leoConsole to the page; move it to the LeoAgent world without a page-visible handler, or install it only when browser_console is used. (2) The default WKWebView UA lacks the 'Version/x Safari/605.1.15' suffix; set configuration.applicationNameForUserAgent to match the installed Safari. If both fail, record it as a known WKWebView limitation, where the fix is handing the tab to the user. Reported by agent family; repro details on request.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T210810161402Z-9b4a683b#1
+Done: b7ce634f9, e8fde9370
+Verified: not visually verified — no UI change; offscreen WKWebView probe loads hyatt.com with the fixed hook and is blank with the old one
 
 ## B-369 · i should be able to view the chat of a stopped agent without the start…   [done]
 Issue: #345

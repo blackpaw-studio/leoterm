@@ -31,7 +31,7 @@ Lane: B-376
   Branch: autopilot-lane/B-376
   Base: 3ec165a37d6f8415965f1751b367817267634763
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -51,6 +51,8 @@ Lane: B-377
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-09T22:09:30Z
+
+Finished 1: B-376 landed 2ada34003 · not visually verified
 
 Progress:
 - Budget arg "1hr" read as a 1h time budget.
