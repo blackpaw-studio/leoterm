@@ -2749,3 +2749,18 @@ Source: autopilot polish (B-369)
 ## B-372 · Toolbar pill reads "Idle" for a stopped agent   [idea]
 Note: B-369 verifier observation, unconfirmed whether it predates B-369 — P2 never invent a state the daemon didn't report
 Source: autopilot polish (B-369)
+
+## B-373 · the update button on macos overflows now. not good. [Image #4] (Image…   [ready]
+Type: bug
+Report: the update button on macos overflows now. not good. [Image #4] [Image #5]
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261109T135506634887Z-bb368b80#1
+Attachments: .autopilot/bugs/B-373/leo-paste-20261109-135455-137.png, .autopilot/bugs/B-373/leo-paste-20261109-135457-164.png
+
+## B-374 · when i switch to an agent thats stopped to view the chat, it auto…   [ready]
+Type: bug
+Report: when i switch to an agent thats stopped to view the chat, it auto switches back to the last agent
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261109T140334166280Z-ab1265a0#1
