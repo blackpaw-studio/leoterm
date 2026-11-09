@@ -2726,14 +2726,24 @@ Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red inter
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-358)
 
-## B-369 · i should be able to view the chat of a stopped agent without the start…   [ready]
+## B-369 · i should be able to view the chat of a stopped agent without the start…   [done]
 Issue: #345
 Type: bug
 Report: i should be able to view the chat of a stopped agent without the start agent question modal blocking the whole screen
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261109T020523131001Z-a7853633#1
+Done: 168f074d3, aa255f832
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-369-1.png
 
 ## B-370 · verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog   [idea]
 Note: the debug app parses the flag as Ghostty config and opens a "Configuration Errors" dialog during verify; fix the launch line in verify.md — verify infrastructure, not a product bug
 Source: autopilot polish (B-365)
+
+## B-371 · Composer stays enabled for a stopped agent; typed message is neither queued nor refused   [idea]
+Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
+Source: autopilot polish (B-369)
+
+## B-372 · Toolbar pill reads "Idle" for a stopped agent   [idea]
+Note: B-369 verifier observation, unconfirmed whether it predates B-369 — P2 never invent a state the daemon didn't report
+Source: autopilot polish (B-369)

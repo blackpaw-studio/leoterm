@@ -15,6 +15,7 @@ import Testing
     private final class Log {
         var attaches: [(LeoAgentRow.ID, LeoWindowID, AttachDisposition)] = []
         var focusRequests: [LeoAgentRow.ID] = []
+        var chats: [(LeoAgentRow.ID, LeoWindowID)] = []
         var starts: [LeoAgentRow.ID] = []
         var startCompletions: [(Bool) -> Void] = []
         var dispositions: [AttachDisposition] { attaches.map(\.2) }
@@ -33,6 +34,7 @@ import Testing
         let log = Log()
         model.attachRequested = { log.attaches.append(($0.id, $1, $2)) }
         model.focusExistingRequested = { row, _ in log.focusRequests.append(row.id) }
+        model.chatRequested = { log.chats.append(($0.id, $1)) }
         model.startRequested = { row, completion in
             log.starts.append(row.id)
             log.startCompletions.append(completion)
@@ -104,50 +106,76 @@ import Testing
 
     // MARK: Agents that aren't running
 
-    @Test(arguments: [LeoAgentStatus.stopped, .unknown("error")])
-    func clickOnAnAgentThatIsNotRunningAsksToStartIt(status: LeoAgentStatus) {
+    /// B-369: reading a stopped agent's history must not wait behind a
+    /// "Start?" sheet. A plain click shows its chat; starting is a separate
+    /// action (row menu, Agents ▸ Start).
+    @Test(arguments: [LeoAgentStatus.stopped, .unknown("error"), .starting])
+    func clickOnAnAgentThatIsNotRunningShowsItsChatWithoutAsking(status: LeoAgentStatus) {
         let agent = row("scratch", status)
         let (model, log) = makeModel([agent])
 
         model.rowClicked(agent, from: origin)
 
-        let prompt = model.startPrompt(in: origin)
-        #expect(prompt?.agent == agent.id)
-        #expect(prompt?.phase == .confirm)
+        #expect(log.chats.map(\.0) == [agent.id])
+        #expect(log.chats.first?.1 == origin)
+        #expect(model.startPrompt(in: origin) == nil, "no modal in the way of the chat")
         #expect(model.selection == agent.id)
-        #expect(log.starts.isEmpty, "never start without asking")
+        #expect(log.starts.isEmpty, "never start without being asked")
         #expect(log.attaches.isEmpty)
         #expect(log.focusRequests.isEmpty)
     }
 
-    @Test func aStoppedAgentWithALiveAttachStillAsks() {
+    @Test func aStoppedAgentWithALiveAttachShowsItsChatToo() {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent], attaches: [agent.id: 1])
 
         model.rowClicked(agent, from: origin)
 
-        #expect(model.startPrompt(in: origin)?.phase == .confirm)
+        #expect(log.chats.map(\.0) == [agent.id])
+        #expect(model.startPrompt(in: origin) == nil)
         #expect(log.focusRequests.isEmpty)
     }
+
+    @Test func aDoubleClickOnAStoppedAgentShowsItsChatOnce() {
+        let agent = row("scratch", .stopped)
+        let (model, log) = makeModel([agent])
+
+        model.rowClicked(agent, clickCount: 1, from: origin)
+        model.rowClicked(agent, clickCount: 2, from: origin)
+
+        #expect(log.chats.count == 1)
+        #expect(model.startPrompts.isEmpty)
+    }
+
+    @Test func aRunningAgentNeverOpensChatOnClick() {
+        let worker = row()
+        let (model, log) = makeModel([worker])
+
+        model.rowClicked(worker, from: origin)
+
+        #expect(log.chats.isEmpty)
+    }
+
+    // MARK: Opening a stopped agent's terminal in a new window still asks
 
     @Test func aStartingAgentWaitsForRunningWithoutStartingItAgain() {
         let agent = row("scratch", .starting)
         let (model, log) = makeModel([agent])
 
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         #expect(model.startPrompt(in: origin)?.phase == .waiting)
         #expect(log.starts.isEmpty)
 
         report(model, [row("scratch", .running)])
 
-        #expect(log.dispositions == [.content])
+        #expect(log.dispositions == [.newWindow])
         #expect(model.startPrompt(in: origin) == nil)
     }
 
     @Test func startStartsThroughTheDaemonAndAttachesOnceRunningIsReported() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         let prompt = try #require(model.startPrompt(in: origin))
 
         model.confirmStart(prompt.id)
@@ -163,7 +191,7 @@ import Testing
 
         #expect(log.attaches.map(\.0) == [agent.id])
         #expect(log.attaches.first?.1 == origin)
-        #expect(log.dispositions == [.content])
+        #expect(log.dispositions == [.newWindow])
         #expect(model.startPrompt(in: origin) == nil)
         report(model, [row("scratch", .running)])
         #expect(log.attaches.count == 1)
@@ -172,19 +200,19 @@ import Testing
     @Test func runningReportedBeforeTheStartCallReturnsStillAttachesOnce() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         model.confirmStart(try #require(model.startPrompt(in: origin)).id)
 
         report(model, [row("scratch", .running)])
         log.startCompletions.first?(true)
 
-        #expect(log.dispositions == [.content])
+        #expect(log.dispositions == [.newWindow])
     }
 
     @Test func confirmingTwiceStartsOnce() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         let prompt = try #require(model.startPrompt(in: origin))
 
         model.confirmStart(prompt.id)
@@ -207,7 +235,7 @@ import Testing
     @Test func aFailedStartNeverAttaches() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         model.confirmStart(try #require(model.startPrompt(in: origin)).id)
 
         log.startCompletions.first?(false)
@@ -220,7 +248,7 @@ import Testing
     @Test func cancelLeavesTheAgentAndTabsAlone() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent], attaches: [agent.id: 1])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
 
         model.cancelStartPrompt(try #require(model.startPrompt(in: origin)).id)
 
@@ -233,7 +261,7 @@ import Testing
     @Test func cancellingWhileWaitingNeverAttaches() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         let prompt = try #require(model.startPrompt(in: origin))
         model.confirmStart(prompt.id)
 
@@ -248,7 +276,7 @@ import Testing
     @Test func theAgentDisappearingEndsTheWait() throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent, row("other")])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         model.confirmStart(try #require(model.startPrompt(in: origin)).id)
 
         report(model, [row("other")])
@@ -258,8 +286,8 @@ import Testing
         #expect(log.attaches.isEmpty)
     }
 
-    @Test(arguments: [NSEvent.ModifierFlags(), .command, .option])
-    func aDoubleClickOnAStoppedAgentAsksOnce(modifierFlags: NSEvent.ModifierFlags) throws {
+    @Test(arguments: [NSEvent.ModifierFlags.command, .option])
+    func aModifiedDoubleClickOnAStoppedAgentAsksOnce(modifierFlags: NSEvent.ModifierFlags) throws {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
 
@@ -272,16 +300,17 @@ import Testing
         #expect(model.startPrompts.count == 1)
         #expect(log.attaches.isEmpty)
         #expect(log.starts.isEmpty)
+        #expect(log.chats.isEmpty, "a new-window request never swaps this window to chat")
     }
 
     @Test func anOpenPromptIsNotReplacedByAnotherClick() throws {
         let scratch = row("scratch", .stopped)
         let other = row("other", .stopped)
         let (model, _) = makeModel([scratch, other])
-        model.rowClicked(scratch, from: origin)
+        model.rowClicked(scratch, modifierFlags: .command, from: origin)
         let prompt = try #require(model.startPrompt(in: origin))
 
-        model.rowClicked(other, from: origin)
+        model.rowClicked(other, modifierFlags: .command, from: origin)
 
         #expect(model.startPrompt(in: origin) == prompt)
     }
@@ -290,7 +319,7 @@ import Testing
         let agent = row("scratch", .stopped)
         let (model, _) = makeModel([agent])
 
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
 
         #expect(model.startPrompt(in: origin) != nil)
         #expect(model.startPrompt(in: otherWindow) == nil)
@@ -301,10 +330,10 @@ import Testing
     @Test func aStaleCancelLeavesANewerPromptAlone() throws {
         let agent = row("scratch", .stopped)
         let (model, _) = makeModel([agent])
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         let old = try #require(model.startPrompt(in: origin))
         model.cancelStartPrompt(old.id)
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         let newer = try #require(model.startPrompt(in: origin))
 
         model.cancelStartPrompt(old.id)
@@ -326,7 +355,7 @@ import Testing
         let worker = row()
         let (model, log) = makeModel([agent, worker], connectivity: .disconnected(reason: "gone", isRetrying: false))
 
-        model.rowClicked(agent, from: origin)
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
         model.rowClicked(worker, from: origin)
 
         #expect(model.startPrompts.isEmpty)
@@ -370,21 +399,22 @@ import Testing
         #expect(log.attaches.isEmpty)
     }
 
-    @Test func returnOnAStoppedRowAsksToStartIt() {
+    @Test func returnOnAStoppedRowShowsItsChat() {
         let agent = row("scratch", .stopped)
         let (model, log) = makeModel([agent])
         model.userSelected(agent.id)
 
         model.activateSelection(from: origin)
 
-        #expect(model.startPrompt(in: origin)?.agent == agent.id)
+        #expect(log.chats.map(\.0) == [agent.id])
+        #expect(model.startPrompt(in: origin) == nil)
         #expect(log.starts.isEmpty)
     }
 
     // MARK: Accessibility
 
     /// B-049: VoiceOver's press on a row (AXPress) is a plain single click,
-    /// so a stopped agent still asks first.
+    /// so a stopped agent shows its chat.
     @Test func theRowsAccessibilityPressIsASingleClick() {
         let agent = row("scratch", .stopped)
         let worker = row()
@@ -393,7 +423,8 @@ import Testing
         LeoRowAccessibility.press { model.rowClicked(agent, modifierFlags: $0, clickCount: $1, from: origin) }
         LeoRowAccessibility.press { model.rowClicked(worker, modifierFlags: $0, clickCount: $1, from: otherWindow) }
 
-        #expect(model.startPrompt(in: origin)?.agent == agent.id)
+        #expect(log.chats.map(\.0) == [agent.id])
+        #expect(model.startPrompt(in: origin) == nil)
         #expect(log.starts.isEmpty)
         #expect(log.attaches.map(\.0) == [worker.id])
         #expect(log.dispositions == [.content])
@@ -419,5 +450,24 @@ import Testing
         #expect(LeoStartPromptSheetItem(prompt: prompt) == LeoStartPromptSheetItem(prompt: prompt.with(phase: .waiting)))
         #expect(LeoStartPromptSheetItem(prompt: prompt) != LeoStartPromptSheetItem(prompt: LeoStartPrompt(
             id: UUID(), agent: prompt.agent, origin: prompt.origin, disposition: .content, phase: .confirm)))
+    }
+}
+
+/// B-369: the chat's bar for an agent that isn't running.
+@MainActor struct LeoChatStartBarTests {
+    @Test func aRunningAgentHasNoBar() {
+        #expect(LeoChatStartBar.prompt(for: .running) == nil)
+    }
+
+    @Test(arguments: [LeoAgentStatus.stopped, .unknown("error")])
+    func aStoppedAgentOffersStart(status: LeoAgentStatus) {
+        #expect(LeoChatStartBar.prompt(for: status)?.offersStart == true)
+    }
+
+    @Test(arguments: [LeoAgentStatus.starting, .restoring])
+    func aStartingAgentOffersNoSecondStart(status: LeoAgentStatus) {
+        let bar = LeoChatStartBar.prompt(for: status)
+        #expect(bar != nil)
+        #expect(bar?.offersStart == false)
     }
 }

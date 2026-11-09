@@ -530,6 +530,17 @@ struct LeoWindowVisibilityState: Equatable {
 
     func session(for id: LeoWindowID) -> LeoWindowSession? { entries[id]?.session }
 
+    /// B-369: shows `row`'s chat in `window` (a stopped agent has no
+    /// terminal to attach but its history is readable). A selected shell tab
+    /// is deselected: the chat shows for an agent row only when no terminal
+    /// is selected, and keyboard paths (search Return) don't clear it.
+    func showChat(of row: LeoAgentRow, in window: LeoWindowID, model: LeoSidebarModel) {
+        model.selectAgentRow(row.id)
+        let session = session(for: window)
+        session?.terminals.select(nil)
+        session?.choose(.chat, for: row.id)
+    }
+
     var sessions: [LeoWindowSession] { entries.values.compactMap(\.session) }
 
     private func report() {
