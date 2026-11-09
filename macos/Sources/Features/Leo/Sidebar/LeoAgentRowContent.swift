@@ -93,6 +93,12 @@ struct LeoAgentRowContent: View {
             if let subagents { subagentsControls(subagents) }
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
+        // Anchored on the name line, not the indicator: the row's VoiceOver
+        // action opens it even when no indicator is drawn (a failed task on an
+        // errored agent), and it outlives the indicator changing shape.
+        .popover(isPresented: showingTasks, arrowEdge: .trailing) {
+            LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
+        }
     }
 
     @ViewBuilder private func subagentsControls(_ subagents: Subagents) -> some View {
@@ -187,8 +193,5 @@ struct LeoAgentRowContent: View {
             .help(tooltip)
             // The row's one element speaks the value and offers "Show Tasks".
             .accessibilityHidden(true)
-            .popover(isPresented: showingTasks, arrowEdge: .trailing) {
-                LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
-            }
     }
 }

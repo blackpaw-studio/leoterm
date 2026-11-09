@@ -141,6 +141,10 @@ struct LeoAgentRowView: View {
         .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
         .modifier(SubagentsAccessibilityAction(subagents: subagents))
         .modifier(TaskAccessibility(task: task, showTasks: { showingTasks = true }))
+        // The popover lists the agent's tasks: with none to list (all gone, or
+        // hidden while it needs input) it closes, and stays closed when the
+        // next task starts.
+        .onChange(of: task == nil) { if $0 { showingTasks = false } }
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
         .popover(isPresented: $showingAppearance, arrowEdge: .trailing) {
@@ -335,7 +339,8 @@ private struct SubagentsAccessibilityAction: ViewModifier {
 }
 
 /// The task indicator is hidden from VoiceOver; the row's one element says
-/// its value ("Build Leo.app, 62 percent") and offers the task popover.
+/// its value ("Build Leo.app, 62 percent") and offers the task popover. The
+/// action is offered for any task still listed, indicator or not.
 private struct TaskAccessibility: ViewModifier {
     static let actionName = "Show Tasks"
 
@@ -343,7 +348,7 @@ private struct TaskAccessibility: ViewModifier {
     let showTasks: () -> Void
 
     @ViewBuilder func body(content: Content) -> some View {
-        if let task, task.indicator != nil {
+        if let task {
             content
                 .accessibilityValue(task.spokenValue ?? "")
                 .accessibilityAction(named: Text(Self.actionName), showTasks)
