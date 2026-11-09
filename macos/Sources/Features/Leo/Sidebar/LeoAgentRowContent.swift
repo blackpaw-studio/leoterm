@@ -179,7 +179,7 @@ struct LeoAgentRowContent: View {
     /// Clicking the indicator opens every task of the agent, and is not a
     /// row click (the catcher skips clicks that land on the target).
     private func taskIndicator(_ indicator: LeoTaskIndicator, tooltip: String) -> some View {
-        LeoTaskIndicatorView(indicator: indicator, isSelected: isSelected)
+        LeoTaskIndicatorView(indicator: indicator, isSelected: isSelected, onClick: { showingTasks.wrappedValue = true })
             .frame(width: LeoAgentRowMetrics.taskIndicatorHitSize, height: LeoAgentRowMetrics.taskIndicatorHitSize)
             // An AppKit target, not a Button: the list would select the row
             // on mouse-down before a SwiftUI button saw the click.

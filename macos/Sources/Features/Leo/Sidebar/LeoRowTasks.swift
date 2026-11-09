@@ -12,8 +12,6 @@ struct LeoRowTasks: Equatable, Sendable {
     var isEmpty: Bool { tasks.isEmpty }
     /// The task the compact surfaces show.
     var primary: LeoAgentTask? { LeoAgentTasks.primary(tasks) }
-    /// The `+N` count: every task but the primary one.
-    var extraCount: Int { LeoAgentTasks.extraCount(tasks) }
 
     func eta(for task: LeoAgentTask) -> Date? { etaAt[task.id] }
 }
