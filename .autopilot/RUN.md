@@ -36,6 +36,7 @@ Lane: B-376
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-09T22:09:30Z
 
 Lane: B-377
   Branch: autopilot-lane/B-377
@@ -46,6 +47,7 @@ Lane: B-377
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-09T22:09:30Z
 
 Progress:
 - Budget arg "1hr" read as a 1h time budget.
@@ -53,3 +55,4 @@ Progress:
 - Inbox applied: created B-375, B-376, B-377 (bugs).
 - Inbox applied: order B-376 B-377 B-368 B-375 (owner in session: browser fixes first).
 - B-376 and B-377 run in parallel: same file (LeoWKBrowserPage.swift) but separate regions (console hook/UA vs browser_eval).
+- Runners: B-376 d-890551eda115, B-377 d-b9124e701e92 (leo implement role).
