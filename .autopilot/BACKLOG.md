@@ -2710,3 +2710,9 @@ Attachments: .autopilot/bugs/B-367/Voice_note.m4a
 Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
 Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
 Answer:
+
+## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready (next run)]
+Type: bug
+Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-358)

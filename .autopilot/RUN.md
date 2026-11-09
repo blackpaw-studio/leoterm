@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-09T00:06:13Z
 Budget: 20 items, until 2026-11-09T12:06:13Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 0/5 ideas
+Self-filed: B-358 → B-368 bug — theProbeSurvivesTheSidebarResizingAfterItReported is flaky
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -31,11 +32,14 @@ Lane: B-358
   Branch: autopilot-lane/B-358
   Base: a746aed32327b51b0afa4dfbf73840b17d907a46
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 718d936598c7e8d05ad0c8183b727648d79f1880
+  Call: Mac only, since iOS has no split zoom — P1
+  Call: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in place of the `.right` titlebar accessory; other window styles keep the accessory — P1
+  Call: Item uses visibilityPriority .high and never gives way to the activity capsule, since it is an action — P2
   Dispatched: 2026-11-09T00:07:58Z
 
 Progress:
