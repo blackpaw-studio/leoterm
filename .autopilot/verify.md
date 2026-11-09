@@ -1,5 +1,5 @@
 # Verify
-Parallel builds: no — two concurrent `runtests.sh` test hosts (both are GUI copies of the debug app) break `GhosttyAttachContentHostFocusTests/focusReportsArriveViewingFirstAndTheSidebarOnlyClearsFocus` on one side (likely key-window/app-activation contention between the two apps). Builds, sockets, prefs and /tmp state don't collide as long as each lane passes its own `<label>` (the default `run` shares the log paths).
+Parallel builds: yes — on condition that every Mac test-host run is serialized under the verify lock (see "Test-host lock" below). Two concurrent `runtests.sh`/`xcodebuild test` hosts (both GUI copies of the debug app) break `GhosttyAttachContentHostFocusTests/focusReportsArriveViewingFirstAndTheSidebarOnlyClearsFocus` on one side (key-window/app-activation contention), and `heavy` alone doesn't prevent that (it allows 2 jobs at once). Builds, sockets, prefs and /tmp state don't collide as long as each lane passes its own `<label>` (the default `run` shares the log paths). (Owner, 2026-11-08.)
 Evidence (2026-09-28, two temp worktrees at a8d9e29a5, labels par-a*/par-b*, host load avg 25-78 from other projects): solo 1566/1566 green, 179 s fresh (86 s tests); 5 concurrent pairs, all builds OK: fresh+incremental and fresh+fresh pairs both green (176/253 s); 3 of 3 incremental pairs (tests fully overlapping) had exactly one side fail that focus test (21 s timeout); it passed in 3 of 3 solo runs, including one at load 78 (a solo run did flake `nonAttachSurfaceKeepsGhosttysTitle` once). Peak combined test-host RSS ~1.4 GB; nothing leaked to /tmp, the cache dir, `~/.leo/state/leoterm` or Preferences.
 
 All commands run from the worktree `~/.leo/autopilot/leoterm`. Tested 2026-09-22.
@@ -27,6 +27,18 @@ ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out
 ```
 bash macos/scripts/leo-runtests.sh <label>     # tracked in git since B-114; run from any checkout or lane root
 ```
+
+**Test-host lock (required while parallel builds are on).** Any command that launches a Mac test host — `leo-runtests.sh`, `xcodebuild test`, `test-without-building` — runs only while holding the run's verify lock, the same one GUI verification uses. Builds (`build-for-testing`), SwiftPM-only `swift test` with no app host, iOS simulator tests, lint, and review need no lock. Pattern (one command, so the lock is always released):
+
+```
+L=<skill dir>/bin/autopilot-lane; W=<main worktree>
+$L verify-lock $W <item> --wait 3600 || exit $?
+heavy bash macos/scripts/leo-runtests.sh <label>; rc=$?
+$L verify-unlock $W <item>; exit $rc
+```
+
+Exit 4 from `verify-lock` means another lane held it for an hour: report it, don't bypass it. A verifier that already holds the lock for this item runs the tests bare inside its own lock session (no wrapper: the wrapper's `verify-unlock` would drop the lock mid-verify). Launch the wrapper as a background command (waiting for the lock and a `heavy` slot counts against the Bash timeout).
+
 - **Test-host environ crash fixed (B-072, 2026-09-30):** plain `bash macos/scripts/leo-runtests.sh <label>` runs green with no env-var wrapper. libghostty's `syncEnviron()` now copies the environment instead of pointing into libc's `environ`, which a test's `setenv` could free under the next new surface. `LeoEnvironSnapshotTests` guards it. With a pre-B-072 xcframework the plain runner still crashes the host (the old `LANG=… __CF_USER_TEXT_ENCODING=… __LLVM_PROFILE_RT_INIT_ONCE=…` prefix is only a stopgap).
 - The script is tracked (B-114), so lanes no longer need a hand copy; `scratchpad/runtests.sh` is retired. It keeps D-057's "RUN INCOMPLETE"/LEO_TEST_TIMEOUT check. Its "-- failures --" list names plain and parameterized failures (`foo(_:) with N test cases failed`); `macos/scripts/test_leo-runtests.sh` guards that parse (run by hand: `bash macos/scripts/test_leo-runtests.sh`).
 - GUI tip (B-057, corrected by B-067/B-077): the sidebar search filter hides the Terminals section by design. AX set-value on the search field changes its text but NOT the filter; to filter or clear it, use Agents ▸ Find Agent… (menu click), then `peekaboo type` / `peekaboo press delete` (debug app frontmost). Menu clicks (File ▸ New Terminal, File ▸ Close) need no key presses.
