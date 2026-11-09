@@ -13,6 +13,7 @@ import Testing
 
     private final class Log {
         var attaches: [LeoAgentRow.ID] = []
+        var chats: [LeoAgentRow.ID] = []
         var dispatchAttaches: [String] = []
         var shownTerminals: [UUID] = []
         var starts: [LeoAgentRow.ID] = []
@@ -75,12 +76,13 @@ import Testing
             == .dispatch(LeoDispatchRef(host: .local, id: "d1")))
     }
 
-    @Test func aStoppedAgentGetsTheStartPromptAsAClickDoes() {
+    @Test func aStoppedAgentShowsItsChatAsAClickDoes() {
         let fixture = makeFixture(agents: ["a"], status: .stopped)
 
         #expect(LeoRowCommands.perform(.number(1), model: fixture.model, terminals: fixture.terminals, from: origin))
 
-        #expect(fixture.model.startPrompt(in: origin)?.agent == id("a"))
+        #expect(fixture.log.chats == [id("a")])
+        #expect(fixture.model.startPrompt(in: origin) == nil)
         #expect(fixture.log.attaches.isEmpty)
     }
 
@@ -165,6 +167,7 @@ import Testing
         ))
         let log = Log()
         model.attachRequested = { row, _, _ in log.attaches.append(row.id) }
+        model.chatRequested = { row, _ in log.chats.append(row.id) }
         model.dispatchAttachRequested = { identity, _, _ in log.dispatchAttaches.append(identity.dispatchID ?? "") }
         let terminals = LeoWindowTerminals()
         terminals.showRequested = { log.shownTerminals.append($0) }

@@ -83,7 +83,7 @@ extension LeoSidebarModel {
     private func doubleClicked(_ row: LeoAgentRow, modifierFlags: NSEvent.ModifierFlags, from origin: LeoWindowID?) {
         if modifierFlags.contains(.option) {
             go(to: row, from: origin, disposition: .newWindow)
-        } else if modifierFlags.contains(.command) {
+        } else if modifierFlags.contains(.command), row.status == .running {
             go(to: row, from: origin, disposition: .content)
         }
     }

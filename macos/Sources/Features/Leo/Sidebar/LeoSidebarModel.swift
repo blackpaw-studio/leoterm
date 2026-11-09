@@ -40,6 +40,9 @@ import LeoKit
     /// last selected a row, so they never move the selection.
     var userSelectionFence: Int?
     var attachRequested: (LeoAgentRow, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
+    /// B-369: show the row's chat in the window (a stopped agent has no
+    /// terminal to attach, but its history is readable).
+    var chatRequested: (LeoAgentRow, LeoWindowID) -> Void = { _, _ in }
     /// Opens an attachable dispatch in a window (B-266).
     var dispatchAttachRequested: (LeoAgentIdentity, LeoWindowID, AttachDisposition) -> Void = { _, _, _ in }
     /// Brings forward the tmux window holding a dispatch's viewer pane on

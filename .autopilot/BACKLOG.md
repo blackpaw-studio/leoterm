@@ -2643,12 +2643,14 @@ Source: autopilot polish (B-346)
 Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
 Source: autopilot polish (B-342)
 
-## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [ready (next run)]
+## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [done]
 Issue: #334
 Type: bug
 Report: Reset-zoom titlebar accessory likely sits low in the unified toolbar — `resetZoomAccessory` is a `.right` titlebar accessory like the old update pill was, so it probably misaligns in agent windows (suspected, not checked)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-349)
+Done: 2596f13ca
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 
 ## B-359 · Show the update pill in the toolbar's » overflow menu at narrow widths   [idea]
 Note: at ≤640 pt the pill drops out and isn't in the overflow menu, so a narrow window has no visible update entry point (app menu still works) — P2
@@ -2666,3 +2668,84 @@ Source: autopilot polish (B-353)
 Note: after B-354 softened the done green (0.55 opacity), the light-mode bar reads faint; fine as calm ambient status, strengthen only if wanted — P2
 Source: autopilot polish (B-354)
 
+## B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…   [done]
+Issue: #338
+Type: bug
+Report: On iOS, tasks from one agent show in the chat of other agents. A task should only show in the chat of the agent that owns it.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261107T141622663467Z-b32b5d50#1
+Done: 71b459eda
+Verified: not visually verified — panel needs two agents with live daemon tasks and no UI-test fixture covers it; LeoFeatures 486, LeoKit 1106, iOS app 58 tests pass
+
+## B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…   [done]
+Issue: #339
+Type: bug
+Report: (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335, ab72de1f0), whose managed daemons default dispatch viewer placement to window on their own. Remove the Swift-side launch migration that writes `dispatch.viewer.placement: window` into the managed config, and its tests; if the app still needs to set it, use the daemon's `PUT /config/defaults {"dispatch_viewer":{"placement":"window"}}` instead of editing YAML.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261108T005707514436Z-893ef814#1
+Done: c2be26f86
+Verified: not visually verified — launch-time removal with no UI; a debug launch would touch the owner's real ~/.leo config; fixture-driven test covers it
+
+## B-365 · some menu items still reference Ghostty   [done]
+Issue: #340
+Type: bug
+Report: some menu items still reference Ghostty
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261108T012907592548Z-04c8f9f1#1
+Attachments: .autopilot/bugs/B-365/leo-paste-20261108-012858-715.png
+Done: f4ae9a545
+Verified: screen capture, not attached — /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-365-2.png, -3.png (menus open, Leo titles); LeoAppMenuTests red→green
+
+## B-366 · buttons in the about window link to ghostty repo and docs instead of…   [done]
+Issue: #341
+Type: bug
+Report: buttons in the about window link to ghostty repo and docs instead of leo/leoterm
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261108T012952605012Z-96d7a589#1
+Done: 3d87c55b0
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png (re-verify: AboutView unchanged since; full suite 4210 green)
+
+## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [blocked]
+Issue: #342
+Type: bug
+Report: Sometimes when you message the agent in the chat, it doesn't respond in the chat, which is fine on desktop, but on iOS that means I don't see it unless I peek into what the terminal looks like. When a message is sent in chat (desktop app or iOS), make sure it gets replied to in chat if necessary. I don't know if there are any situations where we'd want to break that rule. If this is a change that needs to go into the daemon, message the leo agent to make the change.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261108T173642828275Z-d4a6f986#1
+Attachments: .autopilot/bugs/B-367/Voice_note.m4a
+Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
+Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
+Answer:
+
+## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready (next run)]
+Issue: #344
+Type: bug
+Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-358)
+
+## B-369 · i should be able to view the chat of a stopped agent without the start…   [done]
+Issue: #345
+Type: bug
+Report: i should be able to view the chat of a stopped agent without the start agent question modal blocking the whole screen
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261109T020523131001Z-a7853633#1
+Done: 168f074d3, aa255f832
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-369-1.png
+
+## B-370 · verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog   [idea]
+Note: the debug app parses the flag as Ghostty config and opens a "Configuration Errors" dialog during verify; fix the launch line in verify.md — verify infrastructure, not a product bug
+Source: autopilot polish (B-365)
+
+## B-371 · Composer stays enabled for a stopped agent; typed message is neither queued nor refused   [idea]
+Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
+Source: autopilot polish (B-369)
+
+## B-372 · Toolbar pill reads "Idle" for a stopped agent   [idea]
+Note: B-369 verifier observation, unconfirmed whether it predates B-369 — P2 never invent a state the daemon didn't report
+Source: autopilot polish (B-369)

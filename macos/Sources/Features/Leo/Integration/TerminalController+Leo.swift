@@ -141,6 +141,7 @@ extension TerminalController {
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
         window.leoToolbar.bind(sideBySideChatWidth: leoSession.$sideBySideChatWidth)
+        window.leoToolbar.bind(surfaceZoomed: window.surfaceZoomedPublisher)
         if let updateModel {
             window.leoToolbar.bind(updateVisible: updateModel.$state.map { !$0.isHidden })
         }

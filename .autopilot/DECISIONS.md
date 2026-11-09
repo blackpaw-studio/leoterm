@@ -438,3 +438,117 @@ Chose: Mac only: image paste is Mac-only, LeoKit untouched
 Item: B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host
 Commit: 513ac9c8d, 50fc4c72c
 Veto: [ ]
+
+## D-712 · 2026-11-08 · B-358: Mac only, since iOS has no split zoom — P1
+Chose: Mac only, since iOS has no split zoom — P1
+Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
+Commit: 2596f13ca
+Veto: [ ]
+
+## D-713 · 2026-11-08 · B-358: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in
+Chose: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in place of the `.right` titlebar accessory; other window styles keep the accessory — P1
+Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
+Commit: 2596f13ca
+Veto: [ ]
+
+## D-714 · 2026-11-08 · B-358: Item uses visibilityPriority .high and never gives way to the activity capsule, since it i
+Chose: Item uses visibilityPriority .high and never gives way to the activity capsule, since it is an action — P2
+Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
+Commit: 2596f13ca
+Veto: [ ]
+
+## D-715 · 2026-11-08 · B-363: Scope the task panel to the open thread only, not to the list (iPad regular width hides ot
+Chose: Scope the task panel to the open thread only, not to the list (iPad regular width hides other agents' tasks while a thread is open) — P2 calm, attention-driven
+Item: B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…
+Commit: 71b459eda
+Veto: [ ]
+
+## D-716 · 2026-11-08 · B-363: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
+Chose: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
+Item: B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…
+Commit: 71b459eda
+Veto: [ ]
+
+## D-717 · 2026-11-08 · B-364: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration 
+Chose: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration (matches D-670)
+Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
+Commit: c2be26f86
+Veto: [ ]
+
+## D-718 · 2026-11-08 · B-364: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app h
+Chose: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app has nothing to set (P2/P4)
+Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
+Commit: c2be26f86
+Veto: [ ]
+
+## D-719 · 2026-11-08 · B-364: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be 
+Chose: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be tested, with no behaviour change — test detail
+Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
+Commit: c2be26f86
+Veto: [ ]
+
+## D-720 · 2026-11-08 · B-365: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac fee
+Chose: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac feel)
+Item: B-365 · some menu items still reference Ghostty
+Commit: f4ae9a545
+Veto: [ ]
+
+## D-721 · 2026-11-08 · B-365: Mac only: the menu bar has no iOS equivalent — repo rule
+Chose: Mac only: the menu bar has no iOS equivalent — repo rule
+Item: B-365 · some menu items still reference Ghostty
+Commit: f4ae9a545
+Veto: [ ]
+
+## D-722 · 2026-11-08 · B-365: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ unto
+Chose: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ untouched — verify.md
+Item: B-365 · some menu items still reference Ghostty
+Commit: f4ae9a545
+Veto: [ ]
+
+## D-723 · 2026-11-08 · B-369: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo 
+Chose: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo Mac/iOS rule
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-724 · 2026-11-08 · B-369: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-
+Chose: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-starts — P2/P5
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-725 · 2026-11-08 · B-369: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting
+Chose: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting…" while starting) — P2/P5
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-726 · 2026-11-08 · B-369: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet, since they need
+Chose: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet, since they need a running agent — P1
+Item: B-369 · i should be able to view the chat of a stopped agent without the start…
+Commit: 168f074d3, aa255f832
+Veto: [ ]
+
+## D-727 · 2026-11-08 · B-366: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
+Chose: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]
+
+## D-728 · 2026-11-08 · B-366: Version link opens the leoterm release tag leo-v<version> — P1
+Chose: Version link opens the leoterm release tag leo-v<version> — P1
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]
+
+## D-729 · 2026-11-08 · B-366: Commit link opens leoterm commits/<sha> — P1
+Chose: Commit link opens leoterm commits/<sha> — P1
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]
+
+## D-730 · 2026-11-08 · B-366: Mac only; the About window exists only on Mac — repo rule
+Chose: Mac only; the About window exists only on Mac — repo rule
+Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
+Commit: 3d87c55b0
+Veto: [ ]

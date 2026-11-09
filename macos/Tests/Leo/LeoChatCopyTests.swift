@@ -65,7 +65,7 @@ private final class ChatCopyHarness {
             attachmentDirectory: FileManager.default.temporaryDirectory.appending(path: "leo-chat-copy-\(UUID().uuidString)")
         )
         let row = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
-        let pane = LeoChatPane(row: row, chat: chat, session: session, viewer: session.chatViewer, close: {})
+        let pane = LeoChatPane(row: row, chat: chat, session: session, viewer: session.chatViewer, close: {}, start: {})
         let host = NSHostingView(rootView: pane)
         host.frame = Self.chatFrame
         let content = NSView(frame: NSRect(x: 0, y: 0, width: Self.chatFrame.maxX, height: Self.chatFrame.height))

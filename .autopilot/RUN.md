@@ -1,13 +1,16 @@
 Status: finished
-Started: 2026-11-06T17:47:04Z
-Budget: 20 items, until 2026-11-07T05:47:04Z
+Started: 2026-11-09T00:06:13Z
+Budget: 20 items, until 2026-11-09T12:06:13Z
 Digested-through: 5
-Filed: 1/3 bugs, 4/5 ideas
-Self-filed: B-349 → B-358 bug — Reset-zoom titlebar accessory likely sits low in the unified toolbar
-Self-filed: B-349 → B-359 idea — Show the update pill in the toolbar's » overflow menu at narrow widths
-Self-filed: B-349 → B-360 idea — Update popover shows a blank "Version:" line
-Self-filed: B-353 → B-361 idea — Activity capsule title truncates at moderate window widths
-Self-filed: B-354 → B-362 idea — Done task bar is thin and low-contrast in light mode
+Filed: 1/3 bugs, 3/5 ideas
+Self-filed: B-358 → B-368 bug — theProbeSurvivesTheSidebarResizingAfterItReported is flaky
+Self-filed: B-365 → dropped (dup of B-218) — "Quit Ghostty?" confirm alert still says Ghostty
+Self-filed: B-365 → dropped (dup of B-218) — Window menu entry and titlebar still read "👻 Ghostty"
+Self-filed: B-365 → B-370 idea — verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog
+Self-filed: B-369 → B-371 idea — Composer stays enabled for a stopped agent; typed message is neither queued nor refused
+Self-filed: B-369 → B-372 idea — Toolbar pill reads "Idle" for a stopped agent
+Self-filed: B-366 → dropped (dup of B-218) — About window body copy still says Ghostty's tagline
+Self-filed: B-366 → dropped (dup of B-218) — About window title is "👻 Ghostty"
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -32,88 +35,115 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
-Lane: B-349
-  Branch: autopilot-lane/B-349
-  Base: b8bcdffc772a88b2ba44273bfcebf5e8dc35228e
-  Tier: full
-  State: landed
-  Fixes: 1
-  Wip: none
-  Dispatched: 2026-11-06T17:47:53Z
-  Reverifies: 0
-  Tokens: 19.5M in (18.8M cache read), ≥108k out, 185 requests
-  Reviewed-tip: 0df90da27212820f6a1534348953c7ae5a4260ba
-  Call: Pill moves from a titlebar accessory to a native trailing toolbar item (.leoUpdate), left of "⋯"; corner overlay stays off for agent windows — P1
-  Call: Narrow-width give-way order: subtitle, then pill, then title, then "⋯"; "Check for Updates…" stays in the app menu — P2
-  Call: Mac only; iOS has no Sparkle pill
-  Call: Pill width is measured (fittingSize + 10, 200 fallback) and re-measured on every state change
-  Call: DEBUG-only LEO_UPDATE_FIXTURE env seam (compiled out of release) and LeoAgentToolbar.hidesItemsInPlace test seam
-
-Lane: B-353
-  Branch: autopilot-lane/B-353
-  Base: 6febf7a1a55c82d5cb525a1ae72198593b1151d4
+Lane: B-358
+  Branch: autopilot-lane/B-358
+  Base: a746aed32327b51b0afa4dfbf73840b17d907a46
   Tier: light
   State: landed
   Fixes: 0
   Wip: none
-  Dispatched: 2026-11-06T18:57:33Z
   Reverifies: 0
-  Tokens: 7.4M in (7.11M cache read), ≥41.5k out, 84 requests
-  Reviewed-tip: 2906a408e98d185e8c6f75bfed3786d7cc1cbfba
-  Call: Mac only: iOS drives its own clock in AgentsViewController; the tick policy lives in LeoKit if iOS wants it later — P1/P2
-  Call: The Tasks popover and the sidebar row share the capsule's tick schedule (same durations, same staleness) — P2
-  Call: New LeoTaskTick (LeoKit) ticks on a whole-second grid while any visible duration is under a minute, else a coarse 15 s grid — P2 calm/steady status
+  Reviewed-tip: 718d936598c7e8d05ad0c8183b727648d79f1880
+  Call: Mac only, since iOS has no split zoom — P1
+  Call: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in place of the `.right` titlebar accessory; other window styles keep the accessory — P1
+  Call: Item uses visibilityPriority .high and never gives way to the activity capsule, since it is an action — P2
+  Dispatched: 2026-11-09T00:07:58Z
+  Tokens: 10.8M in (10.5M cache read), ≥47.3k out, 111 requests
 
-Lane: B-354
-  Branch: autopilot-lane/B-354
-  Base: 3dd100793c86bf6b3fea446c574e63ff827b3c2d
+Lane: B-363
+  Branch: autopilot-lane/B-363
+  Base: ee4c648d6b9b9f75a2ed0fec7d9c464c39338452
   Tier: light
   State: landed
   Fixes: 0
   Wip: none
-  Dispatched: 2026-11-06T19:22:57Z
   Reverifies: 0
-  Tokens: 6.3M in (6.05M cache read), ≥27.6k out, 76 requests
-  Reviewed-tip: 0adcfdc1bde7097d6b0f06d6db47e0932779d24a
-  Call: Mac only (iOS has no task bar) — P1
-  Call: Only the done bar's fill is softened; the checkmark glyph, popover and sidebar tints keep full green — P2
-  Call: Done-bar opacity 0.55 — P2
+  Reviewed-tip: 7cdb6cd815dea1e2daf0647397534a10cbf70271
+  Dispatched: 2026-11-09T01:02:41Z
+  Tokens: 5.81M in (5.55M cache read), ≥24k out, 71 requests
+  Call: Scope the task panel to the open thread only, not to the list (iPad regular width hides other agents' tasks while a thread is open) — P2 calm, attention-driven
+  Call: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
 
-Lane: B-348
-  Branch: autopilot-lane/B-348
-  Base: 9c2d50be1b7b96710a7d4929be78062d246f05c4
+Lane: B-364
+  Branch: autopilot-lane/B-364
+  Base: 42ee099741936e2f2ba1a09db0d28b6a40b904ea
   Tier: full
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: ab9a005bf9caf769f609746d65198433dd0ff08d
+  Dispatched: 2026-11-09T01:29:45Z
+  Tokens: 8.19M in (7.83M cache read), ≥37.7k out, 95 requests
+  Call: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration (matches D-670)
+  Call: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app has nothing to set (P2/P4)
+  Call: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be tested, with no behaviour change — test detail
+
+Lane: B-365
+  Branch: autopilot-lane/B-365
+  Base: 738ac477e3d166a10423b58bfea424738a1b966d
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 1d8ce79db3a5eb66e0a0b2b41be1201cc018db20
+  Dispatched: 2026-11-09T02:09:17Z
+  Tokens: 18.2M in (17.8M cache read), ≥50.5k out, 179 requests
+  Call: "Leo Help" retitled along with the three items in the screenshot — P1 (first-party Mac feel)
+  Call: Mac only: the menu bar has no iOS equivalent — repo rule
+  Call: Built the xcframework inside the lane because shared/ predates the B-334 symbol; src/ untouched — verify.md
+
+Lane: B-369
+  Branch: autopilot-lane/B-369
+  Base: ee9831926b78d9e6a7a2191a13134e24abce8813
+  Tier: light
   State: landed
   Fixes: 1
   Wip: none
-  Dispatched: 2026-11-06T19:57:43Z
   Reverifies: 0
-  Tokens: 8.22M in (7.95M cache read), ≥31.5k out, 94 requests
-  Reviewed-tip: d1852a4aa9501467f2ee1178892351c0e8919990
-  Call: Mac only (AppKit test fixtures); flag-line idiom (isReleasedWhenClosed = false per fixture) rather than a makeTestWindow helper — test infrastructure is agent-decides
-  Call: Reused the shelved fix by cherry-pick, per the owner's answer (D-692)
+  Reviewed-tip: 84062b174ea1df864a0067f9375f2081ee31a306
+  Dispatched: 2026-11-09T02:17:01Z
+  Tokens: 30.6M in (29.9M cache read), ≥77.9k out, 236 requests
+  Call: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo Mac/iOS rule
+  Call: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-starts — P2/P5
+  Call: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting…" while starting) — P2/P5
+  Call: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet, since they need a running agent — P1
 
-Lane: B-355
-  Branch: autopilot-lane/B-355
-  Base: 376f563bc042d86c1b3d179f34f99e26857d9abf
-  Tier: full
+Lane: B-366
+  Branch: autopilot-lane/B-366
+  Base: 1239bee56117fdf3d8cbc0ad0248de87427ca677
+  Tier: light
   State: landed
-  Fixes: 1
+  Fixes: 0
   Wip: none
-  Dispatched: 2026-11-06T20:55:47Z
-  Reverifies: 0
-  Tokens: 12.6M in (12.1M cache read), ≥77.1k out, 131 requests
-  Reviewed-tip: 50fc4c72cac512792d0c6c8b9450c6537ca822dc
-  Call: Fix the app, not just the tests: each image paste gets its own leo-paste-<uuid>/ temp directory; temp base injectable (LeoTerminalFileDropDependencies.temporaryDirectory); remote scratch name unchanged — P3
-  Call: Suite hardening: try #require on first insert, throwing makeAccess, 10 s ceiling on the two SFTP-backed waits, @MainActor State — test infrastructure
-  Call: Mac only: image paste is Mac-only, LeoKit untouched
+  Reverifies: 1
+  Reviewed-tip: 210fec712bfca1cf9d8a5025a7963e27d2b5aafe
+  Dispatched: 2026-11-09T05:17:26Z
+  Tokens: 7.84M in (7.43M cache read), ≥34k out, 99 requests
+  Call: Docs opens the leoterm README (no Leo docs URL exists in the repo; none invented) — P1
+  Call: Version link opens the leoterm release tag leo-v<version> — P1
+  Call: Commit link opens leoterm commits/<sha> — P1
+  Call: Mac only; the About window exists only on Mac — repo rule
 
-Finished 1: B-349 landed 62de526b86e2ffb4c3b2e2e52fde038c85a3c719 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-349-1.png
-Finished 2: B-353 landed 40202622fb8c6678c510d00cf5dab3a683e94d3d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-353-1.png
-Finished 3: B-354 landed 0b8212e1f817f41d33a5d0e77537481b31662d43 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-354-1.png
-Finished 4: B-348 landed 8871c5d660f9d5efffaa3e759e5120ee547b80cf · not visually verified
-Finished 5: B-355 landed c64e26f3a81c0fb423f218bd76dcc3fc96b77e04 · not visually verified
+Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
+Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
+Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
+Finished 4: B-365 landed 6455f1a0974e47b9f77472b9f6ca50f173a38170 · screen capture, not attached
+Finished 5: B-369 landed fc9af1308bedc3bb122c45eac34177947411090a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-369-1.png
+Finished 6: B-366 landed 2dc7ff9af23c177a4e63919d8f5982845202712a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png
 
 Progress:
-- B-349, B-353, B-354 picked ahead of B-348 (owner asked to retry those three).
-- Preflight: autopilot fast-forwarded to main ce80156fc (shipped leo-v0.30.0); inbox applied: answered B-348 (accept your recommendation (land it as is)), B-349 (retry), B-353 (retry), B-354 (retry); B-355 promoted.
+- Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
+- B-367 blocked before pick: leo agent says the fix is daemon-side (leo PR #327); no app change.
+- B-358 landed 060569e20 (light, 0 fixes).
+- B-363: restored lane's ios/LeoFeatures/Package.resolved (Xcode 26.5 resolver artifact from test runs, not item work) before landing.
+- B-363 landed 581bfebf3 (light, 0 fixes).
+- Inbox applied: B-369
+- Parallel builds on (owner, 2026-11-08); B-364 runner predates the test-host lock rule.
+- B-364 landed d6421b4df.
+- B-364 verifier saw unrelated flakes (allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList, theProbe…) while B-365 ran in parallel without a parent baseline.
+- B-369 built before B-366 (independent; B-366 overlaps B-365's AppDelegate footprint).
+- B-365 landed 6455f1a09.
+- B-369 landed fc9af1308.
+- B-366 landed 2dc7ff9af.

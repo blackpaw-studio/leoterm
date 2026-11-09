@@ -81,10 +81,13 @@ enum LeoActivityCapsuleSizing {
     /// of the capsule beyond the trailing groups (`updateItemReserve` or 0).
     /// `farSideReserve` is what the trailing items keep right of the capsule
     /// (the trailing groups, unless Chat sits beside the terminal).
+    /// `fixedReserve` is an item that never gives way (the reset-zoom
+    /// button while a split is zoomed): added to `farSideReserve` at every tier.
     static func layout(
         availableToolbarWidth: CGFloat, leadingChrome: CGFloat, trailingReserve: CGFloat = 0,
-        farSideReserve: CGFloat = trailingGroupsReserve
+        fixedReserve: CGFloat = 0, farSideReserve baseFarSideReserve: CGFloat = trailingGroupsReserve
     ) -> Layout {
+        let farSideReserve = baseFarSideReserve + fixedReserve
         func width(_ tier: Tier) -> CGFloat {
             availableToolbarWidth - 2 * tier.side(leadingChrome: leadingChrome, pillReserve: trailingReserve, farSideReserve: farSideReserve)
         }
