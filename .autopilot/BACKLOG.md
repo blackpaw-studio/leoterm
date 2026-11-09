@@ -2678,13 +2678,15 @@ Inbox: 20261107T141622663467Z-b32b5d50#1
 Done: 71b459eda
 Verified: not visually verified — panel needs two agents with live daemon tasks and no UI-test fixture covers it; LeoFeatures 486, LeoKit 1106, iOS app 58 tests pass
 
-## B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…   [ready]
+## B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…   [done]
 Issue: #339
 Type: bug
 Report: (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335, ab72de1f0), whose managed daemons default dispatch viewer placement to window on their own. Remove the Swift-side launch migration that writes `dispatch.viewer.placement: window` into the managed config, and its tests; if the app still needs to set it, use the daemon's `PUT /config/defaults {"dispatch_viewer":{"placement":"window"}}` instead of editing YAML.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T005707514436Z-893ef814#1
+Done: c2be26f86
+Verified: not visually verified — launch-time removal with no UI; a debug launch would touch the owner's real ~/.leo config; fixture-driven test covers it
 
 ## B-365 · some menu items still reference Ghostty   [ready]
 Issue: #340

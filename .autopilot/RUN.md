@@ -61,12 +61,13 @@ Lane: B-364
   Branch: autopilot-lane/B-364
   Base: 42ee099741936e2f2ba1a09db0d28b6a40b904ea
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: ab9a005bf9caf769f609746d65198433dd0ff08d
   Dispatched: 2026-11-09T01:29:45Z
+  Tokens: 8.19M in (7.83M cache read), ≥37.7k out, 95 requests
   Call: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration (matches D-670)
   Call: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app has nothing to set (P2/P4)
   Call: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be tested, with no behaviour change — test detail
@@ -84,6 +85,7 @@ Lane: B-365
 
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
+Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
@@ -93,3 +95,5 @@ Progress:
 - B-363 landed 581bfebf3 (light, 0 fixes).
 - Inbox applied: B-369
 - Parallel builds on (owner, 2026-11-08); B-364 runner predates the test-host lock rule.
+- B-364 landed d6421b4df.
+- B-364 verifier saw unrelated flakes (allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList, theProbe…) while B-365 ran in parallel without a parent baseline.

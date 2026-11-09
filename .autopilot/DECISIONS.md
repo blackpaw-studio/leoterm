@@ -468,3 +468,21 @@ Chose: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
 Item: B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…
 Commit: 71b459eda
 Veto: [ ]
+
+## D-717 · 2026-11-08 · B-364: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration 
+Chose: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration (matches D-670)
+Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
+Commit: c2be26f86
+Veto: [ ]
+
+## D-718 · 2026-11-08 · B-364: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app h
+Chose: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app has nothing to set (P2/P4)
+Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
+Commit: c2be26f86
+Veto: [ ]
+
+## D-719 · 2026-11-08 · B-364: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be 
+Chose: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be tested, with no behaviour change — test detail
+Item: B-364 · (cleanup, follow-up to B-341) Bundled leo is now 0.76.0 (PR #335,…
+Commit: c2be26f86
+Veto: [ ]
