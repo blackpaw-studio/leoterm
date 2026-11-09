@@ -151,7 +151,7 @@ struct LeoAgentToolbarActivityTests {
         fixture.zoomed.send(true)
         await fixture.settle()
         let shown = fixture.identifiers
-        #expect(shown.firstIndex(of: .leoResetZoom).map { $0 + 1 } == shown.firstIndex(of: .leoMore), "\(shown.map(\.rawValue))")
+        #expect(shown.firstIndex(of: .leoResetZoom).map { $0 + 1 } == shown.firstIndex(of: .leoViewSwitch), "\(shown.map(\.rawValue))")
 
         fixture.zoomed.send(false)
         await fixture.settle()
@@ -160,7 +160,7 @@ struct LeoAgentToolbarActivityTests {
 
     // MARK: The update pill (B-349)
 
-    @Test func thePillSitsInTheToolbarRowJustBeforeTheMoreItem() async throws {
+    @Test func thePillSitsInTheToolbarRowJustBeforeTheTrailingGroups() async throws {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
@@ -171,7 +171,7 @@ struct LeoAgentToolbarActivityTests {
         let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
 
         let ids = fixture.identifiers
-        #expect(ids.firstIndex(of: .leoUpdate) == ids.firstIndex(of: .leoMore).map { $0 - 1 }, "\(ids.map(\.rawValue))")
+        #expect(ids.firstIndex(of: .leoUpdate) == ids.firstIndex(of: .leoViewSwitch).map { $0 - 1 }, "\(ids.map(\.rawValue))")
         #expect(!item.isHidden)
         let pill = fixture.windowFrame(of: fixture.pill)
         let capsule = fixture.windowFrame(of: container)
@@ -206,8 +206,8 @@ struct LeoAgentToolbarActivityTests {
     }
 
     /// Below macOS 15 `isHidden` does nothing: the item is inserted right
-    /// before "⋯" and removed again, never left as a ghost.
-    @Test func withoutItemHidingThePillIsInsertedBeforeTheMoreItemAndRemoved() async throws {
+    /// before the view switch and removed again, never left as a ghost.
+    @Test func withoutItemHidingThePillIsInsertedBeforeTheViewSwitchAndRemoved() async throws {
         let fixture = Self.makeFixture(hidesItemsInPlace: false)
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
@@ -218,7 +218,7 @@ struct LeoAgentToolbarActivityTests {
         fixture.updateVisible.send(true)
         await fixture.settle()
         let shown = fixture.identifiers
-        #expect(shown.firstIndex(of: .leoUpdate) == shown.firstIndex(of: .leoMore).map { $0 - 1 }, "\(shown.map(\.rawValue))")
+        #expect(shown.firstIndex(of: .leoUpdate) == shown.firstIndex(of: .leoViewSwitch).map { $0 - 1 }, "\(shown.map(\.rawValue))")
 
         fixture.updateVisible.send(false)
         await fixture.settle()

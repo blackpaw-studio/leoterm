@@ -74,6 +74,38 @@ struct LeoContentFocusTests {
     }
 }
 
+extension LeoContentFocusTests {
+    /// The toolbar's Terminal segment, clicked while chat covers the terminal:
+    /// the terminal surface ends as first responder, and the switch (which
+    /// refuses focus) never is.
+    @Test func clickingTheToolbarsTerminalSegmentFocusesTheShownTerminal() async throws {
+        let fixture = try await FocusFixture.make()
+        defer { fixture.close() }
+        let surface = try fixture.fill().surface
+        try await fixture.expectSettled(on: surface)
+        let session = try #require(fixture.controller.leoSession)
+        // SwiftUI reports the focused surface in the app; the fixture has no such view.
+        fixture.controller.focusedSurface = surface
+        let agent = LeoAgentID(host: .local, name: "alpha")
+        session.selectedAgent = { agent }
+        session.setObservedContentWidth(800)
+        session.choose(.chat, for: agent)
+        let control = LeoToolbarViewSwitch()
+        fixture.window.contentView?.addSubview(control)
+        // The fixture's window has a terminal row selected, so no agent counts as
+        // shown (`LeoViewMenuActions.show` would do nothing): drive `choose` as `select` does.
+        control.onSelect = { session.choose($0, for: agent) }
+        control.apply(LeoViewSwitchPresentation(layout: .chatReplacingTerminal, unreadCount: 0))
+        fixture.focusSidebar()
+
+        control.setSelected(true, forSegment: 0)
+        _ = control.sendAction(control.action, to: control.target)
+
+        try await fixture.expectSettled(on: surface, "the terminal after the switch showed it")
+        #expect(fixture.window.firstResponder !== control)
+    }
+}
+
 /// A key start-screen window with an attach host of its own; the
 /// surfaces are plain shells (`command: ""`), never an agent.
 @MainActor

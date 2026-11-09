@@ -24,19 +24,25 @@ extension LeoActivityCapsuleSizing {
     /// Beside Chat the terminal column is the capsule's room: it gets the
     /// width and variant the column leaves, as if the column were the whole
     /// toolbar region, and is centred on it. That keeps it clear of the chat
-    /// pane by at least `chatClearance` (the "⋯" item's reserve on the
-    /// column's far side is the larger gap).
-    static func placement(windowWidth: CGFloat, sidebarWidth: CGFloat, chatLeadingEdge: CGFloat?, leadingChrome: CGFloat, trailingReserve: CGFloat = 0
+    /// pane by at least `chatClearance` (`sideBySideFarSideReserve` on the
+    /// column's far side is the larger gap; the trailing groups are over the chat pane).
+    static func placement(
+        windowWidth: CGFloat, sidebarWidth: CGFloat, chatLeadingEdge: CGFloat?, leadingChrome: CGFloat,
+        trailingReserve: CGFloat = 0, fixedReserve: CGFloat = 0
     ) -> Placement {
         let regionWidth = windowWidth - sidebarWidth
         let regionCentre = sidebarWidth + regionWidth / 2
         guard let chatLeadingEdge else {
-            let layout = layout(availableToolbarWidth: regionWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve)
+            let layout = layout(
+                availableToolbarWidth: regionWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve,
+                fixedReserve: fixedReserve)
             return Placement(layout: layout, minX: regionCentre - layout.width / 2, trailingPad: 0)
         }
         let terminalWidth = chatLeadingEdge - LeoChatLayout.dividerWidth - sidebarWidth
         let terminalCentre = sidebarWidth + terminalWidth / 2
-        let layout = layout(availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve)
+        let layout = layout(
+            availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve,
+            fixedReserve: fixedReserve, farSideReserve: sideBySideFarSideReserve)
         return Placement(
             layout: layout, minX: terminalCentre - layout.width / 2, trailingPad: max(0, 2 * (regionCentre - terminalCentre)))
     }

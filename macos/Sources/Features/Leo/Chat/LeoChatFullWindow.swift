@@ -17,8 +17,8 @@ struct LeoChatViewerIconButton: View {
     }
 }
 
-/// The open chat file over the whole window: sidebar, terminal, chat and
-/// control bar. It sits above the sidebar split in the window's top-level
+/// The open chat file over the whole window: sidebar, terminal and
+/// chat. It sits above the sidebar split in the window's top-level
 /// stack rather than inside the split, so the split's items, priorities and
 /// delegate stay as they are. It ignores the same edges as the split, so it
 /// covers exactly the split's rect, below the titlebar in every style.

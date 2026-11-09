@@ -2155,7 +2155,7 @@ extension TerminalController {
             return validateLeoMoveMenuItem(item, LeoMenuCommands.canCopy)
 
         case #selector(messageSelectedLeoAgent(_:)):
-            return validateLeoControlMenuItem(\.canSend)
+            return validateLeoMessageMenuItem()
 
         case #selector(interruptSelectedLeoAgent(_:)):
             return validateLeoControlMenuItem(\.canInterrupt)

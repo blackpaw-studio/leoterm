@@ -3,22 +3,16 @@ import Combine
 import Foundation
 import LeoKit
 
-/// What the control bar says under a row's field: a refused action, or a
-/// quiet note that a message was queued.
+/// What a control verb says about a row: a refused action, or a quiet note.
 enum LeoControlFeedback: Equatable, Sendable {
     case error(String)
     case notice(String)
 }
 
-/// The state behind the prompt box and its verbs (B-262): a draft per agent
-/// row (memory only, not a queue), the one verb in flight per row, inline
-/// feedback, and the hosts whose token the daemon refused. Each verb goes
+/// The state behind the agent verbs (B-262): the one verb in flight per row,
+/// inline feedback, and the hosts whose token the daemon refused. Each verb goes
 /// to its row's own host's daemon, resolved like `LeoAgentActions`.
 @MainActor final class LeoAgentControlModel: ObservableObject {
-    /// The daemon's limit on `text` (256 KiB).
-    static let maxMessageBytes = 256 * 1024
-
-    @Published private(set) var drafts: [LeoAgentRow.ID: String] = [:]
     @Published private(set) var inFlight: [LeoAgentRow.ID: LeoControlVerb] = [:]
     @Published private(set) var feedback: [LeoAgentRow.ID: LeoControlFeedback] = [:]
     /// Hosts whose token got a 401/403: controls stay off until a manual
@@ -34,37 +28,11 @@ enum LeoControlFeedback: Equatable, Sendable {
         self.confirmClear = confirmClear
     }
 
-    func draft(for id: LeoAgentRow.ID) -> String { drafts[id] ?? "" }
-
-    func setDraft(_ text: String, for id: LeoAgentRow.ID) {
-        guard draft(for: id) != text else { return }
-        drafts[id] = text.isEmpty ? nil : text
-        feedback[id] = nil
-    }
-
     func dismissFeedback(for id: LeoAgentRow.ID) { feedback[id] = nil }
-
-    func canSendDraft(for id: LeoAgentRow.ID) -> Bool {
-        !draft(for: id).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
 
     func retryAfterDenial(host: LeoHostID) {
         deniedHosts.remove(host)
         feedback = feedback.filter { $0.key.host != host }
-    }
-
-    func send(_ row: LeoAgentRow) async {
-        let sentDraft = draft(for: row.id)
-        let text = sentDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        guard text.utf8.count <= Self.maxMessageBytes else {
-            feedback[row.id] = .error("That message is too long (the limit is 256 KiB).")
-            return
-        }
-        guard let delivery = await perform(.message, row, { try await $0.message(row.name, text: text) }) else { return }
-        // Only the draft that was sent: anything typed meanwhile stays.
-        if draft(for: row.id) == sentDraft { drafts[row.id] = nil }
-        if delivery == .queued { feedback[row.id] = .notice("Queued. \(row.displayName) will get it when it can.") }
     }
 
     func interrupt(_ row: LeoAgentRow) async { _ = await perform(.interrupt, row) { try await $0.interrupt(row.name) } }

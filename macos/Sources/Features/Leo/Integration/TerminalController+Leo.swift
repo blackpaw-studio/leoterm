@@ -145,6 +145,13 @@ extension TerminalController {
         if let updateModel {
             window.leoToolbar.bind(updateVisible: updateModel.$state.map { !$0.isHidden })
         }
+        window.leoToolbar.mainMenu = { NSApp.mainMenu }
+        window.leoToolbar.bind(
+            viewSwitch: leoViewSwitchPresentations,
+            select: { [weak leoSession] choice in
+                if let leoSession { LeoViewMenuActions.show(choice, in: leoSession) }
+            })
+        window.leoToolbar.bind(interruptEnabled: leoInterruptAvailability)
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
@@ -170,6 +177,40 @@ extension TerminalController {
         return leoRuntime.model.objectWillChange.map { _ in () }
             .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
             .receive(on: DispatchQueue.main)
+            .eraseToAnyPublisher()
+    }
+
+    /// What the toolbar's Terminal | Chat switch shows: the shown agent's
+    /// layout and unread count, re-read (next turn) whenever any of them can change.
+    private var leoViewSwitchPresentations: AnyPublisher<LeoViewSwitchPresentation, Never> {
+        guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
+        let unread = leoRuntime.unread
+        return Publishers.MergeMany(
+            leoSelectionChanges,
+            leoSession.$viewChoices.map { _ in () }.eraseToAnyPublisher(),
+            leoSession.$sideBySideChatWidth.map { _ in () }.eraseToAnyPublisher(),
+            unread.objectWillChange.map { _ in () }.eraseToAnyPublisher()
+        )
+        .receive(on: DispatchQueue.main)
+        .prepend(())
+        .map { [weak leoSession] in
+            leoSession.map { LeoViewMenuActions.switchPresentation(in: $0) { unread.count(for: $0) } }
+                ?? LeoViewSwitchPresentation(layout: nil, unreadCount: 0)
+        }
+        .eraseToAnyPublisher()
+    }
+
+    /// Whether Interrupt may act on the shown agent: the rule behind Agents ▸
+    /// Interrupt, re-read whenever the row's status or activity, the daemon's
+    /// features, the machines' connections, the selection or an in-flight verb change.
+    private var leoInterruptAvailability: AnyPublisher<Bool, Never> {
+        guard let leoRuntime else { return Empty().eraseToAnyPublisher() }
+        return leoSelectionChanges
+            .merge(with: leoRuntime.control.objectWillChange.map { _ in () }.receive(on: DispatchQueue.main))
+            // A host connecting or dropping swaps the clients and features behind the rule.
+            .merge(with: leoRuntime.machines.objectWillChange.map { _ in () }.receive(on: DispatchQueue.main))
+            .prepend(())
+            .map { [weak self] in self?.validateLeoControlMenuItem(\.canInterrupt) ?? false }
             .eraseToAnyPublisher()
     }
 

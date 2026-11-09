@@ -14,6 +14,7 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var terminals: LeoWindowTerminals
     @ObservedObject var session: LeoWindowSession
+    @ObservedObject var control: LeoAgentControlModel
     let contentWidth: CGFloat
     @ViewBuilder let terminal: () -> Terminal
     /// The width under the pointer mid-drag; the session stores it on release.
@@ -30,11 +31,19 @@ struct LeoChatLayoutHost<Terminal: View>: View {
                 .frame(width: layout.terminalWidth(in: contentWidth, preferred: preferred))
                 .frame(maxHeight: .infinity)
                 .accessibilityHidden(!layout.isTerminalVisible)
+                // Over the terminal's own column only (never the chat pane's
+                // composer), and an overlay: no height change, no tmux reflow.
+                .overlay(alignment: .bottom) {
+                    if LeoControlFeedbackPlacement(layout: layout) == .overTerminal, let row {
+                        LeoControlFeedbackBanner(row: row, control: control)
+                    }
+                }
             if layout.showsChat, let row {
                 HStack(spacing: 0) {
                     if layout == .sideBySide { divider(layout, preferred: preferred) }
                     LeoChatPane(
                         row: row, chat: chat, session: session, viewer: session.chatViewer,
+                        feedbackControl: LeoControlFeedbackPlacement(layout: layout) == .aboveComposer ? control : nil,
                         close: { session.choose(.terminal, for: row.id) },
                         start: { model.startRequested(row) { _ in } }
                     )
@@ -97,6 +106,9 @@ struct LeoChatPane: View {
     @ObservedObject var chat: LeoChatPaneModel
     @ObservedObject var session: LeoWindowSession
     @ObservedObject var viewer: LeoChatViewerModel
+    /// Set when Chat replaces the terminal: control feedback then shows here,
+    /// above the composer.
+    var feedbackControl: LeoAgentControlModel?
     let close: () -> Void
     /// Starts the agent when it isn't running (B-369: its history is
     /// readable meanwhile; starting is this one explicit action).
@@ -124,6 +136,7 @@ struct LeoChatPane: View {
                 // overlay holds it, so there is a single Escape monitor.
                 if let document, !viewer.isFullWindow { fileViewer(document) }
             }
+            if let feedbackControl { LeoControlFeedbackBanner(row: row, control: feedbackControl) }
             if document == nil {
                 if let prompt = LeoChatStartBar.prompt(for: row.status) {
                     Divider()
