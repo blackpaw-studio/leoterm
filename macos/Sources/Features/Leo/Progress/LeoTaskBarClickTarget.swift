@@ -1,9 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// The click target over a row's task bar. An AppKit view that owns the
+/// The click target over a row's task indicator. An AppKit view that owns the
 /// whole mouse-down: the sidebar list's own row selection never sees it, so
-/// a bar click opens the task popover and neither selects nor attaches the
+/// an indicator click opens the task popover and neither selects nor attaches the
 /// row (a SwiftUI `Button` inside a list row lets the list select first).
 struct LeoTaskBarClickTarget: NSViewRepresentable {
     let action: () -> Void
@@ -12,7 +12,7 @@ struct LeoTaskBarClickTarget: NSViewRepresentable {
 
     func updateNSView(_ view: TargetView, context: Context) { view.action = action }
 
-    final class TargetView: NSView {
+    final class TargetView: NSView, LeoRowClickExempt {
         var action: () -> Void = {}
         private var isArmed = false
 

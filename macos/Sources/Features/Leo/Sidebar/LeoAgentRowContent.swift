@@ -23,9 +23,11 @@ struct LeoAgentRowContent: View {
     var unreadCount = 0
     /// B-331: set only for a row with dispatches.
     var subagents: Subagents?
-    /// Dismisses a failed task from the popover on the row's bar.
+    /// Dismisses a failed task from the popover on the row's indicator.
     var dismissTask: (LeoAgentTask) -> Void = { _ in }
-    @State private var showingTasks = false
+    /// The task popover on the indicator. Owned by the row, so its VoiceOver
+    /// action can open it.
+    var showingTasks: Binding<Bool> = .constant(false)
 
     /// The row's dispatch rows are collapsed or shown: a chevron (outside
     /// the row's click area) and, while collapsed, how many are running.
@@ -54,14 +56,13 @@ struct LeoAgentRowContent: View {
     private func content(now: Date?) -> some View {
         let presentation = LeoAgentRowPresentation(row: row, error: error, now: now, inWorkingSection: inWorkingSection)
         return HStack(alignment: .top, spacing: LeoAgentRowMetrics.symbolSpacing) {
-            LeoAgentStateSymbolView(state: presentation.state, isSelected: isSelected)
+            LeoAgentStateSymbolView(state: presentation.state, rotates: presentation.symbolRotates, isSelected: isSelected)
             VStack(alignment: .leading, spacing: LeoAgentRowMetrics.lineSpacing) {
                 nameLine(presentation)
                 if presentation.hasSecondLine { detailLine(presentation) }
-                if let progress = presentation.progress { progressBar(progress) }
             }
         }
-        // The bar spans the row's lines without adding to its height.
+        // The color bar spans the row's lines without adding to its height.
         .padding(.trailing, LeoAgentRowMetrics.colorBarSlot)
         .background(alignment: .trailing) { colorBar(presentation.barColor) }
         .padding(.vertical, LeoAgentRowMetrics.verticalPadding)
@@ -87,11 +88,17 @@ struct LeoAgentRowContent: View {
             }
             Spacer(minLength: 4)
             LeoAgentBrowserBadge(host: row.host, agent: row.name, isSelected: isSelected)
-            trailing(presentation.state)
+            trailing(presentation)
             LeoUnreadCountBadge(count: unreadCount, isOnSelection: isSelected)
             if let subagents { subagentsControls(subagents) }
         }
         .frame(height: LeoAgentRowMetrics.nameLineHeight)
+        // Anchored on the name line, not the indicator: the row's VoiceOver
+        // action opens it even when no indicator is drawn (a failed task on an
+        // errored agent), and it outlives the indicator changing shape.
+        .popover(isPresented: showingTasks, arrowEdge: .trailing) {
+            LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
+        }
     }
 
     @ViewBuilder private func subagentsControls(_ subagents: Subagents) -> some View {
@@ -124,21 +131,28 @@ struct LeoAgentRowContent: View {
         }
     }
 
-    /// A pending action replaces the time; a state word (Compacting) does
-    /// too. Only a row with a "last active" time re-renders it, once a
-    /// minute -- never per event.
-    @ViewBuilder private func trailing(_ state: LeoAgentRowState) -> some View {
+    /// A pending action replaces everything. Otherwise the task indicator
+    /// replaces the time; a state word (Compacting) stays beside it. Only a
+    /// row with a "last active" time re-renders it, once a minute -- never per
+    /// event.
+    @ViewBuilder private func trailing(_ presentation: LeoAgentRowPresentation) -> some View {
+        let state = presentation.state
         if isPending {
             ProgressView().controlSize(.small)
-        } else if let word = state.trailingWord, let ink = state.trailingInk {
-            Text(word)
-                .font(.caption)
-                .foregroundStyle(ink.style(isSelected: isSelected))
-                .lineLimit(1)
-                .fixedSize()
-        } else if row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
-            TimelineView(.everyMinute) { context in
-                timeText(LeoAgentRowPresentation(row: row, error: error, now: context.date, inWorkingSection: inWorkingSection))
+        } else {
+            if let word = state.trailingWord, let ink = state.trailingInk {
+                Text(word)
+                    .font(.caption)
+                    .foregroundStyle(ink.style(isSelected: isSelected))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            if let task = presentation.task, let indicator = task.indicator {
+                taskIndicator(indicator, tooltip: task.tooltip)
+            } else if state.trailingWord == nil, row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
+                TimelineView(.everyMinute) { context in
+                    timeText(LeoAgentRowPresentation(row: row, error: error, now: context.date, inWorkingSection: inWorkingSection))
+                }
             }
         }
     }
@@ -164,35 +178,20 @@ struct LeoAgentRowContent: View {
                 .truncationMode(.tail)
                 .help(presentation.detail.text)
             Spacer(minLength: 0)
-            if let badge = presentation.progress?.extraBadge {
-                Text(badge)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
-                    .padding(.horizontal, 5)
-                    .background(Capsule().fill(isSelected ? AnyShapeStyle(.white.opacity(0.25)) : AnyShapeStyle(.quaternary)))
-                    .fixedSize()
-            }
         }
         .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
     }
 
-    /// Row A's bar. Clicking it opens every task of the agent, and is not
-    /// a row click (see `LeoAgentRowMetrics.taskBarHitHeight`).
-    private func progressBar(_ progress: LeoAgentRowPresentation.Progress) -> some View {
-        LeoTaskBar(kind: progress.kind, isOnSelection: isSelected)
-            .frame(maxWidth: .infinity)
-            .frame(height: LeoAgentRowMetrics.taskBarHitHeight)
+    /// Clicking the indicator opens every task of the agent, and is not a
+    /// row click (the catcher skips clicks that land on the target).
+    private func taskIndicator(_ indicator: LeoTaskIndicator, tooltip: String) -> some View {
+        LeoTaskIndicatorView(indicator: indicator, isSelected: isSelected, onClick: { showingTasks.wrappedValue = true })
+            .frame(width: LeoAgentRowMetrics.taskIndicatorHitSize, height: LeoAgentRowMetrics.taskIndicatorHitSize)
             // An AppKit target, not a Button: the list would select the row
             // on mouse-down before a SwiftUI button saw the click.
-            .overlay(LeoTaskBarClickTarget { showingTasks = true })
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(progress.accessibilityLabel)
-            .accessibilityHint("Shows this agent's tasks")
-            // The AppKit overlay takes the mouse, so VoiceOver needs its own way in.
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { showingTasks = true }
-        .popover(isPresented: $showingTasks, arrowEdge: .trailing) {
-            LeoTaskPopover(agentName: row.displayName, emoji: row.appearance?.emoji, tasks: row.tasks, dismiss: dismissTask)
-        }
+            .overlay(LeoTaskBarClickTarget { showingTasks.wrappedValue = true })
+            .help(tooltip)
+            // The row's one element speaks the value and offers "Show Tasks".
+            .accessibilityHidden(true)
     }
 }
