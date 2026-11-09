@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-09T00:06:13Z
 Budget: 20 items, until 2026-11-09T12:06:13Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-358 → B-368 bug — theProbeSurvivesTheSidebarResizingAfterItReported is flaky
 Self-filed: B-365 → dropped (dup of B-218) — "Quit Ghostty?" confirm alert still says Ghostty
