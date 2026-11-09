@@ -64,6 +64,7 @@
 		8DD991FAC8CF7D6FD29A9BEC /* LeoChatPasteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */; };
 		8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */; };
 		8EA25F32175AB6CB49437F95 /* DialogAnchorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B7795E2AD35DC36E05E078B /* DialogAnchorTests.swift */; };
+		913FC60DB1E6AE81E1FC43FC /* TaskIndicatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C4D2CF9E7ED5130175D6D5E /* TaskIndicatorView.swift */; };
 		929ACF5783DFA6EEC13FB3CF /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = D76C56FEE239FEB25E23F15F /* LeoFeatures */; };
 		969BB67F442F42B4E155F597 /* SchemaFieldControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAF56D7F1045B740E912F0F2 /* SchemaFieldControls.swift */; };
 		9D9F47A3C6410164E2BF82D4 /* AgentPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A3E500114C72A2CED014F5E /* AgentPresentation.swift */; };
@@ -161,6 +162,7 @@
 		18B49401DB8C7296CBD9D8EC /* StatsStyleViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsStyleViewController.swift; sourceTree = "<group>"; };
 		19A3B2FDB00B10511B1282E0 /* SchemaFieldContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFieldContentView.swift; sourceTree = "<group>"; };
 		1C40E03637E8C2B8531F2901 /* ConfigCollectionViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigCollectionViewController.swift; sourceTree = "<group>"; };
+		1C4D2CF9E7ED5130175D6D5E /* TaskIndicatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskIndicatorView.swift; sourceTree = "<group>"; };
 		1D628695BAD22845C3CE51C1 /* LeoFeatures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LeoFeatures; path = LeoFeatures; sourceTree = SOURCE_ROOT; };
 		1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQuestionsFixture.swift; sourceTree = "<group>"; };
 		1F5519992F268DDD43A627F5 /* TaskPanelViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPanelViewTests.swift; sourceTree = "<group>"; };
@@ -364,6 +366,7 @@
 			children = (
 				99EFD1E92EFF872E89C1F558 /* ProgressNotifierLive.swift */,
 				D197D91AC9BCE86979DEC5E5 /* TaskBarView.swift */,
+				1C4D2CF9E7ED5130175D6D5E /* TaskIndicatorView.swift */,
 				20051536EA35480E82295F58 /* TaskPanelView.swift */,
 			);
 			path = Progress;
@@ -888,6 +891,7 @@
 				AB9A6A79ABD69284F11A2294 /* StripEmulator.swift in Sources */,
 				C46512C51916FB8B13731D9F /* TaskBarView.swift in Sources */,
 				691FAB10CBE4FEDE4BF0FF85 /* TaskHistoryViewController.swift in Sources */,
+				913FC60DB1E6AE81E1FC43FC /* TaskIndicatorView.swift in Sources */,
 				EB64EEED1BC1858429F218F1 /* TaskLogViewController.swift in Sources */,
 				4786D8B6A7EDC453819A2408 /* TaskPanelView.swift in Sources */,
 				D0B71B4BBA703CBDC8610261 /* TaskPromptViewController.swift in Sources */,

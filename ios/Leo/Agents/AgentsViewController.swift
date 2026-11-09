@@ -64,7 +64,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func configureDataSource() {
-        let cell = UICollectionView.CellRegistration<ProgressListCell, AgentRef> { [weak self] cell, _, ref in
+        let cell = UICollectionView.CellRegistration<UICollectionViewListCell, AgentRef> { [weak self] cell, _, ref in
             guard let agent = self?.agent(ref) else { return }
             var content = UIListContentConfiguration.subtitleCell()
             let badge = agent.badge
@@ -86,18 +86,20 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             content.secondaryTextProperties.color = .secondaryLabel
             content.secondaryTextProperties.numberOfLines = 2
             content.textToSecondaryTextVerticalPadding = 3
-            cell.showBar(progress?.style, in: &content)
             cell.contentConfiguration = content
             var accessories: [UICellAccessory] = [.disclosureIndicator()]
             if agent.priority.needsAttention {
                 accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge.label, tint: badge.tint), placement: .trailing())), at: 0)
             }
-            if let badge = progress?.badge {
-                accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge, tint: .secondaryLabel), placement: .trailing())), at: 0)
+            if let indicator = progress?.indicator {
+                let view = TaskIndicatorView()
+                view.apply(indicator)
+                accessories.insert(.customView(configuration: .init(customView: view, placement: .trailing(), maintainsFixedSize: true)), at: 0)
             }
             cell.accessories = accessories
             cell.accessibilityIdentifier = "agent.\(agent.name)"
-            cell.accessibilityValue = style.bar?.displayName
+            let spoken = [style.bar?.displayName, progress?.spokenValue].compactMap { $0 }
+            cell.accessibilityValue = spoken.isEmpty ? nil : spoken.joined(separator: ", ")
             cell.configurationUpdateHandler = { cell, state in
                 var background = UIBackgroundConfiguration.listCell().updated(for: state)
                 background.customView = style.bar.map { AgentRowBackground(barColor: $0.uiColor) }
