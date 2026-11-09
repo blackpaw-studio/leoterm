@@ -42,8 +42,15 @@ final class TaskIndicatorView: UIView {
 
     override var intrinsicContentSize: CGSize { CGSize(width: Self.size, height: Self.size) }
 
+    /// Idempotent: the Agents list reapplies every second, and an unchanged
+    /// indicator must not touch the spinner (it would restart its turn).
     func apply(_ indicator: LeoTaskIndicator) {
+        guard indicator != self.indicator else { return }
         self.indicator = indicator
+        render(indicator)
+    }
+
+    private func render(_ indicator: LeoTaskIndicator) {
         let isSpinner: Bool
         let fraction: Double?
         var isMuted = false
@@ -97,6 +104,6 @@ final class TaskIndicatorView: UIView {
 
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {
         super.traitCollectionDidChange(previous)
-        if let indicator { apply(indicator) }
+        if let indicator { render(indicator) }
     }
 }

@@ -64,7 +64,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
     }
 
     private func configureDataSource() {
-        let cell = UICollectionView.CellRegistration<UICollectionViewListCell, AgentRef> { [weak self] cell, _, ref in
+        let cell = UICollectionView.CellRegistration<AgentCell, AgentRef> { [weak self] cell, _, ref in
             guard let agent = self?.agent(ref) else { return }
             var content = UIListContentConfiguration.subtitleCell()
             let badge = agent.badge
@@ -87,16 +87,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             content.secondaryTextProperties.numberOfLines = 2
             content.textToSecondaryTextVerticalPadding = 3
             cell.contentConfiguration = content
-            var accessories: [UICellAccessory] = [.disclosureIndicator()]
-            if agent.priority.needsAttention {
-                accessories.insert(.customView(configuration: .init(customView: BadgeView(text: badge.label, tint: badge.tint), placement: .trailing())), at: 0)
-            }
-            if let indicator = progress?.indicator {
-                let view = TaskIndicatorView()
-                view.apply(indicator)
-                accessories.insert(.customView(configuration: .init(customView: view, placement: .trailing(), maintainsFixedSize: true)), at: 0)
-            }
-            cell.accessories = accessories
+            cell.setAccessories(needsBadge: agent.priority.needsAttention ? BadgeView(text: badge.label, tint: badge.tint) : nil, indicator: progress?.indicator)
             cell.accessibilityIdentifier = "agent.\(agent.name)"
             let spoken = [style.bar?.displayName, progress?.spokenValue].compactMap { $0 }
             cell.accessibilityValue = spoken.isEmpty ? nil : spoken.joined(separator: ", ")
