@@ -83,6 +83,16 @@ Lane: B-365
   Reviewed-tip: none
   Dispatched: 2026-11-09T02:09:17Z
 
+Lane: B-369
+  Branch: autopilot-lane/B-369
+  Base: ee9831926b78d9e6a7a2191a13134e24abce8813
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
@@ -97,3 +107,4 @@ Progress:
 - Parallel builds on (owner, 2026-11-08); B-364 runner predates the test-host lock rule.
 - B-364 landed d6421b4df.
 - B-364 verifier saw unrelated flakes (allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList, theProbe…) while B-365 ran in parallel without a parent baseline.
+- B-369 built before B-366 (independent; B-366 overlaps B-365's AppDelegate footprint).
