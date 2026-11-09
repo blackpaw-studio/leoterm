@@ -31,12 +31,15 @@ Lane: B-376
   Branch: autopilot-lane/B-376
   Base: 3ec165a37d6f8415965f1751b367817267634763
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e8fde9370e703cc56d2b2e45ebc1c2fcab355631
   Dispatched: 2026-11-09T22:09:30Z
+  Call: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+  Call: Kept and fixed the page-world console hook (describe only own data properties) instead of removing it or moving it to the LeoAgent world, so browser_console keeps working — P4, bug fix
+  Call: Left applicationNameForUserAgent alone (UA hypothesis tested irrelevant) — agent-decides
 
 Lane: B-377
   Branch: autopilot-lane/B-377
