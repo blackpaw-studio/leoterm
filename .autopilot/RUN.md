@@ -53,6 +53,7 @@ Lane: B-363
   Reverifies: 0
   Reviewed-tip: 7cdb6cd815dea1e2daf0647397534a10cbf70271
   Dispatched: 2026-11-09T01:02:41Z
+  Tokens: 5.81M in (5.55M cache read), ≥24k out, 71 requests
   Call: Scope the task panel to the open thread only, not to the list (iPad regular width hides other agents' tasks while a thread is open) — P2 calm, attention-driven
   Call: iOS only; the Mac task capsule is already per-agent — repo Mac/iOS rule
 
