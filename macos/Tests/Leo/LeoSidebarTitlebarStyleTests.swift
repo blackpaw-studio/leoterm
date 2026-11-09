@@ -64,6 +64,23 @@ struct LeoSidebarTitlebarStyleTests {
         #expect(identifiers.contains(.leoUpdate), "\(style): \(identifiers.map(\.rawValue))")
     }
 
+    /// B-358: the reset-zoom button was a `.right` titlebar accessory, which
+    /// hangs under the unified toolbar off its row (as the update pill did,
+    /// B-349). It is a toolbar item that shows while a split is zoomed.
+    @Test(arguments: TitlebarStyle.allCases)
+    func resetZoomIsAToolbarItemNotATitlebarAccessory(_ style: TitlebarStyle) async throws {
+        let fixture = try await StyledWindowFixture.make(style)
+        defer { fixture.close() }
+        let window = try #require(fixture.window as? TerminalWindow)
+
+        let accessories = window.titlebarAccessoryViewControllers.filter {
+            $0.view is NSHostingView<TerminalWindow.ResetZoomAccessoryView>
+        }
+        #expect(accessories.isEmpty, "\(style): reset zoom is still a titlebar accessory")
+        let identifiers = fixture.window.toolbar?.items.map(\.itemIdentifier) ?? []
+        #expect(identifiers.contains(.leoResetZoom), "\(style): \(identifiers.map(\.rawValue))")
+    }
+
     @Test(arguments: TitlebarStyle.allCases)
     func allThreeWindowButtonsAreVisible(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)

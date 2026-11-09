@@ -25,8 +25,10 @@ struct LeoAgentToolbarActivityTests {
         let pill: PillStandIn
         let chatWidth = PassthroughSubject<CGFloat, Never>()
         let updateVisible = PassthroughSubject<Bool, Never>()
+        let zoomed = PassthroughSubject<Bool, Never>()
 
         var identifiers: [NSToolbarItem.Identifier] { window.toolbar?.items.map(\.itemIdentifier) ?? [] }
+        var zoomItem: NSToolbarItem? { window.toolbar?.items.first { $0.itemIdentifier == .leoResetZoom } }
         var updateItem: NSToolbarItem? { window.toolbar?.items.first { $0.itemIdentifier == .leoUpdate } }
         func windowFrame(of view: NSView) -> NSRect { view.convert(view.bounds, to: nil) }
 
@@ -77,6 +79,7 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Fixture(window: window, toolbar: toolbar, capsule: capsule, pill: pill)
         toolbar.bind(sideBySideChatWidth: fixture.chatWidth)
         toolbar.bind(updateVisible: fixture.updateVisible)
+        toolbar.bind(surfaceZoomed: fixture.zoomed)
         return fixture
     }
 
@@ -112,6 +115,47 @@ struct LeoAgentToolbarActivityTests {
         await fixture.settle()
 
         #expect(container.frame.width == fixture.capsule.frame.width, "\(container.frame) \(fixture.capsule.frame)")
+    }
+
+    // MARK: Reset zoom (B-358)
+
+    @Test func resetZoomShowsOnTheToolbarRowOnlyWhileASplitIsZoomed() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.window.close() }
+        fixture.window.orderFrontRegardless()
+        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        await fixture.settle()
+        #expect(fixture.zoomItem?.isHidden ?? true, "visible with nothing zoomed")
+
+        fixture.zoomed.send(true)
+        await fixture.settle()
+        let item = try #require(fixture.zoomItem, "no reset-zoom item: \(fixture.identifiers)")
+        let ids = fixture.identifiers
+        #expect(!item.isHidden)
+        #expect(item.action == #selector(TerminalController.splitZoom(_:)), "\(String(describing: item.action))")
+        #expect(ids.firstIndex(of: .leoResetZoom).map { $0 + 1 } == ids.firstIndex(of: .leoUpdate), "\(ids.map(\.rawValue))")
+
+        fixture.zoomed.send(false)
+        await fixture.settle()
+        #expect(fixture.zoomItem?.isHidden ?? true, "still visible after unzoom")
+    }
+
+    @Test func withoutItemHidingResetZoomIsInsertedAndRemoved() async throws {
+        let fixture = Self.makeFixture(hidesItemsInPlace: false)
+        defer { fixture.window.close() }
+        fixture.window.orderFrontRegardless()
+        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        await fixture.settle()
+        #expect(!fixture.identifiers.contains(.leoResetZoom), "\(fixture.identifiers.map(\.rawValue))")
+
+        fixture.zoomed.send(true)
+        await fixture.settle()
+        let shown = fixture.identifiers
+        #expect(shown.firstIndex(of: .leoResetZoom).map { $0 + 1 } == shown.firstIndex(of: .leoMore), "\(shown.map(\.rawValue))")
+
+        fixture.zoomed.send(false)
+        await fixture.settle()
+        #expect(!fixture.identifiers.contains(.leoResetZoom), "\(fixture.identifiers.map(\.rawValue))")
     }
 
     // MARK: The update pill (B-349)

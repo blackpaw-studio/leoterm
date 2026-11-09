@@ -55,6 +55,14 @@ class TerminalWindow: NSWindow {
     /// the titlebar accessory nor the corner overlay should.
     var showsUpdateInToolbar: Bool { false }
 
+    /// Whether this window's own toolbar carries the reset-zoom button, so
+    /// the titlebar accessory (which hangs under a unified toolbar) is not
+    /// added.
+    var showsResetZoomInToolbar: Bool { false }
+
+    /// Whether a split is zoomed, as it changes.
+    var surfaceZoomedPublisher: AnyPublisher<Bool, Never> { viewModel.$isSurfaceZoomed.eraseToAnyPublisher() }
+
     /// Glass effect view for liquid glass background when transparency is enabled
     private var glassEffectView: NSView?
 
@@ -135,15 +143,17 @@ class TerminalWindow: NSWindow {
         // Create our reset zoom titlebar accessory. We have to have a title
         // to do this or AppKit triggers an assertion.
         if styleMask.contains(.titled) {
-            resetZoomAccessory.layoutAttribute = .right
-            resetZoomAccessory.view = NSHostingView(rootView: ResetZoomAccessoryView(
-                viewModel: viewModel,
-                action: { [weak self] in
-                    guard let self else { return }
-                    self.terminalController?.splitZoom(self)
-                }))
-            addTitlebarAccessoryViewController(resetZoomAccessory)
-            resetZoomAccessory.view.translatesAutoresizingMaskIntoConstraints = false
+            if !showsResetZoomInToolbar {
+                resetZoomAccessory.layoutAttribute = .right
+                resetZoomAccessory.view = NSHostingView(rootView: ResetZoomAccessoryView(
+                    viewModel: viewModel,
+                    action: { [weak self] in
+                        guard let self else { return }
+                        self.terminalController?.splitZoom(self)
+                    }))
+                addTitlebarAccessoryViewController(resetZoomAccessory)
+                resetZoomAccessory.view.translatesAutoresizingMaskIntoConstraints = false
+            }
 
             // Create update notification accessory
             if supportsUpdateAccessory {
@@ -316,7 +326,7 @@ class TerminalWindow: NSWindow {
     }
 
     private func tabBarDidDisappear() {
-        if styleMask.contains(.titled) {
+        if styleMask.contains(.titled) && !showsResetZoomInToolbar {
             if titlebarAccessoryViewControllers.firstIndex(of: resetZoomAccessory) == nil {
                 addTitlebarAccessoryViewController(resetZoomAccessory)
             }

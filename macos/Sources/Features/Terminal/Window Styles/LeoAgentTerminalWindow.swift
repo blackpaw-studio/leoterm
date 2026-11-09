@@ -23,6 +23,8 @@ final class LeoAgentTerminalWindow: TerminalWindow {
     /// accessory hangs under the unified toolbar, off its row.
     override var supportsUpdateAccessory: Bool { false }
     override var showsUpdateInToolbar: Bool { true }
+    /// B-358: so is the reset-zoom button, for the same reason.
+    override var showsResetZoomInToolbar: Bool { true }
 
     override func awakeFromNib() {
         super.awakeFromNib()
