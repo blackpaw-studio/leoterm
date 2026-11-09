@@ -286,12 +286,27 @@ public enum LeoBrowserScripts {
         }
         return result;
       };
+      // The first data `name` up the prototype chain (TypeError, RangeError…).
+      const errorName = error => {
+        let object = error;
+        for (let depth = 0; object && depth < 20; depth++, object = Object.getPrototypeOf(object)) {
+          const name = own(object, 'name');
+          if (typeof name === 'string' && name) return name;
+        }
+        return 'Error';
+      };
+      // What the console prints for a top-level argument: bare primitives,
+      // JSON for objects.
       const describe = value => {
-        if (typeof value === 'string') return value;
+        const type = typeof value;
+        if (type === 'string') return value;
+        if (value === null) return 'null';
+        if (type === 'function') return '[function]';
+        if (type !== 'object') return String(value);
         if (value instanceof Error) {
           const stack = own(value, 'stack');
           const message = own(value, 'message');
-          const header = `Error: ${typeof message === 'string' ? message : ''}`;
+          const header = `${errorName(value)}: ${typeof message === 'string' ? message : ''}`;
           return typeof stack === 'string' && stack ? `${header}\n${stack}` : header;
         }
         try { return JSON.stringify(plain(value, 0)); } catch (_) { return '[unprintable]'; }

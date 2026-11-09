@@ -52,6 +52,12 @@ struct LeoWKBrowserPageTests {
         console.log('plain', {ok: [1, 'two', null]});
         </script>
         """,
+        "types": """
+        <script>
+        console.log(undefined, NaN, null, 7, true, function () {});
+        console.error(new TypeError('nope'));
+        </script>
+        """,
         "later": "<script>setTimeout(() => document.body.append('Ready now'), 50)</script>",
     ]
 
@@ -167,6 +173,24 @@ struct LeoWKBrowserPageTests {
         #expect(entries.last?.text.contains("nope") == true)
         #expect(page.console().isEmpty)
         #expect(page.console(since: 0).count == 3)
+    }
+
+    /// The hook prints what the console would: bare primitives, and an
+    /// error under its own type name.
+    @available(macOS 14, *)
+    @Test func consoleKeepsErrorTypeNamesAndPrintsPrimitivesBare() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("types"))
+        var entries: [LeoWKBrowserPage.ConsoleEntry] = []
+        for _ in 0..<50 where entries.count < 2 {
+            _ = try await page.eval("return 0")
+            entries += page.console()
+        }
+
+        #expect(entries.first?.text == "undefined NaN null 7 true [function]")
+        #expect(entries.last?.text.hasPrefix("TypeError: nope") == true)
     }
 
     /// A bot check that logs objects with trapped getters (hyatt.com's
