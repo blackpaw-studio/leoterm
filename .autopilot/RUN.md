@@ -2,11 +2,13 @@ Status: running
 Started: 2026-11-09T00:06:13Z
 Budget: 20 items, until 2026-11-09T12:06:13Z
 Digested-through: 0
-Filed: 1/3 bugs, 1/5 ideas
+Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-358 → B-368 bug — theProbeSurvivesTheSidebarResizingAfterItReported is flaky
 Self-filed: B-365 → dropped (dup of B-218) — "Quit Ghostty?" confirm alert still says Ghostty
 Self-filed: B-365 → dropped (dup of B-218) — Window menu entry and titlebar still read "👻 Ghostty"
 Self-filed: B-365 → B-370 idea — verify.md launch line's -ApplePersistenceIgnoreState YES shows a Configuration Errors dialog
+Self-filed: B-369 → B-371 idea — Composer stays enabled for a stopped agent; typed message is neither queued nor refused
+Self-filed: B-369 → B-372 idea — Toolbar pill reads "Idle" for a stopped agent
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -95,7 +97,7 @@ Lane: B-369
   Base: ee9831926b78d9e6a7a2191a13134e24abce8813
   Tier: light
   State: building
-  Fixes: 0
+  Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
