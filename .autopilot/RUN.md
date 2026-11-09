@@ -43,6 +43,16 @@ Lane: B-358
   Dispatched: 2026-11-09T00:07:58Z
   Tokens: 10.8M in (10.5M cache read), ≥47.3k out, 111 requests
 
+Lane: B-363
+  Branch: autopilot-lane/B-363
+  Base: ee4c648d6b9b9f75a2ed0fec7d9c464c39338452
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 
 Progress:
