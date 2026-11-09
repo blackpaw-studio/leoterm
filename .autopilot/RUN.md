@@ -27,6 +27,26 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-376
+  Branch: autopilot-lane/B-376
+  Base: 3ec165a37d6f8415965f1751b367817267634763
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-377
+  Branch: autopilot-lane/B-377
+  Base: 3ec165a37d6f8415965f1751b367817267634763
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Budget arg "1hr" read as a 1h time budget.
 - Preflight: merged main 2109fe5a3 into autopilot.
