@@ -32,7 +32,7 @@ Lane: B-358
   Branch: autopilot-lane/B-358
   Base: a746aed32327b51b0afa4dfbf73840b17d907a46
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0

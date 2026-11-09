@@ -2643,12 +2643,14 @@ Source: autopilot polish (B-346)
 Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
 Source: autopilot polish (B-342)
 
-## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [ready]
+## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [done]
 Issue: #334
 Type: bug
 Report: Reset-zoom titlebar accessory likely sits low in the unified toolbar — `resetZoomAccessory` is a `.right` titlebar accessory like the old update pill was, so it probably misaligns in agent windows (suspected, not checked)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-349)
+Done: 2596f13ca
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 
 ## B-359 · Show the update pill in the toolbar's » overflow menu at narrow widths   [idea]
 Note: at ≤640 pt the pill drops out and isn't in the overflow menu, so a narrow window has no visible update entry point (app menu still works) — P2

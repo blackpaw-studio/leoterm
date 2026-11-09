@@ -438,3 +438,21 @@ Chose: Mac only: image paste is Mac-only, LeoKit untouched
 Item: B-355 · LeoRuntimeFileDropTests fails and aborts the Mac test host
 Commit: 513ac9c8d, 50fc4c72c
 Veto: [ ]
+
+## D-712 · 2026-11-08 · B-358: Mac only, since iOS has no split zoom — P1
+Chose: Mac only, since iOS has no split zoom — P1
+Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
+Commit: 2596f13ca
+Veto: [ ]
+
+## D-713 · 2026-11-08 · B-358: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in
+Chose: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in place of the `.right` titlebar accessory; other window styles keep the accessory — P1
+Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
+Commit: 2596f13ca
+Veto: [ ]
+
+## D-714 · 2026-11-08 · B-358: Item uses visibilityPriority .high and never gives way to the activity capsule, since it i
+Chose: Item uses visibilityPriority .high and never gives way to the activity capsule, since it is an action — P2
+Item: B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar
+Commit: 2596f13ca
+Veto: [ ]
