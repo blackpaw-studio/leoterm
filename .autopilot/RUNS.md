@@ -777,3 +777,15 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-09T14:10:19Z
+🛠 leoterm autopilot — 0 shipped, 2 blocked
+Nothing landed: neither bug reproduced without the GUI.
+Needs you — reply "B-0xx: <answer>"
+• B-373 update button overflow: the reproducing test (.leoUpdate in toolbar.visibleItems, 800–1700 pt widths, Chat beside the terminal and not) passed 92/92. Lead: the Chat-beside-terminal reserve (56 pt) may be too small. Send width, pill text, and whether Chat was beside the terminal, or "B-373: close".
+• B-374 stopped-agent auto-switch: no code path moves the selection back. Suspect a late focus report from the previous terminal (LeoSidebarModel+AttachLinks.swift:109). Send width, whether the previous terminal was showing, click or ⌃⇥, or "B-374: trace" to allow a debug focus trace, or "B-374: close".
+• B-058, B-143 still held; B-233, B-332 lanes unlanded with no RUN.md block (left in place).
+Next up: B-368
+Spend (estimated, lower bound · prices 2026-10-09): ≈$3.14 est. — B-374 ≈$1.25 est., B-373 ≈$1.88 est.
+Tokens (runner + its subagents): B-374 3.91M in (3.75M cache read), ≥21.2k out, 40 requests · B-373 7.89M in (7.69M cache read), ≥30.7k out, 75 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
