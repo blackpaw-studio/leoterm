@@ -101,6 +101,17 @@ Lane: B-369
   Reviewed-tip: none
   Dispatched: 2026-11-09T02:17:01Z
 
+Lane: B-366
+  Branch: autopilot-lane/B-366
+  Base: 1239bee56117fdf3d8cbc0ad0248de87427ca677
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-09T04:17:29Z
+
 Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 Finished 2: B-363 landed 581bfebf38a798ceb244462f2fa88525fdf346d0 · not visually verified
 Finished 3: B-364 landed d6421b4df185b95b0eb0a8a8b42235da72355cb2 · not visually verified
