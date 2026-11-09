@@ -21,6 +21,9 @@ public struct AgentProgress: Equatable, Sendable {
     public let indicator: LeoTaskIndicator?
     /// Replaces the row's summary; nil keeps the summary.
     public let text: String?
+    /// The tail of `text` that stays whole when the line is too long; the
+    /// title before it is what truncates.
+    public let textSuffix: String?
     /// "Build Leo.app, 62 percent", "In progress", "Stalled" or "Failed".
     public let spokenValue: String?
     /// The full one-line summary, for the cell's accessibility hint.
@@ -37,7 +40,7 @@ extension Agent {
             tasks, etaAt: taskETAs, agentIsInError: priority == .errored, now: now
         ) else { return nil }
         return AgentProgress(
-            indicator: summary.indicator, text: summary.detail, spokenValue: summary.spokenValue, tooltip: summary.tooltip)
+            indicator: summary.indicator, text: summary.detail, textSuffix: summary.detailSuffix, spokenValue: summary.spokenValue, tooltip: summary.tooltip)
     }
 
     /// How a task's bar is drawn; shared by the row, the detail and the panel.

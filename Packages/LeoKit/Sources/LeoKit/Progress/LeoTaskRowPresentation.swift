@@ -17,6 +17,10 @@ public struct LeoTaskRowSummary: Equatable, Sendable {
     public let indicator: LeoTaskIndicator?
     /// `nil`: fall through to the next detail-line source.
     public let detail: String?
+    /// The tail of `detail` that must stay whole when the line is too long
+    /// (" · no update for 21m"): a cell truncates the title, not this. `nil`
+    /// when `detail` has no such tail.
+    public let detailSuffix: String?
     /// The full one-line summary of the primary task, plus the others.
     public let tooltip: String
     /// "Build Leo.app, 62 percent", "In progress", "Stalled" or "Failed".
@@ -59,19 +63,22 @@ public enum LeoTaskRowPresentation {
             spoken = nil
         }
 
-        return LeoTaskRowSummary(
-            indicator: indicator, detail: detail(primary, title: title, now: now), tooltip: tooltip, spokenValue: spoken)
+        let suffix = staleSuffix(primary, now: now)
+        let detail = suffix.map { primary.title + $0 } ?? detail(primary, title: title)
+        return LeoTaskRowSummary(indicator: indicator, detail: detail, detailSuffix: suffix, tooltip: tooltip, spokenValue: spoken)
     }
 
-    private static func detail(_ primary: LeoAgentTask, title: String, now: Date) -> String? {
+    private static func detail(_ primary: LeoAgentTask, title: String) -> String? {
         switch primary.state {
-        case .running:
-            guard primary.stale else { return title }
-            let age = LeoTaskText.duration(now.timeIntervalSince(primary.updatedAt))
-            return "\(primary.title) · no update for \(age)"
-        case .failed: return "Failed: \(primary.title)"
-        case .succeeded, .cancelled: return nil
+        case .running: title
+        case .failed: "Failed: \(primary.title)"
+        case .succeeded, .cancelled: nil
         }
+    }
+
+    private static func staleSuffix(_ primary: LeoAgentTask, now: Date) -> String? {
+        guard primary.isRunning, primary.stale else { return nil }
+        return " · no update for \(LeoTaskText.duration(now.timeIntervalSince(primary.updatedAt)))"
     }
 
     private static func runningTitle(_ primary: LeoAgentTask, otherRunning: Int) -> String {

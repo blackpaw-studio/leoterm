@@ -56,6 +56,14 @@ struct LeoTaskRowPresentationTests {
         #expect(s?.spokenValue == "Stalled")
     }
 
+    @Test func staleDetailExposesItsSuffixSoACellCanKeepItWhole() {
+        let stale = summary([task("sweep", title: "Sweep", percent: 30, stale: true, updated: 9_880)])
+        #expect(stale?.detailSuffix == " · no update for 2m")
+        #expect(stale?.detail == "Sweep" + (stale?.detailSuffix ?? ""))
+        #expect(summary([task("a", title: "Build", percent: 5)])?.detailSuffix == nil)
+        #expect(summary([task("a", title: "Deploy", .failed)])?.detailSuffix == nil)
+    }
+
     @Test func staleWithoutPercentShowsEmptyMutedPie() {
         let s = summary([task("a", stale: true)])
         #expect(s?.indicator == .stalled(fraction: nil))

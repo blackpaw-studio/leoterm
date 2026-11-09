@@ -82,13 +82,13 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             content.text = agent.displayName
             content.textProperties.font = .preferredFont(forTextStyle: .headline)
             let progress = agent.progress(now: self?.clock ?? Date())
-            content.secondaryText = progress?.text ?? agent.summary
+            content.secondaryText = cell.fittedDetail(progress?.text, suffix: progress?.textSuffix, font: content.secondaryTextProperties.font) ?? agent.summary
             content.secondaryTextProperties.color = .secondaryLabel
             // A task's line is one line, tail-truncated: it must not grow the row.
             content.secondaryTextProperties.numberOfLines = progress == nil ? 2 : 1
             content.textToSecondaryTextVerticalPadding = 3
             cell.contentConfiguration = content
-            cell.setAccessories(needsBadge: agent.priority.needsAttention ? BadgeView(text: badge.label, tint: badge.tint) : nil, indicator: progress?.indicator)
+            cell.setAccessories(badge: agent.priority.needsAttention ? .init(text: badge.label, tint: badge.tint) : nil, indicator: progress?.indicator)
             cell.accessibilityIdentifier = "agent.\(agent.name)"
             let spoken = [style.bar?.displayName, progress?.spokenValue].compactMap { $0 }
             cell.accessibilityValue = spoken.isEmpty ? nil : spoken.joined(separator: ", ")
