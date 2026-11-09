@@ -31,12 +31,16 @@ Lane: B-376
   Branch: autopilot-lane/B-376
   Base: 3ec165a37d6f8415965f1751b367817267634763
   Tier: light
-  State: building
-  Fixes: 0
+  State: landed
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: e8fde9370e703cc56d2b2e45ebc1c2fcab355631
   Dispatched: 2026-11-09T22:09:30Z
+  Call: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+  Call: Kept and fixed the page-world console hook (describe only own data properties) instead of removing it or moving it to the LeoAgent world, so browser_console keeps working — P4, bug fix
+  Call: Left applicationNameForUserAgent alone (UA hypothesis tested irrelevant) — agent-decides
+  Tokens: 18.8M in (18.3M cache read), ≥72.3k out, 179 requests
 
 Lane: B-377
   Branch: autopilot-lane/B-377
@@ -49,6 +53,8 @@ Lane: B-377
   Reviewed-tip: none
   Dispatched: 2026-11-09T22:09:30Z
 
+Finished 1: B-376 landed 2ada34003 · not visually verified
+
 Progress:
 - Budget arg "1hr" read as a 1h time budget.
 - Preflight: merged main 2109fe5a3 into autopilot.
@@ -56,3 +62,5 @@ Progress:
 - Inbox applied: order B-376 B-377 B-368 B-375 (owner in session: browser fixes first).
 - B-376 and B-377 run in parallel: same file (LeoWKBrowserPage.swift) but separate regions (console hook/UA vs browser_eval).
 - Runners: B-376 d-890551eda115, B-377 d-b9124e701e92 (leo implement role).
+- B-376 landed 2ada34003 (fix round 1: review caught lost error type names and quoted primitives). Root cause: the console hook describe() read getters Kasada planted.
+- Time budget passed 23:07Z; no new lanes.

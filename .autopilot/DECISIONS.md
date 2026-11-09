@@ -552,3 +552,21 @@ Chose: Mac only; the About window exists only on Mac — repo rule
 Item: B-366 · buttons in the about window link to ghostty repo and docs instead of…
 Commit: 3d87c55b0
 Veto: [ ]
+
+## D-731 · 2026-11-09 · B-376: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+Chose: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+Item: B-376 · agent browser can't load hyatt.com (every page blank with an empty…
+Commit: b7ce634f9, e8fde9370
+Veto: [ ]
+
+## D-732 · 2026-11-09 · B-376: Kept and fixed the page-world console hook (describe only own data properties) instead of removing it or moving it to the LeoAgent world, so browser_console keeps working — P4, bug fix
+Chose: Kept and fixed the page-world console hook (describe only own data properties) instead of removing it or moving it to the LeoAgent world, so browser_console keeps working — P4, bug fix
+Item: B-376 · agent browser can't load hyatt.com (every page blank with an empty…
+Commit: b7ce634f9, e8fde9370
+Veto: [ ]
+
+## D-733 · 2026-11-09 · B-376: Left applicationNameForUserAgent alone (UA hypothesis tested irrelevant) — agent-decides
+Chose: Left applicationNameForUserAgent alone (UA hypothesis tested irrelevant) — agent-decides
+Item: B-376 · agent browser can't load hyatt.com (every page blank with an empty…
+Commit: b7ce634f9, e8fde9370
+Veto: [ ]
