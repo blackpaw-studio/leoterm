@@ -29,6 +29,14 @@ struct AgentCellTests {
         #expect(laidOut(cell).taskIndicator.superview == nil)
     }
 
+    @Test func needsInputBadgeKeepsItsFittedWidthSoItCannotCollapseOntoTheChevron() {
+        let cell = AgentCell()
+        let badge = BadgeView(text: "Needs Input", tint: .systemOrange)
+        cell.setAccessories(needsBadge: badge, indicator: nil)
+        _ = laidOut(cell)
+        #expect(badge.bounds.width > 40)
+    }
+
     @Test func applyingAnUnchangedIndicatorLeavesTheSpinnerAlone() throws {
         let view = TaskIndicatorView()
         view.apply(.progress(fraction: nil))

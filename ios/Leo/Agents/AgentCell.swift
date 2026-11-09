@@ -27,7 +27,13 @@ final class AgentCell: UICollectionViewListCell {
         if let indicator = indicator.map({ _ in taskIndicator }) {
             accessories.insert(.customView(configuration: .init(customView: indicator, placement: .trailing(), maintainsFixedSize: true)), at: 0)
         }
-        if let badge { accessories.insert(.customView(configuration: .init(customView: badge, placement: .trailing())), at: 0) }
+        if let badge {
+            // The badge is wider than the standard accessory slot, so reserve its
+            // actual width (else it spills over the chevron), and give it its
+            // fitted frame: a fixed-size accessory keeps the frame it has now.
+            badge.frame.size = badge.systemLayoutSizeFitting(UIView.layoutFittingCompressedSize)
+            accessories.insert(.customView(configuration: .init(customView: badge, placement: .trailing(), reservedLayoutWidth: .actual, maintainsFixedSize: true)), at: 0)
+        }
         self.accessories = accessories
     }
 }
