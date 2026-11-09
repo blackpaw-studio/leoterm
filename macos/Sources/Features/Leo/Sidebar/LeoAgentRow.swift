@@ -101,6 +101,7 @@ struct LeoAgentRowView: View {
     var unreadCount = 0
     /// B-331: the dispatch rows' collapse, for a row that has any.
     var subagents: LeoAgentRowContent.Subagents?
+    @State private var showingTasks = false
     @State private var showingRename = false
     @State private var showingDelete = false
     @State private var showingAppearance = false
@@ -109,13 +110,15 @@ struct LeoAgentRowView: View {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo, movedTo: row.movedTo)
     }
 
-    private var hasTaskBar: Bool { LeoAgentRowPresentation(row: row, error: error).progress != nil }
+    /// The row's task summary, for the VoiceOver value and action.
+    private var task: LeoTaskRowSummary? { LeoAgentRowPresentation(row: row, error: error).task }
 
     var body: some View {
         LeoAgentRowContent(
             row: row, error: error, isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
             nameHighlights: nameHighlights, inWorkingSection: inWorkingSection, unreadCount: unreadCount,
-            subagents: subagents, dismissTask: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) }
+            subagents: subagents, dismissTask: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) },
+            showingTasks: $showingTasks
         )
         .contentShape(Rectangle())
         // The whole row is the target, like Finder or Mail (B-049);
@@ -128,9 +131,7 @@ struct LeoAgentRowView: View {
         .background(LeoRowClickCatcher(
             identity: row.id, onClick: click,
             trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge,
-            trailingExclusionHeight: LeoAgentRowMetrics.disclosureTrailingHeight,
-            bottomExclusion: hasTaskBar ? LeoAgentRowMetrics.taskBarHitHeight + LeoAgentRowMetrics.verticalPadding : 0,
-            bottomLeading: LeoAgentRowMetrics.nameColumnInset, bottomTrailing: LeoAgentRowMetrics.colorBarSlot
+            trailingExclusionHeight: LeoAgentRowMetrics.disclosureTrailingHeight
         ).accessibilityHidden(true))
         // One element per row: the name's label (name, state), then the
         // detail and time. There's no button in the row to press, so the
@@ -139,6 +140,7 @@ struct LeoAgentRowView: View {
         .accessibilityAction { LeoRowAccessibility.press(click) }
         .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
         .modifier(SubagentsAccessibilityAction(subagents: subagents))
+        .modifier(TaskAccessibility(task: task, showTasks: { showingTasks = true }))
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
         .popover(isPresented: $showingAppearance, arrowEdge: .trailing) {
@@ -326,6 +328,25 @@ private struct SubagentsAccessibilityAction: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if let subagents {
             content.accessibilityAction(named: Text(subagents.actionName), subagents.toggle)
+        } else {
+            content
+        }
+    }
+}
+
+/// The task indicator is hidden from VoiceOver; the row's one element says
+/// its value ("Build Leo.app, 62 percent") and offers the task popover.
+private struct TaskAccessibility: ViewModifier {
+    static let actionName = "Show Tasks"
+
+    let task: LeoTaskRowSummary?
+    let showTasks: () -> Void
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if let task, task.indicator != nil {
+            content
+                .accessibilityValue(task.spokenValue ?? "")
+                .accessibilityAction(named: Text(Self.actionName), showTasks)
         } else {
             content
         }

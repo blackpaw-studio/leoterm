@@ -7,6 +7,9 @@ struct LeoAgentStateSymbolView: View {
     static let rotationDuration: Double = 1.6
 
     let state: LeoAgentRowState
+    /// Whether the symbol turns: `state.rotates`, unless a task indicator
+    /// carries the row's motion.
+    let rotates: Bool
     let isSelected: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -32,7 +35,7 @@ struct LeoAgentStateSymbolView: View {
         }
     }
 
-    private var shouldRotate: Bool { state.rotates && !reduceMotion }
+    private var shouldRotate: Bool { rotates && !reduceMotion }
 
     /// The turning symbol's colour: only a tint or white turns (a working
     /// agent's blue); a grey falls back to the still symbol.

@@ -22,9 +22,10 @@ enum LeoAgentRowMetrics {
     static let colorBarWidth: CGFloat = 3
     static let colorBarSpacing: CGFloat = 4
     static var colorBarSlot: CGFloat { colorBarWidth + colorBarSpacing }
-    /// The task bar's click target: the bar sits centered in it, and the
-    /// row's own click ignores this strip along with the row's padding.
-    static let taskBarHitHeight: CGFloat = 10
+    /// The task indicator's click target (HIG: at least 20 pt); the 16 pt
+    /// indicator sits centered in it. The name line is taller, so the row
+    /// does not grow.
+    static let taskIndicatorHitSize: CGFloat = 20
 
     /// The subagents chevron's square (B-331), at the name line's end.
     static let disclosureSize: CGFloat = 16

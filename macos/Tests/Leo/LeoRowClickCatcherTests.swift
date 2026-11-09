@@ -83,6 +83,20 @@ import Testing
         #expect(harness.clicks.count == 1)
     }
 
+    /// The task indicator's click target sits inside the row: a click on it
+    /// opens the popover and is not also a row click.
+    @Test func aClickOnAnExemptViewIsNoRowClick() {
+        let harness = Harness()
+        let target = LeoTaskBarClickTarget.TargetView(frame: NSRect(x: 80, y: 20, width: 40, height: 40))
+        harness.window.contentView?.addSubview(target)
+
+        harness.click(at: NSPoint(x: 100, y: 40))
+        #expect(harness.clicks.isEmpty)
+
+        harness.click(at: Harness.inside)
+        #expect(harness.clicks.count == 1)
+    }
+
     /// B-345: the chevron only covers the name line, so a click at the
     /// trailing edge of the lines below it still selects the row.
     @Test func theExclusionStopsAtTheControlsOwnLine() {
