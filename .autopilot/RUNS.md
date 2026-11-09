@@ -738,3 +738,42 @@ Spend (estimated, lower bound · prices 2026-10-09): ≈$19.55 est. — B-349 �
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-09T00:06:13Z
+
+🛠 leoterm autopilot — 6 fixed, 0 shipped, 0 blocked
+Fixed
+• B-358 Reset-zoom button sits low — now a native toolbar item in agent windows (verified: screenshot) · light
+• B-363 iOS tasks leaked into other agents' chats — task panel scoped to the open thread (not visually verified) · light
+• B-364 Removed the Swift viewer-placement launch migration; leo 0.76.0 defaults it (not visually verified) · full
+• B-365 App/Help menu items say Leo, not Ghostty (verified: screen capture, not attached) · light
+• B-369 Stopped agent's chat opens on click; slim "isn't running" bar with Start (verified: screenshot) · light
+• B-366 About links → leoterm repo, README, leo-v release (verified: screenshot) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-712–714 reset-zoom: Mac only; native toolbar item; never gives way
+• D-715–716 iOS task panel scoped to the open thread (also on iPad regular width); iOS only
+• D-717–719 no PUT /config/defaults fallback; post-launch steps extracted for tests
+• D-720–722 "Leo Help" renamed too; xcframework built in-lane (shared/ is stale)
+• D-723–726 plain click/Return shows stopped chat, nothing auto-starts; Start bar above composer; ⌘-click/⌥-double-click keep the Start sheet
+• D-727–730 Docs → leoterm README (no docs URL exists); version → leo-v tag; commit → leoterm commits
+Needs you — reply "B-0xx: <answer>"
+• B-367 chat reply loss: merge leo PR #327 and update the daemon, then "B-367: done" to verify end to end.
+• Shared xcframework is stale (missing ghostty_config_key_is_binding_for_action); lanes built their own — rebuild shared/.
+• Flake: theProbeSurvivesTheSidebarResizingAfterItReported (filed B-368, next run); also seen once: allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList.
+• Lanes left unlanded from older runs: B-058, B-143 (held), B-233, B-332. Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 · +72 more
+Self-filed
+• B-368 bug (from B-358) — theProbeSurvives… flaky
+• B-370 idea (from B-365) — verify.md launch flag shows Configuration Errors dialog
+• B-371 idea (from B-369) — composer enabled for a stopped agent
+• B-372 idea (from B-369) — toolbar pill reads "Idle" for a stopped agent
+• dropped (from B-365, B-366) — 4 remaining Ghostty strings — dup of B-218
+Next up: B-368 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$22.84 est. — B-358 ≈$3.13, B-363 ≈$2.08, B-364 ≈$3.31, B-365 ≈$4.25, B-369 ≈$6.88, B-366 ≈$3.19
+Tokens: B-358 10.8M in, ≥47k out · B-363 5.8M, ≥24k · B-364 8.2M, ≥38k · B-365 18.2M, ≥51k · B-369 30.6M, ≥78k · B-366 7.8M, ≥34k
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
