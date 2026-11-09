@@ -35,6 +35,7 @@ struct LeoWKBrowserPageTests {
         Promise.reject(new Error('nope'));
         </script>
         """,
+        "csp": #"<meta http-equiv="Content-Security-Policy" content="script-src 'self'"><title>Locked</title>"#,
         // What Kasada's bot check (hyatt.com) logs to spot an open console:
         // an Error with a `stack` getter and a null-prototype object with a
         // getter. Reading either from the hook counts as the console being
@@ -143,7 +144,49 @@ struct LeoWKBrowserPageTests {
         _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
 
         #expect(try await page.eval("return {title: document.title, n: 2}") == #"{"title":"Form","n":2}"#)
-        #expect(try await page.eval("document.title") == "null")
+    }
+
+    @available(macOS 14, *)
+    @Test func evalReturnsABareExpression() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+
+        #expect(try await page.eval("1+1") == "2")
+        #expect(try await page.eval("document.title") == #""Form""#)
+        #expect(try await page.eval("{a: 1}") == #"{"a":1}"#)
+        #expect(try await page.eval("Promise.resolve(3)") == "3")
+        #expect(try await page.eval("const x = 4; x * 2") == "null")  // statements still need `return`
+        #expect(try await page.eval("const x = 4; return x * 2") == "8")
+    }
+
+    /// A page whose CSP forbids string-eval (no `'unsafe-eval'`, as on GitHub)
+    /// can't compile the expression probe, but still evaluates expressions.
+    @available(macOS 14, *)
+    @Test func evalReturnsABareExpressionOnAPageThatForbidsStringEval() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("csp"))
+
+        #expect(try await page.eval("1+1") == "2")
+        #expect(try await page.eval("document.title") == #""Locked""#)
+        #expect(try await page.eval("const x = 4; return x * 2") == "8")
+        #expect(await page.failureCode { try await $0.eval("throw new Error('boom')") } == "js_error")
+        #expect(await page.failureCode { try await $0.eval("JSON.parse('{')") } == "js_error")
+    }
+
+    @available(macOS 14, *)
+    @Test func evalOfAnExpressionThatThrowsRunsOnce() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        _ = try await page.eval("window.runs = 0")
+
+        #expect(await page.failureCode { try await $0.eval("(window.runs++, JSON.parse('{'))") } == "js_error")
+        #expect(try await page.eval("return window.runs") == "1")
     }
 
     @available(macOS 14, *)
