@@ -180,7 +180,12 @@ import WebKit
     /// doesn't parse as one, it runs as the body of an async function and
     /// needs an explicit `return`.
     func eval(_ js: String) async throws -> String {
-        let result = try await run(LeoBrowserScripts.evalExpression, ["js": js], in: .page)
+        var result = try await run(LeoBrowserScripts.evalExpression, ["js": js], in: .page)
+        if (result as? [String: Any])?["csp"] != nil {
+            // No string-eval on this page: let WebKit compile the expression
+            // instead. A parse failure throws and means it is statements.
+            result = try? await run(LeoBrowserScripts.evalExpressionDirect(js), [:], in: .page)
+        }
         if let thrown = (result as? [String: Any])?["thrown"] as? String { throw LeoBrowserError.javaScript(thrown) }
         if let json = result as? String { return json }
         let body = "return JSON.stringify(await (async () => {\n\(js)\n})()) ?? 'null';"

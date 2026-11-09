@@ -35,6 +35,7 @@ struct LeoWKBrowserPageTests {
         Promise.reject(new Error('nope'));
         </script>
         """,
+        "csp": #"<meta http-equiv="Content-Security-Policy" content="script-src 'self'"><title>Locked</title>"#,
         "later": "<script>setTimeout(() => document.body.append('Ready now'), 50)</script>",
     ]
 
@@ -135,6 +136,22 @@ struct LeoWKBrowserPageTests {
         #expect(try await page.eval("Promise.resolve(3)") == "3")
         #expect(try await page.eval("const x = 4; x * 2") == "null")  // statements still need `return`
         #expect(try await page.eval("const x = 4; return x * 2") == "8")
+    }
+
+    /// A page whose CSP forbids string-eval (no `'unsafe-eval'`, as on GitHub)
+    /// can't compile the expression probe, but still evaluates expressions.
+    @available(macOS 14, *)
+    @Test func evalReturnsABareExpressionOnAPageThatForbidsStringEval() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("csp"))
+
+        #expect(try await page.eval("1+1") == "2")
+        #expect(try await page.eval("document.title") == #""Locked""#)
+        #expect(try await page.eval("const x = 4; return x * 2") == "8")
+        #expect(await page.failureCode { try await $0.eval("throw new Error('boom')") } == "js_error")
+        #expect(await page.failureCode { try await $0.eval("JSON.parse('{')") } == "js_error")
     }
 
     @available(macOS 14, *)
