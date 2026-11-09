@@ -2643,7 +2643,7 @@ Source: autopilot polish (B-346)
 Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
 Source: autopilot polish (B-342)
 
-## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [ready (next run)]
+## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [ready]
 Issue: #334
 Type: bug
 Report: Reset-zoom titlebar accessory likely sits low in the unified toolbar — `resetZoomAccessory` is a `.right` titlebar accessory like the old update pill was, so it probably misaligns in agent windows (suspected, not checked)
