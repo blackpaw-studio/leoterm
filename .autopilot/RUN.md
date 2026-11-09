@@ -41,6 +41,11 @@ Lane: B-358
   Call: Native bordered image toolbar item `.leoResetZoom` (before `.leoUpdate` and `.leoMore`) in place of the `.right` titlebar accessory; other window styles keep the accessory — P1
   Call: Item uses visibilityPriority .high and never gives way to the activity capsule, since it is an action — P2
   Dispatched: 2026-11-09T00:07:58Z
+  Tokens: 10.8M in (10.5M cache read), ≥47.3k out, 111 requests
+
+Finished 1: B-358 landed 060569e2011d6ddf5b4ebd017434812a80823a77 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 
 Progress:
 - Preflight: autopilot fast-forwarded to main ab72de1f0 (bundled leo 0.76.0); inbox applied: created B-363–B-367 (bugs); B-358 promoted.
+- B-367 blocked before pick: leo agent says the fix is daemon-side (leo PR #327); no app change.
+- B-358 landed 060569e20 (light, 0 fixes).
