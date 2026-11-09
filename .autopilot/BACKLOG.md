@@ -2751,6 +2751,7 @@ Note: B-369 verifier observation, unconfirmed whether it predates B-369 — P2 n
 Source: autopilot polish (B-369)
 
 ## B-373 · the update button on macos overflows now. not good. [Image #4] (Image…   [ready]
+Issue: #346
 Type: bug
 Report: the update button on macos overflows now. not good. [Image #4] [Image #5]
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2759,6 +2760,7 @@ Inbox: 20261109T135506634887Z-bb368b80#1
 Attachments: .autopilot/bugs/B-373/leo-paste-20261109-135455-137.png, .autopilot/bugs/B-373/leo-paste-20261109-135457-164.png
 
 ## B-374 · when i switch to an agent thats stopped to view the chat, it auto…   [ready]
+Issue: #347
 Type: bug
 Report: when i switch to an agent thats stopped to view the chat, it auto switches back to the last agent
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
