@@ -46,7 +46,7 @@ Lane: B-377
   Branch: autopilot-lane/B-377
   Base: 3ec165a37d6f8415965f1751b367817267634763
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -56,6 +56,7 @@ Lane: B-377
   Call: Mac only (agent browser is a Mac WKWebView pane) — platform rule
 
 Finished 1: B-376 landed 2ada34003 · not visually verified
+Finished 2: B-377 landed acd99d27b · not visually verified
 
 Progress:
 - Budget arg "1hr" read as a 1h time budget.

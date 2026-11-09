@@ -2774,13 +2774,15 @@ Inbox: 20261109T140334166280Z-ab1265a0#1
 Question: couldn't reproduce — the implementer traced every path that writes the sidebar selection after a click on a stopped row and found none that snaps it back. The click path (rowClicked → selectAgentRow, then chatRequested → showChat) is correct; the only other writer is receiveAttachLinks → selectFocusedRow (Sidebar/LeoSidebarModel+AttachLinks.swift:109, the B-006 follow-focus rule). Best guess, unconfirmed: the previous agent's terminal stays in the window beside or under the chat, and a late focus report on it moves the selection back. Not tried: a GUI repro (host load was over 40) or focus tracing. Useful detail: window width, whether the previous agent was running with its terminal showing, click vs ⌃⇥/⌘N. Reply "B-374: close" to close it, "B-374: <more detail>" to retry, or "B-374: trace" to allow a debug-only focus/selection trace. Work kept on autopilot-shelved/B-374.
 Answer: 
 
-## B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…   [ready]
+## B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…   [done]
 Issue: #350
 Type: bug
 Report: browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function body, so a bare expression like `1+1` returns "null", although the tool description says "expression or statements". Auto-return a single expression, or fix the description. Reported by agent family.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T210810339036Z-880b9051#1
+Done: 7119ca3dd, 025024ab5
+Verified: not visually verified — no UI change (browser_eval's result is an agent tool result)
 
 ## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready]
 Issue: #344

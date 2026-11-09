@@ -570,3 +570,15 @@ Chose: Left applicationNameForUserAgent alone (UA hypothesis tested irrelevant) 
 Item: B-376 · agent browser can't load hyatt.com (every page blank with an empty…
 Commit: b7ce634f9, e8fde9370
 Veto: [ ]
+
+## D-734 · 2026-11-09 · B-377: browser_eval auto-returns a bare expression (with a CSP-safe path) instead of rewording the tool description, which already says "expression or statements" — P4
+Chose: browser_eval auto-returns a bare expression (with a CSP-safe path) instead of rewording the tool description, which already says "expression or statements" — P4
+Item: B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…
+Commit: 7119ca3dd, 025024ab5
+Veto: [ ]
+
+## D-735 · 2026-11-09 · B-377: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+Chose: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+Item: B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…
+Commit: 7119ca3dd, 025024ab5
+Veto: [ ]
