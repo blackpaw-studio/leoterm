@@ -61,12 +61,15 @@ Lane: B-364
   Branch: autopilot-lane/B-364
   Base: 42ee099741936e2f2ba1a09db0d28b6a40b904ea
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: ab9a005bf9caf769f609746d65198433dd0ff08d
   Dispatched: 2026-11-09T01:29:45Z
+  Call: Mac only — the managed daemon exists only in the macOS app, and iOS had no such migration (matches D-670)
+  Call: No `PUT /config/defaults` fallback — leo 0.76.0 defaults placement to window, so the app has nothing to set (P2/P4)
+  Call: Moved the post-launch sequence into `LeoManagedStartup.runPostLaunchSteps()` so it can be tested, with no behaviour change — test detail
 
 Lane: B-365
   Branch: autopilot-lane/B-365
