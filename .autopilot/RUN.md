@@ -54,6 +54,7 @@ Lane: B-377
   Dispatched: 2026-11-09T22:09:30Z
   Call: browser_eval auto-returns a bare expression (with a CSP-safe path) instead of rewording the tool description, which already says "expression or statements" — P4
   Call: Mac only (agent browser is a Mac WKWebView pane) — platform rule
+  Tokens: 17.3M in (16.9M cache read), ≥58.8k out, 166 requests
 
 Finished 1: B-376 landed 2ada34003 · not visually verified
 Finished 2: B-377 landed acd99d27b · not visually verified
@@ -67,3 +68,4 @@ Progress:
 - Runners: B-376 d-890551eda115, B-377 d-b9124e701e92 (leo implement role).
 - B-376 landed 2ada34003 (fix round 1: review caught lost error type names and quoted primitives). Root cause: the console hook describe() read getters Kasada planted.
 - Time budget passed 23:07Z; no new lanes.
+- B-377 landed acd99d27b (fix round 1: review caught pages whose CSP forbids string-eval).
