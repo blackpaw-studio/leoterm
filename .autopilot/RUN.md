@@ -31,3 +31,5 @@ Progress:
 - Budget arg "1hr" read as a 1h time budget.
 - Preflight: merged main 2109fe5a3 into autopilot.
 - Inbox applied: created B-375, B-376, B-377 (bugs).
+- Inbox applied: order B-376 B-377 B-368 B-375 (owner in session: browser fixes first).
+- B-376 and B-377 run in parallel: same file (LeoWKBrowserPage.swift) but separate regions (console hook/UA vs browser_eval).
