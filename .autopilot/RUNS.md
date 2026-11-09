@@ -789,3 +789,26 @@ Next up: B-368
 Spend (estimated, lower bound · prices 2026-10-09): ≈$3.14 est. — B-374 ≈$1.25 est., B-373 ≈$1.88 est.
 Tokens (runner + its subagents): B-374 3.91M in (3.75M cache read), ≥21.2k out, 40 requests · B-373 7.89M in (7.69M cache read), ≥30.7k out, 75 requests
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+
+## Run 2026-11-09T22:07:11Z
+🛠 leoterm autopilot — 2 fixed, 0 shipped, 0 blocked
+Fixed
+• B-376 Agent browser blank on hyatt.com — the console hook read getters on Kasada's Error and null-prototype objects and tripped its bot check. It now describes only own data properties; browser_console still works. (not visually verified: offscreen WKWebView probe, hyatt loads with the fix and stays blank without it) · light
+• B-377 browser_eval `1+1` → null — a bare expression now returns its value, including on pages whose CSP forbids string-eval (not visually verified: tool result only) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-732 keep and fix the page-world console hook instead of moving it — P4
+• D-733 left the user agent alone (tested irrelevant)
+• D-734 auto-return the expression rather than reword the tool description — P4
+• D-731, D-735 Mac only
+Needs you
+• Flake theProbeSurvivesTheSidebarResizingAfterItReported failed in both lanes' full suites (B-368, next up).
+• B-373, B-374 still await answers; B-058, B-143 held; B-233, B-332 lanes left in place. Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 · B-180 · B-181 · B-182 · B-184 · +72 more
+Next up: B-368, B-375
+Spend (estimated, lower bound · prices 2026-10-09): ≈$9.64 est. — B-376 ≈$4.98 est., B-377 ≈$4.65 est.
+Tokens (runner + its subagents): B-376 18.8M in (18.3M cache read), ≥72.3k out, 179 requests · B-377 17.3M in (16.9M cache read), ≥58.8k out, 166 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

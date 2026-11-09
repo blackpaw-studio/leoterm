@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-11-09T22:07:11Z
 Budget: 20 items, until 2026-11-09T23:07:11Z
 Digested-through: 0
