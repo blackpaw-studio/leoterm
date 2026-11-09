@@ -96,12 +96,16 @@ Lane: B-369
   Branch: autopilot-lane/B-369
   Base: ee9831926b78d9e6a7a2191a13134e24abce8813
   Tier: light
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 84062b174ea1df864a0067f9375f2081ee31a306
   Dispatched: 2026-11-09T02:17:01Z
+  Call: Mac only: iOS chat thread has no start prompt, so stopped chats already open there — repo Mac/iOS rule
+  Call: Plain click or Return on a non-running agent shows its chat; no Start sheet, nothing auto-starts — P2/P5
+  Call: Slim "<name> isn't running." bar with a Start button above the chat composer ("is starting…" while starting) — P2/P5
+  Call: Cmd-click and opt-double-click (new-window terminal) keep the Start sheet, since they need a running agent — P1
 
 Lane: B-366
   Branch: autopilot-lane/B-366
