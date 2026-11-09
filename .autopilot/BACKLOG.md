@@ -2720,3 +2720,10 @@ Type: bug
 Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-358)
+
+## B-369 · i should be able to view the chat of a stopped agent without the start…   [ready]
+Type: bug
+Report: i should be able to view the chat of a stopped agent without the start agent question modal blocking the whole screen
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-08)
+Inbox: 20261109T020523131001Z-a7853633#1
