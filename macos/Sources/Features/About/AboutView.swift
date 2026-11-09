@@ -6,8 +6,21 @@ struct AboutView: View {
 
     @Environment(\.openURL) var openURL
 
-    private let githubURL = URL(string: "https://github.com/ghostty-org/ghostty")
-    private let docsURL = URL(string: "https://ghostty.org/docs")
+    /// Leo's own repo (B-366). Not Ghostty's: the About buttons and links
+    /// describe the app the user is running.
+    static let githubURL = URL(string: "https://github.com/blackpaw-studio/leoterm")
+    /// Leo has no docs site, so Docs opens the repo README.
+    static let docsURL = URL(string: "https://github.com/blackpaw-studio/leoterm#readme")
+
+    /// The GitHub release for a stable version; releases are tagged `leo-v<version>` (B-366).
+    static func releaseNotesURL(version: String) -> URL? {
+        githubURL?.appendingPathComponent("releases/tag/leo-v\(version)")
+    }
+
+    /// The commit page for a build commit (B-366).
+    static func commitURL(commit: String) -> URL? {
+        githubURL?.appendingPathComponent("commits/\(commit)")
+    }
 
     /// Read the commit from the bundle.
     private var build: String? { Bundle.main.infoDictionary?["CFBundleVersion"] as? String }
@@ -36,8 +49,7 @@ struct AboutView: View {
         var url: URL? {
             switch self {
             case .stable(let version):
-                let slug = version.replacingOccurrences(of: ".", with: "-")
-                return URL(string: "https://ghostty.org/docs/install/release-notes/\(slug)")
+                return AboutView.releaseNotesURL(version: version)
             default:
                 return nil
             }
@@ -112,19 +124,19 @@ struct AboutView: View {
                         PropertyRow(label: "Build", text: build)
                     }
                     if let commit, commit != "",
-                       let url = githubURL?.appendingPathComponent("/commits/\(commit)") {
+                       let url = Self.commitURL(commit: commit) {
                         PropertyRow(label: "Commit", text: commit, url: url)
                     }
                 }
                 .frame(maxWidth: .infinity)
 
                 HStack(spacing: 8) {
-                    if let url = docsURL {
+                    if let url = Self.docsURL {
                         Button("Docs") {
                             openURL(url)
                         }
                     }
-                    if let url = githubURL {
+                    if let url = Self.githubURL {
                         Button("GitHub") {
                             openURL(url)
                         }
