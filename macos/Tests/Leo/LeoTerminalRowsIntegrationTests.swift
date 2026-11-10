@@ -1403,6 +1403,10 @@ import Testing
         #expect(fixture.shown().count == 1, "what the window shows is untouched")
     }
 
+    /// B-378: freed within the close's own run-loop turns, not after a
+    /// wall-clock wait. Hiding the shell asks for focus on a surface that
+    /// has no window, and `moveFocus` retried that for ~0.8 s holding the
+    /// view, so the old 3 s wait flaked once the host was loaded.
     @Test func closingTheWindowFreesItsHiddenShells() async throws {
         let fixture = try makeFixture()
         let shell = try newShell(fixture)
@@ -1411,7 +1415,7 @@ import Testing
 
         fixture.controller.window?.close()
 
-        #expect(await eventually { alive.view == nil })
+        #expect(await turnsUntil { alive.view == nil })
         #expect(await turnsUntil { fixture.events.events.contains(.closed(shell)) })
         fixture.events.task?.cancel()
         fixture.closes.observer.map(NotificationCenter.default.removeObserver)
