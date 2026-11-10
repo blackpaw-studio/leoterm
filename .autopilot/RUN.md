@@ -101,6 +101,7 @@ Lane: B-381
   Call: Removed the dead indeterminate spinner code from LeoTaskIndicatorView — AUTONOMY agent decides
   Call: Rebuilt the GhosttyKit xcframework inside the lane because the shared one was stale (build output, untracked) — AUTONOMY agent decides
   Call: Left the toolbar capsule's spinner alone — outside the row, not in the accept
+  Tokens: 28.2M in (27.6M cache read), ≥113k out, 245 requests
 
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
