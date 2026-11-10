@@ -52,3 +52,4 @@ Lane: B-391
 Progress:
 - Preflight: main already merged; no new bump/leo-* PR (open #343/#337/#336 are older than 0.81.0); inbox applied: created B-390, B-391 (bugs).
 - B-390 light (UX click-target move, D-766 supersedes D-745); B-391 full (async/queue concurrency). Independent: sidebar row vs browser bridge.
+- Runners: B-390 d-5ab5c37e8363 (light), B-391 d-fb904012c29a (full), parallel. Wake timer b2nswctv7.
