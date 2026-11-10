@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-10T18:17:29Z
 Budget: 20 items, until 2026-11-11T06:17:29Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-391 → B-392 idea — Clearer error than WebKit's "no longer reachable" for a hung browser_eval
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -48,16 +49,21 @@ Lane: B-391
   Branch: autopilot-lane/B-391
   Base: a8da19c74da732d2a2a4034c49dfae1b653998f6
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Dispatched: 2026-11-10T18:18:26Z
+  Reverifies: 1
+  Reviewed-tip: adb4ea2879698a4adfa28756bc29db44858a7732
+  Dispatched: 2026-11-10T19:15:59Z
 Finished 1: B-390 landed 281d9d55e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-390-6.png
+  Call: Free the queue only on the daemon's existing cancel; no app-side eval timer — VISION 5 (a bounded error path, not a reconnect loop)
+  Call: Fix both the serial gate (any page call that ignores cancellation) and the WebKit page `run` (the actual leak) — AUTONOMY implementation approach
+  Call: Mac only: the agent browser is a Mac WKWebView feature; the gate sits in LeoKit but only the Mac uses it, so no iOS backlog item — repo AGENTS.md parity rule
+  Call: Added LeoOnce.swift as a shared first-wins helper for the gate and the page `run`; navigation test waits on web-view title/loading state instead of evals — implementer deviations
 
 Progress:
 - Preflight: main already merged; no new bump/leo-* PR (open #343/#337/#336 are older than 0.81.0); inbox applied: created B-390, B-391 (bugs).
 - B-390 light (UX click-target move, D-766 supersedes D-745); B-391 full (async/queue concurrency). Independent: sidebar row vs browser bridge.
 - Runners: B-390 d-5ab5c37e8363 (light), B-391 d-fb904012c29a (full), parallel. Wake timer b2nswctv7.
 - B-390 landed 281d9d55e: Tasks popover now opens from the leading state symbol; line-2 click selects the row. GUI-verified on autopilot-scratch (shots 4, 6). Not verified: symbol hover tooltip, Show Tasks menu path.
+- B-391 ready at adb4ea287 (concurrency review full, suites pass) but stale: B-390 landed after Integrated-at 260a53711. Re-verify round 1 dispatched.

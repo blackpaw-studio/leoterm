@@ -2917,3 +2917,7 @@ Report: Agent browser bridge hangs for good after an async browser_eval whose pa
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T181628366882Z-9e94299c#1
+
+## B-392 · Clearer error than WebKit's "no longer reachable" for a hung browser_eval   [idea]
+Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).
+Source: autopilot polish (B-391)
