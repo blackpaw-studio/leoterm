@@ -27,5 +27,28 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-385
+  Branch: autopilot-lane/B-385
+  Base: 3fdb60880d78463f0a856a21d3088d5c7d3b30b8
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T14:55:39Z
+
+Lane: B-387
+  Branch: autopilot-lane/B-387
+  Base: 3fdb60880d78463f0a856a21d3088d5c7d3b30b8
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T14:55:39Z
+
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
+- Runners: B-385 d-33e7402b9bf1, B-387 d-45fee2bdf463 (leo implement role), parallel (independent: agent-browser UA vs bundled LEO_VERSION).
