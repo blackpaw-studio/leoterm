@@ -120,13 +120,31 @@ public enum LeoPluginManifestValidator {
         if main.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) {
             return "contains control characters"
         }
-        if main.contains("\\") { return "must use '/' separators" }
-        if main.hasPrefix("/") || main.hasPrefix("~") { return "must be a relative path inside the plugin folder" }
-        for component in main.split(separator: "/", omittingEmptySubsequences: false) {
+        // Byte-level on purpose: Swift Characters glue combining marks onto
+        // '/', '.', '\\' and '~', which would hide them from a Character split.
+        let bytes = Array(main.utf8)
+        if bytes.contains(UInt8(ascii: "\\")) { return "must use '/' separators" }
+        if bytes.first == UInt8(ascii: "/") || bytes.first == UInt8(ascii: "~") {
+            return "must be a relative path inside the plugin folder"
+        }
+        for component in bytes.split(separator: UInt8(ascii: "/"), omittingEmptySubsequences: false) {
             if component.isEmpty { return "must not contain empty path components" }
-            if component == "." || component == ".." { return "must not contain '.' or '..' components" }
+            if isDotComponent(component) { return "must not contain '.' or '..' components" }
         }
         return nil
+    }
+
+    /// `.` or `..`, including spellings with combining marks glued on, which
+    /// no real plugin needs and which some file-system layers normalise away.
+    private static func isDotComponent(_ component: ArraySlice<UInt8>) -> Bool {
+        let scalars = String(decoding: component, as: UTF8.self).unicodeScalars.filter {
+            switch $0.properties.generalCategory {
+            case .nonspacingMark, .spacingMark, .enclosingMark: false
+            default: true
+            }
+        }
+        let stripped = String(String.UnicodeScalarView(scalars))
+        return stripped == "." || stripped == ".."
     }
 
     private static func permissionsProblem(_ p: LeoPluginPermissions) -> String? {

@@ -124,7 +124,7 @@ struct LeoPluginManifestTests {
         #expect(reason.contains("name"))
     }
 
-    @Test(arguments: ["dist/../../x.js", "..", "../main.js", "/etc/passwd", "/main.js", "~/main.js", "dist//main.js", "./main.js", "dist/./main.js", "dist/", "dist\\main.js", "a/..", "", "dist/ma\u{0}in.js", "dist/ma\nin.js"])
+    @Test(arguments: ["dist/../../x.js", "..", "../main.js", "/etc/passwd", "/main.js", "~/main.js", "dist//main.js", "./main.js", "dist/./main.js", "dist/", "dist\\main.js", "a/..", "", "dist/ma\u{0}in.js", "dist/ma\nin.js", "../\u{0301}bundle.js", "dist/..\u{0301}/x.js", "dist/.\u{0301}/x.js", "a/\u{0301}/../b.js"])
     func mainEscapesAndMalformedPathsAreRefused(_ main: String) {
         let reason = Self.refusal(Self.mutated { $0["main"] = main })
         #expect(reason.contains("main"))
