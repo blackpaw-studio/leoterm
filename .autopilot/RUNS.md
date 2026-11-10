@@ -812,3 +812,41 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-10T01:47:19Z
+
+🛠 leoterm autopilot — 3 fixed, 1 shipped, 2 blocked
+Fixed
+• B-368 Sidebar-resize probe test flake — test helper waits through main-thread stalls; 5/6 fails → 20/20 passes (verified: not visually verified) · light
+• B-378 closingTheWindowFreesItsHiddenShells flake — real bug: Ghostty.moveFocus retries kept a closed window's surface alive ~0.8 s; now weak captures (not visually verified) · light
+• B-379 cancellationClosesConnection flake — test read a leftover request byte as "no close"; now drains to EOF; 0/300 stress fails (not visually verified) · light
+Shipped
+• B-381 Working arrows always spin; static determinate pie; no indeterminate row indicator; line-2 task title opens Tasks (verified: screenshot) · full
+• B-381 built before B-380 (B-381 redefines the spin B-380 reports)
+Calls I made — reply "veto D-0xx" to undo
+• D-738 B-378 fixed in product code (moveFocus retain), not just the test wait
+• D-744 indeterminate task falls back to the row's trailing time — "never invent a state"
+• D-745 line-2 task title opens Tasks (text hit area only)
+• D-746 removed the dead indeterminate spinner code
+• D-748 toolbar capsule spinner left alone (outside the accept)
+Needs you — reply "B-0xx: <answer>"
+• B-375 Tasks-popover Dismiss: couldn't reproduce (stub-daemon test passes). Suspects: popover first click swallowed; daemon 409 on auto tasks silently swallowed. Which tasks, does a 2nd click work? Or "B-375: close".
+• B-380 symptom gone after B-381 (non-selected working rows turn). Reply "B-380: close" or detail.
+• B-381 accepted risks: line-2 tooltip may be swallowed by the click target (move .help after .overlay, LeoAgentRowContent.swift:179-183); Reduce Motion not toggled in verify.
+• Possible new flakes under load (not filed): LeoSettingsWindowCloseTests/discardingBothClosesTheWindowAndDropsThePaneEdits; host crash rc=5 in aHungMachineDoesNotDelayAnother.
+• Lane B-368 kept (untracked default.profraw); B-058/B-143 held, B-233/B-332 unlanded lanes from earlier runs untouched.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 +75 more
+Self-filed
+• B-382 idea (from B-381) — Show Tasks item in the agent row's context menu
+• B-383 idea (from B-381) — iOS tasks-row parity: static pie, no indeterminate spinner
+• B-384 idea (from B-381) — Toolbar task capsule still spins beside Stalled… and for indeterminate tasks
+Next up: none ready
+Spend (estimated, lower bound · prices 2026-10-09): ≈$20.56 est. — B-375 ≈$2.04, B-368 ≈$3.39, B-378 ≈$3.75, B-379 ≈$3.42, B-381 ≈$7.95
+Tokens (runner + its subagents): B-375 9.34M in, B-368 12.1M, B-378 14M, B-379 11.2M, B-381 28.2M in (≥294k out total)
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Board sync: 1 failure (see RUN.md)
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
