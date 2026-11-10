@@ -80,6 +80,7 @@ Lane: B-379
   Call: Flake and test-infrastructure fix, no product change — AUTONOMY "agent decides"
   Call: Mac only — test infra under macos/Tests, nothing in LeoKit or iOS
   Call: The 400 ms "cancel returns quickly" assertion stays as it was — it wasn't the reported failure
+  Tokens: 11.2M in (10.8M cache read), ≥50.9k out, 110 requests
 
 Lane: B-381
   Branch: autopilot-lane/B-381
