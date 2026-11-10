@@ -56,7 +56,7 @@ struct LeoAgentRowContent: View {
     private func content(now: Date?) -> some View {
         let presentation = LeoAgentRowPresentation(row: row, error: error, now: now, inWorkingSection: inWorkingSection)
         return HStack(alignment: .top, spacing: LeoAgentRowMetrics.symbolSpacing) {
-            LeoAgentStateSymbolView(state: presentation.state, rotates: presentation.symbolRotates, isSelected: isSelected)
+            stateSymbol(presentation)
             VStack(alignment: .leading, spacing: LeoAgentRowMetrics.lineSpacing) {
                 nameLine(presentation)
                 if presentation.hasSecondLine { detailLine(presentation) }
@@ -177,13 +177,24 @@ struct LeoAgentRowContent: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(presentation.detail.text)
-                // The task's title opens the Tasks popover (the only route
-                // for an indeterminate task, which draws no indicator). An
-                // AppKit target, for the same reason as the indicator's.
-                .overlay { if presentation.detailOpensTasks { LeoTaskBarClickTarget { showingTasks.wrappedValue = true } } }
             Spacer(minLength: 0)
         }
         .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
+    }
+
+    /// With a task, the spinning symbol opens the Tasks popover, as the
+    /// trailing indicator does (the only click route for an indeterminate
+    /// task, which draws no indicator). An AppKit target, for the same reason
+    /// as the indicator's. Without one it is plain: a click selects the row.
+    @ViewBuilder private func stateSymbol(_ presentation: LeoAgentRowPresentation) -> some View {
+        let symbol = LeoAgentStateSymbolView(state: presentation.state, rotates: presentation.symbolRotates, isSelected: isSelected)
+        if presentation.symbolOpensTasks, let task = presentation.task {
+            symbol
+                .overlay(LeoTaskBarClickTarget { showingTasks.wrappedValue = true })
+                .help(task.tooltip)
+        } else {
+            symbol
+        }
     }
 
     /// Clicking the indicator opens every task of the agent, and is not a

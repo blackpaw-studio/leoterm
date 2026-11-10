@@ -146,11 +146,11 @@ struct LeoAgentRowPresentation: Equatable {
         }
     }
 
-    /// Whether the task's own text is on line 2, so that text is the row's
-    /// click route to the Tasks popover.
-    var detailOpensTasks: Bool {
-        if case .progress = detail { true } else { false }
-    }
+    /// Whether the leading state symbol (the spinning icon) opens the Tasks
+    /// popover: whenever the agent has a task. It is the click route for an
+    /// indeterminate task, which draws no trailing indicator. Line 2 never
+    /// does: a click there selects the row (B-390 / D-766).
+    var symbolOpensTasks: Bool { task != nil }
 
     /// A stopped agent's name reads secondary.
     var isNameDimmed: Bool { state.isNameDimmed }
