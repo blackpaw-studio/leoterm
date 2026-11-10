@@ -71,12 +71,15 @@ Lane: B-379
   Branch: autopilot-lane/B-379
   Base: 9e8da8e038bf5150f1a3e3d14795dc60e8a5e0db
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 36ba8d6e81c4c023ba7f20a1ff51f510799ec7b1
   Dispatched: 2026-11-10T03:13:55Z
+  Call: Flake and test-infrastructure fix, no product change — AUTONOMY "agent decides"
+  Call: Mac only — test infra under macos/Tests, nothing in LeoKit or iOS
+  Call: The 400 ms "cancel returns quickly" assertion stays as it was — it wasn't the reported failure
 
 Lane: B-381
   Branch: autopilot-lane/B-381
