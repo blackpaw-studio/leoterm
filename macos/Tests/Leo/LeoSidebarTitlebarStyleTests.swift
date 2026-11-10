@@ -168,7 +168,9 @@ struct LeoSidebarTitlebarStyleTests {
         fixture.window.contentView?.layoutSubtreeIfNeeded()
         try #require(sidebar.view.bounds.width != before, "the sidebar stayed \(before) pt wide; the resize never happened")
 
-        let settled = try #require(await frames.settledHeader(probing: sidebar, timeout: .seconds(3)), "\(frames)")
+        let settled = try #require(
+            await frames.settledHeader(probing: sidebar),
+            "\(frames); sidebar \(sidebar.view.bounds) (was \(before) wide)")
         #expect(settled.maxX <= sidebar.view.bounds.width, "\(settled) in \(sidebar.view.bounds)")
     }
 }
@@ -334,9 +336,12 @@ private enum StyleConfig {
 /// global space.
 @MainActor
 private final class HeaderProbe: CustomStringConvertible {
-    /// Polls between re-probes while there is no reading that matches the
-    /// hosting view's size (nothing reported, or the report went stale).
-    private static let reprobeInterval = 10
+    /// Wall-clock time between re-probes while there is no reading that
+    /// matches the hosting view's size (nothing reported, or the report went
+    /// stale). Elapsed time, not a poll count: a stalled main thread (a
+    /// loaded host, the suite's earlier windows closing) stretches the
+    /// polls, and a count then spaced the re-probes seconds apart (B-368).
+    private static let reprobeInterval: Duration = .milliseconds(200)
 
     /// The sidebar root's frame grown by its safe-area insets: the hosting
     /// view's full bounds. (A background that ignores the safe area does not
@@ -375,11 +380,15 @@ private final class HeaderProbe: CustomStringConvertible {
         let deadline = ContinuousClock.now + timeout
         var last: CGRect?
         var stablePolls = 0
-        var polls = 0
+        var nextProbe = ContinuousClock.now
         while ContinuousClock.now < deadline {
             let current = relativeHeader.flatMap { host?.size == sidebar.view.bounds.size ? $0 : nil }
-            if current == nil, polls % Self.reprobeInterval == 0 { probe(sidebar) }
-            polls += 1
+            if current == nil, ContinuousClock.now >= nextProbe {
+                probe(sidebar)
+                sidebar.view.needsLayout = true
+                sidebar.view.layoutSubtreeIfNeeded()
+                nextProbe = ContinuousClock.now + Self.reprobeInterval
+            }
             stablePolls = (current != nil && current == last) ? stablePolls + 1 : 0
             if stablePolls >= 3 { return current }
             last = current
