@@ -2798,3 +2798,32 @@ Report: the task dismiss buttons in the popover from the toolbar dont work
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T193908985898Z-13120181#1
+
+## B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…   [ready]
+Type: bug
+Report: closingTheWindowFreesItsHiddenShells is flaky — failed in the leo-v0.33.0 release CI (LeoTerminalRowsIntegrationTests.swift:1414, `await eventually { alive.view == nil }`), alongside B-368's theProbeSurvivesTheSidebarResizingAfterItReported; release CI tolerates zero failures, so either flake blocks a release
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261110T003419242728Z-16554697#1
+
+## B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…   [ready]
+Type: bug
+Report: cancellationClosesConnection is flaky — failed the leo-v0.33.1 release CI (LeoUnixSocketTransportTests.swift:64, peerObservedClose.wait(timeout: .now() + 1) timed out); a 1s wall-clock wait on a hosted runner; release CI tolerates zero failures
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261110T005836546016Z-6e140707#1
+
+## B-380 · did you change behavior so that only the selected agent's status icon…   [ready]
+Type: bug
+Report: did you change behavior so that only the selected agent's status icon spins? if so i dont think its working. i have one agent spinning but the others dont spin when selected, just the one that spins just keeps spinning
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-09)
+Inbox: 20261110T012831517385Z-204ed034#1
+
+## B-381 · Working arrows always spin; static determinate pie; hide indeterminate…   [ready]
+Note: Working arrows always spin; static determinate pie; hide indeterminate tasks
+Why: The left status column should mean the same thing on every row; a still "rotate" glyph reads as stalled (Evan, 2026-11-09; mockup option B at https://claude.ai/artifact/JpaVq6SzSXzKPfoyUyiTgn).
+Accept: A working agent's left arrows rotate whether or not it has a running task (reduce-motion still respected); a determinate task shows a static pie that steps with progress, no animation; an indeterminate running task shows no trailing indicator; a stalled task still shows its static stalled mark; the task stays reachable from the row (e.g. second-line task title opens it).
+Out: iOS; new symbols; changes to task semantics in the daemon.
+Source: owner (/feature, 2026-11-09)
+Inbox: 20261110T014539393786Z-e99d4b80#1
