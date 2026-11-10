@@ -87,6 +87,7 @@ Lane: B-381
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T03:34:59Z
 
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
@@ -104,3 +105,4 @@ Progress:
 - B-379 runner d-9acab79d2518, parallel with B-378 (different test files).
 - B-378 landed 9547eaa11: Ghostty.moveFocus retries held the hidden surface strongly (~0.8 s); now weak captures. Test waits run-loop turns instead of 3 s wall clock.
 - B-381 built before B-380 (B-381 redefines the spin behavior B-380 reports; overlapping footprint).
+- B-381 runner d-dcf15983d822 (full tier), parallel with B-379.
