@@ -2855,3 +2855,24 @@ Source: autopilot polish (B-381)
 ## B-384 · Toolbar task capsule still spins beside Stalled… and for indeterminate tasks   [idea]
 Note: VISION 2 calm; seen in B-381-15.png
 Source: autopilot polish (B-381)
+
+## B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…   [ready]
+Type: bug
+Report: Agent browser blocked by Chase as an unsupported browser — the sign-in from chase.com/travel redirects to chase.com/digital/resources/privacy-security/security/system-requirements (requires Safari 17+). navigator.userAgent is "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)" with no "Version/x Safari/605.1.15" suffix. Likely fix: set WKWebView applicationNameForUserAgent to "Version/<installed Safari major.minor> Safari/605.1.15". Reported by the family agent; Evan hit it 2026-11-10.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-10)
+Inbox: 20261110T144926266729Z-02f08780#1
+
+## B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)   [ready]
+Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10).
+Accept: The lane merges PR #356's head commit 57d20ed2539c5fe0b3891c14deeb9ac55d3b7960 (git fetch origin bump/leo-0.81.0) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.81.0; the macOS app builds and the debug instance launches its bundled daemon at 0.81.0. Supersedes PRs #343, #337, #336.
+Out: Closing or merging PRs on GitHub; any code change beyond the bump.
+Source: owner (/feature, 2026-11-10)
+Inbox: 20261110T145255549244Z-52a04e03#1
+
+## B-386 · Agents can override the agent browser's user agent per tab   [ready]
+Why: Some sites gate on the UA; agents should be able to choose it when the default doesn't work (Evan, 2026-11-10). Builds on the Chase default-UA fix.
+Accept: An agent can set a custom user-agent string for a browser tab (on browser_tab_new and on an existing tab) and clear it to return to the default; the override applies to the next navigation and to page JS (navigator.userAgent); it lasts for the tab's lifetime only; the default stays the Safari-accurate UA from the Chase fix; the tool description says what the parameter does.
+Out: iOS; overriding other fingerprint signals (locale, timezone, viewport); persisting overrides across app restarts.
+Source: owner (/feature, 2026-11-10)
+Inbox: 20261110T145137764251Z-b5f85f6c#1
