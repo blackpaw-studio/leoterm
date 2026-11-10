@@ -131,8 +131,8 @@ struct LeoAgentRowContent: View {
         }
     }
 
-    /// A pending action replaces everything. Otherwise the task indicator
-    /// replaces the time; a state word (Compacting) stays beside it. Only a
+    /// A pending action replaces everything. Otherwise a still task indicator
+    /// replaces the time (an indeterminate task has none); a state word (Compacting) stays beside it. Only a
     /// row with a "last active" time re-renders it, once a minute -- never per
     /// event.
     @ViewBuilder private func trailing(_ presentation: LeoAgentRowPresentation) -> some View {
@@ -147,7 +147,7 @@ struct LeoAgentRowContent: View {
                     .lineLimit(1)
                     .fixedSize()
             }
-            if let task = presentation.task, let indicator = task.indicator {
+            if let task = presentation.task, let indicator = presentation.taskIndicator {
                 taskIndicator(indicator, tooltip: task.tooltip)
             } else if state.trailingWord == nil, row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
                 TimelineView(.everyMinute) { context in
@@ -177,6 +177,10 @@ struct LeoAgentRowContent: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(presentation.detail.text)
+                // The task's title opens the Tasks popover (the only route
+                // for an indeterminate task, which draws no indicator). An
+                // AppKit target, for the same reason as the indicator's.
+                .overlay { if presentation.detailOpensTasks { LeoTaskBarClickTarget { showingTasks.wrappedValue = true } } }
             Spacer(minLength: 0)
         }
         .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
@@ -185,7 +189,7 @@ struct LeoAgentRowContent: View {
     /// Clicking the indicator opens every task of the agent, and is not a
     /// row click (the catcher skips clicks that land on the target).
     private func taskIndicator(_ indicator: LeoTaskIndicator, tooltip: String) -> some View {
-        LeoTaskIndicatorView(indicator: indicator, isSelected: isSelected, onClick: { showingTasks.wrappedValue = true })
+        LeoTaskIndicatorView(indicator: indicator, isSelected: isSelected)
             .frame(width: LeoAgentRowMetrics.taskIndicatorHitSize, height: LeoAgentRowMetrics.taskIndicatorHitSize)
             // An AppKit target, not a Button: the list would select the row
             // on mouse-down before a SwiftUI button saw the click.
