@@ -161,6 +161,54 @@ struct LeoAgentBrowserTests {
         try? await WKWebsiteDataStore.remove(forIdentifier: LeoBrowserStoreID.identifier(machineID: machineID, agent: Self.key.agent))
     }
 
+    /// B-386: a tab's user agent override reaches page JS and the next load,
+    /// and clearing it restores the factory default.
+    @available(macOS 14, *)
+    @Test func aTabOpenedWithAUserAgentReportsItFromTheFirstLoad() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        let tab = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("other"), userAgent: "Bot/1.0 (test)")
+        let page = try #require(browser.tabs.page(forTab: tab))
+
+        #expect(try await page.evaluate("return navigator.userAgent") == #""Bot/1.0 (test)""#)
+    }
+
+    @available(macOS 14, *)
+    @Test func settingAUserAgentOnATabAppliesToTheNextNavigationAndClearingRestoresTheDefault() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        let first = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("other"))
+        let second = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("other"))
+        let page = try #require(browser.tabs.page(forTab: first))
+        let untouched = try #require(browser.tabs.page(forTab: second))
+        let original = try await page.evaluate("return navigator.userAgent")
+
+        page.setUserAgent("Bot/2.0")
+        try await page.load(LeoWKFixtureServer.url("links"))
+        #expect(try await page.evaluate("return navigator.userAgent") == #""Bot/2.0""#)
+        #expect(try await untouched.evaluate("return navigator.userAgent") == original)
+
+        page.setUserAgent(nil)
+        try await page.load(LeoWKFixtureServer.url("other"))
+        #expect(try await page.evaluate("return navigator.userAgent") == original)
+    }
+
+    @available(macOS 14, *)
+    @Test func aPopupInheritsItsOpenersUserAgentOverride() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        let first = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("links"), userAgent: "Bot/3.0")
+        let opener = try #require(browser.tabs.page(forTab: first))
+
+        #expect(try await click(#"link "Open other""#, in: browser) == .success([.text("ok")]))
+        try await settle(opener) { browser.tabs.tabs.count > 1 }
+
+        let opened = try #require(browser.tabs.tabs.last)
+        let popup = try #require(browser.tabs.page(forTab: opened.id))
+        try await popup.waitForText("Elsewhere", timeoutMilliseconds: 5_000)
+        #expect(try await popup.evaluate("return navigator.userAgent") == #""Bot/3.0""#)
+    }
+
     @available(macOS 14, *)
     @Test func anAgentStoppingClosesItsBrowserAndKeepsItsStore() async throws {
         let machineID = "test-\(UUID().uuidString)"
