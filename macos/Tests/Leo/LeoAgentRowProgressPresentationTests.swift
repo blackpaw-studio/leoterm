@@ -38,10 +38,11 @@ struct LeoAgentRowProgressPresentationTests {
         #expect(p.hasSecondLine)
     }
 
-    @Test func indeterminateTaskGetsTheSpinner() {
+    @Test func indeterminateTaskHasNoTrailingIndicator() {
         let p = presentation([Self.task(mode: .indeterminate, percent: nil, status: nil)], now: Self.t0.addingTimeInterval(125))
-        #expect(p.task?.indicator == .progress(fraction: nil))
+        #expect(p.taskIndicator == nil)
         #expect(p.detail == .progress("Xcode build"))
+        #expect(p.task?.spokenValue == "In progress")
     }
 
     @Test func staleTaskIsMutedAndSaysHowLongAgo() {
@@ -111,28 +112,48 @@ struct LeoAgentRowProgressPresentationTests {
         #expect(p.task?.indicator == .progress(fraction: 0.62))
     }
 
-    @Test func workingSymbolIsStillWhileAnIndicatorShows() {
-        let working = presentation([Self.task()], activity: .working)
-        #expect(working.state.rotates)
-        #expect(!working.symbolRotates)
-        #expect(!presentation([Self.task(stale: true)], activity: .working).symbolRotates)
-    }
+    private static let everyTaskSet: [[LeoAgentTask]] = [
+        [],
+        [Self.task()],
+        [Self.task(mode: .indeterminate, percent: nil)],
+        [Self.task(stale: true)],
+        [Self.task(state: .failed)],
+        [Self.task(state: .succeeded)],
+        [Self.task("a", title: "Broke", state: .failed, updated: 10), Self.task("b", updated: 200)],
+        [Self.task("a"), Self.task("b", mode: .indeterminate, percent: nil)],
+    ]
 
-    /// The only state that rotates is working, so this covers every rotating
-    /// state against every moving indicator (determinate, indeterminate, stale,
-    /// and a failed task beside a live one).
-    @Test func noMovingIndicatorEverSharesARowWithATurningSymbol() {
-        let moving: [[LeoAgentTask]] = [
-            [Self.task()],
-            [Self.task(mode: .indeterminate, percent: nil)],
-            [Self.task(stale: true)],
-            [Self.task("a", title: "Broke", state: .failed, updated: 10), Self.task("b", updated: 200)],
-        ]
-        for tasks in moving {
+    @Test func workingSymbolRotatesWhateverTheTask() {
+        for tasks in Self.everyTaskSet {
             let p = presentation(tasks, activity: .working)
             #expect(p.state.rotates)
-            #expect(!p.symbolRotates, "indicator \(String(describing: p.task?.indicator))")
+            #expect(p.symbolRotates, "indicator \(String(describing: p.task?.indicator))")
         }
+    }
+
+    @Test func stillIndicatorsStay() {
+        #expect(presentation([Self.task()]).taskIndicator == .progress(fraction: 0.62))
+        #expect(presentation([Self.task(stale: true)]).taskIndicator == .stalled(fraction: 0.62))
+        #expect(presentation([Self.task(state: .failed)]).taskIndicator == .failed)
+        let mixed = presentation([Self.task("a", percent: 40), Self.task("b", mode: .indeterminate, percent: nil)])
+        #expect(mixed.taskIndicator == mixed.task?.indicator)
+        #expect(mixed.taskIndicator != nil)
+    }
+
+    /// Permanent invariant: the row never draws a moving task indicator.
+    @Test func noRowEverDrawsAMovingIndicator() {
+        for tasks in Self.everyTaskSet {
+            #expect(presentation(tasks, activity: .working).taskIndicator != .progress(fraction: nil))
+        }
+    }
+
+    @Test func taskTitleOnLineTwoOpensTasks() {
+        #expect(presentation([Self.task()]).detailOpensTasks)
+        #expect(presentation([Self.task(stale: true)]).detailOpensTasks)
+        #expect(presentation([Self.task(state: .failed)]).detailOpensTasks)
+        #expect(!presentation([Self.task()], error: "Start failed").detailOpensTasks)
+        #expect(!presentation([Self.task()], attention: .needsInput).detailOpensTasks)
+        #expect(!presentation([]).detailOpensTasks)
     }
 
     @Test func workingSymbolSpinsWithNoIndicator() {

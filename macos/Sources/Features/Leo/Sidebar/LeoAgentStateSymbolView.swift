@@ -7,8 +7,7 @@ struct LeoAgentStateSymbolView: View {
     static let rotationDuration: Double = 1.6
 
     let state: LeoAgentRowState
-    /// Whether the symbol turns: `state.rotates`, unless a task indicator
-    /// carries the row's motion.
+    /// Whether the symbol turns: `state.rotates`, whatever the task.
     let rotates: Bool
     let isSelected: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
