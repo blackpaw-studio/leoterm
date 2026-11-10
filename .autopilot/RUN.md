@@ -32,12 +32,15 @@ Lane: B-385
   Branch: autopilot-lane/B-385
   Base: 3fdb60880d78463f0a856a21d3088d5c7d3b30b8
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 731b3d381194f4c76348c7bcc2e7dc4e77934767
   Dispatched: 2026-11-10T14:55:39Z
+  Call: Mac only: the agent browser is a Mac WKWebView pane — VISION 1
+  Call: Not contradicting D-733: it left the UA alone because it was irrelevant to the hyatt.com blank page (B-376); Chase gating on the Safari version is new evidence — VISION 4
+  Call: Claim the installed Safari's major.minor (fallback Version/17.0), not a hardcoded constant — VISION 4
 
 Lane: B-387
   Branch: autopilot-lane/B-387
