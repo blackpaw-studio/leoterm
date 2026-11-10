@@ -71,7 +71,7 @@ Lane: B-379
   Branch: autopilot-lane/B-379
   Base: 9e8da8e038bf5150f1a3e3d14795dc60e8a5e0db
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -95,6 +95,7 @@ Lane: B-381
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
 Finished 3: B-378 landed 9547eaa11 · not visually verified
+Finished 4: B-379 landed aadb7a701 · not visually verified
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
@@ -109,3 +110,4 @@ Progress:
 - B-378 landed 9547eaa11: Ghostty.moveFocus retries held the hidden surface strongly (~0.8 s); now weak captures. Test waits run-loop turns instead of 3 s wall clock.
 - B-381 built before B-380 (B-381 redefines the spin behavior B-380 reports; overlapping footprint).
 - B-381 runner d-dcf15983d822 (full tier), parallel with B-379.
+- B-379 landed aadb7a701: test bug — probe byte + recv(1) could read a leftover request byte; waitForPeerClose now drains to EOF. Old logic failed 3–7/60 under stress, new 0/300.

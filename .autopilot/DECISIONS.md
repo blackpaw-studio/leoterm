@@ -606,3 +606,21 @@ Chose: Mac only (Ghostty surface code in macos/, iOS has no equivalent) — AGEN
 Item: B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…
 Commit: e0daf5ecb
 Veto: [ ]
+
+## D-740 · 2026-11-09 · B-379: Flake and test-infrastructure fix, no product change — AUTONOMY "agent decides"
+Chose: Flake and test-infrastructure fix, no product change — AUTONOMY "agent decides"
+Item: B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…
+Commit: 2f6080e9d
+Veto: [ ]
+
+## D-741 · 2026-11-09 · B-379: Mac only — test infra under macos/Tests, nothing in LeoKit or iOS
+Chose: Mac only — test infra under macos/Tests, nothing in LeoKit or iOS
+Item: B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…
+Commit: 2f6080e9d
+Veto: [ ]
+
+## D-742 · 2026-11-09 · B-379: The 400 ms "cancel returns quickly" assertion stays as it was — it wasn't the reported failure
+Chose: The 400 ms "cancel returns quickly" assertion stays as it was — it wasn't the reported failure
+Item: B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…
+Commit: 2f6080e9d
+Veto: [ ]
