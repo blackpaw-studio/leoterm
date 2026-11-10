@@ -1160,7 +1160,11 @@ extension Ghostty {
             0.05
         }
 
-        let work: DispatchWorkItem = .init {
+        // Weak: a surface that never gets a window (a hidden shell whose
+        // window closed) must not be kept alive by the retries (B-378).
+        let work: DispatchWorkItem = .init { [weak to, weak from] in
+            guard let to else { return }
+
             // Asked when the move runs, retries included, not when it was
             // queued: what should hold focus can change in between.
             if let isAllowed, !isAllowed() { return }
