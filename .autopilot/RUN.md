@@ -78,12 +78,19 @@ Lane: B-386
   Branch: autopilot-lane/B-386
   Base: 7c6389fba81f04f1b3c3ab2d75a4e0fec64d5de9
   Tier: full
-  State: building
+  State: verifying
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3010fcffe5c68ff396e3508f1b5e39772a9703b9
   Dispatched: 2026-11-10T16:03:14Z
+  Call: new `browser_user_agent` tool for existing tabs, plus an optional `user_agent` on `browser_tab_new` — explicit semantics, navigate unchanged (VISION 4)
+  Call: empty string or whitespace-only clears; a missing or null `user_agent` fails `invalid_args` — a bare call can't wipe an override
+  Call: values must be printable ASCII 0x20–0x7E, max 1024 characters — blocks header injection
+  Call: both actions fail with `user_has_control` while the user drives, like `browser_tab_new`
+  Call: popups inherit the opener's override (only when non-empty) — UA-gated login popups keep working (VISION 4)
+  Call: no pane UI indicator and no `user_agent` field in `browser_tabs` — small scope cut
+  Call: the schemas live in this repo, so no daemon change and no `~/.leo/agents/leo` edit — Mac only per D-756 (iOS is Out)
 
 Finished 1: B-387 landed c4952d79b · not visually verified
 Finished 2: B-389 landed 2fdce467e · not visually verified
