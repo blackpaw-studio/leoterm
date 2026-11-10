@@ -766,5 +766,35 @@ Veto: [ ]
 ## D-766 · 2026-11-10 · B-390: Move the Tasks-popover click from the row's line-2 status text to the activity (spinning) icon; supersedes D-745 per the owner's B-390 report — VISION 1, owner request
 Chose: Move the Tasks-popover click from the row's line-2 status text to the activity (spinning) icon; supersedes D-745 per the owner's B-390 report — VISION 1, owner request
 Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
-Commit:
+Commit: ad8b2707b
+Veto: [ ]
+
+## D-767 · 2026-11-10 · B-390: "spinning icon" = the leading state symbol (the trailing indicator was already clickable and is hidden for an indeterminate task) — D-766
+Chose: "spinning icon" = the leading state symbol (the trailing indicator was already clickable and is hidden for an indeterminate task) — D-766
+Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
+Commit: ad8b2707b
+Veto: [ ]
+
+## D-768 · 2026-11-10 · B-390: the symbol opens Tasks for any row with a task, succeeded included, to match the Show Tasks VoiceOver condition — D-766
+Chose: the symbol opens Tasks for any row with a task, succeeded included, to match the Show Tasks VoiceOver condition — D-766
+Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
+Commit: ad8b2707b
+Veto: [ ]
+
+## D-769 · 2026-11-10 · B-390: trailing indicator, Show Tasks VoiceOver action and indeterminate-task fallback unchanged — D-746
+Chose: trailing indicator, Show Tasks VoiceOver action and indeterminate-task fallback unchanged — D-746
+Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
+Commit: ad8b2707b
+Veto: [ ]
+
+## D-770 · 2026-11-10 · B-390: line-2 `.help` tooltip (the B-381 risk) is now plain text with no click route — D-766
+Chose: line-2 `.help` tooltip (the B-381 risk) is now plain text with no click route — D-766
+Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
+Commit: ad8b2707b
+Veto: [ ]
+
+## D-771 · 2026-11-10 · B-390: Mac only; iOS has no task-list tap target — VISION 6, repo AGENTS.md
+Chose: Mac only; iOS has no task-list tap target — VISION 6, repo AGENTS.md
+Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
+Commit: ad8b2707b
 Veto: [ ]
