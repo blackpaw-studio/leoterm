@@ -2879,3 +2879,7 @@ Accept: An agent can set a custom user-agent string for a browser tab (on browse
 Out: iOS; overriding other fingerprint signals (locale, timezone, viewport); persisting overrides across app restarts.
 Source: owner (/feature, 2026-11-10)
 Inbox: 20261110T145137764251Z-b5f85f6c#1
+
+## B-388 · LeoTemplateListTests/manualRefreshRefetchesEveryLoadedMachinesList flaky under load   [idea]
+Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
+Source: autopilot polish (B-387)

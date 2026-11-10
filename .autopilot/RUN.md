@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-10T14:53:37Z
 Budget: 20 items, until 2026-11-11T02:53:37Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-387 → B-388 idea — LeoTemplateListTests manualRefresh flaky under load
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -42,12 +43,14 @@ Lane: B-387
   Branch: autopilot-lane/B-387
   Base: 3fdb60880d78463f0a856a21d3088d5c7d3b30b8
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 052e2d3b9add200ffdbf0578a82252a09bf96915
   Dispatched: 2026-11-10T14:55:39Z
+  Call: Merged PR #356 head via --no-ff merge, no cherry-pick — brief principle and B-364 precedent
+  Call: Mac only — bundled daemon is a Mac app concern
 
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
