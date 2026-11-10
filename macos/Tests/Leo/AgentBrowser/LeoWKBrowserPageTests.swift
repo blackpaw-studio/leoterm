@@ -328,4 +328,92 @@ struct LeoWKBrowserPageTests {
 
         #expect(await page.failureCode { try await $0.wait(for: "Never shown", ms: 200) } == "timeout")
     }
+
+    // MARK: Cancellation (B-391)
+
+    /// An eval whose promise never settles must end as soon as its task is
+    /// cancelled (the daemon's tool timeout); the tab still answers.
+    @available(macOS 14, *)
+    @Test func cancellingAnEvalThatNeverSettlesEndsItAndTheTabStillAnswers() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        var outcome: Result<String, any Error>?
+        let hung = Task { outcome = await Self.outcome { try await page.eval("await new Promise(r => window.leoRelease = r)") } }
+        try await pollUntil(#""function""#, page: page, js: "typeof window.leoRelease")
+
+        hung.cancel()
+        await settle { outcome != nil }
+
+        #expect(outcome?.isCancellation == true, "got \(String(describing: outcome))")
+        #expect(try await page.eval("1+1") == "2")
+        _ = try await page.eval("window.leoRelease()")
+        _ = await hung.value
+    }
+
+    /// The report literally: the eval sends the page elsewhere, then waits on
+    /// a promise that never settles. Cancelling it must end it, and the tab
+    /// still answers on the new page.
+    @available(macOS 14, *)
+    @Test func anEvalWhosePageNavigatesAwayCanBeCancelled() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        var outcome: Result<String, any Error>?
+        let hung = Task { outcome = await Self.outcome { try await page.eval("location.href = 'other'; await new Promise(() => {})") } }
+        // Poll the web view, not the page: a script call made mid-navigation
+        // can be dropped and never answer.
+        try await waitForWebView { page.webView.title == "Other" && !page.webView.isLoading }
+
+        hung.cancel()
+        await settle { outcome != nil }
+
+        // Any outcome but a hang (WebKit never answers this call itself).
+        // Never await `hung`: if it is stuck, nothing is left to release it.
+        #expect(outcome != nil, "the eval was still running after its task was cancelled")
+        #expect(try await page.eval("document.title") == #""Other""#)
+    }
+
+    /// Evaluates `js` until it returns `expected` (JSON), a bounded number of
+    /// times; each round trip goes through the web content process.
+    @available(macOS 14, *)
+    private func pollUntil(_ expected: String, page: LeoWKBrowserPage, js: String) async throws {
+        for _ in 0..<500 {
+            if (try? await page.eval(js)) == expected { return }
+            await Task.yield()
+        }
+        Issue.record("\(js) never returned \(expected)")
+    }
+
+    /// Waits until `condition` holds, checking the web view every 10 ms for
+    /// at most 5 s (only a failing test waits that long).
+    private func waitForWebView(_ condition: @MainActor () -> Bool) async throws {
+        for _ in 0..<500 {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("the web view never got there")
+    }
+
+    private static func outcome(_ body: () async throws -> String) async -> Result<String, any Error> {
+        do { return .success(try await body()) } catch { return .failure(error) }
+    }
+
+    /// Spins the main actor until `condition` holds (bounded, no wall-clock sleep).
+    private func settle(_ condition: @MainActor () -> Bool) async {
+        for _ in 0..<1000 {
+            if condition() { return }
+            await Task.yield()
+        }
+        Issue.record("condition never held")
+    }
+}
+
+private extension Result where Failure == any Error {
+    var isCancellation: Bool {
+        if case .failure(let error) = self { return error is CancellationError }
+        return false
+    }
 }

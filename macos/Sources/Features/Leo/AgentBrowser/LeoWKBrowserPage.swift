@@ -311,11 +311,20 @@ import WebKit
         return Int(ref[ref.index(after: ref.startIndex)..<e])
     }
 
+    /// Runs `body` as an async function in `world`. WebKit never answers a
+    /// call whose page navigates away mid-script, or one made while the page
+    /// is navigating, so cancelling (the daemon's tool timeout) ends the call
+    /// at once and WebKit's late answer, if any, is dropped.
     private func run(_ body: String, _ arguments: [String: Any], in world: WKContentWorld) async throws -> Any? {
-        try await withCheckedThrowingContinuation { continuation in
-            webView.callAsyncJavaScript(body, arguments: arguments, in: nil, in: world) { result in
-                continuation.resume(with: result.map { $0 as Any? }.mapError(Self.scriptFailure))
-            }
+        try Task.checkCancellation()
+        let answer = LeoOnce<Any?>()
+        webView.callAsyncJavaScript(body, arguments: arguments, in: nil, in: world) { result in
+            answer.resume(with: result.map { $0 as Any? }.mapError(Self.scriptFailure))
+        }
+        return try await withTaskCancellationHandler {
+            try await answer.value()
+        } onCancel: {
+            Task { @MainActor in answer.resume(with: .failure(CancellationError())) }
         }
     }
 
