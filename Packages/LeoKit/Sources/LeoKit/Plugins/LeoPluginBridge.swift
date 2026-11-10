@@ -23,9 +23,7 @@ public struct LeoPluginFetchInit: Codable, Equatable, Sendable {
 
 /// Host → app. Wire form: `{"call": "<case>", ...fields}`.
 public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
-    /// `node` is the raw tree until the typed `LeoPluginNode` (step 1.4)
-    /// lands; reconcile by decoding it into that type.
-    case render(slot: LeoPluginSlotID, node: LeoJSONValue)
+    case render(slot: LeoPluginSlotID, node: LeoPluginSlotRoot)
     case fetch(id: String, url: String, init: LeoPluginFetchInit)
     case secretsGet(id: String, key: String)
     case secretsSet(id: String, key: String, value: String)
@@ -54,7 +52,7 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
         case "render":
             self = .render(
                 slot: try c.decode(LeoPluginSlotID.self, forKey: .slot),
-                node: try c.decode(LeoJSONValue.self, forKey: .node))
+                node: try c.decode(LeoPluginSlotRoot.self, forKey: .node))
         case "fetch":
             self = .fetch(
                 id: try c.decode(String.self, forKey: .id),

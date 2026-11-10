@@ -8,46 +8,6 @@ public enum LeoPluginNodeLimits {
     public static let maxHelp = 80
 }
 
-/// Raw JSON value. Placeholder payload carrier until step 1.6 (`LeoPluginAction`) lands.
-public enum LeoPluginRawJSON: Codable, Equatable, Sendable {
-    case null
-    case bool(Bool)
-    case number(Double)
-    case string(String)
-    case array([LeoPluginRawJSON])
-    case object([String: LeoPluginRawJSON])
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
-        if c.decodeNil() { self = .null }
-        else if let v = try? c.decode(Bool.self) { self = .bool(v) }
-        else if let v = try? c.decode(Double.self) { self = .number(v) }
-        else if let v = try? c.decode(String.self) { self = .string(v) }
-        else if let v = try? c.decode([LeoPluginRawJSON].self) { self = .array(v) }
-        else { self = .object(try c.decode([String: LeoPluginRawJSON].self)) }
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
-        switch self {
-        case .null: try c.encodeNil()
-        case .bool(let v): try c.encode(v)
-        case .number(let v): try c.encode(v)
-        case .string(let v): try c.encode(v)
-        case .array(let v): try c.encode(v)
-        case .object(let v): try c.encode(v)
-        }
-    }
-}
-
-/// PLACEHOLDER: an action referenced by a node. Step 1.6 replaces this with the typed `LeoPluginAction`.
-public struct LeoPluginNodeAction: Codable, Equatable, Sendable {
-    public let raw: LeoPluginRawJSON
-    public init(raw: LeoPluginRawJSON) { self.raw = raw }
-    public init(from decoder: Decoder) throws { raw = try LeoPluginRawJSON(from: decoder) }
-    public func encode(to encoder: Encoder) throws { try raw.encode(to: encoder) }
-}
-
 public enum LeoPluginAccessoryColor: String, Codable, Equatable, Sendable {
     case neutral, success, warning, failure, running
 }
@@ -91,10 +51,10 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         public var subtitle: String?
         public var sfSymbol: String?
         public var accessories: [Accessory]
-        public var actions: [LeoPluginNodeAction]
+        public var actions: [LeoPluginAction]
         public init(
             id: String, title: String, subtitle: String? = nil, sfSymbol: String? = nil,
-            accessories: [Accessory] = [], actions: [LeoPluginNodeAction] = []
+            accessories: [Accessory] = [], actions: [LeoPluginAction] = []
         ) {
             self.id = id; self.title = title; self.subtitle = subtitle; self.sfSymbol = sfSymbol
             self.accessories = accessories; self.actions = actions
@@ -110,7 +70,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
             sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol)
             accessories = try c.decodeIfPresent([Accessory].self, forKey: .accessories) ?? []
-            actions = try c.decodeIfPresent([LeoPluginNodeAction].self, forKey: .actions) ?? []
+            actions = try c.decodeIfPresent([LeoPluginAction].self, forKey: .actions) ?? []
         }
 
         private enum Keys: String, CodingKey { case id, title, subtitle, sfSymbol, accessories, actions }
@@ -173,11 +133,11 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         public var value: String?
         public var checked: Bool?
         public var options: [Option]
-        public var action: LeoPluginNodeAction?
+        public var action: LeoPluginAction?
 
         public init(
             id: String, type: Kind, label: String? = nil, placeholder: String? = nil, value: String? = nil,
-            checked: Bool? = nil, options: [Option] = [], action: LeoPluginNodeAction? = nil
+            checked: Bool? = nil, options: [Option] = [], action: LeoPluginAction? = nil
         ) {
             self.id = id; self.type = type; self.label = label; self.placeholder = placeholder
             self.value = value; self.checked = checked; self.options = options; self.action = action
@@ -192,7 +152,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             value = try c.decodeIfPresent(String.self, forKey: .value)
             checked = try c.decodeIfPresent(Bool.self, forKey: .checked)
             options = try c.decodeIfPresent([Option].self, forKey: .options) ?? []
-            action = try c.decodeIfPresent(LeoPluginNodeAction.self, forKey: .action)
+            action = try c.decodeIfPresent(LeoPluginAction.self, forKey: .action)
             guard !id.isEmpty else {
                 throw DecodingError.dataCorruptedError(forKey: .id, in: c, debugDescription: "field id must not be empty")
             }
@@ -208,8 +168,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         public var title: String
         public var message: String?
         public var sfSymbol: String?
-        public var actions: [LeoPluginNodeAction]
-        public init(title: String, message: String? = nil, sfSymbol: String? = nil, actions: [LeoPluginNodeAction] = []) {
+        public var actions: [LeoPluginAction]
+        public init(title: String, message: String? = nil, sfSymbol: String? = nil, actions: [LeoPluginAction] = []) {
             self.title = title; self.message = message; self.sfSymbol = sfSymbol; self.actions = actions
         }
 
@@ -218,7 +178,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             title = try c.decode(String.self, forKey: .title)
             message = try c.decodeIfPresent(String.self, forKey: .message)
             sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol)
-            actions = try c.decodeIfPresent([LeoPluginNodeAction].self, forKey: .actions) ?? []
+            actions = try c.decodeIfPresent([LeoPluginAction].self, forKey: .actions) ?? []
         }
 
         private enum Keys: String, CodingKey { case title, message, sfSymbol, actions }
@@ -231,8 +191,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
 
     public struct ErrorState: Codable, Equatable, Sendable {
         public var message: String
-        public var retry: LeoPluginNodeAction
-        public init(message: String, retry: LeoPluginNodeAction) { self.message = message; self.retry = retry }
+        public var retry: LeoPluginAction
+        public init(message: String, retry: LeoPluginAction) { self.message = message; self.retry = retry }
     }
 
     /// Nodes in this subtree, counting the component, list items, accessories and form fields.

@@ -112,7 +112,7 @@ struct LeoPluginActionGateTests {
         let gate = gate([], clock: clock)
         for action in [
             LeoPluginAction.callback(id: "refresh", payload: .null),
-            .pushView(node: .object(["type": .string("Loading")])),
+            .pushView(node: .loading(.init(message: nil))),
             .copy("text"),
         ] {
             #expect(gate.authorize(action, gesture: nil) == .success(.perform(action)))
@@ -156,7 +156,7 @@ struct LeoPluginActionGateTests {
     @Test func actionsRoundTrip() throws {
         let actions: [LeoPluginAction] = [
             .callback(id: "x", payload: .object(["n": .int(1)])),
-            .pushView(node: .object(["type": .string("Loading")])),
+            .pushView(node: .loading(.init(message: nil))),
             .openURL("https://example.com"),
             .copy("hello"),
             send,

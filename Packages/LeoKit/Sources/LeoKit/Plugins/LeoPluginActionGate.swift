@@ -1,15 +1,13 @@
 import Foundation
 
-/// Agent verbs a plugin's manifest can grant (`permissions.agents`).
-///
-/// Defined here so the gate stands alone; the manifest type from step 1.1
-/// should conform to `LeoPluginAgentGrants` instead of redefining this.
-public enum LeoPluginAgentVerb: String, Codable, Sendable {
-    case read, send, spawn
-}
-
+/// Anything that can say which agent verbs a plugin was granted. The manifest's
+/// `LeoPluginPermissions` conforms; a `Set` of verbs does too (tests).
 public protocol LeoPluginAgentGrants: Sendable {
     func allows(_ verb: LeoPluginAgentVerb) -> Bool
+}
+
+extension LeoPluginPermissions: LeoPluginAgentGrants {
+    public func allows(_ verb: LeoPluginAgentVerb) -> Bool { agents.contains(verb) }
 }
 
 extension Set: LeoPluginAgentGrants where Element == LeoPluginAgentVerb {

@@ -37,9 +37,7 @@ public struct LeoPluginSpawnSpec: Codable, Equatable, Sendable {
 /// Wire form: `{"type": "<case>", ...fields}`.
 public enum LeoPluginAction: Codable, Equatable, Sendable {
     case callback(id: String, payload: LeoJSONValue)
-    /// The node is the raw component tree until the typed `LeoPluginNode`
-    /// (step 1.4) lands; reconcile by swapping the payload type.
-    case pushView(node: LeoJSONValue)
+    case pushView(node: LeoPluginNode)
     case openURL(String)
     case copy(String)
     case sendToAgent(agent: LeoPluginAgentRef, text: String)
@@ -58,7 +56,7 @@ public enum LeoPluginAction: Codable, Equatable, Sendable {
                 id: try container.decode(String.self, forKey: .id),
                 payload: try container.decodeIfPresent(LeoJSONValue.self, forKey: .payload) ?? .null)
         case "pushView":
-            self = .pushView(node: try container.decode(LeoJSONValue.self, forKey: .node))
+            self = .pushView(node: try container.decode(LeoPluginNode.self, forKey: .node))
         case "openURL":
             self = .openURL(try container.decode(String.self, forKey: .url))
         case "copy":

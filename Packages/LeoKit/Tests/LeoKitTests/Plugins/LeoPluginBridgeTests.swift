@@ -12,8 +12,8 @@ struct LeoPluginBridgeTests {
 
     @Test func hostRequestsRoundTrip() throws {
         let requests: [LeoPluginHostRequest] = [
-            .render(slot: .view(viewID: "pr", agent: agent), node: .object(["type": .string("Loading")])),
-            .render(slot: .section(id: "issues"), node: .array([])),
+            .render(slot: .view(viewID: "pr", agent: agent), node: try LeoPluginSlotRoot(nodes: [.loading(.init(message: nil))])),
+            .render(slot: .section(id: "issues"), node: try LeoPluginSlotRoot(nodes: [])),
             .fetch(id: "r1", url: "https://api.github.com/user",
                    init: LeoPluginFetchInit(method: "POST", headers: ["a": "b"], body: "x=1")),
             .fetch(id: "r2", url: "https://api.github.com/user", init: LeoPluginFetchInit()),
