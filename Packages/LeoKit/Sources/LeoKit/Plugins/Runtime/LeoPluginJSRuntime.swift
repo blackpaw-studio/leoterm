@@ -90,7 +90,7 @@ public final class LeoPluginJSRuntime {
 
     private func receive(json: String) {
         do {
-            send(try JSONDecoder().decode(LeoPluginHostRequest.self, from: Data(json.utf8)))
+            send(try LeoPluginFrame.decodeRequest(json))
         } catch {
             send(.handlerError(source: "bridge", message: "malformed request: \(error)"))
         }

@@ -36,6 +36,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         }
 
         public init(from decoder: Decoder) throws {
+            let scope = try LeoPluginDecodeBudget.enter(decoder)
+            defer { scope.exit() }
             let c = try decoder.container(keyedBy: Keys.self)
             id = try c.decodeIfPresent(String.self, forKey: .id)
             title = try c.decodeIfPresent(String.self, forKey: .title)
@@ -61,6 +63,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         }
 
         public init(from decoder: Decoder) throws {
+            let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
+            defer { scope.exit() }
             let c = try decoder.container(keyedBy: Keys.self)
             id = try c.decode(String.self, forKey: .id)
             guard !id.isEmpty else {
@@ -86,6 +90,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         }
 
         public init(from decoder: Decoder) throws {
+            let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
+            defer { scope.exit() }
             let c = try decoder.container(keyedBy: Keys.self)
             sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol)
             text = try c.decode(String.self, forKey: .text)
@@ -124,6 +130,16 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             public var value: String
             public var title: String
             public init(value: String, title: String) { self.value = value; self.title = title }
+
+            public init(from decoder: Decoder) throws {
+                let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1)
+                defer { scope.exit() }
+                let c = try decoder.container(keyedBy: Keys.self)
+                value = try c.decode(String.self, forKey: .value)
+                title = try c.decode(String.self, forKey: .title)
+            }
+
+            private enum Keys: String, CodingKey { case value, title }
         }
 
         public var id: String
@@ -144,6 +160,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         }
 
         public init(from decoder: Decoder) throws {
+            let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
+            defer { scope.exit() }
             let c = try decoder.container(keyedBy: Keys.self)
             id = try c.decode(String.self, forKey: .id)
             type = try c.decode(Kind.self, forKey: .type)
@@ -221,6 +239,8 @@ extension LeoPluginNode: Codable {
     private static let typeNames = "List, Detail, Form, Accessory, EmptyState, Loading, Error"
 
     public init(from decoder: Decoder) throws {
+        let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
+        defer { scope.exit() }
         let type = try decoder.container(keyedBy: Keys.self).decode(String.self, forKey: .type)
         switch type {
         case "List": self = .list(try .init(from: decoder))
@@ -261,11 +281,13 @@ public struct LeoPluginSlotRoot: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: Decoder) throws {
+        let scope = try LeoPluginDecodeBudget.enter(decoder)
+        defer { scope.exit() }
         let c = try decoder.singleValueContainer()
         let nodes: [LeoPluginNode]
-        if let many = try? c.decode([LeoPluginNode].self) {
-            nodes = many
-        } else {
+        do {
+            nodes = try c.decode([LeoPluginNode].self)
+        } catch DecodingError.typeMismatch {
             nodes = [try c.decode(LeoPluginNode.self)]
         }
         do { try Self.validate(nodes) } catch let e as LeoPluginNodeError {

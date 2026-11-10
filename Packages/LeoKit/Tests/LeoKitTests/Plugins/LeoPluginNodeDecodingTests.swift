@@ -92,3 +92,79 @@ struct LeoPluginNodeDecodingTests {
         #expect(try JSONDecoder().decode(LeoPluginSlotRoot.self, from: data) == root)
     }
 }
+
+struct LeoPluginDecodeBudgetTests {
+    private func items(_ n: Int, prefix: String = "i") -> String {
+        (0..<n).map { #"{"id":"\#(prefix)\#($0)","title":"t"}"# }.joined(separator: ",")
+    }
+
+    private func listJSON(items n: Int, prefix: String = "i", actions: String = "") -> String {
+        #"{"type":"List","sections":[{"items":[\#(items(n, prefix: prefix))]}]\#(actions)}"#
+    }
+
+    private func decodeAction(_ json: String) throws -> LeoPluginAction {
+        try JSONDecoder().decode(LeoPluginAction.self, from: Data(json.utf8))
+    }
+
+    @Test func pushViewCarrying2001ItemsIsRejectedWhileDecoding() {
+        let json = #"{"type":"pushView","node":\#(listJSON(items: 2_001))}"#
+        #expect(throws: DecodingError.self) { try decodeAction(json) }
+    }
+
+    @Test func pushViewWithinLimitDecodes() throws {
+        let json = #"{"type":"pushView","node":\#(listJSON(items: 1_990))}"#
+        _ = try decodeAction(json)
+    }
+
+    @Test func pickerWith2001OptionsIsRejected() {
+        let options = (0..<2_001).map { #"{"value":"v\#($0)","title":"t"}"# }.joined(separator: ",")
+        let json = #"{"type":"Form","id":"f","fields":[{"id":"p","type":"picker","options":[\#(options)]}]}"#
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func budgetIsSharedAcrossRootAndNestedPushView() {
+        let action = #"{"type":"pushView","node":\#(listJSON(items: 1_000, prefix: "n"))}"#
+        let root = listJSON(items: 1_000, actions: "").replacingOccurrences(
+            of: #""id":"i0","title":"t""#, with: #""id":"i0","title":"t","actions":[\#(action)]"#)
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(root.utf8))
+        }
+    }
+
+    @Test func budgetIsSharedWithCallbackResultTree() {
+        let node = listJSON(items: 2_001)
+        let json = #"{"call":"callbackResult","ref":"r","action":{"type":"pushView","node":\#(node)}}"#
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginHostRequest.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func nestedPushViewChainBeyondDepthLimitIsRejected() {
+        var json = #"{"type":"Loading"}"#
+        for _ in 0..<10 {
+            json = #"{"type":"List","sections":[{"items":[{"id":"a","title":"t","actions":[{"type":"pushView","node":\#(json)}]}]}]}"#
+        }
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func budgetResetsBetweenDecodes() throws {
+        let json = listJSON(items: 1_500)
+        _ = try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+        _ = try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+    }
+
+    @Test func oversizedFrameIsRejectedBeforeDecoding() {
+        let padding = String(repeating: "a", count: LeoPluginFrameLimits.maxFrameBytes)
+        let json = #"{"call":"log","level":"info","message":"\#(padding)"}"#
+        #expect(throws: LeoPluginFrameError.self) { try LeoPluginFrame.decodeRequest(json) }
+    }
+
+    @Test func frameWithinCapDecodes() throws {
+        let request = try LeoPluginFrame.decodeRequest(#"{"call":"log","level":"info","message":"hi"}"#)
+        #expect(request == .log(level: "info", message: "hi"))
+    }
+}

@@ -46,6 +46,8 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: any Decoder) throws {
+        let scope = try LeoPluginDecodeBudget.enter(decoder)
+        defer { scope.exit() }
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let call = try c.decodeIfPresent(String.self, forKey: .call) ?? ""
         switch call {
