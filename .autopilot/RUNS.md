@@ -850,3 +850,30 @@ Board: https://github.com/orgs/blackpaw-studio/projects/5
 Board sync: 1 failure (see RUN.md)
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-10 (14:52Z)
+
+🛠 leoterm autopilot — 1 fixed, 3 shipped, 0 blocked
+Fixed
+• B-385 Chase "unsupported browser" — agent browser UA now ends "Version/<installed Safari> Safari/605.1.15" (not visually verified; standalone WKWebView loads hyatt.com + chase.com/travel; Chase sign-in not reproduced end to end) · light
+Shipped
+• B-387 Bundled leo 0.81.0 — PR #356 head merged unchanged; shipping marks it merged (not visually verified; tarball sha + `leo 0.81.0` checked) · light
+• B-389 Bump workflow closes superseded bump/leo-* PRs, "Superseded by #N", no deletes (not visually verified; stubbed-gh dry run) · light
+• B-386 Per-tab UA override — new browser_user_agent tool + user_agent on browser_tab_new; empty clears (not visually verified; tool-call only) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-749..750 bump merged --no-ff, Mac only
+• D-751..755 bump closer: forks/non-strict versions skipped, never deletes
+• D-756..758 UA claims installed Safari version, not contradicting D-733
+• D-759..765 browser_user_agent tool, ASCII ≤1024, popups inherit, no UI indicator
+Needs you
+• B-385 verify hit "Open Browser" daemon-connection error in the debug app (didn't recur for B-386) — unexplained
+• Lane B-368 worktree has 1 uncommitted change, left in place
+• I ran lane finish mid-run once (only removed landed B-387)
+Self-filed
+• B-388 idea (from B-387) — LeoTemplateListTests manualRefresh flaky under load
+Next up: no ready items
+Spend (estimated, lower bound · prices 2026-10-09): ≈$14.31 est. — B-387 $1.55, B-389 $1.88, B-385 $3.64, B-386 $7.24
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
