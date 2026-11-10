@@ -5,6 +5,8 @@ name: Leo Bump
 # macos/Bundled/LEO_VERSION to it. Merging that PR tags a Leo release
 # (leo-bump-release.yml). workflow_dispatch takes the same inputs for manual
 # testing. repository_dispatch only runs the workflow on the default branch.
+# Once the PR is open, close-superseded-bumps.sh closes the lower-versioned
+# bump/leo-* PRs it replaces.
 #
 # The PR and its branch are created with LEO_BUMP_TOKEN, a fine-grained PAT:
 # anything created with GITHUB_TOKEN triggers no workflows, so leo-ci would
@@ -139,3 +141,7 @@ jobs:
           else
             gh pr create --base main --head "$branch" --title "$title" --body-file "$body"
           fi
+
+          # A newer bump makes every lower open bump PR pointless: close them.
+          new_pr="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number')"
+          .github/scripts/leo/close-superseded-bumps.sh "$new_pr" "$BUMP_VERSION"

@@ -105,6 +105,16 @@ check "leo-bump.yml: bump branch is bump/leo-<version> and the PR targets main" 
   puts "no bump/leo- branch" unless runs.include?("bump/leo-")
   puts "no --base main" unless runs =~ /--base\s+main/'
 
+check "leo-bump.yml: the PR step closes superseded bump PRs, after the PR exists" "$bump" '
+  step = steps.find { |s| s["run"].to_s.include?("close-superseded-bumps.sh") }
+  if step.nil?
+    puts "close-superseded-bumps.sh not run"
+  else
+    run = step["run"]
+    puts "runs before the PR is opened" unless run.index("gh pr create") && run.index("gh pr create") < run.index("close-superseded-bumps.sh")
+    puts "not authenticated with LEO_BUMP_TOKEN" unless step.dig("env", "GH_TOKEN").to_s.include?("LEO_BUMP_TOKEN")
+  end'
+
 check "leo-bump.yml: the job that runs the downloaded leo never sees the PAT or a persisted credential" "$bump" '
   text = File.read(ARGV[0])
   puts "persist-credentials: true somewhere" if text =~ /persist-credentials:\s*true/
