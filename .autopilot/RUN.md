@@ -57,7 +57,7 @@ Lane: B-389
   Branch: autopilot-lane/B-389
   Base: b27ca98019c76eb81399cf24fda342d2a8bb77ce
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -68,8 +68,10 @@ Lane: B-389
   Call: Bump branches without strict X.Y.Z are skipped — conservative; no guessing at versions
   Call: Closing step also runs when the workflow updates an existing PR — idempotent
   Call: Platform: CI only, neither Mac nor iOS
+  Tokens: 3.13M in (2.91M cache read), ≥29.2k out, 41 requests
 
 Finished 1: B-387 landed c4952d79b · not visually verified
+Finished 2: B-389 landed 2fdce467e · not visually verified
 
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
@@ -78,3 +80,4 @@ Progress:
 - Inbox applied: B-389
 - Lane finish (mid-run, my slip; harmless): removed landed B-387 branch; B-368 lane worktree is dirty (1 change), left in place.
 - Runner: B-389 d-91e6580ccdef (light). Released B-387 panes.
+- B-389 landed 2fdce467e: leo-bump.yml closes lower-version bump/leo-* PRs ("Superseded by #N"); 4 script test files pass; stubbed-gh dry run. Accepted risks: first failed gh close aborts the rest (next bump retries); `gh pr list --head` fork-name collision.
