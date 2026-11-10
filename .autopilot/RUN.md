@@ -57,12 +57,17 @@ Lane: B-389
   Branch: autopilot-lane/B-389
   Base: b27ca98019c76eb81399cf24fda342d2a8bb77ce
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 199d2fa562f70bd800d2caf5f3579536a7678657
   Dispatched: 2026-11-10T15:38:19Z
+  Call: Fork PRs named bump/leo-* are never closed — AUTONOMY: CI config agent-decides; non-bump PR never touched
+  Call: Closing never deletes a branch — criteria: "deletes nothing else"
+  Call: Bump branches without strict X.Y.Z are skipped — conservative; no guessing at versions
+  Call: Closing step also runs when the workflow updates an existing PR — idempotent
+  Call: Platform: CI only, neither Mac nor iOS
 
 Finished 1: B-387 landed c4952d79b · not visually verified
 
