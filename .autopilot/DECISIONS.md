@@ -762,3 +762,9 @@ Chose: the schemas live in this repo, so no daemon change and no `~/.leo/agents/
 Item: B-386 · Agents can override the agent browser's user agent per tab
 Commit: 3010fcffe 5967f05c0
 Veto: [ ]
+
+## D-766 · 2026-11-10 · B-390: Move the Tasks-popover click from the row's line-2 status text to the activity (spinning) icon; supersedes D-745 per the owner's B-390 report — VISION 1, owner request
+Chose: Move the Tasks-popover click from the row's line-2 status text to the activity (spinning) icon; supersedes D-745 per the owner's B-390 report — VISION 1, owner request
+Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
+Commit:
+Veto: [ ]

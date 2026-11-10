@@ -2901,6 +2901,7 @@ Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
 Source: autopilot polish (B-387)
 
 ## B-390 · i dont like that the status text subtitle on the sidebar rows taps to…   [ready]
+Issue: #361
 Type: bug
 Report: i dont like that the status text subtitle on the sidebar rows taps to the tasks popover, i keep clicking it by accident. maybe move that to a click on the spinning icon?
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2908,6 +2909,7 @@ Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T173410332193Z-448cb462#1
 
 ## B-391 · Agent browser bridge hangs for good after an async browser_eval whose…   [ready]
+Issue: #362
 Type: bug
 Report: Agent browser bridge hangs for good after an async browser_eval whose page navigates mid-eval — family agent on secure.chase.com Chase Travel (2026-11-10 13:13 ET): the eval clicked a destination and "Search stays" (an SPA route change to hotel results), then awaited setTimeout(8000); the eval timed out at 30s, and from then on EVERY browser call (browser_tabs, browser_wait, a trivial eval, on any tab) times out at 30s. Suspect: the callAsyncJavaScript promise never settles after the navigation and blocks the bridge's serial queue; a timed-out call should release the queue and later calls should still answer. Leo 0.35.0.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
