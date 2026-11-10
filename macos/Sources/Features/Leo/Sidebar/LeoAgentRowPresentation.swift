@@ -131,13 +131,25 @@ struct LeoAgentRowPresentation: Equatable {
     /// the row does not change height.
     var hasSecondLine: Bool { state.hasSecondLine || task != nil }
 
-    /// The working symbol turns only when no task indicator carries the
-    /// motion: a row has at most one moving element.
-    var symbolRotates: Bool {
+    /// The working symbol turns whenever the agent works, whatever its task:
+    /// the left column means the same on every row (B-381).
+    var symbolRotates: Bool { state.rotates }
+
+    /// The row's trailing task indicator: the summary's, except that an
+    /// indeterminate running task draws nothing (the row's own trailing
+    /// content stays). Every indicator left is still: a static pie, the muted
+    /// stalled pie, or the failed glyph.
+    var taskIndicator: LeoTaskIndicator? {
         switch task?.indicator {
-        case .progress, .stalled: false
-        case .failed, nil: state.rotates
+        case .progress(fraction: nil), nil: nil
+        case let indicator?: indicator
         }
+    }
+
+    /// Whether the task's own text is on line 2, so that text is the row's
+    /// click route to the Tasks popover.
+    var detailOpensTasks: Bool {
+        if case .progress = detail { true } else { false }
     }
 
     /// A stopped agent's name reads secondary.
