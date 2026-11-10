@@ -49,6 +49,7 @@ Lane: B-375
   Reviewed-tip: none
   Dispatched: 2026-11-10T01:50:37Z
 Finished 1: B-375 blocked
+  Tokens: 9.34M in (9.13M cache read), ≥26.7k out, 83 requests
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
