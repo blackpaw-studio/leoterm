@@ -31,12 +31,15 @@ Lane: B-368
   Branch: autopilot-lane/B-368
   Base: 1ff28347079270c7808348d616101f3a02af1b3f
   Tier: light
-  State: building
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: db21be5522415001de8cbb8c988831524c2f577c
   Dispatched: 2026-11-10T01:50:37Z
+  Call: Mac only (macos/ test code, no iOS counterpart) — AGENTS.md parity rule
+  Call: Test-helper flake fix — AUTONOMY "agent decides"
+  Tokens: 12.1M in (11.8M cache read), ≥47.5k out, 125 requests
 
 Lane: B-375
   Branch: autopilot-lane/B-375
@@ -48,8 +51,32 @@ Lane: B-375
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-10T01:50:37Z
-Finished 1: B-375 blocked
   Tokens: 9.34M in (9.13M cache read), ≥26.7k out, 83 requests
+
+Lane: B-378
+  Branch: autopilot-lane/B-378
+  Base: 2e7ae40c70b8de8ac3c9fdcdb20136ca8f4e4e91
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T02:19:17Z
+
+Lane: B-379
+  Branch: autopilot-lane/B-379
+  Base: 9e8da8e038bf5150f1a3e3d14795dc60e8a5e0db
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T03:13:55Z
+
+Finished 1: B-375 blocked
+Finished 2: B-368 landed e5c13d879 · not visually verified
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
@@ -57,3 +84,7 @@ Progress:
 - Picked B-368 and B-375 in parallel (independent: a sidebar-resize test vs the toolbar Tasks popover).
 - Runners: B-368 d-8cd585787fee, B-375 d-a74d172f9b82 (leo implement role).
 - B-375 blocked: couldn't reproduce (test through stub daemon passed). Suspects: popover first-click swallowed (never key window); daemon 409 on source:auto tasks swallowed by dismissTask. Test patch /tmp/b375-dismiss-test.patch.
+- Board sync: B-378 --item sync exited 1 once (stderr not captured); retry succeeded.
+- B-378 runner d-02ac03fa87fd, parallel with B-368 (different test files).
+- B-368 landed e5c13d879 (test helper waits through main-thread stalls; 5/6 pre-fix fails → 20/20 passes). Verifier saw two other load flakes outside the diff: LeoSettingsWindowCloseTests/discardingBothClosesTheWindowAndDropsThePaneEdits, and a host crash rc=5 in aHungMachineDoesNotDelayAnother.
+- B-379 runner d-9acab79d2518, parallel with B-378 (different test files).
