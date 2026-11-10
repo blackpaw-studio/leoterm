@@ -660,3 +660,15 @@ Chose: Left the toolbar capsule's spinner alone — outside the row, not in the 
 Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
 Commit: 87e56dcee, 0654c9b32
 Veto: [ ]
+
+## D-749 · 2026-11-10 · B-387: Merged PR #356 head via --no-ff merge, no cherry-pick — brief principle and B-364 precedent
+Chose: Merged PR #356 head via --no-ff merge, no cherry-pick — brief principle and B-364 precedent
+Item: B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)
+Commit: 57d20ed25
+Veto: [ ]
+
+## D-750 · 2026-11-10 · B-387: Mac only — bundled daemon is a Mac app concern
+Chose: Mac only — bundled daemon is a Mac app concern
+Item: B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)
+Commit: 57d20ed25
+Veto: [ ]

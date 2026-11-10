@@ -43,7 +43,7 @@ Lane: B-387
   Branch: autopilot-lane/B-387
   Base: 3fdb60880d78463f0a856a21d3088d5c7d3b30b8
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -51,7 +51,11 @@ Lane: B-387
   Dispatched: 2026-11-10T14:55:39Z
   Call: Merged PR #356 head via --no-ff merge, no cherry-pick — brief principle and B-364 precedent
   Call: Mac only — bundled daemon is a Mac app concern
+  Tokens: 3.86M in (3.64M cache read), ≥16k out, 50 requests
+
+Finished 1: B-387 landed c4952d79b · not visually verified
 
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
 - Runners: B-385 d-33e7402b9bf1, B-387 d-45fee2bdf463 (leo implement role), parallel (independent: agent-browser UA vs bundled LEO_VERSION).
+- B-387 landed c4952d79b (PR #356 head 57d20ed25 intact). Gap: Debug app has no bundled helper; verifier checked the tarball sha256 + `leo 0.81.0` instead.

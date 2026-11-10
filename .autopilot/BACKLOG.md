@@ -2864,13 +2864,15 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T144926266729Z-02f08780#1
 
-## B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)   [ready]
+## B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)   [done]
 Issue: #358
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10).
 Accept: The lane merges PR #356's head commit 57d20ed2539c5fe0b3891c14deeb9ac55d3b7960 (git fetch origin bump/leo-0.81.0) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.81.0; the macOS app builds and the debug instance launches its bundled daemon at 0.81.0. Supersedes PRs #343, #337, #336.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-10)
 Inbox: 20261110T145255549244Z-52a04e03#1
+Done: 57d20ed25 (PR #356 head, merged --no-ff in c4952d79b; 4241 tests, lint clean). LEO_VERSION 0.81.0; v0.81.0 tarball sha256 matches and reports leo 0.81.0. Gap: the Debug app has no bundled helper, so "debug instance launches 0.81.0" was not demonstrated. Decisions D-749..D-750.
+Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
 
 ## B-386 · Agents can override the agent browser's user agent per tab   [ready]
 Issue: #359
