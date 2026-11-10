@@ -111,6 +111,18 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
     public struct Detail: Codable, Equatable, Sendable {
         public var markdown: String
         public init(markdown: String) { self.markdown = markdown }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: Keys.self)
+            markdown = try c.decode(String.self, forKey: .markdown)
+            guard markdown.utf8.count <= LeoPluginFrameLimits.maxMarkdownBytes else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .markdown, in: c,
+                    debugDescription: "markdown over \(LeoPluginFrameLimits.maxMarkdownBytes) bytes")
+            }
+        }
+
+        private enum Keys: String, CodingKey { case markdown }
         /// Restricted-Markdown AST of `markdown`.
         public var blocks: [LeoPluginMarkdown.Block] { LeoPluginMarkdown.parse(markdown) }
     }

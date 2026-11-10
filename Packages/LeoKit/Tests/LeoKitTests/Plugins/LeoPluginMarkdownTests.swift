@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import LeoKit
@@ -51,5 +52,57 @@ struct LeoPluginMarkdownTests {
 
     @Test func unterminatedMarkersStayLiteral() {
         #expect(LeoPluginMarkdown.parse("a *b") == [.paragraph([.text("a *b")])])
+    }
+}
+
+struct LeoPluginMarkdownBoundsTests {
+    private func steps(_ source: String) -> Int {
+        let work = LeoPluginMarkdown.Work()
+        _ = LeoPluginMarkdown.parse(source, work: work)
+        return work.steps
+    }
+
+    @Test func unmatchedBracketsStayLinear() {
+        let n = 50_000
+        #expect(steps(String(repeating: "[", count: n)) <= 20 * n)
+    }
+
+    @Test func unmatchedEmphasisAndCodeStayLinear() {
+        let n = 20_000
+        #expect(steps(String(repeating: "*", count: n)) <= 20 * n)
+        #expect(steps(String(repeating: "`a", count: n)) <= 20 * n)
+        #expect(steps(String(repeating: "[a](", count: n)) <= 20 * n)
+    }
+
+    @Test func nestedLabelsStayLinear() {
+        let n = 20_000
+        #expect(steps(String(repeating: "[a *b* ", count: n) + "](https://x.example)") <= 20 * n * 7)
+    }
+
+    @Test func parseTruncatesSourceOverTheByteCap() {
+        let big = String(repeating: "a", count: LeoPluginFrameLimits.maxMarkdownBytes + 10)
+        let blocks = LeoPluginMarkdown.parse(big)
+        guard case .paragraph(let inlines) = blocks.first, case .text(let text) = inlines.first else {
+            Issue.record("expected one paragraph"); return
+        }
+        #expect(text.utf8.count == LeoPluginFrameLimits.maxMarkdownBytes)
+    }
+
+    @Test func detailRejectsMarkdownOverTheByteCap() {
+        let big = String(repeating: "a", count: LeoPluginFrameLimits.maxMarkdownBytes + 1)
+        let json = #"{"type":"Detail","markdown":"\#(big)"}"#
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func truncationNeverSplitsAMultiByteCharacter() {
+        let source = String(repeating: "é", count: LeoPluginFrameLimits.maxMarkdownBytes / 2 + 5)
+        let blocks = LeoPluginMarkdown.parse(source)
+        guard case .paragraph(let inlines) = blocks.first, case .text(let text) = inlines.first else {
+            Issue.record("expected one paragraph"); return
+        }
+        #expect(text.utf8.count <= LeoPluginFrameLimits.maxMarkdownBytes)
+        #expect(!text.contains("\u{FFFD}"))
     }
 }
