@@ -660,3 +660,45 @@ Chose: Left the toolbar capsule's spinner alone — outside the row, not in the 
 Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
 Commit: 87e56dcee, 0654c9b32
 Veto: [ ]
+
+## D-749 · 2026-11-10 · B-387: Merged PR #356 head via --no-ff merge, no cherry-pick — brief principle and B-364 precedent
+Chose: Merged PR #356 head via --no-ff merge, no cherry-pick — brief principle and B-364 precedent
+Item: B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)
+Commit: 57d20ed25
+Veto: [ ]
+
+## D-750 · 2026-11-10 · B-387: Mac only — bundled daemon is a Mac app concern
+Chose: Mac only — bundled daemon is a Mac app concern
+Item: B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)
+Commit: 57d20ed25
+Veto: [ ]
+
+## D-751 · 2026-11-10 · B-389: Fork PRs named bump/leo-* are never closed — AUTONOMY: CI config agent-decides; non-bump PR never touched
+Chose: Fork PRs named bump/leo-* are never closed — AUTONOMY: CI config agent-decides; non-bump PR never touched
+Item: B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes
+Commit: 689c966a9
+Veto: [ ]
+
+## D-752 · 2026-11-10 · B-389: Closing never deletes a branch — criteria: "deletes nothing else"
+Chose: Closing never deletes a branch — criteria: "deletes nothing else"
+Item: B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes
+Commit: 689c966a9
+Veto: [ ]
+
+## D-753 · 2026-11-10 · B-389: Bump branches without strict X.Y.Z are skipped — conservative; no guessing at versions
+Chose: Bump branches without strict X.Y.Z are skipped — conservative; no guessing at versions
+Item: B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes
+Commit: 689c966a9
+Veto: [ ]
+
+## D-754 · 2026-11-10 · B-389: Closing step also runs when the workflow updates an existing PR — idempotent
+Chose: Closing step also runs when the workflow updates an existing PR — idempotent
+Item: B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes
+Commit: 689c966a9
+Veto: [ ]
+
+## D-755 · 2026-11-10 · B-389: Platform: CI only, neither Mac nor iOS
+Chose: Platform: CI only, neither Mac nor iOS
+Item: B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes
+Commit: 689c966a9
+Veto: [ ]

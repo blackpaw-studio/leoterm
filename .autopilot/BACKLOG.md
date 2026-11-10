@@ -2864,13 +2864,25 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T144926266729Z-02f08780#1
 
-## B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)   [ready]
+## B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)   [done]
 Issue: #358
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10).
 Accept: The lane merges PR #356's head commit 57d20ed2539c5fe0b3891c14deeb9ac55d3b7960 (git fetch origin bump/leo-0.81.0) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.81.0; the macOS app builds and the debug instance launches its bundled daemon at 0.81.0. Supersedes PRs #343, #337, #336.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-10)
 Inbox: 20261110T145255549244Z-52a04e03#1
+Done: 57d20ed25 (PR #356 head, merged --no-ff in c4952d79b; 4241 tests, lint clean). LEO_VERSION 0.81.0; v0.81.0 tarball sha256 matches and reports leo 0.81.0. Gap: the Debug app has no bundled helper, so "debug instance launches 0.81.0" was not demonstrated. Decisions D-749..D-750.
+Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
+
+## B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes   [done]
+Issue: #360
+Why: Old bump PRs pile up open (#343, #337, #336 behind #356); autopilot can't close PRs, so the workflow that opens them should (Evan, 2026-11-10).
+Accept: When the auto-bump workflow opens a bump/leo-<version> PR, it closes every other open PR whose head branch starts with bump/leo- and whose version is lower, with a comment "Superseded by #<new>", and deletes nothing else; a PR with a higher version, or a non-bump PR, is never touched; the closing logic is a small script with tests for version ordering (0.9.0 < 0.10.0) and the no-other-PRs case. Workflow file change only plus that script; verified by a dry run of the script against fixture PR lists, not by running the workflow.
+Out: Running or triggering the workflow; closing the current PRs by hand; changes to the leo repo's release side.
+Source: owner (/feature, 2026-11-10)
+Inbox: 20261110T145617481024Z-cbf0a989#1
+Done: 689c966a9 (script tests pass; stubbed-gh dry run closed only the lower-version bump PR). CI only. Decisions D-751..D-755.
+Verified: not visually verified — CI-only change, no UI
 
 ## B-386 · Agents can override the agent browser's user agent per tab   [ready]
 Issue: #359
@@ -2879,3 +2891,7 @@ Accept: An agent can set a custom user-agent string for a browser tab (on browse
 Out: iOS; overriding other fingerprint signals (locale, timezone, viewport); persisting overrides across app restarts.
 Source: owner (/feature, 2026-11-10)
 Inbox: 20261110T145137764251Z-b5f85f6c#1
+
+## B-388 · LeoTemplateListTests/manualRefreshRefetchesEveryLoadedMachinesList flaky under load   [idea]
+Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
+Source: autopilot polish (B-387)
