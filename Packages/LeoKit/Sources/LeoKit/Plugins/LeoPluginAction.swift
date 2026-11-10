@@ -48,7 +48,7 @@ public enum LeoPluginAction: Codable, Equatable, Sendable {
     }
 
     public init(from decoder: any Decoder) throws {
-        let scope = try LeoPluginDecodeBudget.enter(decoder)
+        let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1)
         defer { scope.exit() }
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)

@@ -116,6 +116,30 @@ struct LeoPluginDecodeBudgetTests {
         _ = try decodeAction(json)
     }
 
+    @Test func frameWith70000SectionsIsRejected() {
+        let sections = [String](repeating: #"{"title":"x"}"#, count: 70_000).joined(separator: ",")
+        let json = #"{"type":"List","sections":[\#(sections)]}"#
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func frameWith38000ActionsIsRejected() {
+        let actions = [String](repeating: #"{"type":"copy","text":"x"}"#, count: 38_000).joined(separator: ",")
+        let json = #"{"type":"EmptyState","title":"t","actions":[\#(actions)]}"#
+        #expect(throws: DecodingError.self) {
+            try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+        }
+    }
+
+    @Test func itemAndFormActionsCountTowardTheBudget() {
+        let actions = [String](repeating: #"{"type":"copy","text":"x"}"#, count: 2_001).joined(separator: ",")
+        let item = #"{"type":"List","sections":[{"items":[{"id":"a","title":"t","actions":[\#(actions)]}]}]}"#
+        let form = #"{"type":"Form","id":"f","fields":[{"id":"s","type":"submit","action":\#(#"{"type":"copy","text":"x"}"#)}]}"#
+        #expect(throws: DecodingError.self) { try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(item.utf8)) }
+        #expect(throws: Never.self) { try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(form.utf8)) }
+    }
+
     @Test func pickerWith2001OptionsIsRejected() {
         let options = (0..<2_001).map { #"{"value":"v\#($0)","title":"t"}"# }.joined(separator: ",")
         let json = #"{"type":"Form","id":"f","fields":[{"id":"p","type":"picker","options":[\#(options)]}]}"#

@@ -36,7 +36,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         }
 
         public init(from decoder: Decoder) throws {
-            let scope = try LeoPluginDecodeBudget.enter(decoder)
+            let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1)
             defer { scope.exit() }
             let c = try decoder.container(keyedBy: Keys.self)
             id = try c.decodeIfPresent(String.self, forKey: .id)
