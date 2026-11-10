@@ -2910,13 +2910,15 @@ Inbox: 20261110T173410332193Z-448cb462#1
 Done: ad8b2707b (4251 tests, lint clean). Tasks popover opens from the row's leading state symbol; line-2 text is plain and a click selects the row. Mac only. Decisions D-766..D-771.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-390-6.png
 
-## B-391 · Agent browser bridge hangs for good after an async browser_eval whose…   [ready]
+## B-391 · Agent browser bridge hangs for good after an async browser_eval whose…   [done]
 Issue: #362
 Type: bug
 Report: Agent browser bridge hangs for good after an async browser_eval whose page navigates mid-eval — family agent on secure.chase.com Chase Travel (2026-11-10 13:13 ET): the eval clicked a destination and "Search stays" (an SPA route change to hotel results), then awaited setTimeout(8000); the eval timed out at 30s, and from then on EVERY browser call (browser_tabs, browser_wait, a trivial eval, on any tab) times out at 30s. Suspect: the callAsyncJavaScript promise never settles after the navigation and blocks the bridge's serial queue; a timed-out call should release the queue and later calls should still answer. Leo 0.35.0.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T181628366882Z-9e94299c#1
+Done: d6a262e60 a63fc7305 (4253 Mac tests + LeoKit, lint clean). The daemon's 30 s cancel now frees the browser call queue and ends the page script at once; later calls answer in ≤55 ms (local-page repro). Mac only. Decisions D-772..D-775.
+Verified: not visually verified — queue/cancellation logic, no UI change
 
 ## B-392 · Clearer error than WebKit's "no longer reachable" for a hung browser_eval   [idea]
 Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).

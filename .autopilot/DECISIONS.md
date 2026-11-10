@@ -798,3 +798,27 @@ Chose: Mac only; iOS has no task-list tap target — VISION 6, repo AGENTS.md
 Item: B-390 · i dont like that the status text subtitle on the sidebar rows taps to…
 Commit: ad8b2707b
 Veto: [ ]
+
+## D-772 · 2026-11-10 · B-391: Free the queue only on the daemon's existing cancel; no app-side eval timer — VISION 5 (a bounded error path, not a reconnect loop)
+Chose: Free the queue only on the daemon's existing cancel; no app-side eval timer — VISION 5 (a bounded error path, not a reconnect loop)
+Item: B-391 · Agent browser bridge hangs for good after an async browser_eval whose…
+Commit: d6a262e60 a63fc7305
+Veto: [ ]
+
+## D-773 · 2026-11-10 · B-391: Fix both the serial gate (any page call that ignores cancellation) and the WebKit page `run` (the actual leak) — AUTONOMY implementation approach
+Chose: Fix both the serial gate (any page call that ignores cancellation) and the WebKit page `run` (the actual leak) — AUTONOMY implementation approach
+Item: B-391 · Agent browser bridge hangs for good after an async browser_eval whose…
+Commit: d6a262e60 a63fc7305
+Veto: [ ]
+
+## D-774 · 2026-11-10 · B-391: Mac only: the agent browser is a Mac WKWebView feature; the gate sits in LeoKit but only the Mac uses it, so no iOS backlog item — repo AGENTS.md parity rule
+Chose: Mac only: the agent browser is a Mac WKWebView feature; the gate sits in LeoKit but only the Mac uses it, so no iOS backlog item — repo AGENTS.md parity rule
+Item: B-391 · Agent browser bridge hangs for good after an async browser_eval whose…
+Commit: d6a262e60 a63fc7305
+Veto: [ ]
+
+## D-775 · 2026-11-10 · B-391: Added LeoOnce.swift as a shared first-wins helper for the gate and the page `run`; navigation test waits on web-view title/loading state instead of evals — implementer deviations
+Chose: Added LeoOnce.swift as a shared first-wins helper for the gate and the page `run`; navigation test waits on web-view title/loading state instead of evals — implementer deviations
+Item: B-391 · Agent browser bridge hangs for good after an async browser_eval whose…
+Commit: d6a262e60 a63fc7305
+Veto: [ ]
