@@ -2831,7 +2831,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T012831517385Z-204ed034#1
 
-## B-381 · Working arrows always spin; static determinate pie; hide indeterminate…   [ready]
+## B-381 · Working arrows always spin; static determinate pie; hide indeterminate…   [done]
 Issue: #355
 Note: Working arrows always spin; static determinate pie; hide indeterminate tasks
 Why: The left status column should mean the same thing on every row; a still "rotate" glyph reads as stalled (Evan, 2026-11-09; mockup option B at https://claude.ai/artifact/JpaVq6SzSXzKPfoyUyiTgn).
@@ -2839,3 +2839,17 @@ Accept: A working agent's left arrows rotate whether or not it has a running tas
 Out: iOS; new symbols; changes to task semantics in the daemon.
 Source: owner (/feature, 2026-11-09)
 Inbox: 20261110T014539393786Z-e99d4b80#1
+Done: 87e56dcee, 0654c9b32
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-381-1.png
+
+## B-382 · Show Tasks item in the agent row's context menu   [idea]
+Note: When an error or env warning takes line 2, an indeterminate task has no mouse route to Tasks (only VoiceOver) — VISION 1
+Source: autopilot polish (B-381)
+
+## B-383 · iOS tasks-row parity: static pie, no indeterminate spinner   [idea]
+Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS half deferred)
+Source: autopilot polish (B-381)
+
+## B-384 · Toolbar task capsule still spins beside Stalled… and for indeterminate tasks   [idea]
+Note: VISION 2 calm; seen in B-381-15.png
+Source: autopilot polish (B-381)

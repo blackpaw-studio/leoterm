@@ -2,7 +2,10 @@ Status: running
 Started: 2026-11-10T01:47:19Z
 Budget: 20 items, until 2026-11-10T13:47:19Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 3/5 ideas
+Self-filed: B-381 → B-382 idea — Show Tasks item in the agent row's context menu
+Self-filed: B-381 → B-383 idea — iOS tasks-row parity: static pie, no indeterminate spinner
+Self-filed: B-381 → B-384 idea — Toolbar task capsule still spins beside Stalled… and for indeterminate tasks
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -86,7 +89,7 @@ Lane: B-381
   Branch: autopilot-lane/B-381
   Base: 689016d00e53281e25a5bb0dcedf0f0b2ae0b28d
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -103,6 +106,7 @@ Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
 Finished 3: B-378 landed 9547eaa11 · not visually verified
 Finished 4: B-379 landed aadb7a701 · not visually verified
+Finished 5: B-381 landed 6aac92cfb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-381-1.png
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
@@ -118,3 +122,4 @@ Progress:
 - B-381 built before B-380 (B-381 redefines the spin behavior B-380 reports; overlapping footprint).
 - B-381 runner d-dcf15983d822 (full tier), parallel with B-379.
 - B-379 landed aadb7a701: test bug — probe byte + recv(1) could read a leftover request byte; waitForPeerClose now drains to EOF. Old logic failed 3–7/60 under stress, new 0/300.
+- B-381 landed 6aac92cfb (Mac only). Accepted risks: line-2 .help tooltip may be swallowed by the new click target (fix: move .help after .overlay, LeoAgentRowContent.swift:179-183, needs a real hover check); control-click on line-2 title opens Tasks. Reduce Motion not toggled in verify. B-380 symptom gone per verifier (non-selected working rows turn).

@@ -624,3 +624,39 @@ Chose: The 400 ms "cancel returns quickly" assertion stays as it was — it wasn
 Item: B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…
 Commit: 2f6080e9d
 Veto: [ ]
+
+## D-743 · 2026-11-10 · B-381: Mac only: iOS is Out and the filter sits in the Mac presentation, not LeoKit — AGENTS.md platform rule
+Chose: Mac only: iOS is Out and the filter sits in the Mac presentation, not LeoKit — AGENTS.md platform rule
+Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
+Commit: 87e56dcee, 0654c9b32
+Veto: [ ]
+
+## D-744 · 2026-11-10 · B-381: Indeterminate task falls back to the row's trailing time, per LeoKit's nil contract — VISION 2 (never invent a state)
+Chose: Indeterminate task falls back to the row's trailing time, per LeoKit's nil contract — VISION 2 (never invent a state)
+Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
+Commit: 87e56dcee, 0654c9b32
+Veto: [ ]
+
+## D-745 · 2026-11-10 · B-381: Line-2 task title opens Tasks on every row whose line 2 shows a task; hit area is the text only — VISION 1, accept's own example
+Chose: Line-2 task title opens Tasks on every row whose line 2 shows a task; hit area is the text only — VISION 1, accept's own example
+Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
+Commit: 87e56dcee, 0654c9b32
+Veto: [ ]
+
+## D-746 · 2026-11-10 · B-381: Removed the dead indeterminate spinner code from LeoTaskIndicatorView — AUTONOMY agent decides
+Chose: Removed the dead indeterminate spinner code from LeoTaskIndicatorView — AUTONOMY agent decides
+Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
+Commit: 87e56dcee, 0654c9b32
+Veto: [ ]
+
+## D-747 · 2026-11-10 · B-381: Rebuilt the GhosttyKit xcframework inside the lane because the shared one was stale (build output, untracked) — AUTONOMY agent decides
+Chose: Rebuilt the GhosttyKit xcframework inside the lane because the shared one was stale (build output, untracked) — AUTONOMY agent decides
+Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
+Commit: 87e56dcee, 0654c9b32
+Veto: [ ]
+
+## D-748 · 2026-11-10 · B-381: Left the toolbar capsule's spinner alone — outside the row, not in the accept
+Chose: Left the toolbar capsule's spinner alone — outside the row, not in the accept
+Item: B-381 · Working arrows always spin; static determinate pie; hide indeterminate…
+Commit: 87e56dcee, 0654c9b32
+Veto: [ ]
