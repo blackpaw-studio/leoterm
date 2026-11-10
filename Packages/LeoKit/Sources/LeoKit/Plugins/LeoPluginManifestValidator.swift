@@ -133,6 +133,17 @@ public enum LeoPluginManifestValidator {
         if let dup = firstDuplicate(p.agents.map(\.rawValue)) {
             return "permissions.agents lists '\(dup)' more than once"
         }
+        var hosts: [String] = []
+        for raw in p.network {
+            do {
+                hosts.append(try LeoPluginHostPattern.parse(raw).canonical)
+            } catch let error as LeoPluginHostPatternError {
+                return "permissions.network '\(raw)' is invalid: \(error.reason)"
+            } catch {
+                return "permissions.network '\(raw)' is invalid"
+            }
+        }
+        if let dup = firstDuplicate(hosts) { return "permissions.network lists '\(dup)' more than once" }
         return nil
     }
 

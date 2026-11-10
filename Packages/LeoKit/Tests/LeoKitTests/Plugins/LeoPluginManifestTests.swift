@@ -318,3 +318,17 @@ struct LeoPluginManifestTests {
         }
     }
 }
+
+extension LeoPluginManifestTests {
+    @Test(arguments: ["*", "*.com", "https://api.github.com", "api.github.com/x", "localhost", "127.0.0.1"])
+    func badNetworkHostPatternsAreRefusedAtInstall(_ pattern: String) {
+        let reason = Self.refusal(Self.mutated { $0["permissions"] = ["network": [pattern]] })
+        #expect(reason.contains("network"))
+        #expect(reason.contains(pattern))
+    }
+
+    @Test func duplicateNetworkHostsAreRefusedCaseInsensitively() {
+        let reason = Self.refusal(Self.mutated { $0["permissions"] = ["network": ["a.test", "A.test."]] })
+        #expect(reason.contains("network"))
+    }
+}
