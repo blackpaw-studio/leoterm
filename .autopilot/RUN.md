@@ -73,6 +73,7 @@ Lane: B-379
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T03:13:55Z
 
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
@@ -86,3 +87,4 @@ Progress:
 - Board sync: B-378 --item sync exited 1 once (stderr not captured); retry succeeded.
 - B-378 runner d-02ac03fa87fd, parallel with B-368 (different test files).
 - B-368 landed e5c13d879 (test helper waits through main-thread stalls; 5/6 pre-fix fails → 20/20 passes). Verifier saw two other load flakes outside the diff: LeoSettingsWindowCloseTests/discardingBothClosesTheWindowAndDropsThePaneEdits, and a host crash rc=5 in aHungMachineDoesNotDelayAnother.
+- B-379 runner d-9acab79d2518, parallel with B-378 (different test files).
