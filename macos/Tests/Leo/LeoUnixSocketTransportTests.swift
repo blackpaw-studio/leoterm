@@ -29,24 +29,11 @@ struct LeoUnixSocketTransportTests {
     }
 
     @Test func cancellationClosesConnection() async throws {
-        let probe = DispatchSemaphore(value: 0)
         let peerObservedClose = DispatchSemaphore(value: 0)
         let server = try UnixSocketTestServer { client in
-            var noSigPipe: Int32 = 1
-            _ = setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
             var requestByte: UInt8 = 0
             _ = recv(client, &requestByte, 1, 0)
-            _ = probe.wait(timeout: .now() + 1)
-            var byte: UInt8 = 65
-            let sent = Darwin.send(client, &byte, 1, 0)
-            if sent < 0, errno == EPIPE || errno == ECONNRESET {
-                peerObservedClose.signal()
-            } else if sent >= 0 {
-                var responseByte: UInt8 = 0
-                if recv(client, &responseByte, 1, 0) == 0 {
-                    peerObservedClose.signal()
-                }
-            }
+            if waitForPeerClose(client) { peerObservedClose.signal() }
         }
         let task = Task { () -> Error? in
             do {
@@ -60,8 +47,34 @@ struct LeoUnixSocketTransportTests {
         let error = await task.value
         #expect(error is CancellationError)
         #expect(start.duration(to: .now) < .milliseconds(400))
-        probe.signal()
-        #expect(peerObservedClose.wait(timeout: .now() + 1) == .success)
+        #expect(peerObservedClose.wait(timeout: .now() + 5) == .success)
+        #expect(server.waitForHandler())
+    }
+
+    @Test func peerCloseIsReportedOnlyOnceThePeerCloses() async throws {
+        let peerClosed = FlagBox()
+        let reportedClose = FlagBox()
+        let reportedBeforePeerClosed = FlagBox()
+        let handlerDone = DispatchSemaphore(value: 0)
+        let server = try UnixSocketTestServer { client in
+            var firstByte: UInt8 = 0
+            _ = recv(client, &firstByte, 1, 0)  // the rest of the request stays unread
+            if waitForPeerClose(client) {
+                reportedClose.set()
+                if !peerClosed.get() { reportedBeforePeerClosed.set() }
+            }
+            handlerDone.signal()
+        }
+        let peer = try connectUnixClient(to: server.path)
+        _ = Darwin.send(peer, "hello", 5, 0)
+        #expect(server.waitForConnection())
+
+        peerClosed.set()
+        Darwin.close(peer)
+
+        #expect(handlerDone.wait(timeout: .now() + 5) == .success)
+        #expect(reportedClose.get())
+        #expect(!reportedBeforePeerClosed.get())
         #expect(server.waitForHandler())
     }
 
