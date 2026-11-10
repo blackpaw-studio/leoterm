@@ -147,13 +147,16 @@ struct LeoAgentRowProgressPresentationTests {
         }
     }
 
-    @Test func taskTitleOnLineTwoOpensTasks() {
-        #expect(presentation([Self.task()]).detailOpensTasks)
-        #expect(presentation([Self.task(stale: true)]).detailOpensTasks)
-        #expect(presentation([Self.task(state: .failed)]).detailOpensTasks)
-        #expect(!presentation([Self.task()], error: "Start failed").detailOpensTasks)
-        #expect(!presentation([Self.task()], attention: .needsInput).detailOpensTasks)
-        #expect(!presentation([]).detailOpensTasks)
+    /// B-390 / D-766: the spinning symbol opens Tasks for every task set
+    /// (including the indeterminate one, which draws no trailing indicator),
+    /// and a row without a task leaves it a plain symbol. Line 2 never opens
+    /// Tasks: the presentation has no such route, so a click there selects.
+    @Test func symbolOpensTasksOnlyWithATask() {
+        // The same condition as the row's "Show Tasks" VoiceOver action.
+        for (index, tasks) in Self.everyTaskSet.enumerated() where index != 0 {
+            #expect(presentation(tasks, activity: .working).symbolOpensTasks)
+        }
+        #expect(!presentation([], activity: .working).symbolOpensTasks)
     }
 
     @Test func workingSymbolSpinsWithNoIndicator() {
