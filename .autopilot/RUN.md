@@ -31,12 +31,17 @@ Lane: B-390
   Branch: autopilot-lane/B-390
   Base: a8da19c74da732d2a2a4034c49dfae1b653998f6
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b715e557b5833b0161bff6d4ce48ac222f09690b
   Dispatched: 2026-11-10T18:18:26Z
+  Call: "spinning icon" = the leading state symbol (the trailing indicator was already clickable and is hidden for an indeterminate task) — D-766
+  Call: the symbol opens Tasks for any row with a task, succeeded included, to match the Show Tasks VoiceOver condition — D-766
+  Call: trailing indicator, Show Tasks VoiceOver action and indeterminate-task fallback unchanged — D-746
+  Call: line-2 `.help` tooltip (the B-381 risk) is now plain text with no click route — D-766
+  Call: Mac only; iOS has no task-list tap target — VISION 6, repo AGENTS.md
 
 Lane: B-391
   Branch: autopilot-lane/B-391
