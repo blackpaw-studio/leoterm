@@ -2791,15 +2791,18 @@ Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red inter
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-358)
 
-## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [ready]
+## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [blocked]
 Issue: #348
 Type: bug
 Report: the task dismiss buttons in the popover from the toolbar dont work
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T193908985898Z-13120181#1
+Question: couldn't reproduce — a test sending dismissTask(host:.local, agent:"alpha", id:"build") through a stub daemon passed, and the dismiss path (popover button → LeoAgentActions.dismissTask → DELETE /agents/{name}/tasks/{id}) reads correct. Unconfirmed suspects: (1) the toolbar popover is never key, so the Dismiss link may swallow the first click; (2) the daemon returns 409 for source:auto tasks and dismissTask silently swallows 409/404. Which tasks show a dead Dismiss (auto vs agent-reported), does a second click work, and does the sidebar popover fail too? Reply "B-375: close" to close it, or "B-375: <more detail>" to retry. Work kept on autopilot-shelved/B-375.
+Answer:
 
 ## B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…   [ready]
+Issue: #352
 Type: bug
 Report: closingTheWindowFreesItsHiddenShells is flaky — failed in the leo-v0.33.0 release CI (LeoTerminalRowsIntegrationTests.swift:1414, `await eventually { alive.view == nil }`), alongside B-368's theProbeSurvivesTheSidebarResizingAfterItReported; release CI tolerates zero failures, so either flake blocks a release
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2807,6 +2810,7 @@ Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T003419242728Z-16554697#1
 
 ## B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…   [ready]
+Issue: #353
 Type: bug
 Report: cancellationClosesConnection is flaky — failed the leo-v0.33.1 release CI (LeoUnixSocketTransportTests.swift:64, peerObservedClose.wait(timeout: .now() + 1) timed out); a 1s wall-clock wait on a hosted runner; release CI tolerates zero failures
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2814,6 +2818,7 @@ Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T005836546016Z-6e140707#1
 
 ## B-380 · did you change behavior so that only the selected agent's status icon…   [ready]
+Issue: #354
 Type: bug
 Report: did you change behavior so that only the selected agent's status icon spins? if so i dont think its working. i have one agent spinning but the others dont spin when selected, just the one that spins just keeps spinning
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2821,6 +2826,7 @@ Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T012831517385Z-204ed034#1
 
 ## B-381 · Working arrows always spin; static determinate pie; hide indeterminate…   [ready]
+Issue: #355
 Note: Working arrows always spin; static determinate pie; hide indeterminate tasks
 Why: The left status column should mean the same thing on every row; a still "rotate" glyph reads as stalled (Evan, 2026-11-09; mockup option B at https://claude.ai/artifact/JpaVq6SzSXzKPfoyUyiTgn).
 Accept: A working agent's left arrows rotate whether or not it has a running task (reduce-motion still respected); a determinate task shows a static pie that steps with progress, no animation; an indeterminate running task shows no trailing indicator; a stalled task still shows its static stalled mark; the task stays reachable from the row (e.g. second-line task title opens it).
