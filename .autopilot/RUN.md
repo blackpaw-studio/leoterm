@@ -31,7 +31,7 @@ Lane: B-368
   Branch: autopilot-lane/B-368
   Base: 1ff28347079270c7808348d616101f3a02af1b3f
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -64,6 +64,7 @@ Lane: B-378
   Dispatched: 2026-11-10T02:19:17Z
 
 Finished 1: B-375 blocked
+Finished 2: B-368 landed e5c13d879 · not visually verified
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
@@ -73,3 +74,4 @@ Progress:
 - B-375 blocked: couldn't reproduce (test through stub daemon passed). Suspects: popover first-click swallowed (never key window); daemon 409 on source:auto tasks swallowed by dismissTask. Test patch /tmp/b375-dismiss-test.patch.
 - Board sync: B-378 --item sync exited 1 once (stderr not captured); retry succeeded.
 - B-378 runner d-02ac03fa87fd, parallel with B-368 (different test files).
+- B-368 landed e5c13d879 (test helper waits through main-thread stalls; 5/6 pre-fix fails → 20/20 passes). Verifier saw two other load flakes outside the diff: LeoSettingsWindowCloseTests/discardingBothClosesTheWindowAndDropsThePaneEdits, and a host crash rc=5 in aHungMachineDoesNotDelayAnother.

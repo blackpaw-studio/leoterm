@@ -2784,12 +2784,14 @@ Inbox: 20261109T210810339036Z-880b9051#1
 Done: 7119ca3dd, 025024ab5
 Verified: not visually verified — no UI change (browser_eval's result is an agent tool result)
 
-## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [ready]
+## B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky   [done]
 Issue: #344
 Type: bug
 Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red intermittently (3 of 3 fails on pre-B-358 commit 0cbbd83a7, green on a 4th full run), so a red CI run costs a re-run
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-358)
+Done: f2c68564b
+Verified: not visually verified — no UI change (test-only diff)
 
 ## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [blocked]
 Issue: #348

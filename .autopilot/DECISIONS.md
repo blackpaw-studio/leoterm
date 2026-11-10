@@ -582,3 +582,15 @@ Chose: Mac only (agent browser is a Mac WKWebView pane) — platform rule
 Item: B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…
 Commit: 7119ca3dd, 025024ab5
 Veto: [ ]
+
+## D-736 · 2026-11-09 · B-368: Mac only (macos/ test code, no iOS counterpart) — AGENTS.md parity rule
+Chose: Mac only (macos/ test code, no iOS counterpart) — AGENTS.md parity rule
+Item: B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky
+Commit: f2c68564b
+Veto: [ ]
+
+## D-737 · 2026-11-09 · B-368: Test-helper flake fix — AUTONOMY "agent decides"
+Chose: Test-helper flake fix — AUTONOMY "agent decides"
+Item: B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky
+Commit: f2c68564b
+Veto: [ ]
