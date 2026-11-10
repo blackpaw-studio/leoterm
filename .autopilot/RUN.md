@@ -36,6 +36,7 @@ Lane: B-368
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T01:50:37Z
 
 Lane: B-375
   Branch: autopilot-lane/B-375
@@ -46,8 +47,10 @@ Lane: B-375
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T01:50:37Z
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
 - Inbox applied: created B-378, B-379, B-380 (bugs), B-381 (feature).
 - Picked B-368 and B-375 in parallel (independent: a sidebar-resize test vs the toolbar Tasks popover).
+- Runners: B-368 d-8cd585787fee, B-375 d-a74d172f9b82 (leo implement role).
