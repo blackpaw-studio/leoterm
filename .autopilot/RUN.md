@@ -53,6 +53,17 @@ Lane: B-387
   Call: Mac only — bundled daemon is a Mac app concern
   Tokens: 3.86M in (3.64M cache read), ≥16k out, 50 requests
 
+Lane: B-389
+  Branch: autopilot-lane/B-389
+  Base: b27ca98019c76eb81399cf24fda342d2a8bb77ce
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T15:38:19Z
+
 Finished 1: B-387 landed c4952d79b · not visually verified
 
 Progress:
@@ -60,3 +71,4 @@ Progress:
 - Runners: B-385 d-33e7402b9bf1, B-387 d-45fee2bdf463 (leo implement role), parallel (independent: agent-browser UA vs bundled LEO_VERSION).
 - B-387 landed c4952d79b (PR #356 head 57d20ed25 intact). Gap: Debug app has no bundled helper; verifier checked the tarball sha256 + `leo 0.81.0` instead.
 - Inbox applied: B-389
+- Lane finish (mid-run, my slip; harmless): removed landed B-387 branch; B-368 lane worktree is dirty (1 change), left in place.
