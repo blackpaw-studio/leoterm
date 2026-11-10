@@ -877,3 +877,26 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-10 (18:17Z)
+
+🛠 leoterm autopilot — 2 fixed, 0 shipped, 0 blocked
+Fixed
+• B-390 Row status text no longer opens Tasks — the leading state icon does; line-2 click selects the row (verified: screenshot) · light
+• B-391 Browser bridge no longer wedges on a hung eval — the daemon's 30 s cancel frees the queue and ends the page script (not visually verified; local-page repro, later calls ≤55 ms) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-766 Tasks click moves to the activity icon (supersedes D-745, your report)
+• D-767..771 "spinning icon" = leading state symbol; opens for any row with a task; Mac only
+• D-772..775 free the queue on the daemon's cancel, no app-side timer; LeoOnce helper; Mac only
+Needs you
+• B-390: "spinning icon" read as the leading state symbol (the trailing indicator already opened Tasks). Hover tooltip and Show Tasks menu path not GUI-checked.
+• B-391 relies on the daemon sending a cancel at 30 s (leo calls.go:161); not re-checked live.
+• Lane B-368 worktree still has 1 uncommitted change (left in place)
+Self-filed
+• B-392 idea (from B-391) — Clearer error than WebKit's "no longer reachable" for a hung browser_eval
+Next up: no ready items
+Spend (estimated, lower bound · prices 2026-10-09): ≈$15.20 est. — B-390 $2.62, B-391 $12.58
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
