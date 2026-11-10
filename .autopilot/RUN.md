@@ -39,6 +39,7 @@ Lane: B-368
   Dispatched: 2026-11-10T01:50:37Z
   Call: Mac only (macos/ test code, no iOS counterpart) — AGENTS.md parity rule
   Call: Test-helper flake fix — AUTONOMY "agent decides"
+  Tokens: 12.1M in (11.8M cache read), ≥47.5k out, 125 requests
 
 Lane: B-375
   Branch: autopilot-lane/B-375
