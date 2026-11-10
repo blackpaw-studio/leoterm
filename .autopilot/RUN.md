@@ -108,6 +108,7 @@ Finished 2: B-368 landed e5c13d879 · not visually verified
 Finished 3: B-378 landed 9547eaa11 · not visually verified
 Finished 4: B-379 landed aadb7a701 · not visually verified
 Finished 5: B-381 landed 6aac92cfb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-381-1.png
+Finished 6: B-380 blocked
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
@@ -124,3 +125,4 @@ Progress:
 - B-381 runner d-dcf15983d822 (full tier), parallel with B-379.
 - B-379 landed aadb7a701: test bug — probe byte + recv(1) could read a leftover request byte; waitForPeerClose now drains to EOF. Old logic failed 3–7/60 under stress, new 0/300.
 - B-381 landed 6aac92cfb (Mac only). Accepted risks: line-2 .help tooltip may be swallowed by the new click target (fix: move .help after .overlay, LeoAgentRowContent.swift:179-183, needs a real hover check); control-click on line-2 title opens Tasks. Reduce Motion not toggled in verify. B-380 symptom gone per verifier (non-selected working rows turn).
+- B-380 blocked at Decide: B-381 superseded its behavior; verifier saw the symptom gone. Asked owner to close.

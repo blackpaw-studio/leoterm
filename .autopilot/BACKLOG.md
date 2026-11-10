@@ -2823,13 +2823,15 @@ Inbox: 20261110T005836546016Z-6e140707#1
 Done: 2f6080e9d
 Verified: not visually verified — no UI change (test-only diff)
 
-## B-380 · did you change behavior so that only the selected agent's status icon…   [ready]
+## B-380 · did you change behavior so that only the selected agent's status icon…   [blocked]
 Issue: #354
 Type: bug
 Report: did you change behavior so that only the selected agent's status icon spins? if so i dont think its working. i have one agent spinning but the others dont spin when selected, just the one that spins just keeps spinning
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T012831517385Z-204ed034#1
+Question: couldn't reproduce — B-381 (landed 6aac92cfb) made every working agent's arrows turn regardless of selection or task, and its verifier saw the non-selected working rows keep turning (shots B-381-16 to B-381-19). A selected working row wasn't tested, because that would attach a real agent. I'd close this unless you still see it after merging autopilot. Reply "B-380: close" to close it, or "B-380: <more detail>" to retry.
+Answer:
 
 ## B-381 · Working arrows always spin; static determinate pie; hide indeterminate…   [done]
 Issue: #355
