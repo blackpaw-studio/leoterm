@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-10T01:47:19Z
 Budget: 20 items, until 2026-11-10T13:47:19Z
-Digested-through: 0
+Digested-through: 5
 Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-381 → B-382 idea — Show Tasks item in the agent row's context menu
 Self-filed: B-381 → B-383 idea — iOS tasks-row parity: static pie, no indeterminate spinner
