@@ -57,12 +57,14 @@ Lane: B-378
   Branch: autopilot-lane/B-378
   Base: 2e7ae40c70b8de8ac3c9fdcdb20136ca8f4e4e91
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 19b5732d15421f055effb5d1c1dbb698dbfcea7f
   Dispatched: 2026-11-10T02:19:17Z
+  Call: Fix the retained-view bug in product code, not just the test's wait — AUTONOMY "bug fixes, flake fixes"
+  Call: Mac only (Ghostty surface code in macos/, iOS has no equivalent) — AGENTS.md parity rule
 
 Lane: B-379
   Branch: autopilot-lane/B-379
