@@ -2803,13 +2803,15 @@ Inbox: 20261109T193908985898Z-13120181#1
 Question: couldn't reproduce — a test sending dismissTask(host:.local, agent:"alpha", id:"build") through a stub daemon passed, and the dismiss path (popover button → LeoAgentActions.dismissTask → DELETE /agents/{name}/tasks/{id}) reads correct. Unconfirmed suspects: (1) the toolbar popover is never key, so the Dismiss link may swallow the first click; (2) the daemon returns 409 for source:auto tasks and dismissTask silently swallows 409/404. Which tasks show a dead Dismiss (auto vs agent-reported), does a second click work, and does the sidebar popover fail too? Reply "B-375: close" to close it, or "B-375: <more detail>" to retry. Work kept on autopilot-shelved/B-375.
 Answer:
 
-## B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…   [ready]
+## B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…   [done]
 Issue: #352
 Type: bug
 Report: closingTheWindowFreesItsHiddenShells is flaky — failed in the leo-v0.33.0 release CI (LeoTerminalRowsIntegrationTests.swift:1414, `await eventually { alive.view == nil }`), alongside B-368's theProbeSurvivesTheSidebarResizingAfterItReported; release CI tolerates zero failures, so either flake blocks a release
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T003419242728Z-16554697#1
+Done: e0daf5ecb
+Verified: not visually verified — no UI change (object lifetime of a window-less surface)
 
 ## B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…   [ready]
 Issue: #353
