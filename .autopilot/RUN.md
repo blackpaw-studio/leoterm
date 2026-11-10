@@ -86,12 +86,18 @@ Lane: B-381
   Branch: autopilot-lane/B-381
   Base: 689016d00e53281e25a5bb0dcedf0f0b2ae0b28d
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 2d0cc3c54cdbf3de92289f1b54a58d9ce250ca37
   Dispatched: 2026-11-10T03:34:59Z
+  Call: Mac only: iOS is Out and the filter sits in the Mac presentation, not LeoKit — AGENTS.md platform rule
+  Call: Indeterminate task falls back to the row's trailing time, per LeoKit's nil contract — VISION 2 (never invent a state)
+  Call: Line-2 task title opens Tasks on every row whose line 2 shows a task; hit area is the text only — VISION 1, accept's own example
+  Call: Removed the dead indeterminate spinner code from LeoTaskIndicatorView — AUTONOMY agent decides
+  Call: Rebuilt the GhosttyKit xcframework inside the lane because the shared one was stale (build output, untracked) — AUTONOMY agent decides
+  Call: Left the toolbar capsule's spinner alone — outside the row, not in the accept
 
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
