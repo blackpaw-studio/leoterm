@@ -57,7 +57,7 @@ Lane: B-378
   Branch: autopilot-lane/B-378
   Base: 2e7ae40c70b8de8ac3c9fdcdb20136ca8f4e4e91
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -79,6 +79,7 @@ Lane: B-379
 
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
+Finished 3: B-378 landed 9547eaa11 · not visually verified
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
@@ -90,3 +91,4 @@ Progress:
 - B-378 runner d-02ac03fa87fd, parallel with B-368 (different test files).
 - B-368 landed e5c13d879 (test helper waits through main-thread stalls; 5/6 pre-fix fails → 20/20 passes). Verifier saw two other load flakes outside the diff: LeoSettingsWindowCloseTests/discardingBothClosesTheWindowAndDropsThePaneEdits, and a host crash rc=5 in aHungMachineDoesNotDelayAnother.
 - B-379 runner d-9acab79d2518, parallel with B-378 (different test files).
+- B-378 landed 9547eaa11: Ghostty.moveFocus retries held the hidden surface strongly (~0.8 s); now weak captures. Test waits run-loop turns instead of 3 s wall clock.

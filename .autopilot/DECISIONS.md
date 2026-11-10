@@ -594,3 +594,15 @@ Chose: Test-helper flake fix — AUTONOMY "agent decides"
 Item: B-368 · theProbeSurvivesTheSidebarResizingAfterItReported is flaky
 Commit: f2c68564b
 Veto: [ ]
+
+## D-738 · 2026-11-09 · B-378: Fix the retained-view bug in product code, not just the test's wait — AUTONOMY "bug fixes, flake fixes"
+Chose: Fix the retained-view bug in product code, not just the test's wait — AUTONOMY "bug fixes, flake fixes"
+Item: B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…
+Commit: e0daf5ecb
+Veto: [ ]
+
+## D-739 · 2026-11-09 · B-378: Mac only (Ghostty surface code in macos/, iOS has no equivalent) — AGENTS.md parity rule
+Chose: Mac only (Ghostty surface code in macos/, iOS has no equivalent) — AGENTS.md parity rule
+Item: B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…
+Commit: e0daf5ecb
+Veto: [ ]
