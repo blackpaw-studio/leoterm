@@ -48,8 +48,19 @@ Lane: B-375
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-10T01:50:37Z
-Finished 1: B-375 blocked
   Tokens: 9.34M in (9.13M cache read), ≥26.7k out, 83 requests
+
+Lane: B-378
+  Branch: autopilot-lane/B-378
+  Base: 2e7ae40c70b8de8ac3c9fdcdb20136ca8f4e4e91
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Finished 1: B-375 blocked
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
