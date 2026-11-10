@@ -8,7 +8,7 @@ struct LeoBrowserToolsTests {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
             "browser_type", "browser_press", "browser_screenshot", "browser_wait", "browser_eval", "browser_console",
-            "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_handoff",
+            "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_handoff",
         ])
     }
 
@@ -40,6 +40,23 @@ struct LeoBrowserToolsTests {
             return list
         }
         for name in ["browser_tab_select", "browser_tab_close"] { #expect(required(name) == [.string("tab")], "\(name)") }
+    }
+
+    @Test func userAgentParametersSayWhatTheyDo() throws {
+        func definition(_ name: String) throws -> LeoClientToolDefinition { try #require(LeoBrowserTools.definitions.first { $0.name == name }) }
+        func property(_ name: String) throws -> String? {
+            try definition(name).inputSchema.objectValue?["properties"]?.objectValue?["user_agent"]?.objectValue?["description"]?.stringValue
+        }
+        for name in ["browser_tab_new", "browser_user_agent"] {
+            let text = try #require(try property(name), "\(name)")
+            #expect(text.contains("navigator.userAgent"), "\(name)")
+            #expect(text.contains("tab is closed"), "\(name)")
+        }
+        #expect(try property("browser_user_agent")?.contains("Pass an empty string to clear") == true)
+        #expect(try definition("browser_user_agent").inputSchema.objectValue?["required"] == .array([.string("user_agent")]))
+        let tool = try definition("browser_user_agent")
+        #expect(tool.description.contains("next navigation"))
+        #expect(tool.description.contains("default"))
     }
 
     @Test func everyDefinitionDecodesFromItsOwnSampleArgs() throws {

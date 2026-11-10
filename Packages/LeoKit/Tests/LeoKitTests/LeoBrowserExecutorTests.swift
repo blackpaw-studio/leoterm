@@ -231,6 +231,28 @@ struct LeoBrowserExecutorTests {
         #expect(h.tabs.opened == ["about:blank"])
     }
 
+    @Test func tabNewHandsTheUserAgentOverrideToTheTabBeforeItLoads() async {
+        let h = harness()
+        let outcome = await run(h, "browser_tab_new", ["url": .string("http://localhost:5173/"), "user_agent": .string("Bot/1.0")])
+        #expect(errorCode(outcome) == nil)
+        #expect(h.tabs.pages[2]?.userAgent == "Bot/1.0")
+    }
+
+    @Test func userAgentSetsTheOverrideOnTheTargetTabAndClearsItWithAnEmptyString() async {
+        let h = harness(pageCount: 2)
+        #expect(texts(await run(h, "browser_user_agent", ["user_agent": .string("Bot/1.0"), "tab": .int(2)])) == ["ok"])
+        #expect(h.tabs.pages[2]?.userAgent == "Bot/1.0")
+        #expect(h.tabs.pages[1]?.userAgent == nil)
+        _ = await run(h, "browser_user_agent", ["user_agent": .string(""), "tab": .int(2)])
+        #expect(h.tabs.pages[2]?.userAgent == nil)
+        #expect(h.tabs.pages[2]?.calls == ["userAgent Bot/1.0", "userAgent nil"])
+    }
+
+    @Test func userAgentOnAMissingTabIsNoSuchTab() async {
+        let h = harness()
+        #expect(errorCode(await run(h, "browser_user_agent", ["user_agent": .string("x"), "tab": .int(9)])) == "no_such_tab")
+    }
+
     @Test func theEleventhTabIsTabLimitAndOpensNothing() async {
         let h = harness(pageCount: LeoBrowserLimits.maximumTabs)
         #expect(errorCode(await run(h, "browser_tab_new")) == "tab_limit")
@@ -263,7 +285,7 @@ struct LeoBrowserExecutorTests {
             ("browser_reload", [:]), ("browser_click", ["ref": .string("e1")]),
             ("browser_type", ["ref": .string("e1"), "text": .string("x")]), ("browser_press", ["key": .string("Enter")]),
             ("browser_eval", ["js": .string("1")]), ("browser_tab_new", [:]), ("browser_tab_select", ["tab": .int(1)]),
-            ("browser_tab_close", ["tab": .int(1)]),
+            ("browser_tab_close", ["tab": .int(1)]), ("browser_user_agent", ["user_agent": .string("x")]),
         ]
         for (tool, args) in calls {
             let outcome = await run(h, tool, args)
@@ -452,6 +474,12 @@ private final class FakePage: LeoBrowserPage {
     var console = LeoBrowserConsoleBatch(entries: [], cursor: 0)
     var error: (any Error)?
     var snapshotGate: Latch?
+    var userAgent: String?
+
+    func setUserAgent(_ userAgent: String?) {
+        calls.append("userAgent \(userAgent ?? "nil")")
+        self.userAgent = userAgent
+    }
 
     var url: URL? { currentURL }
     var title: String { currentTitle }
@@ -524,9 +552,10 @@ private final class FakeTabs: LeoBrowserTabs {
 
     func page(forTab id: Int?) -> (any LeoBrowserPage)? { (id ?? activeID).flatMap { pages[$0] } }
 
-    func openTab(url: URL) async throws -> Int {
+    func openTab(url: URL, userAgent: String?) async throws -> Int {
         opened.append(url.absoluteString)
         let id = add()
+        pages[id]?.userAgent = userAgent
         activeID = id
         return id
     }

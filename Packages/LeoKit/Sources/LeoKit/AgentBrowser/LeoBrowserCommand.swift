@@ -50,11 +50,13 @@ public struct LeoBrowserCommand: Equatable, Sendable {
         case "browser_tabs":
             self.init(tab: nil, action: .tabs)
         case "browser_tab_new":
-            self.init(tab: nil, action: .tabNew(url: try reader.string("url")))
+            self.init(tab: nil, action: .tabNew(url: try reader.string("url"), userAgent: try Self.userAgent(reader, required: false)))
         case "browser_tab_select":
             self.init(tab: nil, action: .tabSelect(tab: try reader.requiredTab()))
         case "browser_tab_close":
             self.init(tab: nil, action: .tabClose(tab: try reader.requiredTab()))
+        case "browser_user_agent":
+            self.init(tab: try reader.tab(), action: .setUserAgent(try Self.userAgent(reader, required: true)))
         case "browser_handoff":
             self.init(tab: nil, action: .handoff(message: try reader.requiredString("message")))
         default:
@@ -64,6 +66,30 @@ public struct LeoBrowserCommand: Equatable, Sendable {
 
     /// The longest `browser_wait` the page honours, in milliseconds.
     public static let maximumWaitMilliseconds = 25_000
+
+    /// The longest user agent an override accepts, in characters.
+    public static let maximumUserAgentLength = 1024
+
+    /// The `user_agent` arg: nil for "no override" (an empty or whitespace-only
+    /// string). When `required`, a missing or null value is `invalid_args`, so
+    /// a bare call cannot wipe an override by accident; only `""` clears.
+    /// The value goes out in a request header, so it must be printable ASCII
+    /// (0x20-0x7E): no CR/LF, NUL or other control characters, and nothing
+    /// non-ASCII.
+    private static func userAgent(_ reader: LeoBrowserArgs, required: Bool) throws -> String? {
+        guard let userAgent = try reader.string("user_agent") else {
+            if required { throw LeoBrowserError.invalidArgs("user_agent is required; pass an empty string to clear the override") }
+            return nil
+        }
+        guard !userAgent.allSatisfy(\.isWhitespace) else { return nil }
+        guard userAgent.count <= maximumUserAgentLength else {
+            throw LeoBrowserError.invalidArgs("user_agent must be at most \(maximumUserAgentLength) characters")
+        }
+        guard userAgent.unicodeScalars.allSatisfy({ (0x20...0x7E).contains($0.value) }) else {
+            throw LeoBrowserError.invalidArgs("user_agent must be printable ASCII")
+        }
+        return userAgent
+    }
 
     private static func waitCondition(_ reader: LeoBrowserArgs) throws -> LeoBrowserAction.WaitCondition {
         let text = try reader.string("text")
@@ -104,16 +130,19 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// captured since the last call.
     case console(since: Int?)
     case tabs
-    case tabNew(url: String?)
+    /// `userAgent` overrides the tab's user agent from its first load; nil keeps the default.
+    case tabNew(url: String?, userAgent: String?)
     case tabSelect(tab: Int)
     case tabClose(tab: Int)
+    /// Sets the tab's user agent override; nil clears it back to the default.
+    case setUserAgent(String?)
     case handoff(message: String)
 
     /// Whether the action changes the page or the tab set, and so fails with
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .click, .type, .press, .eval, .tabNew, .tabSelect, .tabClose: true
+        case .navigate, .back, .forward, .reload, .click, .type, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
         case .snapshot, .screenshot, .wait, .console, .tabs, .handoff: false
         }
     }

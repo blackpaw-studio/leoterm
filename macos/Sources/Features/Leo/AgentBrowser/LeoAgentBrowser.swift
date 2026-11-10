@@ -147,8 +147,9 @@ import WebKit
         list.first { $0.id == (id ?? activeID) }?.page
     }
 
-    func openTab(url: URL) async throws -> Int {
+    func openTab(url: URL, userAgent: String?) async throws -> Int {
         let tab = add(LeoWKBrowserPage(configuration: configuration, allowsURL: allowsURL, input: input))
+        tab.page.setUserAgent(userAgent)
         try await tab.page.load(url)
         return tab.id
     }
@@ -188,7 +189,11 @@ import WebKit
             opener?.noteConsole(level: "error", text: "tab_limit: \(LeoBrowserError.tabLimit(LeoBrowserLimits.maximumTabs).message); a new window was not opened")
             return nil
         }
-        return add(LeoWKBrowserPage(configuration: configuration, allowsURL: allowsURL, input: input)).page.webView
+        let popup = add(LeoWKBrowserPage(configuration: configuration, allowsURL: allowsURL, input: input))
+        // An empty `customUserAgent` means "no override"; copy only a real one.
+        let openerOverride = list.first { $0.page.webView === webView }?.page.webView.customUserAgent
+        popup.page.setUserAgent(openerOverride.flatMap { $0.isEmpty ? nil : $0 })
+        return popup.page.webView
     }
 
     /// `window.close()` from a page closes its tab.

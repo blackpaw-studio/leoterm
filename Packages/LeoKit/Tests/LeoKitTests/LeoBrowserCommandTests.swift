@@ -33,11 +33,43 @@ struct LeoBrowserCommandTests {
         #expect(try decode("browser_console").action == .console(since: nil))
         #expect(try decode("browser_console", ["since": .int(12)]).action == .console(since: 12))
         #expect(try decode("browser_tabs").action == .tabs)
-        #expect(try decode("browser_tab_new").action == .tabNew(url: nil))
-        #expect(try decode("browser_tab_new", ["url": .string("https://a.test")]).action == .tabNew(url: "https://a.test"))
+        #expect(try decode("browser_tab_new").action == .tabNew(url: nil, userAgent: nil))
+        #expect(try decode("browser_tab_new", ["url": .string("https://a.test")]).action == .tabNew(url: "https://a.test", userAgent: nil))
         #expect(try decode("browser_tab_select", ["tab": .int(2)]).action == .tabSelect(tab: 2))
         #expect(try decode("browser_tab_close", ["tab": .int(2)]).action == .tabClose(tab: 2))
         #expect(try decode("browser_handoff", ["message": .string("Log in")]).action == .handoff(message: "Log in"))
+    }
+
+    @Test func userAgentOverridesDecodeOnTabNewAndOnAnExistingTab() throws {
+        #expect(try decode("browser_tab_new", ["user_agent": .string("Bot/1.0")]).action == .tabNew(url: nil, userAgent: "Bot/1.0"))
+        #expect(try decode("browser_tab_new", ["user_agent": .string("")]).action == .tabNew(url: nil, userAgent: nil))
+        #expect(try decode("browser_user_agent", ["user_agent": .string("Bot/1.0")]).action == .setUserAgent("Bot/1.0"))
+        #expect(try decode("browser_user_agent", ["user_agent": .string("Bot/1.0"), "tab": .int(2)]).tab == 2)
+        #expect(try decode("browser_user_agent", ["user_agent": .string("")]).action == .setUserAgent(nil))
+        #expect(try decode("browser_user_agent", ["user_agent": .string("  \t ")]).action == .setUserAgent(nil))
+        #expect(try decode("browser_tab_new", ["user_agent": .string("   ")]).action == .tabNew(url: nil, userAgent: nil))
+        #expect(try decode("browser_tab_new", ["user_agent": .null]).action == .tabNew(url: nil, userAgent: nil))
+        #expect(try decode("browser_user_agent", ["user_agent": .string(" Bot/1.0 ")]).action == .setUserAgent(" Bot/1.0 "))
+        let longest = String(repeating: "a", count: LeoBrowserCommand.maximumUserAgentLength)
+        #expect(try decode("browser_user_agent", ["user_agent": .string(longest)]).action == .setUserAgent(longest))
+    }
+
+    @Test func aBareUserAgentCallFailsInsteadOfClearingTheOverride() {
+        invalidArgs("browser_user_agent")
+        invalidArgs("browser_user_agent", ["tab": .int(2)])
+        invalidArgs("browser_user_agent", ["user_agent": .null])
+    }
+
+    @Test(arguments: ["browser_user_agent", "browser_tab_new"])
+    func headerUnsafeUserAgentsAreInvalidArgs(tool: String) {
+        invalidArgs(tool, ["user_agent": .int(3)])
+        invalidArgs(tool, ["user_agent": .string("Bot/1.0\r\nX-Evil: 1")])
+        invalidArgs(tool, ["user_agent": .string("Bot\n")])
+        invalidArgs(tool, ["user_agent": .string("Bot\u{0}/1.0")])
+        invalidArgs(tool, ["user_agent": .string("Bot\u{7F}/1.0")])
+        invalidArgs(tool, ["user_agent": .string("Bot/é")])
+        invalidArgs(tool, ["user_agent": .string("Bot\u{2028}/1.0")])
+        invalidArgs(tool, ["user_agent": .string(String(repeating: "a", count: LeoBrowserCommand.maximumUserAgentLength + 1))])
     }
 
     @Test func optionalTabTargetsAPageToolAndDefaultsToNil() throws {
@@ -100,7 +132,7 @@ struct LeoBrowserCommandTests {
     @Test func mutatingFlagMarksTheActionsThatChangeThePage() throws {
         let mutating: Set<String> = [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_click", "browser_type",
-            "browser_press", "browser_eval", "browser_tab_new", "browser_tab_select", "browser_tab_close",
+            "browser_press", "browser_eval", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent",
         ]
         for tool in LeoBrowserTools.definitions.map(\.name) {
             let command = try decode(tool, LeoBrowserCommandTests.sampleArgs[tool] ?? [:])
@@ -117,6 +149,7 @@ struct LeoBrowserCommandTests {
         "browser_eval": ["js": .string("1")],
         "browser_tab_select": ["tab": .int(1)],
         "browser_tab_close": ["tab": .int(1)],
+        "browser_user_agent": ["user_agent": .string("Bot/1.0")],
         "browser_handoff": ["message": .string("hi")],
     ]
 }

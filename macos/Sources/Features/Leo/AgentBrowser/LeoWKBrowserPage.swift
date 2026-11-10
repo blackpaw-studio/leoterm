@@ -378,6 +378,11 @@ extension LeoWKBrowserPage: LeoBrowserPage {
 
     func evaluate(_ js: String) async throws -> String { try await eval(js) }
 
+    /// `WKWebView.customUserAgent` replaces the whole user agent, both in the
+    /// request header and in `navigator.userAgent`; nil restores the default
+    /// (the configuration's Safari-versioned one).
+    func setUserAgent(_ userAgent: String?) { webView.customUserAgent = userAgent }
+
     func consoleMessages(since: Int?) -> LeoBrowserConsoleBatch {
         let entries = console(since: since)
         return LeoBrowserConsoleBatch(entries: entries.map { LeoBrowserConsoleEntry(level: $0.level, text: $0.text) }, cursor: consoleSeq)

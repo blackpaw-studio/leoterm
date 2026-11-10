@@ -55,8 +55,8 @@ public final class LeoBrowserExecutor {
         switch command.action {
         case .tabs:
             return [json(.array(tabs.tabs.map(tabEntry)))]
-        case .tabNew(let url):
-            return try await openTab(url: url)
+        case .tabNew(let url, let userAgent):
+            return try await openTab(url: url, userAgent: userAgent)
         case .tabSelect(let tab):
             try requireTab(tab)
             tabs.selectTab(tab)
@@ -78,7 +78,7 @@ public final class LeoBrowserExecutor {
     /// `browser_navigate` with no tab open: open one at the URL instead of
     /// making the agent call `browser_tab_new` first.
     private func navigateInNewTab(url: String) async throws -> [LeoClientToolContent] {
-        let opened = try await openTab(url: url)
+        let opened = try await openTab(url: url, userAgent: nil)
         guard let page = tabs.page(forTab: nil) else { return opened }
         return [report(page)]
     }
@@ -113,18 +113,20 @@ public final class LeoBrowserExecutor {
             return [.text(try await page.evaluate(js))]
         case .console(let since):
             return [consoleReport(page.consoleMessages(since: since))]
+        case .setUserAgent(let userAgent):
+            page.setUserAgent(userAgent)
         case .wait(.milliseconds), .tabs, .tabNew, .tabSelect, .tabClose, .handoff:
             throw LeoBrowserError.invalidArgs("\(action) is not a page action")
         }
         return [Self.ok]
     }
 
-    private func openTab(url: String?) async throws -> [LeoClientToolContent] {
+    private func openTab(url: String?, userAgent: String?) async throws -> [LeoClientToolContent] {
         let remote = try url.map(LeoBrowserURLPolicy.validate)
         guard tabs.tabs.count < LeoBrowserLimits.maximumTabs else { throw LeoBrowserError.tabLimit(LeoBrowserLimits.maximumTabs) }
         var local = Self.blank
         if let remote { local = try await urlMapping.toLocal(remote) }
-        let id = try await tabs.openTab(url: local)
+        let id = try await tabs.openTab(url: local, userAgent: userAgent)
         return [json(.object(["tab": .int(id)]))]
     }
 

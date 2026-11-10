@@ -37,10 +37,17 @@ public protocol LeoBrowserTabs: AnyObject {
 
     /// Opens a tab, makes it active and loads `url` (`about:blank` for a blank
     /// tab), returning its id once the load finishes. `url` is already in local terms.
-    func openTab(url: URL) async throws -> Int
+    /// A non-nil `userAgent` is set before that load, so the first request carries it.
+    func openTab(url: URL, userAgent: String?) async throws -> Int
 
     func selectTab(_ id: Int)
 
     /// Closes a tab; when it was active, the browser picks another active tab.
     func closeTab(_ id: Int)
+}
+
+extension LeoBrowserTabs {
+    /// Opens a tab with the browser's default user agent.
+    @discardableResult
+    public func openTab(url: URL) async throws -> Int { try await openTab(url: url, userAgent: nil) }
 }

@@ -33,7 +33,7 @@ struct LeoWKBrowserPageProtocolTests {
 
         var tabs: [LeoBrowserTabInfo] { [LeoBrowserTabInfo(id: 1, url: page.url, title: page.title, isActive: true)] }
         func page(forTab id: Int?) -> (any LeoBrowserPage)? { id == nil || id == 1 ? page : nil }
-        func openTab(url: URL) async throws -> Int { 1 }
+        func openTab(url: URL, userAgent: String?) async throws -> Int { 1 }
         func selectTab(_ id: Int) {}
         func closeTab(_ id: Int) {}
     }

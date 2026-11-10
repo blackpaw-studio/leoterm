@@ -13,7 +13,7 @@ import LeoKit
 
     func page(forTab id: Int?) -> (any LeoBrowserPage)? { nil }
 
-    func openTab(url: URL) async throws -> Int {
+    func openTab(url: URL, userAgent: String?) async throws -> Int {
         opened.append(url)
         return 1
     }

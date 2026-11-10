@@ -78,6 +78,11 @@ public protocol LeoBrowserPage: AnyObject {
     /// result. Throws `js_error` when the script throws.
     func evaluate(_ js: String) async throws -> String
 
+    /// Overrides the user agent sent on later navigations and seen by page JS
+    /// (`navigator.userAgent`); nil clears the override back to the default.
+    /// Lasts as long as the page.
+    func setUserAgent(_ userAgent: String?)
+
     /// Console messages after `since`, or since the previous call when nil. The
     /// page keeps the last 500 messages and the cursor counts every message ever
     /// seen, so it only grows.
