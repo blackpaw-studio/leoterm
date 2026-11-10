@@ -64,6 +64,16 @@ Lane: B-378
   Reviewed-tip: none
   Dispatched: 2026-11-10T02:19:17Z
 
+Lane: B-379
+  Branch: autopilot-lane/B-379
+  Base: 9e8da8e038bf5150f1a3e3d14795dc60e8a5e0db
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-375 blocked
 Finished 2: B-368 landed e5c13d879 · not visually verified
 
