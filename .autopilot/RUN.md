@@ -98,3 +98,4 @@ Progress:
 - Runner: B-389 d-91e6580ccdef (light). Released B-387 panes.
 - B-389 landed 2fdce467e: leo-bump.yml closes lower-version bump/leo-* PRs ("Superseded by #N"); 4 script test files pass; stubbed-gh dry run. Accepted risks: first failed gh close aborts the rest (next bump retries); `gh pr list --head` fork-name collision.
 - B-385 landed 6af1bf283: agent browser UA now ends "Version/<installed Safari major.minor> Safari/605.1.15" (fallback 17.0). Verified in a standalone WKWebView (hyatt.com + chase.com/travel load); Chase sign-in redirect not reproduced end to end. Debug-app Open Browser failed with a daemon-connection error on both agents (unexplained, outside the diff) — shot shows that failure, not the UA.
+- Runner: B-386 d-9f705c1e5e23 (full). Released B-385 runner pane.
