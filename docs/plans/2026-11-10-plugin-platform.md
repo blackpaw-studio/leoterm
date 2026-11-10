@@ -408,3 +408,15 @@ Landable milestones: M1 alone is inert. M2 and M3 ship disabled behind no UI. M4
 ## Orchestrator decisions (2026-11-10)
 
 All ✱ recommendations above are accepted as written: Q1 (M0 decides; fallback needs Evan), Q2, Q3, Q4, Q5, Q6, Q7, Q8, Q9, Q10 (= 2), Q11, Q15, Q16, Q19 (10 MB). Q4–Q7 and Q9 are folded back into the spec, so implementers treat the spec as the source for them.
+
+### M0 outcome (2026-11-10)
+
+XPC-per-plugin failed. Evan approved the fallback: one sandboxed helper per plugin, spawned with `posix_spawn` from `Contents/Helpers/` and connected over a `socketpair`. Steps 2.2–2.4 and 2.6 use the helper in place of the XPC service:
+- The helper gets an embedded Info.plist and its own bundle id.
+- The app's socket ends are set `FD_CLOEXEC`.
+- The app ignores `SIGPIPE`.
+- Process exit is detected with `DispatchSource.makeProcessSource(.exit)`.
+- The manager owns restart and backoff, and kills orphaned helpers on launch.
+- CPU ticks are converted with `mach_timebase_info`.
+
+Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.

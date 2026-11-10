@@ -22,7 +22,7 @@ Let first- and third-party authors extend the Leo Mac app with **fully native UI
 ## Architecture
 
 - **LeoKit `Plugins` module (platform-neutral, unit-tested):** manifest model + validation, permission engine, component-tree model (Codable), action model, bridge message protocol. Kept in LeoKit so a future iOS host can reuse it.
-- **`LeoPluginHost.xpc` (Mac):** one process per enabled plugin. App Sandbox with **no** network, no file access beyond its bundle. Hosts a `JSContext`; exposes only the `leo` bridge object. Pure compute.
+- **`LeoPluginHost` helper (Mac):** a sandboxed helper executable in `Contents/Helpers/`. Leo spawns one per enabled plugin with `posix_spawn` and talks to it over a `socketpair` using length-prefixed JSON. It has App Sandbox with **no** network and no file access beyond its bundle, and runs interpreter-only JavaScriptCore with no `allow-jit`. It hosts a `JSContext`, exposes only the `leo` bridge object, and does pure compute. XPC was dropped because the M0 spike found `_MultipleInstances` gives one shared process; see `docs/plans/2026-11-10-plugin-platform-spike.md`. Evan approved this on 2026-11-10.
 - **`LeoPluginManager` (Mac app):** discovers/installs plugins, launches hosts, routes bridge calls, enforces permissions, performs fetch/Keychain/agent calls on the plugin's behalf.
 - **Native renderers (Mac app):** AppKit views for each component, used in all four slots.
 
