@@ -429,6 +429,35 @@ struct LeoBrowserExecutorTests {
         _ = await snapshot.value
     }
 
+    /// B-391: an eval whose page script never settles (it navigated, then
+    /// awaited) ignores cancellation. Once the daemon cancels it, the queue
+    /// must move on: later calls on any tab still answer.
+    @Test func aCancelledCallWhosePageNeverAnswersFreesTheQueue() async {
+        let h = harness()
+        h.page.holdNextEval = true
+        h.page.evalResult = "2"
+        var outcomes: [String: LeoClientToolOutcome] = [:]
+        let hung = Task { outcomes["a"] = await run(h, "browser_eval", ["js": .string("await new Promise(() => {})")], id: "a") }
+        await settle { h.page.isHoldingEval }
+        let tabs = Task { outcomes["b"] = await run(h, "browser_tabs", id: "b") }
+        for _ in 0..<5 { await Task.yield() }
+        #expect(outcomes["b"] == nil, "browser_tabs queues behind the running eval")
+
+        hung.cancel()
+        await settle { outcomes["a"] != nil && outcomes["b"] != nil }
+        let trivial = Task { outcomes["c"] = await run(h, "browser_eval", ["js": .string("1+1")], id: "c") }
+        await settle { outcomes["c"] != nil }
+
+        #expect(outcomes["a"].flatMap(errorCode) == "cancelled")
+        #expect(outcomes["b"].map(texts)?.first?.hasPrefix("[{") == true)
+        #expect(outcomes["c"].map(texts) == ["2"])
+        // Let the stuck script finish so the test never hangs, fixed or not;
+        // its late answer is dropped.
+        h.page.releaseHeldEval()
+        _ = await (hung.value, tabs.value, trivial.value)
+        #expect(outcomes["a"].flatMap(errorCode) == "cancelled")
+    }
+
     /// Spins the main actor until `condition` holds (bounded, no wall-clock sleep).
     private func settle(_ condition: @MainActor () -> Bool) async {
         for _ in 0..<1000 {
@@ -518,7 +547,22 @@ private final class FakePage: LeoBrowserPage {
 
     func evaluate(_ js: String) async throws -> String {
         try record("eval \(js)")
+        if holdNextEval {
+            holdNextEval = false
+            await withCheckedContinuation { heldEval = $0 }
+        }
         return evalResult
+    }
+
+    /// Parks the next `evaluate` until `releaseHeldEval()`, ignoring
+    /// cancellation, like a page script whose promise never settles.
+    var holdNextEval = false
+    private var heldEval: CheckedContinuation<Void, Never>?
+    var isHoldingEval: Bool { heldEval != nil }
+
+    func releaseHeldEval() {
+        heldEval?.resume()
+        heldEval = nil
     }
 
     func consoleMessages(since: Int?) -> LeoBrowserConsoleBatch {

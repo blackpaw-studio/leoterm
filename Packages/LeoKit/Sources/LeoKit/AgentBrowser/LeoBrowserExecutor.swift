@@ -6,7 +6,8 @@ import Foundation
 ///
 /// Operations run one at a time in arrival order. `browser_handoff` is the
 /// exception: it waits on the user, so it neither queues behind a running
-/// operation nor blocks one.
+/// operation nor blocks one. A cancelled call (the daemon's tool timeout)
+/// frees the queue even if the page never answers.
 @MainActor
 public final class LeoBrowserExecutor {
     public typealias Sleeper = @MainActor (Duration) async throws -> Void
