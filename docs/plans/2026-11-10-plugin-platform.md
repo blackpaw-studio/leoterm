@@ -207,7 +207,7 @@ Platform call: **Mac only.** The LeoKit `Plugins` code stays platform-neutral (F
   - goes through the rate limiter
   - passes headers through, so ETags and 304 work
   - errors become rejected promises with a reason and are logged under the OSLog subsystem's `leo.plugins` category
-- Secrets: generic-password Keychain item with service `leo.plugin.<id>.<key>`. The key must match `[A-Za-z0-9._-]{1,64}`. The Keychain is behind a protocol for tests.
+- Secrets: generic-password Keychain item with service `leo.plugin.<id>` and account `<key>`, so ids and keys can never collide. Uninstall matches the service exactly. The key must match `[A-Za-z0-9._-]{1,64}`. The Keychain is behind a protocol for tests.
 - Agents snapshot: builds `{name, machine, status, repo, branch, hasWorktree}` from the sidebar feeds across machines. No worktree path is exposed. Requires `agents:read`.
 - Timers: interval ≥ 60 s, stopped when the host stops.
 - Tests:
@@ -420,3 +420,15 @@ XPC-per-plugin failed. Evan approved the fallback: one sandboxed helper per plug
 - CPU ticks are converted with `mach_timebase_info`.
 
 Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
+
+### M1 security review (2026-11-10)
+
+- **Fixed in M1:**
+  - Decode budgets now apply to nested `pushView` and callback-result trees and to collections, with a frame byte cap.
+  - The Markdown parser is linear-time, with a byte cap.
+  - `main` is split on ASCII `/` bytes, and the app checks resolved-path containment wherever it reads a bundle (step 3.3 enforces this too).
+  - IDN hosts are matched in canonical ASCII form; numeric and IP hosts are rejected.
+  - Keychain items use service `leo.plugin.<id>` with account `<key>` (step 3.5).
+- **Accepted risks:**
+  - Concurrent gesture redemption. All callers are `@MainActor` in the app, so two racing redemptions can't happen in practice.
+  - JS rewriting bridge envelopes through `toJSON`. Step 3.6 must resolve callback refs against live, single-use records scoped to the plugin and its host session, and must never trust the envelope.

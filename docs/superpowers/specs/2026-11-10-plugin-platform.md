@@ -64,7 +64,7 @@ Unknown keys, unknown permissions, or `apiVersion` > supported → install refus
 - `leo.render(slotId, tree)`: replace the slot's content. Called from handlers; the host diffs and re-renders natively.
 - `leo.on(event, fn)`: `activate`, `agentsChanged`, `viewOpened(agent)`, `command(id)`, `callback(id, payload)`.
 - `leo.fetch(url, init) → Promise<{status, headers, body}>`: performed by the app, which checks the manifest hosts on every hop. Per-plugin rate limit of 60 req/min and 4 in flight. Bodies are capped at 5 MB.
-- `leo.secrets.get/set/delete(key)`: Keychain item `leo.plugin.<id>.<key>`.
+- `leo.secrets.get/set/delete(key)`: generic-password Keychain item with service `leo.plugin.<id>` and account `<key>`. Uninstall deletes only items whose service exactly matches.
 - `leo.agents.list()`: snapshot of `{name, machine, status, repo, branch, hasWorktree}`. Requires `agents:read`. Worktree paths are not exposed.
 - `leo.timer(intervalSec ≥ 60, fn)`: periodic refresh, active only while the app is running.
 - `leo.after(sec ≥ 1, fn)`: one-shot timer that runs only while one of the plugin's slots is visible, for short polls such as device-flow sign-in.
