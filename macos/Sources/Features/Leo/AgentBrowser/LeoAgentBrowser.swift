@@ -238,9 +238,13 @@ import WebKit
     let urlMapping: (LeoAgentBrowserKey) -> any LeoBrowserURLMapping
     let input: LeoSyntheticInput
     let viewHost: LeoAgentBrowserHost
+    /// The `Version/x Safari/…` tail of the user agent; sites that gate on
+    /// the Safari version (chase.com) reject a bare WebKit one.
+    var userAgentApplicationName: String = LeoBrowserUserAgent.applicationName()
 
     func make(_ key: LeoAgentBrowserKey) -> LeoAgentBrowser {
         let configuration = WKWebViewConfiguration()
+        configuration.applicationNameForUserAgent = userAgentApplicationName
         configuration.websiteDataStore = WKWebsiteDataStore(
             forIdentifier: LeoBrowserStoreID.identifier(machineID: machineID(key.host), agent: key.agent)
         )

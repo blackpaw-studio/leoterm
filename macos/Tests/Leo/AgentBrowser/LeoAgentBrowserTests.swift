@@ -139,6 +139,28 @@ struct LeoAgentBrowserTests {
         for store in stores { try? await WKWebsiteDataStore.remove(forIdentifier: store) }
     }
 
+    /// B-385: chase.com sends a user agent with no `Version/x Safari/…` tail
+    /// to its "unsupported browser" page.
+    @available(macOS 14, *)
+    @Test func aFactoryBrowserSendsASafariVersionedUserAgent() async throws {
+        let machineID = "test-\(UUID().uuidString)"
+        let factory = LeoAgentBrowserFactory(
+            machineID: { _ in machineID }, urlMapping: { _ in LeoIdentityURLMapping() },
+            input: LeoSyntheticInput(application: LeoWKTestHost.application),
+            viewHost: LeoAgentBrowserHost(parking: LeoAgentBrowserParkingWindow(size: CGSize(width: 800, height: 600)))
+        )
+        let browser = factory.make(Self.key)
+        defer { browser.close() }
+        let tab = try await browser.tabs.openTab(url: URL(string: "about:blank")!)
+        let page = try #require(browser.tabs.page(forTab: tab))
+
+        let userAgent = try await page.evaluate("return navigator.userAgent")
+
+        #expect(userAgent.contains(LeoBrowserUserAgent.applicationName()))
+        #expect(userAgent.range(of: #"Version/\d+\.\d+ Safari/605\.1\.15"?$"#, options: .regularExpression) != nil)
+        try? await WKWebsiteDataStore.remove(forIdentifier: LeoBrowserStoreID.identifier(machineID: machineID, agent: Self.key.agent))
+    }
+
     @available(macOS 14, *)
     @Test func anAgentStoppingClosesItsBrowserAndKeepsItsStore() async throws {
         let machineID = "test-\(UUID().uuidString)"
