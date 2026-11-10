@@ -72,3 +72,4 @@ Progress:
 - B-387 landed c4952d79b (PR #356 head 57d20ed25 intact). Gap: Debug app has no bundled helper; verifier checked the tarball sha256 + `leo 0.81.0` instead.
 - Inbox applied: B-389
 - Lane finish (mid-run, my slip; harmless): removed landed B-387 branch; B-368 lane worktree is dirty (1 change), left in place.
+- Runner: B-389 d-91e6580ccdef (light). Released B-387 panes.
