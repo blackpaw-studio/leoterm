@@ -53,7 +53,7 @@ Lane: B-391
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: adb4ea2879698a4adfa28756bc29db44858a7732
+  Reviewed-tip: a2742572f4ffce98a1cff54c3b5d746f36c60f78
   Dispatched: 2026-11-10T19:15:59Z
 Finished 1: B-390 landed 281d9d55e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-390-6.png
   Call: Free the queue only on the daemon's existing cancel; no app-side eval timer — VISION 5 (a bounded error path, not a reconnect loop)
