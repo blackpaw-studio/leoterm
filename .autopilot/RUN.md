@@ -27,5 +27,29 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-390
+  Branch: autopilot-lane/B-390
+  Base: a8da19c74da732d2a2a4034c49dfae1b653998f6
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T18:18:26Z
+
+Lane: B-391
+  Branch: autopilot-lane/B-391
+  Base: a8da19c74da732d2a2a4034c49dfae1b653998f6
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-10T18:18:26Z
+
 Progress:
 - Preflight: main already merged; no new bump/leo-* PR (open #343/#337/#336 are older than 0.81.0); inbox applied: created B-390, B-391 (bugs).
+- B-390 light (UX click-target move, D-766 supersedes D-745); B-391 full (async/queue concurrency). Independent: sidebar row vs browser bridge.
+- Runners: B-390 d-5ab5c37e8363 (light), B-391 d-fb904012c29a (full), parallel. Wake timer b2nswctv7.
