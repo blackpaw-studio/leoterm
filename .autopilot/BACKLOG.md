@@ -2875,6 +2875,7 @@ Done: 57d20ed25 (PR #356 head, merged --no-ff in c4952d79b; 4241 tests, lint cle
 Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
 
 ## B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes   [ready]
+Issue: #360
 Why: Old bump PRs pile up open (#343, #337, #336 behind #356); autopilot can't close PRs, so the workflow that opens them should (Evan, 2026-11-10).
 Accept: When the auto-bump workflow opens a bump/leo-<version> PR, it closes every other open PR whose head branch starts with bump/leo- and whose version is lower, with a comment "Superseded by #<new>", and deletes nothing else; a PR with a higher version, or a non-bump PR, is never touched; the closing logic is a small script with tests for version ordering (0.9.0 < 0.10.0) and the no-other-PRs case. Workflow file change only plus that script; verified by a dry run of the script against fixture PR lists, not by running the workflow.
 Out: Running or triggering the workflow; closing the current PRs by hand; changes to the leo repo's release side.
