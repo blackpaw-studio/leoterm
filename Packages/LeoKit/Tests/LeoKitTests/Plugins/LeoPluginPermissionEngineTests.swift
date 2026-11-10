@@ -21,13 +21,42 @@ struct LeoPluginHostPatternTests {
         "", " ", "*", "*.", "*.com", "*.*.example.com", "a.*.example.com", "*example.com", "foo*.example.com",
         "example", "localhost", "https://example.com", "example.com/path", "example.com:443", "user@example.com",
         "example.com?x", "example.com#x", "exa mple.com", "example.com\n", "ex_ample.com", "-a.example.com",
-        "a-.example.com", "a..example.com", ".example.com", "example.com..", "bücher.example", "1.2.3.4", "127.0.0.1",
+        "a-.example.com", "a..example.com", ".example.com", "example.com..", "1.2.3.4", "127.0.0.1",
         "2130706433", "[::1]", "::1", "example.123", "*.1.2",
+        "127.0.0.0x1", "127.1", "0x7f.1", "0177.0.0.1", "0x7f.0x0.0x0.0x1", "*.0.0x1", "*.127.1", "example.0x1",
+        "example.0X1F", "0x1", "1.2.3.4.", "[0:0:0:0:0:ffff:127.0.0.1]", "example\u{3002}com", "example%2ecom",
+        "b%C3%BCcher.example", "xn--.example.com", "xn--a.example.com", "xn--abc-.example.com", "xn--bcher-kvb.example",
+        "b\u{00FC}cher.exa\u{200D}mple", "\u{2603}.example", "a b.example", "bücher.\u{FF0E}example",
         String(repeating: "a", count: 64) + ".com",
         String(repeating: "a.", count: 130) + "com",
     ])
     func malformedOrDangerousPatternsAreRefused(_ text: String) {
         #expect(Self.parse(text) == nil, "\(text.debugDescription) should be refused")
+    }
+
+    @Test func anIDNPatternCanonicalisesToPunycodeFromEveryUnicodeSpelling() throws {
+        let expected = LeoPluginHostPattern.exact("xn--bcher-kva.example")
+        #expect(try LeoPluginHostPattern.parse("xn--bcher-kva.example") == expected)
+        #expect(try LeoPluginHostPattern.parse("bücher.example") == expected)
+        #expect(try LeoPluginHostPattern.parse("BÜCHER.example") == expected)
+        #expect(try LeoPluginHostPattern.parse("bu\u{0308}cher.example") == expected)
+        #expect(try LeoPluginHostPattern.parse("XN--BCHER-KVA.example").canonical == "xn--bcher-kva.example")
+        #expect(try LeoPluginHostPattern.parse("*.bücher.example") == .wildcard(suffix: "xn--bcher-kva.example"))
+    }
+
+    @Test func anIDNHostMatchesInEitherSpelling() throws {
+        let pattern = try LeoPluginHostPattern.parse("xn--bcher-kva.example")
+        #expect(pattern.matches(host: "bücher.example"))
+        #expect(pattern.matches(host: "BÜCHER.example."))
+        #expect(pattern.matches(host: "xn--bcher-kva.example"))
+        #expect(!pattern.matches(host: "bucher.example"))
+    }
+
+    @Test(arguments: ["127.0.0.0x1", "127.1", "0x7f.1", "0177.0.0.1", "1.2.3.4", "[::1]", "2130706433", "0x7f.0.0.1."])
+    func numericHostsNeverMatchAnyPattern(_ host: String) throws {
+        for text in ["*.example.com", "example.com", "*.com.example"] {
+            #expect(!(try LeoPluginHostPattern.parse(text)).matches(host: host))
+        }
     }
 
     @Test func parseFailuresExplainThemselves() {
@@ -139,6 +168,38 @@ struct LeoPluginPermissionEngineTests {
         #expect(!Self.allowed(engine, "https://127.0.0.1/"))
         #expect(!Self.allowed(engine, "https://[::1]/"))
         #expect(!Self.allowed(engine, "https://2130706433/"))
+    }
+
+    @Test func anIDNAllowlistEntryMatchesTheUnicodeAndPunycodeURLForms() {
+        let punycode = Self.engine(network: ["xn--bcher-kva.example", "*.xn--mnchen-3ya.example"])
+        #expect(Self.allowed(punycode, "https://bücher.example/"))
+        #expect(Self.allowed(punycode, "https://BÜCHER.example/x?y#z"))
+        #expect(Self.allowed(punycode, "https://xn--bcher-kva.example/"))
+        #expect(Self.allowed(punycode, "https://a.münchen.example/"))
+        #expect(!Self.allowed(punycode, "https://bucher.example/"))
+        #expect(!Self.allowed(punycode, "https://münchen.example/"))
+        let unicode = Self.engine(network: ["bücher.example"])
+        #expect(Self.allowed(unicode, "https://xn--bcher-kva.example/"))
+        #expect(Self.allowed(unicode, "https://bücher.example/"))
+    }
+
+    @Test(arguments: [
+        "https://b%C3%BCcher.example/", "https://b%c3%bccher.example/", "https://api.github.com%2eevil.test/",
+        "https://xn--bcher-kva%2eexample/", "https://b%FFcher.example/",
+    ])
+    func rawPercentEscapesInTheHostAreDenied(_ url: String) {
+        let engine = Self.engine(network: ["xn--bcher-kva.example", "api.github.com", "evil.test"])
+        #expect(!Self.allowed(engine, url))
+    }
+
+    @Test(arguments: [
+        "https://127.0.0.0x1/", "https://127.1/", "https://0x7f.1/", "https://0177.0.0.1/", "https://0x7f.0x0.0x0.0x1/",
+        "https://127.0.0.1/", "https://[::1]/", "https://[::ffff:127.0.0.1]/", "https://2130706433/", "https://017700000001/",
+    ])
+    func numericHostsAreDeniedEvenWhenAPatternWouldOtherwiseMatch(_ url: String) {
+        // `*.0.0x1` and friends must not parse, so no permission can ever match these.
+        let engine = Self.engine(network: ["*.0.0x1", "*.0.1", "*.1", "127.0.0.0x1", "example.0x1", "api.github.com"])
+        #expect(!Self.allowed(engine, url))
     }
 
     @Test func aBackslashInTheURLIsDenied() throws {

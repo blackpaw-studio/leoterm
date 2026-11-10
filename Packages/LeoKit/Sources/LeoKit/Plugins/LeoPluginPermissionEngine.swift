@@ -52,16 +52,44 @@ public struct LeoPluginPermissionEngine: Sendable {
         agentVerbs.contains(verb) ? .allowed : .denied("agents:\(verb.rawValue) permission not granted in the manifest")
     }
 
-    /// The URL's host, or nil when anything about the authority is ambiguous:
-    /// userinfo (checked on the raw authority, so an empty `:@` also fails),
-    /// percent-encoding or any non-DNS character in the host.
+    /// The URL's canonical (lowercase ASCII, punycode) host, or nil when anything
+    /// about the authority is ambiguous: userinfo (checked on the raw authority,
+    /// so an empty `:@` also fails), a percent escape in the raw URL text, or any
+    /// non-DNS or numeric host. Foundation hands back IDN hosts percent-encoded
+    /// even when the URL text had none, so only that re-encoding is decoded.
     private static func safeHost(_ url: URL) -> String? {
-        guard let authority = rawAuthority(url.absoluteString), !authority.contains("@"),
+        guard let authority = rawAuthority(url.absoluteString), !authority.contains("@"), !authority.contains("%"),
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             components.user == nil, components.password == nil,
-            let host = components.percentEncodedHost, !host.contains("%")
+            let encoded = components.percentEncodedHost,
+            let host = decodeFoundationHost(encoded)
         else { return nil }
         return LeoPluginHostPattern.normalize(host)
+    }
+
+    /// Reverses Foundation's UTF-8 percent-encoding of non-ASCII host characters.
+    /// An escape for an ASCII byte (`%2e`, `%00`, ...) or invalid UTF-8 is refused.
+    private static func decodeFoundationHost(_ encoded: String) -> String? {
+        guard encoded.contains("%") else { return encoded }
+        var bytes: [UInt8] = []
+        var iterator = encoded.utf8.makeIterator()
+        while let byte = iterator.next() {
+            guard byte == UInt8(ascii: "%") else { bytes.append(byte); continue }
+            guard let high = iterator.next().flatMap(hexValue), let low = iterator.next().flatMap(hexValue) else { return nil }
+            let decoded = high << 4 | low
+            guard decoded >= 0x80 else { return nil }
+            bytes.append(decoded)
+        }
+        return String(bytes: bytes, encoding: .utf8)
+    }
+
+    private static func hexValue(_ byte: UInt8) -> UInt8? {
+        switch byte {
+        case 48...57: byte - 48
+        case 97...102: byte - 87
+        case 65...70: byte - 55
+        default: nil
+        }
     }
 
     private static func rawAuthority(_ absolute: String) -> String? {
