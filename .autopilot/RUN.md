@@ -59,6 +59,7 @@ Lane: B-378
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T02:19:17Z
 
 Finished 1: B-375 blocked
 
@@ -68,3 +69,5 @@ Progress:
 - Picked B-368 and B-375 in parallel (independent: a sidebar-resize test vs the toolbar Tasks popover).
 - Runners: B-368 d-8cd585787fee, B-375 d-a74d172f9b82 (leo implement role).
 - B-375 blocked: couldn't reproduce (test through stub daemon passed). Suspects: popover first-click swallowed (never key window); daemon 409 on source:auto tasks swallowed by dismissTask. Test patch /tmp/b375-dismiss-test.patch.
+- Board sync: B-378 --item sync exited 1 once (stderr not captured); retry succeeded.
+- B-378 runner d-02ac03fa87fd, parallel with B-368 (different test files).
