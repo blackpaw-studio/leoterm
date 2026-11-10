@@ -50,13 +50,13 @@ public struct LeoBrowserCommand: Equatable, Sendable {
         case "browser_tabs":
             self.init(tab: nil, action: .tabs)
         case "browser_tab_new":
-            self.init(tab: nil, action: .tabNew(url: try reader.string("url"), userAgent: try Self.userAgent(reader)))
+            self.init(tab: nil, action: .tabNew(url: try reader.string("url"), userAgent: try Self.userAgent(reader, required: false)))
         case "browser_tab_select":
             self.init(tab: nil, action: .tabSelect(tab: try reader.requiredTab()))
         case "browser_tab_close":
             self.init(tab: nil, action: .tabClose(tab: try reader.requiredTab()))
         case "browser_user_agent":
-            self.init(tab: try reader.tab(), action: .setUserAgent(try Self.userAgent(reader)))
+            self.init(tab: try reader.tab(), action: .setUserAgent(try Self.userAgent(reader, required: true)))
         case "browser_handoff":
             self.init(tab: nil, action: .handoff(message: try reader.requiredString("message")))
         default:
@@ -68,17 +68,25 @@ public struct LeoBrowserCommand: Equatable, Sendable {
     public static let maximumWaitMilliseconds = 25_000
 
     /// The longest user agent an override accepts, in characters.
-    public static let maximumUserAgentLength = 512
+    public static let maximumUserAgentLength = 1024
 
-    /// The `user_agent` arg: nil when omitted or empty (no override). It goes
-    /// out in a request header, so control characters (CR/LF) are refused.
-    private static func userAgent(_ reader: LeoBrowserArgs) throws -> String? {
-        guard let userAgent = try reader.string("user_agent"), !userAgent.isEmpty else { return nil }
+    /// The `user_agent` arg: nil for "no override" (an empty or whitespace-only
+    /// string). When `required`, a missing or null value is `invalid_args`, so
+    /// a bare call cannot wipe an override by accident; only `""` clears.
+    /// The value goes out in a request header, so it must be printable ASCII
+    /// (0x20-0x7E): no CR/LF, NUL or other control characters, and nothing
+    /// non-ASCII.
+    private static func userAgent(_ reader: LeoBrowserArgs, required: Bool) throws -> String? {
+        guard let userAgent = try reader.string("user_agent") else {
+            if required { throw LeoBrowserError.invalidArgs("user_agent is required; pass an empty string to clear the override") }
+            return nil
+        }
+        guard !userAgent.allSatisfy(\.isWhitespace) else { return nil }
         guard userAgent.count <= maximumUserAgentLength else {
             throw LeoBrowserError.invalidArgs("user_agent must be at most \(maximumUserAgentLength) characters")
         }
-        guard !userAgent.unicodeScalars.contains(where: { $0.properties.generalCategory == .control }) else {
-            throw LeoBrowserError.invalidArgs("user_agent must not contain control characters")
+        guard userAgent.unicodeScalars.allSatisfy({ (0x20...0x7E).contains($0.value) }) else {
+            throw LeoBrowserError.invalidArgs("user_agent must be printable ASCII")
         }
         return userAgent
     }

@@ -190,7 +190,9 @@ import WebKit
             return nil
         }
         let popup = add(LeoWKBrowserPage(configuration: configuration, allowsURL: allowsURL, input: input))
-        popup.page.setUserAgent(list.first { $0.page.webView === webView }?.page.webView.customUserAgent)
+        // An empty `customUserAgent` means "no override"; copy only a real one.
+        let openerOverride = list.first { $0.page.webView === webView }?.page.webView.customUserAgent
+        popup.page.setUserAgent(openerOverride.flatMap { $0.isEmpty ? nil : $0 })
         return popup.page.webView
     }
 

@@ -52,7 +52,8 @@ struct LeoBrowserToolsTests {
             #expect(text.contains("navigator.userAgent"), "\(name)")
             #expect(text.contains("tab is closed"), "\(name)")
         }
-        #expect(try property("browser_user_agent")?.contains("Omit or pass an empty string to clear") == true)
+        #expect(try property("browser_user_agent")?.contains("Pass an empty string to clear") == true)
+        #expect(try definition("browser_user_agent").inputSchema.objectValue?["required"] == .array([.string("user_agent")]))
         let tool = try definition("browser_user_agent")
         #expect(tool.description.contains("next navigation"))
         #expect(tool.description.contains("default"))

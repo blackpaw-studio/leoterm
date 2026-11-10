@@ -238,12 +238,12 @@ struct LeoBrowserExecutorTests {
         #expect(h.tabs.pages[2]?.userAgent == "Bot/1.0")
     }
 
-    @Test func userAgentSetsTheOverrideOnTheTargetTabAndClearsItWhenOmitted() async {
+    @Test func userAgentSetsTheOverrideOnTheTargetTabAndClearsItWithAnEmptyString() async {
         let h = harness(pageCount: 2)
         #expect(texts(await run(h, "browser_user_agent", ["user_agent": .string("Bot/1.0"), "tab": .int(2)])) == ["ok"])
         #expect(h.tabs.pages[2]?.userAgent == "Bot/1.0")
         #expect(h.tabs.pages[1]?.userAgent == nil)
-        _ = await run(h, "browser_user_agent", ["tab": .int(2)])
+        _ = await run(h, "browser_user_agent", ["user_agent": .string(""), "tab": .int(2)])
         #expect(h.tabs.pages[2]?.userAgent == nil)
         #expect(h.tabs.pages[2]?.calls == ["userAgent Bot/1.0", "userAgent nil"])
     }

@@ -36,6 +36,8 @@ enum LeoWKTestHost {
     static let scheme = "leotest"
 
     private let pages: [String: String]
+    /// The `User-Agent` header of each request served, in order (nil when absent).
+    private(set) var userAgents: [String?] = []
 
     init(_ pages: [String: String]) {
         self.pages = pages
@@ -46,6 +48,7 @@ enum LeoWKTestHost {
     }
 
     func webView(_ webView: WKWebView, start urlSchemeTask: any WKURLSchemeTask) {
+        userAgents.append(urlSchemeTask.request.value(forHTTPHeaderField: "User-Agent"))
         guard let url = urlSchemeTask.request.url, let html = pages[url.lastPathComponent] else {
             urlSchemeTask.didFailWithError(URLError(.fileDoesNotExist))
             return
