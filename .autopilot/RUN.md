@@ -65,6 +65,7 @@ Lane: B-378
   Dispatched: 2026-11-10T02:19:17Z
   Call: Fix the retained-view bug in product code, not just the test's wait — AUTONOMY "bug fixes, flake fixes"
   Call: Mac only (Ghostty surface code in macos/, iOS has no equivalent) — AGENTS.md parity rule
+  Tokens: 14M in (13.7M cache read), ≥55.4k out, 137 requests
 
 Lane: B-379
   Branch: autopilot-lane/B-379
