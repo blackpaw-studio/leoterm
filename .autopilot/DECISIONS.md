@@ -702,3 +702,21 @@ Chose: Platform: CI only, neither Mac nor iOS
 Item: B-389 · Bundled-leo bump workflow closes the bump PRs it supersedes
 Commit: 689c966a9
 Veto: [ ]
+
+## D-756 · 2026-11-10 · B-385: Mac only: the agent browser is a Mac WKWebView pane — VISION 1
+Chose: Mac only: the agent browser is a Mac WKWebView pane — VISION 1
+Item: B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…
+Commit: 181560144
+Veto: [ ]
+
+## D-757 · 2026-11-10 · B-385: Not contradicting D-733: it left the UA alone because it was irrelevant to the hyatt.com blank page (B-376); Chase gating on the Safari version is new evidence — VISION 4
+Chose: Not contradicting D-733: it left the UA alone because it was irrelevant to the hyatt.com blank page (B-376); Chase gating on the Safari version is new evidence — VISION 4
+Item: B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…
+Commit: 181560144
+Veto: [ ]
+
+## D-758 · 2026-11-10 · B-385: Claim the installed Safari's major.minor (fallback Version/17.0), not a hardcoded constant — VISION 4
+Chose: Claim the installed Safari's major.minor (fallback Version/17.0), not a hardcoded constant — VISION 4
+Item: B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…
+Commit: 181560144
+Veto: [ ]

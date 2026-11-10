@@ -32,7 +32,7 @@ Lane: B-385
   Branch: autopilot-lane/B-385
   Base: 3fdb60880d78463f0a856a21d3088d5c7d3b30b8
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -41,6 +41,7 @@ Lane: B-385
   Call: Mac only: the agent browser is a Mac WKWebView pane — VISION 1
   Call: Not contradicting D-733: it left the UA alone because it was irrelevant to the hyatt.com blank page (B-376); Chase gating on the Safari version is new evidence — VISION 4
   Call: Claim the installed Safari's major.minor (fallback Version/17.0), not a hardcoded constant — VISION 4
+  Tokens: 14.6M in (14.2M cache read), ≥49.5k out, 152 requests
 
 Lane: B-387
   Branch: autopilot-lane/B-387
@@ -75,6 +76,7 @@ Lane: B-389
 
 Finished 1: B-387 landed c4952d79b · not visually verified
 Finished 2: B-389 landed 2fdce467e · not visually verified
+Finished 3: B-385 landed 6af1bf283 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-385-1.png
 
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
@@ -84,3 +86,4 @@ Progress:
 - Lane finish (mid-run, my slip; harmless): removed landed B-387 branch; B-368 lane worktree is dirty (1 change), left in place.
 - Runner: B-389 d-91e6580ccdef (light). Released B-387 panes.
 - B-389 landed 2fdce467e: leo-bump.yml closes lower-version bump/leo-* PRs ("Superseded by #N"); 4 script test files pass; stubbed-gh dry run. Accepted risks: first failed gh close aborts the rest (next bump retries); `gh pr list --head` fork-name collision.
+- B-385 landed 6af1bf283: agent browser UA now ends "Version/<installed Safari major.minor> Safari/605.1.15" (fallback 17.0). Verified in a standalone WKWebView (hyatt.com + chase.com/travel load); Chase sign-in redirect not reproduced end to end. Debug-app Open Browser failed with a daemon-connection error on both agents (unexplained, outside the diff) — shot shows that failure, not the UA.

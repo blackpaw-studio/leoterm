@@ -2856,13 +2856,15 @@ Source: autopilot polish (B-381)
 Note: VISION 2 calm; seen in B-381-15.png
 Source: autopilot polish (B-381)
 
-## B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…   [ready]
+## B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…   [done]
 Issue: #357
 Type: bug
 Report: Agent browser blocked by Chase as an unsupported browser — the sign-in from chase.com/travel redirects to chase.com/digital/resources/privacy-security/security/system-requirements (requires Safari 17+). navigator.userAgent is "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)" with no "Version/x Safari/605.1.15" suffix. Likely fix: set WKWebView applicationNameForUserAgent to "Version/<installed Safari major.minor> Safari/605.1.15". Reported by the family agent; Evan hit it 2026-11-10.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T144926266729Z-02f08780#1
+Done: 181560144 (4245 tests; 1 known flake). UA gains "Version/<installed Safari> Safari/605.1.15". Standalone WKWebView shows the suffix; hyatt.com and chase.com/travel load. Chase sign-in not reproduced end to end. Decisions D-756..D-758.
+Verified: not visually verified — debug-app Open Browser failed with a daemon-connection error (outside the diff); checked in a standalone WKWebView instead
 
 ## B-387 · Land bundled leo daemon bump to 0.81.0 (PR #356)   [done]
 Issue: #358
