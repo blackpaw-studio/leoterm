@@ -36,6 +36,7 @@ Lane: B-385
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T14:55:39Z
 
 Lane: B-387
   Branch: autopilot-lane/B-387
@@ -46,6 +47,8 @@ Lane: B-387
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-10T14:55:39Z
 
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
+- Runners: B-385 d-33e7402b9bf1, B-387 d-45fee2bdf463 (leo implement role), parallel (independent: agent-browser UA vs bundled LEO_VERSION).
