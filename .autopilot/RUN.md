@@ -31,12 +31,14 @@ Lane: B-368
   Branch: autopilot-lane/B-368
   Base: 1ff28347079270c7808348d616101f3a02af1b3f
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: db21be5522415001de8cbb8c988831524c2f577c
   Dispatched: 2026-11-10T01:50:37Z
+  Call: Mac only (macos/ test code, no iOS counterpart) — AGENTS.md parity rule
+  Call: Test-helper flake fix — AUTONOMY "agent decides"
 
 Lane: B-375
   Branch: autopilot-lane/B-375
