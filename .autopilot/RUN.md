@@ -59,3 +59,4 @@ Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
 - Runners: B-385 d-33e7402b9bf1, B-387 d-45fee2bdf463 (leo implement role), parallel (independent: agent-browser UA vs bundled LEO_VERSION).
 - B-387 landed c4952d79b (PR #356 head 57d20ed25 intact). Gap: Debug app has no bundled helper; verifier checked the tarball sha256 + `leo 0.81.0` instead.
+- Inbox applied: B-389
