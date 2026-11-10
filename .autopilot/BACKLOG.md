@@ -2813,13 +2813,15 @@ Inbox: 20261110T003419242728Z-16554697#1
 Done: e0daf5ecb
 Verified: not visually verified — no UI change (object lifetime of a window-less surface)
 
-## B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…   [ready]
+## B-379 · cancellationClosesConnection is flaky — failed the leo-v0.33.1 release…   [done]
 Issue: #353
 Type: bug
 Report: cancellationClosesConnection is flaky — failed the leo-v0.33.1 release CI (LeoUnixSocketTransportTests.swift:64, peerObservedClose.wait(timeout: .now() + 1) timed out); a 1s wall-clock wait on a hosted runner; release CI tolerates zero failures
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T005836546016Z-6e140707#1
+Done: 2f6080e9d
+Verified: not visually verified — no UI change (test-only diff)
 
 ## B-380 · did you change behavior so that only the selected agent's status icon…   [ready]
 Issue: #354
