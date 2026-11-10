@@ -31,7 +31,7 @@ Lane: B-390
   Branch: autopilot-lane/B-390
   Base: a8da19c74da732d2a2a4034c49dfae1b653998f6
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -42,6 +42,7 @@ Lane: B-390
   Call: trailing indicator, Show Tasks VoiceOver action and indeterminate-task fallback unchanged — D-746
   Call: line-2 `.help` tooltip (the B-381 risk) is now plain text with no click route — D-766
   Call: Mac only; iOS has no task-list tap target — VISION 6, repo AGENTS.md
+  Tokens: 8.07M in (7.77M cache read), ≥37.8k out, 89 requests
 
 Lane: B-391
   Branch: autopilot-lane/B-391
@@ -53,8 +54,10 @@ Lane: B-391
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-10T18:18:26Z
+Finished 1: B-390 landed 281d9d55e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-390-6.png
 
 Progress:
 - Preflight: main already merged; no new bump/leo-* PR (open #343/#337/#336 are older than 0.81.0); inbox applied: created B-390, B-391 (bugs).
 - B-390 light (UX click-target move, D-766 supersedes D-745); B-391 full (async/queue concurrency). Independent: sidebar row vs browser bridge.
 - Runners: B-390 d-5ab5c37e8363 (light), B-391 d-fb904012c29a (full), parallel. Wake timer b2nswctv7.
+- B-390 landed 281d9d55e: Tasks popover now opens from the leading state symbol; line-2 click selects the row. GUI-verified on autopilot-scratch (shots 4, 6). Not verified: symbol hover tooltip, Show Tasks menu path.

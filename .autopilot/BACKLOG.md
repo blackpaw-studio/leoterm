@@ -2900,13 +2900,15 @@ Verified: not visually verified — the override is set only by an agent tool ca
 Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
 Source: autopilot polish (B-387)
 
-## B-390 · i dont like that the status text subtitle on the sidebar rows taps to…   [ready]
+## B-390 · i dont like that the status text subtitle on the sidebar rows taps to…   [done]
 Issue: #361
 Type: bug
 Report: i dont like that the status text subtitle on the sidebar rows taps to the tasks popover, i keep clicking it by accident. maybe move that to a click on the spinning icon?
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-10)
 Inbox: 20261110T173410332193Z-448cb462#1
+Done: ad8b2707b (4251 tests, lint clean). Tasks popover opens from the row's leading state symbol; line-2 text is plain and a click selects the row. Mac only. Decisions D-766..D-771.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-390-6.png
 
 ## B-391 · Agent browser bridge hangs for good after an async browser_eval whose…   [ready]
 Issue: #362
