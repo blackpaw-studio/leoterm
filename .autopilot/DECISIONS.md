@@ -720,3 +720,45 @@ Chose: Claim the installed Safari's major.minor (fallback Version/17.0), not a h
 Item: B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…
 Commit: 181560144
 Veto: [ ]
+
+## D-759 · 2026-11-10 · B-386: new `browser_user_agent` tool for existing tabs, plus an optional `user_agent` on `browser_tab_new` — explicit semantics, navigate unchanged (VISION 4)
+Chose: new `browser_user_agent` tool for existing tabs, plus an optional `user_agent` on `browser_tab_new` — explicit semantics, navigate unchanged (VISION 4)
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]
+
+## D-760 · 2026-11-10 · B-386: empty string or whitespace-only clears; a missing or null `user_agent` fails `invalid_args` — a bare call can't wipe an override
+Chose: empty string or whitespace-only clears; a missing or null `user_agent` fails `invalid_args` — a bare call can't wipe an override
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]
+
+## D-761 · 2026-11-10 · B-386: values must be printable ASCII 0x20–0x7E, max 1024 characters — blocks header injection
+Chose: values must be printable ASCII 0x20–0x7E, max 1024 characters — blocks header injection
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]
+
+## D-762 · 2026-11-10 · B-386: both actions fail with `user_has_control` while the user drives, like `browser_tab_new`
+Chose: both actions fail with `user_has_control` while the user drives, like `browser_tab_new`
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]
+
+## D-763 · 2026-11-10 · B-386: popups inherit the opener's override (only when non-empty) — UA-gated login popups keep working (VISION 4)
+Chose: popups inherit the opener's override (only when non-empty) — UA-gated login popups keep working (VISION 4)
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]
+
+## D-764 · 2026-11-10 · B-386: no pane UI indicator and no `user_agent` field in `browser_tabs` — small scope cut
+Chose: no pane UI indicator and no `user_agent` field in `browser_tabs` — small scope cut
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]
+
+## D-765 · 2026-11-10 · B-386: the schemas live in this repo, so no daemon change and no `~/.leo/agents/leo` edit — Mac only per D-756 (iOS is Out)
+Chose: the schemas live in this repo, so no daemon change and no `~/.leo/agents/leo` edit — Mac only per D-756 (iOS is Out)
+Item: B-386 · Agents can override the agent browser's user agent per tab
+Commit: 3010fcffe 5967f05c0
+Veto: [ ]

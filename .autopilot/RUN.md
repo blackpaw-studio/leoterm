@@ -78,7 +78,7 @@ Lane: B-386
   Branch: autopilot-lane/B-386
   Base: 7c6389fba81f04f1b3c3ab2d75a4e0fec64d5de9
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
@@ -91,10 +91,12 @@ Lane: B-386
   Call: popups inherit the opener's override (only when non-empty) — UA-gated login popups keep working (VISION 4)
   Call: no pane UI indicator and no `user_agent` field in `browser_tabs` — small scope cut
   Call: the schemas live in this repo, so no daemon change and no `~/.leo/agents/leo` edit — Mac only per D-756 (iOS is Out)
+  Tokens: 20.9M in (20.3M cache read), ≥104k out, 193 requests
 
 Finished 1: B-387 landed c4952d79b · not visually verified
 Finished 2: B-389 landed 2fdce467e · not visually verified
 Finished 3: B-385 landed 6af1bf283 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-385-1.png
+Finished 4: B-386 landed 3d8ee0519 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-386-1.png
 
 Progress:
 - Preflight: main already merged; inbox applied: created B-385 (bug), B-386, B-387 (features).
@@ -106,3 +108,4 @@ Progress:
 - B-389 landed 2fdce467e: leo-bump.yml closes lower-version bump/leo-* PRs ("Superseded by #N"); 4 script test files pass; stubbed-gh dry run. Accepted risks: first failed gh close aborts the rest (next bump retries); `gh pr list --head` fork-name collision.
 - B-385 landed 6af1bf283: agent browser UA now ends "Version/<installed Safari major.minor> Safari/605.1.15" (fallback 17.0). Verified in a standalone WKWebView (hyatt.com + chase.com/travel load); Chase sign-in redirect not reproduced end to end. Debug-app Open Browser failed with a daemon-connection error on both agents (unexplained, outside the diff) — shot shows that failure, not the UA.
 - Runner: B-386 d-9f705c1e5e23 (full). Released B-385 runner pane.
+- B-386 landed 3d8ee0519 (1 fix round: strict validation, required param, header-level tests). New browser_user_agent tool + user_agent on browser_tab_new; 4251 tests, lint clean. Open Browser worked in the debug app this time (B-385's daemon-connection error did not recur). Override itself not visually verified (tool-call only; browser capture came out solid grey).

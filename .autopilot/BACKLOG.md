@@ -2886,13 +2886,15 @@ Inbox: 20261110T145617481024Z-cbf0a989#1
 Done: 689c966a9 (script tests pass; stubbed-gh dry run closed only the lower-version bump PR). CI only. Decisions D-751..D-755.
 Verified: not visually verified — CI-only change, no UI
 
-## B-386 · Agents can override the agent browser's user agent per tab   [ready]
+## B-386 · Agents can override the agent browser's user agent per tab   [done]
 Issue: #359
 Why: Some sites gate on the UA; agents should be able to choose it when the default doesn't work (Evan, 2026-11-10). Builds on the Chase default-UA fix.
 Accept: An agent can set a custom user-agent string for a browser tab (on browser_tab_new and on an existing tab) and clear it to return to the default; the override applies to the next navigation and to page JS (navigator.userAgent); it lasts for the tab's lifetime only; the default stays the Safari-accurate UA from the Chase fix; the tool description says what the parameter does.
 Out: iOS; overriding other fingerprint signals (locale, timezone, viewport); persisting overrides across app restarts.
 Source: owner (/feature, 2026-11-10)
 Inbox: 20261110T145137764251Z-b5f85f6c#1
+Done: 3010fcffe 5967f05c0 (4251 tests, lint clean). New `browser_user_agent` tool and optional `user_agent` on `browser_tab_new`; empty clears; printable ASCII ≤1024; popups inherit. Decisions D-759..D-765.
+Verified: not visually verified — the override is set only by an agent tool call; header-level tests cover it
 
 ## B-388 · LeoTemplateListTests/manualRefreshRefetchesEveryLoadedMachinesList flaky under load   [idea]
 Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
