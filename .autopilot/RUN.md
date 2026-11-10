@@ -42,15 +42,17 @@ Lane: B-375
   Branch: autopilot-lane/B-375
   Base: 1ff28347079270c7808348d616101f3a02af1b3f
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-10T01:50:37Z
+Finished 1: B-375 blocked
 
 Progress:
 - Preflight: fast-forwarded main 3e0157f89 into autopilot.
 - Inbox applied: created B-378, B-379, B-380 (bugs), B-381 (feature).
 - Picked B-368 and B-375 in parallel (independent: a sidebar-resize test vs the toolbar Tasks popover).
 - Runners: B-368 d-8cd585787fee, B-375 d-a74d172f9b82 (leo implement role).
+- B-375 blocked: couldn't reproduce (test through stub daemon passed). Suspects: popover first-click swallowed (never key window); daemon 409 on source:auto tasks swallowed by dismissTask. Test patch /tmp/b375-dismiss-test.patch.

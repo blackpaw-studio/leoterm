@@ -2791,13 +2791,15 @@ Report: theProbeSurvivesTheSidebarResizingAfterItReported is flaky — red inter
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-358)
 
-## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [ready]
+## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [blocked]
 Issue: #348
 Type: bug
 Report: the task dismiss buttons in the popover from the toolbar dont work
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T193908985898Z-13120181#1
+Question: couldn't reproduce — a test sending dismissTask(host:.local, agent:"alpha", id:"build") through a stub daemon passed, and the dismiss path (popover button → LeoAgentActions.dismissTask → DELETE /agents/{name}/tasks/{id}) reads correct. Unconfirmed suspects: (1) the toolbar popover is never key, so the Dismiss link may swallow the first click; (2) the daemon returns 409 for source:auto tasks and dismissTask silently swallows 409/404. Which tasks show a dead Dismiss (auto vs agent-reported), does a second click work, and does the sidebar popover fail too? Reply "B-375: close" to close it, or "B-375: <more detail>" to retry. Work kept on autopilot-shelved/B-375.
+Answer:
 
 ## B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…   [ready]
 Issue: #352
