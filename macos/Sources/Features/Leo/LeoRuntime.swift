@@ -598,6 +598,7 @@ import LeoKit
         let system = LeoPluginSystem(
             sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults)
         plugins = system
+        model.pluginSections = system.sections
         system.start()
     }
 

@@ -267,6 +267,7 @@ struct LeoSidebarView: View {
             List<LeoSidebarItemID?, _>(selection: selectionBinding) {
                 ForEach(machines) { machine in machineSection(machine) }
                 if showsTerminals { terminalSection }
+                pluginSections
             }
             .listStyle(.sidebar)
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
@@ -386,6 +387,16 @@ struct LeoSidebarView: View {
 
     private var terminalSection: some View {
         LeoTerminalsSection(titles: terminals.titles, terminals: terminals)
+    }
+
+    /// Plugin sections below the agents and terminals; hidden while the
+    /// filter (which searches agents) has text.
+    @ViewBuilder private var pluginSections: some View {
+        if let sections = model.pluginSections, !LeoSidebarLayout.isFiltering(model.query) {
+            ForEach(sections.entries) { entry in
+                LeoPluginSidebarSection(sections: sections, slots: sections.host.slots, entry: entry)
+            }
+        }
     }
 
     /// The window's selection: its terminal row, else the app-wide agent.
