@@ -11,7 +11,7 @@ struct LeoPluginListInteractionTests {
     private func item(
         _ id: String, subtitle: String? = nil, actions: [LeoPluginAction] = []
     ) -> LeoPluginNode.Item {
-        LeoPluginNode.Item(id: id, title: "Title \(id)", subtitle: subtitle, actions: actions)
+        LeoPluginNode.Item(id: id, title: "Title \(id)", subtitle: subtitle, actions: actions.map { LeoPluginLabeledAction($0) })
     }
 
     private func list(_ sections: [LeoPluginNode.Section]) -> LeoPluginNode.List {
@@ -41,6 +41,18 @@ struct LeoPluginListInteractionTests {
     private let cb = LeoPluginAction.callback(id: "merge-pr", payload: .int(7))
 
     // MARK: Actions
+
+    @Test func menuAndPanelEntriesUseThePluginsTitleAndSymbolElseTheKindDefaults() {
+        let entries = LeoPluginActionPresentation.entries(for: [
+            LeoPluginLabeledAction(cb, title: "Merge PR", sfSymbol: "arrow.merge"),
+            LeoPluginLabeledAction(cb),
+            LeoPluginLabeledAction(copy, title: "  ", sfSymbol: ""),
+            LeoPluginLabeledAction(open, title: "Open checks"),
+        ])
+        #expect(entries.map(\.title) == ["Merge PR", "Merge Pr", "Copy", "Open checks"])
+        #expect(entries.map(\.sfSymbol) == ["arrow.merge", "bolt", "doc.on.doc", "safari"])
+        #expect(entries.map(\.action) == [cb, cb, copy, open])
+    }
 
     @Test func contextMenuListsEveryActionOfTheItemInOrder() {
         let (model, _) = makeModel(list([.init(items: [item("a", actions: [open, copy, cb]), item("b", actions: [copy])])]))

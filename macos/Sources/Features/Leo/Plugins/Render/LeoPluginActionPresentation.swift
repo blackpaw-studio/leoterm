@@ -9,14 +9,21 @@ struct LeoPluginActionEntry: Equatable {
     let action: LeoPluginAction
 }
 
-/// Actions are plain data with no label of their own, so the menu text and
-/// symbol are derived from the action kind. Callback ids are humanised
+/// The menu text and symbol are the plugin's own `title` / `sfSymbol` when it
+/// gave them, else derived from the action kind. Callback ids are humanised
 /// ("merge-pr" → "Merge Pr").
 enum LeoPluginActionPresentation {
-    static func entries(for actions: [LeoPluginAction]) -> [LeoPluginActionEntry] {
-        actions.enumerated().map { index, action in
-            LeoPluginActionEntry(index: index, title: title(for: action), sfSymbol: symbol(for: action), action: action)
+    static func entries(for actions: [LeoPluginLabeledAction]) -> [LeoPluginActionEntry] {
+        actions.enumerated().map { index, labeled in
+            LeoPluginActionEntry(
+                index: index, title: nonBlank(labeled.title) ?? title(for: labeled.action),
+                sfSymbol: nonBlank(labeled.sfSymbol) ?? symbol(for: labeled.action), action: labeled.action)
         }
+    }
+
+    private static func nonBlank(_ text: String?) -> String? {
+        guard let trimmed = text?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
+        return trimmed
     }
 
     static func title(for action: LeoPluginAction) -> String {

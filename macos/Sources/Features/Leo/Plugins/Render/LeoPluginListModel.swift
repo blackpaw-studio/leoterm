@@ -97,7 +97,7 @@ final class LeoPluginListModel {
         guard let id = selectedItemID, let item = item(withID: id), !item.actions.isEmpty else { return false }
         switch key {
         case .return:
-            emitter.emit(item.actions[0], origin: .keyboard)
+            emitter.emit(item.actions[0].action, origin: .keyboard)
         case .commandReturn:
             actionPanel = LeoPluginActionPanelState(
                 itemID: id, entries: LeoPluginActionPresentation.entries(for: item.actions))
@@ -122,7 +122,7 @@ final class LeoPluginListModel {
     /// A click on the row's primary affordance (double-click) runs the first action.
     func performPrimary(item id: String, origin: LeoPluginGesture.Origin) {
         guard let first = item(withID: id)?.actions.first else { return }
-        emitter.emit(first, origin: origin)
+        emitter.emit(first.action, origin: origin)
     }
 
     // MARK: Updates

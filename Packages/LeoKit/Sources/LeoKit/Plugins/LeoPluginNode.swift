@@ -6,6 +6,7 @@ public enum LeoPluginNodeLimits {
     public static let maxNodes = 2_000
     public static let maxAccessoryText = 8
     public static let maxHelp = 80
+    public static let maxActionTitle = 40
 }
 
 public enum LeoPluginAccessoryColor: String, Codable, Equatable, Sendable {
@@ -53,10 +54,10 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         public var subtitle: String?
         public var sfSymbol: String?
         public var accessories: [Accessory]
-        public var actions: [LeoPluginAction]
+        public var actions: [LeoPluginLabeledAction]
         public init(
             id: String, title: String, subtitle: String? = nil, sfSymbol: String? = nil,
-            accessories: [Accessory] = [], actions: [LeoPluginAction] = []
+            accessories: [Accessory] = [], actions: [LeoPluginLabeledAction] = []
         ) {
             self.id = id; self.title = title; self.subtitle = subtitle; self.sfSymbol = sfSymbol
             self.accessories = accessories; self.actions = actions
@@ -74,7 +75,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             subtitle = try c.decodeIfPresent(String.self, forKey: .subtitle)
             sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol)
             accessories = try c.decodeIfPresent([Accessory].self, forKey: .accessories) ?? []
-            actions = try c.decodeIfPresent([LeoPluginAction].self, forKey: .actions) ?? []
+            actions = try c.decodeIfPresent([LeoPluginLabeledAction].self, forKey: .actions) ?? []
         }
 
         private enum Keys: String, CodingKey { case id, title, subtitle, sfSymbol, accessories, actions }
@@ -198,8 +199,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         public var title: String
         public var message: String?
         public var sfSymbol: String?
-        public var actions: [LeoPluginAction]
-        public init(title: String, message: String? = nil, sfSymbol: String? = nil, actions: [LeoPluginAction] = []) {
+        public var actions: [LeoPluginLabeledAction]
+        public init(title: String, message: String? = nil, sfSymbol: String? = nil, actions: [LeoPluginLabeledAction] = []) {
             self.title = title; self.message = message; self.sfSymbol = sfSymbol; self.actions = actions
         }
 
@@ -208,7 +209,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             title = try c.decode(String.self, forKey: .title)
             message = try c.decodeIfPresent(String.self, forKey: .message)
             sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol)
-            actions = try c.decodeIfPresent([LeoPluginAction].self, forKey: .actions) ?? []
+            actions = try c.decodeIfPresent([LeoPluginLabeledAction].self, forKey: .actions) ?? []
         }
 
         private enum Keys: String, CodingKey { case title, message, sfSymbol, actions }

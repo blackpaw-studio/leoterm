@@ -48,7 +48,7 @@ public enum LeoPluginAction: Codable, Equatable, Sendable {
     case spawnAgent(LeoPluginSpawnSpec)
 
     private enum CodingKeys: String, CodingKey {
-        case type, id, payload, node, url, text, agent
+        case type, id, payload, node, url, text, agent, title
     }
 
     public init(from decoder: any Decoder) throws {
@@ -56,6 +56,10 @@ public enum LeoPluginAction: Codable, Equatable, Sendable {
         defer { scope.exit() }
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
+        if let title = try container.decodeIfPresent(String.self, forKey: .title), title.count > LeoPluginNodeLimits.maxActionTitle {
+            throw DecodingError.dataCorruptedError(
+                forKey: .title, in: container, debugDescription: "action title over \(LeoPluginNodeLimits.maxActionTitle) characters")
+        }
         switch type {
         case "callback":
             self = .callback(
@@ -103,5 +107,37 @@ public enum LeoPluginAction: Codable, Equatable, Sendable {
             try container.encode("spawnAgent", forKey: .type)
             try spec.encode(to: encoder)
         }
+    }
+}
+
+/// An action as a menu or the action panel lists it: the action plus the
+/// label the plugin gave it. Wire form is the action's own object with two
+/// extra optional fields: `{"type": "...", ..., "title": "Merge", "sfSymbol": "arrow.merge"}`.
+/// Without them the renderer falls back to a default per action kind.
+public struct LeoPluginLabeledAction: Codable, Equatable, Sendable {
+    public var action: LeoPluginAction
+    public var title: String?
+    public var sfSymbol: String?
+
+    public init(_ action: LeoPluginAction, title: String? = nil, sfSymbol: String? = nil) {
+        self.action = action
+        self.title = title
+        self.sfSymbol = sfSymbol
+    }
+
+    private enum CodingKeys: String, CodingKey { case title, sfSymbol }
+
+    public init(from decoder: any Decoder) throws {
+        action = try LeoPluginAction(from: decoder)   // also checks the title length
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        title = try container.decodeIfPresent(String.self, forKey: .title)
+        sfSymbol = try container.decodeIfPresent(String.self, forKey: .sfSymbol)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        try action.encode(to: encoder)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(title, forKey: .title)
+        try container.encodeIfPresent(sfSymbol, forKey: .sfSymbol)
     }
 }

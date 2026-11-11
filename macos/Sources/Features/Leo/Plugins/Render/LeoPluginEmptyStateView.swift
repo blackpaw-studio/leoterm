@@ -3,7 +3,7 @@ import LeoKit
 
 final class LeoPluginEmptyStateView: NSView {
     private let emitter: LeoPluginActionEmitter
-    private var actions: [LeoPluginAction] = []
+    private var actions: [LeoPluginLabeledAction] = []
     private let stack = NSStackView()
 
     init(state: LeoPluginNode.EmptyState, emitter: LeoPluginActionEmitter) {
@@ -57,6 +57,6 @@ final class LeoPluginEmptyStateView: NSView {
 
     @objc private func run(_ sender: NSButton) {
         guard actions.indices.contains(sender.tag) else { return }
-        emitter.emit(actions[sender.tag], origin: .click)
+        emitter.emit(actions[sender.tag].action, origin: .click)
     }
 }

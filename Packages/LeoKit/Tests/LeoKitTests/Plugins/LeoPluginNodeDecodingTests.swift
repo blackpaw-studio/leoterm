@@ -21,6 +21,33 @@ struct LeoPluginNodeDecodingTests {
         #expect(list.sections[0].items[0].actions.count == 1)
     }
 
+    @Test func actionsCarryAnOptionalTitleAndSymbolAndKeepThemThroughARoundTrip() throws {
+        let root = try decode("""
+        {"type":"List","sections":[{"items":[{"id":"a","title":"PR","actions":[
+          {"type":"callback","id":"merge","title":"Merge","sfSymbol":"arrow.merge"},
+          {"type":"spawnAgent","repo":"a/b","branch":"x","prompt":"p","title":"Fix it"},
+          {"type":"copy","text":"x"}]}]}]}
+        """)
+        guard case .list(let list) = root.nodes[0] else { Issue.record("not list"); return }
+        let actions = list.sections[0].items[0].actions
+        #expect(actions.map(\.title) == ["Merge", "Fix it", nil])
+        #expect(actions.map(\.sfSymbol) == ["arrow.merge", nil, nil])
+        #expect(actions[0].action == .callback(id: "merge", payload: .null))
+        let again = try JSONDecoder().decode([LeoPluginLabeledAction].self, from: JSONEncoder().encode(actions))
+        #expect(again == actions)
+    }
+
+    @Test func anActionTitleOverFortyCharactersIsRejectedAtDecode() {
+        let long = String(repeating: "a", count: LeoPluginNodeLimits.maxActionTitle + 1)
+        #expect(throws: DecodingError.self) {
+            try decode(#"{"type":"EmptyState","title":"x","actions":[{"type":"copy","text":"x","title":"\#(long)"}]}"#)
+        }
+        let atLimit = String(repeating: "a", count: LeoPluginNodeLimits.maxActionTitle)
+        #expect(throws: Never.self) {
+            try decode(#"{"type":"EmptyState","title":"x","actions":[{"type":"copy","text":"x","title":"\#(atLimit)"}]}"#)
+        }
+    }
+
     @Test func rootAcceptsSingleNodeOrArray() throws {
         let one = try decode(#"{"type":"Loading"}"#)
         let many = try decode(#"[{"type":"Loading"},{"type":"EmptyState","title":"None"}]"#)
