@@ -32,12 +32,13 @@ public struct LeoPluginGitInstaller: Sendable {
     private let idClaims: any LeoPluginIDClaimLookup
 
     /// `allowedSchemes` is https in the app; tests with a local repo add `file`.
+    /// `idClaims` is required: the registry supplies it, so an id can't be taken over by another source.
     public init(
         root: URL, runner: any LeoPluginCommandRunning, gitPath: String = "/usr/bin/git",
         allowedSchemes: Set<String> = ["https"],
         inheritedEnvironment: [String: String] = ProcessInfo.processInfo.environment,
         gitIsAvailable: @escaping @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) },
-        idClaims: any LeoPluginIDClaimLookup = LeoPluginNoIDClaims()
+        idClaims: any LeoPluginIDClaimLookup
     ) {
         self.root = root
         self.runner = runner

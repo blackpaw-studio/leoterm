@@ -64,7 +64,7 @@ private func makeRemote(in base: URL, symlinkedMain: Bool = false) throws -> (ur
 
 struct LeoPluginGitInstallerRealGitTests {
     private func installer(root: URL) -> LeoPluginGitInstaller {
-        LeoPluginGitInstaller(root: root, runner: ProcessRunner(), allowedSchemes: ["file"], inheritedEnvironment: [:])
+        LeoPluginGitInstaller(root: root, runner: ProcessRunner(), allowedSchemes: ["file"], inheritedEnvironment: [:], idClaims: LeoPluginNoIDClaims())
     }
 
     @Test func clonesATaggedCommitFromALocalBareRepo() async throws {
@@ -101,7 +101,7 @@ struct LeoPluginGitInstallerRealGitTests {
 
     @Test func refusesAFileUrlUnderTheDefaultHttpsOnlyPolicy() async throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("leo-realgit-\(UUID().uuidString)")
-        let strict = LeoPluginGitInstaller(root: root, runner: ProcessRunner(), inheritedEnvironment: [:])
+        let strict = LeoPluginGitInstaller(root: root, runner: ProcessRunner(), inheritedEnvironment: [:], idClaims: LeoPluginNoIDClaims())
         await #expect(throws: LeoPluginInstallError.self) {
             try await strict.install(url: "file:///tmp/whatever.git", ref: "main")
         }
