@@ -8,8 +8,13 @@ struct LeoPluginApprovalSheet: View {
     let finish: (Bool?) -> Void
 
     private var title: String {
-        if request.isDev { return "Load “\(request.name)”?" }
-        return request.isUpdate ? "Update “\(request.name)”?" : "Install “\(request.name)”?"
+        if request.isUpdate { return "Update “\(request.name)”?" }
+        return request.isDev ? "Load “\(request.name)”?" : "Install “\(request.name)”?"
+    }
+
+    private var confirmTitle: String {
+        if request.isUpdate { return "Update" }
+        return request.isDev ? "Load" : "Install"
     }
 
     var body: some View {
@@ -25,13 +30,15 @@ struct LeoPluginApprovalSheet: View {
             if request.permissionLines.isEmpty {
                 Text("Nothing beyond drawing its own views.").foregroundStyle(.secondary)
             } else {
-                ForEach(request.permissionLines, id: \.self) { Label($0, systemImage: "checkmark.shield") }
+                ForEach(request.permissionLines, id: \.self) {
+                    Label($0, systemImage: "checkmark.shield").fixedSize(horizontal: false, vertical: true)
+                }
             }
             Text("Nothing runs until you approve.").font(.caption).foregroundStyle(.secondary)
             HStack {
                 Spacer()
                 Button("Cancel") { finish(nil) }.keyboardShortcut(.cancelAction)
-                Button(request.isUpdate ? "Update" : request.isDev ? "Load" : "Install") { finish(true) }.keyboardShortcut(.defaultAction)
+                Button(confirmTitle) { finish(true) }.keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
