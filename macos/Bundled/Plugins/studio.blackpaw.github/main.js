@@ -747,8 +747,10 @@ ${UNTRUSTED_NOTICE}`;
   var selectedThreadIds = (values) => Object.entries(values).filter(([, v]) => isChecked(v)).map(([id]) => id);
   var isObject2 = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
   async function handleSendComments(client, auth, payload) {
-    if (!isObject2(payload) || !isObject2(payload.agent) || !isObject2(payload.pr) || !isObject2(payload.values)) return null;
-    const { agent, pr, values } = payload;
+    if (!isObject2(payload) || !isObject2(payload.values) || !isObject2(payload.payload)) return null;
+    const { values } = payload;
+    const { agent, pr } = payload.payload;
+    if (!isObject2(agent) || !isObject2(pr)) return null;
     if (typeof agent.machine !== "string" || typeof agent.name !== "string") return null;
     if (typeof pr.owner !== "string" || typeof pr.repo !== "string" || typeof pr.number !== "number") return null;
     const ids = new Set(selectedThreadIds(values));

@@ -39,7 +39,8 @@ export const selectedThreadIds = (values: { readonly [key: string]: JSONValue })
 const isObject = (v: unknown): v is { [key: string]: JSONValue } => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /**
- * Submit handler. The form's values come back as `{formId, values}` merged into the payload.
+ * Submit handler. The host sends a form's submit as `{formId, values, payload}`, where `payload` is the
+ * submit action's own payload (agent and PR).
  * Re-fetches the threads (field ids are thread ids) so the payload stays small, then returns one sendToAgent.
  * A failed refetch returns an Error view with Retry, so the click never silently does nothing.
  */
@@ -48,8 +49,10 @@ export async function handleSendComments(
   auth: string | null,
   payload: JSONValue,
 ): Promise<Action | null> {
-  if (!isObject(payload) || !isObject(payload.agent) || !isObject(payload.pr) || !isObject(payload.values)) return null;
-  const { agent, pr, values } = payload;
+  if (!isObject(payload) || !isObject(payload.values) || !isObject(payload.payload)) return null;
+  const { values } = payload;
+  const { agent, pr } = payload.payload;
+  if (!isObject(agent) || !isObject(pr)) return null;
   if (typeof agent.machine !== "string" || typeof agent.name !== "string") return null;
   if (typeof pr.owner !== "string" || typeof pr.repo !== "string" || typeof pr.number !== "number") return null;
   const ids = new Set(selectedThreadIds(values));

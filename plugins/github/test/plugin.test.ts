@@ -239,7 +239,7 @@ describe("view", () => {
     stub.route("POST", API + "/graphql", asResponse(page1 as never), asResponse(page2 as never));
     const submit = asCallback(form.fields.find((f) => f.type === "submit")!.action);
     const box = form.fields.find((f) => f.type === "checkbox")!;
-    const result = await stub.emit("callback", submit.id, { ...(submit.payload as object), formId: form.id, values: { [box.id]: true } } as never);
+    const result = await stub.emit("callback", submit.id, { formId: form.id, values: { [box.id]: true }, payload: submit.payload } as never);
     expect(result).toMatchObject({ type: "sendToAgent", agent: alpha });
     expect((result as { text: string }).text).toContain("1 review comment on PR #12 (o/r)");
   });

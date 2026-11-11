@@ -43,6 +43,9 @@ describe("selectedThreadIds", () => {
   });
 });
 
+/** What the Mac host sends for a form submit: `{formId, values, payload: <the submit action's own payload>}`. */
+const hostSubmission = (values: Record<string, string | boolean>) => ({ formId: "review-threads", values, payload: { agent: AGENT, pr: PR } });
+
 describe("handleSendComments", () => {
   const setup = () => {
     const stub = createStubLeo();
@@ -52,7 +55,7 @@ describe("handleSendComments", () => {
 
   it("resolves to one sendToAgent with the selected threads", async () => {
     const { client } = setup();
-    const action = await handleSendComments(client, "tok", { agent: AGENT, pr: PR, formId: "f", values: { T1: "true", T3: "false", T4: "true" } });
+    const action = await handleSendComments(client, "tok", hostSubmission({ T1: "true", T3: "false", T4: "true" }));
     expect(action).toMatchObject({ type: "sendToAgent", agent: AGENT, title: "Send Comments to Agent" });
     const text = (action as { text: string }).text;
     expect(text.split("\n")[0]).toBe("2 review comments on PR #12 (o/r):");
@@ -62,7 +65,7 @@ describe("handleSendComments", () => {
 
   it("returns null when nothing is selected", async () => {
     const { client, stub } = setup();
-    expect(await handleSendComments(client, "tok", { agent: AGENT, pr: PR, formId: "f", values: { T1: "false" } })).toBeNull();
+    expect(await handleSendComments(client, "tok", hostSubmission({ T1: "false" }))).toBeNull();
     expect(stub.fetches).toHaveLength(0);
   });
 
@@ -75,7 +78,7 @@ describe("handleSendComments", () => {
     const stub = createStubLeo();
     stub.route("POST", "https://api.github.com/graphql", { status: 500, body: {} });
     const client = createGitHubClient(stub.leo, stub.clock);
-    const payload = { agent: AGENT, pr: PR, values: { T1: "true" } };
+    const payload = hostSubmission({ T1: "true" });
     const action = await handleSendComments(client, "tok", payload);
     expect(action).toEqual({
       type: "pushView",
