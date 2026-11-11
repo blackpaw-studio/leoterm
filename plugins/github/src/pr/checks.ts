@@ -57,6 +57,8 @@ const collect = <T>(json: unknown, key: string, map: (raw: unknown) => T | null)
   return list.map(map).filter((v): v is T => v !== null);
 };
 
+const STATE_RANK: Record<CheckState, number> = { failure: 3, running: 2, success: 1, neutral: 0 };
+
 /** Precedence failure > running > success > neutral. An empty list is neutral. */
 export function combineState(checks: readonly CheckItem[]): CheckState {
   if (checks.some((c) => c.state === "failure")) return "failure";
@@ -65,17 +67,25 @@ export function combineState(checks: readonly CheckItem[]): CheckState {
 }
 
 /**
- * A push and a pull_request workflow run on one head SHA each report a check with the same name. Keep the newest
- * (highest id) per name and source so the list shows each check once, and a stale run can't mask the current result.
+ * A push and a pull_request workflow run on one head SHA are independent runs (separate check suites), so both
+ * report a check with the same name and neither is stale. Show each name once, with the worst state of the group
+ * (failure > running > success > neutral) so a red run is never hidden by a newer green one. The representative is
+ * the newest run in that state, so the row and its log link point at the failing job.
  */
-function latestPerName(runs: readonly CheckItem[]): CheckItem[] {
-  const newest = new Map<string, CheckItem>();
+function worstPerName(runs: readonly CheckItem[]): CheckItem[] {
+  const picked = new Map<string, CheckItem>();
   for (const run of runs) {
     const key = run.source + ":" + run.name;
-    const seen = newest.get(key);
-    if (seen === undefined || Number(run.id) > Number(seen.id)) newest.set(key, run);
+    const seen = picked.get(key);
+    if (seen === undefined) {
+      picked.set(key, run);
+      continue;
+    }
+    const worse = STATE_RANK[run.state] > STATE_RANK[seen.state];
+    const newerSameState = run.state === seen.state && Number(run.id) > Number(seen.id);
+    if (worse || newerSameState) picked.set(key, run);
   }
-  return [...newest.values()];
+  return [...picked.values()];
 }
 
 export const findCheck = (checks: readonly CheckItem[], id: string): CheckItem | undefined => checks.find((c) => c.id === id);
@@ -90,5 +100,5 @@ export async function fetchChecks(client: GitHubClient, auth: string, ref: RepoR
   if (!runs.ok) return runs;
   if (!status.ok) return status;
   // The combined status of a commit with no statuses reads "pending"; only listed statuses count.
-  return ok([...latestPerName(collect(runs.value.json, "check_runs", toRun)), ...collect(status.value.json, "statuses", toStatus)]);
+  return ok([...worstPerName(collect(runs.value.json, "check_runs", toRun)), ...collect(status.value.json, "statuses", toStatus)]);
 }

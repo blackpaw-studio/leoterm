@@ -55,6 +55,17 @@ describe("fetchChecks", () => {
     expect(combineState(res.value)).toBe("success");
   });
 
+  it("keeps a failing push run visible when the newer pull_request run of the same name passes", async () => {
+    const { stub, client } = setup();
+    const run = (id: number, name: string, conclusion: string) => ({ id, name, status: "completed", conclusion, app: { slug: "github-actions" } });
+    stub.route("GET", RUNS, { body: { check_runs: [run(10, "test", "failure"), run(12, "test", "success")] } });
+    stub.route("GET", STATUS, asResponse(statusEmpty as never));
+    const res = await fetchChecks(client, "tok", REF, "abc");
+    if (!res.ok) throw new Error("expected ok");
+    expect(combineState(res.value)).toBe("failure");
+    expect(res.value.map((c) => [c.name, c.id, c.state])).toEqual([["test", "10", "failure"]]);
+  });
+
   it.each(["failure", "timed_out", "cancelled", "action_required", "startup_failure"])("treats conclusion %s as failure", async (conclusion) => {
     const { stub, client } = setup();
     stub.route("GET", RUNS, { body: { check_runs: [{ id: 1, name: "a", status: "completed", conclusion }] } });

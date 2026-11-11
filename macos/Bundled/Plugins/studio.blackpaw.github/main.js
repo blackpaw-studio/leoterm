@@ -1267,19 +1267,26 @@ ${flags.join(" \xB7 ")}${link}` };
     const list = isObject3(json) && Array.isArray(json[key]) ? json[key] : [];
     return list.map(map).filter((v) => v !== null);
   };
+  var STATE_RANK = { failure: 3, running: 2, success: 1, neutral: 0 };
   function combineState(checks) {
     if (checks.some((c) => c.state === "failure")) return "failure";
     if (checks.some((c) => c.state === "running")) return "running";
     return checks.some((c) => c.state === "success") ? "success" : "neutral";
   }
-  function latestPerName(runs) {
-    const newest = /* @__PURE__ */ new Map();
+  function worstPerName(runs) {
+    const picked = /* @__PURE__ */ new Map();
     for (const run of runs) {
       const key = run.source + ":" + run.name;
-      const seen = newest.get(key);
-      if (seen === void 0 || Number(run.id) > Number(seen.id)) newest.set(key, run);
+      const seen = picked.get(key);
+      if (seen === void 0) {
+        picked.set(key, run);
+        continue;
+      }
+      const worse = STATE_RANK[run.state] > STATE_RANK[seen.state];
+      const newerSameState = run.state === seen.state && Number(run.id) > Number(seen.id);
+      if (worse || newerSameState) picked.set(key, run);
     }
-    return [...newest.values()];
+    return [...picked.values()];
   }
   async function fetchChecks(client, auth, ref, sha) {
     const base = "/repos/" + ref.owner + "/" + ref.repo + "/commits/" + sha;
@@ -1289,7 +1296,7 @@ ${flags.join(" \xB7 ")}${link}` };
     ]);
     if (!runs.ok) return runs;
     if (!status.ok) return status;
-    return ok([...latestPerName(collect(runs.value.json, "check_runs", toRun)), ...collect(status.value.json, "statuses", toStatus)]);
+    return ok([...worstPerName(collect(runs.value.json, "check_runs", toRun)), ...collect(status.value.json, "statuses", toStatus)]);
   }
 
   // src/prStatus.ts
