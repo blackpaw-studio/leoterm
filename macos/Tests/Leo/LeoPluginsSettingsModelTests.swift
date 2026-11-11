@@ -181,6 +181,19 @@ import Testing
         #expect(rows[0].isEnabled == false)
     }
 
+    @Test func aPluginWaitingForApprovalShowsItsSwitchOffAndLocked() {
+        let diff = LeoPluginPermissionDiff(old: .none, new: LeoPluginPermissions(network: ["x.example.com"]))
+        let rows = Self.rig([
+            Self.info("a.b.approve", enabled: true, state: .needsApproval(diff)),
+            Self.info("a.b.on"),
+            Self.info("a.b.off", enabled: false, state: .stoppedByUser),
+        ]).model.rows
+
+        #expect(rows[0].isEnabled)
+        #expect(rows.map(\.switchIsOn) == [false, true, false])
+        #expect(rows.map(\.canToggle) == [false, true, true])
+    }
+
     @Test func rowsFollowTheManager() {
         let rig = Self.rig([Self.info("a.b.one")])
         rig.manager.subject.send([Self.info("a.b.one"), Self.info("a.b.two")])

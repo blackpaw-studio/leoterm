@@ -132,8 +132,9 @@ private struct LeoPluginRowView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Toggle("Enabled", isOn: Binding(get: { row.isEnabled }, set: setEnabled))
+            Toggle("Enabled", isOn: Binding(get: { row.switchIsOn }, set: setEnabled))
                 .toggleStyle(.switch).labelsHidden().controlSize(.small).padding(.top, 2)
+                .disabled(!row.canToggle)
             VStack(alignment: .leading, spacing: 3) {
                 titleLine
                 Text(row.sourceText).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)

@@ -32,6 +32,16 @@ struct LeoPluginRow: Equatable, Identifiable {
     let hiddenSections: [String]
 
     var canUninstall: Bool { !isBundled }
+
+    private var needsApproval: Bool {
+        if case .needsApproval = status { true } else { false }
+    }
+
+    /// A plugin waiting for approval isn't running whatever its saved switch
+    /// says, so the switch reads off until the person approves.
+    var switchIsOn: Bool { isEnabled && !needsApproval }
+    /// Approval is the way back on (Review…), not the switch.
+    var canToggle: Bool { !needsApproval }
     /// Dev folders are the author's own: uninstalling forgets them but leaves the folder.
     var uninstallDetail: String {
         isDev ? "The folder stays where it is." : "Its folder moves to the Trash and its Keychain items are deleted."
