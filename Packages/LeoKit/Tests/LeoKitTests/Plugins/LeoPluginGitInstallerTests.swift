@@ -141,7 +141,7 @@ struct LeoPluginGitInstallerTests {
         let installer = LeoPluginGitInstaller(
             root: root, runner: git, gitPath: "/usr/bin/git",
             inheritedEnvironment: ["HTTPS_PROXY": "http://p:1", "GIT_DIR": "/evil", "GIT_SSH_COMMAND": "x"],
-            gitIsAvailable: { _ in true })
+            gitIsAvailable: { _ in true }, idClaims: LeoPluginNoIDClaims())
         _ = try await installer.install(url: "https://github.com/x/demo", ref: goodSHA)
         let env = try #require(git.calls.first).environment
         #expect(env["HTTPS_PROXY"] == "http://p:1")

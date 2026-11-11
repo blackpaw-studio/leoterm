@@ -69,6 +69,13 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
     public var errorDescription: String? { reason }
 }
 
+/// What the router needs from a fetcher, so it can be faked.
+public protocol LeoPluginFetching: Sendable {
+    func fetch(url: String, init options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse
+}
+
+extension LeoPluginFetcher: LeoPluginFetching {}
+
 /// `leo.fetch` for one plugin. The app performs the request on the plugin's
 /// behalf, so everything is checked here: the manifest's hosts on the first
 /// URL *and every redirect hop*, https only, the per-plugin rate limit, and a

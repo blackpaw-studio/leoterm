@@ -4,14 +4,6 @@ import Foundation
 import LeoKit
 import os
 
-/// How a host process ended.
-enum LeoPluginHostTermination: Equatable, Sendable {
-    /// Counts against the supervisor's crash budget. The reason is user-visible.
-    case crashed(reason: String)
-    /// `stop()` was called; not a crash.
-    case stopped
-}
-
 /// The app's side of one plugin helper process: spawns it, speaks the framed
 /// JSON wire protocol, runs the watchdog, and reports how it ended.
 ///
@@ -22,7 +14,7 @@ enum LeoPluginHostTermination: Equatable, Sendable {
 /// their own queue and writes on a third, so a large write can never stall
 /// reading the helper's output (the helper would block on a full socket and
 /// the two ends would deadlock). Callbacks run on `callbackQueue`.
-final class LeoPluginHostConnection: @unchecked Sendable {
+final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
     struct Configuration {
         var pollInterval: TimeInterval = LeoPluginWatchdog.pollInterval
         var cpuBudgetSeconds: Double = LeoPluginWatchdog.cpuBudgetSeconds
