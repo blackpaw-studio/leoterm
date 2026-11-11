@@ -194,12 +194,17 @@ public struct LeoPluginManagerDependencies {
         return result
     }
 
+    /// The folder a record points at, looked up by the record's own origin and
+    /// path, not by manifest id: discovery keeps one winner per id, and a dev
+    /// folder claiming an installed or bundled id would otherwise take that
+    /// plugin's candidate away. The registry is the authority on what is what.
     private func candidate(for record: LeoPluginRecord, in found: LeoPluginDiscoveryResult) -> LeoPluginCandidate? {
+        let all = found.plugins + found.shadowed
         switch record.source {
-        case .bundled: return found.plugins.first { $0.origin == .bundled && $0.directory.lastPathComponent == record.id }
+        case .bundled: return all.first { $0.origin == .bundled && $0.directory.lastPathComponent == record.id }
         case .git(_, _, let sha):
-            return found.plugins.first { $0.origin == .installed(sha: sha) && $0.directory.deletingLastPathComponent().lastPathComponent == record.id }
-        case .dev(let path): return found.plugins.first { $0.origin == .dev && $0.directory.path == URL(fileURLWithPath: path).path }
+            return all.first { $0.origin == .installed(sha: sha) && $0.directory.deletingLastPathComponent().lastPathComponent == record.id }
+        case .dev(let path): return all.first { $0.origin == .dev && $0.directory.path == URL(fileURLWithPath: path).path }
         }
     }
 

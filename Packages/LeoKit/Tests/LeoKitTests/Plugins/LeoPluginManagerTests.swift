@@ -479,6 +479,29 @@ private let demo = "studio.blackpaw.demo"
         #expect(rig.hosts.last?.source == "v2")
     }
 
+    @Test func aDevFolderThatClaimsABundledIdDoesNotKnockTheBundledPluginOffline() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo, main: "bundled")
+        let devDir = try rig.addPlugin(in: rig.root.appendingPathComponent("dev"), manifest: manifestJSON(id: "studio.blackpaw.dev"), main: "dev")
+        try rig.store.update { $0.registerDev(LeoPluginManifest(id: "studio.blackpaw.dev", name: "Dev", version: "1.0.0", apiVersion: 1, main: "main.js"), path: devDir.path) }
+        rig.buildManager()
+        rig.manager.reload()
+        #expect(rig.state(demo) == .running)
+
+        // The author edits the dev manifest to claim the bundled plugin's id.
+        try Data(manifestJSON(id: demo).utf8).write(to: devDir.appendingPathComponent("leo-plugin.json"))
+        rig.manager.devPluginChanged("studio.blackpaw.dev")
+
+        #expect(rig.state(demo) == .running)
+        #expect(rig.hosts.made.filter { $0.source == "bundled" }.count == 1)   // never restarted or replaced
+        #expect(rig.hosts.made.first { $0.source == "bundled" }?.isStopped == false)
+        guard case .refused = rig.state("studio.blackpaw.dev") else {
+            Issue.record("dev plugin should be refused, was \(String(describing: rig.state("studio.blackpaw.dev")))")
+            return
+        }
+    }
+
     @Test func aReloadWithNothingChangedLeavesTheHostAlone() async throws {
         let rig = try Rig()
         defer { rig.cleanup() }
