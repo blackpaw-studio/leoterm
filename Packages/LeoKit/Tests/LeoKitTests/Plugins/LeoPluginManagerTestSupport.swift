@@ -35,6 +35,8 @@ final class PluginFakeFetcher: LeoPluginFetching, @unchecked Sendable {
     private(set) var confirmed: [(LeoPluginAction, LeoPluginIdentity)] = []
     func perform(_ action: LeoPluginAction, plugin: LeoPluginIdentity, slot: LeoPluginSlotID?) { performed.append((action, plugin, slot)) }
     func confirm(_ action: LeoPluginAction, plugin: LeoPluginIdentity) { confirmed.append((action, plugin)) }
+    private(set) var cancelled: [String] = []
+    func cancelPending(pluginID: String) { cancelled.append(pluginID) }
 }
 
 /// Steps by hand: nothing fires until the test says so.

@@ -38,15 +38,25 @@ private let target = LeoPluginAgentRef(machine: "studio-mac", name: "alpha")
     private(set) var spawnDrafts: [LeoPluginSpawnDraft] = []
     /// What the daemon had received when the sheet was on screen.
     var onShow: () -> Void = {}
+    /// While true a sheet stays open (like a real one waiting for a click).
+    /// It closes with a cancel when its task is cancelled, unless
+    /// `ignoresCancellation` (a presenter that never noticed).
+    var isHolding = false
+    var ignoresCancellation = false
+    private func hold() async {
+        while isHolding && (ignoresCancellation || !Task.isCancelled) { await Task.yield() }
+    }
     func confirmSend(_ draft: LeoPluginSendDraft) async -> String? {
         sendDrafts.append(draft)
         onShow()
-        return sendReply
+        await hold()
+        return isHolding && !ignoresCancellation ? nil : sendReply
     }
     func confirmSpawn(_ draft: LeoPluginSpawnDraft) async -> LeoPluginSpawnSpec? {
         spawnDrafts.append(draft)
         onShow()
-        return spawnReply
+        await hold()
+        return isHolding && !ignoresCancellation ? nil : spawnReply
     }
 }
 
@@ -222,6 +232,81 @@ private let target = LeoPluginAgentRef(machine: "studio-mac", name: "alpha")
         rig.executor.perform(.pushView(node: .loading(.init(message: "x"))), plugin: identity, slot: slot)
         rig.executor.perform(.pushView(node: .loading(.init(message: "y"))), plugin: identity, slot: nil)
         #expect(rig.slots.pushed[LeoPluginSlotKey(pluginID: identity.id, slot: slot)]?.count == 1)
+    }
+
+    private func settle() async { for _ in 0..<40 { await Task.yield() } }
+
+    @Test func cancelPendingDismissesAnOpenSheetAndNothingIsSent() async {
+        let rig = Rig()
+        rig.confirmer.sendReply = "x"
+        rig.confirmer.isHolding = true
+        rig.executor.confirm(.sendToAgent(agent: target, text: "x"), plugin: identity)
+        await settle()
+        #expect(rig.confirmer.sendDrafts.count == 1)
+
+        rig.executor.cancelPending(pluginID: identity.id)
+        await settle()
+        rig.confirmer.isHolding = false
+
+        #expect(rig.studio.messages.isEmpty)
+    }
+
+    @Test func aSheetThatIgnoresCancellationStillCannotReachTheDaemonAfterCancelPending() async {
+        let rig = Rig()
+        rig.confirmer.sendReply = "x"
+        rig.confirmer.isHolding = true
+        rig.confirmer.ignoresCancellation = true
+        rig.executor.confirm(.sendToAgent(agent: target, text: "x"), plugin: identity)
+        await settle()
+
+        rig.executor.cancelPending(pluginID: identity.id)
+        rig.confirmer.isHolding = false          // the person finally clicks Send
+        await settle()
+
+        #expect(rig.studio.messages.isEmpty && rig.access.resolved.isEmpty)
+    }
+
+    @Test func cancelPendingOnlyAffectsThatPlugin() async {
+        let rig = Rig()
+        let other = LeoPluginIdentity(id: "studio.blackpaw.other", name: "Other")
+        rig.confirmer.sendReply = "x"
+        rig.confirmer.isHolding = true
+        rig.executor.confirm(.sendToAgent(agent: target, text: "x"), plugin: other)
+        await settle()
+        rig.executor.cancelPending(pluginID: identity.id)
+        rig.confirmer.isHolding = false
+        await settle()
+        #expect(rig.studio.messages.map(\.1) == ["x"])
+    }
+
+    @Test func theConfirmationCapIsPerPluginAndFreedWhenASheetEnds() async {
+        let rig = Rig()
+        let other = LeoPluginIdentity(id: "studio.blackpaw.other", name: "Other")
+        rig.confirmer.isHolding = true
+        let cap = LeoPluginActionExecutor.maxPendingConfirmations
+        for _ in 0..<(cap + 1) { rig.executor.confirm(.sendToAgent(agent: target, text: "x"), plugin: identity) }
+        #expect(rig.effects.reports.count == 1)                       // the 4th was refused
+
+        rig.executor.confirm(.sendToAgent(agent: target, text: "y"), plugin: other)
+        #expect(rig.effects.reports.count == 1)                       // another plugin still has its own slots
+
+        rig.confirmer.isHolding = false                               // every sheet ends (nil reply: cancelled)
+        await settle()
+        for _ in 0..<cap { rig.executor.confirm(.sendToAgent(agent: target, text: "z"), plugin: identity) }
+        #expect(rig.effects.reports.count == 1)                       // slots came back
+    }
+
+    @Test func cancelPendingFreesTheSlotsEvenIfTheSheetNeverReturns() async {
+        let rig = Rig()
+        rig.confirmer.isHolding = true
+        rig.confirmer.ignoresCancellation = true
+        let cap = LeoPluginActionExecutor.maxPendingConfirmations
+        for _ in 0..<cap { rig.executor.confirm(.sendToAgent(agent: target, text: "x"), plugin: identity) }
+        rig.executor.cancelPending(pluginID: identity.id)
+        for _ in 0..<cap { rig.executor.confirm(.sendToAgent(agent: target, text: "x"), plugin: identity) }
+        #expect(rig.effects.reports.isEmpty)
+        rig.confirmer.isHolding = false
+        await settle()
     }
 
     @Test func confirmationsAreCappedSoASheetFloodIsDropped() async {

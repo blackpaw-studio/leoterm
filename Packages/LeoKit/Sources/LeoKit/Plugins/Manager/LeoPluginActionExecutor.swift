@@ -63,15 +63,19 @@ public struct LeoPluginSpawnDraft: Equatable, Sendable {
 /// person left in the sheet. `perform` never does either, whatever it is given.
 @MainActor public final class LeoPluginActionExecutor: LeoPluginActionRunning {
     public static let maxTextBytes = 32 * 1024
-    /// Sheets waiting at once. A plugin needs a click for each, so this only
-    /// bounds a runaway.
+    /// Sheets waiting at once, per plugin. A plugin needs a click for each, so
+    /// this only bounds a runaway, and one plugin can't use up another's.
     public static let maxPendingConfirmations = 3
 
     private let daemons: any LeoPluginDaemonAccess
     private let confirmer: any LeoPluginConfirming
     private let effects: any LeoPluginActionEffects
     private let slots: LeoPluginSlotStore
-    private var pendingConfirmations = 0
+    /// Open confirmations by plugin, by token. A sheet that never reports back
+    /// is freed by `cancelPending`, not left holding a slot forever.
+    private var pending: [String: [UUID: Task<Void, Never>]] = [:]
+    /// Bumped by `cancelPending`; a run that started under an older value is dead.
+    private var generations: [String: Int] = [:]
 
     public init(
         daemons: any LeoPluginDaemonAccess, confirmer: any LeoPluginConfirming, effects: any LeoPluginActionEffects,
@@ -103,34 +107,53 @@ public struct LeoPluginSpawnDraft: Equatable, Sendable {
     }
 
     public func confirm(_ action: LeoPluginAction, plugin: LeoPluginIdentity) {
-        guard pendingConfirmations < Self.maxPendingConfirmations else {
+        guard pending[plugin.id, default: [:]].count < Self.maxPendingConfirmations else {
             return effects.report(plugin: plugin, message: "Too many requests from \(plugin.name) are waiting for you. Answer them first.")
         }
-        pendingConfirmations += 1
-        Task { [weak self] in
-            await self?.run(.confirm(action), plugin: plugin)
-            self?.pendingConfirmations -= 1
+        let token = UUID()
+        let generation = generation(of: plugin.id)
+        pending[plugin.id, default: [:]][token] = Task { [weak self] in
+            await self?.run(.confirm(action), plugin: plugin, generation: generation)
+            self?.pending[plugin.id]?[token] = nil
         }
+    }
+
+    public func cancelPending(pluginID: String) {
+        generations[pluginID] = generation(of: pluginID) + 1
+        let tasks = pending.removeValue(forKey: pluginID) ?? [:]
+        tasks.values.forEach { $0.cancel() }
     }
 
     /// Runs one authorized action to completion (the sheet, then the daemon call).
     public func run(_ authorized: LeoPluginAuthorizedAction, plugin: LeoPluginIdentity) async {
+        await run(authorized, plugin: plugin, generation: generation(of: plugin.id))
+    }
+
+    private func run(_ authorized: LeoPluginAuthorizedAction, plugin: LeoPluginIdentity, generation: Int) async {
+        guard isLive(plugin, generation) else { return }
         switch authorized {
         case .perform(let action): perform(action, plugin: plugin, slot: nil)
-        case .confirm(.sendToAgent(let agent, let text)): await send(text: text, to: agent, plugin: plugin)
-        case .confirm(.spawnAgent(let spec)): await spawn(spec, plugin: plugin)
+        case .confirm(.sendToAgent(let agent, let text)): await send(text: text, to: agent, plugin: plugin, generation: generation)
+        case .confirm(.spawnAgent(let spec)): await spawn(spec, plugin: plugin, generation: generation)
         case .confirm: break
         }
     }
 
+    private func generation(of pluginID: String) -> Int { generations[pluginID, default: 0] }
+
+    /// The plugin hasn't been stopped, disabled or removed since this run began.
+    private func isLive(_ plugin: LeoPluginIdentity, _ generation: Int) -> Bool {
+        generation == self.generation(of: plugin.id) && !Task.isCancelled
+    }
+
     // MARK: Send
 
-    private func send(text: String, to agent: LeoPluginAgentRef, plugin: LeoPluginIdentity) async {
+    private func send(text: String, to agent: LeoPluginAgentRef, plugin: LeoPluginIdentity, generation: Int) async {
         guard text.utf8.count <= Self.maxTextBytes else {
             return effects.report(plugin: plugin, message: "\(plugin.name) tried to send a message that is too long.")
         }
         let draft = LeoPluginSendDraft(pluginName: plugin.name, agent: agent, text: text)
-        guard let edited = await confirmer.confirmSend(draft) else { return }
+        guard let edited = await confirmer.confirmSend(draft), isLive(plugin, generation) else { return }
         guard edited.utf8.count <= Self.maxTextBytes else {
             return effects.report(plugin: plugin, message: "That message is too long to send.")
         }
@@ -146,7 +169,7 @@ public struct LeoPluginSpawnDraft: Equatable, Sendable {
 
     // MARK: Spawn
 
-    private func spawn(_ proposed: LeoPluginSpawnSpec, plugin: LeoPluginIdentity) async {
+    private func spawn(_ proposed: LeoPluginSpawnSpec, plugin: LeoPluginIdentity, generation: Int) async {
         guard proposed.prompt.utf8.count <= Self.maxTextBytes else {
             return effects.report(plugin: plugin, message: "\(plugin.name) tried to start an agent with a prompt that is too long.")
         }
@@ -155,7 +178,9 @@ public struct LeoPluginSpawnDraft: Equatable, Sendable {
         let spec = LeoPluginSpawnSpec(
             repo: proposed.repo, branch: proposed.branch, base: proposed.base, prompt: proposed.prompt, machine: machine,
             template: proposed.template)
-        guard let edited = await confirmer.confirmSpawn(LeoPluginSpawnDraft(pluginName: plugin.name, spec: spec, machines: machines)) else { return }
+        guard let edited = await confirmer.confirmSpawn(LeoPluginSpawnDraft(pluginName: plugin.name, spec: spec, machines: machines)),
+            isLive(plugin, generation)
+        else { return }
 
         let repo = edited.repo.trimmingCharacters(in: .whitespacesAndNewlines)
         let branch = edited.branch.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -20,4 +20,8 @@ public struct LeoPluginIdentity: Equatable, Sendable {
     /// `sendToAgent` or `spawnAgent`: open the confirmation sheet; call the
     /// daemon only after the person confirms.
     func confirm(_ action: LeoPluginAction, plugin: LeoPluginIdentity)
+    /// The plugin was stopped, disabled or removed: dismiss its open
+    /// confirmation sheets, free their slots, and make sure nothing that was
+    /// waiting on them reaches a daemon.
+    func cancelPending(pluginID: String)
 }

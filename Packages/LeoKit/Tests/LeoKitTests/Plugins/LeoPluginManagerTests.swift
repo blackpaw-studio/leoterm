@@ -502,6 +502,25 @@ private let demo = "studio.blackpaw.demo"
         }
     }
 
+    @Test func stoppingOrRemovingAPluginCancelsItsOpenConfirmations() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        let other = "studio.blackpaw.other"
+        let devDir = try rig.addPlugin(in: rig.root.appendingPathComponent("dev"), manifest: manifestJSON(id: other))
+        try rig.store.update { $0.registerDev(LeoPluginManifest(id: other, name: "Other", version: "1.0.0", apiVersion: 1, main: "main.js"), path: devDir.path) }
+        rig.buildManager()
+        rig.manager.reload()
+        #expect(rig.actions.cancelled.isEmpty)
+
+        try rig.manager.setEnabled(demo, false)
+        #expect(rig.actions.cancelled.contains(demo))
+        #expect(!rig.actions.cancelled.contains(other))
+
+        try rig.manager.uninstall(other)
+        #expect(rig.actions.cancelled.contains(other))
+    }
+
     @Test func aReloadWithNothingChangedLeavesTheHostAlone() async throws {
         let rig = try Rig()
         defer { rig.cleanup() }

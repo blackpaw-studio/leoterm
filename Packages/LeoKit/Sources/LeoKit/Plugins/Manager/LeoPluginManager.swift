@@ -251,6 +251,7 @@ public struct LeoPluginManagerDependencies {
 
     private func drop(_ id: String) {
         guard let entry = entries.removeValue(forKey: id) else { return }
+        deps.actions.cancelPending(pluginID: id)
         tearDown(entry)
         deps.slots.remove(pluginID: id)
     }
@@ -350,6 +351,7 @@ public struct LeoPluginManagerDependencies {
 
     /// Stops the session and parks the entry in a non-running state.
     private func stop(_ entry: LeoPluginManagerEntry, state: LeoPluginRunState) {
+        deps.actions.cancelPending(pluginID: entry.id)
         tearDown(entry)
         entry.state = state
         deps.slots.setStatus(pluginID: entry.id, state.slotStatus)
