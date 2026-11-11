@@ -595,7 +595,8 @@ import LeoKit
 
     private func startPlugins() {
         guard !isShutDown, plugins == nil else { return }
-        let system = LeoPluginSystem(sidebar: model, clients: clients, defaults: defaults)
+        let system = LeoPluginSystem(
+            sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults)
         plugins = system
         system.start()
     }

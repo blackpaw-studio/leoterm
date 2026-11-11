@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import LeoKit
 
@@ -16,6 +17,7 @@ import LeoKit
     init(
         sidebar: LeoSidebarModel,
         clients: any LeoMachineClientResolving,
+        machineFeeds: SpawnMachineFeeds,
         defaults: UserDefaults,
         applicationSupport: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
         bundle: Bundle = .main,
@@ -30,8 +32,14 @@ import LeoKit
         let store = LeoPluginStore(root: root)
         let slots = LeoPluginSlotStore()
         let sources = LeoPluginAppSources(sidebar: sidebar, clients: clients, spawnMemory: SpawnMachineMemory(defaults: defaults))
+        let templateFeed = LeoPluginSpawnTemplateFeed(
+            list: { name in
+                sources.host(forMachine: name).map(machineFeeds.templateList)
+                    ?? Just(.failed("Unknown machine")).eraseToAnyPublisher()
+            },
+            reload: { name in sources.host(forMachine: name).map(machineFeeds.reload) })
         let executor = LeoPluginActionExecutor(
-            daemons: sources, confirmer: LeoPluginSheetConfirmer(presenter: presenter), effects: LeoPluginAppEffects(), slots: slots)
+            daemons: sources, confirmer: LeoPluginSheetConfirmer(presenter: presenter, templates: templateFeed), effects: LeoPluginAppEffects(), slots: slots)
         let scheduler = LeoPluginDispatchTimerScheduler()
         let watcher = LeoPluginDevWatcher(source: LeoPluginDispatchFileEvents(), scheduler: scheduler)
         let helperPath = LeoPluginPosixLauncher.embedded(in: bundle).helperURL.path

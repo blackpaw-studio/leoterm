@@ -19,13 +19,17 @@ public struct LeoPluginSpawnSpec: Codable, Equatable, Sendable {
     public let base: String?
     public let prompt: String
     public let machine: String?
+    /// Only a preselection: the sheet's Template picker has the last word,
+    /// and nothing starts without a selected template.
+    public let template: String?
 
-    public init(repo: String, branch: String, base: String?, prompt: String, machine: String?) {
+    public init(repo: String, branch: String, base: String?, prompt: String, machine: String?, template: String? = nil) {
         self.repo = repo
         self.branch = branch
         self.base = base
         self.prompt = prompt
         self.machine = machine
+        self.template = template
     }
 }
 

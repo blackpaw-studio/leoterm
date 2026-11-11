@@ -43,20 +43,21 @@ struct LeoPluginSpawnSheet: View {
     @State private var branch: String
     @State private var base: String
     @State private var prompt: String
-    @State private var machine: String
+    @StateObject private var picker: LeoPluginSpawnTemplateModel
 
-    init(draft: LeoPluginSpawnDraft, finish: @escaping (LeoPluginSpawnSpec?) -> Void) {
+    init(draft: LeoPluginSpawnDraft, templates: LeoPluginSpawnTemplateFeed, finish: @escaping (LeoPluginSpawnSpec?) -> Void) {
         self.draft = draft
         self.finish = finish
         _repo = State(initialValue: draft.spec.repo)
         _branch = State(initialValue: draft.spec.branch)
         _base = State(initialValue: draft.spec.base ?? "")
         _prompt = State(initialValue: draft.spec.prompt)
-        _machine = State(initialValue: draft.spec.machine ?? draft.machines.first ?? "")
+        _picker = StateObject(wrappedValue: LeoPluginSpawnTemplateModel(
+            machine: draft.spec.machine ?? draft.machines.first ?? "", preselect: draft.spec.template, feed: templates))
     }
 
     private var isValid: Bool {
-        !repo.trimmingCharacters(in: .whitespaces).isEmpty && !branch.trimmingCharacters(in: .whitespaces).isEmpty
+        !repo.trimmingCharacters(in: .whitespaces).isEmpty && !branch.trimmingCharacters(in: .whitespaces).isEmpty && picker.isReady
     }
 
     var body: some View {
@@ -68,8 +69,15 @@ struct LeoPluginSpawnSheet: View {
                 TextField("Repository", text: $repo)
                 TextField("Branch", text: $branch)
                 TextField("Base (optional)", text: $base)
-                Picker("Machine", selection: $machine) {
+                Picker("Machine", selection: $picker.machine) {
                     ForEach(draft.machines, id: \.self) { Text($0 == "localhost" ? "This Mac" : $0).tag($0) }
+                }
+                Picker("Template", selection: $picker.template) {
+                    if !picker.isReady { Text(picker.templateList.isLoaded ? "Choose a template" : "Loading…").tag("") }
+                    ForEach(picker.templateNames, id: \.self) { Text($0).tag($0) }
+                }
+                if let error = picker.templateError {
+                    Text(error).font(.caption).foregroundStyle(.red)
                 }
                 VStack(alignment: .leading) {
                     Text("Prompt")
@@ -83,7 +91,7 @@ struct LeoPluginSpawnSheet: View {
                 Spacer()
                 Button("Cancel") { finish(nil) }.keyboardShortcut(.cancelAction)
                 Button("Start") {
-                    finish(LeoPluginSpawnSpec(repo: repo, branch: branch, base: base.isEmpty ? nil : base, prompt: prompt, machine: machine))
+                    finish(LeoPluginSpawnSpec(repo: repo, branch: branch, base: base.isEmpty ? nil : base, prompt: prompt, machine: picker.machine, template: picker.template))
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(!isValid)
@@ -98,11 +106,13 @@ struct LeoPluginSpawnSheet: View {
 /// second request waits for the first to be answered.
 @MainActor final class LeoPluginSheetConfirmer: LeoPluginConfirming {
     private let presenter: LeoPluginSheetPresenter
+    private let templates: LeoPluginSpawnTemplateFeed
     private var isBusy = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
-    init(presenter: LeoPluginSheetPresenter = LeoPluginSheetPresenter()) {
+    init(presenter: LeoPluginSheetPresenter = LeoPluginSheetPresenter(), templates: LeoPluginSpawnTemplateFeed) {
         self.presenter = presenter
+        self.templates = templates
     }
 
     func confirmSend(_ draft: LeoPluginSendDraft) async -> String? {
@@ -110,7 +120,7 @@ struct LeoPluginSpawnSheet: View {
     }
 
     func confirmSpawn(_ draft: LeoPluginSpawnDraft) async -> LeoPluginSpawnSpec? {
-        await exclusively { await self.presenter.presentCancellable { finish in LeoPluginSpawnSheet(draft: draft, finish: finish) } }
+        await exclusively { await self.presenter.presentCancellable { finish in LeoPluginSpawnSheet(draft: draft, templates: self.templates, finish: finish) } }
     }
 
     private func exclusively<T>(_ body: () async -> T) async -> T {

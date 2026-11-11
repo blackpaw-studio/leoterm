@@ -153,7 +153,8 @@ public struct LeoPluginSpawnDraft: Equatable, Sendable {
         let machines = daemons.machines
         let machine = proposed.machine.flatMap { machines.contains($0) ? $0 : nil } ?? daemons.defaultMachine
         let spec = LeoPluginSpawnSpec(
-            repo: proposed.repo, branch: proposed.branch, base: proposed.base, prompt: proposed.prompt, machine: machine)
+            repo: proposed.repo, branch: proposed.branch, base: proposed.base, prompt: proposed.prompt, machine: machine,
+            template: proposed.template)
         guard let edited = await confirmer.confirmSpawn(LeoPluginSpawnDraft(pluginName: plugin.name, spec: spec, machines: machines)) else { return }
 
         let repo = edited.repo.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -161,12 +162,15 @@ public struct LeoPluginSpawnDraft: Equatable, Sendable {
         guard !repo.isEmpty, !branch.isEmpty, edited.prompt.utf8.count <= Self.maxTextBytes else {
             return effects.report(plugin: plugin, message: "An agent needs a repository and a branch, and a prompt under \(Self.maxTextBytes / 1024) KB.")
         }
+        guard let template = edited.template?.trimmingCharacters(in: .whitespacesAndNewlines), !template.isEmpty else {
+            return effects.report(plugin: plugin, message: "An agent needs a template. Choose one in the sheet.")
+        }
         let target = edited.machine ?? machine
         guard let commands = daemons.commands(forMachine: target) else {
             return effects.report(plugin: plugin, message: "Not connected to \(target), so the agent wasn't started.")
         }
         let base = edited.base?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let request = LeoSpawnRequest(repo: repo, branch: branch, base: (base ?? "").isEmpty ? nil : base, prompt: edited.prompt)
+        let request = LeoSpawnRequest(template: template, repo: repo, branch: branch, base: (base ?? "").isEmpty ? nil : base, prompt: edited.prompt)
         do {
             try await commands.spawn(request)
         } catch {

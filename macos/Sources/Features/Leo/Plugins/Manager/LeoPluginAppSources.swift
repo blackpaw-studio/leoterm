@@ -41,5 +41,8 @@ import LeoKit
         return LeoDaemonClientCommands(daemon)
     }
 
+    /// The machine a plugin names, if the sidebar knows it.
+    func host(forMachine name: String) -> LeoHostID? { hosts.first { $0.displayName == name } }
+
     private var hosts: [LeoHostID] { sidebar.machineOrder.isEmpty ? [.local] : sidebar.machineOrder }
 }

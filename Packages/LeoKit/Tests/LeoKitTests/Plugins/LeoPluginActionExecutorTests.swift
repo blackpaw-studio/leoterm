@@ -104,7 +104,7 @@ private let target = LeoPluginAgentRef(machine: "studio-mac", name: "alpha")
 
     @Test func spawnOpensTheSheetOnLeosDefaultMachineAndSendsTheEditedFields() async {
         let rig = Rig()
-        rig.confirmer.spawnReply = LeoPluginSpawnSpec(repo: "acme/edited", branch: "fix/it", base: "develop", prompt: "edited prompt", machine: "studio-mac")
+        rig.confirmer.spawnReply = LeoPluginSpawnSpec(repo: "acme/edited", branch: "fix/it", base: "develop", prompt: "edited prompt", machine: "studio-mac", template: "implementer")
 
         await rig.executor.run(
             .confirm(.spawnAgent(LeoPluginSpawnSpec(repo: "acme/orig", branch: "orig", base: nil, prompt: "orig prompt", machine: nil))), plugin: identity)
@@ -120,6 +120,34 @@ private let target = LeoPluginAgentRef(machine: "studio-mac", name: "alpha")
         #expect(request?.base == "develop")
         #expect(request?.prompt == "edited prompt")
         #expect(rig.local.spawns.isEmpty)
+    }
+
+    @Test func spawnSendsTheTemplateTheUserSelectedNotTheOneThePluginProposed() async {
+        let rig = Rig()
+        rig.confirmer.spawnReply = LeoPluginSpawnSpec(repo: "a/b", branch: "x", base: nil, prompt: "p", machine: "localhost", template: "implementer")
+        await rig.executor.run(
+            .confirm(.spawnAgent(LeoPluginSpawnSpec(repo: "a/b", branch: "x", base: nil, prompt: "p", machine: nil, template: "reviewer"))), plugin: identity)
+        #expect(rig.confirmer.spawnDrafts.first?.spec.template == "reviewer")   // preselection only
+        #expect(rig.local.spawns.map(\.template) == ["implementer"])
+    }
+
+    @Test func aSpawnWithNoTemplateSelectedIsRefusedAndReported() async {
+        let rig = Rig()
+        for blank in [nil, "", "  "] as [String?] {
+            rig.confirmer.spawnReply = LeoPluginSpawnSpec(repo: "a/b", branch: "x", base: nil, prompt: "p", machine: "localhost", template: blank)
+            await rig.executor.run(
+                .confirm(.spawnAgent(LeoPluginSpawnSpec(repo: "a/b", branch: "x", base: nil, prompt: "p", machine: nil, template: "reviewer"))), plugin: identity)
+        }
+        #expect(rig.local.spawns.isEmpty)
+        #expect(rig.effects.reports.count == 3)
+    }
+
+    @Test func theSpawnTemplateRoundTripsOnTheWire() throws {
+        let json = Data(#"{"type":"spawnAgent","repo":"a/b","branch":"x","prompt":"p","template":"t"}"#.utf8)
+        let action = try JSONDecoder().decode(LeoPluginAction.self, from: json)
+        #expect(action == .spawnAgent(LeoPluginSpawnSpec(repo: "a/b", branch: "x", base: nil, prompt: "p", machine: nil, template: "t")))
+        let again = try JSONDecoder().decode(LeoPluginAction.self, from: JSONEncoder().encode(action))
+        #expect(again == action)
     }
 
     @Test func aPluginChosenMachineIsKeptWhenItIsConnected() async {
