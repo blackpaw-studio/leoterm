@@ -22,8 +22,8 @@ public enum LeoPluginSectionRows {
     public static let emptyTitle = "Nothing to show"
 
     public static func make(from nodes: [LeoPluginNode]) -> [Row] {
-        let rows = nodes.enumerated().flatMap { index, node in rows(for: node, at: index) }
-        return rows.isEmpty ? [.message(id: "empty", title: emptyTitle, detail: nil)] : rows
+        let all = nodes.enumerated().flatMap { index, node in rows(for: node, at: index) }
+        return all.isEmpty ? [.message(id: "empty", title: emptyTitle, detail: nil)] : all
     }
 
     private static func rows(for node: LeoPluginNode, at index: Int) -> [Row] {

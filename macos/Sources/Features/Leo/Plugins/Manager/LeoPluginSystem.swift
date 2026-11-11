@@ -53,7 +53,7 @@ import LeoKit
             bundledRoot: bundle.resourceURL?.appendingPathComponent("Plugins", isDirectory: true),
             hosts: LeoPluginProcessHostFactory(launcher: .embedded(in: bundle)),
             scheduler: scheduler,
-            keychain: LeoPluginSystemKeychain(),
+            keychain: LeoPluginKeychainSelection.make(),
             agents: sources,
             actions: executor,
             trash: LeoPluginSystemTrash(),

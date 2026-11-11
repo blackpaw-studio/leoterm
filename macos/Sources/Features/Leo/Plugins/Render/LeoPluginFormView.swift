@@ -24,7 +24,7 @@ final class LeoPluginFormView: NSView {
             stack.leadingAnchor.constraint(equalTo: leadingAnchor),
             stack.trailingAnchor.constraint(equalTo: trailingAnchor),
             stack.topAnchor.constraint(equalTo: topAnchor),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
+            stack.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
         rebuild()
     }
@@ -33,10 +33,6 @@ final class LeoPluginFormView: NSView {
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
     override var isFlipped: Bool { true }
-
-    override var intrinsicContentSize: NSSize {
-        NSSize(width: NSView.noIntrinsicMetric, height: stack.fittingSize.height)
-    }
 
     func update(form: LeoPluginNode.Form) {
         model.apply(form: form)
@@ -50,7 +46,12 @@ final class LeoPluginFormView: NSView {
         controls = [:]
         let form = model.form
         if let title = form.title, !title.isEmpty {
-            stack.addArrangedSubview(LeoPluginRenderStyle.label(title, font: .systemFont(ofSize: 15, weight: .semibold)))
+            // A long heading wraps (two lines, then truncates) inside the pane and never widens it.
+            let heading = LeoPluginRenderStyle.label(title, font: .systemFont(ofSize: 15, weight: .semibold), lines: 2)
+            heading.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            stack.addArrangedSubview(heading)
+            heading.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: LeoPluginRenderStyle.gutter).isActive = true
+            heading.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -LeoPluginRenderStyle.gutter).isActive = true
         }
         for field in form.fields {
             let row = makeRow(for: field)
@@ -58,7 +59,6 @@ final class LeoPluginFormView: NSView {
             row.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: LeoPluginRenderStyle.gutter).isActive = true
             row.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -LeoPluginRenderStyle.gutter).isActive = true
         }
-        invalidateIntrinsicContentSize()
     }
 
     private func makeRow(for field: LeoPluginNode.Field) -> NSView {
