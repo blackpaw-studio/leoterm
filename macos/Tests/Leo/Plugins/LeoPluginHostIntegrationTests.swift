@@ -133,6 +133,20 @@ struct LeoPluginHostIntegrationTests {
         #expect(reason.contains("memory"))
     }
 
+    @Test func aHandlerThatAllocatesAndReturnsIsStillKilledForMemory() async throws {
+        // Production limits: the 256 MB cap, polled at 1 s, plus the check on `done`.
+        let (connection, probe) = makeConnection()
+        try connection.start(source: try fixture("hog"))
+        try connection.deliver(.agentsChanged)
+        let started = Date()
+        guard case .crashed(let reason)? = await probe.terminated(timeout: 10) else {
+            Issue.record("expected a crash")
+            return
+        }
+        #expect(reason.contains("memory"))
+        #expect(Date().timeIntervalSince(started) < 3)
+    }
+
     @Test func anExternalSIGKILLIsACrashAndTheSupervisorSaysRestartAfterOneSecond() async throws {
         let (connection, probe) = makeConnection()
         try connection.start(source: try fixture("echo"))

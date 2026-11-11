@@ -84,15 +84,69 @@ struct LeoPluginWatchdogTests {
         if case .kill = dog.poll(at: 1.3) {} else { Issue.record("expected kill at the next memory check") }
     }
 
-    @Test func nothingIsCheckedWhileNoHandlerIsRunning() {
+    @Test func handlerCPUBudgetIsNotAppliedWhileIdle() {
         let usage = FakeUsage()
         var dog = makeWatchdog(usage)
-        usage.cpu += 50
-        usage.footprintMB = 900
-        #expect(dog.poll(at: 5) == .ok)
-        dog.handlerStarted(at: 6)
-        dog.handlerFinished(at: 6.1)
-        #expect(dog.poll(at: 7) == .ok)
+        _ = dog.poll(at: 0)  // idle baseline
+        usage.cpu += 0.4  // under the idle allowance for one window
+        #expect(dog.poll(at: 1) == .ok)
+    }
+
+    @Test func memoryOverTheCapKillsEvenWhileIdle() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        usage.footprintMB = 400
+        guard case .kill(let reason) = dog.poll(at: 5) else {
+            Issue.record("expected kill")
+            return
+        }
+        #expect(reason.contains("256"))
+    }
+
+    @Test func memoryIsCheckedImmediatelyWhenAHandlerFinishes() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        dog.handlerStarted(at: 0)
+        #expect(dog.poll(at: 0.25) == .ok)  // memory read; next scheduled read is a second away
+        usage.footprintMB = 400
+        guard case .kill(let reason) = dog.handlerFinished(at: 0.3) else {
+            Issue.record("expected kill on done")
+            return
+        }
+        #expect(reason.contains("256"))
+    }
+
+    @Test func cpuGrowthWhileIdleKills() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        dog.handlerStarted(at: 0)
+        _ = dog.handlerFinished(at: 0.1)
+        usage.cpu += 0.9  // a background loop burning ~all of a one-second window
+        guard case .kill(let reason) = dog.poll(at: 1.2) else {
+            Issue.record("expected kill")
+            return
+        }
+        #expect(reason.contains("idle"))
+    }
+
+    @Test func idleCPUIsMeasuredPerWindowNotCumulatively() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        _ = dog.poll(at: 0)
+        for second in 1...20 {
+            usage.cpu += 0.1  // a light, steady trickle stays under the threshold
+            #expect(dog.poll(at: Double(second)) == .ok)
+        }
+    }
+
+    @Test func cpuSpentRunningAHandlerDoesNotCountAsIdleGrowth() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        dog.handlerStarted(at: 0)
+        usage.cpu += 1.5
+        _ = dog.handlerFinished(at: 1.5)
+        usage.cpu += 0.1
+        #expect(dog.poll(at: 2) == .ok)
     }
 
     @Test func queuedHandlersAreEachGivenTheirOwnBudget() {
@@ -101,7 +155,7 @@ struct LeoPluginWatchdogTests {
         dog.handlerStarted(at: 0)
         dog.handlerStarted(at: 0)  // queued behind the first
         usage.cpu += 1.5
-        dog.handlerFinished(at: 1)  // second starts running now
+        _ = dog.handlerFinished(at: 1)  // second starts running now
         usage.cpu += 1.5  // 3 s since the first started, 1.5 s for the second
         #expect(dog.poll(at: 1.25) == .ok)
         usage.cpu += 1

@@ -28,6 +28,8 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         var cpuBudgetSeconds: Double = LeoPluginWatchdog.cpuBudgetSeconds
         var memoryLimitBytes: UInt64 = LeoPluginWatchdog.memoryLimitBytes
         var memoryCheckInterval: TimeInterval = LeoPluginWatchdog.memoryCheckInterval
+        var idleCPUBudgetSeconds: Double = LeoPluginWatchdog.idleCPUBudgetSeconds
+        var idleCPUWindow: TimeInterval = LeoPluginWatchdog.idleCPUWindow
     }
 
     enum ConnectionError: Error, Equatable {
@@ -90,9 +92,12 @@ final class LeoPluginHostConnection: @unchecked Sendable {
                 cpuBudgetSeconds: configuration.cpuBudgetSeconds,
                 memoryLimitBytes: configuration.memoryLimitBytes,
                 memoryCheckInterval: configuration.memoryCheckInterval,
+                idleCPUBudgetSeconds: configuration.idleCPUBudgetSeconds,
+                idleCPUWindow: configuration.idleCPUWindow,
                 readUsage: { [readUsage] in readUsage(pid) })
             startExitSource(pid: pid)
             startReadSource(fd: launched.fd)
+            startPolling()
             beginHandler()
             write(command, to: launched.fd)
         }
@@ -159,8 +164,10 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         guard !hasExited else { return }
         switch message {
         case .handlerDone:
-            watchdog?.handlerFinished(at: clock())
-            endPollingIfIdle()
+            guard var dog = watchdog else { return }
+            let verdict = dog.handlerFinished(at: clock())
+            watchdog = dog
+            apply(verdict)
         case .request(let request):
             callbackQueue.async { [weak self] in self?.onRequest?(request) }
         }
@@ -210,9 +217,9 @@ final class LeoPluginHostConnection: @unchecked Sendable {
 
     // MARK: Watchdog (on `queue`)
 
-    private func beginHandler() {
-        watchdog?.handlerStarted(at: clock())
-        guard pollTimer == nil else { return }
+    /// Polls for the helper's whole life: the memory cap and the idle-CPU check
+    /// apply between handlers too, not only while one is running.
+    private func startPolling() {
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + configuration.pollInterval, repeating: configuration.pollInterval)
         timer.setEventHandler { [weak self] in self?.pollWatchdog() }
@@ -220,17 +227,19 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         timer.resume()
     }
 
-    private func endPollingIfIdle() {
-        guard watchdog?.isHandlerInFlight == false else { return }
-        pollTimer?.cancel()
-        pollTimer = nil
+    private func beginHandler() {
+        watchdog?.handlerStarted(at: clock())
     }
 
     private func pollWatchdog() {
         guard !hasExited, pendingTermination == nil, var dog = watchdog else { return }
         let verdict = dog.poll(at: clock())
         watchdog = dog
-        guard case .kill(let reason) = verdict else { return }
+        apply(verdict)
+    }
+
+    private func apply(_ verdict: LeoPluginWatchdogVerdict) {
+        guard case .kill(let reason) = verdict, !hasExited, pendingTermination == nil else { return }
         Self.logger.error("plugin host killed: \(reason, privacy: .public)")
         pendingTermination = .crashed(reason: reason)
         killProcess()
