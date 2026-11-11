@@ -74,10 +74,17 @@ private func populate(
     }
 }
 
-private func makeInstaller(_ git: FakeGit, root: URL, gitExists: Bool = true) -> LeoPluginGitInstaller {
+private struct FakeClaims: LeoPluginIDClaimLookup {
+    let claims: [String: LeoPluginIDClaim]
+    func claim(forID id: String) -> LeoPluginIDClaim? { claims[id] }
+}
+
+private func makeInstaller(
+    _ git: FakeGit, root: URL, gitExists: Bool = true, claims: [String: LeoPluginIDClaim] = [:]
+) -> LeoPluginGitInstaller {
     LeoPluginGitInstaller(
         root: root, runner: git, gitPath: "/usr/bin/git", inheritedEnvironment: [:],
-        gitIsAvailable: { _ in gitExists })
+        gitIsAvailable: { _ in gitExists }, idClaims: FakeClaims(claims: claims))
 }
 
 struct LeoPluginGitInstallerTests {
@@ -347,14 +354,100 @@ struct LeoPluginGitInstallerTests {
         }
     }
 
-    @Test func reinstallingTheSameShaReplacesTheFolder() async throws {
+    @Test func reinstallingTheSameShaKeepsTheExistingFolderAndDiscardsStaging() async throws {
         let root = try tempRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let git = FakeGit()
         populate(git)
         let installer = makeInstaller(git, root: root)
-        _ = try await installer.install(url: "https://github.com/x/demo", ref: goodSHA)
+        let first = try await installer.install(url: "https://github.com/x/demo", ref: goodSHA)
+        let marker = first.directory.appendingPathComponent("live-marker")
+        try Data("live".utf8).write(to: marker)
+
         let result = try await installer.install(url: "https://github.com/x/demo", ref: goodSHA)
+
+        #expect(result.directory.standardizedFileURL == first.directory.standardizedFileURL)
+        #expect(FileManager.default.fileExists(atPath: marker.path))
         #expect(FileManager.default.fileExists(atPath: result.directory.appendingPathComponent("dist/main.js").path))
+        let staging = root.appendingPathComponent(".staging")
+        #expect((try? FileManager.default.contentsOfDirectory(atPath: staging.path))?.isEmpty ?? true)
+    }
+
+    @Test func anIdAlreadyInstalledFromAnotherUrlIsRefusedAndNothingLands() async throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = FakeGit()
+        populate(git)
+        let installer = makeInstaller(
+            git, root: root, claims: ["studio.blackpaw.demo": .installed(sourceURL: "https://github.com/real/demo")])
+
+        await #expect(throws: LeoPluginInstallError.idTakenBySource(id: "studio.blackpaw.demo", source: "https://github.com/real/demo")) {
+            try await installer.install(url: "https://github.com/evil/demo", ref: goodSHA)
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("studio.blackpaw.demo").path))
+        let staging = root.appendingPathComponent(".staging")
+        #expect((try? FileManager.default.contentsOfDirectory(atPath: staging.path))?.isEmpty ?? true)
+    }
+
+    @Test(arguments: ["https://github.com/real/demo", "https://GitHub.com/real/demo.git", "https://github.com/real/demo/"])
+    func theSameSourceMayUpdateOrReinstall(recorded: String) async throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = FakeGit()
+        populate(git)
+        let installer = makeInstaller(git, root: root, claims: ["studio.blackpaw.demo": .installed(sourceURL: recorded)])
+        let result = try await installer.install(url: "https://github.com/real/demo", ref: goodSHA)
+        #expect(result.manifest.id == "studio.blackpaw.demo")
+    }
+
+    @Test func aBundledOrDevPluginsIdIsNeverAvailable() async throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = FakeGit()
+        populate(git)
+        let installer = makeInstaller(git, root: root, claims: ["studio.blackpaw.demo": .reserved])
+        await #expect(throws: LeoPluginInstallError.idReserved(id: "studio.blackpaw.demo")) {
+            try await installer.install(url: "https://github.com/x/demo", ref: goodSHA)
+        }
+        #expect(!FileManager.default.fileExists(atPath: root.appendingPathComponent("studio.blackpaw.demo").path))
+    }
+
+    @Test func installBySHAInstallsExactlyThatCommitWithoutResolving() async throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = FakeGit()
+        populate(git)
+        let result = try await makeInstaller(git, root: root).install(url: "https://github.com/x/demo", sha: goodSHA.uppercased())
+        #expect(result.sha == goodSHA)
+        #expect(result.ref == goodSHA)
+        #expect(!git.calls.contains { FakeGit.subcommand($0.arguments) == "ls-remote" })
+        let fetch = try #require(git.calls.first { FakeGit.subcommand($0.arguments) == "fetch" }).arguments
+        #expect(fetch.last == goodSHA)
+    }
+
+    @Test(arguments: ["main", "abc123", "--upload-pack=x", ""])
+    func installBySHARefusesAnythingButAFullHexSHA(sha: String) async throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = FakeGit()
+        populate(git)
+        await #expect(throws: LeoPluginInstallError.invalidRef(sha)) {
+            try await makeInstaller(git, root: root).install(url: "https://github.com/x/demo", sha: sha)
+        }
+        #expect(git.calls.isEmpty)
+    }
+
+    @Test func installByRefStillResolvesAndKeepsTheRefName() async throws {
+        let root = try tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = FakeGit()
+        populate(git)
+        let inner = git.handler
+        git.handler = { sub, args in
+            sub == "ls-remote" ? ok("\(goodSHA)\trefs/tags/v1\n") : try inner(sub, args)
+        }
+        let result = try await makeInstaller(git, root: root).install(url: "https://github.com/x/demo", ref: "v1")
+        #expect(result.sha == goodSHA)
+        #expect(result.ref == "v1")
     }
 }

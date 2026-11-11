@@ -12,6 +12,10 @@ public enum LeoPluginInstallError: Error, Equatable, LocalizedError, Sendable {
     case manifestRefused(String)
     case mainUnusable(String)
     case installFailed(String)
+    /// The manifest's id belongs to a plugin installed from another source.
+    case idTakenBySource(id: String, source: String)
+    /// The manifest's id belongs to a bundled or dev plugin.
+    case idReserved(id: String)
 
     public var errorDescription: String? {
         switch self {
@@ -26,6 +30,9 @@ public enum LeoPluginInstallError: Error, Equatable, LocalizedError, Sendable {
         case .manifestRefused(let reason): "The plugin manifest was refused: \(reason)."
         case .mainUnusable(let reason): "The plugin's main file was refused: \(reason)."
         case .installFailed(let reason): "Install failed: \(reason)."
+        case .idTakenBySource(let id, let source):
+            "A plugin with the id '\(id)' is already installed from \(source). A different repository can't take over its id."
+        case .idReserved(let id): "The id '\(id)' belongs to a built-in or development plugin."
         }
     }
 }

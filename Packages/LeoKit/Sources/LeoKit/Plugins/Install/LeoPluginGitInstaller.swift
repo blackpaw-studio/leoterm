@@ -29,13 +29,15 @@ public struct LeoPluginGitInstaller: Sendable {
     private let allowedSchemes: Set<String>
     private let inheritedEnvironment: [String: String]
     private let gitIsAvailable: @Sendable (String) -> Bool
+    private let idClaims: any LeoPluginIDClaimLookup
 
     /// `allowedSchemes` is https in the app; tests with a local repo add `file`.
     public init(
         root: URL, runner: any LeoPluginCommandRunning, gitPath: String = "/usr/bin/git",
         allowedSchemes: Set<String> = ["https"],
         inheritedEnvironment: [String: String] = ProcessInfo.processInfo.environment,
-        gitIsAvailable: @escaping @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
+        gitIsAvailable: @escaping @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) },
+        idClaims: any LeoPluginIDClaimLookup = LeoPluginNoIDClaims()
     ) {
         self.root = root
         self.runner = runner
@@ -43,6 +45,7 @@ public struct LeoPluginGitInstaller: Sendable {
         self.allowedSchemes = allowedSchemes
         self.inheritedEnvironment = inheritedEnvironment
         self.gitIsAvailable = gitIsAvailable
+        self.idClaims = idClaims
     }
 
     // MARK: - Resolve
@@ -62,22 +65,46 @@ public struct LeoPluginGitInstaller: Sendable {
 
     // MARK: - Install
 
+    /// Resolves `ref` and installs that commit.
     public func install(url: String, ref: String) async throws -> LeoPluginInstallResult {
-        let source = try Self.unwrap(LeoPluginGitSource.validatedURL(url, allowedSchemes: allowedSchemes))
         let name = try Self.unwrap(LeoPluginGitSource.validatedRef(ref))
         let sha = try await resolve(url: url, ref: ref)
+        return try await install(url: url, sha: sha, ref: name)
+    }
 
+    /// Installs exactly `sha`, with no re-resolve, so the commit is the one the
+    /// caller already showed the user. `sha` must be 40 hex characters.
+    public func install(url: String, sha: String) async throws -> LeoPluginInstallResult {
+        guard let pinned = LeoPluginGitSource.normalizedSHA(sha) else { throw LeoPluginInstallError.invalidRef(sha) }
+        return try await install(url: url, sha: pinned, ref: pinned)
+    }
+
+    private func install(url: String, sha: String, ref name: String) async throws -> LeoPluginInstallResult {
+        let source = try Self.unwrap(LeoPluginGitSource.validatedURL(url, allowedSchemes: allowedSchemes))
         let staging = root.appendingPathComponent(".staging").appendingPathComponent(UUID().uuidString)
         do {
             try FileManager.default.createDirectory(at: staging, withIntermediateDirectories: true)
             try await clone(url: source, sha: sha, into: staging)
             let manifest = try Self.validatedManifest(in: staging)
             try Self.checkMain(manifest.main, in: staging)
+            try checkIDIsAvailable(manifest.id, source: source)
             let directory = try place(staging: staging, id: manifest.id, sha: sha)
             return LeoPluginInstallResult(manifest: manifest, sha: sha, url: source.absoluteString, ref: name, directory: directory)
         } catch {
             try? FileManager.default.removeItem(at: staging)
             throw error
+        }
+    }
+
+    /// An id is bound to the source it was first installed from; bundled and dev ids are never available.
+    private func checkIDIsAvailable(_ id: String, source: URL) throws {
+        switch idClaims.claim(forID: id) {
+        case nil: return
+        case .reserved: throw LeoPluginInstallError.idReserved(id: id)
+        case .installed(let existing):
+            guard LeoPluginGitSource.isSameSource(existing, source.absoluteString) else {
+                throw LeoPluginInstallError.idTakenBySource(id: id, source: existing)
+            }
         }
     }
 
@@ -181,8 +208,9 @@ public struct LeoPluginGitInstaller: Sendable {
 
     // MARK: - Place
 
-    /// Drops `.git` and moves the staged tree to `<root>/<id>/<sha>/`, replacing
-    /// a previous copy of the same commit. `id` and `sha` are validated as
+    /// Drops `.git` and moves the staged tree to `<root>/<id>/<sha>/`. The folder
+    /// is content-addressed by commit, so an existing copy is kept (it may be
+    /// live) and the staged one discarded. `id` and `sha` are validated as
     /// lowercase DNS labels and hex, so neither can add path components.
     private func place(staging: URL, id: String, sha: String) throws -> URL {
         let fileManager = FileManager.default
@@ -191,8 +219,11 @@ public struct LeoPluginGitInstaller: Sendable {
         do {
             try? fileManager.removeItem(at: staging.appendingPathComponent(".git"))
             try fileManager.createDirectory(at: idFolder, withIntermediateDirectories: true)
-            if fileManager.fileExists(atPath: destination.path) { try fileManager.removeItem(at: destination) }
-            try fileManager.moveItem(at: staging, to: destination)
+            if fileManager.fileExists(atPath: destination.path) {
+                try fileManager.removeItem(at: staging)
+            } else {
+                try fileManager.moveItem(at: staging, to: destination)
+            }
         } catch {
             throw LeoPluginInstallError.installFailed(error.localizedDescription)
         }
