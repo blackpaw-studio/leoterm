@@ -75,6 +75,15 @@ struct LeoPluginNodeDecodingTests {
         #expect(throws: DecodingError.self) { try decode(#"{"type":"WebView"}"#) }
     }
 
+    @Test func anAccessorySymbolOutsideTheAllowlistIsDroppedAtDecodeAndTheTextKept() throws {
+        let root = try decode(#"{"type":"List","sections":[{"id":"s","title":"S","items":[{"id":"a","title":"t","accessories":[{"type":"Accessory","sfSymbol":"apple.logo","text":"3"},{"type":"Accessory","sfSymbol":"star","text":"4"}]}]}]}"#)
+
+        guard case .list(let list) = root.nodes[0] else { Issue.record("not a list"); return }
+        let accessories = list.sections[0].items[0].accessories
+        #expect(accessories.map(\.sfSymbol) == [nil, "star"])
+        #expect(accessories.map(\.text) == ["3", "4"])
+    }
+
     @Test func rejectsLongAccessoryText() {
         #expect(throws: DecodingError.self) {
             try decode(#"{"type":"Accessory","text":"123456789","color":"neutral"}"#)
