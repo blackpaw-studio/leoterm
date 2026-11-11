@@ -33,6 +33,12 @@ struct TerminalCommandPaletteView: View {
     /// The callback when an action is submitted.
     var onAction: ((String) -> Void)
 
+    /// Leo: the plugin commands to list. Injected; defaults to the running app's.
+    var pluginCommands: (any LeoPluginCommandSource)? = (NSApp.delegate as? AppDelegate)?.leoRuntime.plugins?.commands
+
+    /// Leo: the plugin page shown in place of the list, if a plugin command is open.
+    @State private var pluginSession: LeoPluginPaletteSession?
+
     var body: some View {
         ZStack {
             if isPresented {
@@ -43,11 +49,21 @@ struct TerminalCommandPaletteView: View {
                         ResponderChainInjector(responder: surfaceView)
                             .frame(width: 0, height: 0)
 
-                        CommandPaletteView(
-                            isPresented: $isPresented,
-                            backgroundColor: ghosttyConfig.backgroundColor,
-                            options: commandOptions
-                        )
+                        Group {
+                            if let pluginSession {
+                                LeoPluginPaletteView(
+                                    session: pluginSession,
+                                    backgroundColor: ghosttyConfig.backgroundColor,
+                                    showList: { self.pluginSession = nil }
+                                )
+                            } else {
+                                CommandPaletteView(
+                                    isPresented: $isPresented,
+                                    backgroundColor: ghosttyConfig.backgroundColor,
+                                    options: commandOptions
+                                )
+                            }
+                        }
                         .zIndex(1) // Ensure it's on top
 
                         Spacer()
@@ -61,6 +77,7 @@ struct TerminalCommandPaletteView: View {
             // surface view we were overlaid on top of. There's probably a better way
             // to handle the first responder state here but I don't know it.
             if !newValue {
+                pluginSession = nil
                 // Has to be on queue because onChange happens on a user-interactive
                 // thread and Xcode is mad about this call on that.
                 DispatchQueue.main.async {
@@ -79,7 +96,7 @@ struct TerminalCommandPaletteView: View {
         // Sort the rest. We replace ":" with a character that sorts before space
         // so that "Foo:" sorts before "Foo Bar:". Use sortKey as a tie-breaker
         // for stable ordering when titles are equal.
-        options.append(contentsOf: sortedTerminalPaletteOptions(jumpOptions + terminalOptions))
+        options.append(contentsOf: sortedTerminalPaletteOptions(jumpOptions + terminalOptions + pluginOptions))
         return options
     }
 
@@ -139,6 +156,22 @@ struct TerminalCommandPaletteView: View {
                     onAction(c.action)
                 }
             }
+    }
+
+    /// Leo: commands contributed by plugins. Selecting one opens its page in the palette.
+    private var pluginOptions: [CommandOption] {
+        (pluginCommands?.commands ?? []).map { command in
+            CommandOption(
+                title: command.title,
+                subtitle: command.pluginName,
+                leadingIcon: command.sfSymbol ?? "puzzlepiece.extension",
+                keepsPaletteOpen: true
+            ) {
+                let session = pluginCommands?.select(command)
+                session?.onFinishedWithoutRender = { isPresented = false }
+                pluginSession = session
+            }
+        }
     }
 
     /// Commands for jumping to other terminal surfaces.

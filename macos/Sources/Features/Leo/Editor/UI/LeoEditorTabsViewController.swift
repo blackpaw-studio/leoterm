@@ -14,6 +14,9 @@ import Combine
 /// starts with a Browser item and the pane can show the browser
 /// (`LeoAgentBrowserPaneViewController`) instead of the selected tab. The
 /// browser appearing opens the pane like a background open: no focus taken.
+///
+/// A plugin view the user opened on the row's agent (`rowPane.pluginView`)
+/// is a second leading item and, in front, takes the pane's content the same way.
 final class LeoEditorTabsViewController: NSViewController {
     let tabs: LeoEditorTabs
     let tabBar = LeoEditorTabBar()
@@ -21,10 +24,13 @@ final class LeoEditorTabsViewController: NSViewController {
     private(set) var shown: LeoEditorPaneViewController?
     /// The agent browser's view, while it is the pane's content.
     private(set) var shownBrowser: LeoAgentBrowserPaneViewController?
+    /// The row's plugin view, while it is the pane's content.
+    private(set) var shownPlugin: LeoPluginPaneViewController?
     private let rowPane: LeoRowPane?
     private let headerTopInset: LeoToolbarInset?
     private var tabViews: [ObjectIdentifier: LeoEditorPaneViewController] = [:]
     private var browserViews: [ObjectIdentifier: LeoAgentBrowserPaneViewController] = [:]
+    private var pluginViews: [LeoPluginViewRef: LeoPluginPaneViewController] = [:]
     private var subscriptions: Set<AnyCancellable> = []
     private var documentSubscriptions: Set<AnyCancellable> = []
 
@@ -47,7 +53,7 @@ final class LeoEditorTabsViewController: NSViewController {
         view = NSView()
         view.setAccessibilityElement(false)
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: LeoEditorPaneViewController.minimumWidth).isActive = true
-        if let shownBrowser { embed(shownBrowser) } else if let shown { embed(shown) }
+        if let shownPlugin { embed(shownPlugin) } else if let shownBrowser { embed(shownBrowser) } else if let shown { embed(shown) }
     }
 
     /// Whether focus is in the pane.
@@ -98,6 +104,23 @@ final class LeoEditorTabsViewController: NSViewController {
 
     private var showsBrowser: Bool { rowPane?.content == .agentBrowser }
 
+    /// The plugin view in front, if one is.
+    private var frontPluginRef: LeoPluginViewRef? {
+        guard case .plugin(let ref)? = rowPane?.content else { return nil }
+        return ref
+    }
+
+    private var showsPlugin: Bool { frontPluginRef != nil }
+
+    /// The plugin view's pane, made the first time it's asked for.
+    private func pluginPane(for ref: LeoPluginViewRef) -> LeoPluginPaneViewController? {
+        if let view = pluginViews[ref] { return view }
+        guard let host = rowPane?.pluginHost else { return nil }
+        let view = LeoPluginPaneViewController(ref: ref, host: host, headerTopInset: headerTopInset)
+        pluginViews[ref] = view
+        return view
+    }
+
     /// The browser's view, made the first time it's asked for.
     private func browserView(for source: any LeoAgentBrowserPaneSource) -> LeoAgentBrowserPaneViewController {
         let id = ObjectIdentifier(source)
@@ -115,9 +138,14 @@ final class LeoEditorTabsViewController: NSViewController {
         let browserSource = rowPane?.agentBrowser
         let liveBrowsers = browserSource.map { [ObjectIdentifier($0)] } ?? []
         browserViews = browserViews.filter { liveBrowsers.contains($0.key) }
+        // The open plugin view's pane is kept while a file or the browser is in front of it.
+        pluginViews = pluginViews.filter { $0.key == rowPane?.pluginView }
+        let nextPlugin = frontPluginRef.flatMap(pluginPane(for:))
         let nextBrowser = showsBrowser ? browserSource.map(browserView(for:)) : nil
-        let next = showsBrowser ? nil : tabs.selected.map(view(for:))
-        if next !== shown || nextBrowser !== shownBrowser { swap(to: next, browser: nextBrowser) }
+        let next = showsBrowser || nextPlugin != nil ? nil : tabs.selected.map(view(for:))
+        if next !== shown || nextBrowser !== shownBrowser || nextPlugin !== shownPlugin {
+            swap(to: next, browser: nextBrowser, plugin: nextPlugin)
+        }
         shown?.refreshChrome()
         observeDocuments(of: current)
         refreshStrip()
@@ -133,7 +161,7 @@ final class LeoEditorTabsViewController: NSViewController {
     }
 
     private func refreshStrip() {
-        let selected = showsBrowser ? nil : tabs.selected
+        let selected = showsBrowser || showsPlugin ? nil : tabs.selected
         let files = tabs.tabs.compactMap { tab -> LeoEditorTabBar.Item? in
             guard let fileID = tab.document?.fileID else { return nil }
             return LeoEditorTabBar.Item(
@@ -144,15 +172,22 @@ final class LeoEditorTabsViewController: NSViewController {
         let browser = hasBrowserItem
             ? [LeoEditorTabBar.Item(title: "Browser", toolTip: "Agent browser", isDirty: false, isSelected: showsBrowser, isBrowser: true)]
             : []
-        let items = browser + files
+        let plugin = rowPane?.pluginView.map {
+            [LeoEditorTabBar.Item(
+                title: $0.title, toolTip: "\($0.title), \($0.pluginName)", isDirty: false, isSelected: showsPlugin, pluginSymbol: $0.sfSymbol)]
+        } ?? []
+        let items = browser + plugin + files
         tabBar.update(items)
-        // A lone Browser item still shows: its close is the browser's only one.
-        tabBar.isHidden = items.count < 2 && !hasBrowserItem
+        // A lone Browser or plugin item still shows: its close is the view's only one.
+        tabBar.isHidden = items.count < 2 && pinnedCount == 0
     }
 
     // MARK: - Switching
 
-    private func swap(to next: LeoEditorPaneViewController?, browser nextBrowser: LeoAgentBrowserPaneViewController?) {
+    private func swap(
+        to next: LeoEditorPaneViewController?, browser nextBrowser: LeoAgentBrowserPaneViewController?,
+        plugin nextPlugin: LeoPluginPaneViewController?
+    ) {
         let hadFocus = hasFocus
         let window = isViewLoaded ? view.window : nil
         if let shown {
@@ -163,8 +198,19 @@ final class LeoEditorTabsViewController: NSViewController {
             if shownBrowser.isViewLoaded { shownBrowser.view.removeFromSuperview() }
             shownBrowser.removeFromParent()
         }
+        if let shownPlugin {
+            if shownPlugin.isViewLoaded { shownPlugin.view.removeFromSuperview() }
+            shownPlugin.removeFromParent()
+        }
         shown = next
         shownBrowser = nextBrowser
+        shownPlugin = nextPlugin
+        if let nextPlugin {
+            addChild(nextPlugin)
+            if hadFocus { focusTerminal(in: window) }
+            if isViewLoaded { embed(nextPlugin) }
+            return
+        }
         if let nextBrowser {
             addChild(nextBrowser)
             // Focus that was in a text tab goes to the terminal, as when its tab closes.
@@ -184,8 +230,16 @@ final class LeoEditorTabsViewController: NSViewController {
     }
 
     private func embed(_ browser: LeoAgentBrowserPaneViewController) {
-        let paneView = browser.view
-        browser.install(tabBar: tabBar)
+        embedAuxiliary(browser, installTabBar: browser.install(tabBar:))
+    }
+
+    private func embed(_ plugin: LeoPluginPaneViewController) {
+        embedAuxiliary(plugin, installTabBar: plugin.install(tabBar:))
+    }
+
+    private func embedAuxiliary(_ controller: NSViewController, installTabBar: (NSView) -> Void) {
+        let paneView = controller.view
+        installTabBar(tabBar)
         paneView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(paneView)
         NSLayoutConstraint.activate([
@@ -213,6 +267,10 @@ final class LeoEditorTabsViewController: NSViewController {
 
     /// Close Editor Tab: the selected tab, as its close button does.
     func closeSelectedTab() {
+        if showsPlugin {
+            rowPane?.closePluginView()
+            return
+        }
         if showsBrowser {
             rowPane?.closeAgentBrowser()
             return
@@ -222,13 +280,22 @@ final class LeoEditorTabsViewController: NSViewController {
     }
 
     private var hasBrowserItem: Bool { rowPane?.isAgentBrowserOpen == true }
+    private var hasPluginItem: Bool { rowPane?.isPluginViewOpen == true }
 
-    /// The strip's index for a file tab: the Browser item, when there is one, comes first.
-    private var fileIndexOffset: Int { hasBrowserItem ? 1 : 0 }
+    /// The leading strip items that aren't files: the Browser, then the plugin view.
+    private enum Pinned { case browser, plugin }
+    private var pinned: [Pinned] { (hasBrowserItem ? [.browser] : []) + (hasPluginItem ? [.plugin] : []) }
+    private var pinnedCount: Int { pinned.count }
+
+    /// The strip's index for a file tab: the pinned items come first.
+    private var fileIndexOffset: Int { pinnedCount }
 
     private func selectTab(at index: Int) {
-        if hasBrowserItem, index == 0 {
-            rowPane?.showAgentBrowser()
+        if pinned.indices.contains(index) {
+            switch pinned[index] {
+            case .browser: rowPane?.showAgentBrowser()
+            case .plugin: rowPane?.frontPluginView()
+            }
             return
         }
         let index = index - fileIndexOffset
@@ -238,8 +305,11 @@ final class LeoEditorTabsViewController: NSViewController {
     }
 
     private func closeTab(at index: Int) {
-        if hasBrowserItem, index == 0 {
-            rowPane?.closeAgentBrowser()
+        if pinned.indices.contains(index) {
+            switch pinned[index] {
+            case .browser: rowPane?.closeAgentBrowser()
+            case .plugin: rowPane?.closePluginView()
+            }
             return
         }
         let index = index - fileIndexOffset
@@ -278,7 +348,7 @@ final class LeoEditorTabsViewController: NSViewController {
 }
 
 extension LeoEditorTabsViewController: LeoRowPaneChild {
-    var isPaneOpen: Bool { tabs.isOpen || hasBrowserItem }
+    var isPaneOpen: Bool { tabs.isOpen || hasBrowserItem || hasPluginItem }
 
     /// Back on screen (B-274): the selected tab's file may have changed.
     func onShown() {

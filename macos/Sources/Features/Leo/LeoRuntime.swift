@@ -9,6 +9,12 @@ import LeoKit
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let model: LeoSidebarModel
+    /// The plugin platform; built by `start()`, so a runtime that is never
+    /// started (tests) touches no plugin files.
+    private(set) var plugins: LeoPluginSystem?
+    /// What the sidebar, the menus and the row panes read the plugin system
+    /// through; exists from launch and attaches once `plugins` starts.
+    let pluginSurfaces: LeoPluginSurfaces
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
@@ -38,7 +44,8 @@ import LeoKit
     /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
     private(set) lazy var settingsWindow = LeoSettingsWindowController(
         registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
-        agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] }
+        agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] },
+        plugins: { [weak self] in self?.plugins }
     )
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
@@ -191,6 +198,10 @@ import LeoKit
         )
         let registry = LeoWindowSessionRegistry()
         self.model = model
+        pluginSurfaces = LeoPluginSurfaces(agents: { [weak model] in
+            // Top-level agents only (dispatches have no plugin slots); a moved agent's dormant row isn't one.
+            model?.rows.filter { $0.movedTo == nil }.map { LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) } ?? []
+        })
         self.registry = registry
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
@@ -411,6 +422,8 @@ import LeoKit
                 weakSelf?.snapshotLanded(snapshot)
                 weakSelf?.feedSnapshotLanded(snapshot, for: host)
                 weakSelf?.agentBrowsers.snapshotLanded(snapshot, for: host)
+                weakSelf?.plugins?.agentsDidChange()
+                weakSelf?.pluginSurfaces.reconcileAccessories()
                 // A hello may have added or dropped `machine_stats`.
                 weakSelf?.statsPoller.reconcile()
             }
@@ -585,7 +598,19 @@ import LeoKit
             statsPoller.setSidebarPollable(registry.hasPollableSidebar)
             statsPoller.setAppActive(NSApp?.isActive ?? false)
             machines.start(flavor: flavor)
+            startPlugins()
         }
+    }
+
+    private func startPlugins() {
+        guard !isShutDown, plugins == nil else { return }
+        let system = LeoPluginSystem(
+            sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults,
+            surfaces: pluginSurfaces)
+        plugins = system
+        model.pluginSections = system.sections
+        pluginSurfaces.attach(system.manager)
+        system.start()
     }
 
     /// The app restarted or switched its own daemon: reconnect This Mac.
@@ -601,6 +626,7 @@ import LeoKit
         machines.shutdown(alsoAwaiting: [agentBrowsers.shutdown()])
         feeds.stop()
         statsPoller.stop()
+        plugins?.shutDown()
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
@@ -621,6 +647,7 @@ import LeoKit
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
+        session.pluginSurfaces = pluginSurfaces
         session.openPicker = { [weak self] surfaceID in
             guard let self else { return }
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)

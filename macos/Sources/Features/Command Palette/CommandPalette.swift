@@ -21,6 +21,8 @@ struct CommandOption: Identifiable, Hashable {
     let emphasis: Bool
     /// Sort key for stable ordering when titles are equal.
     let sortKey: ObjectIdentifier?
+    /// Leo: selecting this option leaves the palette open (it opens a plugin page).
+    let keepsPaletteOpen: Bool
     /// The action to perform when this option is selected.
     let action: () -> Void
 
@@ -34,6 +36,7 @@ struct CommandOption: Identifiable, Hashable {
         badge: String? = nil,
         emphasis: Bool = false,
         sortKey: ObjectIdentifier? = nil,
+        keepsPaletteOpen: Bool = false,
         action: @escaping () -> Void
     ) {
         self.title = title
@@ -45,6 +48,7 @@ struct CommandOption: Identifiable, Hashable {
         self.badge = badge
         self.emphasis = emphasis
         self.sortKey = sortKey
+        self.keepsPaletteOpen = keepsPaletteOpen
         self.action = action
     }
 
@@ -103,7 +107,7 @@ struct CommandPaletteView: View {
                     isPresented = false
 
                 case .submit:
-                    isPresented = false
+                    if selectedOption?.keepsPaletteOpen != true { isPresented = false }
                     selectedOption?.action()
 
                 case .move(.up):
@@ -147,7 +151,7 @@ struct CommandPaletteView: View {
                 query: query,
                 selectedIndex: $selectedIndex,
                 hoveredOptionID: $hoveredOptionID) { option in
-                    isPresented = false
+                    if !option.keepsPaletteOpen { isPresented = false }
                     option.action()
                 }
         }

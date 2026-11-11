@@ -47,7 +47,7 @@ extension LeoSidebarFeed {
         snapshot = LeoSidebarSnapshot(
             rows: snapshot.rows.map {
                 LeoAgentRow(host: $0.host, name: $0.name, displayName: $0.displayName, template: $0.template, status: $0.status, activity: .unknown, actionDetail: nil,
-                            workspace: $0.workspace, repo: $0.repo, startedAt: $0.startedAt, wakeOnMessage: $0.wakeOnMessage,
+                            workspace: $0.workspace, repo: $0.repo, branch: $0.branch, startedAt: $0.startedAt, wakeOnMessage: $0.wakeOnMessage,
                             movedTo: $0.movedTo, movedAt: $0.movedAt)
             },
             connectivity: .disconnected(reason: reason, isRetrying: false),

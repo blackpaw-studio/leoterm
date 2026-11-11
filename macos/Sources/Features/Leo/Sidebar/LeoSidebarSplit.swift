@@ -232,6 +232,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
                 toolbarInset: session.toolbarInset
             )
             .environment(\.leoAgentBrowserBadges, session.agentBrowserBadges)
+            .environment(\.leoPluginSurfaces, session.pluginSurfaces)
             .ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
             sidePaneHeaderTopInset: session.toolbarInset,

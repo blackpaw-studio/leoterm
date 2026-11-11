@@ -26,6 +26,8 @@
 		A5B30539299BEAAB0047F10C /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A5B30538299BEAAB0047F10C /* Assets.xcassets */; };
 		FC5218FA2D10FFCE004C93E0 /* zsh in Resources */ = {isa = PBXBuildFile; fileRef = FC5218F92D10FFC7004C93E0 /* zsh */; };
 		FC9ABA9C2D0F53F80020D4C8 /* bash-completion in Resources */ = {isa = PBXBuildFile; fileRef = FC9ABA9B2D0F538D0020D4C8 /* bash-completion */; };
+		1E0C17B12EA0000000000001 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1E0C17B12EA0000000000002 /* LeoKit */; };
+		1E0C17B12EA0000000000003 /* LeoPluginHost in Embed Helpers */ = {isa = PBXBuildFile; fileRef = 1E0C17B12EA0000000000004 /* LeoPluginHost */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +52,13 @@
 			remoteGlobalIDString = A5B30530299BEAAA0047F10C;
 			remoteInfo = Ghostty;
 		};
+		1E0C17B12EA0000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A5B30529299BEAAA0047F10C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1E0C17B12EA000000000000A;
+			remoteInfo = LeoPluginHost;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -62,6 +71,17 @@
 				819324582F24E78800A9ED8F /* DockTilePlugin.plugin in Copy DockTilePlugin */,
 			);
 			name = "Copy DockTilePlugin";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1E0C17B12EA000000000000C /* Embed Helpers */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Helpers;
+			dstSubfolderSpec = 1;
+			files = (
+				1E0C17B12EA0000000000003 /* LeoPluginHost in Embed Helpers */,
+			);
+			name = "Embed Helpers";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -90,6 +110,7 @@
 		A5D495A1299BEC7E00DD1313 /* GhosttyKit.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = GhosttyKit.xcframework; sourceTree = "<group>"; };
 		FC5218F92D10FFC7004C93E0 /* zsh */ = {isa = PBXFileReference; lastKnownFileType = folder; name = zsh; path = "../zig-out/share/zsh"; sourceTree = "<group>"; };
 		FC9ABA9B2D0F538D0020D4C8 /* bash-completion */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "bash-completion"; path = "../zig-out/share/bash-completion"; sourceTree = "<group>"; };
+		1E0C17B12EA0000000000004 /* LeoPluginHost */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LeoPluginHost; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -116,12 +137,21 @@
 			);
 			target = A5B30530299BEAAA0047F10C /* Ghostty */;
 		};
+		1E0C17B12EA0000000000006 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				LeoPluginHost.entitlements,
+			);
+			target = 1E0C17B12EA000000000000A /* LeoPluginHost */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		810ACCA02E9D3302004F8F92 /* GhosttyUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = GhosttyUITests; sourceTree = "<group>"; };
 		81F82BC72E82815D001EDFA7 /* Sources */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (81F82CB12E8281F9001EDFA7 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, 8193245D2F24E80800A9ED8F /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = Sources; sourceTree = "<group>"; };
 		A54F45F42E1F047A0046BD5C /* Tests */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Tests; sourceTree = "<group>"; };
+		1E0C17B12EA0000000000005 /* LeoPluginHost */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (1E0C17B12EA0000000000006 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = LeoPluginHost; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,6 +187,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1E0C17B12EA0000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1E0C17B12EA0000000000001 /* LeoKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -188,6 +226,7 @@
 				A51BFC282B30F26D00E92F16 /* GhosttyDebug.entitlements */,
 				3B39CAA42B33949B00DABEB8 /* GhosttyReleaseLocal.entitlements */,
 				81F82BC72E82815D001EDFA7 /* Sources */,
+				1E0C17B12EA0000000000005 /* LeoPluginHost */,
 				A54F45F42E1F047A0046BD5C /* Tests */,
 				810ACCA02E9D3302004F8F92 /* GhosttyUITests */,
 				A5D495A3299BECBA00DD1313 /* Frameworks */,
@@ -203,6 +242,7 @@
 				A54F45F32E1F047A0046BD5C /* GhosttyTests.xctest */,
 				810ACC9F2E9D3301004F8F92 /* GhosttyUITests.xctest */,
 				8193244D2F24E6C000A9ED8F /* DockTilePlugin.plugin */,
+				1E0C17B12EA0000000000004 /* LeoPluginHost */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -293,15 +333,18 @@
 				A5B3052E299BEAAA0047F10C /* Frameworks */,
 				A5B3052F299BEAAA0047F10C /* Resources */,
 				819324572F24E74E00A9ED8F /* Copy DockTilePlugin */,
+				1E0C17B12EA000000000000C /* Embed Helpers */,
 				B2200001A1B2C3D4E5F60001 /* Link ghostty CLI Name */,
 				B2200002A1B2C3D4E5F60002 /* Leo tmux terminfo */,
 				B2200003A1B2C3D4E5F60003 /* Leo LaunchAgent plist */,
 				B2200004A1B2C3D4E5F60004 /* Leo dev helpers */,
+				B2200006A1B2C3D4E5F60006 /* Bundle Leo plugins */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				819324682F2502FB00A9ED8F /* PBXTargetDependency */,
+				1E0C17B12EA000000000000B /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				81F82BC72E82815D001EDFA7 /* Sources */,
@@ -314,6 +357,28 @@
 			productName = Ghostty;
 			productReference = A5B30531299BEAAA0047F10C /* Ghostty.app */;
 			productType = "com.apple.product-type.application";
+		};
+		1E0C17B12EA000000000000A /* LeoPluginHost */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1E0C17B12EA0000000000010 /* Build configuration list for PBXNativeTarget "LeoPluginHost" */;
+			buildPhases = (
+				1E0C17B12EA0000000000007 /* Sources */,
+				1E0C17B12EA0000000000008 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				1E0C17B12EA0000000000005 /* LeoPluginHost */,
+			);
+			name = LeoPluginHost;
+			packageProductDependencies = (
+				1E0C17B12EA0000000000002 /* LeoKit */,
+			);
+			productName = LeoPluginHost;
+			productReference = 1E0C17B12EA0000000000004 /* LeoPluginHost */;
+			productType = "com.apple.product-type.tool";
 		};
 /* End PBXNativeTarget section */
 
@@ -331,6 +396,9 @@
 					};
 					8193244C2F24E6C000A9ED8F = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					1E0C17B12EA000000000000A = {
+						CreatedOnToolsVersion = 26.3;
 					};
 					A54F45F22E1F047A0046BD5C = {
 						CreatedOnToolsVersion = 26.0;
@@ -361,6 +429,7 @@
 			targets = (
 				A5B30530299BEAAA0047F10C /* Ghostty */,
 				8193244C2F24E6C000A9ED8F /* DockTilePlugin */,
+				1E0C17B12EA000000000000A /* LeoPluginHost */,
 				A54F45F22E1F047A0046BD5C /* GhosttyTests */,
 				810ACC9E2E9D3301004F8F92 /* GhosttyUITests */,
 			);
@@ -516,6 +585,26 @@
 			shellScript = "[[ -z \"$GITHUB_ACTIONS\" ]] || exit 0;\n\nSWIFTLINT=\"\"\nif command -v swiftlint >/dev/null 2>&1; then\n    SWIFTLINT=\"$(command -v swiftlint)\"\nelif [[ -f \"/opt/homebrew/bin/swiftlint\" ]]; then\n    SWIFTLINT=\"/opt/homebrew/bin/swiftlint\"\nfi\n\nif [[ -n \"$SWIFTLINT\" ]]; then\n    \"$SWIFTLINT\" lint --quiet\nfi\n";
 			showEnvVarsInLog = 0;
 		};
+		B2200006A1B2C3D4E5F60006 /* Bundle Leo plugins */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle Leo plugins";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# First-party plugins: every Bundled/Plugins/<id>/ with a leo-plugin.json\n# is copied to Resources/Plugins/<id>/.\nexec \"$SRCROOT/scripts/leo-bundle-plugins.sh\" \"$SRCROOT/Bundled/Plugins\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/Plugins\"\n";
+			showEnvVarsInLog = 0;
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -547,6 +636,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1E0C17B12EA0000000000007 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -564,6 +660,11 @@
 			isa = PBXTargetDependency;
 			target = A5B30530299BEAAA0047F10C /* Ghostty */;
 			targetProxy = A54F45F72E1F047A0046BD5C /* PBXContainerItemProxy */;
+		};
+		1E0C17B12EA000000000000B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1E0C17B12EA000000000000A /* LeoPluginHost */;
+			targetProxy = 1E0C17B12EA0000000000009 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1144,6 +1245,73 @@
 			};
 			name = Release;
 		};
+		1E0C17B12EA000000000000D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LeoPluginHost/LeoPluginHost.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeoPluginHost/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.macos.debug.pluginhost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		1E0C17B12EA000000000000E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LeoPluginHost/LeoPluginHost.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 52M9C6892K;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeoPluginHost/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.macos.pluginhost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		1E0C17B12EA000000000000F /* ReleaseLocal */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LeoPluginHost/LeoPluginHost.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
+				CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO;
+				CODE_SIGN_STYLE = Manual;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 52M9C6892K;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LeoPluginHost/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				MARKETING_VERSION = 1;
+				PRODUCT_BUNDLE_IDENTIFIER = studio.blackpaw.leo.macos.pluginhost;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = ReleaseLocal;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1197,6 +1365,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = ReleaseLocal;
 		};
+		1E0C17B12EA0000000000010 /* Build configuration list for PBXNativeTarget "LeoPluginHost" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1E0C17B12EA000000000000D /* Debug */,
+				1E0C17B12EA000000000000E /* Release */,
+				1E0C17B12EA000000000000F /* ReleaseLocal */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = ReleaseLocal;
+		};
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
@@ -1226,6 +1404,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A51BFC252B30F1B700E92F16 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		1E0C17B12EA0000000000002 /* LeoKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LeoKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

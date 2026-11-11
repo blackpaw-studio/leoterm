@@ -18,16 +18,24 @@ enum LeoRowKey: Hashable, Sendable {
         guard case .agent(let host, _, _) = self else { return nil }
         return host
     }
+
+    /// Whether this row is the agent a plugin view was opened on (by host and
+    /// name; a dispatch id is not part of what the plugin knows).
+    func isAgent(_ agent: LeoPluginAgentRef) -> Bool {
+        guard case .agent(let host, let name, _) = self else { return false }
+        return host.displayName == agent.machine && name == agent.name
+    }
 }
 
 /// One row's editor tabs, workspace browser and, while its agent has one,
 /// the agent's web browser. The workspace browser opens files in this row's
-/// editor, never another's. The editor pane shows one of two contents: the
-/// editor tabs, or the agent browser (`content`).
+/// editor, never another's. The editor pane shows one of three contents: the
+/// editor tabs, the agent browser, or a plugin view (`content`).
 @MainActor final class LeoRowPane: ObservableObject {
     enum Content: Equatable {
         case editor
         case agentBrowser
+        case plugin(LeoPluginViewRef)
     }
 
     let tabs: LeoEditorTabs
@@ -38,6 +46,11 @@ enum LeoRowKey: Hashable, Sendable {
     var requestCloseAgentBrowser: () -> Void = {}
     /// The user (or the lack of open files) put the browser in front of the editor.
     @Published private var showsAgentBrowser = false
+    /// The plugin view the user opened on this row's agent, and whether it is in front.
+    @Published private(set) var pluginView: LeoPluginViewRef?
+    @Published private var showsPluginView = false
+    /// What the plugin view reads its content from (wired by `LeoRowPanes`).
+    var pluginHost: (any LeoPluginPaneHosting)?
     private var tabsSubscription: AnyCancellable?
 
     init(tabs: LeoEditorTabs, browser: LeoWorkspaceBrowserModel) {
@@ -56,7 +69,11 @@ enum LeoRowKey: Hashable, Sendable {
     }
 
     var isAgentBrowserOpen: Bool { agentBrowser != nil }
-    var content: Content { agentBrowser != nil && showsAgentBrowser ? .agentBrowser : .editor }
+    var isPluginViewOpen: Bool { pluginView != nil }
+    var content: Content {
+        if let pluginView, showsPluginView { return .plugin(pluginView) }
+        return agentBrowser != nil && showsAgentBrowser ? .agentBrowser : .editor
+    }
 
     /// The agent started a browser. It comes to the front only when no file
     /// is open; otherwise it opens behind what the user is editing, as a file
@@ -74,11 +91,30 @@ enum LeoRowKey: Hashable, Sendable {
     }
 
     func showAgentBrowser() {
-        if agentBrowser != nil { showsAgentBrowser = true }
+        guard agentBrowser != nil else { return }
+        showsAgentBrowser = true
+        showsPluginView = false
     }
 
     func showEditor() {
         showsAgentBrowser = false
+        showsPluginView = false
+    }
+
+    /// Puts `ref` in front, replacing any plugin view this pane had open.
+    func showPluginView(_ ref: LeoPluginViewRef) {
+        pluginView = ref
+        showsPluginView = true
+    }
+
+    /// Brings the open plugin view back in front (its strip item).
+    func frontPluginView() {
+        if pluginView != nil { showsPluginView = true }
+    }
+
+    func closePluginView() {
+        pluginView = nil
+        showsPluginView = false
     }
 
     /// Closes the browser (the Browser tab's close, the toolbar's); its data store stays.
@@ -134,6 +170,10 @@ enum LeoRowKey: Hashable, Sendable {
     /// Which agent browsers exist, for the rows' panes to show; nil for none.
     private let presence: (any LeoAgentBrowserPresence)?
     private var stopObservingPresence: (() -> Void)?
+    /// The plugin system the rows' plugin views read from; nil for none.
+    var pluginHost: (any LeoPluginPaneHosting)? {
+        didSet { all.forEach { $0.pluginHost = pluginHost } }
+    }
 
     init(
         makeAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess, confirm: @escaping Confirm,
@@ -193,6 +233,18 @@ enum LeoRowKey: Hashable, Sendable {
         return true
     }
 
+    /// The row's plugin view: `ref` in front in the row's pane, and the plugin
+    /// told once that the person opened it. Choosing the view that is already
+    /// open only brings it forward. False without a plugin system.
+    @discardableResult
+    func openPluginView(_ ref: LeoPluginViewRef, for key: LeoRowKey) -> Bool {
+        guard let pluginHost else { return false }
+        let pane = pane(for: key)
+        if pane.pluginView != ref { pluginHost.open(ref) }
+        pane.showPluginView(ref)
+        return true
+    }
+
     /// The window now shows `key`'s row: its pane goes on screen.
     func activate(_ key: LeoRowKey) {
         let pane = pane(for: key)
@@ -218,6 +270,7 @@ enum LeoRowKey: Hashable, Sendable {
     /// screen when it was on screen, otherwise until the window closes.
     func rowRemoved(_ key: LeoRowKey) {
         guard let pane = panes[key] else { return }
+        pane.closePluginView()  // its agent is gone; a kept pane must not show the view for it
         guard pane.hasUnsavedEdits else {
             remove(key)
             Task { await pane.release() }
@@ -240,6 +293,7 @@ enum LeoRowKey: Hashable, Sendable {
         if panes[new] != nil { rowRemoved(new) }
         remove(old)
         insert(pane, for: new)
+        if let ref = pane.pluginView, !new.isAgent(ref.agent) { pane.closePluginView() }
         if activeKey == old { activeKey = new }
         syncAgentBrowser(of: pane, for: new)
     }
@@ -278,6 +332,7 @@ enum LeoRowKey: Hashable, Sendable {
     private func insert(_ pane: LeoRowPane, for key: LeoRowKey, installingPrompt: Bool = true) {
         panes[key] = pane
         order.append(key)
+        pane.pluginHost = pluginHost
         pane.requestCloseAgentBrowser = { [weak self, weak pane] in
             guard let self, let browserKey = self.key(holding: pane)?.agentBrowserKey else { return }
             presence?.closeBrowser(for: browserKey)

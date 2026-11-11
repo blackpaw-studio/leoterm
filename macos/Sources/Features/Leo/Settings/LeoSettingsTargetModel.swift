@@ -7,6 +7,8 @@ import LeoKit
 enum LeoSettingsTab: Hashable {
     case machines
     case config(String)
+    /// Plugins live in this app, not on a machine, so the pane has no machine target.
+    case plugins
 
     /// Whether the toolbar's machine picker applies to this tab.
     var usesMachineTarget: Bool {

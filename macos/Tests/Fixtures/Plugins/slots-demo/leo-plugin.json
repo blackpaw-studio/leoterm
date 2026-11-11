@@ -1,0 +1,17 @@
+{
+  "id": "studio.blackpaw.fixture.slots-demo",
+  "name": "Slots Demo",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "permissions": { "network": [], "secrets": false, "agents": ["read"] },
+  "contributes": {
+    "views": [{ "id": "demo", "title": "Slots Demo", "sfSymbol": "sparkles" }],
+    "rowAccessories": [{ "id": "badge" }],
+    "commands": [
+      { "id": "open-prs", "title": "Open Pull Requests", "sfSymbol": "arrow.triangle.pull" },
+      { "id": "copy-ping", "title": "Copy Ping", "sfSymbol": "doc.on.doc" }
+    ],
+    "sidebarSections": [{ "id": "builds", "title": "Builds" }]
+  }
+}

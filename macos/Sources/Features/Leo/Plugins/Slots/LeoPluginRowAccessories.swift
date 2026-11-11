@@ -1,0 +1,76 @@
+import LeoKit
+import SwiftUI
+
+/// Slot 2 on an agent row: the plugins' accessories (symbol, a few
+/// characters, a semantic colour), at most two, then "+N". Sits on the name
+/// line beside the browser globe, so the row never gets taller. In a narrow
+/// row they collapse to "+N" before the name truncates: two chips, then one,
+/// then "+N" alone, each step the first that fits the room the name leaves
+/// (`LeoAgentRowMetrics.minimumNameWidth`). The tooltip still names every plugin.
+struct LeoPluginRowAccessories: View {
+    let host: LeoHostID
+    let agent: String
+    var isSelected = false
+    @Environment(\.leoPluginSurfaces) private var surfaces
+
+    var body: some View {
+        if let surfaces {
+            Watching(surfaces: surfaces, host: host, agent: agent, isSelected: isSelected)
+        }
+    }
+
+    private struct Watching: View {
+        @ObservedObject var surfaces: LeoPluginSurfaces
+        let host: LeoHostID
+        let agent: String
+        let isSelected: Bool
+
+        var body: some View {
+            let layout = surfaces.accessoryLayout(host: host, agent: agent)
+            if layout.totalCount > 0 {
+                // Higher priority, so the stack offers this its room first
+                // (after reserving the name's minimum) and the name gets the rest.
+                ViewThatFits(in: .horizontal) {
+                    content(layout.showing(LeoPluginAccessoryLayout.maxVisible))
+                    content(layout.showing(1))
+                    content(layout.showing(0))
+                }
+                .layoutPriority(1)
+            }
+        }
+
+        private func content(_ layout: LeoPluginAccessoryLayout) -> some View {
+            HStack(spacing: 5) {
+                ForEach(layout.chips, id: \.pluginID) { chip in
+                    ChipView(chip: chip, surfaces: surfaces, isSelected: isSelected)
+                }
+                if let overflow = layout.overflow {
+                    Text(overflow.label)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(LeoInk.secondary.style(isSelected: isSelected))
+                        .fixedSize()
+                        .help(overflow.help)
+                        .accessibilityLabel("\(overflow.count) more plugin badges")
+                }
+            }
+        }
+    }
+
+    private struct ChipView: View {
+        let chip: LeoPluginAccessoryLayout.Chip
+        let surfaces: LeoPluginSurfaces
+        let isSelected: Bool
+
+        var body: some View {
+            HStack(spacing: 2) {
+                if let symbol = chip.sfSymbol { Image(systemName: symbol) }
+                if !chip.text.isEmpty { Text(chip.text).lineLimit(1) }
+            }
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(LeoPluginRenderStyle.ink(for: chip.color).style(isSelected: isSelected))
+            .fixedSize()
+            .help(chip.help)
+            .leoPluginReportsVisibility(to: surfaces, key: chip.slot.map { LeoPluginSlotKey(pluginID: chip.pluginID, slot: $0) })
+        }
+    }
+}

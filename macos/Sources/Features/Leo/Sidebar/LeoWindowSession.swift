@@ -122,6 +122,10 @@ struct LeoWindowVisibilityState: Equatable {
     let terminals = LeoWindowTerminals()
     /// The sidebar rows' globes; nil when the app runs no agent browsers.
     let agentBrowserBadges: LeoAgentBrowserBadges?
+    /// The plugin system's views and row accessories; nil in tests and for a runtime without one.
+    var pluginSurfaces: LeoPluginSurfaces? {
+        didSet { panes.pluginHost = pluginSurfaces }
+    }
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).

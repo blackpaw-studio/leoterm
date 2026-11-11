@@ -16,6 +16,8 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     let actionDetail: String?
     let workspace: String?
     let repo: String?
+    /// The worktree branch, when the agent has one (plugins read it as `branch`).
+    let branch: String?
     /// The attention badge, overlaid by `LeoSidebarFeed` at emission time
     /// from `LeoAttentionReducer` (never stored on the feed's own rows).
     let attention: LeoAttentionBadge?
@@ -55,7 +57,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
 
     init(
         host: LeoHostID, name: String, displayName: String? = nil, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
-        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
+        workspace: String? = nil, repo: String? = nil, branch: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
         startedAt: String? = nil, metadata: LeoAgentMetadata? = nil,
         lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil,
         environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil,
@@ -71,6 +73,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.actionDetail = actionDetail
         self.workspace = workspace
         self.repo = repo
+        self.branch = branch
         self.attention = attention
         self.attentionReason = attentionReason
         self.startedAt = startedAt
@@ -89,7 +92,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: reason, startedAt: startedAt,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: reason, startedAt: startedAt,
             metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -98,7 +101,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withMetadata(_ metadata: LeoAgentMetadata?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -107,7 +110,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withLastTurn(_ lastTurn: LeoTurnPreview?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -116,7 +119,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withCompaction(_ compaction: LeoRowCompaction?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
             environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -125,7 +128,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withEnvironments(_ environments: LeoAgentEnvironments?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -134,7 +137,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withAppearance(_ appearance: LeoAgentAppearance?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -143,7 +146,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withTasks(_ tasks: LeoRowTasks) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )
@@ -152,7 +155,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withHarness(_ harness: String?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks,
             harness: harness
@@ -162,7 +165,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     func withDisplayName(_ displayName: String?) -> LeoAgentRow {
         LeoAgentRow(
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, attentionReason: attentionReason,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness
         )

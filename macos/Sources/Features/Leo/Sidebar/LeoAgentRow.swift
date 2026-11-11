@@ -101,6 +101,7 @@ struct LeoAgentRowView: View {
     var unreadCount = 0
     /// B-331: the dispatch rows' collapse, for a row that has any.
     var subagents: LeoAgentRowContent.Subagents?
+    @Environment(\.leoPluginSurfaces) private var pluginSurfaces
     @State private var showingTasks = false
     @State private var showingRename = false
     @State private var showingDelete = false
@@ -191,9 +192,28 @@ struct LeoAgentRowView: View {
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
         Button("Open Browser") { openBrowser() }
+        pluginViewItems
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
+    }
+
+    /// Plugin views, next to Browse Files and Open Browser: one per view of every plugin that is on.
+    @ViewBuilder private var pluginViewItems: some View {
+        if row.movedTo == nil, let surfaces = pluginSurfaces {
+            ForEach(surfaces.viewEntries()) { entry in
+                Button { openPluginView(entry) } label: { Label(entry.title, systemImage: entry.sfSymbol) }
+                    .help(entry.pluginName)
+            }
+        }
+    }
+
+    private func openPluginView(_ entry: LeoPluginViewEntry) {
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController else {
+            actions.setRowError("No terminal window available", for: row)
+            return
+        }
+        controller.openLeoPluginView(entry, forRow: row)
     }
 
     /// B-324: the host's move destinations, read from the list `actions`

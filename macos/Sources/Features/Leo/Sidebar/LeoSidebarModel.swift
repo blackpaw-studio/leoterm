@@ -88,6 +88,8 @@ import LeoKit
     /// `preferencesStore` on every change.
     @Published private(set) var preferences: LeoSidebarPreferences
     private let preferencesStore: any LeoSidebarPreferencesStore
+    /// The plugin platform's sidebar sections; set once the plugin system starts.
+    @Published var pluginSections: LeoPluginSidebarSections?
 
     func managedPresentationChanged(_ presentation: LeoManagedPresentation) {
         managedBanner = presentation.banner

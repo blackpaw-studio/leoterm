@@ -44,14 +44,18 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     /// A machine's agents as the sidebar shows them, for the Appearance preview.
     private let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
     private let prompting: any LeoSettingsPrompting
+    /// The plugin system, once the app has started it (nil before).
+    private let plugins: @MainActor () -> LeoPluginSystem?
     private(set) var model: LeoMachinesSettingsModel?
     private(set) var target: LeoSettingsTargetModel?
 
     init(
         registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
         agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil,
-        agents: @escaping @MainActor (LeoHostID) -> [LeoAgentRow] = { _ in [] }
+        agents: @escaping @MainActor (LeoHostID) -> [LeoAgentRow] = { _ in [] },
+        plugins: @escaping @MainActor () -> LeoPluginSystem? = { nil }
     ) {
+        self.plugins = plugins
         self.prompting = prompting ?? LeoAlertPrompting()
         self.agents = agents
         self.registry = registry
@@ -96,7 +100,8 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
         )
         self.target = target
         let content = LeoSettingsView(
-            model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry, agents: agents
+            model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry, agents: agents,
+            plugins: plugins
         )
         let window = NSWindow(contentViewController: NSHostingController(rootView: content))
         window.title = "Leo Settings"
@@ -197,6 +202,7 @@ private struct LeoSettingsView: View {
     let agentBrowser: LeoAgentBrowserSetting
     @ObservedObject var registry: LeoMachineRegistry
     let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
+    let plugins: @MainActor () -> LeoPluginSystem?
 
     var body: some View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
@@ -227,6 +233,9 @@ private struct LeoSettingsView: View {
             LeoServiceSettingsView(target: target)
                 .tabItem { Label("Service", systemImage: "waveform.path.ecg") }
                 .tag(LeoServiceSettingsView.tab)
+            LeoPluginsSettingsView(system: plugins)
+                .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }
+                .tag(LeoPluginsSettingsView.tab)
         }
         .alert(
             "Discard unsaved changes?",
