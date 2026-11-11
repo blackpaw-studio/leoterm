@@ -35,7 +35,7 @@ public struct LeoPluginPermissionEngine: Sendable {
         guard url.scheme?.lowercased() == "https" else {
             return .denied(prefix + "only https URLs are allowed")
         }
-        guard let host = Self.safeHost(url) else {
+        guard let host = Self.canonicalHost(of: url) else {
             return .denied(prefix + "URL has no usable host, or carries userinfo or an encoded host")
         }
         guard patterns.contains(where: { $0.matches(host: host) }) else {
@@ -52,44 +52,24 @@ public struct LeoPluginPermissionEngine: Sendable {
         agentVerbs.contains(verb) ? .allowed : .denied("agents:\(verb.rawValue) permission not granted in the manifest")
     }
 
-    /// The URL's canonical (lowercase ASCII, punycode) host, or nil when anything
-    /// about the authority is ambiguous: userinfo (checked on the raw authority,
-    /// so an empty `:@` also fails), a percent escape in the raw URL text, or any
-    /// non-DNS or numeric host. Foundation hands back IDN hosts percent-encoded
-    /// even when the URL text had none, so only that re-encoding is decoded.
-    private static func safeHost(_ url: URL) -> String? {
+    /// The one canonical host for a URL: lowercase ASCII, IDN as punycode (ACE).
+    /// The allowlist check compares this string, and the fetcher must build its
+    /// request from this same string, so the host that is checked is exactly the
+    /// host that is connected to. Returns nil when anything about the authority
+    /// is ambiguous: userinfo (checked on the raw authority, so an empty `:@`
+    /// also fails), a percent escape, or any non-DNS or numeric host.
+    ///
+    /// The host is read from `absoluteString`, where Foundation already writes
+    /// IDN hosts as ACE and leaves `xn--` labels untouched. `URLComponents.host`
+    /// is never used: it decodes ACE to Unicode, and mapping that back
+    /// (case-folding included) can land on a different ACE label.
+    public static func canonicalHost(of url: URL) -> String? {
         guard let authority = rawAuthority(url.absoluteString), !authority.contains("@"), !authority.contains("%"),
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-            components.user == nil, components.password == nil,
-            let encoded = components.percentEncodedHost,
-            let host = decodeFoundationHost(encoded)
+            components.user == nil, components.password == nil, components.host != nil
         else { return nil }
-        return LeoPluginHostPattern.normalize(host)
-    }
-
-    /// Reverses Foundation's UTF-8 percent-encoding of non-ASCII host characters.
-    /// An escape for an ASCII byte (`%2e`, `%00`, ...) or invalid UTF-8 is refused.
-    private static func decodeFoundationHost(_ encoded: String) -> String? {
-        guard encoded.contains("%") else { return encoded }
-        var bytes: [UInt8] = []
-        var iterator = encoded.utf8.makeIterator()
-        while let byte = iterator.next() {
-            guard byte == UInt8(ascii: "%") else { bytes.append(byte); continue }
-            guard let high = iterator.next().flatMap(hexValue), let low = iterator.next().flatMap(hexValue) else { return nil }
-            let decoded = high << 4 | low
-            guard decoded >= 0x80 else { return nil }
-            bytes.append(decoded)
-        }
-        return String(bytes: bytes, encoding: .utf8)
-    }
-
-    private static func hexValue(_ byte: UInt8) -> UInt8? {
-        switch byte {
-        case 48...57: byte - 48
-        case 97...102: byte - 87
-        case 65...70: byte - 55
-        default: nil
-        }
+        let host = authority.prefix { $0 != ":" }
+        return LeoPluginHostPattern.normalize(String(host))
     }
 
     private static func rawAuthority(_ absolute: String) -> String? {

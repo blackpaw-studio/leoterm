@@ -25,6 +25,13 @@ struct LeoPluginIDNATests {
         #expect(LeoPluginIDNA.asciiLabel(label) == nil)
     }
 
+    @Test func aceLabelsAreNeverCaseMapped() {
+        #expect(LeoPluginIDNA.asciiLabel("xn--58d") == "xn--58d")
+        #expect(LeoPluginIDNA.asciiLabel("XN--58D") == "xn--58d")
+        #expect(LeoPluginIDNA.asciiLabel("\u{13A0}") == "xn--58d")
+        #expect(LeoPluginIDNA.asciiLabel("\u{AB70}") == "xn--kz9a")
+    }
+
     @Test func asciiLabelsAreOnlyLowercased() {
         #expect(LeoPluginIDNA.asciiLabel("GitHub-1") == "github-1")
     }

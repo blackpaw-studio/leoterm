@@ -38,7 +38,7 @@ struct LeoPluginHostPatternTests {
         let expected = LeoPluginHostPattern.exact("xn--bcher-kva.example")
         #expect(try LeoPluginHostPattern.parse("xn--bcher-kva.example") == expected)
         #expect(try LeoPluginHostPattern.parse("bücher.example") == expected)
-        #expect(try LeoPluginHostPattern.parse("BÜCHER.example") == expected)
+        #expect(try LeoPluginHostPattern.parse("Bücher.EXAMPLE") == expected)
         #expect(try LeoPluginHostPattern.parse("bu\u{0308}cher.example") == expected)
         #expect(try LeoPluginHostPattern.parse("XN--BCHER-KVA.example").canonical == "xn--bcher-kva.example")
         #expect(try LeoPluginHostPattern.parse("*.bücher.example") == .wildcard(suffix: "xn--bcher-kva.example"))
@@ -47,7 +47,7 @@ struct LeoPluginHostPatternTests {
     @Test func anIDNHostMatchesInEitherSpelling() throws {
         let pattern = try LeoPluginHostPattern.parse("xn--bcher-kva.example")
         #expect(pattern.matches(host: "bücher.example"))
-        #expect(pattern.matches(host: "BÜCHER.example."))
+        #expect(pattern.matches(host: "Bücher.example."))
         #expect(pattern.matches(host: "xn--bcher-kva.example"))
         #expect(!pattern.matches(host: "bucher.example"))
     }
@@ -181,6 +181,39 @@ struct LeoPluginPermissionEngineTests {
         let unicode = Self.engine(network: ["bücher.example"])
         #expect(Self.allowed(unicode, "https://xn--bcher-kva.example/"))
         #expect(Self.allowed(unicode, "https://bücher.example/"))
+    }
+
+    @Test func anACEAllowlistEntryDoesNotAuthoriseADifferentACEHost() {
+        // xn--58d decodes to Cherokee U+13A0, whose lowercase is U+AB70 (xn--kz9a).
+        let engine = Self.engine(network: ["xn--kz9a.example"])
+        #expect(!Self.allowed(engine, "https://xn--58d.example/"))
+        #expect(!Self.allowed(engine, "https://\u{13A0}.example/"))
+        #expect(Self.allowed(Self.engine(network: ["xn--58d.example"]), "https://xn--58d.example/"))
+        #expect(!Self.allowed(Self.engine(network: ["xn--58d.example"]), "https://xn--kz9a.example/"))
+    }
+
+    @Test func unicodeCaseIsNeverMappedInAPattern() throws {
+        // Only ASCII letters fold; Ü stays Ü, so this is a different host from bücher.
+        #expect(try LeoPluginHostPattern.parse("BÜCHER.example") != .exact("xn--bcher-kva.example"))
+    }
+
+    @Test func aCherokeeCapitalPatternIsKeptAsItsOwnACELabel() throws {
+        #expect(try LeoPluginHostPattern.parse("xn--58d.example") == .exact("xn--58d.example"))
+        #expect(try LeoPluginHostPattern.parse("\u{13A0}.example") == .exact("xn--58d.example"))
+    }
+
+    @Test func mixedCaseACEInputIsLowercasedAsASCII() {
+        let engine = Self.engine(network: ["xn--bcher-kva.example"])
+        #expect(Self.allowed(engine, "https://XN--BCHER-KVA.Example/"))
+        #expect(Self.allowed(engine, "https://bücher.example/"))
+    }
+
+    @Test func canonicalHostIsTheASCIIHostTheRequestConnectsTo() throws {
+        func host(_ text: String) throws -> String? { LeoPluginPermissionEngine.canonicalHost(of: try #require(URL(string: text))) }
+        #expect(try host("https://xn--58d.example/") == "xn--58d.example")
+        #expect(try host("https://XN--BCHER-KVA.Example:8443/x") == "xn--bcher-kva.example")
+        #expect(try host("https://bücher.example/") == "xn--bcher-kva.example")
+        #expect(try host("https://a%2eb.example/") == nil)
     }
 
     @Test(arguments: [

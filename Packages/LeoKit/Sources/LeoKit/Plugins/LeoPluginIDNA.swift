@@ -8,30 +8,51 @@ enum LeoPluginIDNA {
     private static let maxLabelLength = 63
 
     /// ASCII (LDH) form of one label, or nil if it isn't acceptable.
-    /// ASCII labels are lowercased; `xn--` labels must be valid punycode that
-    /// round-trips to a stable non-ASCII label; Unicode labels are lowercased,
-    /// NFC-normalised, checked and punycode-encoded.
+    ///
+    /// There is no Unicode case mapping anywhere: only ASCII letters are
+    /// lowercased, so every comparison downstream is on ASCII ACE strings.
+    /// - An ASCII label is used as is (ASCII-lowercased). An `xn--` label is
+    ///   not rewritten, but must decode to a valid non-ASCII label that encodes
+    ///   back to the identical label, else it is refused.
+    /// - A non-ASCII label is NFC-normalised, checked and punycode-encoded.
     static func asciiLabel(_ label: String) -> String? {
-        let lower = label.lowercased()
-        if lower.utf8.allSatisfy({ $0 < 0x80 }) {
-            guard lower.hasPrefix(acePrefix) else { return lower }
-            let payload = String(lower.dropFirst(acePrefix.count))
-            guard let decoded = decode(payload), decoded.unicodeScalars.contains(where: { $0.value >= 0x80 }),
-                encodeUnicodeLabel(decoded) == lower
-            else { return nil }
-            return lower
-        }
-        return encodeUnicodeLabel(lower)
+        let lower = asciiLowercased(label)
+        guard lower.utf8.allSatisfy({ $0 < 0x80 }) else { return encodeUnicodeLabel(lower) }
+        guard lower.hasPrefix(acePrefix) else { return lower }
+        return isStableACELabel(lower) ? lower : nil
     }
 
-    /// `xn--` form of an already-lowercased Unicode label; nil if it fails validation.
+    /// Lowercases `A`–`Z` only. Foundation or Swift Unicode case mapping would
+    /// turn one ACE label into another (U+13A0 into U+AB70), so it is never used.
+    static func asciiLowercased(_ text: String) -> String {
+        var scalars = String.UnicodeScalarView()
+        for scalar in text.unicodeScalars {
+            let isUpper = (0x41...0x5A).contains(scalar.value)
+            scalars.append(isUpper ? Unicode.Scalar(scalar.value + 0x20)! : scalar)
+        }
+        return String(scalars)
+    }
+
+    /// An `xn--` label whose payload decodes to a valid non-ASCII label that re-encodes identically.
+    private static func isStableACELabel(_ label: String) -> Bool {
+        guard let decoded = decode(String(label.dropFirst(acePrefix.count))),
+            decoded.unicodeScalars.contains(where: { $0.value >= 0x80 }),
+            decoded == decoded.precomposedStringWithCanonicalMapping, isAcceptableUnicodeLabel(decoded),
+            let encoded = encode(decoded)
+        else { return false }
+        return acePrefix + encoded == label
+    }
+
+    /// `xn--` form of a Unicode label (ASCII already lowercased); nil if it fails validation.
     private static func encodeUnicodeLabel(_ lowered: String) -> String? {
         let nfc = lowered.precomposedStringWithCanonicalMapping
-        guard nfc == nfc.precomposedStringWithCompatibilityMapping, isValidUnicodeLabel(nfc),
-            let encoded = encode(nfc)
-        else { return nil }
+        guard isAcceptableUnicodeLabel(nfc), let encoded = encode(nfc) else { return nil }
         let label = acePrefix + encoded
         return label.utf8.count <= maxLabelLength ? label : nil
+    }
+
+    private static func isAcceptableUnicodeLabel(_ nfc: String) -> Bool {
+        nfc == nfc.precomposedStringWithCompatibilityMapping && isValidUnicodeLabel(nfc)
     }
 
     /// Letters, marks and digits only (plus `-` not at either end). No symbols,
@@ -52,7 +73,7 @@ enum LeoPluginIDNA {
 
     private static func isLetterMarkOrDigit(_ scalar: Unicode.Scalar) -> Bool {
         switch scalar.properties.generalCategory {
-        case .lowercaseLetter, .otherLetter, .modifierLetter, .nonspacingMark, .spacingMark, .decimalNumber: true
+        case .lowercaseLetter, .uppercaseLetter, .titlecaseLetter, .otherLetter, .modifierLetter, .nonspacingMark, .spacingMark, .decimalNumber: true
         default: false
         }
     }
