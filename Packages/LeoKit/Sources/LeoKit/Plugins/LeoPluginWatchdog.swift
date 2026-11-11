@@ -44,11 +44,23 @@ public struct LeoPluginWatchdog {
     public static let memoryCheckInterval: TimeInterval = 1
 
     private let readUsage: () -> LeoPluginUsage?
+    private let cpuBudgetSeconds: Double
+    private let memoryLimitBytes: UInt64
+    private let memoryCheckInterval: TimeInterval
     private var pending = 0
     private var cpuBaseline: Double = 0
     private var lastMemoryCheck: TimeInterval?
 
-    public init(readUsage: @escaping () -> LeoPluginUsage?) {
+    /// The limits default to the spec's; tests shrink them to run in milliseconds.
+    public init(
+        cpuBudgetSeconds: Double = LeoPluginWatchdog.cpuBudgetSeconds,
+        memoryLimitBytes: UInt64 = LeoPluginWatchdog.memoryLimitBytes,
+        memoryCheckInterval: TimeInterval = LeoPluginWatchdog.memoryCheckInterval,
+        readUsage: @escaping () -> LeoPluginUsage?
+    ) {
+        self.cpuBudgetSeconds = cpuBudgetSeconds
+        self.memoryLimitBytes = memoryLimitBytes
+        self.memoryCheckInterval = memoryCheckInterval
         self.readUsage = readUsage
     }
 
@@ -77,13 +89,13 @@ public struct LeoPluginWatchdog {
 
     public mutating func poll(at now: TimeInterval) -> LeoPluginWatchdogVerdict {
         guard pending > 0, let usage = readUsage() else { return .ok }
-        if usage.cpuSeconds - cpuBaseline > Self.cpuBudgetSeconds {
-            return .kill(reason: "handler used more than \(Int(Self.cpuBudgetSeconds)) s of CPU")
+        if usage.cpuSeconds - cpuBaseline > cpuBudgetSeconds {
+            return .kill(reason: "handler used more than \(cpuBudgetSeconds.formatted()) s of CPU")
         }
-        if let last = lastMemoryCheck, now - last < Self.memoryCheckInterval { return .ok }
+        if let last = lastMemoryCheck, now - last < memoryCheckInterval { return .ok }
         lastMemoryCheck = now
-        if usage.footprintBytes > Self.memoryLimitBytes {
-            return .kill(reason: "host exceeded \(Self.memoryLimitBytes / 1_048_576) MB of memory")
+        if usage.footprintBytes > memoryLimitBytes {
+            return .kill(reason: "host exceeded \(memoryLimitBytes / 1_048_576) MB of memory")
         }
         return .ok
     }
