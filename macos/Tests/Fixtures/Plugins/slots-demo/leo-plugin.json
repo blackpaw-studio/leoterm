@@ -1,0 +1,12 @@
+{
+  "id": "studio.blackpaw.fixture.slots-demo",
+  "name": "Slots Demo",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "permissions": {},
+  "contributes": {
+    "commands": [{ "id": "open-prs", "title": "Open Pull Requests", "sfSymbol": "arrow.triangle.pull" }],
+    "sidebarSections": [{ "id": "builds", "title": "Builds" }]
+  }
+}
