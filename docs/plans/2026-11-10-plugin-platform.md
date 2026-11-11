@@ -438,3 +438,23 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
 - Step 3.6: the manager calls `LeoPluginHostOrphanReaper` once at launch, before spawning any helper.
 - The helper sends a `{"done":1}` frame after each command so the watchdog can time handlers.
 - Hardened runtime on the helper relies on the release workflows re-signing it with `-o runtime`, because ad-hoc local builds drop the flag.
+
+### M3 (3.3/3.5) security review (2026-11-10)
+
+- **Fixing now:**
+  - A timer interval overflow trapped the app (`leo.timer(id, 1e19)`).
+  - A repo could claim an installed plugin's id and inherit its secrets.
+  - Reinstalling the same SHA deleted the live folder.
+  - Binary fetch bodies came back corrupted.
+- **For later steps:**
+  - 3.4 must call `install(url:sha:)` with the SHA the user saw.
+  - 3.1 and 3.6 enforce that an id is bound to its source URL.
+  - The 3.6 router dispatches on a single actor.
+- **Accepted risks:**
+  - Symlinks other than `main` are kept, because only `main` is ever read.
+  - Clone size has no cap, only the 120 s fetch timeout.
+  - Custom auth headers follow redirects, but only to hosts on the plugin's own allowlist.
+  - A redirect to another port on the same host keeps `Authorization`.
+  - The timer cap check has a race, which can't happen while dispatch is on one actor.
+  - Secrets use the legacy file keychain with no per-plugin key count limit.
+  - The snapshot passes `repo` through without stripping credentials. The daemon supplies `owner/repo` or a path.
