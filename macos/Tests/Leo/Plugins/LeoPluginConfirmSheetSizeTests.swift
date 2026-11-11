@@ -23,6 +23,7 @@ struct LeoPluginConfirmSheetSizeTests {
         _ content: @escaping (@escaping (Value?) -> Void) -> some View
     ) async -> CGFloat? {
         let parent = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 900, height: 700), styleMask: [.titled], backing: .buffered, defer: false)
+        parent.isReleasedWhenClosed = false
         parent.makeKeyAndOrderFront(nil)
         defer { parent.close() }
         let presenter = LeoPluginSheetPresenter(hostWindow: { parent })
