@@ -56,7 +56,7 @@ describe("handleSendComments", () => {
     expect(action).toMatchObject({ type: "sendToAgent", agent: AGENT, title: "Send Comments to Agent" });
     const text = (action as { text: string }).text;
     expect(text.split("\n")[0]).toBe("2 review comments on PR #12 (o/r):");
-    expect(text).toContain("## src/a.ts\n- L3 @ghost: Missing null check.");
+    expect(text).toContain("## src/a.ts\n- L3 @ghost:\n```untrusted-review-comment\nMissing null check.\nSecond line.\n```");
     expect(text).not.toContain("Outdated nit");
   });
 
@@ -71,10 +71,19 @@ describe("handleSendComments", () => {
     expect(await handleSendComments(client, "tok", { nope: 1 })).toBeNull();
   });
 
-  it("returns null when the refetch fails", async () => {
+  it("shows an Error with Retry when the refetch fails, instead of doing nothing", async () => {
     const stub = createStubLeo();
-    stub.route("POST", "https://api.github.com/graphql", { status: 401, body: {} });
+    stub.route("POST", "https://api.github.com/graphql", { status: 500, body: {} });
     const client = createGitHubClient(stub.leo, stub.clock);
-    expect(await handleSendComments(client, "tok", { agent: AGENT, pr: PR, values: { T1: "true" } })).toBeNull();
+    const payload = { agent: AGENT, pr: PR, values: { T1: "true" } };
+    const action = await handleSendComments(client, "tok", payload);
+    expect(action).toEqual({
+      type: "pushView",
+      node: {
+        type: "Error",
+        message: "GitHub returned 500.",
+        retry: { type: "callback", id: SEND_COMMENTS, payload, title: "Retry" },
+      },
+    });
   });
 });

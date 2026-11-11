@@ -4,9 +4,11 @@ import type { GitHubClient } from "../github/client";
 import { ok, type Result } from "../github/errors";
 import type { RepoRef } from "../repoRef";
 import type { CheckItem } from "./checks";
+import { plainText, quoteUntrusted } from "../untrusted";
 import { excerptLog, utf8Length } from "./logExcerpt";
 
 export const MAX_LOG_BYTES = 5 * 1024 * 1024;
+const CHECK_NAME_MAX_CHARS = 100;
 const SEND_TITLE = "Send Failure to Agent";
 
 export interface FailureContext {
@@ -42,8 +44,9 @@ async function fetchLog(client: GitHubClient, auth: string, ctx: FailureContext)
 
 function buildMessage(ctx: FailureContext, outcome: LogOutcome): string {
   const { check, repo, branch, prNumber } = ctx;
-  const head = 'Check "' + check.name + '" failed on PR #' + prNumber + " (" + repo.owner + "/" + repo.repo + "@" + branch + ")";
-  const body = outcome.kind === "log" ? "```\n" + outcome.excerpt + "\n```" : "(log unavailable: " + outcome.reason + ")";
+  const name = plainText(check.name).slice(0, CHECK_NAME_MAX_CHARS);
+  const head = 'Check "' + name + '" failed on PR #' + prNumber + " (" + repo.owner + "/" + repo.repo + "@" + branch + ")";
+  const body = outcome.kind === "log" ? quoteUntrusted("ci-log", outcome.excerpt) : "(log unavailable: " + outcome.reason + ")";
   return head + "\n" + (check.url === null ? "" : check.url + "\n") + "\n" + body;
 }
 

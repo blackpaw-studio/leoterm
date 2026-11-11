@@ -1,6 +1,7 @@
-import { callback, sendToAgent } from "../../../sdk/actions";
+import { callback, pushView, sendToAgent } from "../../../sdk/actions";
 import type { Action, AgentRef, Field, JSONValue, Node } from "../../../sdk/leo";
 import type { GitHubClient } from "../github/client";
+import { describeError } from "../github/describe";
 import { buildBatchMessage } from "../reviews/batch";
 import { fetchReviewThreads, type PrCoords, type ReviewThread } from "../reviews/threads";
 
@@ -40,6 +41,7 @@ const isObject = (v: unknown): v is { [key: string]: JSONValue } => typeof v ===
 /**
  * Submit handler. The form's values come back as `{formId, values}` merged into the payload.
  * Re-fetches the threads (field ids are thread ids) so the payload stays small, then returns one sendToAgent.
+ * A failed refetch returns an Error view with Retry, so the click never silently does nothing.
  */
 export async function handleSendComments(
   client: GitHubClient,
@@ -55,7 +57,10 @@ export async function handleSendComments(
 
   const coords: PrCoords = { owner: pr.owner, repo: pr.repo, number: pr.number };
   const res = await fetchReviewThreads(client, auth, coords, coords.number);
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const retry = callback(SEND_COMMENTS, payload, { title: "Retry" });
+    return pushView({ type: "Error", message: describeError(res.error), retry });
+  }
   const text = buildBatchMessage(coords, res.value.threads.filter((t) => ids.has(t.id)));
   return text === null ? null : sendToAgent({ machine: agent.machine, name: agent.name }, text, { title: SUBMIT_LABEL });
 }
