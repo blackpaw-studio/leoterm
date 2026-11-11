@@ -10,10 +10,23 @@ final class LeoPluginNodeView: NSView {
     private var children: [NSView] = []
     private let scroll = NSScrollView()
     private let stack = NSStackView()
+    private var lastReportedHeight: CGFloat?
+    /// Fires with the scrolled content's laid-out height (nil when the content scrolls or sizes itself, e.g. a list),
+    /// so a host can grow to fit it.
+    var onPreferredHeightChange: (CGFloat?) -> Void = { _ in }
+
+    /// A lone form scrolls like a stacked slot, so a tall form is reachable inside a fixed-height pane.
+    static func scrolls(_ nodes: [LeoPluginNode]) -> Bool {
+        if nodes.count > 1 { return true }
+        if case .form? = nodes.first { return true }
+        return false
+    }
 
     init(emitter: LeoPluginActionEmitter) {
         self.emitter = emitter
         super.init(frame: .zero)
+        stack.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(stackFrameChanged), name: NSView.frameDidChangeNotification, object: stack)
     }
 
     @available(*, unavailable)
@@ -27,7 +40,7 @@ final class LeoPluginNodeView: NSView {
             case .replaceRoot(let all):
                 rebuild(all)
             case .replaceNode(let index, let node):
-                replace(at: index, with: node, of: newNodes.count)
+                if Self.scrolls(nodes) != Self.scrolls(newNodes) { rebuild(newNodes) } else { replace(at: index, with: node, of: newNodes.count) }
             case .updateList(let index, let patch):
                 if let list = children[safe: index] as? LeoPluginListView {
                     list.apply(patch: patch)
@@ -45,7 +58,8 @@ final class LeoPluginNodeView: NSView {
         scroll.removeFromSuperview()
         let embedded = all.count > 1
         children = all.map { makeView(for: $0, embedded: embedded) }
-        guard embedded else {
+        guard Self.scrolls(all) else {
+            reportPreferredHeight(nil)
             guard let only = children.first else { return }
             pin(only, in: self)
             return
@@ -79,6 +93,17 @@ final class LeoPluginNodeView: NSView {
             document.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
             document.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
         ])
+    }
+
+    @objc private func stackFrameChanged() {
+        guard Self.scrolls(nodes) else { return }
+        reportPreferredHeight(stack.frame.height)
+    }
+
+    private func reportPreferredHeight(_ height: CGFloat?) {
+        guard height != lastReportedHeight else { return }
+        lastReportedHeight = height
+        onPreferredHeightChange(height)
     }
 
     private func replace(at index: Int, with node: LeoPluginNode, of count: Int) {

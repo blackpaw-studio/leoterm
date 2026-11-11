@@ -50,7 +50,12 @@ final class LeoPluginFormView: NSView {
         controls = [:]
         let form = model.form
         if let title = form.title, !title.isEmpty {
-            stack.addArrangedSubview(LeoPluginRenderStyle.label(title, font: .systemFont(ofSize: 15, weight: .semibold)))
+            // A long heading wraps (two lines, then truncates) inside the pane and never widens it.
+            let heading = LeoPluginRenderStyle.label(title, font: .systemFont(ofSize: 15, weight: .semibold), lines: 2)
+            heading.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            stack.addArrangedSubview(heading)
+            heading.leadingAnchor.constraint(equalTo: stack.leadingAnchor, constant: LeoPluginRenderStyle.gutter).isActive = true
+            heading.trailingAnchor.constraint(equalTo: stack.trailingAnchor, constant: -LeoPluginRenderStyle.gutter).isActive = true
         }
         for field in form.fields {
             let row = makeRow(for: field)

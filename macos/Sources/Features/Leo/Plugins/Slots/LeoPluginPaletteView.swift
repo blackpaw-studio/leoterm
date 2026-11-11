@@ -10,7 +10,7 @@ struct LeoPluginPaletteView: View {
     /// Back to the command list.
     let showList: () -> Void
 
-    private static let contentHeight: CGFloat = 280
+    @State private var preferredHeight: CGFloat?
 
     var body: some View {
         let scheme: ColorScheme = NSColor(backgroundColor).isLightColor ? .light : .dark
@@ -31,8 +31,10 @@ struct LeoPluginPaletteView: View {
             .keyboardShortcut(.escape, modifiers: [])
             .help("Back")
             Divider()
-            LeoPluginSlotHostRepresentable(key: session.key, surface: session.surface, takesFocus: true)
-                .frame(height: Self.contentHeight)
+            LeoPluginSlotHostRepresentable(
+                key: session.key, surface: session.surface, takesFocus: true,
+                onPreferredHeightChange: { preferredHeight = $0 })
+                .frame(height: LeoPluginPaletteLayout.height(forContent: preferredHeight))
         }
         .frame(maxWidth: 500)
         .background(
@@ -51,5 +53,18 @@ struct LeoPluginPaletteView: View {
 
     private func back() {
         if session.back() == .atRoot { showList() }
+    }
+}
+
+/// How tall the palette's plugin pane is: lists keep the standard height, a
+/// scrolling view (a form) grows to fit its content, up to a ceiling, and
+/// scrolls beyond it.
+enum LeoPluginPaletteLayout {
+    static let minHeight: CGFloat = 280
+    static let maxHeight: CGFloat = 520
+
+    static func height(forContent content: CGFloat?) -> CGFloat {
+        guard let content else { return minHeight }
+        return min(max(content.rounded(.up), minHeight), maxHeight)
     }
 }

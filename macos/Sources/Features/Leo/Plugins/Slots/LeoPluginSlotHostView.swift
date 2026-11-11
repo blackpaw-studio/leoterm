@@ -26,6 +26,8 @@ final class LeoPluginSlotHostView: NSView {
     private(set) var content: LeoPluginSlotContent?
     /// Fires when the content changes, so a pane can show or hide its Back bar.
     var onContentChange: (LeoPluginSlotContent) -> Void = { _ in }
+    /// The shown content's natural height when it scrolls (a form), else nil.
+    var onPreferredHeightChange: (CGFloat?) -> Void = { _ in }
 
     @MainActor init(key: LeoPluginSlotKey, surface: any LeoPluginSlotSurface, takesFocus: Bool = false) {
         self.key = key
@@ -58,6 +60,7 @@ final class LeoPluginSlotHostView: NSView {
                 nodeView.render(nodes)
             } else {
                 let view = LeoPluginNodeView(emitter: emitter)
+                view.onPreferredHeightChange = { [weak self] in self?.onPreferredHeightChange($0) }
                 view.render(nodes)
                 nodeView = view
                 show(view)
@@ -87,7 +90,10 @@ final class LeoPluginSlotHostView: NSView {
 
     private func show(_ next: NSView) {
         shown?.removeFromSuperview()
-        if !(next is LeoPluginNodeView) { nodeView = nil }
+        if !(next is LeoPluginNodeView) {
+            nodeView = nil
+            onPreferredHeightChange(nil)
+        }
         shown = next
         next.translatesAutoresizingMaskIntoConstraints = false
         addSubview(next)
@@ -160,9 +166,14 @@ struct LeoPluginSlotHostRepresentable: NSViewRepresentable {
     let key: LeoPluginSlotKey
     let surface: any LeoPluginSlotSurface
     var takesFocus = false
+    /// Called (off the layout pass) with the content's natural height when it scrolls.
+    var onPreferredHeightChange: (CGFloat?) -> Void = { _ in }
 
     func makeNSView(context: Context) -> LeoPluginSlotHostView {
-        LeoPluginSlotHostView(key: key, surface: surface, takesFocus: takesFocus)
+        let host = LeoPluginSlotHostView(key: key, surface: surface, takesFocus: takesFocus)
+        let report = onPreferredHeightChange
+        host.onPreferredHeightChange = { height in DispatchQueue.main.async { report(height) } }
+        return host
     }
 
     func updateNSView(_ nsView: LeoPluginSlotHostView, context: Context) {}

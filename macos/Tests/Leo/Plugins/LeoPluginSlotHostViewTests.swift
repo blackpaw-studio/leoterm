@@ -68,4 +68,42 @@ struct LeoPluginSlotHostViewTests {
         #expect(surface.visibility[key] == false)
         window.close()
     }
+
+    // MARK: Pushed form sizing
+
+    private func pushedForm(title: String) -> [LeoPluginNode] {
+        let fields: [LeoPluginNode.Field] = (0..<6).map { LeoPluginNode.Field(id: "f\($0)", type: .text, label: "Field \($0)") }
+            + [LeoPluginNode.Field(id: "go", type: .submit, label: "Create Pull Request")]
+        return [.form(.init(id: "pr", title: title, fields: fields))]
+    }
+
+    @Test func aLongFormHeadingWrapsInsideThePaneAndNeverWidensIt() {
+        let title = "Create PR · blackpaw-studio/leoterm-with-a-very-long-name@feat/a-very-long-branch-name-that-keeps-going-and-going"
+        surface.content = .nodes(pushedForm(title: title), isPushed: true)
+        let host = makeHost()
+        host.frame = NSRect(x: 0, y: 0, width: 500, height: 280)
+        host.layoutSubtreeIfNeeded()
+
+        #expect(host.fittingSize.width <= 500)
+        func widest(_ view: NSView) -> CGFloat { ([view.frame.maxX] + view.subviews.map(widest)).max() ?? 0 }
+        #expect(widest(host) <= 500.5)
+    }
+
+    @Test func aTallFormReportsItsContentHeightSoThePaneCanGrowToFit() {
+        surface.content = .nodes(pushedForm(title: "Create PR"), isPushed: true)
+        let host = makeHost()
+        var reported: CGFloat?
+        host.onPreferredHeightChange = { reported = $0 }
+        host.frame = NSRect(x: 0, y: 0, width: 500, height: 280)
+        host.layoutSubtreeIfNeeded()
+
+        #expect((reported ?? 0) > 280)
+    }
+
+    @Test func paletteHeightGrowsToContentWithinTheBounds() {
+        #expect(LeoPluginPaletteLayout.height(forContent: nil) == 280)
+        #expect(LeoPluginPaletteLayout.height(forContent: 100) == 280)
+        #expect(LeoPluginPaletteLayout.height(forContent: 400.2) == 401)
+        #expect(LeoPluginPaletteLayout.height(forContent: 5000) == 520)
+    }
 }
