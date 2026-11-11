@@ -100,6 +100,21 @@ struct LeoPluginSlotHostViewTests {
         #expect((reported ?? 0) > 280)
     }
 
+    @Test func aWrappedHeadingAddsItsExtraLineToTheReportedHeight() {
+        func height(for title: String) -> CGFloat {
+            surface.content = .nodes(pushedForm(title: title), isPushed: true)
+            let host = makeHost()
+            var reported: CGFloat?
+            host.onPreferredHeightChange = { reported = $0 }
+            host.frame = NSRect(x: 0, y: 0, width: 500, height: 280)
+            host.layoutSubtreeIfNeeded()
+            return reported ?? 0
+        }
+        let short = height(for: "Create PR")
+        let long = height(for: "Create PR · blackpaw-studio/leoterm-with-a-very-long-name@feat/a-very-long-branch-name-that-keeps-going-and-going")
+        #expect(long - short >= 14)
+    }
+
     @Test func paletteHeightGrowsToContentWithinTheBounds() {
         #expect(LeoPluginPaletteLayout.height(forContent: nil) == 280)
         #expect(LeoPluginPaletteLayout.height(forContent: 100) == 280)
