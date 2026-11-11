@@ -12,6 +12,10 @@ import LeoKit
     let installFlow: LeoPluginInstallFlow
     let updater: LeoPluginUpdater
     let presenter: LeoPluginSheetPresenter
+    /// The sidebar's plugin sections (slot 4).
+    let sections: LeoPluginSidebarSections
+    /// The command palette's plugin commands (slot 3).
+    let commands: LeoPluginManagerCommandSource
     private let devWatcher: LeoPluginDevWatcher
 
     init(
@@ -63,6 +67,10 @@ import LeoKit
         self.manager = manager
         self.devWatcher = watcher
         self.presenter = presenter
+        sections = LeoPluginSidebarSections(
+            host: manager, preferences: { [unowned sidebar] in sidebar.preferences }, update: { [unowned sidebar] in sidebar.update($0) },
+            changes: Publishers.Merge(manager.$plugins.map { _ in }, sidebar.$preferences.map { _ in }).eraseToAnyPublisher())
+        commands = LeoPluginManagerCommandSource(host: manager)
         installFlow = LeoPluginInstallFlow(store: store, installer: installer, root: root)
         updater = LeoPluginUpdater(store: store, installer: installer, root: root)
     }

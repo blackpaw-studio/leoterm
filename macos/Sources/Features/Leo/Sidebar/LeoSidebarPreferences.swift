@@ -31,12 +31,15 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     var collapsedMachines: Set<LeoHostID>
     var hidesSubagents: Bool
     var toggledSubagents: Set<LeoAgentRow.ID>
+    /// Plugin sidebar sections the user opened (`pluginSectionKey`); they all start collapsed.
+    var expandedPluginSections: Set<String>
 
     init(
         sortOrder: LeoSidebarSortOrder = .lastActivity, groupBy: LeoSidebarGroupBy = .status,
         pinned: Set<LeoAgentRow.ID> = [], collapsed: [LeoHostID: Set<String>] = [:],
         expanded: [LeoHostID: Set<String>] = [:], collapsedMachines: Set<LeoHostID> = [],
-        hidesSubagents: Bool = false, toggledSubagents: Set<LeoAgentRow.ID> = []
+        hidesSubagents: Bool = false, toggledSubagents: Set<LeoAgentRow.ID> = [],
+        expandedPluginSections: Set<String> = []
     ) {
         self.sortOrder = sortOrder
         self.groupBy = groupBy
@@ -46,6 +49,7 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         self.collapsedMachines = collapsedMachines
         self.hidesSubagents = hidesSubagents
         self.toggledSubagents = toggledSubagents
+        self.expandedPluginSections = expandedPluginSections
     }
 
     /// Lenient: a field that's missing or unreadable falls back to its
@@ -61,6 +65,7 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         collapsedMachines = (try? container.decodeIfPresent(Set<LeoHostID>.self, forKey: .collapsedMachines)) ?? defaults.collapsedMachines
         hidesSubagents = (try? container.decodeIfPresent(Bool.self, forKey: .hidesSubagents)) ?? defaults.hidesSubagents
         toggledSubagents = (try? container.decodeIfPresent(Set<LeoAgentRow.ID>.self, forKey: .toggledSubagents)) ?? defaults.toggledSubagents
+        expandedPluginSections = (try? container.decodeIfPresent(Set<String>.self, forKey: .expandedPluginSections)) ?? defaults.expandedPluginSections
     }
 
     static func decode(_ data: Data?) -> LeoSidebarPreferences {
@@ -74,6 +79,16 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         if collapsed[host]?.contains(sectionID) == true { return true }
         guard LeoSidebarLayout.defaultCollapsedSectionIDs.contains(sectionID) else { return false }
         return expanded[host]?.contains(sectionID) != true
+    }
+
+    static func pluginSectionKey(plugin: String, section: String) -> String { "\(plugin)\u{1F}\(section)" }
+
+    func isPluginSectionCollapsed(_ key: String) -> Bool { !expandedPluginSections.contains(key) }
+
+    func setting(pluginSection key: String, collapsed isCollapsed: Bool) -> LeoSidebarPreferences {
+        var updated = self
+        if isCollapsed { updated.expandedPluginSections.remove(key) } else { updated.expandedPluginSections.insert(key) }
+        return updated
     }
 
     /// Whether `id`'s dispatch rows are collapsed: the global setting,

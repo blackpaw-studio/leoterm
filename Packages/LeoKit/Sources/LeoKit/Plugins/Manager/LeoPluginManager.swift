@@ -29,6 +29,21 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
     public let approvedPermissions: LeoPluginPermissions
     public let manifest: LeoPluginManifest?
     public let hiddenSections: [String]
+
+    public init(
+        id: String, name: String, version: String, source: LeoPluginSource, isEnabled: Bool, state: LeoPluginRunState,
+        approvedPermissions: LeoPluginPermissions, manifest: LeoPluginManifest?, hiddenSections: [String]
+    ) {
+        self.id = id
+        self.name = name
+        self.version = version
+        self.source = source
+        self.isEnabled = isEnabled
+        self.state = state
+        self.approvedPermissions = approvedPermissions
+        self.manifest = manifest
+        self.hiddenSections = hiddenSections
+    }
 }
 
 public enum LeoPluginManagerError: Error, Equatable, LocalizedError, Sendable {
