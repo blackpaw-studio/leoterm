@@ -109,7 +109,7 @@ struct LeoPluginListInteractionTests {
 
     @Test func entriesCarryTitlesAndSymbolsPerActionKind() {
         let send = LeoPluginAction.sendToAgent(agent: .init(machine: "m", name: "alfred"), text: "go")
-        let entries = LeoPluginActionPresentation.entries(for: [cb, open, copy, send])
+        let entries = LeoPluginActionPresentation.entries(for: [cb, open, copy, send].map { LeoPluginLabeledAction($0) })
         #expect(entries.map(\.title) == ["Merge Pr", "Open in Browser", "Copy", "Send to alfred…"])
         #expect(entries.allSatisfy { !$0.sfSymbol.isEmpty })
     }
