@@ -40,15 +40,31 @@ public struct LeoPluginAccessoryLayout: Equatable, Sendable {
 
     public let chips: [Chip]
     public let overflow: Overflow?
+    private let all: [Chip]
 
     public init(entries: [Entry], maxVisible: Int = LeoPluginAccessoryLayout.maxVisible) {
         let all = entries
             .sorted { $0.pluginID < $1.pluginID }
             .compactMap(Self.chip(for:))
-        chips = Array(all.prefix(maxVisible))
-        let hidden = all.dropFirst(maxVisible)
+        self.init(all: all, visible: maxVisible)
+    }
+
+    private init(all: [Chip], visible: Int) {
+        self.all = all
+        chips = Array(all.prefix(max(0, visible)))
+        let hidden = all.dropFirst(max(0, visible))
         overflow = hidden.isEmpty ? nil : Overflow(count: hidden.count, help: hidden.map(\.help).joined(separator: "\n"))
     }
+
+    /// The same chips, with only the first `visibleCount` drawn and the rest
+    /// behind "+N". A narrow row steps down through this (two chips, one,
+    /// then just "+N") so the agent's name keeps its room.
+    public func showing(_ visibleCount: Int) -> LeoPluginAccessoryLayout {
+        LeoPluginAccessoryLayout(all: all, visible: min(visibleCount, Self.maxVisible))
+    }
+
+    /// How many chips the plugins have given this row, drawn or not.
+    public var totalCount: Int { all.count }
 
     private static func chip(for entry: Entry) -> Chip? {
         guard case .tree(let root) = entry.state else { return nil }

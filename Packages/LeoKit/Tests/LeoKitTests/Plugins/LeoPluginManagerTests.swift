@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 import Testing
 
@@ -327,6 +328,69 @@ private let demo = "studio.blackpaw.demo"
             .viewOpened(agent: agent, slot: .view(viewID: "main", agent: agent)),
             .command(id: "go", slot: .palette(commandID: "go")), .activate(slot: .section(id: "issues")),
         ])
+    }
+
+    // MARK: Commands that never render
+
+    @Test func aCommandWhoseHandlerFinishesWithoutRenderingItsSlotIsReported() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        let host = try #require(rig.hosts.last)
+        var settled: [LeoPluginSlotKey] = []
+        let subscription = rig.manager.commandFinishedWithoutRender.sink { settled.append($0) }
+        defer { subscription.cancel() }
+        let palette = LeoPluginSlotID.palette(commandID: "go")
+
+        #expect(rig.manager.open(palette, plugin: demo))
+        host.finishHandler()  // load
+        host.finishHandler()  // activate
+        #expect(settled.isEmpty)
+        host.finishHandler()  // command
+
+        #expect(settled == [rig.key(demo, palette)])
+    }
+
+    @Test func aCommandThatRenderedItsSlotIsNotReported() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        let host = try #require(rig.hosts.last)
+        var settled: [LeoPluginSlotKey] = []
+        let subscription = rig.manager.commandFinishedWithoutRender.sink { settled.append($0) }
+        defer { subscription.cancel() }
+        let palette = LeoPluginSlotID.palette(commandID: "go")
+
+        #expect(rig.manager.open(palette, plugin: demo))
+        host.send(.render(slot: palette, node: try LeoPluginSlotRoot(nodes: [.loading(.init(message: nil))])))
+        for _ in 0..<3 { host.finishHandler() }
+
+        #expect(settled.isEmpty)
+    }
+
+    @Test func aCommandStillAwaitingAReplyIsNotReportedUntilTheContinuationFinishes() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        let host = try #require(rig.hosts.last)
+        var settled: [LeoPluginSlotKey] = []
+        let subscription = rig.manager.commandFinishedWithoutRender.sink { settled.append($0) }
+        defer { subscription.cancel() }
+        let palette = LeoPluginSlotID.palette(commandID: "go")
+
+        #expect(rig.manager.open(palette, plugin: demo))
+        host.send(.agentsList(id: "r1"))  // the handler awaits this; the app answers with a reply event
+        for _ in 0..<3 { host.finishHandler() }  // load, activate, command
+        #expect(settled.isEmpty)
+        host.finishHandler()  // the continuation that follows the reply
+
+        #expect(settled == [rig.key(demo, palette)])
     }
 
     @Test func retryResendsTheEventThatProducedTheErrorSlot() async throws {

@@ -75,6 +75,7 @@ final class PluginFakeHost: LeoPluginHosting, @unchecked Sendable {
     private let lock = NSLock()
     var onRequest: (@Sendable (LeoPluginHostRequest) -> Void)?
     var onTermination: (@Sendable (LeoPluginHostTermination) -> Void)?
+    var onHandlerDone: (@Sendable () -> Void)?
     private var _source: String?
     private var _events: [LeoPluginEvent] = []
     private var _stopped = false
@@ -98,6 +99,8 @@ final class PluginFakeHost: LeoPluginHosting, @unchecked Sendable {
 
     // Test drivers: what the helper would do.
     func send(_ request: LeoPluginHostRequest) { onRequest?(request) }
+    /// The helper's `{"done":1}` after one command.
+    func finishHandler() { onHandlerDone?() }
     func crash(_ reason: String = "boom") { onTermination?(.crashed(reason: reason)) }
 }
 

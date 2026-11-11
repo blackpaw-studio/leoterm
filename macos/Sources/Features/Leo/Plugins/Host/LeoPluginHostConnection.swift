@@ -42,6 +42,8 @@ final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
 
     /// Bridge requests from plugin code, in order. Set before `start`.
     var onRequest: (@Sendable (LeoPluginHostRequest) -> Void)?
+    /// One command finished (the helper's `done` frame), ordered with `onRequest`.
+    var onHandlerDone: (@Sendable () -> Void)?
     /// Called exactly once, after the process is gone.
     var onTermination: (@Sendable (LeoPluginHostTermination) -> Void)?
 
@@ -184,6 +186,8 @@ final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
             let verdict = dog.handlerFinished(at: clock())
             watchdog = dog
             apply(verdict)
+            // Queued behind every request the handler made, on the same queue.
+            callbackQueue.async { [weak self] in self?.onHandlerDone?() }
         case .request(let request):
             guard let throttle = readThrottle else { return }
             // Dropped, not delivered, once the helper is on its way out.

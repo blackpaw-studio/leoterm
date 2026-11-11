@@ -21,6 +21,11 @@ import Foundation
     var restartTask: Task<Void, Never>?
     /// The event that last opened each slot, re-sent after a restart or a Retry.
     var lastEvents: [LeoPluginSlotID: LeoPluginEvent] = [:]
+    /// Commands (the bundle load, then each delivered event) the helper hasn't
+    /// reported `done` for yet.
+    var outstandingCommands = 0
+    /// Palette slots whose `command` event was delivered and not yet settled.
+    var watchedCommandSlots: Set<LeoPluginSlotID> = []
 
     /// Per-plugin services that outlive a host restart: the rate limit and the
     /// gesture ledger must not reset just because the helper crashed.

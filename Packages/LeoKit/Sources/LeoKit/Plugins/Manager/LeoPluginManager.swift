@@ -123,6 +123,13 @@ public struct LeoPluginManagerDependencies {
 
     public var slots: LeoPluginSlotStore { deps.slots }
 
+    private let commandFinishedSubject = PassthroughSubject<LeoPluginSlotKey, Never>()
+    /// A command's handler finished and its palette slot never rendered, so
+    /// the palette has nothing to show and should close.
+    public var commandFinishedWithoutRender: AnyPublisher<LeoPluginSlotKey, Never> {
+        commandFinishedSubject.eraseToAnyPublisher()
+    }
+
     public init(_ dependencies: LeoPluginManagerDependencies) {
         deps = dependencies
     }
@@ -290,11 +297,14 @@ public struct LeoPluginManagerDependencies {
         }
         let session = makeSession(for: entry, manifest: manifest, services: services)
         entry.session = session
+        entry.outstandingCommands = 0
+        entry.watchedCommandSlots = []
         entry.state = .running
         deps.slots.reset(pluginID: entry.id)
         deps.slots.setStatus(pluginID: entry.id, .running)
         do {
             try session.host.start(source: source)
+            entry.outstandingCommands += 1  // the bundle load
         } catch {
             return crashed(entry, token: session.token, reason: "couldn't start: \(error.localizedDescription)")
         }
@@ -332,6 +342,12 @@ public struct LeoPluginManagerDependencies {
             MainActor.assumeIsolated {
                 guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
                 entry.session?.router.handle(request)
+            }
+        }
+        host.onHandlerDone = { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
+                self.handlerFinished(entry)
             }
         }
         host.onTermination = { [weak self] termination in
@@ -384,8 +400,26 @@ public struct LeoPluginManagerDependencies {
 
     func deliver(_ event: LeoPluginEvent, to entry: LeoPluginManagerEntry) {
         guard let session = entry.session else { return }
-        do { try session.host.deliver(event) } catch {
+        do {
+            try session.host.deliver(event)
+            entry.outstandingCommands += 1
+            if case .command(_, let slot?) = event { entry.watchedCommandSlots.insert(slot) }
+        } catch {
             Self.logger.debug("[\(entry.id, privacy: .public)] event not delivered: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// One handler returned. When the helper has nothing left to run (every
+    /// delivered event finished, no fetch awaiting its reply), a command whose
+    /// slot is still empty never rendered and never will, so it is reported.
+    private func handlerFinished(_ entry: LeoPluginManagerEntry) {
+        entry.outstandingCommands = max(0, entry.outstandingCommands - 1)
+        guard entry.outstandingCommands == 0, entry.session?.router.hasPendingFetches != true else { return }
+        let finished = entry.watchedCommandSlots
+        entry.watchedCommandSlots = []
+        for slot in finished {
+            let key = LeoPluginSlotKey(pluginID: entry.id, slot: slot)
+            if deps.slots.state(key) == .loading { commandFinishedSubject.send(key) }
         }
     }
 

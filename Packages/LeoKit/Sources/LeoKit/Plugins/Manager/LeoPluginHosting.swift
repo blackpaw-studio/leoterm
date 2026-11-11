@@ -12,11 +12,15 @@ public enum LeoPluginHostTermination: Equatable, Sendable {
 /// `LeoPluginHostConnection`; tests use a fake. One value is one process: after
 /// `onTermination` fires it is spent.
 ///
-/// Both callbacks arrive on the main queue, in order, and only the manager
+/// All callbacks arrive on the main queue, in order, and only the manager
 /// sets them (before `start`).
 public protocol LeoPluginHosting: AnyObject, Sendable {
     var onRequest: (@Sendable (LeoPluginHostRequest) -> Void)? { get set }
     var onTermination: (@Sendable (LeoPluginHostTermination) -> Void)? { get set }
+    /// The helper finished one command (its `done` frame), in delivery order:
+    /// first the bundle load, then one per delivered event. Async handlers
+    /// have only run to their first await by then.
+    var onHandlerDone: (@Sendable () -> Void)? { get set }
     /// Spawns the helper and hands it the plugin bundle's text.
     func start(source: String) throws
     func deliver(_ event: LeoPluginEvent) throws

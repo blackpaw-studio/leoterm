@@ -62,6 +62,9 @@ import OSLog
         deps = dependencies
     }
 
+    /// Whether a `fetch` is still waiting for its reply.
+    public var hasPendingFetches: Bool { !inFlight.isEmpty }
+
     /// The session ended: drop live callbacks and cancel pending work, and ignore anything still queued.
     public func close() {
         isClosed = true

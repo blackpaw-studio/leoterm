@@ -57,6 +57,26 @@ private func entry(
         #expect(layout.overflow?.label == "+2")
     }
 
+    @Test func aNarrowRowStepsDownToOneChipThenToPlusNAlone() throws {
+        let layout = LeoPluginAccessoryLayout(entries: [try entry("a"), try entry("b")])
+
+        let one = layout.showing(1)
+        #expect(one.chips.map(\.pluginID) == ["a"])
+        #expect(one.overflow?.label == "+1")
+
+        let none = layout.showing(0)
+        #expect(none.chips.isEmpty)
+        #expect(none.overflow?.label == "+2")
+        #expect(none.overflow?.help == "a: ok\nb: ok")
+        #expect(layout.totalCount == 2)
+    }
+
+    @Test func showingMoreThanTheCapStillCollapsesTheRest() throws {
+        let layout = LeoPluginAccessoryLayout(entries: [try entry("a"), try entry("b"), try entry("c")])
+        #expect(layout.showing(5).chips.count == 2)
+        #expect(layout.showing(5).overflow?.count == 1)
+    }
+
     @Test func overflowTooltipNamesTheHiddenPlugins() throws {
         let layout = LeoPluginAccessoryLayout(
             entries: [try entry("a"), try entry("b"), try entry("c", name: "Gamma", text: "x", help: "three open")])
