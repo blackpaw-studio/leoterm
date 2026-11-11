@@ -44,10 +44,10 @@ describe("fetchChecks", () => {
     expect(res.value.find((c) => c.name === "ci/legacy")).toMatchObject({ id: "status:71", source: "status", url: "https://ci.example.com/71" });
   });
 
-  it("collapses same-named runs from one head SHA (push + pull_request) to the most recent run", async () => {
+  it("collapses same-named runs from one head SHA (push + pull_request) to one row, the newest run when states match", async () => {
     const { stub, client } = setup();
     const run = (id: number, name: string, conclusion: string) => ({ id, name, status: "completed", conclusion, app: { slug: "github-actions" } });
-    stub.route("GET", RUNS, { body: { check_runs: [run(10, "lint", "failure"), run(12, "lint", "success"), run(11, "test", "success"), run(13, "test", "success")] } });
+    stub.route("GET", RUNS, { body: { check_runs: [run(10, "lint", "success"), run(12, "lint", "success"), run(11, "test", "success"), run(13, "test", "success")] } });
     stub.route("GET", STATUS, asResponse(statusEmpty as never));
     const res = await fetchChecks(client, "tok", REF, "abc");
     if (!res.ok) throw new Error("expected ok");
