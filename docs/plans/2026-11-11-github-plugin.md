@@ -260,3 +260,19 @@ Run:
   3. Steps 10 and 11, one implementer.
   4. Review.
   5. Step 12.
+
+## Security review (2026-11-11)
+
+- **Fixing now:**
+  - Host fetch limits: the scheduler gates individual fetches, not tasks, and the budget counts requests (P1).
+  - Untrusted GitHub text reaching agents goes through a shared `quoteUntrusted` helper (P1).
+  - The review-batch size is capped, and a failed refetch shows an error.
+  - The Open PR picker is keyed by `machine/name`.
+  - Secondary rate limits are detected.
+  - Stale status no longer shows as current after an HTTP error.
+  - Log excerpts are fetched as a tail range, so they finish within the 30 s follow-up deadline.
+- **Accepted risks:**
+  - Callback payloads are authored only by the plugin, so `owner`/`repo` aren't run through `parseRepo` again.
+  - A stale send-comments target is still shown in the confirmation sheet.
+  - The ETag cache can be written back after sign-out, which is harmless because ETags vary by token.
+  - "Open in Browser" accepts any https `target_url`, the same as clicking it on GitHub.
