@@ -12,7 +12,7 @@ import SwiftUI
     /// The top-level agents a plugin's accessories are asked for.
     private let agents: () -> [LeoPluginAgentRef]
     private var subscriptions: Set<AnyCancellable> = []
-    private var visibleCounts: [LeoPluginSlotKey: Int] = [:]
+    private var visibility = LeoPluginSlotVisibility()
 
     init(agents: @escaping () -> [LeoPluginAgentRef] = { [] }) {
         self.agents = agents
@@ -35,27 +35,36 @@ import SwiftUI
 
     var changes: AnyPublisher<Void, Never> { objectWillChange.eraseToAnyPublisher() }
 
-    func slotContent(for ref: LeoPluginViewRef) -> LeoPluginSlotContent {
+    func content(for key: LeoPluginSlotKey) -> LeoPluginSlotContent {
         guard let manager else { return .notice(LeoPluginSlotContent.unavailableNotice) }
-        let available = viewEntries().contains { $0.pluginID == ref.pluginID && $0.viewID == ref.viewID }
         return LeoPluginSlotContent.resolve(
-            state: manager.slots.state(ref.slotKey), pushed: manager.slots.pushed[ref.slotKey] ?? [], pluginAvailable: available)
+            state: manager.slots.state(key), pushed: manager.slots.pushed[key] ?? [], pluginAvailable: isAvailable(key))
+    }
+
+    /// Whether the plugin still contributes this slot and is on.
+    private func isAvailable(_ key: LeoPluginSlotKey) -> Bool {
+        guard let manager, let plugin = manager.plugins.first(where: { $0.id == key.pluginID }),
+              plugin.isEnabled, let contributes = plugin.manifest?.contributes
+        else { return false }
+        switch key.slot {
+        case .view(let viewID, _): return viewEntries().contains { $0.pluginID == key.pluginID && $0.viewID == viewID }
+        case .section(let id): return contributes.sidebarSections.contains { $0.id == id }
+        case .palette(let id): return contributes.commands.contains { $0.id == id }
+        case .accessory(let id, _): return contributes.rowAccessories.contains { $0.id == id }
+        }
     }
 
     func open(_ ref: LeoPluginViewRef) { manager?.open(ref.slot, plugin: ref.pluginID) }
-    func retry(_ ref: LeoPluginViewRef) { manager?.retry(ref.slotKey) }
-    func pop(_ ref: LeoPluginViewRef) { manager?.slots.pop(ref.slotKey) }
+    func retry(_ key: LeoPluginSlotKey) { manager?.retry(key) }
+    func pop(_ key: LeoPluginSlotKey) { manager?.slots.pop(key) }
 
-    func perform(_ action: LeoPluginAction, gesture: LeoPluginGesture?, in ref: LeoPluginViewRef) {
-        manager?.perform(action, plugin: ref.pluginID, slot: ref.slot, gesture: gesture)
+    func perform(_ action: LeoPluginAction, gesture: LeoPluginGesture?, in key: LeoPluginSlotKey) {
+        manager?.perform(action, plugin: key.pluginID, slot: key.slot, gesture: gesture)
     }
 
-    func setVisible(_ ref: LeoPluginViewRef, _ visible: Bool) {
-        let key = ref.slotKey
-        visibleCounts[key, default: 0] += visible ? 1 : -1
-        if (visibleCounts[key] ?? 0) <= 0 { visibleCounts[key] = nil }
-        let anyVisible = visibleCounts.keys.contains { $0.pluginID == ref.pluginID }
-        manager?.setSlotVisible(plugin: ref.pluginID, visible: anyVisible)
+    func setVisible(_ key: LeoPluginSlotKey, _ visible: Bool) {
+        guard let now = visibility.set(key, visible: visible) else { return }
+        manager?.setSlotVisible(plugin: key.pluginID, visible: now)
     }
 
     // MARK: Slot 2: row accessories

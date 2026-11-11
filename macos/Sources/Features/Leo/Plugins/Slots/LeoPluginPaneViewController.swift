@@ -6,22 +6,17 @@ import LeoKit
 /// Back bar while a pushed view is showing, then the slot's content drawn by
 /// the renderers. It never asks for focus; the person's own click does.
 ///
-/// Reads everything through `LeoPluginPaneHosting`, so what it shows follows
-/// the slot store (Loading until the plugin renders, Error with Retry, a
-/// notice when the plugin is off or gone).
+/// The slot's content is drawn by the shared `LeoPluginSlotHostView`, which
+/// follows the slot store (Loading until the plugin renders, Error with Retry,
+/// a notice when the plugin is off or gone); this controller adds the strip and
+/// the Back bar.
 final class LeoPluginPaneViewController: NSViewController {
     let ref: LeoPluginViewRef
     private let host: any LeoPluginPaneHosting
     private let headerTopInset: LeoToolbarInset?
-    private let mint = LeoPluginGestureMint()
     private let backBar = LeoPluginBackBar()
-    private let body = NSView()
+    private lazy var slotHost = LeoPluginSlotHostView(key: ref.slotKey, surface: host)
     private var topSpacer: NSView?
-    private var shown: NSView?
-    private var nodeView: LeoPluginNodeView?
-    private var content: LeoPluginSlotContent?
-    private var isVisible = false
-    private var subscription: AnyCancellable?
     private var insetSubscription: AnyCancellable?
 
     /// Binds right away: a collapsed split item's view isn't loaded until it is shown.
@@ -32,17 +27,14 @@ final class LeoPluginPaneViewController: NSViewController {
         super.init(nibName: nil, bundle: nil)
         backBar.onBack = { [weak self] in
             guard let self else { return }
-            self.host.pop(self.ref)
+            self.host.pop(self.ref.slotKey)
         }
-        subscription = host.changes
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] in self?.refresh() }
     }
 
     required init?(coder: NSCoder) { nil }
 
     /// The slot's content as drawn now (for tests and the visual check).
-    var shownContent: LeoPluginSlotContent? { content }
+    var shownContent: LeoPluginSlotContent? { slotHost.content }
     var isBackBarVisible: Bool { !backBar.isHidden }
 
     override func loadView() {
@@ -51,10 +43,10 @@ final class LeoPluginPaneViewController: NSViewController {
         root.spacing = 0
         root.alignment = .width
         root.setAccessibilityLabel("\(ref.title), \(ref.pluginName)")
-        root.onVisibilityChange = { [weak self] in self?.setVisible($0) }
-        body.setContentHuggingPriority(.defaultLow, for: .vertical)
-        body.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
-        let rows: [NSView] = [backBar, body]
+        slotHost.setContentHuggingPriority(.defaultLow, for: .vertical)
+        slotHost.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        slotHost.onContentChange = { [weak self] content in self?.showBackBar(for: content) }
+        let rows: [NSView] = [backBar, slotHost]
         rows.forEach(root.addArrangedSubview)
         NSLayoutConstraint.activate(rows.map { $0.widthAnchor.constraint(equalTo: root.widthAnchor) })
         if let headerTopInset {
@@ -72,7 +64,6 @@ final class LeoPluginPaneViewController: NSViewController {
         }
         view = root
         view.widthAnchor.constraint(greaterThanOrEqualToConstant: LeoEditorPaneViewController.minimumWidth).isActive = true
-        content = nil
         refresh()
     }
 
@@ -88,85 +79,24 @@ final class LeoPluginPaneViewController: NSViewController {
 
     func refresh() {
         guard isViewLoaded else { return }
-        let next = host.slotContent(for: ref)
-        guard next != content else { return }
-        let previous = content
-        content = next
-        switch next {
-        case .loading:
-            show(LeoPluginLoadingView(loading: .init(message: nil)), pushed: false)
-        case .nodes(let nodes, let isPushed):
-            if case .nodes(_, let wasPushed)? = previous, wasPushed == isPushed, let nodeView {
-                nodeView.render(nodes)
-            } else {
-                let view = LeoPluginNodeView(emitter: emitter)
-                view.render(nodes)
-                nodeView = view
-                show(view, pushed: isPushed)
-            }
-        case .error(let message):
-            let retry = LeoPluginAction.callback(id: "retry", payload: .null)
-            show(LeoPluginErrorView(error: .init(message: message, retry: retry), emitter: emitter), pushed: false)
-        case .notice(let message):
-            show(LeoPluginEmptyStateView(state: .init(title: message, sfSymbol: "puzzlepiece.extension"), emitter: emitter), pushed: false)
-        }
+        slotHost.refresh()
+        showBackBar(for: slotHost.content)
     }
 
-    private var emitter: LeoPluginActionEmitter {
-        LeoPluginActionEmitter(mint: mint) { [weak self] action, gesture in self?.handle(action, gesture) }
-    }
-
-    /// The only thing a host-level error offers is Retry; anything else is the plugin's own action.
-    private func handle(_ action: LeoPluginAction, _ gesture: LeoPluginGesture?) {
-        if case .error? = content {
-            host.retry(ref)
-        } else {
-            host.perform(action, gesture: gesture, in: ref)
-        }
-    }
-
-    private func show(_ next: NSView, pushed: Bool) {
-        shown?.removeFromSuperview()
-        if !(next is LeoPluginNodeView) { nodeView = nil }
-        shown = next
-        backBar.isHidden = !pushed
-        next.translatesAutoresizingMaskIntoConstraints = false
-        body.addSubview(next)
-        NSLayoutConstraint.activate([
-            next.leadingAnchor.constraint(equalTo: body.leadingAnchor),
-            next.trailingAnchor.constraint(equalTo: body.trailingAnchor),
-            next.topAnchor.constraint(equalTo: body.topAnchor),
-            next.bottomAnchor.constraint(equalTo: body.bottomAnchor),
-        ])
-    }
-
-    // MARK: Visibility
-
-    private func setVisible(_ visible: Bool) {
-        guard visible != isVisible else { return }
-        isVisible = visible
-        host.setVisible(ref, visible)
+    private func showBackBar(for content: LeoPluginSlotContent?) {
+        if case .nodes(_, let isPushed)? = content { backBar.isHidden = !isPushed } else { backBar.isHidden = true }
     }
 }
 
-/// The pane's root: the editor's background, and the one place that notices
-/// the pane coming on or going off screen.
+/// The pane's root: the editor's background.
 private final class LeoPluginPaneRootView: NSStackView {
-    var onVisibilityChange: (Bool) -> Void = { _ in }
-
     override var wantsUpdateLayer: Bool { true }
     override func updateLayer() { layer?.backgroundColor = NSColor.textBackgroundColor.cgColor }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         wantsLayer = true
-        report()
     }
-
-    override func viewDidHide() { super.viewDidHide(); report() }
-    override func viewDidUnhide() { super.viewDidUnhide(); report() }
-
-    private func report() { onVisibilityChange(window != nil && !isHiddenOrHasHiddenAncestor) }
 }
 
 /// "‹ Back" under the strip while a pushed view is showing.

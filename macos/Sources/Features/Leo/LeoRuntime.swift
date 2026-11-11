@@ -605,7 +605,8 @@ import LeoKit
     private func startPlugins() {
         guard !isShutDown, plugins == nil else { return }
         let system = LeoPluginSystem(
-            sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults)
+            sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults,
+            surfaces: pluginSurfaces)
         plugins = system
         model.pluginSections = system.sections
         pluginSurfaces.attach(system.manager)

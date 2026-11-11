@@ -25,6 +25,7 @@ import LeoKit
         defaults: UserDefaults,
         applicationSupport: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
         bundle: Bundle = .main,
+        surfaces: any LeoPluginSlotSurface,
         presenter: LeoPluginSheetPresenter = LeoPluginSheetPresenter()
     ) {
         #if DEBUG
@@ -70,7 +71,7 @@ import LeoKit
         sections = LeoPluginSidebarSections(
             host: manager, preferences: { [unowned sidebar] in sidebar.preferences }, update: { [unowned sidebar] in sidebar.update($0) },
             changes: Publishers.Merge(manager.$plugins.map { _ in }, sidebar.$preferences.map { _ in }).eraseToAnyPublisher())
-        commands = LeoPluginManagerCommandSource(host: manager)
+        commands = LeoPluginManagerCommandSource(host: manager, surface: surfaces)
         installFlow = LeoPluginInstallFlow(store: store, installer: installer, root: root)
         updater = LeoPluginUpdater(store: store, installer: installer, root: root)
     }

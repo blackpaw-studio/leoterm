@@ -1,3 +1,4 @@
+import Combine
 import LeoKit
 
 /// A plugin command as the palette lists it.
@@ -23,8 +24,12 @@ struct LeoPluginPaletteCommand: Identifiable, Equatable {
 
 @MainActor final class LeoPluginManagerCommandSource: LeoPluginCommandSource {
     private let host: any LeoPluginSlotHosting
+    private let surface: any LeoPluginSlotSurface
 
-    init(host: any LeoPluginSlotHosting) { self.host = host }
+    init(host: any LeoPluginSlotHosting, surface: any LeoPluginSlotSurface) {
+        self.host = host
+        self.surface = surface
+    }
 
     var commands: [LeoPluginPaletteCommand] {
         host.plugins.filter(\.isEnabled).flatMap { info -> [LeoPluginPaletteCommand] in
@@ -36,12 +41,12 @@ struct LeoPluginPaletteCommand: Identifiable, Equatable {
 
     func select(_ command: LeoPluginPaletteCommand) -> LeoPluginPaletteSession {
         host.open(command.slotKey.slot, plugin: command.pluginID)
-        return LeoPluginPaletteSession(command: command, binding: LeoPluginSlotBinding(host: host, key: command.slotKey))
+        return LeoPluginPaletteSession(command: command, host: host, surface: surface)
     }
 }
 
-/// The palette's page for one selected command: its slot's content, with
-/// `pushView` stacking over it and Esc popping.
+/// The palette's page for one selected command: its slot, with `pushView`
+/// stacking over it and Esc popping. The slot is drawn by the shared host view.
 @MainActor final class LeoPluginPaletteSession: ObservableObject {
     enum Back: Equatable {
         /// A pushed view was removed; the page stays.
@@ -51,16 +56,29 @@ struct LeoPluginPaletteCommand: Identifiable, Equatable {
     }
 
     let command: LeoPluginPaletteCommand
-    let binding: LeoPluginSlotBinding
+    let surface: any LeoPluginSlotSurface
+    private let host: any LeoPluginSlotHosting
+    private var subscription: AnyCancellable?
 
-    init(command: LeoPluginPaletteCommand, binding: LeoPluginSlotBinding) {
+    /// The command's handler finished without rendering its page, so there is
+    /// nothing to show: the palette closes instead of sitting on Loading.
+    var onFinishedWithoutRender: () -> Void = {}
+
+    var key: LeoPluginSlotKey { command.slotKey }
+
+    init(command: LeoPluginPaletteCommand, host: any LeoPluginSlotHosting, surface: any LeoPluginSlotSurface) {
         self.command = command
-        self.binding = binding
+        self.host = host
+        self.surface = surface
+        let key = command.slotKey
+        subscription = host.commandFinishedWithoutRender
+            .filter { $0 == key }
+            .sink { [weak self] _ in self?.onFinishedWithoutRender() }
     }
 
-    var nodes: [LeoPluginNode] { binding.nodes }
-
-    func back() -> Back { binding.popPushed() ? .popped : .atRoot }
-
-    func perform(_ action: LeoPluginAction, gesture: LeoPluginGesture?) { binding.perform(action, gesture: gesture) }
+    func back() -> Back {
+        guard host.slots.pushed[key]?.isEmpty == false else { return .atRoot }
+        surface.pop(key)
+        return .popped
+    }
 }

@@ -9,20 +9,20 @@ import Testing
 /// A fake of what the pane asks of the plugin system.
 @MainActor final class FakePluginPaneHost: LeoPluginPaneHosting {
     private(set) var opened: [LeoPluginViewRef] = []
-    private(set) var retried: [LeoPluginViewRef] = []
-    private(set) var popped: [LeoPluginViewRef] = []
-    private(set) var performed: [(LeoPluginAction, LeoPluginViewRef)] = []
-    private(set) var visibility: [LeoPluginViewRef: Bool] = [:]
+    private(set) var retried: [LeoPluginSlotKey] = []
+    private(set) var popped: [LeoPluginSlotKey] = []
+    private(set) var performed: [(LeoPluginAction, LeoPluginSlotKey)] = []
+    private(set) var visibility: [LeoPluginSlotKey: Bool] = [:]
     var content: LeoPluginSlotContent = .loading
     private let subject = PassthroughSubject<Void, Never>()
     var changes: AnyPublisher<Void, Never> { subject.eraseToAnyPublisher() }
 
-    func slotContent(for ref: LeoPluginViewRef) -> LeoPluginSlotContent { content }
+    func content(for key: LeoPluginSlotKey) -> LeoPluginSlotContent { content }
     func open(_ ref: LeoPluginViewRef) { opened.append(ref) }
-    func retry(_ ref: LeoPluginViewRef) { retried.append(ref) }
-    func pop(_ ref: LeoPluginViewRef) { popped.append(ref) }
-    func perform(_ action: LeoPluginAction, gesture: LeoPluginGesture?, in ref: LeoPluginViewRef) { performed.append((action, ref)) }
-    func setVisible(_ ref: LeoPluginViewRef, _ visible: Bool) { visibility[ref] = visible }
+    func retry(_ key: LeoPluginSlotKey) { retried.append(key) }
+    func pop(_ key: LeoPluginSlotKey) { popped.append(key) }
+    func perform(_ action: LeoPluginAction, gesture: LeoPluginGesture?, in key: LeoPluginSlotKey) { performed.append((action, key)) }
+    func setVisible(_ key: LeoPluginSlotKey, _ visible: Bool) { visibility[key] = visible }
     func changed() { subject.send() }
 }
 

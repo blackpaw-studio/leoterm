@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 import LeoKit
@@ -19,8 +20,10 @@ import LeoKit
         return true
     }
 
-    private(set) var visibility: [(plugin: String, visible: Bool)] = []
-    func setSlotVisible(plugin id: String, visible: Bool) { visibility.append((id, visible)) }
+    private let finishedSubject = PassthroughSubject<LeoPluginSlotKey, Never>()
+    var commandFinishedWithoutRender: AnyPublisher<LeoPluginSlotKey, Never> { finishedSubject.eraseToAnyPublisher() }
+    /// The manager reporting that a command's handler finished with nothing rendered.
+    func finishWithoutRender(_ key: LeoPluginSlotKey) { finishedSubject.send(key) }
 
     func retry(_ key: LeoPluginSlotKey) { retried.append(key) }
 

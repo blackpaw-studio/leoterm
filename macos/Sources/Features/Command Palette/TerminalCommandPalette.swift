@@ -167,7 +167,9 @@ struct TerminalCommandPaletteView: View {
                 leadingIcon: command.sfSymbol ?? "puzzlepiece.extension",
                 keepsPaletteOpen: true
             ) {
-                pluginSession = pluginCommands?.select(command)
+                let session = pluginCommands?.select(command)
+                session?.onFinishedWithoutRender = { isPresented = false }
+                pluginSession = session
             }
         }
     }

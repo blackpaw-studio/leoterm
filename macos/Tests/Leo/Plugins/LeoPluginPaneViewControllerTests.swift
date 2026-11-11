@@ -54,7 +54,7 @@ struct LeoPluginPaneViewControllerTests {
 
         retry.performClick(nil)
 
-        #expect(host.retried == [ref])
+        #expect(host.retried == [ref.slotKey])
         #expect(host.performed.isEmpty)
     }
 
@@ -68,7 +68,7 @@ struct LeoPluginPaneViewControllerTests {
 
         back.performClick(nil)
 
-        #expect(host.popped == [ref])
+        #expect(host.popped == [ref.slotKey])
     }
 
     @Test
@@ -98,13 +98,13 @@ struct LeoPluginPaneViewControllerTests {
         window.isReleasedWhenClosed = false
         let container = NSView(frame: window.contentLayoutRect)
         window.contentView = container
-        #expect(host.visibility[ref] == nil)
+        #expect(host.visibility[ref.slotKey] == nil)
 
         container.addSubview(pane.view)
-        #expect(host.visibility[ref] == true)
+        #expect(host.visibility[ref.slotKey] == true)
 
         pane.view.removeFromSuperview()
-        #expect(host.visibility[ref] == false)
+        #expect(host.visibility[ref.slotKey] == false)
         window.close()
     }
 }

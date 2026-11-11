@@ -32,18 +32,10 @@ struct LeoPluginViewRef: Hashable {
     var slotKey: LeoPluginSlotKey { LeoPluginSlotKey(pluginID: pluginID, slot: slot) }
 }
 
-/// What a row's plugin view asks of the plugin system. The pane depends on
-/// this, not on the manager, so it is driven by a fake in tests.
-@MainActor protocol LeoPluginPaneHosting: AnyObject {
-    /// Fires (before the change lands) whenever any slot or plugin changes.
-    var changes: AnyPublisher<Void, Never> { get }
-    func slotContent(for ref: LeoPluginViewRef) -> LeoPluginSlotContent
+/// What a row's plugin view asks of the plugin system: the slot surface, plus
+/// the one thing only a pane does (opening its view). The pane depends on this,
+/// not on the manager, so it is driven by a fake in tests.
+@MainActor protocol LeoPluginPaneHosting: LeoPluginSlotSurface {
     /// The person opened the view: the plugin gets `viewOpened`.
     func open(_ ref: LeoPluginViewRef)
-    func retry(_ ref: LeoPluginViewRef)
-    func perform(_ action: LeoPluginAction, gesture: LeoPluginGesture?, in ref: LeoPluginViewRef)
-    /// Back out of a pushed view.
-    func pop(_ ref: LeoPluginViewRef)
-    /// Whether the view is on screen (the plugin's `leo.after` timers wait for it).
-    func setVisible(_ ref: LeoPluginViewRef, _ visible: Bool)
 }
