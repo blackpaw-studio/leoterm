@@ -52,11 +52,21 @@ describe("pickers", () => {
   });
   it("open-pr items open the PR url, or show 'No open PR'", () => {
     const entries = mappedAgents([agent("a1", "o/r", "b"), agent("a4", "o/x", "c")], parseRepo);
-    const tree = openPrPicker(entries, new Map([["a1", { number: 3, url: "https://github.com/o/r/pull/3" }]]));
+    const tree = openPrPicker(entries, new Map([["m/a1", { number: 3, url: "https://github.com/o/r/pull/3" }]]));
     const [withPr, without] = tree.sections[0].items;
     expect(withPr.actions?.[0]).toMatchObject({ type: "openURL", url: "https://github.com/o/r/pull/3" });
     expect(without.subtitle).toBe("No open PR");
     expect(without.actions ?? []).toEqual([]);
+  });
+  it("open-pr keys PRs by machine and name, so same-named agents on two machines don't share one", () => {
+    const entries = mappedAgents(
+      [agent("a1", "o/r", "b"), { ...agent("a1", "o/r", "c"), machine: "other" }],
+      parseRepo,
+    );
+    const tree = openPrPicker(entries, new Map([["other/a1", { number: 9, url: "https://github.com/o/r/pull/9" }]]));
+    const [first, second] = tree.sections[0].items;
+    expect(first.subtitle).toBe("No open PR");
+    expect(second.actions?.[0]).toMatchObject({ type: "openURL", url: "https://github.com/o/r/pull/9" });
   });
   it("create-pr items carry agent, slot and repo coordinates in a pick callback", () => {
     const tree = createPrPicker(mappedAgents(agents, parseRepo), slot);

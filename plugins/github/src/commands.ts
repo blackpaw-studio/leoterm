@@ -4,6 +4,7 @@ import { COMMANDS } from "./config";
 import { fetchAssignedIssues, type Issue } from "./issues/list";
 import { findOpenPr } from "./pr/match";
 import { parseRepo } from "./repoRef";
+import { agentKey } from "./state";
 import { issuesList } from "./ui/issues";
 import { createPrPicker, mappedAgents, openPrPicker, type PrLink } from "./ui/prForms";
 import { emptyRoot, errorRoot, retryCommandAction } from "./ui/view";
@@ -31,7 +32,7 @@ async function openPr(ctx: Ctx, auth: string, slot: SlotID): Promise<void> {
   const prs = new Map<string, PrLink>(
     entries.flatMap((e, i) => {
       const res = found[i];
-      return res.ok && res.value !== null ? [[e.agent.name, { number: res.value.number, url: res.value.htmlUrl }] as const] : [];
+      return res.ok && res.value !== null ? [[agentKey(e.agent), { number: res.value.number, url: res.value.htmlUrl }] as const] : [];
     }),
   );
   ctx.leo.render(slot, entries.length === 0 ? NO_AGENTS : openPrPicker(entries, prs));

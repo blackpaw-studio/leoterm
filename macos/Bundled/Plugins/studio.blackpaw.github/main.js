@@ -314,6 +314,35 @@
     return null;
   }
 
+  // src/state.ts
+  var initialState = { agents: /* @__PURE__ */ new Map(), statuses: /* @__PURE__ */ new Map(), slots: /* @__PURE__ */ new Map() };
+  var agentKey = (a) => a.machine + "/" + a.name;
+  var slotKey2 = (s) => JSON.stringify(s);
+  var withEntry = (map, key, value) => new Map(map).set(key, value);
+  var withSlot = (state, slot, key) => ({
+    ...state,
+    slots: withEntry(state.slots, slotKey2(slot), { slot, agentKey: key })
+  });
+  var withStatus = (state, key, status) => ({
+    ...state,
+    statuses: withEntry(state.statuses, key, status)
+  });
+  var withoutStatuses = (state) => ({ ...state, statuses: /* @__PURE__ */ new Map() });
+  var sameBranch = (a, b) => a.repo === b.repo && a.branch === b.branch;
+  function withAgents(state, list) {
+    const next = new Map(list.map((a) => [agentKey(a), a]));
+    const changed = [...next].filter(([k, a]) => {
+      const prev = state.agents.get(k);
+      return prev === void 0 || !sameBranch(prev, a);
+    }).map(([k]) => k);
+    const gone = (k) => k !== null && !next.has(k);
+    const statuses = new Map([...state.statuses].filter(([k]) => next.has(k) && !changed.includes(k)));
+    const slots = new Map([...state.slots].filter(([, e]) => !gone(e.agentKey)));
+    return { state: { agents: next, statuses, slots }, changed };
+  }
+  var slotsOfKind = (state, kind) => [...state.slots.values()].filter((e) => e.slot.kind === kind);
+  var slotsForAgent = (state, key, kind) => slotsOfKind(state, kind).filter((e) => e.agentKey === key);
+
   // ../sdk/actions.ts
   var callback = (id, payload = null, label2 = {}) => ({ type: "callback", id, payload, ...label2 });
   var pushView = (node, label2 = {}) => ({ type: "pushView", node, ...label2 });
@@ -424,7 +453,6 @@ ${capBody(issue.body)}`);
     const parsed = a.repo === null ? null : parseRepo2(a.repo);
     return parsed && a.branch ? [{ agent: { machine: a.machine, name: a.name }, owner: parsed.owner, repo: parsed.repo, branch: a.branch }] : [];
   });
-  var agentKey = (a) => a.name;
   var row = (e) => ({
     id: `${e.agent.machine}/${e.agent.name}`,
     title: e.agent.name,
@@ -833,7 +861,7 @@ ${flags.join(" \xB7 ")}${link}` };
     const prs = new Map(
       entries.flatMap((e, i) => {
         const res = found[i];
-        return res.ok && res.value !== null ? [[e.agent.name, { number: res.value.number, url: res.value.htmlUrl }]] : [];
+        return res.ok && res.value !== null ? [[agentKey(e.agent), { number: res.value.number, url: res.value.htmlUrl }]] : [];
       })
     );
     ctx.leo.render(slot, entries.length === 0 ? NO_AGENTS : openPrPicker(entries, prs));
@@ -1337,35 +1365,6 @@ ${flags.join(" \xB7 ")}${link}` };
     return api;
   }
 
-  // src/state.ts
-  var initialState = { agents: /* @__PURE__ */ new Map(), statuses: /* @__PURE__ */ new Map(), slots: /* @__PURE__ */ new Map() };
-  var agentKey2 = (a) => a.machine + "/" + a.name;
-  var slotKey2 = (s) => JSON.stringify(s);
-  var withEntry = (map, key, value) => new Map(map).set(key, value);
-  var withSlot = (state, slot, key) => ({
-    ...state,
-    slots: withEntry(state.slots, slotKey2(slot), { slot, agentKey: key })
-  });
-  var withStatus = (state, key, status) => ({
-    ...state,
-    statuses: withEntry(state.statuses, key, status)
-  });
-  var withoutStatuses = (state) => ({ ...state, statuses: /* @__PURE__ */ new Map() });
-  var sameBranch = (a, b) => a.repo === b.repo && a.branch === b.branch;
-  function withAgents(state, list) {
-    const next = new Map(list.map((a) => [agentKey2(a), a]));
-    const changed = [...next].filter(([k, a]) => {
-      const prev = state.agents.get(k);
-      return prev === void 0 || !sameBranch(prev, a);
-    }).map(([k]) => k);
-    const gone = (k) => k !== null && !next.has(k);
-    const statuses = new Map([...state.statuses].filter(([k]) => next.has(k) && !changed.includes(k)));
-    const slots = new Map([...state.slots].filter(([, e]) => !gone(e.agentKey)));
-    return { state: { agents: next, statuses, slots }, changed };
-  }
-  var slotsOfKind = (state, kind) => [...state.slots.values()].filter((e) => e.slot.kind === kind);
-  var slotsForAgent = (state, key, kind) => slotsOfKind(state, kind).filter((e) => e.agentKey === key);
-
   // src/plugin.ts
   var POLL_INTERVAL_SEC = 60;
   var ISSUES_KEY = "issues";
@@ -1471,7 +1470,7 @@ ${flags.join(" \xB7 ")}${link}` };
       timer = null;
     };
     async function openView(agent, slot) {
-      const key = agentKey2(agent);
+      const key = agentKey(agent);
       register(slot, key);
       const auth = session.token();
       if (auth === null) return session.renderSignedOut(slot);
@@ -1504,7 +1503,7 @@ ${flags.join(" \xB7 ")}${link}` };
         return renderIssues(ctx, slot, () => retryCommandAction(COMMANDS.newAgentFromIssue, slot));
       }
       if (slot.kind !== "accessory") return;
-      const key = agentKey2(slot.agent);
+      const key = agentKey(slot.agent);
       register(slot, key);
       if (session.token() === null) return session.renderSignedOut(slot);
       if (!state.agents.has(key)) await syncAgents();

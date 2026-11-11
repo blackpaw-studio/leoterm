@@ -2,6 +2,7 @@ import { callback, openURL, sendToAgent } from "../../../sdk/actions";
 import type { AgentRef, AgentSnapshot, EmptyState, Form, JSONValue, List, Node, SlotID } from "../../../sdk/leo";
 import type { ParseRepo } from "../repoTypes";
 import { humaniseBranch } from "../pr/branch";
+import { agentKey } from "../state";
 
 export const CREATE_PR_PICK = "create-pr:pick";
 export const CREATE_PR_SUBMIT = "create-pr:submit";
@@ -24,14 +25,13 @@ export const mappedAgents = (agents: readonly AgentSnapshot[], parseRepo: ParseR
     return parsed && a.branch ? [{ agent: { machine: a.machine, name: a.name }, owner: parsed.owner, repo: parsed.repo, branch: a.branch }] : [];
   });
 
-const agentKey = (a: AgentRef): string => a.name;
 const row = (e: MappedAgent) => ({
   id: `${e.agent.machine}/${e.agent.name}`,
   title: e.agent.name,
   sfSymbol: "arrow.triangle.pull",
 });
 
-/** First palette page of `open-pr`: one row per mapped agent. `prs` is keyed by agent name. */
+/** First palette page of `open-pr`: one row per mapped agent. `prs` is keyed by `machine/name` (`agentKey`). */
 export const openPrPicker = (entries: readonly MappedAgent[], prs: ReadonlyMap<string, PrLink>): List => ({
   type: "List",
   sections: [
