@@ -31,7 +31,7 @@ struct LeoPluginPaletteView: View {
             .keyboardShortcut(.escape, modifiers: [])
             .help("Back")
             Divider()
-            LeoPluginSlotContent(binding: session.binding)
+            LeoPluginSlotContent(binding: session.binding, takesFocus: true)
                 .frame(height: Self.contentHeight)
         }
         .frame(maxWidth: 500)

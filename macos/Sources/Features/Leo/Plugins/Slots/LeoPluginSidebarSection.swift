@@ -13,7 +13,11 @@ struct LeoPluginSidebarSection: View {
     var body: some View {
         let expanded = sections.isExpanded(entry)
         let binding = LeoPluginSlotBinding(host: sections.host, key: entry.slotKey)
-        Section(header: header(expanded: expanded)) {
+        // The title is a row, not the Section's header: SwiftUI's sidebar List
+        // never inserts rows into a section that was empty when it first
+        // appeared, so a collapsed section must still hold one row.
+        Section {
+            header(expanded: expanded)
             if expanded {
                 LeoPluginSlotContent(binding: binding)
                     .frame(height: LeoPluginSectionLayout.height(for: binding.nodes))
@@ -55,9 +59,11 @@ enum LeoPluginSectionLayout {
     static let minimumHeight: CGFloat = 72
     static let maximumHeight: CGFloat = 260
     static let defaultHeight: CGFloat = 120
+    /// The list's own insets above and below its rows.
+    static let contentMargin: CGFloat = 16
 
     static func height(for nodes: [LeoPluginNode]) -> CGFloat {
-        let wanted = nodes.reduce(CGFloat(0)) { $0 + height(of: $1) }
+        let wanted = nodes.reduce(CGFloat(0)) { $0 + height(of: $1) } + contentMargin
         return min(max(wanted, minimumHeight), maximumHeight)
     }
 
