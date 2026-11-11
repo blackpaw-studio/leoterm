@@ -58,6 +58,7 @@ final class LeoPluginHostConnection: @unchecked Sendable {
     private var watchdog: LeoPluginWatchdog?
     private var pollTimer: DispatchSourceTimer?
     private var readSource: DispatchSourceRead?
+    private var readThrottle: LeoPluginReadThrottle?
     private var exitSource: DispatchSourceProcess?
     private var pendingTermination: LeoPluginHostTermination?
     private var hasExited = false
@@ -75,6 +76,9 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         self.clock = clock
         self.callbackQueue = callbackQueue
     }
+
+    /// Requests read from the helper but not yet delivered (for tests).
+    var outstandingRequests: Int { queue.sync { readThrottle?.outstanding ?? 0 } }
 
     /// The helper's pid once started (for diagnostics and tests).
     var pid: pid_t? { queue.sync { process?.pid } }
@@ -133,7 +137,9 @@ final class LeoPluginHostConnection: @unchecked Sendable {
 
     private func startReadSource(fd: Int32) {
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: readQueue)
+        let throttle = LeoPluginReadThrottle(source: source)
         var reader = LeoPluginFrameReader(limit: LeoPluginWire.maxHostToAppBytes)
+        var quota = LeoPluginRequestQuota()
         var chunk = [UInt8](repeating: 0, count: 64 * 1024)
         source.setEventHandler { [weak self] in
             let count = read(fd, &chunk, chunk.count)
@@ -146,6 +152,16 @@ final class LeoPluginHostConnection: @unchecked Sendable {
             do {
                 for frame in try reader.append(Data(chunk[0..<count])) {
                     let message = try LeoPluginHostMessage.decode(frame: frame)
+                    if case .request = message {
+                        if let reason = quota.record(requestBytes: frame.count) {
+                            source.cancel()
+                            self?.queue.async { self?.apply(.kill(reason: reason)) }
+                            return
+                        }
+                        throttle.requestEnqueued()
+                    } else {
+                        quota.reset()
+                    }
                     self?.queue.async { self?.handle(message) }
                 }
             } catch {
@@ -157,19 +173,26 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         // `processExited`), never here: a write racing a close here could land
         // on a recycled descriptor.
         readSource = source
+        readThrottle = throttle
         source.resume()
     }
 
     private func handle(_ message: LeoPluginHostMessage) {
-        guard !hasExited else { return }
         switch message {
         case .handlerDone:
-            guard var dog = watchdog else { return }
+            guard !hasExited, var dog = watchdog else { return }
             let verdict = dog.handlerFinished(at: clock())
             watchdog = dog
             apply(verdict)
         case .request(let request):
-            callbackQueue.async { [weak self] in self?.onRequest?(request) }
+            guard let throttle = readThrottle else { return }
+            // Dropped, not delivered, once the helper is on its way out.
+            guard !hasExited, !throttle.isClosed else { return throttle.requestFinished() }
+            callbackQueue.async { [weak self] in
+                defer { throttle.requestFinished() }
+                guard !throttle.isClosed else { return }
+                self?.onRequest?(request)
+            }
         }
     }
 
@@ -199,7 +222,7 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         exitSource?.cancel()
         exitSource = nil
         watchdog?.reset()
-        readSource?.cancel()
+        readThrottle?.close()
         readSource = nil
         // Closing on the write queue waits out any write still in flight.
         writeQueue.async { close(process.fd) }
@@ -212,6 +235,7 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         // `hasExited` flips on this queue right after `waitpid`, so a recycled
         // pid is never signalled.
         guard let process, !hasExited else { return }
+        readThrottle?.close()  // stop reading; drop what is queued for the app
         kill(process.pid, SIGKILL)
     }
 

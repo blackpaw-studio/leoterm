@@ -147,6 +147,40 @@ struct LeoPluginHostIntegrationTests {
         #expect(Date().timeIntervalSince(started) < 3)
     }
 
+    @Test func aRequestFloodIsKilledByTheQuotaAndStopsDeliveringAfterwards() async throws {
+        let (connection, probe) = makeConnection()
+        try connection.start(source: try fixture("flood"))
+        try connection.deliver(.agentsChanged)
+        guard case .crashed(let reason)? = await probe.terminated(timeout: 20) else {
+            Issue.record("expected a crash")
+            return
+        }
+        #expect(reason.contains("requests") || reason.contains("MB"))
+        let delivered = await probe.requests(count: 10_000, timeout: 0.5).count
+        #expect(delivered <= LeoPluginRequestQuota.defaultMaxRequests + 2)
+    }
+
+    @Test func aSlowMainQueueMakesTheReaderPauseSoDeliveriesStayBounded() async throws {
+        let (connection, probe) = makeConnection()
+        let gate = DispatchSemaphore(value: 0)
+        probe.queue.async { gate.wait() }  // the app's main queue is stuck
+        try connection.start(source: try fixture("flood"))
+        try connection.deliver(.agentsChanged)
+
+        // Let the helper flood until the reader pauses and the helper blocks.
+        try await Task.sleep(for: .seconds(1))
+        let peak = connection.outstandingRequests
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(connection.outstandingRequests == peak, "reading should have stopped")
+        #expect(peak <= LeoPluginBackpressure.defaultHighWater + 1)
+
+        gate.signal()  // main drains; the helper resumes and then hits the quota
+        guard case .crashed? = await probe.terminated(timeout: 20) else {
+            Issue.record("expected the quota to kill the helper once the queue drained")
+            return
+        }
+    }
+
     @Test func anExternalSIGKILLIsACrashAndTheSupervisorSaysRestartAfterOneSecond() async throws {
         let (connection, probe) = makeConnection()
         try connection.start(source: try fixture("echo"))
