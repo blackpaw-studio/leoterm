@@ -780,16 +780,14 @@ ${flags.join(" \xB7 ")}${link}` };
     const auth = ctx.session.token();
     if (auth === null) return ctx.session.renderSignedOut(slot);
     ctx.leo.render(slot, { type: "Loading" });
-    const res = await ctx.scheduler.user(() => fetchAssignedIssues(ctx.client, auth));
+    const res = await fetchAssignedIssues(ctx.client, auth);
     if (ctx.session.token() !== auth) return;
     if (!res.ok) return ctx.leo.render(slot, errorRoot(res.error, retry()));
     ctx.leo.render(slot, issuesRoot(res.value, await ctx.leo.agents.list()));
   }
   async function openPr(ctx, auth, slot) {
     const entries = mappedAgents(await ctx.leo.agents.list(), parseRepo);
-    const found = await ctx.scheduler.user(
-      () => Promise.all(entries.map((e) => findOpenPr(ctx.client, auth, { owner: e.owner, repo: e.repo }, e.branch)))
-    );
+    const found = await Promise.all(entries.map((e) => findOpenPr(ctx.client, auth, { owner: e.owner, repo: e.repo }, e.branch)));
     if (ctx.session.token() !== auth) return;
     const prs = new Map(
       entries.flatMap((e, i) => {
@@ -924,13 +922,11 @@ ${flags.join(" \xB7 ")}${link}` };
     const check = parseCheck(payload.check);
     const repo = isStr(payload.owner) && isStr(payload.repo) ? parseRepo(payload.owner + "/" + payload.repo) : null;
     if (!agent || !check || !repo || !isStr(payload.branch) || typeof payload.prNumber !== "number") return null;
-    const res = await ctx.scheduler.user(
-      () => sendFailure(ctx.client, auth, { agent, repo, branch: payload.branch, prNumber: payload.prNumber, check })
-    );
+    const res = await sendFailure(ctx.client, auth, { agent, repo, branch: payload.branch, prNumber: payload.prNumber, check });
     return res.ok ? res.value : null;
   }
   async function runCallback(ctx, id, payload) {
-    const { session, scheduler, client, leo: leo2 } = ctx;
+    const { session, client, leo: leo2 } = ctx;
     const body = isObj(payload) ? payload : {};
     if (id === SIGN_IN_CALLBACK) {
       const slot = parseSlot(body.slot);
@@ -953,11 +949,11 @@ ${flags.join(" \xB7 ")}${link}` };
       case SEND_FAILURE:
         return onSendFailure(ctx, auth, payload);
       case SEND_COMMENTS:
-        return scheduler.user(() => handleSendComments(client, auth, payload));
+        return handleSendComments(client, auth, payload);
       case CREATE_PR_PICK:
-        return scheduler.user(() => pickCreatePr({ leo: leo2, client, auth }, payload)).then(() => null);
+        return pickCreatePr({ leo: leo2, client, auth }, payload).then(() => null);
       case CREATE_PR_SUBMIT:
-        return scheduler.user(() => submitCreatePr({ leo: leo2, client, auth }, payload));
+        return submitCreatePr({ leo: leo2, client, auth }, payload);
       default:
         return null;
     }
@@ -1190,71 +1186,107 @@ ${flags.join(" \xB7 ")}${link}` };
 
   // src/scheduler.ts
   var MAX_IN_FLIGHT = 4;
+  var HOST_BUDGET_PER_MIN = 60;
   var POLL_BUDGET_PER_MIN = 40;
+  var POLL_REQUESTS_PER_STATUS = 3;
   var WINDOW_MS = 6e4;
+  var BUDGET_REASON = "poll request budget spent for this minute";
+  var PAUSED_REASON = "polling is paused";
+  var HOST_BUDGET_REASON = "Leo's request limit for this minute is spent";
   var dedupe = (items) => [...new Set(items)];
   function createScheduler(clock) {
-    const userQueue = [];
-    const pollQueue = [];
+    const queues = { user: [], poll: [] };
     let inFlight = 0;
     let paused = null;
-    let pollStarts = [];
+    let starts = [];
     let carryOver = [];
-    function pump() {
-      while (inFlight < MAX_IN_FLIGHT) {
-        const next = userQueue.shift() ?? pollQueue.shift();
-        if (!next) return;
-        inFlight += 1;
-        void next().finally(() => {
-          inFlight -= 1;
-          pump();
-        });
-      }
-    }
-    const enqueue = (queue, run) => new Promise((resolve, reject) => {
-      queue.push(() => run().then(resolve, reject));
-      pump();
-    });
     const pausedUntil = () => {
       if (paused !== null && paused <= clock.now()) paused = null;
       return paused;
     };
-    const budgetLeft = () => {
+    const recent = () => {
       const cutoff = clock.now() - WINDOW_MS;
-      pollStarts = pollStarts.filter((t) => t > cutoff);
-      return Math.max(0, POLL_BUDGET_PER_MIN - pollStarts.length);
+      starts = starts.filter((s) => s.at > cutoff);
     };
+    const hostLeft = () => {
+      recent();
+      return Math.max(0, HOST_BUDGET_PER_MIN - starts.length);
+    };
+    const pollLeft = () => {
+      const host = hostLeft();
+      const used = starts.filter((s) => s.lane === "poll").length;
+      return Math.min(host, Math.max(0, POLL_BUDGET_PER_MIN - used));
+    };
+    const refusalFor = (lane) => {
+      if (hostLeft() === 0) return HOST_BUDGET_REASON;
+      if (lane === "user") return null;
+      if (pausedUntil() !== null) return PAUSED_REASON;
+      return pollLeft() === 0 ? BUDGET_REASON : null;
+    };
+    function pump() {
+      while (inFlight < MAX_IN_FLIGHT) {
+        const next = queues.user.shift() ?? queues.poll.shift();
+        if (!next) return;
+        const refusal = refusalFor(next.lane);
+        if (refusal !== null) {
+          next.refuse(refusal);
+          continue;
+        }
+        starts = [...starts, { at: clock.now(), lane: next.lane }];
+        inFlight += 1;
+        next.start();
+      }
+    }
+    const gate = (lane) => (fetch) => new Promise((resolve, reject) => {
+      queues[lane].push({
+        lane,
+        refuse: (reason) => reject(new Error(reason)),
+        start: () => {
+          void Promise.resolve().then(fetch).then(resolve, reject).finally(() => {
+            inFlight -= 1;
+            pump();
+          });
+        }
+      });
+      pump();
+    });
     const rotate = (keys) => {
       const carried = carryOver.filter((k) => keys.includes(k));
       return [...carried, ...keys.filter((k) => !carried.includes(k))];
     };
-    const pollCycle = async (keys, task) => {
-      const ordered = rotate(dedupe(keys));
-      const batch = ordered.slice(0, budgetLeft());
-      const deferred = ordered.slice(batch.length);
-      carryOver = deferred;
-      pollStarts = [...pollStarts, ...batch.map(() => clock.now())];
+    const pollCycle = async (keys, task, options = {}) => {
+      const cost = Math.max(1, options.cost ?? 1);
+      const queue = rotate(dedupe(keys));
       const results = /* @__PURE__ */ new Map();
       const skipped = [];
+      const deferred = [];
       const dropped = [];
-      await Promise.all(
-        batch.map(
-          (key) => enqueue(pollQueue, async () => {
-            if (pausedUntil() !== null) {
-              dropped.push(key);
-              return;
-            }
-            const res = await task(key);
-            if (!res.ok && res.error.kind === "RateLimited") api.pauseUntil(res.error.resetAt);
-            if (!res.ok && res.error.kind === "Transport") skipped.push(key);
-            else results.set(key, res);
-          })
-        )
-      );
+      const settle = (key, res) => {
+        const reason = !res.ok && res.error.kind === "Transport" ? res.error.reason : null;
+        if (!res.ok && res.error.kind === "RateLimited") api.pauseUntil(res.error.resetAt);
+        if (reason === BUDGET_REASON || reason === HOST_BUDGET_REASON) deferred.push(key);
+        else if (reason === PAUSED_REASON) dropped.push(key);
+        else if (reason !== null) skipped.push(key);
+        else results.set(key, res);
+      };
+      let unreserved = pollLeft();
+      async function worker() {
+        for (let key = queue.shift(); key !== void 0; key = queue.shift()) {
+          if (pausedUntil() !== null) dropped.push(key);
+          else if (unreserved < cost) deferred.push(key);
+          else {
+            unreserved -= cost;
+            settle(key, await task(key));
+          }
+        }
+      }
+      await Promise.all(Array.from({ length: MAX_IN_FLIGHT }, worker));
+      carryOver = [...carryOver.filter((k) => !keys.includes(k)), ...deferred];
       return { results, skipped, deferred, dropped };
     };
     const api = {
-      user: (task) => enqueue(userQueue, task),
+      user: gate("user"),
+      poll: gate("poll"),
       pollCycle,
       pauseUntil: (until) => {
         paused = Math.max(pausedUntil() ?? 0, until);
@@ -1298,15 +1330,19 @@ ${flags.join(" \xB7 ")}${link}` };
   var ISSUES_KEY = "issues";
   function createPlugin(leo2, clock) {
     const scheduler = createScheduler(clock);
-    const rawClient = createGitHubClient(leo2, clock);
+    const etags = createEtagCache();
+    const clientOn = (gate) => createGitHubClient({ fetch: (url, init) => gate(() => leo2.fetch(url, init)) }, clock, etags);
+    const rawClient = clientOn(scheduler.user);
     const session = createSession({ leo: leo2, clock, client: rawClient, run: scheduler.user });
-    const client = observeClient(rawClient, async (error, auth) => {
+    const observe = async (error, auth) => {
       if (error.kind === "Unauthorized") await session.handleError(error, auth);
       else if (error.kind === "RateLimited") {
         scheduler.pauseUntil(error.resetAt);
         drawAccessories();
       }
-    });
+    };
+    const client = observeClient(rawClient, observe);
+    const pollClient = observeClient(clientOn(scheduler.poll), observe);
     let state = initialState;
     let timer = null;
     let loaded = null;
@@ -1344,7 +1380,7 @@ ${flags.join(" \xB7 ")}${link}` };
       const auth = session.token();
       const agent = state.agents.get(key);
       if (auth === null || agent === void 0) return;
-      const res = await scheduler.user(() => fetchPrStatus(client, auth, agent));
+      const res = await fetchPrStatus(client, auth, agent);
       if (res.ok && session.token() === auth) state = withStatus(state, key, res.value);
       if (session.token() === auth) drawAccessories([key]);
     }
@@ -1357,7 +1393,7 @@ ${flags.join(" \xB7 ")}${link}` };
     async function pollIssues(auth) {
       const sections = slotsOfKind(state, "section");
       if (sections.length === 0) return;
-      const cycle = await scheduler.pollCycle([ISSUES_KEY], () => fetchAssignedIssues(client, auth));
+      const cycle = await scheduler.pollCycle([ISSUES_KEY], () => fetchAssignedIssues(pollClient, auth));
       const res = cycle.results.get(ISSUES_KEY);
       if (!res?.ok || session.token() !== auth) return;
       const root = issuesRoot(res.value, await leo2.agents.list());
@@ -1368,7 +1404,9 @@ ${flags.join(" \xB7 ")}${link}` };
       if (auth === null || scheduler.pausedUntil() !== null) return;
       await syncAgents();
       const keys = [...state.agents.keys()].filter((k) => hasSlots(k) && mappedOf(state.agents.get(k)) !== null);
-      const cycle = await scheduler.pollCycle(keys, (key) => fetchPrStatus(client, auth, state.agents.get(key)));
+      const cycle = await scheduler.pollCycle(keys, (key) => fetchPrStatus(pollClient, auth, state.agents.get(key)), {
+        cost: POLL_REQUESTS_PER_STATUS
+      });
       if (session.token() !== auth) return;
       cycle.results.forEach((res, key) => {
         if (res.ok) state = withStatus(state, key, res.value);
@@ -1402,12 +1440,12 @@ ${flags.join(" \xB7 ")}${link}` };
       const mapped = snapshot === void 0 ? null : mappedOf(snapshot);
       const base = { agent, slot, mapped, rateLimitedUntil: scheduler.pausedUntil() };
       if (snapshot === void 0 || mapped === null) return leo2.render(slot, viewRoot({ ...base, status: null, error: null, reviews: null }));
-      const loaded2 = await scheduler.user(async () => {
+      const loaded2 = await (async () => {
         const status = await fetchPrStatus(client, auth, snapshot);
         if (!status.ok || status.value.kind !== "pr") return { status, reviews: null };
         const threads = await fetchReviewThreads(client, auth, mapped, status.value.pr.number);
         return { status, reviews: threads.ok ? threads.value : null };
-      });
+      })();
       if (session.token() !== auth) return;
       if (loaded2.status.ok) {
         state = withStatus(state, key, loaded2.status.value);

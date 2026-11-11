@@ -5,13 +5,15 @@ import type { Clock } from "./clock";
 import { issuesRoot, renderIssues, runCommand } from "./commands";
 import { COMMANDS, VIEW_ID } from "./config";
 import type { Ctx } from "./context";
-import { createGitHubClient } from "./github/client";
+import { createGitHubClient, type ApiResponse, type GitHubClient } from "./github/client";
+import { createEtagCache } from "./github/etagCache";
+import type { GitHubError } from "./github/errors";
 import { observeClient } from "./github/observed";
 import { fetchAssignedIssues } from "./issues/list";
 import { combineState } from "./pr/checks";
 import { fetchPrStatus, mappedOf } from "./prStatus";
 import { fetchReviewThreads, type ReviewState } from "./reviews/threads";
-import { createScheduler } from "./scheduler";
+import { createScheduler, POLL_REQUESTS_PER_STATUS, type Scheduler } from "./scheduler";
 import {
   agentKey,
   initialState,
@@ -33,15 +35,23 @@ const ISSUES_KEY = "issues";
 /** Composition root. Everything below takes `leo` and `clock` as parameters. */
 export function createPlugin(leo: Leo, clock: Clock): void {
   const scheduler = createScheduler(clock);
-  const rawClient = createGitHubClient(leo, clock);
+  const etags = createEtagCache<ApiResponse>();
+  /** A client whose every `leo.fetch` passes the scheduler's gate for `lane`; the lanes share one ETag cache. */
+  const clientOn = (gate: Scheduler["user"]): GitHubClient =>
+    createGitHubClient({ fetch: (url, init) => gate(() => leo.fetch(url, init)) }, clock, etags);
+  const rawClient = clientOn(scheduler.user);
   const session = createSession({ leo, clock, client: rawClient, run: scheduler.user });
-  const client = observeClient(rawClient, async (error, auth) => {
+  const observe = async (error: GitHubError, auth: string | null): Promise<void> => {
     if (error.kind === "Unauthorized") await session.handleError(error, auth);
     else if (error.kind === "RateLimited") {
       scheduler.pauseUntil(error.resetAt);
       drawAccessories();
     }
-  });
+  };
+  /** User lane: view open, actions, sign-in. */
+  const client = observeClient(rawClient, observe);
+  /** Poll lane: capped at 40 of Leo's 60 requests a minute. */
+  const pollClient = observeClient(clientOn(scheduler.poll), observe);
 
   let state: State = initialState;
   let timer: TimerHandle | null = null;
@@ -93,7 +103,7 @@ export function createPlugin(leo: Leo, clock: Clock): void {
     const auth = session.token();
     const agent = state.agents.get(key);
     if (auth === null || agent === undefined) return;
-    const res = await scheduler.user(() => fetchPrStatus(client, auth, agent));
+    const res = await fetchPrStatus(client, auth, agent);
     if (res.ok && session.token() === auth) state = withStatus(state, key, res.value);
     if (session.token() === auth) drawAccessories([key]);
   }
@@ -111,7 +121,7 @@ export function createPlugin(leo: Leo, clock: Clock): void {
   async function pollIssues(auth: string): Promise<void> {
     const sections = slotsOfKind(state, "section");
     if (sections.length === 0) return;
-    const cycle = await scheduler.pollCycle([ISSUES_KEY], () => fetchAssignedIssues(client, auth));
+    const cycle = await scheduler.pollCycle([ISSUES_KEY], () => fetchAssignedIssues(pollClient, auth));
     const res = cycle.results.get(ISSUES_KEY);
     if (!res?.ok || session.token() !== auth) return;
     const root = issuesRoot(res.value, await leo.agents.list());
@@ -123,7 +133,9 @@ export function createPlugin(leo: Leo, clock: Clock): void {
     if (auth === null || scheduler.pausedUntil() !== null) return;
     await syncAgents();
     const keys = [...state.agents.keys()].filter((k) => hasSlots(k) && mappedOf(state.agents.get(k)!) !== null);
-    const cycle = await scheduler.pollCycle(keys, (key) => fetchPrStatus(client, auth, state.agents.get(key)!));
+    const cycle = await scheduler.pollCycle(keys, (key) => fetchPrStatus(pollClient, auth, state.agents.get(key)!), {
+      cost: POLL_REQUESTS_PER_STATUS,
+    });
     if (session.token() !== auth) return;
     cycle.results.forEach((res, key) => {
       if (res.ok) state = withStatus(state, key, res.value);
@@ -164,12 +176,12 @@ export function createPlugin(leo: Leo, clock: Clock): void {
     const base = { agent, slot, mapped, rateLimitedUntil: scheduler.pausedUntil() };
     if (snapshot === undefined || mapped === null) return leo.render(slot, viewRoot({ ...base, status: null, error: null, reviews: null }));
 
-    const loaded = await scheduler.user(async () => {
+    const loaded = await (async () => {
       const status = await fetchPrStatus(client, auth, snapshot);
       if (!status.ok || status.value.kind !== "pr") return { status, reviews: null };
       const threads = await fetchReviewThreads(client, auth, mapped, status.value.pr.number);
       return { status, reviews: threads.ok ? threads.value : (null as ReviewState | null) };
-    });
+    })();
     if (session.token() !== auth) return; // signed out meanwhile: the session already redrew this slot
     if (loaded.status.ok) {
       state = withStatus(state, key, loaded.status.value);

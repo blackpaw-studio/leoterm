@@ -18,6 +18,9 @@
  *   `route("GET", u, ok200, notModified304)` is a 200 followed by 304s. An entry is a
  *   `StubResponse` or `{ reject }` (the promise rejects, like the host's rate limit or a
  *   disallowed host). Unrouted requests reject loudly. Every call lands in `fetches`.
+ * - host limits: like LeoPluginRateLimiter, a fetch is rejected (never queued) when 4 are already in
+ *   flight or 60 were admitted in the last rolling minute. `hostRejections` records each rejection;
+ *   `maxInFlight` is the high-water mark. Rejections reject the promise, like the real host.
  * - secrets: backed by the `secretStore` Map.
  * - agents.list: returns a copy of the array set via `setAgents`.
  * - timer/after: virtual time only. `tick(sec)` advances `clock` and runs due callbacks in
@@ -77,6 +80,10 @@ export interface StubLeo {
   readonly renders: readonly RecordedRender[];
   readonly fetches: readonly RecordedFetch[];
   readonly logs: readonly RecordedLog[];
+  /** Fetches the modelled host refused (over 4 in flight, or over 60 in a rolling minute). */
+  readonly hostRejections: readonly string[];
+  /** Highest number of fetches in flight at once. */
+  readonly maxInFlight: number;
   readonly secretStore: Map<string, string>;
   rendersFor(slot: SlotID): readonly SlotRoot[];
   lastRender(slot: SlotID): SlotRoot | undefined;
@@ -89,6 +96,9 @@ export interface StubLeo {
 
 export const START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
 
+const HOST_MAX_IN_FLIGHT = 4;
+const HOST_MAX_PER_WINDOW = 60;
+const HOST_WINDOW_MS = 60_000;
 const MIN_TIMER_SEC = 60;
 const MIN_AFTER_SEC = 1;
 
@@ -124,6 +134,10 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
   const renders: RecordedRender[] = [];
   const fetches: RecordedFetch[] = [];
   const logs: RecordedLog[] = [];
+  const hostRejections: string[] = [];
+  let admitted: number[] = [];
+  let inFlight = 0;
+  let maxInFlight = 0;
   const secretStore = new Map<string, string>();
   const handlers = new Map<keyof Events, Array<Events[keyof Events]>>();
   const routes = new Map<string, { entries: StubEntry[]; next: number }>();
@@ -150,12 +164,27 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
     fetch: async (url: string, init: FetchInit = {}) => {
       const method = (init.method ?? "GET").toUpperCase();
       fetches.push({ method, url, headers: { ...(init.headers ?? {}) }, body: init.body });
-      const route = routes.get(routeKey(method, url));
-      if (!route) throw new Error("stubLeo: no route for " + routeKey(method, url));
-      const entry = route.entries[Math.min(route.next, route.entries.length - 1)];
-      route.next += 1;
-      if ("reject" in entry) throw new Error(entry.reject);
-      return toFetchResponse(entry);
+      admitted = admitted.filter((t) => nowMs - t < HOST_WINDOW_MS);
+      const refusal =
+        admitted.length >= HOST_MAX_PER_WINDOW ? "rate limited" : inFlight >= HOST_MAX_IN_FLIGHT ? "too many in flight" : null;
+      if (refusal !== null) {
+        hostRejections.push(refusal + ": " + routeKey(method, url));
+        throw new Error("stubLeo host: " + refusal);
+      }
+      admitted.push(nowMs);
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      try {
+        await Promise.resolve(); // hold the slot across a turn, so concurrent callers overlap
+        const route = routes.get(routeKey(method, url));
+        if (!route) throw new Error("stubLeo: no route for " + routeKey(method, url));
+        const entry = route.entries[Math.min(route.next, route.entries.length - 1)];
+        route.next += 1;
+        if ("reject" in entry) throw new Error(entry.reject);
+        return toFetchResponse(entry);
+      } finally {
+        inFlight -= 1;
+      }
     },
     secrets: {
       get: async (key) => secretStore.get(key) ?? null,
@@ -193,6 +222,10 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
     renders,
     fetches,
     logs,
+    hostRejections,
+    get maxInFlight() {
+      return maxInFlight;
+    },
     secretStore,
     rendersFor: (slot) => renders.filter((r) => slotKey(r.slot) === slotKey(slot)).map((r) => r.tree),
     lastRender: (slot) => renders.filter((r) => slotKey(r.slot) === slotKey(slot)).pop()?.tree,

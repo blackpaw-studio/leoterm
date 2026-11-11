@@ -28,15 +28,13 @@ async function onSendFailure(ctx: Ctx, auth: string, payload: JSONValue): Promis
   const check = parseCheck(payload.check);
   const repo = isStr(payload.owner) && isStr(payload.repo) ? parseRepo(payload.owner + "/" + payload.repo) : null;
   if (!agent || !check || !repo || !isStr(payload.branch) || typeof payload.prNumber !== "number") return null;
-  const res = await ctx.scheduler.user(() =>
-    sendFailure(ctx.client, auth, { agent, repo, branch: payload.branch as string, prNumber: payload.prNumber as number, check }),
-  );
+  const res = await sendFailure(ctx.client, auth, { agent, repo, branch: payload.branch as string, prNumber: payload.prNumber as number, check });
   return res.ok ? res.value : null;
 }
 
-/** Routes the plugin's callback ids. Every network call goes through the user lane. */
+/** Routes the plugin's callback ids. `ctx.client` is the user-lane client, so every fetch here is gated. */
 export async function runCallback(ctx: Ctx, id: string, payload: JSONValue): Promise<CallbackResult> {
-  const { session, scheduler, client, leo } = ctx;
+  const { session, client, leo } = ctx;
   const body = isObj(payload) ? payload : {};
   if (id === SIGN_IN_CALLBACK) {
     const slot = parseSlot(body.slot);
@@ -59,11 +57,11 @@ export async function runCallback(ctx: Ctx, id: string, payload: JSONValue): Pro
     case SEND_FAILURE:
       return onSendFailure(ctx, auth, payload);
     case SEND_COMMENTS:
-      return scheduler.user(() => handleSendComments(client, auth, payload));
+      return handleSendComments(client, auth, payload);
     case CREATE_PR_PICK:
-      return scheduler.user(() => pickCreatePr({ leo, client, auth }, payload)).then(() => null);
+      return pickCreatePr({ leo, client, auth }, payload).then(() => null);
     case CREATE_PR_SUBMIT:
-      return scheduler.user(() => submitCreatePr({ leo, client, auth }, payload));
+      return submitCreatePr({ leo, client, auth }, payload);
     default:
       return null;
   }

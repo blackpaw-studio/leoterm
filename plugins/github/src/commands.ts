@@ -18,7 +18,7 @@ export async function renderIssues(ctx: Ctx, slot: SlotID, retry: () => ReturnTy
   const auth = ctx.session.token();
   if (auth === null) return ctx.session.renderSignedOut(slot);
   ctx.leo.render(slot, { type: "Loading" });
-  const res = await ctx.scheduler.user(() => fetchAssignedIssues(ctx.client, auth));
+  const res = await fetchAssignedIssues(ctx.client, auth);
   if (ctx.session.token() !== auth) return;
   if (!res.ok) return ctx.leo.render(slot, errorRoot(res.error, retry()));
   ctx.leo.render(slot, issuesRoot(res.value, await ctx.leo.agents.list()));
@@ -26,9 +26,7 @@ export async function renderIssues(ctx: Ctx, slot: SlotID, retry: () => ReturnTy
 
 async function openPr(ctx: Ctx, auth: string, slot: SlotID): Promise<void> {
   const entries = mappedAgents(await ctx.leo.agents.list(), parseRepo);
-  const found = await ctx.scheduler.user(() =>
-    Promise.all(entries.map((e) => findOpenPr(ctx.client, auth, { owner: e.owner, repo: e.repo }, e.branch))),
-  );
+  const found = await Promise.all(entries.map((e) => findOpenPr(ctx.client, auth, { owner: e.owner, repo: e.repo }, e.branch)));
   if (ctx.session.token() !== auth) return;
   const prs = new Map<string, PrLink>(
     entries.flatMap((e, i) => {
