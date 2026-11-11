@@ -458,3 +458,4 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
   - The timer cap check has a race, which can't happen while dispatch is on one actor.
   - Secrets use the legacy file keychain with no per-plugin key count limit.
   - The snapshot passes `repo` through without stripping credentials. The daemon supplies `owner/repo` or a path.
+- **M3 re-review:** all fixes resolved. In step 3.1, `idClaims` becomes a required installer parameter, the registry supplies it, and a test covers that wiring. Source paths compare case-sensitively, so `Owner/Repo` and `owner/repo` count as different sources. This is accepted because it fails safe.
