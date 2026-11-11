@@ -459,3 +459,19 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
   - Secrets use the legacy file keychain with no per-plugin key count limit.
   - The snapshot passes `repo` through without stripping credentials. The daemon supplies `owner/repo` or a path.
 - **M3 re-review:** all fixes resolved. In step 3.1, `idClaims` becomes a required installer parameter, the registry supplies it, and a test covers that wiring. Source paths compare case-sensitively, so `Owner/Repo` and `owner/repo` count as different sources. This is accepted because it fails safe.
+
+### M2 security review (2026-11-10)
+
+- **Fixing now:**
+  - The memory cap was only polled during handlers. It becomes an always-on 1 s poll, plus a check on every `done` frame and a CPU-growth-while-idle check.
+  - A plugin could flood the app with requests. Each handler gets a request and byte quota, the read source applies backpressure, and queued requests are dropped after the helper exits.
+  - The socket fd was closed while a read could still be in flight. It is now closed only in the cancel handler.
+  - The helper inherited the app's stdin and stdout. Both now point to `/dev/null`.
+- **Accepted risks:**
+  - The `socketpair`/`FD_CLOEXEC` race with a concurrent fork.
+  - The orphan-reaper pid TOCTOU (microseconds wide).
+  - An orphaned spinning helper burns a core until the next launch.
+  - No EINTR retry on `waitpid`.
+  - JSON slash escaping inflates the load frame. This only matters for bundles near the 10 MB cap.
+  - A Sparkle mid-run update can pair a new helper with the old app.
+  - All helpers share one sandbox container. Plugins get no file access, so this has no effect.
