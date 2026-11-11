@@ -1,0 +1,14 @@
+{
+  "name": "leo-plugin-template",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Starter for a Leo plugin: TypeScript to a single IIFE bundle.",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --format=iife --target=es2020 --platform=neutral --outfile=dist/main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3"
+  }
+}
