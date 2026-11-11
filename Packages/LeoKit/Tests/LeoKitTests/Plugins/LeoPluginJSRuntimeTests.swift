@@ -75,7 +75,8 @@ struct LeoPluginJSRuntimeTests {
         });
         """)
         runtime.deliver(.viewOpened(agent: agent, slot: viewSlot))
-        #expect(sink.requests == [.render(slot: viewSlot, node: try! LeoPluginSlotRoot(nodes: [.loading(.init(message: nil))]))])
+        let expected = try LeoPluginSlotRoot(nodes: [.loading(.init(message: nil))])
+        #expect(sink.requests == [.render(slot: viewSlot, node: expected)])
     }
 
     @Test func eventsDeliverTheirArguments() throws {

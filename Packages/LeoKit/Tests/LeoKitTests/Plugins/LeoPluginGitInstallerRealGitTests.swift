@@ -37,7 +37,7 @@ private func git(_ arguments: [String], in directory: URL) throws -> String {
     try process.run()
     let data = out.fileHandleForReading.readDataToEndOfFile()
     process.waitUntilExit()
-    return String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    return (String(bytes: data, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
 /// A bare repo with one commit on `main` (a plugin) and an annotated tag `v1`.

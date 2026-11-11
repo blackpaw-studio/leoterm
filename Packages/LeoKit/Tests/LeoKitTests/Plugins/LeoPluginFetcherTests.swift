@@ -18,8 +18,8 @@ private final class PluginFetchStubProtocol: URLProtocol, @unchecked Sendable {
     static func serve(_ url: String, _ route: Route) { lock.withLock { routes[url] = route } }
     static func seen(_ url: String) -> [URLRequest] { lock.withLock { requests[url] ?? [] } }
 
-    override class func canInit(with request: URLRequest) -> Bool { true }
-    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override static func canInit(with request: URLRequest) -> Bool { true }
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func stopLoading() {}
 
     override func startLoading() {
@@ -233,7 +233,7 @@ struct LeoPluginFetcherTests {
             }
             return data
         })
-        #expect(String(decoding: body, as: UTF8.self) == "a=1")
+        #expect(String(bytes: body, encoding: .utf8) == "a=1")
     }
 
     @Test(arguments: [

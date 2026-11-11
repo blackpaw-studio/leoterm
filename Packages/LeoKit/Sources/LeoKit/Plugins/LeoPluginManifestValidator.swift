@@ -137,7 +137,9 @@ public enum LeoPluginManifestValidator {
     /// `.` or `..`, including spellings with combining marks glued on, which
     /// no real plugin needs and which some file-system layers normalise away.
     private static func isDotComponent(_ component: ArraySlice<UInt8>) -> Bool {
-        let scalars = String(decoding: component, as: UTF8.self).unicodeScalars.filter {
+        // Bytes that are not valid UTF-8 are rejected rather than lossily decoded.
+        guard let text = String(bytes: component, encoding: .utf8) else { return true }
+        let scalars = text.unicodeScalars.filter {
             switch $0.properties.generalCategory {
             case .nonspacingMark, .spacingMark, .enclosingMark: false
             default: true

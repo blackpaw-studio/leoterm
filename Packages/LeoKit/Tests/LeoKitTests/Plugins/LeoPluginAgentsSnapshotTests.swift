@@ -29,7 +29,7 @@ struct LeoPluginAgentsSnapshotTests {
 
     @Test func exposesNoPathOfAnyKind() throws {
         let snapshot = try LeoPluginAgentsSnapshot.list(agents: agents, engine: engine(read: true))
-        let json = String(decoding: try JSONEncoder().encode(snapshot), as: UTF8.self)
+        let json = String(bytes: try JSONEncoder().encode(snapshot), encoding: .utf8) ?? ""
         #expect(!json.contains("/secret"))
         #expect(!json.contains("/Users"))
         #expect(!json.lowercased().contains("path"))

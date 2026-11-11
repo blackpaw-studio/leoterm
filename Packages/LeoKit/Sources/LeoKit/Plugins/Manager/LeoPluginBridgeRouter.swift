@@ -221,6 +221,8 @@ import OSLog
     }
 
     private static func clip(_ text: String, _ bytes: Int) -> String {
+        // A cut mid-character is expected here, so lossy decoding is intended.
+        // swiftlint:disable:next optional_data_string_conversion
         text.utf8.count <= bytes ? text : String(decoding: Array(text.utf8.prefix(bytes)), as: UTF8.self)
     }
 }

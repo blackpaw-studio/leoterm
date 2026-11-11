@@ -25,9 +25,7 @@ public struct LeoPluginFetchResponse: Equatable, Sendable {
 
     /// Text when `data` is valid UTF-8, base64 otherwise, so no byte is altered.
     init(status: Int, headers: [String: String], data: Data) {
-        // Invalid sequences decode to U+FFFD, so a lossless round trip proves the bytes were valid.
-        let text = String(decoding: data, as: UTF8.self)
-        if Data(text.utf8) == data {
+        if let text = String(data: data, encoding: .utf8) {
             self.init(status: status, headers: headers, body: text, bodyEncoding: .utf8)
         } else {
             self.init(status: status, headers: headers, body: data.base64EncodedString(), bodyEncoding: .base64)

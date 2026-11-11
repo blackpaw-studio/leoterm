@@ -58,7 +58,7 @@ public struct LeoPluginGitInstaller: Sendable {
         if let sha = LeoPluginGitSource.normalizedSHA(name) { return sha }
         // The second pattern lists an annotated tag's peeled commit, which a bare name doesn't match.
         let output = try await git(["ls-remote", "--", source.absoluteString, name, "\(name)^{}"], timeout: Self.quickTimeout)
-        guard let sha = LeoPluginGitSource.resolve(ref: name, lsRemote: String(decoding: output, as: UTF8.self)) else {
+        guard let sha = LeoPluginGitSource.resolve(ref: name, lsRemote: String(bytes: output, encoding: .utf8) ?? "") else {
             throw LeoPluginInstallError.refNotFound(name)
         }
         return sha
@@ -118,7 +118,9 @@ public struct LeoPluginGitInstaller: Sendable {
             ["-C", dir, "fetch", "--quiet", "--depth", "1", "--no-tags", "--no-recurse-submodules", "--", url.absoluteString, sha],
             timeout: Self.fetchTimeout)
         _ = try await git(["-C", dir, "checkout", "--quiet", "--detach", "--no-recurse-submodules", sha], timeout: Self.quickTimeout)
-        let head = String(decoding: try await git(["-C", dir, "rev-parse", "HEAD"], timeout: Self.quickTimeout), as: UTF8.self)
+        let headOutput = try await git(["-C", dir, "rev-parse", "HEAD"], timeout: Self.quickTimeout)
+        // Invalid UTF-8 yields "" and fails the SHA comparison below.
+        let head = (String(bytes: headOutput, encoding: .utf8) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard head == sha else { throw LeoPluginInstallError.shaMismatch(expected: sha, actual: head) }
     }
@@ -133,6 +135,8 @@ public struct LeoPluginGitInstaller: Sendable {
         let result = try await runner.run(
             executable: gitPath, arguments: prefix + hardenedConfig + command, environment: environment, timeout: timeout)
         guard result.status == 0 else {
+            // Diagnostic text only: lossy decoding is intended.
+            // swiftlint:disable:next optional_data_string_conversion
             let detail = String(decoding: result.stderr, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
             if detail.contains("xcode-select") || detail.contains("developer tools") { throw LeoPluginInstallError.gitUnavailable }
             throw LeoPluginInstallError.gitFailed(command: command.first ?? "", detail: detail)
