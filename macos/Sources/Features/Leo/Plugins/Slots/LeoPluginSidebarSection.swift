@@ -20,7 +20,12 @@ struct LeoPluginSidebarSection: View {
         // above it. SwiftUI's sidebar List never inserts rows into a section
         // that was empty when it first appeared, so a collapsed section holds
         // one invisible row.
-        Section(header: header(expanded: expanded).onAppear { if expanded { sections.ensureLoaded(entry) } }) {
+        Section(
+            header: header(expanded: expanded)
+                .onAppear { if expanded { sections.ensureLoaded(entry) } }
+                // The section's rows are on screen while its header is and it is open.
+                .leoPluginReportsVisibility(to: surfaces, key: entry.slotKey, isActive: expanded)
+        ) {
             if expanded, let surfaces {
                 LeoPluginSectionRowsView(surfaces: surfaces, key: entry.slotKey)
             } else {

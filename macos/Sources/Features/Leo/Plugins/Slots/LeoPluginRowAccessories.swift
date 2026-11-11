@@ -42,7 +42,7 @@ struct LeoPluginRowAccessories: View {
         private func content(_ layout: LeoPluginAccessoryLayout) -> some View {
             HStack(spacing: 5) {
                 ForEach(layout.chips, id: \.pluginID) { chip in
-                    ChipView(chip: chip, isSelected: isSelected)
+                    ChipView(chip: chip, surfaces: surfaces, isSelected: isSelected)
                 }
                 if let overflow = layout.overflow {
                     Text(overflow.label)
@@ -58,6 +58,7 @@ struct LeoPluginRowAccessories: View {
 
     private struct ChipView: View {
         let chip: LeoPluginAccessoryLayout.Chip
+        let surfaces: LeoPluginSurfaces
         let isSelected: Bool
 
         var body: some View {
@@ -69,6 +70,7 @@ struct LeoPluginRowAccessories: View {
             .foregroundStyle(LeoPluginRenderStyle.ink(for: chip.color).style(isSelected: isSelected))
             .fixedSize()
             .help(chip.help)
+            .leoPluginReportsVisibility(to: surfaces, key: chip.slot.map { LeoPluginSlotKey(pluginID: chip.pluginID, slot: $0) })
         }
     }
 }
