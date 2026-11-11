@@ -75,9 +75,8 @@ import SwiftUI
         let ref = LeoPluginAgentRef(machine: host.displayName, name: agent)
         let entries = manager.plugins.flatMap { plugin -> [LeoPluginAccessoryLayout.Entry] in
             (plugin.manifest?.contributes.rowAccessories ?? []).map {
-                .init(
-                    pluginID: plugin.id, pluginName: plugin.name,
-                    state: manager.slots.state(pluginID: plugin.id, slot: .accessory(id: $0.id, agent: ref)))
+                let slot = LeoPluginSlotID.accessory(id: $0.id, agent: ref)
+                return .init(pluginID: plugin.id, pluginName: plugin.name, state: manager.slots.state(pluginID: plugin.id, slot: slot), slot: slot)
             }
         }
         return LeoPluginAccessoryLayout(entries: entries)

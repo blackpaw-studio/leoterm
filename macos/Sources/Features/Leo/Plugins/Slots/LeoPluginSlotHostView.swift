@@ -17,7 +17,9 @@ final class LeoPluginSlotHostView: NSView {
     private let takesFocus: Bool
     private var nodeView: LeoPluginNodeView?
     private var shown: NSView?
-    private var isVisible = false
+    private var visibility: LeoPluginVisibilityReporter
+    private var isWindowClosed = false
+    private var windowObservers: [NSObjectProtocol] = []
     private var subscription: AnyCancellable?
 
     /// What it shows now (for tests and the pane's Back bar).
@@ -29,6 +31,7 @@ final class LeoPluginSlotHostView: NSView {
         self.key = key
         self.surface = surface
         self.takesFocus = takesFocus
+        visibility = LeoPluginVisibilityReporter(key: key, surface: surface)
         super.init(frame: .zero)
         refresh()
         // `changes` fires before the change lands; the hop reads the new state.
@@ -116,6 +119,24 @@ final class LeoPluginSlotHostView: NSView {
 
     // MARK: Visibility
 
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        windowObservers = []
+        isWindowClosed = false
+        guard let newWindow else { return }
+        // A closed window keeps its views, so leaving it is not reported by AppKit.
+        let center = NotificationCenter.default
+        windowObservers = [
+            center.addObserver(forName: NSWindow.willCloseNotification, object: newWindow, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.isWindowClosed = true; self?.reportVisibility() }
+            },
+            center.addObserver(forName: NSWindow.didBecomeKeyNotification, object: newWindow, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.isWindowClosed = false; self?.reportVisibility() }
+            },
+        ]
+    }
+
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         reportVisibility()
@@ -127,12 +148,11 @@ final class LeoPluginSlotHostView: NSView {
     override func viewDidUnhide() { super.viewDidUnhide(); reportVisibility() }
 
     private func reportVisibility() {
-        let visible = window != nil && !isHiddenOrHasHiddenAncestor
-        guard visible != isVisible else { return }
-        isVisible = visible
-        let (surface, key) = (surface, key)
-        MainActor.assumeIsolated { surface.setVisible(key, visible) }
+        let visible = window != nil && !isWindowClosed && !isHiddenOrHasHiddenAncestor
+        MainActor.assumeIsolated { visibility.setAppeared(visible) }
     }
+
+    deinit { windowObservers.forEach(NotificationCenter.default.removeObserver) }
 }
 
 /// The host inside SwiftUI (the palette page).

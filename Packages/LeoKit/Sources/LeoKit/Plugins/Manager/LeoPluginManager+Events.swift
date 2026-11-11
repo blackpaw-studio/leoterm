@@ -8,13 +8,9 @@ extension LeoPluginManager {
     @discardableResult
     public func open(_ slot: LeoPluginSlotID, plugin id: String) -> Bool {
         guard let entry = entries[id], let manifest = entry.manifest, Self.declares(manifest, slot) else { return false }
-        let event: LeoPluginEvent
-        switch slot {
-        case .view(_, let agent): event = .viewOpened(agent: agent, slot: slot)
-        case .accessory, .section: event = .activate(slot: slot)
-        case .palette(let commandID): event = .command(id: commandID, slot: slot)
-        }
-        if entry.lastEvents[slot] != nil || entry.lastEvents.count < LeoPluginSlotStore.maxSlotsPerPlugin {
+        let event = Self.openingEvent(for: slot)
+        // A command is a one-shot run, not state to restore: a restart must not run it again.
+        if case .palette = slot {} else if entry.lastEvents[slot] != nil || entry.lastEvents.count < LeoPluginSlotStore.maxSlotsPerPlugin {
             entry.lastEvents[slot] = event
         }
         deps.slots.expect(pluginID: id, slot: slot)
@@ -28,7 +24,7 @@ extension LeoPluginManager {
     public func retry(_ key: LeoPluginSlotKey) {
         guard let entry = entries[key.pluginID], entry.session != nil else { return }
         deps.slots.expect(pluginID: key.pluginID, slot: key.slot)
-        deliver(entry.lastEvents[key.slot] ?? .activate(slot: key.slot), to: entry)
+        deliver(entry.lastEvents[key.slot] ?? Self.openingEvent(for: key.slot), to: entry)
     }
 
     /// A click or key press on an action. `gesture` is minted by the renderer's
@@ -65,7 +61,18 @@ extension LeoPluginManager {
 
     /// Whether one of the plugin's slots is on screen (`leo.after` waits for it).
     public func setSlotVisible(plugin id: String, visible: Bool) {
-        entries[id]?.session?.timers.setSlotVisible(visible)
+        guard let entry = entries[id] else { return }
+        entry.isSlotVisible = visible
+        entry.session?.timers.setSlotVisible(visible)
+    }
+
+    /// The event that makes a slot render.
+    static func openingEvent(for slot: LeoPluginSlotID) -> LeoPluginEvent {
+        switch slot {
+        case .view(_, let agent): .viewOpened(agent: agent, slot: slot)
+        case .accessory, .section: .activate(slot: slot)
+        case .palette(let commandID): .command(id: commandID, slot: slot)
+        }
     }
 
     static func declares(_ manifest: LeoPluginManifest, _ slot: LeoPluginSlotID) -> Bool {

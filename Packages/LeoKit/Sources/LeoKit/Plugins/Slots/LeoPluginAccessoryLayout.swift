@@ -14,16 +14,21 @@ public struct LeoPluginAccessoryLayout: Equatable, Sendable {
         public let pluginID: String
         public let pluginName: String
         public let state: LeoPluginSlotState
+        /// The accessory slot this entry reads, so a drawn chip can report its visibility.
+        public let slot: LeoPluginSlotID?
 
-        public init(pluginID: String, pluginName: String, state: LeoPluginSlotState) {
+        public init(pluginID: String, pluginName: String, state: LeoPluginSlotState, slot: LeoPluginSlotID? = nil) {
             self.pluginID = pluginID
             self.pluginName = pluginName
             self.state = state
+            self.slot = slot
         }
     }
 
     public struct Chip: Equatable, Sendable {
         public let pluginID: String
+        /// The slot the chip was drawn from (nil for an entry built without one).
+        public let slot: LeoPluginSlotID?
         /// Nil when the plugin asked for a symbol outside the allowlist.
         public let sfSymbol: String?
         public let text: String
@@ -76,7 +81,7 @@ public struct LeoPluginAccessoryLayout: Equatable, Sendable {
         let symbol = accessory.sfSymbol.flatMap { LeoPluginSymbolAllowlist.isAllowed($0) ? $0 : nil }
         guard symbol != nil || !text.isEmpty else { return nil }
         return Chip(
-            pluginID: entry.pluginID, sfSymbol: symbol, text: text, color: accessory.color,
+            pluginID: entry.pluginID, slot: entry.slot, sfSymbol: symbol, text: text, color: accessory.color,
             help: "\(entry.pluginName): \(accessory.help ?? text)")
     }
 

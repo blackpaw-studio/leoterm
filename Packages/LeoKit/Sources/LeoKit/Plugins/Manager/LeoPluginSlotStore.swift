@@ -88,10 +88,17 @@ public enum LeoPluginSlotStatus: Equatable, Sendable {
         }
     }
 
-    /// A slot is about to be asked for: it shows Loading until the plugin renders it.
+    /// A slot is about to be asked for: it shows Loading until the plugin
+    /// renders it. A command is a fresh run each time, so asking again drops
+    /// the page and pushed views the last run left behind.
     public func expect(pluginID: String, slot: LeoPluginSlotID) {
         guard track(pluginID, slot) else { return }
-        slotErrors[LeoPluginSlotKey(pluginID: pluginID, slot: slot)] = nil
+        let key = LeoPluginSlotKey(pluginID: pluginID, slot: slot)
+        slotErrors[key] = nil
+        if case .palette = slot {
+            trees[key] = nil
+            pushed[key] = nil
+        }
     }
 
     public func setStatus(pluginID: String, _ status: LeoPluginSlotStatus) {

@@ -94,7 +94,9 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
             defer { scope.exit() }
             let c = try decoder.container(keyedBy: Keys.self)
-            sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol)
+            // An accessory draws in the sidebar's most crowded spot, so a symbol
+            // outside the allowlist is dropped here and no renderer sees it.
+            sfSymbol = try c.decodeIfPresent(String.self, forKey: .sfSymbol).flatMap { LeoPluginSymbolAllowlist.isAllowed($0) ? $0 : nil }
             text = try c.decode(String.self, forKey: .text)
             color = try c.decodeIfPresent(LeoPluginAccessoryColor.self, forKey: .color) ?? .neutral
             help = try c.decodeIfPresent(String.self, forKey: .help)

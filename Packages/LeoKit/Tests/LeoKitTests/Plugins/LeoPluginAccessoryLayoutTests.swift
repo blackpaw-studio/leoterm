@@ -12,6 +12,16 @@ private func entry(
 }
 
 @Suite struct LeoPluginAccessoryLayoutTests {
+    @Test func aChipKeepsTheSlotItWasDrawnFrom() throws {
+        let slot = LeoPluginSlotID.accessory(id: "pr", agent: LeoPluginAgentRef(machine: "localhost", name: "alpha"))
+        let plain = try entry("a")
+        let withSlot = LeoPluginAccessoryLayout.Entry(pluginID: plain.pluginID, pluginName: plain.pluginName, state: plain.state, slot: slot)
+
+        let layout = LeoPluginAccessoryLayout(entries: [withSlot])
+
+        #expect(layout.chips.map(\.slot) == [slot])
+    }
+
     @Test func symbolOutsideTheAllowlistIsDroppedButTheTextStays() throws {
         let layout = LeoPluginAccessoryLayout(entries: [try entry("a", symbol: "applelogo", text: "hi")])
         #expect(layout.chips.count == 1)
