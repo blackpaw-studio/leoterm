@@ -279,3 +279,31 @@ Run:
 - **Re-review:** all 7 fixes are resolved.
   - **Follow-up fix:** strip U+200E/200F, U+2060–2064, U+061C and the Unicode tag block.
   - **Accepted risk:** the plugin's 60/min window isn't synchronised with the host's, so a request at the edge of a fully used minute can come back as a Transport error and get retried on the next cycle.
+
+## Live E2E and polish (2026-11-11)
+
+All 7 flows of step 12 passed live against `blackpaw-studio/leo-github-plugin-scratch`. Fixes found during the run:
+- CI log tail now probes `bytes=0-0`, then requests `bytes=N-`; Azure ignores suffix ranges.
+- Confirm sheets are sized from `preferredContentSize`.
+- The review-comment submit now reads the host's `{formId, values, payload}` envelope.
+- The palette form grows between 280 and 520pt and then scrolls; headings wrap.
+- Duplicate check names now show the worst state per source and name.
+- Signed-out copy is per slot.
+- A DEBUG-only `LEO_PLUGIN_KEYCHAIN_FILE` seam was added, and it is compiled out of Release.
+
+Reviews: the E2E fixes got a security review, and the polish got a review plus a re-review. No P0/P1 findings remain open.
+
+**Accepted risks (P2):**
+- DEBUG file keychain: the file is written atomically before chmod 0600, so it briefly has umask permissions. Debug only.
+- The log tail falls back to `bytes=0-` when `Content-Range` has an unknown total (`*`). A log over 5 MB then shows "log download failed" instead of its tail.
+- `rangeTotal` uses an unbounded `\d+`. A total of 1e21 or more is mislabelled "log is empty". This needs a hostile log host on the allowlist, and the effect is cosmetic.
+- Fetching a log now takes two requests inside the 30 s callback deadline.
+- The first palette layout at near-zero width can briefly report 520pt before settling.
+- `LeoPluginSlotHostView` captures its height callback once, in `makeNSView`. That is fine while the palette view keeps its identity.
+
+**Merge gate:**
+- vitest: 274 of 274 pass.
+- LeoKit: 1614 tests pass.
+- macOS app suite: 2882 pass and 34 fail. All failures are in the tunnel, socket, process and stray-window suites, which are known-flaky on main and untouched by this branch.
+
+**Still open:** the Blackpaw OAuth App client ID (`OAUTH_CLIENT_ID=""`). Device-flow sign-in is untested live until it is set.
