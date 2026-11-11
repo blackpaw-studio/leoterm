@@ -128,11 +128,21 @@
   var TOKEN_KEY = "token";
   var SIGN_IN_CALLBACK = "sign-in";
   var signInAction = (slot, title) => ({ type: "callback", id: SIGN_IN_CALLBACK, title, payload: { slot } });
+  var signedOutMessage = (slot) => {
+    switch (slot.kind) {
+      case "section":
+        return "Connect your GitHub account to see the issues assigned to you.";
+      case "palette":
+        return "Connect your GitHub account to continue.";
+      default:
+        return "Connect your GitHub account to see pull requests and checks.";
+    }
+  };
   var defaultSignInViews = {
     signedOut: (slot) => ({
       type: "EmptyState",
       title: "Sign in to GitHub",
-      message: "Connect your GitHub account to see pull requests and checks.",
+      message: signedOutMessage(slot),
       sfSymbol: "person.crop.circle.badge.checkmark",
       actions: [signInAction(slot, "Sign In")]
     }),
@@ -1262,6 +1272,15 @@ ${flags.join(" \xB7 ")}${link}` };
     if (checks.some((c) => c.state === "running")) return "running";
     return checks.some((c) => c.state === "success") ? "success" : "neutral";
   }
+  function latestPerName(runs) {
+    const newest = /* @__PURE__ */ new Map();
+    for (const run of runs) {
+      const key = run.source + ":" + run.name;
+      const seen = newest.get(key);
+      if (seen === void 0 || Number(run.id) > Number(seen.id)) newest.set(key, run);
+    }
+    return [...newest.values()];
+  }
   async function fetchChecks(client, auth, ref, sha) {
     const base = "/repos/" + ref.owner + "/" + ref.repo + "/commits/" + sha;
     const [runs, status] = await Promise.all([
@@ -1270,7 +1289,7 @@ ${flags.join(" \xB7 ")}${link}` };
     ]);
     if (!runs.ok) return runs;
     if (!status.ok) return status;
-    return ok([...collect(runs.value.json, "check_runs", toRun), ...collect(status.value.json, "statuses", toStatus)]);
+    return ok([...latestPerName(collect(runs.value.json, "check_runs", toRun)), ...collect(status.value.json, "statuses", toStatus)]);
   }
 
   // src/prStatus.ts

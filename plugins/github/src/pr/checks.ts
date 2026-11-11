@@ -64,6 +64,20 @@ export function combineState(checks: readonly CheckItem[]): CheckState {
   return checks.some((c) => c.state === "success") ? "success" : "neutral";
 }
 
+/**
+ * A push and a pull_request workflow run on one head SHA each report a check with the same name. Keep the newest
+ * (highest id) per name and source so the list shows each check once, and a stale run can't mask the current result.
+ */
+function latestPerName(runs: readonly CheckItem[]): CheckItem[] {
+  const newest = new Map<string, CheckItem>();
+  for (const run of runs) {
+    const key = run.source + ":" + run.name;
+    const seen = newest.get(key);
+    if (seen === undefined || Number(run.id) > Number(seen.id)) newest.set(key, run);
+  }
+  return [...newest.values()];
+}
+
 export const findCheck = (checks: readonly CheckItem[], id: string): CheckItem | undefined => checks.find((c) => c.id === id);
 
 /** Check runs plus commit statuses for `sha`, both ETag-cached. Only the first page of runs (100) is read. */
@@ -76,5 +90,5 @@ export async function fetchChecks(client: GitHubClient, auth: string, ref: RepoR
   if (!runs.ok) return runs;
   if (!status.ok) return status;
   // The combined status of a commit with no statuses reads "pending"; only listed statuses count.
-  return ok([...collect(runs.value.json, "check_runs", toRun), ...collect(status.value.json, "statuses", toStatus)]);
+  return ok([...latestPerName(collect(runs.value.json, "check_runs", toRun)), ...collect(status.value.json, "statuses", toStatus)]);
 }

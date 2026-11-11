@@ -41,16 +41,13 @@ describe("recorded responses", () => {
     expect(await findOpenPr(client, "tok", REPO, "feat/none")).toEqual({ ok: true, value: null });
   });
 
-  it("reads Actions check runs (with their job ids) and an empty commit status; one failing run fails the PR", async () => {
+  it("reads Actions check runs (with their job ids), collapsing the push/pull_request duplicates, and an empty commit status; one failing run fails the PR", async () => {
     const { stub, client } = setup();
     stub.route("GET", API + "/commits/" + SHA + "/check-runs?per_page=100", asResponse(checkRuns as never));
     stub.route("GET", API + "/commits/" + SHA + "/status", asResponse(status as never));
     const res = await fetchChecks(client, "tok", REPO, SHA);
     if (!res.ok) throw new Error("fetchChecks failed");
     expect(res.value.map((c) => [c.name, c.state, c.source])).toEqual([
-      ["lint", "success", "actions"],
-      ["test", "failure", "actions"],
-      ["test", "failure", "actions"],
       ["lint", "success", "actions"],
     ]);
     expect(res.value.every((c) => c.jobId !== null)).toBe(true);

@@ -18,11 +18,23 @@ export interface SignInViews {
 const signInAction = (slot: SlotID, title: string) =>
   ({ type: "callback", id: SIGN_IN_CALLBACK, title, payload: { slot } as unknown as JSONValue }) as const;
 
+/** Each slot says what signing in unlocks there. */
+const signedOutMessage = (slot: SlotID): string => {
+  switch (slot.kind) {
+    case "section":
+      return "Connect your GitHub account to see the issues assigned to you.";
+    case "palette":
+      return "Connect your GitHub account to continue.";
+    default:
+      return "Connect your GitHub account to see pull requests and checks.";
+  }
+};
+
 export const defaultSignInViews: SignInViews = {
   signedOut: (slot) => ({
     type: "EmptyState",
     title: "Sign in to GitHub",
-    message: "Connect your GitHub account to see pull requests and checks.",
+    message: signedOutMessage(slot),
     sfSymbol: "person.crop.circle.badge.checkmark",
     actions: [signInAction(slot, "Sign In")],
   }),

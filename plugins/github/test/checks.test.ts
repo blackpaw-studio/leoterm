@@ -44,6 +44,17 @@ describe("fetchChecks", () => {
     expect(res.value.find((c) => c.name === "ci/legacy")).toMatchObject({ id: "status:71", source: "status", url: "https://ci.example.com/71" });
   });
 
+  it("collapses same-named runs from one head SHA (push + pull_request) to the most recent run", async () => {
+    const { stub, client } = setup();
+    const run = (id: number, name: string, conclusion: string) => ({ id, name, status: "completed", conclusion, app: { slug: "github-actions" } });
+    stub.route("GET", RUNS, { body: { check_runs: [run(10, "lint", "failure"), run(12, "lint", "success"), run(11, "test", "success"), run(13, "test", "success")] } });
+    stub.route("GET", STATUS, asResponse(statusEmpty as never));
+    const res = await fetchChecks(client, "tok", REF, "abc");
+    if (!res.ok) throw new Error("expected ok");
+    expect(res.value.map((c) => [c.name, c.id])).toEqual([["lint", "12"], ["test", "13"]]);
+    expect(combineState(res.value)).toBe("success");
+  });
+
   it.each(["failure", "timed_out", "cancelled", "action_required", "startup_failure"])("treats conclusion %s as failure", async (conclusion) => {
     const { stub, client } = setup();
     stub.route("GET", RUNS, { body: { check_runs: [{ id: 1, name: "a", status: "completed", conclusion }] } });

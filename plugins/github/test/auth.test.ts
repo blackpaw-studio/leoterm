@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SlotID, SlotRoot } from "../../sdk/leo";
-import { createSession } from "../src/auth/session";
+import { createSession, defaultSignInViews } from "../src/auth/session";
 import { OAUTH_CLIENT_ID } from "../src/config";
 import { createGitHubClient } from "../src/github/client";
 import { createStubLeo } from "./stubLeo";
@@ -246,5 +246,14 @@ describe("session", () => {
     expect(titleOf(stub.lastRender(view))).toBe("Sign in to GitHub");
     await stub.tick(60);
     expect(stub.fetches.filter((f) => f.url === ACCESS_TOKEN)).toHaveLength(0);
+  });
+});
+
+describe("signed-out copy", () => {
+  const msg = (slot: Parameters<typeof defaultSignInViews.signedOut>[0]) => JSON.stringify(defaultSignInViews.signedOut(slot));
+  it("mentions issues in the issues section, and PRs and checks on agent slots", () => {
+    expect(msg({ kind: "section", id: "issues" } as never)).toMatch(/issues/);
+    expect(msg({ kind: "section", id: "issues" } as never)).not.toMatch(/pull requests|checks/);
+    expect(msg({ kind: "view", agent: { id: "a" } } as never)).toMatch(/pull requests and checks/);
   });
 });
