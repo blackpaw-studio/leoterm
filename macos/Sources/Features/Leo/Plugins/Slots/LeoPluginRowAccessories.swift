@@ -55,7 +55,6 @@ struct LeoPluginRowAccessories: View {
             .foregroundStyle(LeoPluginRenderStyle.ink(for: chip.color).style(isSelected: isSelected))
             .fixedSize()
             .help(chip.help)
-            .accessibilityLabel(chip.help)
         }
     }
 }

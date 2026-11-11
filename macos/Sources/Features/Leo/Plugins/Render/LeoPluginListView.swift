@@ -52,7 +52,8 @@ final class LeoPluginListView: NSView {
 
     override var intrinsicContentSize: NSSize {
         guard embedded else { return super.intrinsicContentSize }
-        let height = model.rows.indices.reduce(CGFloat(0)) { $0 + rowHeight(for: $1) }
+        // The table's own geometry (row spacing and style insets included), not a sum of row heights.
+        let height = model.rows.isEmpty ? 0 : table.rect(ofRow: model.rows.count - 1).maxY
         return NSSize(width: NSView.noIntrinsicMetric, height: height)
     }
 
