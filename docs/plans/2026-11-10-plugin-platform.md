@@ -490,3 +490,21 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
   - Two approval sheets confirmed at once for the same id from different sources.
   - A failed move to the Trash during uninstall leaves the record behind with its Keychain already wiped.
 - **M5 must wire** the install flow, updater, uninstall and approval for `needsApproval` plugins, bundled ones included.
+
+### M4/M5 review (2026-11-10)
+
+- **Fixing now:**
+  - Slot visibility is lost when a plugin restarts or reloads (P1).
+  - Sidebar sections and row accessories never report visibility (P1).
+  - Closing a window leaks the visible count.
+  - The last palette command is replayed on every restart.
+  - A row's plugin view outlives its agent.
+  - Section accessory symbols skip the allowlist. The allowlist moves into LeoKit validation.
+  - `SlotStore.expect` keeps the previous palette page around.
+- **Accepted risks:**
+  - Sections and commands stay listed for a plugin awaiting approval; they open to a notice.
+  - `objectWillChange` fan-out across sidebar rows costs some performance.
+  - The 1 pt placeholder row.
+  - `updateNSView` doesn't re-bind, and nothing can trigger a re-bind today.
+  - A plugin command title can imitate a built-in one; the plugin subtitle and icon mitigate it.
+  - Approval compares the permission diff rather than the full manifest, which can only under-grant.
