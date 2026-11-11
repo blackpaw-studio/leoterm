@@ -274,6 +274,34 @@ struct LeoPluginHostIntegrationTests {
         #expect(descriptors.allSatisfy { $0 <= 3 }, "unexpected descriptors: \(descriptors)")
     }
 
+    @Test func theHelperStdinAndStdoutAreDevNull() async throws {
+        let (connection, probe) = makeConnection()
+        defer { connection.stop() }
+        try connection.start(source: try fixture("echo"))
+        _ = await probe.requests(count: 1)
+        let pid = try #require(connection.pid)
+        // `lsof -F fn`: an "f<fd>" line, then that descriptor's "n<name>" line.
+        let output = try runTool("/usr/sbin/lsof", ["-nP", "-p", "\(pid)", "-a", "-d", "0,1", "-F", "fn"])
+        var names: [String: String] = [:]
+        var current: String?
+        for line in output.split(separator: "\n") {
+            if line.hasPrefix("f") { current = String(line.dropFirst()) }
+            if line.hasPrefix("n"), let fd = current { names[fd] = String(line.dropFirst()) }
+        }
+        #expect(names["0"] == "/dev/null")
+        #expect(names["1"] == "/dev/null")
+    }
+
+    @Test func repeatedStartAndStopCyclesAllEndCleanly() async throws {
+        for _ in 0..<10 {
+            let (connection, probe) = makeConnection()
+            try connection.start(source: try fixture("echo"))
+            _ = await probe.requests(count: 1)
+            connection.stop()
+            #expect(await probe.terminated() == .stopped)
+        }
+    }
+
     private func runTool(_ path: String, _ arguments: [String]) throws -> String {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)

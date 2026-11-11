@@ -26,6 +26,7 @@ enum LeoPluginHostLaunchError: Error, Equatable {
 /// - The app's end is `FD_CLOEXEC` and `SO_NOSIGPIPE`, so sibling helpers
 ///   never inherit it (a helper must see EOF when the app dies) and a write
 ///   to a killed helper can't terminate the app.
+/// - stdin and stdout are `/dev/null`; stderr too, except in Debug builds.
 /// - The helper's environment is empty: no tokens or paths leak into plugin code.
 struct LeoPluginPosixLauncher: LeoPluginHostLauncher {
     let helperURL: URL
@@ -61,9 +62,17 @@ struct LeoPluginPosixLauncher: LeoPluginHostLauncher {
         defer { posix_spawnattr_destroy(&attributes) }
         posix_spawnattr_setflags(&attributes, Int16(POSIX_SPAWN_CLOEXEC_DEFAULT))
 
-        // stdin/out/err pass through (unchanged, so a debugger still sees helper
-        // stderr); the socket lands on fd 3. dup2 to a different fd clears CLOEXEC.
-        for fd: Int32 in 0...2 { posix_spawn_file_actions_adddup2(&actions, fd, fd) }
+        // stdin and stdout go to /dev/null so plugin code can't reach whatever
+        // the app's are (a pipe, a terminal). stderr is inherited in Debug so a
+        // debugger still sees helper output; Release sends it to /dev/null too.
+        // The socket lands on fd 3. dup2 to a different fd clears CLOEXEC.
+        posix_spawn_file_actions_addopen(&actions, 0, Self.nullDevice, O_RDONLY, 0)
+        posix_spawn_file_actions_addopen(&actions, 1, Self.nullDevice, O_WRONLY, 0)
+        #if DEBUG
+        posix_spawn_file_actions_adddup2(&actions, 2, 2)
+        #else
+        posix_spawn_file_actions_addopen(&actions, 2, Self.nullDevice, O_WRONLY, 0)
+        #endif
         posix_spawn_file_actions_adddup2(&actions, helperEnd, 3)
 
         var pid: pid_t = 0
@@ -79,6 +88,7 @@ struct LeoPluginPosixLauncher: LeoPluginHostLauncher {
         return LeoPluginHostProcess(pid: pid, fd: appEnd)
     }
 
+    private static let nullDevice = "/dev/null"
     private static let ignoreSIGPIPEOnce: Void = { signal(SIGPIPE, SIG_IGN) }()
     private static func ignoreSIGPIPE() { _ = ignoreSIGPIPEOnce }
 }
