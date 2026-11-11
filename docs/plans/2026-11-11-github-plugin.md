@@ -276,3 +276,6 @@ Run:
   - A stale send-comments target is still shown in the confirmation sheet.
   - The ETag cache can be written back after sign-out, which is harmless because ETags vary by token.
   - "Open in Browser" accepts any https `target_url`, the same as clicking it on GitHub.
+- **Re-review:** all 7 fixes are resolved.
+  - **Follow-up fix:** strip U+200E/200F, U+2060–2064, U+061C and the Unicode tag block.
+  - **Accepted risk:** the plugin's 60/min window isn't synchronised with the host's, so a request at the edge of a fully used minute can come back as a Transport error and get retried on the next cycle.
