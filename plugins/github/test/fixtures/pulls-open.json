@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "headers": { "etag": "W/\"p1\"", "x-ratelimit-remaining": "4900", "x-ratelimit-reset": "1767268800" },
+  "body": [
+    { "number": 11, "title": "Older", "state": "open", "draft": false, "updated_at": "2026-11-09T10:00:00Z", "head": { "sha": "aaa111", "ref": "feat/x" }, "html_url": "https://github.com/o/r/pull/11" },
+    { "number": 12, "title": "Newest", "state": "open", "draft": true, "updated_at": "2026-11-10T12:30:00Z", "head": { "sha": "bbb222", "ref": "feat/x" }, "html_url": "https://github.com/o/r/pull/12" }
+  ]
+}
