@@ -590,20 +590,34 @@ ${capBody(issue.body)}`);
 
   // src/pr/sendFailure.ts
   var MAX_LOG_BYTES = 5 * 1024 * 1024;
+  var LOG_TAIL_BYTES = 64 * 1024;
   var CHECK_NAME_MAX_CHARS = 100;
   var SEND_TITLE = "Send Failure to Agent";
   var unavailable = (reason) => ({ kind: "unavailable", reason });
+  var rangeStart = (res) => {
+    const m = /^bytes (\d+)-/i.exec(res.headers["content-range"] ?? "");
+    return m ? Number(m[1]) : null;
+  };
+  function logOutcome(res) {
+    if (res.status !== 206) {
+      return utf8Length(res.text) > MAX_LOG_BYTES ? unavailable("log is larger than 5 MB") : { kind: "log", excerpt: excerptLog(res.text) };
+    }
+    const start = rangeStart(res);
+    const whole = start === 0;
+    const text = whole ? res.text : res.text.slice(res.text.indexOf("\n") + 1);
+    return { kind: "log", excerpt: excerptLog(text) };
+  }
   async function fetchLog(client, auth, ctx) {
     const { check, repo } = ctx;
     if (check.source === "status") return ok(unavailable("commit status has no log"));
     if (check.source !== "actions" || check.jobId === null) return ok(unavailable("not a GitHub Actions check"));
-    const res = await client.request("GET", "/repos/" + repo.owner + "/" + repo.repo + "/actions/jobs/" + check.jobId + "/logs", { auth });
-    if (res.ok) {
-      return ok(utf8Length(res.value.text) > MAX_LOG_BYTES ? unavailable("log is larger than 5 MB") : { kind: "log", excerpt: excerptLog(res.value.text) });
-    }
+    const path = "/repos/" + repo.owner + "/" + repo.repo + "/actions/jobs/" + check.jobId + "/logs";
+    const res = await client.request("GET", path, { auth, headers: { Range: "bytes=-" + LOG_TAIL_BYTES } });
+    if (res.ok) return ok(logOutcome(res.value));
     const err = res.error;
     if (err.kind === "Unauthorized" || err.kind === "RateLimited") return res;
     if (err.kind === "Transport") return ok(unavailable("log download failed: " + err.reason));
+    if (err.status === 416) return ok(unavailable("log is empty"));
     return ok(unavailable(err.status === 404 || err.status === 410 ? "log not found or expired" : "log request failed (HTTP " + err.status + ")"));
   }
   function buildMessage(ctx, outcome) {
@@ -1136,7 +1150,9 @@ ${flags.join(" \xB7 ")}${link}` };
         "X-GitHub-Api-Version": API_VERSION,
         ...options.auth === null ? {} : { Authorization: "Bearer " + options.auth },
         ...options.body === void 0 ? {} : { "Content-Type": "application/json" },
-        ...extraHeaders
+        ...options.headers ?? {},
+        ...extraHeaders,
+        ...options.auth === null ? {} : { Authorization: "Bearer " + options.auth }
       };
       const init = { method, headers, ...options.body === void 0 ? {} : { body: JSON.stringify(options.body) } };
       let res;

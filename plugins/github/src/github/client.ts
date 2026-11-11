@@ -25,6 +25,8 @@ export interface RequestOptions {
   readonly auth: string | null;
   /** JSON-encoded when present. */
   readonly body?: JSONValue;
+  /** Extra request headers (e.g. `Range`). They can't override Authorization. */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 export interface GitHubClient {
@@ -98,7 +100,9 @@ export function createGitHubClient(
       "X-GitHub-Api-Version": API_VERSION,
       ...(options.auth === null ? {} : { Authorization: "Bearer " + options.auth }),
       ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(options.headers ?? {}),
       ...extraHeaders,
+      ...(options.auth === null ? {} : { Authorization: "Bearer " + options.auth }),
     };
     const init = { method, headers, ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }) };
     let res: FetchResponse;

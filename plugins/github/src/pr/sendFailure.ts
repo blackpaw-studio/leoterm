@@ -1,6 +1,6 @@
 import { sendToAgent } from "../../../sdk/actions";
 import type { Action, AgentRef } from "../../../sdk/leo";
-import type { GitHubClient } from "../github/client";
+import type { ApiResponse, GitHubClient } from "../github/client";
 import { ok, type Result } from "../github/errors";
 import type { RepoRef } from "../repoRef";
 import type { CheckItem } from "./checks";
@@ -8,6 +8,8 @@ import { plainText, quoteUntrusted } from "../untrusted";
 import { excerptLog, utf8Length } from "./logExcerpt";
 
 export const MAX_LOG_BYTES = 5 * 1024 * 1024;
+/** Only the tail of a log is ever used, and the follow-up callback has a 30 s deadline. */
+export const LOG_TAIL_BYTES = 64 * 1024;
 const CHECK_NAME_MAX_CHARS = 100;
 const SEND_TITLE = "Send Failure to Agent";
 
@@ -23,8 +25,25 @@ type LogOutcome = { readonly kind: "log"; readonly excerpt: string } | { readonl
 
 const unavailable = (reason: string): LogOutcome => ({ kind: "unavailable", reason });
 
+/** Where a 206's range starts (the `Content-Range` header is `bytes <start>-<end>/<total>`). */
+const rangeStart = (res: ApiResponse): number | null => {
+  const m = /^bytes (\d+)-/i.exec(res.headers["content-range"] ?? "");
+  return m ? Number(m[1]) : null;
+};
+
+/** A 200 is the whole log (the range was ignored); a 206 is its tail, whose first line may be cut. */
+function logOutcome(res: ApiResponse): LogOutcome {
+  if (res.status !== 206) {
+    return utf8Length(res.text) > MAX_LOG_BYTES ? unavailable("log is larger than 5 MB") : { kind: "log", excerpt: excerptLog(res.text) };
+  }
+  const start = rangeStart(res);
+  const whole = start === 0;
+  const text = whole ? res.text : res.text.slice(res.text.indexOf("\n") + 1);
+  return { kind: "log", excerpt: excerptLog(text) };
+}
+
 /**
- * Fetches the job log. The host follows the 302 to the log host (dropping Authorization on the
+ * Fetches the tail of the job log. The host follows the 302 to the log host (dropping Authorization on the
  * host change); a hop outside the manifest allowlist rejects, which surfaces as Transport.
  * Only Unauthorized and RateLimited are returned as errors; everything else is a fallback reason.
  */
@@ -32,13 +51,13 @@ async function fetchLog(client: GitHubClient, auth: string, ctx: FailureContext)
   const { check, repo } = ctx;
   if (check.source === "status") return ok(unavailable("commit status has no log"));
   if (check.source !== "actions" || check.jobId === null) return ok(unavailable("not a GitHub Actions check"));
-  const res = await client.request("GET", "/repos/" + repo.owner + "/" + repo.repo + "/actions/jobs/" + check.jobId + "/logs", { auth });
-  if (res.ok) {
-    return ok(utf8Length(res.value.text) > MAX_LOG_BYTES ? unavailable("log is larger than 5 MB") : { kind: "log", excerpt: excerptLog(res.value.text) });
-  }
+  const path = "/repos/" + repo.owner + "/" + repo.repo + "/actions/jobs/" + check.jobId + "/logs";
+  const res = await client.request("GET", path, { auth, headers: { Range: "bytes=-" + LOG_TAIL_BYTES } });
+  if (res.ok) return ok(logOutcome(res.value));
   const err = res.error;
   if (err.kind === "Unauthorized" || err.kind === "RateLimited") return res;
   if (err.kind === "Transport") return ok(unavailable("log download failed: " + err.reason));
+  if (err.status === 416) return ok(unavailable("log is empty"));
   return ok(unavailable(err.status === 404 || err.status === 410 ? "log not found or expired" : "log request failed (HTTP " + err.status + ")"));
 }
 

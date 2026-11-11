@@ -37,6 +37,47 @@ describe("sendFailure", () => {
     expect(stub.fetches[0].headers.Authorization).toBe("Bearer tok");
   });
 
+  it("asks only for the last 64 KiB of the log, so the download finishes inside the 30 s follow-up deadline", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", LOG_URL, asResponse(jobLog as never));
+    await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(stub.fetches[0].headers.Range).toBe("bytes=-65536");
+  });
+
+  it("drops the partial first line of a 206 tail", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", LOG_URL, {
+      status: 206,
+      headers: { "content-range": "bytes 1000-1040/1041" },
+      body: "rtial line cut mid-way\nError: boom\nprocess exited 1\n",
+    });
+    const res = await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(res).toMatchObject({ ok: true, value: { text: HEAD + quoteUntrusted("ci-log", "Error: boom\nprocess exited 1") } });
+  });
+
+  it("keeps the first line of a 206 that starts at byte 0, and of a 200 that ignored the range", async () => {
+    const a = setup();
+    a.stub.route("GET", LOG_URL, { status: 206, headers: { "content-range": "bytes 0-20/21" }, body: "first\nsecond\n" });
+    expect(await sendFailure(a.client, "tok", ctx(actionsCheck))).toMatchObject({ value: { text: HEAD + quoteUntrusted("ci-log", "first\nsecond") } });
+    const b = setup();
+    b.stub.route("GET", LOG_URL, { status: 200, body: "first\nsecond\n" });
+    expect(await sendFailure(b.client, "tok", ctx(actionsCheck))).toMatchObject({ value: { text: HEAD + quoteUntrusted("ci-log", "first\nsecond") } });
+  });
+
+  it("serves a log over 5 MB from its tail instead of falling back", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", LOG_URL, { status: 206, headers: { "content-range": "bytes 5242000-5308000/5308001" }, body: "junk\nlast line\n" });
+    const res = await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(res).toMatchObject({ value: { text: HEAD + quoteUntrusted("ci-log", "last line") } });
+  });
+
+  it("falls back with a reason for an empty log (416)", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", LOG_URL, { status: 416, body: "" });
+    const res = await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(res).toMatchObject({ ok: true, value: { text: HEAD + "(log unavailable: log is empty)" } });
+  });
+
   it.each([404, 410])("falls back with a reason when the log returns %i", async (status) => {
     const { stub, client } = setup();
     stub.route("GET", LOG_URL, { status, body: { message: "gone" } });

@@ -73,4 +73,18 @@ describe("host fetch limits", () => {
     const rows = (stub.lastRender(slot) as { sections: Array<{ items: Array<{ subtitle?: string }> }> }).sections[0].items;
     expect(rows.map((r) => r.subtitle)).toEqual(rows.map((_, i) => `#${i + 1} · o/r`));
   });
+
+  it("sends a failure log on the user lane even when the poll lane has spent its 40 requests", async () => {
+    const { stub, agents } = fleet(20);
+    await stub.emit("activate");
+    await Promise.all(agents.map((a) => stub.emit("activate", accessory(a))));
+    await stub.tick(60); // 13 agents x 3 requests = 39 of the poll budget
+    stub.route("GET", `${API}/repos/o/r/actions/jobs/77/logs`, { status: 206, headers: { "content-range": "bytes 0-9/10" }, body: "Error: boom\n" });
+    const result = await stub.emit("callback", "send-failure", {
+      agent: { ...agents[0] }, owner: "o", repo: "r", branch: "feat/agent0", prNumber: 1,
+      check: { id: "77", name: "ci", state: "failure", url: null, source: "actions", jobId: 77 },
+    });
+    expect(result).toMatchObject({ type: "sendToAgent" });
+    expect(stub.hostRejections).toEqual([]);
+  });
 });
