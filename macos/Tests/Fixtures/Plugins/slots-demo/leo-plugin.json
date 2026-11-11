@@ -1,0 +1,12 @@
+{
+  "id": "studio.blackpaw.fixture.slots-demo",
+  "name": "Slots Demo",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "permissions": { "network": [], "secrets": false, "agents": ["read"] },
+  "contributes": {
+    "views": [{ "id": "demo", "title": "Slots Demo", "sfSymbol": "sparkles" }],
+    "rowAccessories": [{ "id": "badge" }]
+  }
+}

@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// What "Show Messages ▸" lists: All Messages, then the agent's known
 /// tasks, with the chat's current filter checked. Pure.
@@ -39,6 +40,13 @@ final class LeoAgentToolbarMenu: NSObject, NSMenuDelegate, NSMenuItemValidation 
         var select: (String?) -> Void
     }
 
+    /// The plugin views to list after the messages filter, and how one opens on the shown agent.
+    struct PluginViews {
+        var entries: () -> [LeoPluginViewEntry]
+        var open: (LeoPluginViewEntry) -> Void
+        static let none = PluginViews(entries: { [] }, open: { _ in })
+    }
+
     static let controlActions: [Selector] = [
         #selector(TerminalController.interruptSelectedLeoAgent(_:)),
         #selector(TerminalController.compactSelectedLeoAgent(_:)),
@@ -50,13 +58,16 @@ final class LeoAgentToolbarMenu: NSObject, NSMenuDelegate, NSMenuItemValidation 
     let menu = NSMenu(title: "More")
     private let mainMenu: () -> NSMenu?
     private let messages: Messages
+    private let pluginViews: PluginViews
+    private var pluginItems: [NSMenuItem] = []
     private let controlItems: [NSMenuItem]
     private let messagesItem: NSMenuItem
     private let messagesMenu = NSMenu(title: showMessagesTitle)
 
-    init(mainMenu: @escaping () -> NSMenu?, messages: Messages) {
+    init(mainMenu: @escaping () -> NSMenu?, messages: Messages, pluginViews: PluginViews = .none) {
         self.mainMenu = mainMenu
         self.messages = messages
+        self.pluginViews = pluginViews
         controlItems = zip(Self.controlActions, Self.fallbackTitles).map { action, title in
             NSMenuItem(title: title, action: action, keyEquivalent: "")
         }
@@ -80,13 +91,14 @@ final class LeoAgentToolbarMenu: NSObject, NSMenuDelegate, NSMenuItemValidation 
         if menu === self.menu {
             refreshControlItems()
             messagesItem.isEnabled = messages.hasAgent()
+            rebuildPluginItems()
         } else if menu === messagesMenu {
             rebuildMessagesMenu()
         }
     }
 
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
-        menuItem === messagesItem ? messages.hasAgent() : true
+        menuItem === messagesItem || pluginItems.contains(menuItem) ? messages.hasAgent() : true
     }
 
     // MARK: Items
@@ -111,6 +123,29 @@ final class LeoAgentToolbarMenu: NSObject, NSMenuDelegate, NSMenuItemValidation 
             messagesMenu.addItem(item)
             if entry.task == nil { messagesMenu.addItem(.separator()) }
         }
+    }
+
+    /// One item per plugin view after the messages filter, enabled for a shown agent.
+    private func rebuildPluginItems() {
+        pluginItems.forEach(menu.removeItem)
+        let entries = pluginViews.entries()
+        pluginItems = entries.map { entry in
+            let item = NSMenuItem(title: entry.title, action: #selector(openPluginView(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = entry
+            item.image = NSImage(systemSymbolName: entry.sfSymbol, accessibilityDescription: nil)
+            item.toolTip = entry.pluginName
+            item.isEnabled = messages.hasAgent()
+            return item
+        }
+        guard !pluginItems.isEmpty else { return }
+        pluginItems.insert(.separator(), at: 0)
+        pluginItems.forEach(menu.addItem)
+    }
+
+    @objc private func openPluginView(_ sender: NSMenuItem) {
+        guard let entry = sender.representedObject as? LeoPluginViewEntry else { return }
+        pluginViews.open(entry)
     }
 
     @objc private func pickMessages(_ sender: NSMenuItem) {

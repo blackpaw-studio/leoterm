@@ -9,6 +9,14 @@ public struct LeoPluginViewEntry: Equatable, Sendable, Identifiable {
     public let sfSymbol: String
 
     public var id: String { "\(pluginID)/\(viewID)" }
+
+    public init(pluginID: String, pluginName: String, viewID: String, title: String, sfSymbol: String) {
+        self.pluginID = pluginID
+        self.pluginName = pluginName
+        self.viewID = viewID
+        self.title = title
+        self.sfSymbol = sfSymbol
+    }
 }
 
 /// The views the toolbar menu and the row context menu list next to Browser

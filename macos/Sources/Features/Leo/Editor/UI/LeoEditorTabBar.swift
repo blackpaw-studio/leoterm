@@ -14,6 +14,12 @@ final class LeoEditorTabBar: NSView {
         let isSelected: Bool
         /// The leading item standing for the agent's browser, drawn with a globe.
         var isBrowser = false
+        /// A leading item standing for a plugin view, drawn with the view's own symbol.
+        var pluginSymbol: String?
+
+        /// A leading item that isn't a file: the browser, or a plugin view.
+        var isPinned: Bool { isBrowser || pluginSymbol != nil }
+        var closeLabel: String { isBrowser ? "Close Browser" : pluginSymbol != nil ? "Close View" : "Close Tab" }
     }
 
     /// The editor's own strip, or the subordinate one under it for an agent
@@ -198,13 +204,18 @@ final class LeoEditorTabButton: NSView {
         titleLabel.stringValue = item.title
         titleLabel.textColor = item.isSelected ? .labelColor : .secondaryLabelColor
         toolTip = item.toolTip
-        iconView.isHidden = !item.isBrowser
-        closeButton.toolTip = item.isBrowser ? "Close Browser" : "Close Tab"
+        iconView.isHidden = !item.isPinned
+        if let symbol = item.pluginSymbol {
+            iconView.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        } else {
+            iconView.image = NSImage(systemSymbolName: "globe", accessibilityDescription: nil)
+        }
+        closeButton.toolTip = item.closeLabel
         // A dot while edited, the close button on hover or while selected.
         let showsDot = item.isDirty && !isHovered
         closeButton.image = NSImage(
             systemSymbolName: showsDot ? "circle.fill" : "xmark",
-            accessibilityDescription: showsDot ? "Edited — Close Tab" : item.isBrowser ? "Close Browser" : "Close Tab"
+            accessibilityDescription: showsDot ? "Edited — Close Tab" : item.closeLabel
         )
         closeButton.symbolConfiguration = .init(pointSize: showsDot ? 7 : NSFont.smallSystemFontSize - 1, weight: .semibold)
         closeButton.alphaValue = item.isSelected || isHovered || item.isDirty ? 1 : 0
