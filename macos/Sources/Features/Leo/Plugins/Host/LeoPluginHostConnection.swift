@@ -62,6 +62,8 @@ final class LeoPluginHostConnection: @unchecked Sendable {
     private var exitSource: DispatchSourceProcess?
     private var pendingTermination: LeoPluginHostTermination?
     private var hasExited = false
+    private var isReadSourceCancelled = false
+    private var isDescriptorClosed = false
 
     init(
         launcher: any LeoPluginHostLauncher,
@@ -169,9 +171,15 @@ final class LeoPluginHostConnection: @unchecked Sendable {
                 self?.queue.async { self?.violation("\(error)") }
             }
         }
-        // The descriptor is closed only after the process is reaped (see
-        // `processExited`), never here: a write racing a close here could land
-        // on a recycled descriptor.
+        // The descriptor is closed only once the source's cancel handler has run
+        // (so no `read` is in flight) and the process is reaped, never from the
+        // event handler: see `closeDescriptorIfReady`.
+        source.setCancelHandler {
+            self.queue.async {
+                self.isReadSourceCancelled = true
+                self.closeDescriptorIfReady()
+            }
+        }
         readSource = source
         readThrottle = throttle
         source.resume()
@@ -224,11 +232,20 @@ final class LeoPluginHostConnection: @unchecked Sendable {
         watchdog?.reset()
         readThrottle?.close()
         readSource = nil
-        // Closing on the write queue waits out any write still in flight.
-        writeQueue.async { close(process.fd) }
+        closeDescriptorIfReady()
         let termination = pendingTermination ?? .crashed(reason: Self.describe(waitStatus: status))
         pendingTermination = termination
         callbackQueue.async { [weak self] in self?.onTermination?(termination) }
+    }
+
+    /// Closes the app's socket end once nothing can still use it: the process
+    /// is reaped (no new writes), the read source's cancel handler has run (no
+    /// read in flight), and, by queueing on the write queue, every write
+    /// already issued has finished. Closing earlier could hit a recycled fd.
+    private func closeDescriptorIfReady() {
+        guard hasExited, isReadSourceCancelled, !isDescriptorClosed, let fd = process?.fd else { return }
+        isDescriptorClosed = true
+        writeQueue.async { close(fd) }
     }
 
     private func killProcess() {
