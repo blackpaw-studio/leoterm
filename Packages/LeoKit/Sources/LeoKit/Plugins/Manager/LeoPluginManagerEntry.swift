@@ -19,6 +19,10 @@ import Foundation
     var supervisor = LeoPluginSupervisor()
     var session: Session?
     var restartTask: Task<Void, Never>?
+    /// Whether any of the plugin's slots is on screen. It outlives a session:
+    /// the slots don't re-report after a restart, a disable/enable or an
+    /// approval reload, so each new session is seeded from this.
+    var isSlotVisible = false
     /// The event that last opened each slot, re-sent after a restart or a Retry.
     var lastEvents: [LeoPluginSlotID: LeoPluginEvent] = [:]
     /// Commands (the bundle load, then each delivered event) the helper hasn't

@@ -65,7 +65,9 @@ extension LeoPluginManager {
 
     /// Whether one of the plugin's slots is on screen (`leo.after` waits for it).
     public func setSlotVisible(plugin id: String, visible: Bool) {
-        entries[id]?.session?.timers.setSlotVisible(visible)
+        guard let entry = entries[id] else { return }
+        entry.isSlotVisible = visible
+        entry.session?.timers.setSlotVisible(visible)
     }
 
     static func declares(_ manifest: LeoPluginManifest, _ slot: LeoPluginSlotID) -> Bool {

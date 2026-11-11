@@ -479,6 +479,67 @@ private let demo = "studio.blackpaw.demo"
         #expect(host.events.contains(.timerFired(id: "t1")))
     }
 
+    // MARK: Slot visibility survives a new session
+
+    @Test func aVisibleSlotStaysVisibleAfterACrashRestartSoAfterStillFires() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        rig.manager.setSlotVisible(plugin: demo, visible: true)
+
+        try #require(rig.hosts.last).crash("boom")
+        await rig.settle()
+        rig.sleeper.releaseAll()
+        await rig.settle()
+        let second = try #require(rig.hosts.last)
+        second.send(.afterStart(id: "a1", seconds: 5))
+        rig.scheduler.fireAll()
+        await rig.settle()
+
+        #expect(second.events.contains(.timerFired(id: "a1")))
+    }
+
+    @Test func aVisibleSlotStaysVisibleAfterDisableThenEnable() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        rig.manager.setSlotVisible(plugin: demo, visible: true)
+
+        try rig.manager.setEnabled(demo, false)
+        try rig.manager.setEnabled(demo, true)
+        let host = try #require(rig.hosts.last)
+        host.send(.afterStart(id: "a1", seconds: 5))
+        rig.scheduler.fireAll()
+        await rig.settle()
+
+        #expect(host.events.contains(.timerFired(id: "a1")))
+    }
+
+    @Test func aSlotThatWentHiddenBeforeTheRestartStaysHidden() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        rig.manager.setSlotVisible(plugin: demo, visible: true)
+        rig.manager.setSlotVisible(plugin: demo, visible: false)
+
+        try #require(rig.hosts.last).crash("boom")
+        await rig.settle()
+        rig.sleeper.releaseAll()
+        await rig.settle()
+        let second = try #require(rig.hosts.last)
+        second.send(.afterStart(id: "a1", seconds: 5))
+        rig.scheduler.fireAll()
+        await rig.settle()
+
+        #expect(!second.events.contains(.timerFired(id: "a1")))
+    }
+
     // MARK: Uninstall
 
     @Test func uninstallStopsTrashesDeletesOnlyItsOwnSecretsAndForgetsThePlugin() async throws {

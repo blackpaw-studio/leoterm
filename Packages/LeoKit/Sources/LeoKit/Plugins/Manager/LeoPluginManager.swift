@@ -328,6 +328,7 @@ public struct LeoPluginManagerDependencies {
                 self.deliver(.timerFired(id: timerID), to: entry)
             }
         }
+        timers.setSlotVisible(entry.isSlotVisible)
         let router = LeoPluginBridgeRouter(
             LeoPluginBridgeRouter.Dependencies(
                 identity: LeoPluginIdentity(id: id, name: manifest.name), manifest: manifest,
