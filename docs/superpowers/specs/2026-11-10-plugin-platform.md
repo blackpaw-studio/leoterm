@@ -57,7 +57,7 @@ Unknown keys, unknown permissions, or `apiVersion` > supported → install refus
 
 **Slot root:** one component, or an ordered array of components drawn stacked. **Accessory** also takes an optional `help` tooltip of at most 80 characters.
 
-**Actions:** `callback(id, payload)` · `pushView(view)` · `openURL(https only)` · `copy(text)` · `sendToAgent(agent, text)` · `spawnAgent({repo, branch, base?, prompt, machine?})`.
+**Actions:** `callback(id, payload)` · `pushView(view)` · `openURL(https only)` · `copy(text)` · `sendToAgent(agent, text)` · `spawnAgent({repo, branch, base?, prompt, machine?, template?})`. Every action takes an optional `title` (≤40 chars) and `sfSymbol`, which Leo shows in menus and the action panel. Without a title, Leo falls back to a default per action kind. The spawn confirmation sheet always has a Template picker filled from the target machine's templates. A plugin's `template` only preselects an entry, and the user must leave a template selected to confirm.
 
 ## Bridge API (`leo` object in JS)
 

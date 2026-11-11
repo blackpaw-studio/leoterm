@@ -476,3 +476,17 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
   - A Sparkle mid-run update can pair a new helper with the old app.
   - All helpers share one sandbox container. Plugins get no file access, so this has no effect.
 - **M2 re-review:** all four fixes resolved. Follow-up: the idle-CPU budget scales with how much time actually passed in each poll window. A fixed 0.5 s budget could kill a plugin by mistake when App Nap stretches the poll gap, and a backgrounded Leo makes that realistic.
+
+### M3 manager review (2026-11-10)
+
+- **Fixing now:**
+  - Spawn sent no template and the daemon refuses that. The spawn sheet gets a Template picker (spec updated).
+  - A dev folder could take over an installed or bundled plugin's discovery. Lookup now goes by record.
+  - An open confirm sheet could still send after its plugin was disabled or uninstalled.
+  - A parent window closing with a sheet open leaked one of the 3 global confirmation slots.
+  - Also bundled into this round: optional action `title`/`sfSymbol`, and the SDK's secrets reply types aligned to the router.
+- **Accepted risks:**
+  - `approveCurrentPermissions` approves the manifest currently on disk. Only a dev manifest edited while its sheet is open could get more than the user saw.
+  - Two approval sheets confirmed at once for the same id from different sources.
+  - A failed move to the Trash during uninstall leaves the record behind with its Keychain already wiped.
+- **M5 must wire** the install flow, updater, uninstall and approval for `needsApproval` plugins, bundled ones included.
