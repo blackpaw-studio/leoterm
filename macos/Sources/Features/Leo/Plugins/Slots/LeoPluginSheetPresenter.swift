@@ -25,7 +25,10 @@ struct LeoPluginSheetPresenter {
         guard !Task.isCancelled, let parent = hostWindow() else { return nil }
         let rendezvous = LeoPluginSheetRendezvous<Value>()
         let finish: (Value?) -> Void = { rendezvous.finish($0) }
-        let window = NSWindow(contentViewController: NSHostingController(rootView: content(finish)))
+        let hosting = NSHostingController(rootView: content(finish))
+        // The default options also track the view's *maximum* size, which inflates a sheet whose text area scrolls.
+        hosting.sizingOptions = [.preferredContentSize]
+        let window = NSWindow(contentViewController: hosting)
         window.styleMask = [.titled]
 
         let observers = [parent, window].map { watched in
