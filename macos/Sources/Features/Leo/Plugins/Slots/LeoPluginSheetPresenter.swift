@@ -37,7 +37,7 @@ struct LeoPluginSheetPresenter {
             observers.forEach(NotificationCenter.default.removeObserver)
             parent.endSheet(window)
         }
-        parent.beginSheet(window)
+        parent.beginSheet(window, completionHandler: nil)
         return await rendezvous.wait()
     }
 }
