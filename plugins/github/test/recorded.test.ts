@@ -49,6 +49,7 @@ describe("recorded responses", () => {
     if (!res.ok) throw new Error("fetchChecks failed");
     expect(res.value.map((c) => [c.name, c.state, c.source])).toEqual([
       ["lint", "success", "actions"],
+      ["test", "failure", "actions"],
     ]);
     expect(res.value.every((c) => c.jobId !== null)).toBe(true);
     expect(combineState(res.value)).toBe("failure");
