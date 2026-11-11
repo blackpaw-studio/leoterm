@@ -15,14 +15,19 @@ struct LeoPluginSidebarSection: View {
 
     var body: some View {
         let expanded = sections.isExpanded(entry)
-        // The title is a row, not the Section's header: SwiftUI's sidebar List
-        // never inserts rows into a section that was empty when it first
-        // appeared, so a collapsed section must still hold one row.
-        Section {
-            header(expanded: expanded)
-                .onAppear { if expanded { sections.ensureLoaded(entry) } }
+        // A real Section header, like Terminals and the machine groups, so the
+        // section reads as top level and not as a subsection of the machine
+        // above it. SwiftUI's sidebar List never inserts rows into a section
+        // that was empty when it first appeared, so a collapsed section holds
+        // one invisible row.
+        Section(header: header(expanded: expanded).onAppear { if expanded { sections.ensureLoaded(entry) } }) {
             if expanded, let surfaces {
                 LeoPluginSectionRowsView(surfaces: surfaces, key: entry.slotKey)
+            } else {
+                Color.clear
+                    .frame(height: 1)
+                    .listRowInsets(EdgeInsets())
+                    .accessibilityHidden(true)
             }
         }
         .collapsible(false)
@@ -33,17 +38,17 @@ struct LeoPluginSidebarSection: View {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
                     .rotationEffect(.degrees(expanded ? 90 : 0))
                     .accessibilityHidden(true)
                 Text(entry.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.primary)
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .font(.caption.weight(.semibold))
-        .foregroundStyle(.secondary)
-        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
         .help(expanded ? "Collapse \(entry.title)" : "Expand \(entry.title)")
         .accessibilityLabel("\(entry.title), \(entry.pluginName)")
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")

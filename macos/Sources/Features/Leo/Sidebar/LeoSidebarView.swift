@@ -265,9 +265,14 @@ struct LeoSidebarView: View {
         // a new window (B-048, D-104). `nil` still shows no selection.
         ScrollViewReader { proxy in
             List<LeoSidebarItemID?, _>(selection: selectionBinding) {
-                ForEach(machines) { machine in machineSection(machine) }
-                if showsTerminals { terminalSection }
-                pluginSections
+                ForEach(topLevelBlocks(machines: machines)) { block in
+                    switch block {
+                    case .machine(let host):
+                        if let machine = machines.first(where: { $0.host == host }) { machineSection(machine) }
+                    case .terminals: terminalSection
+                    case .pluginSection(let id): pluginSection(id: id)
+                    }
+                }
             }
             .listStyle(.sidebar)
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
@@ -389,13 +394,23 @@ struct LeoSidebarView: View {
         LeoTerminalsSection(titles: terminals.titles, terminals: terminals)
     }
 
-    /// Plugin sections below the agents and terminals; hidden while the
-    /// filter (which searches agents) has text.
-    @ViewBuilder private var pluginSections: some View {
-        if let sections = model.pluginSections, !LeoSidebarLayout.isFiltering(model.query) {
-            ForEach(sections.entries) { entry in
-                LeoPluginSidebarSection(sections: sections, slots: sections.host.slots, entry: entry)
-            }
+    /// Plugin section entries, hidden while the filter (which searches
+    /// agents) has text.
+    private var shownPluginEntries: [LeoPluginSidebarSectionEntry] {
+        guard let sections = model.pluginSections, !LeoSidebarLayout.isFiltering(model.query) else { return [] }
+        return sections.entries
+    }
+
+    /// Machines, Terminals, then the app-level plugin sections.
+    private func topLevelBlocks(machines: [LeoMachineSection]) -> [LeoSidebarTopLevel.Block] {
+        LeoSidebarTopLevel.blocks(
+            machines: machines.map(\.host), showsTerminals: showsTerminals, pluginSectionIDs: shownPluginEntries.map(\.id)
+        )
+    }
+
+    @ViewBuilder private func pluginSection(id: String) -> some View {
+        if let sections = model.pluginSections, let entry = shownPluginEntries.first(where: { $0.id == id }) {
+            LeoPluginSidebarSection(sections: sections, slots: sections.host.slots, entry: entry)
         }
     }
 
