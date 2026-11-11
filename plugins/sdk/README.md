@@ -35,7 +35,7 @@ Rejections carry the reason (permission denied, rate limit, …) as the error me
 
 ## Actions
 
-`sendToAgent` and `spawnAgent` are data, not functions. Return them from a list item, form field, or a `callback` handler (one follow-up, within 30 s, only if the callback began with a user gesture). Leo shows an editable confirmation sheet and calls the daemon only after the user confirms. They need `agents: ["send"]` / `["spawn"]` in the manifest.
+`sendToAgent` and `spawnAgent` are data, not functions. Return them from a list item, form field, or a `callback` handler (one follow-up, within 30 s, only if the callback began with a user gesture). Leo shows an editable confirmation sheet and calls the daemon only after the user confirms. They need `agents: ["send"]` / `["spawn"]` in the manifest. The spawn sheet always has a Template picker; `spawnAgent`'s optional `template` only preselects it. Every action takes an optional `title` (≤ 40 characters) and `sfSymbol` for menus and the ⌘↩ panel; the constructors take them as a trailing `label`.
 
 ## Limits
 

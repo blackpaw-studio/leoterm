@@ -12,17 +12,28 @@ export interface SpawnSpec {
   base?: string;
   prompt: string;
   machine?: string;
+  /** Only preselects the sheet's Template picker; the user must leave one selected to confirm. */
+  template?: string;
 }
 
 // ---- Actions ---------------------------------------------------------------
 
-export type Action =
-  | { type: "callback"; id: string; payload?: JSONValue }
-  | { type: "pushView"; node: Node }
-  | { type: "openURL"; url: string }
-  | { type: "copy"; text: string }
-  | { type: "sendToAgent"; agent: AgentRef; text: string }
-  | ({ type: "spawnAgent" } & SpawnSpec);
+/** Optional label for menus and the ⌘↩ action panel. Without them Leo uses a default per action kind. */
+export interface ActionLabel {
+  /** At most 40 characters; longer is rejected. */
+  title?: string;
+  sfSymbol?: string;
+}
+
+export type Action = ActionLabel &
+  (
+    | { type: "callback"; id: string; payload?: JSONValue }
+    | { type: "pushView"; node: Node }
+    | { type: "openURL"; url: string }
+    | { type: "copy"; text: string }
+    | { type: "sendToAgent"; agent: AgentRef; text: string }
+    | ({ type: "spawnAgent" } & SpawnSpec)
+  );
 
 // ---- Component tree --------------------------------------------------------
 // Limits: depth 8, 2000 nodes, unique list item ids, accessory text <= 8 chars,
@@ -131,8 +142,10 @@ export interface Leo {
   fetch(url: string, init?: FetchInit): Promise<FetchResponse>;
   secrets: {
     get(key: string): Promise<string | null>;
-    set(key: string, value: string): Promise<unknown>;
-    delete(key: string): Promise<unknown>;
+    /** Resolves to null. */
+    set(key: string, value: string): Promise<null>;
+    /** Resolves to null, whether or not the key existed. */
+    delete(key: string): Promise<null>;
   };
   agents: { list(): Promise<AgentSnapshot[]> };
   /** Periodic; intervalSec >= 60. */

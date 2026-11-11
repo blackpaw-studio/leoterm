@@ -1,12 +1,14 @@
 // Pure action constructors. They only build JSON; plugin code never performs
 // a send or spawn itself. Leo gates every action (gesture, permission,
 // confirmation sheet).
-import type { Action, AgentRef, JSONValue, Node, SpawnSpec } from "./leo";
+import type { Action, ActionLabel, AgentRef, JSONValue, Node, SpawnSpec } from "./leo";
 
-export const callback = (id: string, payload: JSONValue = null): Action => ({ type: "callback", id, payload });
-export const pushView = (node: Node): Action => ({ type: "pushView", node });
+// Every constructor takes an optional trailing `label` ({ title?, sfSymbol? }) for menus and the action panel.
+export const callback = (id: string, payload: JSONValue = null, label: ActionLabel = {}): Action => ({ type: "callback", id, payload, ...label });
+export const pushView = (node: Node, label: ActionLabel = {}): Action => ({ type: "pushView", node, ...label });
 /** https only; the host rejects other schemes. */
-export const openURL = (url: string): Action => ({ type: "openURL", url });
-export const copy = (text: string): Action => ({ type: "copy", text });
-export const sendToAgent = (agent: AgentRef, text: string): Action => ({ type: "sendToAgent", agent, text });
-export const spawnAgent = (spec: SpawnSpec): Action => ({ type: "spawnAgent", ...spec });
+export const openURL = (url: string, label: ActionLabel = {}): Action => ({ type: "openURL", url, ...label });
+export const copy = (text: string, label: ActionLabel = {}): Action => ({ type: "copy", text, ...label });
+export const sendToAgent = (agent: AgentRef, text: string, label: ActionLabel = {}): Action => ({ type: "sendToAgent", agent, text, ...label });
+/** `spec.template` only preselects the confirmation sheet's Template picker. */
+export const spawnAgent = (spec: SpawnSpec, label: ActionLabel = {}): Action => ({ type: "spawnAgent", ...spec, ...label });
