@@ -2,6 +2,7 @@ import type { Accessory, SlotRoot } from "../../../sdk/leo";
 import type { CheckState } from "../pr/checks";
 
 const MAX_TEXT = 8;
+const MAX_HELP = 80;
 const SYMBOLS: Readonly<Record<CheckState, string>> = {
   success: "checkmark.circle.fill",
   failure: "xmark.circle.fill",
@@ -13,6 +14,8 @@ const SYMBOLS: Readonly<Record<CheckState, string>> = {
 export type ChipModel =
   | { readonly kind: "pr"; readonly number: number; readonly state: CheckState }
   | { readonly kind: "noPr" }
+  /** The last refresh failed; `reason` goes in the tooltip. */
+  | { readonly kind: "error"; readonly reason: string }
   | { readonly kind: "hidden" };
 
 const pad2 = (n: number): string => (n < 10 ? "0" + n : String(n));
@@ -29,6 +32,8 @@ export function accessoryRoot(model: ChipModel, rateLimitedUntil?: number | null
   const chip: Accessory =
     model.kind === "noPr"
       ? { type: "Accessory", text: "no PR", color: "neutral" }
-      : { type: "Accessory", text: ("#" + model.number).slice(0, MAX_TEXT), sfSymbol: SYMBOLS[model.state], color: model.state };
+      : model.kind === "error"
+        ? { type: "Accessory", text: "err", sfSymbol: "exclamationmark.triangle", color: "warning", help: model.reason.slice(0, MAX_HELP) }
+        : { type: "Accessory", text: ("#" + model.number).slice(0, MAX_TEXT), sfSymbol: SYMBOLS[model.state], color: model.state };
   return rateLimitedUntil == null ? chip : { ...chip, help: "Rate limited until " + formatResetTime(rateLimitedUntil) };
 }

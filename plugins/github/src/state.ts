@@ -17,11 +17,13 @@ export interface SlotEntry {
 export interface State {
   readonly agents: ReadonlyMap<string, AgentSnapshot>;
   readonly statuses: ReadonlyMap<string, PrStatus>;
+  /** Why an agent's last refresh failed (HTTP error), by agent key. Cleared by the next good status. */
+  readonly failures: ReadonlyMap<string, string>;
   /** Keyed by the slot's JSON form. */
   readonly slots: ReadonlyMap<string, SlotEntry>;
 }
 
-export const initialState: State = { agents: new Map(), statuses: new Map(), slots: new Map() };
+export const initialState: State = { agents: new Map(), statuses: new Map(), failures: new Map(), slots: new Map() };
 
 export const agentKey = (a: AgentRef): string => a.machine + "/" + a.name;
 export const slotKey = (s: SlotID): string => JSON.stringify(s);
@@ -33,12 +35,20 @@ export const withSlot = (state: State, slot: SlotID, key: string | null): State 
   slots: withEntry(state.slots, slotKey(slot), { slot, agentKey: key }),
 });
 
+/** A good refresh: records the status and clears any earlier failure. */
 export const withStatus = (state: State, key: string, status: PrStatus): State => ({
   ...state,
   statuses: withEntry(state.statuses, key, status),
+  failures: new Map([...state.failures].filter(([k]) => k !== key)),
 });
 
-export const withoutStatuses = (state: State): State => ({ ...state, statuses: new Map() });
+/** A failed refresh. The old status is kept for the view, but the chip must not present it as current. */
+export const withFailure = (state: State, key: string, reason: string): State => ({
+  ...state,
+  failures: withEntry(state.failures, key, reason),
+});
+
+export const withoutStatuses = (state: State): State => ({ ...state, statuses: new Map(), failures: new Map() });
 
 export interface AgentDiff {
   readonly state: State;
@@ -57,8 +67,9 @@ export function withAgents(state: State, list: readonly AgentSnapshot[]): AgentD
   }).map(([k]) => k);
   const gone = (k: string | null): boolean => k !== null && !next.has(k);
   const statuses = new Map([...state.statuses].filter(([k]) => next.has(k) && !changed.includes(k)));
+  const failures = new Map([...state.failures].filter(([k]) => next.has(k) && !changed.includes(k)));
   const slots = new Map([...state.slots].filter(([, e]) => !gone(e.agentKey)));
-  return { state: { agents: next, statuses, slots }, changed };
+  return { state: { agents: next, statuses, failures, slots }, changed };
 }
 
 export const slotsOfKind = (state: State, kind: SlotID["kind"]): SlotEntry[] =>

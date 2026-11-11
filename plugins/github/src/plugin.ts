@@ -7,7 +7,8 @@ import { COMMANDS, VIEW_ID } from "./config";
 import type { Ctx } from "./context";
 import { createGitHubClient, type ApiResponse, type GitHubClient } from "./github/client";
 import { createEtagCache } from "./github/etagCache";
-import type { GitHubError } from "./github/errors";
+import { describeError } from "./github/describe";
+import type { GitHubError, Result } from "./github/errors";
 import { observeClient } from "./github/observed";
 import { fetchAssignedIssues } from "./issues/list";
 import { combineState } from "./pr/checks";
@@ -23,13 +24,25 @@ import {
   withAgents,
   withoutStatuses,
   withSlot,
+  withFailure,
   withStatus,
+  type PrStatus,
   type State,
 } from "./state";
 import { accessoryRoot, type ChipModel } from "./ui/accessory";
 import { retryCommandAction, viewRoot } from "./ui/view";
 
 const POLL_INTERVAL_SEC = 60;
+
+/**
+ * A good refresh replaces the status. An HTTP error marks the chip as failed instead of leaving the old
+ * status looking current. Unauthorized (the session signs out), rate limits (the pause shows) and
+ * transport failures (offline, host limit) keep what's there.
+ */
+const recordRefresh = (state: State, key: string, res: Result<PrStatus>): State => {
+  if (res.ok) return withStatus(state, key, res.value);
+  return res.error.kind === "Http" ? withFailure(state, key, describeError(res.error)) : state;
+};
 const ISSUES_KEY = "issues";
 
 /** Composition root. Everything below takes `leo` and `clock` as parameters. */
@@ -76,6 +89,8 @@ export function createPlugin(leo: Leo, clock: Clock): void {
   // ---- Accessories ----------------------------------------------------------
 
   const chipOf = (key: string): ChipModel => {
+    const failure = state.failures.get(key);
+    if (failure !== undefined) return { kind: "error", reason: failure };
     const status = state.statuses.get(key);
     if (status === undefined || status.kind === "unmapped") return { kind: "hidden" };
     return status.kind === "noPr" ? { kind: "noPr" } : { kind: "pr", number: status.pr.number, state: combineState(status.checks) };
@@ -104,7 +119,7 @@ export function createPlugin(leo: Leo, clock: Clock): void {
     const agent = state.agents.get(key);
     if (auth === null || agent === undefined) return;
     const res = await fetchPrStatus(client, auth, agent);
-    if (res.ok && session.token() === auth) state = withStatus(state, key, res.value);
+    if (session.token() === auth) state = recordRefresh(state, key, res);
     if (session.token() === auth) drawAccessories([key]);
   }
 
@@ -138,7 +153,7 @@ export function createPlugin(leo: Leo, clock: Clock): void {
     });
     if (session.token() !== auth) return;
     cycle.results.forEach((res, key) => {
-      if (res.ok) state = withStatus(state, key, res.value);
+      state = recordRefresh(state, key, res);
     });
     await pollIssues(auth);
     if (session.token() === auth) drawAccessories();

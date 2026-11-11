@@ -315,7 +315,7 @@
   }
 
   // src/state.ts
-  var initialState = { agents: /* @__PURE__ */ new Map(), statuses: /* @__PURE__ */ new Map(), slots: /* @__PURE__ */ new Map() };
+  var initialState = { agents: /* @__PURE__ */ new Map(), statuses: /* @__PURE__ */ new Map(), failures: /* @__PURE__ */ new Map(), slots: /* @__PURE__ */ new Map() };
   var agentKey = (a) => a.machine + "/" + a.name;
   var slotKey2 = (s) => JSON.stringify(s);
   var withEntry = (map, key, value) => new Map(map).set(key, value);
@@ -325,9 +325,14 @@
   });
   var withStatus = (state, key, status) => ({
     ...state,
-    statuses: withEntry(state.statuses, key, status)
+    statuses: withEntry(state.statuses, key, status),
+    failures: new Map([...state.failures].filter(([k]) => k !== key))
   });
-  var withoutStatuses = (state) => ({ ...state, statuses: /* @__PURE__ */ new Map() });
+  var withFailure = (state, key, reason) => ({
+    ...state,
+    failures: withEntry(state.failures, key, reason)
+  });
+  var withoutStatuses = (state) => ({ ...state, statuses: /* @__PURE__ */ new Map(), failures: /* @__PURE__ */ new Map() });
   var sameBranch = (a, b) => a.repo === b.repo && a.branch === b.branch;
   function withAgents(state, list) {
     const next = new Map(list.map((a) => [agentKey(a), a]));
@@ -337,8 +342,9 @@
     }).map(([k]) => k);
     const gone = (k) => k !== null && !next.has(k);
     const statuses = new Map([...state.statuses].filter(([k]) => next.has(k) && !changed.includes(k)));
+    const failures = new Map([...state.failures].filter(([k]) => next.has(k) && !changed.includes(k)));
     const slots = new Map([...state.slots].filter(([, e]) => !gone(e.agentKey)));
-    return { state: { agents: next, statuses, slots }, changed };
+    return { state: { agents: next, statuses, failures, slots }, changed };
   }
   var slotsOfKind = (state, kind) => [...state.slots.values()].filter((e) => e.slot.kind === kind);
   var slotsForAgent = (state, key, kind) => slotsOfKind(state, kind).filter((e) => e.agentKey === key);
@@ -738,6 +744,7 @@ ${UNTRUSTED_NOTICE}`;
 
   // src/ui/accessory.ts
   var MAX_TEXT = 8;
+  var MAX_HELP = 80;
   var SYMBOLS = {
     success: "checkmark.circle.fill",
     failure: "xmark.circle.fill",
@@ -751,7 +758,7 @@ ${UNTRUSTED_NOTICE}`;
   }
   function accessoryRoot(model, rateLimitedUntil) {
     if (model.kind === "hidden") return [];
-    const chip = model.kind === "noPr" ? { type: "Accessory", text: "no PR", color: "neutral" } : { type: "Accessory", text: ("#" + model.number).slice(0, MAX_TEXT), sfSymbol: SYMBOLS[model.state], color: model.state };
+    const chip = model.kind === "noPr" ? { type: "Accessory", text: "no PR", color: "neutral" } : model.kind === "error" ? { type: "Accessory", text: "err", sfSymbol: "exclamationmark.triangle", color: "warning", help: model.reason.slice(0, MAX_HELP) } : { type: "Accessory", text: ("#" + model.number).slice(0, MAX_TEXT), sfSymbol: SYMBOLS[model.state], color: model.state };
     return rateLimitedUntil == null ? chip : { ...chip, help: "Rate limited until " + formatResetTime(rateLimitedUntil) };
   }
 
@@ -1368,6 +1375,10 @@ ${flags.join(" \xB7 ")}${link}` };
 
   // src/plugin.ts
   var POLL_INTERVAL_SEC = 60;
+  var recordRefresh = (state, key, res) => {
+    if (res.ok) return withStatus(state, key, res.value);
+    return res.error.kind === "Http" ? withFailure(state, key, describeError(res.error)) : state;
+  };
   var ISSUES_KEY = "issues";
   function createPlugin(leo2, clock) {
     const scheduler = createScheduler(clock);
@@ -1400,6 +1411,8 @@ ${flags.join(" \xB7 ")}${link}` };
       session.track(slot);
     };
     const chipOf = (key) => {
+      const failure = state.failures.get(key);
+      if (failure !== void 0) return { kind: "error", reason: failure };
       const status = state.statuses.get(key);
       if (status === void 0 || status.kind === "unmapped") return { kind: "hidden" };
       return status.kind === "noPr" ? { kind: "noPr" } : { kind: "pr", number: status.pr.number, state: combineState(status.checks) };
@@ -1422,7 +1435,7 @@ ${flags.join(" \xB7 ")}${link}` };
       const agent = state.agents.get(key);
       if (auth === null || agent === void 0) return;
       const res = await fetchPrStatus(client, auth, agent);
-      if (res.ok && session.token() === auth) state = withStatus(state, key, res.value);
+      if (session.token() === auth) state = recordRefresh(state, key, res);
       if (session.token() === auth) drawAccessories([key]);
     }
     const hasSlots = (key) => slotsForAgent(state, key, "accessory").length + slotsForAgent(state, key, "view").length > 0;
@@ -1450,7 +1463,7 @@ ${flags.join(" \xB7 ")}${link}` };
       });
       if (session.token() !== auth) return;
       cycle.results.forEach((res, key) => {
-        if (res.ok) state = withStatus(state, key, res.value);
+        state = recordRefresh(state, key, res);
       });
       await pollIssues(auth);
       if (session.token() === auth) drawAccessories();

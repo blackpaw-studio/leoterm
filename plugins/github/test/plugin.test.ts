@@ -106,6 +106,44 @@ describe("polling", () => {
     expect(stub.lastRender(accessory(alpha))).toMatchObject({ text: "#12", color: "success" });
   });
 
+  it("shows an error chip with the reason when a poll fails with an HTTP error, not the old status", async () => {
+    const stub = setup();
+    await activateAll(stub);
+    expect(stub.lastRender(accessory(alpha))).toMatchObject({ text: "#12", color: "failure" });
+    stub.route("GET", PULLS, { status: 404, body: { message: "Not Found" } });
+    await stub.tick(60);
+    expect(stub.lastRender(accessory(alpha))).toMatchObject({ type: "Accessory", text: "err", color: "warning", help: "GitHub returned 404." });
+    noLimitProblems(stub);
+  });
+
+  it("recovers from the error chip on the next good poll", async () => {
+    const stub = setup();
+    await activateAll(stub);
+    stub.route("GET", PULLS, { status: 500, body: {} }, asResponse(pullsOpen as never));
+    await stub.tick(60);
+    expect(stub.lastRender(accessory(alpha))).toMatchObject({ text: "err" });
+    await stub.tick(60);
+    expect(stub.lastRender(accessory(alpha))).toMatchObject({ text: "#12", color: "failure" });
+    expect((stub.lastRender(accessory(alpha)) as { help?: string }).help).toBeUndefined();
+  });
+
+  it("keeps the last status through a transport failure", async () => {
+    const stub = setup();
+    await activateAll(stub);
+    stub.route("GET", PULLS, { reject: "offline" });
+    await stub.tick(60);
+    expect(stub.lastRender(accessory(alpha))).toMatchObject({ text: "#12", color: "failure" });
+  });
+
+  it("shows the error chip when the refresh on branch change fails too", async () => {
+    const stub = setup();
+    await activateAll(stub);
+    stub.route("GET", API + "/repos/o/r/pulls?head=o:other&state=open&per_page=10", { status: 403, body: { message: "Forbidden" } });
+    stub.setAgents([snap(alpha, "o/r", "other"), AGENTS[1]]);
+    await stub.emit("agentsChanged");
+    expect(stub.lastRender(accessory(alpha))).toMatchObject({ text: "err", color: "warning" });
+  });
+
   it("drops an agent's slot when it leaves the list", async () => {
     const stub = setup();
     await activateAll(stub);
