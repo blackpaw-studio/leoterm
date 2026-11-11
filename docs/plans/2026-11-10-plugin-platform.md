@@ -432,3 +432,9 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
 - **Accepted risks:**
   - Concurrent gesture redemption. All callers are `@MainActor` in the app, so two racing redemptions can't happen in practice.
   - JS rewriting bridge envelopes through `toJSON`. Step 3.6 must resolve callback refs against live, single-use records scoped to the plugin and its host session, and must never trust the envelope.
+
+### M2 notes for M3 (2026-11-10)
+
+- Step 3.6: the manager calls `LeoPluginHostOrphanReaper` once at launch, before spawning any helper.
+- The helper sends a `{"done":1}` frame after each command so the watchdog can time handlers.
+- Hardened runtime on the helper relies on the release workflows re-signing it with `-o runtime`, because ad-hoc local builds drop the flag.
