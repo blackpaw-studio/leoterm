@@ -166,8 +166,8 @@ public struct LeoPluginGitInstaller: Sendable {
         guard FileManager.default.fileExists(atPath: file.path) else { throw LeoPluginInstallError.manifestMissing }
         let data: Data
         do {
-            data = try readRegularFile(file, within: staging, maxBytes: LeoPluginManifestValidator.maxManifestBytes)
-        } catch let reason as FileRefusal {
+            data = try LeoPluginBundleFile.read(file, within: staging, maxBytes: LeoPluginManifestValidator.maxManifestBytes)
+        } catch let reason as LeoPluginBundleFile.Refusal {
             throw LeoPluginInstallError.manifestRefused(reason.message)
         }
         switch LeoPluginManifestValidator.validate(data) {
@@ -178,33 +178,10 @@ public struct LeoPluginGitInstaller: Sendable {
 
     private static func checkMain(_ main: String, in staging: URL) throws {
         do {
-            _ = try regularFile(staging.appendingPathComponent(main), within: staging, maxBytes: maxMainBytes)
-        } catch let reason as FileRefusal {
+            _ = try LeoPluginBundleFile.regularFile(staging.appendingPathComponent(main), within: staging, maxBytes: maxMainBytes)
+        } catch let reason as LeoPluginBundleFile.Refusal {
             throw LeoPluginInstallError.mainUnusable(reason.message)
         }
-    }
-
-    private struct FileRefusal: Error { let message: String }
-
-    /// Resolves symlinks, then requires a regular file strictly inside `folder`
-    /// no larger than `maxBytes`.
-    private static func regularFile(_ file: URL, within folder: URL, maxBytes: Int) throws -> URL {
-        let resolved = file.resolvingSymlinksInPath()
-        guard LeoPluginPathContainment.isContained(resolved: resolved, in: folder.resolvingSymlinksInPath()) else {
-            throw FileRefusal(message: "it resolves outside the plugin folder")
-        }
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: resolved.path),
-            attributes[.type] as? FileAttributeType == .typeRegular
-        else { throw FileRefusal(message: "it is not a regular file") }
-        let size = (attributes[.size] as? NSNumber)?.intValue ?? Int.max
-        guard size <= maxBytes else { throw FileRefusal(message: "it is larger than \(maxBytes / 1024 / 1024) MB") }
-        return resolved
-    }
-
-    private static func readRegularFile(_ file: URL, within folder: URL, maxBytes: Int) throws -> Data {
-        let resolved = try regularFile(file, within: folder, maxBytes: maxBytes)
-        guard let data = try? Data(contentsOf: resolved) else { throw FileRefusal(message: "it can't be read") }
-        return data
     }
 
     // MARK: - Place
