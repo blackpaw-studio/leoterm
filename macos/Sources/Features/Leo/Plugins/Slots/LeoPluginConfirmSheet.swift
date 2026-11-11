@@ -21,7 +21,7 @@ struct LeoPluginSendSheet: View {
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextEditor(text: $text)
                 .font(.body.monospaced())
-                .frame(minWidth: 420, minHeight: 140)
+                .frame(minWidth: 420, minHeight: 140, idealHeight: 260, maxHeight: 360)
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
             HStack {
                 Spacer()
@@ -83,7 +83,7 @@ struct LeoPluginSpawnSheet: View {
                     Text("Prompt")
                     TextEditor(text: $prompt)
                         .font(.body.monospaced())
-                        .frame(minHeight: 100)
+                        .frame(minHeight: 100, idealHeight: 160, maxHeight: 260)
                         .overlay(RoundedRectangle(cornerRadius: 6).stroke(.quaternary))
                 }
             }
