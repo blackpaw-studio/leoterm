@@ -27,13 +27,15 @@ public enum LeoPluginTimerError: Error, Equatable, LocalizedError, Sendable {
 /// The timers of one plugin host (`leo.timer` and `leo.after`). Create one per
 /// host and call ``stopAll()`` when the host stops.
 ///
-/// - Periodic timers (≥ 60 s) fire for as long as the app runs.
+/// - Periodic timers (60 s – 7 days; longer is clamped) fire for as long as the app runs.
 /// - One-shots (`after`, ≥ 1 s) run only while one of the plugin's slots is
 ///   visible: one that elapses while none is waits and fires when a slot
 ///   becomes visible again.
 public final class LeoPluginTimers: @unchecked Sendable {
     public static let minimumInterval: TimeInterval = 60
     public static let minimumDelay: TimeInterval = 1
+    /// Longer intervals and delays are clamped to this (7 days), so no caller input can overflow the scheduler.
+    public static let maximumInterval: TimeInterval = 7 * 24 * 3600
     public static let maxTimers = 16
 
     private struct Entry {
@@ -61,14 +63,14 @@ public final class LeoPluginTimers: @unchecked Sendable {
         guard seconds.isFinite, seconds >= Self.minimumInterval else {
             throw LeoPluginTimerError.intervalTooShort(minimum: Self.minimumInterval)
         }
-        try start(id: id, seconds: seconds, isOneShot: false)
+        try start(id: id, seconds: min(seconds, Self.maximumInterval), isOneShot: false)
     }
 
     public func startAfter(id: String, seconds: TimeInterval) throws {
         guard seconds.isFinite, seconds >= Self.minimumDelay else {
             throw LeoPluginTimerError.delayTooShort(minimum: Self.minimumDelay)
         }
-        try start(id: id, seconds: seconds, isOneShot: true)
+        try start(id: id, seconds: min(seconds, Self.maximumInterval), isOneShot: true)
     }
 
     public func stop(id: String) {
@@ -143,10 +145,19 @@ public struct LeoPluginDispatchTimerScheduler: LeoPluginTimerScheduling {
 
     public func schedule(after delay: TimeInterval, repeating: Bool, _ action: @escaping @Sendable () -> Void) -> any LeoPluginTimerHandle {
         let source = DispatchSource.makeTimerSource(queue: queue)
-        source.schedule(deadline: .now() + delay, repeating: repeating ? .seconds(Int(delay)) : .never, leeway: .milliseconds(250))
+        let interval = DispatchTimeInterval.milliseconds(Self.intervalMilliseconds(for: delay))
+        source.schedule(deadline: .now() + interval, repeating: repeating ? interval : .never, leeway: .milliseconds(250))
         source.setEventHandler(handler: action)
         source.resume()
         return DispatchHandle(source: source)
+    }
+
+    /// `seconds` as whole milliseconds, bounds-checked: NaN and anything below
+    /// 1 ms become 1 ms, anything above the 7-day maximum becomes the maximum.
+    static func intervalMilliseconds(for seconds: TimeInterval) -> Int {
+        guard !seconds.isNaN else { return 1 }
+        let maximum = Int(LeoPluginTimers.maximumInterval * 1000)
+        return Int((seconds * 1000).clamped(to: 1...Double(maximum)))
     }
 
     private final class DispatchHandle: LeoPluginTimerHandle, @unchecked Sendable {
@@ -154,4 +165,8 @@ public struct LeoPluginDispatchTimerScheduler: LeoPluginTimerScheduling {
         init(source: DispatchSourceTimer) { self.source = source }
         func cancel() { source.cancel() }
     }
+}
+
+extension Double {
+    fileprivate func clamped(to range: ClosedRange<Double>) -> Double { Swift.min(Swift.max(self, range.lowerBound), range.upperBound) }
 }

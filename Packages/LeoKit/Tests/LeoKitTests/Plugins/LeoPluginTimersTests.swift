@@ -66,6 +66,37 @@ struct LeoPluginTimersTests {
         #expect(throws: LeoPluginTimerError.self) { try timers.startAfter(id: "t", seconds: seconds) }
     }
 
+    @Test(arguments: [1e19, Double.greatestFiniteMagnitude, 604_800.5, 604_801])
+    func clampsAnOversizedIntervalOrDelayToSevenDays(seconds: Double) throws {
+        let scheduler = ManualScheduler()
+        let timers = makeTimers(scheduler, Fired())
+        try timers.startPeriodic(id: "p", seconds: seconds)
+        try timers.startAfter(id: "a", seconds: seconds)
+        #expect(scheduler.live.map(\.delay) == [LeoPluginTimers.maximumInterval, LeoPluginTimers.maximumInterval])
+        #expect(LeoPluginTimers.maximumInterval == 7 * 24 * 3600)
+    }
+
+    @Test func acceptsTheExactEdges() throws {
+        let scheduler = ManualScheduler()
+        let timers = makeTimers(scheduler, Fired())
+        try timers.startPeriodic(id: "lo", seconds: 60)
+        try timers.startPeriodic(id: "hi", seconds: 604_800)
+        try timers.startAfter(id: "alo", seconds: 1)
+        try timers.startAfter(id: "ahi", seconds: 604_800)
+        #expect(scheduler.live.map(\.delay) == [60, 604_800, 1, 604_800])
+    }
+
+    @Test(arguments: [1e19, Double.infinity, -Double.infinity, Double.nan, -1e19, 0, 604_800, 0.0004, 60.0004])
+    func theDispatchSchedulerBuildsIntervalsFromBoundedMilliseconds(seconds: Double) {
+        let milliseconds = LeoPluginDispatchTimerScheduler.intervalMilliseconds(for: seconds)
+        #expect((1...604_800_000).contains(milliseconds))
+    }
+
+    @Test func theRealSchedulerSurvivesAHugeDelay() {
+        let handle = LeoPluginDispatchTimerScheduler().schedule(after: 1e19, repeating: true) {}
+        handle.cancel()
+    }
+
     @Test func aOneShotFiresOnceAndThenForgetsItself() throws {
         let scheduler = ManualScheduler()
         let fired = Fired()
