@@ -594,6 +594,10 @@ ${capBody(issue.body)}`);
   var CHECK_NAME_MAX_CHARS = 100;
   var SEND_TITLE = "Send Failure to Agent";
   var unavailable = (reason) => ({ kind: "unavailable", reason });
+  var rangeTotal = (res) => {
+    const m = /\/(\d+)$/.exec((res.headers["content-range"] ?? "").trim());
+    return m ? Number(m[1]) : null;
+  };
   var rangeStart = (res) => {
     const m = /^bytes (\d+)-/i.exec(res.headers["content-range"] ?? "");
     return m ? Number(m[1]) : null;
@@ -612,7 +616,9 @@ ${capBody(issue.body)}`);
     if (check.source === "status") return ok(unavailable("commit status has no log"));
     if (check.source !== "actions" || check.jobId === null) return ok(unavailable("not a GitHub Actions check"));
     const path = "/repos/" + repo.owner + "/" + repo.repo + "/actions/jobs/" + check.jobId + "/logs";
-    const res = await client.request("GET", path, { auth, headers: { Range: "bytes=-" + LOG_TAIL_BYTES } });
+    const ranged = (range) => client.request("GET", path, { auth, headers: { Range: range } });
+    const probe = await ranged("bytes=0-0");
+    const res = probe.ok && probe.value.status === 206 ? await ranged(tailRange(probe.value)) : probe;
     if (res.ok) return ok(logOutcome(res.value));
     const err = res.error;
     if (err.kind === "Unauthorized" || err.kind === "RateLimited") return res;
@@ -620,6 +626,7 @@ ${capBody(issue.body)}`);
     if (err.status === 416) return ok(unavailable("log is empty"));
     return ok(unavailable(err.status === 404 || err.status === 410 ? "log not found or expired" : "log request failed (HTTP " + err.status + ")"));
   }
+  var tailRange = (probe) => "bytes=" + Math.max(0, (rangeTotal(probe) ?? 0) - LOG_TAIL_BYTES) + "-";
   function buildMessage(ctx, outcome) {
     const { check, repo, branch, prNumber } = ctx;
     const name = plainText(check.name).slice(0, CHECK_NAME_MAX_CHARS);

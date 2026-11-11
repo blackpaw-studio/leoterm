@@ -25,6 +25,12 @@ type LogOutcome = { readonly kind: "log"; readonly excerpt: string } | { readonl
 
 const unavailable = (reason: string): LogOutcome => ({ kind: "unavailable", reason });
 
+/** The log's total size from a 206's `Content-Range` (`bytes <start>-<end>/<total>`). */
+const rangeTotal = (res: ApiResponse): number | null => {
+  const m = /\/(\d+)$/.exec((res.headers["content-range"] ?? "").trim());
+  return m ? Number(m[1]) : null;
+};
+
 /** Where a 206's range starts (the `Content-Range` header is `bytes <start>-<end>/<total>`). */
 const rangeStart = (res: ApiResponse): number | null => {
   const m = /^bytes (\d+)-/i.exec(res.headers["content-range"] ?? "");
@@ -46,13 +52,20 @@ function logOutcome(res: ApiResponse): LogOutcome {
  * Fetches the tail of the job log. The host follows the 302 to the log host (dropping Authorization on the
  * host change); a hop outside the manifest allowlist rejects, which surfaces as Transport.
  * Only Unauthorized and RateLimited are returned as errors; everything else is a fallback reason.
+ *
+ * Azure blob storage (the log host) answers `bytes=N-` and `bytes=a-b` with 206 but ignores a suffix range
+ * (`bytes=-N`) and sends the whole log, so the tail takes two requests: a `bytes=0-0` probe whose
+ * Content-Range gives the size, then `bytes=<size - tail>-`. A host that ignores ranges answers the probe
+ * with a 200, which is already the whole log.
  */
 async function fetchLog(client: GitHubClient, auth: string, ctx: FailureContext): Promise<Result<LogOutcome>> {
   const { check, repo } = ctx;
   if (check.source === "status") return ok(unavailable("commit status has no log"));
   if (check.source !== "actions" || check.jobId === null) return ok(unavailable("not a GitHub Actions check"));
   const path = "/repos/" + repo.owner + "/" + repo.repo + "/actions/jobs/" + check.jobId + "/logs";
-  const res = await client.request("GET", path, { auth, headers: { Range: "bytes=-" + LOG_TAIL_BYTES } });
+  const ranged = (range: string) => client.request("GET", path, { auth, headers: { Range: range } });
+  const probe = await ranged("bytes=0-0");
+  const res = probe.ok && probe.value.status === 206 ? await ranged(tailRange(probe.value)) : probe;
   if (res.ok) return ok(logOutcome(res.value));
   const err = res.error;
   if (err.kind === "Unauthorized" || err.kind === "RateLimited") return res;
@@ -60,6 +73,9 @@ async function fetchLog(client: GitHubClient, auth: string, ctx: FailureContext)
   if (err.status === 416) return ok(unavailable("log is empty"));
   return ok(unavailable(err.status === 404 || err.status === 410 ? "log not found or expired" : "log request failed (HTTP " + err.status + ")"));
 }
+
+/** `bytes=<first byte of the last LOG_TAIL_BYTES>-`; the whole log (`bytes=0-`) when the size is unknown or small. */
+const tailRange = (probe: ApiResponse): string => "bytes=" + Math.max(0, (rangeTotal(probe) ?? 0) - LOG_TAIL_BYTES) + "-";
 
 function buildMessage(ctx: FailureContext, outcome: LogOutcome): string {
   const { check, repo, branch, prNumber } = ctx;

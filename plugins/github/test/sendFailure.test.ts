@@ -18,6 +18,8 @@ const setup = () => {
   const stub = createStubLeo();
   return { stub, client: createGitHubClient(stub.leo, stub.clock) };
 };
+/** The `bytes=0-0` probe: a 206 whose Content-Range carries the log's total size. */
+const probe = (total: number) => ({ status: 206, headers: { "content-range": "bytes 0-0/" + total }, body: "x" });
 const HEAD = 'Check "test" failed on PR #12 (o/r@feat/x)\n' + URL + "\n\n";
 
 describe("sendFailure", () => {
@@ -39,14 +41,29 @@ describe("sendFailure", () => {
 
   it("asks only for the last 64 KiB of the log, so the download finishes inside the 30 s follow-up deadline", async () => {
     const { stub, client } = setup();
-    stub.route("GET", LOG_URL, asResponse(jobLog as never));
+    stub.route("GET", LOG_URL, probe(300_000), { status: 206, headers: { "content-range": "bytes 234464-299999/300000" }, body: "x\nlast\n" });
     await sendFailure(client, "tok", ctx(actionsCheck));
-    expect(stub.fetches[0].headers.Range).toBe("bytes=-65536");
+    expect(stub.fetches.map((f) => f.headers.Range)).toEqual(["bytes=0-0", "bytes=234464-"]);
+  });
+
+  it("never uses a suffix range: Azure blob storage ignores `bytes=-N` and answers 200 with the whole log", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", LOG_URL, probe(300_000), { status: 206, headers: { "content-range": "bytes 234464-299999/300000" }, body: "x\nlast\n" });
+    await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(stub.fetches.every((f) => !/^bytes=-/.test(f.headers.Range ?? ""))).toBe(true);
+  });
+
+  it("reads a log smaller than the tail from byte 0", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", LOG_URL, probe(3177), { status: 206, headers: { "content-range": "bytes 0-3176/3177" }, body: "first\nsecond\n" });
+    const res = await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(stub.fetches.map((f) => f.headers.Range)).toEqual(["bytes=0-0", "bytes=0-"]);
+    expect(res).toMatchObject({ value: { text: HEAD + quoteUntrusted("ci-log", "first\nsecond") } });
   });
 
   it("drops the partial first line of a 206 tail", async () => {
     const { stub, client } = setup();
-    stub.route("GET", LOG_URL, {
+    stub.route("GET", LOG_URL, probe(1041), {
       status: 206,
       headers: { "content-range": "bytes 1000-1040/1041" },
       body: "rtial line cut mid-way\nError: boom\nprocess exited 1\n",
@@ -57,7 +74,7 @@ describe("sendFailure", () => {
 
   it("keeps the first line of a 206 that starts at byte 0, and of a 200 that ignored the range", async () => {
     const a = setup();
-    a.stub.route("GET", LOG_URL, { status: 206, headers: { "content-range": "bytes 0-20/21" }, body: "first\nsecond\n" });
+    a.stub.route("GET", LOG_URL, probe(21), { status: 206, headers: { "content-range": "bytes 0-20/21" }, body: "first\nsecond\n" });
     expect(await sendFailure(a.client, "tok", ctx(actionsCheck))).toMatchObject({ value: { text: HEAD + quoteUntrusted("ci-log", "first\nsecond") } });
     const b = setup();
     b.stub.route("GET", LOG_URL, { status: 200, body: "first\nsecond\n" });
@@ -66,8 +83,9 @@ describe("sendFailure", () => {
 
   it("serves a log over 5 MB from its tail instead of falling back", async () => {
     const { stub, client } = setup();
-    stub.route("GET", LOG_URL, { status: 206, headers: { "content-range": "bytes 5242000-5308000/5308001" }, body: "junk\nlast line\n" });
+    stub.route("GET", LOG_URL, probe(5308001), { status: 206, headers: { "content-range": "bytes 5242465-5308000/5308001" }, body: "junk\nlast line\n" });
     const res = await sendFailure(client, "tok", ctx(actionsCheck));
+    expect(stub.fetches[1].headers.Range).toBe("bytes=5242465-");
     expect(res).toMatchObject({ value: { text: HEAD + quoteUntrusted("ci-log", "last line") } });
   });
 

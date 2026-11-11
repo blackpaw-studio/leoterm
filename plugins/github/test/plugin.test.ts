@@ -216,7 +216,7 @@ describe("view", () => {
     const send = asCallback(item.actions?.[0]);
     const result = await stub.emit("callback", send.id, send.payload);
     expect(result).toMatchObject({ type: "sendToAgent", agent: alpha });
-    expect(stub.fetches.find((f) => f.url === LOG)?.headers.Range).toBe("bytes=-65536");
+    expect(stub.fetches.find((f) => f.url === LOG)?.headers.Range).toBe("bytes=0-0");
     expect((result as { text: string }).text).toContain('Check "test" failed on PR #12 (o/r@feat/x)');
     expect((result as { text: string }).text).toContain("Error: boom");
     expect(itemsOf(nodes(stub.lastRender(view(alpha)))[1]).find((i) => i.title === "build")?.actions?.[0]).toMatchObject({ type: "openURL" });
