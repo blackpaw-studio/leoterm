@@ -129,6 +129,25 @@ struct LeoPluginWatchdogTests {
         #expect(reason.contains("idle"))
     }
 
+    @Test func idleCPUBudgetScalesWithAStretchedPollGap() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        _ = dog.poll(at: 0)
+        usage.cpu += 0.6  // 5% of a 12 s gap (App Nap / timer coalescing)
+        #expect(dog.poll(at: 12) == .ok)
+    }
+
+    @Test func idleCPUOverTheRateInANormalGapKills() {
+        let usage = FakeUsage()
+        var dog = makeWatchdog(usage)
+        _ = dog.poll(at: 0)
+        usage.cpu += 0.6  // 60% of a 1 s gap
+        guard case .kill = dog.poll(at: 1) else {
+            Issue.record("expected kill")
+            return
+        }
+    }
+
     @Test func idleCPUIsMeasuredPerWindowNotCumulatively() {
         let usage = FakeUsage()
         var dog = makeWatchdog(usage)

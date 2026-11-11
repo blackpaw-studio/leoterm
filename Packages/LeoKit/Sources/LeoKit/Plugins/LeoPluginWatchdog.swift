@@ -50,6 +50,8 @@ public struct LeoPluginWatchdog {
     /// CPU seconds the helper may burn per idle window with no handler pending.
     public static let idleCPUBudgetSeconds: Double = 0.5
     public static let idleCPUWindow: TimeInterval = 1
+    /// Smallest idle allowance, so a tiny gap can't turn timer noise into a kill.
+    public static let idleCPUFloorSeconds: Double = 0.05
 
     private let readUsage: () -> LeoPluginUsage?
     private let cpuBudgetSeconds: Double
@@ -131,7 +133,11 @@ public struct LeoPluginWatchdog {
         }
         guard now - baseline.at >= idleCPUWindow else { return nil }
         idleBaseline = (usage.cpuSeconds, now)
-        guard usage.cpuSeconds - baseline.cpu > idleCPUBudgetSeconds else { return nil }
+        // A rate, not an absolute: a poll gap stretched by App Nap or timer
+        // coalescing earns proportionally more CPU before it counts as a loop.
+        let gap = now - baseline.at
+        let allowed = max(Self.idleCPUFloorSeconds, idleCPUBudgetSeconds / idleCPUWindow * gap)
+        guard usage.cpuSeconds - baseline.cpu > allowed else { return nil }
         return .kill(reason: "host used CPU while idle (no handler running)")
     }
 
