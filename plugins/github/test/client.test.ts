@@ -83,6 +83,36 @@ describe("request", () => {
     });
   });
 
+  it.each([403, 429])("treats a %i secondary limit (no retry-after, remaining > 0, body says rate limit) as RateLimited with a 60 s default", async (status) => {
+    const { stub, client } = setup();
+    stub.route("GET", API + "/x", {
+      status,
+      headers: { "x-ratelimit-remaining": "12" },
+      body: { message: "You have exceeded a secondary Rate Limit. Please wait a few minutes before you try again." },
+    });
+    expect(errorOf(await client.request("GET", "/x", { auth: "tok" }))).toEqual({ kind: "RateLimited", resetAt: START_MS + 60_000 });
+  });
+
+  it("matches 'rate limit' case-insensitively and also when the headers are absent", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", API + "/x", { status: 403, body: "was RATE LIMITED, slow down" });
+    expect(errorOf(await client.request("GET", "/x", { auth: "tok" }))).toEqual({ kind: "RateLimited", resetAt: START_MS + 60_000 });
+  });
+
+  it("honours retry-after over the default on a secondary limit", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", API + "/x", { status: 403, headers: { "retry-after": "90", "x-ratelimit-remaining": "5" }, body: "rate limit" });
+    expect(errorOf(await client.request("GET", "/x", { auth: "tok" }))).toEqual({ kind: "RateLimited", resetAt: START_MS + 90_000 });
+  });
+
+  it("does not treat a 422 or a 403 without the phrase as rate limited", async () => {
+    const { stub, client } = setup();
+    stub.route("GET", API + "/a", { status: 422, body: "rate limit" });
+    stub.route("GET", API + "/b", { status: 403, headers: { "x-ratelimit-remaining": "9" }, body: "Resource not accessible by integration" });
+    expect(errorOf(await client.request("GET", "/a", { auth: "tok" }))?.kind).toBe("Http");
+    expect(errorOf(await client.request("GET", "/b", { auth: "tok" }))?.kind).toBe("Http");
+  });
+
   it("classifies other statuses as Http with the body text", async () => {
     const { stub, client } = setup();
     stub.route("GET", API + "/x", { status: 422, body: { message: "Validation Failed" } });

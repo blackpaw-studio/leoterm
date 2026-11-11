@@ -1113,9 +1113,10 @@ ${flags.join(" \xB7 ")}${link}` };
     const seconds = Number.isFinite(retry) && retry >= 0 ? retry : DEFAULT_RETRY_AFTER_SEC;
     return nowMs + seconds * 1e3;
   };
+  var mentionsRateLimit = (text) => /rate limit/i.test(text);
   var classify = (status, headers, text, nowMs) => {
     if (status === 401) return unauthorized();
-    const limited = (status === 403 || status === 429) && (isExhausted(headers) || headers["retry-after"] !== void 0);
+    const limited = (status === 403 || status === 429) && (isExhausted(headers) || headers["retry-after"] !== void 0 || mentionsRateLimit(text));
     return limited ? rateLimited(resetAt(headers, nowMs)) : http(status, text);
   };
   function createGitHubClient(leo2, clock, cache = createEtagCache()) {

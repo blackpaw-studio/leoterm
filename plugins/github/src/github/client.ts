@@ -67,9 +67,14 @@ const resetAt = (headers: Record<string, string>, nowMs: number): number => {
   return nowMs + seconds * 1000;
 };
 
+/** GitHub's secondary (abuse) limits answer 403/429 without an exhausted quota; only the message says so. */
+const mentionsRateLimit = (text: string): boolean => /rate limit/i.test(text);
+
 const classify = (status: number, headers: Record<string, string>, text: string, nowMs: number): GitHubError => {
   if (status === 401) return unauthorized();
-  const limited = (status === 403 || status === 429) && (isExhausted(headers) || headers["retry-after"] !== undefined);
+  const limited =
+    (status === 403 || status === 429) &&
+    (isExhausted(headers) || headers["retry-after"] !== undefined || mentionsRateLimit(text));
   return limited ? rateLimited(resetAt(headers, nowMs)) : http(status, text);
 };
 
