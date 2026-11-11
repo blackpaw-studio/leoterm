@@ -9,6 +9,9 @@ import LeoKit
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let model: LeoSidebarModel
+    /// The plugin platform; built by `start()`, so a runtime that is never
+    /// started (tests) touches no plugin files.
+    private(set) var plugins: LeoPluginSystem?
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
@@ -411,6 +414,7 @@ import LeoKit
                 weakSelf?.snapshotLanded(snapshot)
                 weakSelf?.feedSnapshotLanded(snapshot, for: host)
                 weakSelf?.agentBrowsers.snapshotLanded(snapshot, for: host)
+                weakSelf?.plugins?.agentsDidChange()
                 // A hello may have added or dropped `machine_stats`.
                 weakSelf?.statsPoller.reconcile()
             }
@@ -585,7 +589,15 @@ import LeoKit
             statsPoller.setSidebarPollable(registry.hasPollableSidebar)
             statsPoller.setAppActive(NSApp?.isActive ?? false)
             machines.start(flavor: flavor)
+            startPlugins()
         }
+    }
+
+    private func startPlugins() {
+        guard !isShutDown, plugins == nil else { return }
+        let system = LeoPluginSystem(sidebar: model, clients: clients, defaults: defaults)
+        plugins = system
+        system.start()
     }
 
     /// The app restarted or switched its own daemon: reconnect This Mac.
@@ -601,6 +613,7 @@ import LeoKit
         machines.shutdown(alsoAwaiting: [agentBrowsers.shutdown()])
         feeds.stop()
         statsPoller.stop()
+        plugins?.shutDown()
     }
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
