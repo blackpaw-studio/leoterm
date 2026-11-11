@@ -58,12 +58,12 @@ describe("pickers", () => {
     expect(without.subtitle).toBe("No open PR");
     expect(without.actions ?? []).toEqual([]);
   });
-  it("create-pr items carry agent and slot in a pick callback", () => {
+  it("create-pr items carry agent, slot and repo coordinates in a pick callback", () => {
     const tree = createPrPicker(mappedAgents(agents, parseRepo), slot);
     expect(tree.sections[0].items[0].actions?.[0]).toMatchObject({
       type: "callback",
       id: CREATE_PR_PICK,
-      payload: { agent: { machine: "m", name: "a1" }, slot },
+      payload: { agent: { machine: "m", name: "a1" }, slot, owner: "o", repo: "r", branch: expect.any(String) },
     });
   });
 });

@@ -1,3 +1,6 @@
+import { utf8Length } from "../issues/utf8";
+
+export { utf8Length };
 export const MAX_EXCERPT_LINES = 150;
 export const MAX_EXCERPT_BYTES = 8 * 1024;
 
@@ -6,13 +9,6 @@ const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z ?/;
 const BOM = /^﻿/;
 
 const codePointBytes = (cp: number): number => (cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4);
-
-/** UTF-8 byte length (the plugin runtime has no TextEncoder). */
-export function utf8Length(text: string): number {
-  let bytes = 0;
-  for (const ch of text) bytes += codePointBytes(ch.codePointAt(0) ?? 0);
-  return bytes;
-}
 
 /** The longest suffix of `text` within `maxBytes`, starting on a code point boundary. */
 function tailWithin(text: string, maxBytes: number): string {

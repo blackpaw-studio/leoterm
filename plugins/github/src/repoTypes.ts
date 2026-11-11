@@ -1,2 +1,4 @@
-/** Injected repo parser (lane A's `parseRepo` satisfies this). */
-export type ParseRepo = (raw: string) => { readonly owner: string; readonly repo: string } | null;
+import type { RepoRef } from "./repoRef";
+
+/** Injected repo parser (`parseRepo` in repoRef.ts satisfies this). */
+export type ParseRepo = (raw: string) => RepoRef | null;

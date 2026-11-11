@@ -54,7 +54,11 @@ export const createPrPicker = (entries: readonly MappedAgent[], slot: SlotID): L
       items: entries.map((e) => ({
         ...row(e),
         subtitle: `${e.owner}/${e.repo}@${e.branch}`,
-        actions: [callback(CREATE_PR_PICK, { agent: { ...e.agent }, slot: slot as unknown as JSONValue }, { title: "Create Pull Request" })],
+        actions: [callback(
+          CREATE_PR_PICK,
+          { agent: { ...e.agent }, slot: slot as unknown as JSONValue, owner: e.owner, repo: e.repo, branch: e.branch },
+          { title: "Create Pull Request" },
+        )],
       })),
     },
   ],

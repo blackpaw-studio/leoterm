@@ -1,7 +1,9 @@
 import { openURL } from "../../../sdk/actions";
 import type { Action, AgentRef, ErrorNode, JSONValue, Leo, SlotID } from "../../../sdk/leo";
 import type { GitHubClient } from "../github/client";
+import { describeError } from "../github/describe";
 import type { GitHubError } from "../github/errors";
+import { isObj, isStr, parseAgentRef, parseSlot } from "../payload";
 import { createPrForm, createdView, inlineError, notPushedView, CREATE_PR_PICK, CREATE_PR_SUBMIT } from "../ui/prForms";
 import { humaniseBranch } from "./branch";
 
@@ -21,33 +23,12 @@ interface PrContext {
   readonly branch: string;
 }
 
-const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-const isStr = (v: unknown): v is string => typeof v === "string";
-
-const parseAgent = (v: unknown): AgentRef | null =>
-  isObj(v) && isStr(v.machine) && isStr(v.name) ? { machine: v.machine, name: v.name } : null;
-
-const parseSlot = (v: unknown): SlotID | null => (isObj(v) && isStr(v.kind) ? (v as unknown as SlotID) : null);
-
 const parseContext = (v: unknown): PrContext | null => {
   if (!isObj(v)) return null;
-  const agent = parseAgent(v.agent);
+  const agent = parseAgentRef(v.agent);
   const slot = parseSlot(v.slot);
   if (!agent || !slot || !isStr(v.owner) || !isStr(v.repo) || !isStr(v.branch)) return null;
   return { agent, slot, owner: v.owner, repo: v.repo, branch: v.branch };
-};
-
-const describeError = (e: GitHubError): string => {
-  switch (e.kind) {
-    case "Unauthorized":
-      return "Sign in to GitHub to continue.";
-    case "RateLimited":
-      return "GitHub rate limit reached. Try again later.";
-    case "Http":
-      return `GitHub returned ${e.status}.`;
-    case "Transport":
-      return `Couldn't reach GitHub (${e.reason}).`;
-  }
 };
 
 const errorNode = (message: string, retry: Action): ErrorNode => ({ type: "Error", message, retry });
