@@ -1,1 +1,13 @@
-{ "status": 200, "headers": { "etag": "W/\"p0\"" }, "body": [] }
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "etag": "\"d7cfe86e5cc837238fc9abcda9b5e5e990928230e7d7e0b320f0ced3cac6e273\"",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": "4375",
+    "x-ratelimit-reset": "1794423177",
+    "x-ratelimit-resource": "core",
+    "x-ratelimit-used": "625"
+  },
+  "body": []
+}
