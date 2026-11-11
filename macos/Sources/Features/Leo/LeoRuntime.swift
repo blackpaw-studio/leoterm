@@ -12,6 +12,9 @@ import LeoKit
     /// The plugin platform; built by `start()`, so a runtime that is never
     /// started (tests) touches no plugin files.
     private(set) var plugins: LeoPluginSystem?
+    /// What the sidebar, the menus and the row panes read the plugin system
+    /// through; exists from launch and attaches once `plugins` starts.
+    let pluginSurfaces: LeoPluginSurfaces
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
@@ -195,6 +198,10 @@ import LeoKit
         )
         let registry = LeoWindowSessionRegistry()
         self.model = model
+        pluginSurfaces = LeoPluginSurfaces(agents: { [weak model] in
+            // Top-level agents only (dispatches have no plugin slots); a moved agent's dormant row isn't one.
+            model?.rows.filter { $0.movedTo == nil }.map { LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) } ?? []
+        })
         self.registry = registry
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
@@ -416,6 +423,7 @@ import LeoKit
                 weakSelf?.feedSnapshotLanded(snapshot, for: host)
                 weakSelf?.agentBrowsers.snapshotLanded(snapshot, for: host)
                 weakSelf?.plugins?.agentsDidChange()
+                weakSelf?.pluginSurfaces.reconcileAccessories()
                 // A hello may have added or dropped `machine_stats`.
                 weakSelf?.statsPoller.reconcile()
             }
@@ -600,6 +608,7 @@ import LeoKit
             sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults)
         plugins = system
         model.pluginSections = system.sections
+        pluginSurfaces.attach(system.manager)
         system.start()
     }
 
@@ -637,6 +646,7 @@ import LeoKit
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
+        session.pluginSurfaces = pluginSurfaces
         session.openPicker = { [weak self] surfaceID in
             guard let self else { return }
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)

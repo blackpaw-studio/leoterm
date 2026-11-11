@@ -135,7 +135,13 @@ extension TerminalController {
             messages: .init(
                 knownTasks: { chat.timeline.knownTasks }, filter: { chat.timeline.taskFilter },
                 hasAgent: { [weak self] in self?.selectedLeoRow != nil },
-                select: { [weak self] in self?.leoShowMessages(forTask: $0) }))
+                select: { [weak self] in self?.leoShowMessages(forTask: $0) }),
+            pluginViews: .init(
+                entries: { [surfaces = leoRuntime.pluginSurfaces] in surfaces.viewEntries() },
+                open: { [weak self] entry in
+                    guard let row = self?.selectedLeoRow else { return }
+                    self?.openLeoPluginView(entry, forRow: row)
+                }))
         window.leoToolbar.moreMenu = toolbarMenu.menu
         window.leoToolbar.retainedMenu = toolbarMenu
         window.installToolbar(inset: leoSession.toolbarInset)

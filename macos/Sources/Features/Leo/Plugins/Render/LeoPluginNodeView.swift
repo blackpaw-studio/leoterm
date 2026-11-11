@@ -67,12 +67,18 @@ final class LeoPluginNodeView: NSView {
             stack.addArrangedSubview(child)
             child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
         }
+        // The document's height comes from the stack; its width and origin from the clip view.
+        document.translatesAutoresizingMaskIntoConstraints = false
         scroll.documentView = document
         scroll.drawsBackground = false
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
         pin(scroll, in: self)
-        document.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor).isActive = true
+        NSLayoutConstraint.activate([
+            document.leadingAnchor.constraint(equalTo: scroll.contentView.leadingAnchor),
+            document.topAnchor.constraint(equalTo: scroll.contentView.topAnchor),
+            document.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
+        ])
     }
 
     private func replace(at index: Int, with node: LeoPluginNode, of count: Int) {
