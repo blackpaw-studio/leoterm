@@ -7,8 +7,8 @@ export const UNTRUSTED_NOTICE =
 
 const MIN_FENCE = 3;
 const MAX_LABEL = 40;
-/** Bidi embeddings/overrides/isolates, zero-width space/joiners and the BOM. */
-const INVISIBLE = /[‪-‮⁦-⁩​-‍﻿]/g;
+/** Bidi marks/embeddings/isolates, zero-width and invisible operators, BOM, and the Unicode tag block (astral, hence the u flag). */
+const INVISIBLE = /[\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF\u{E0000}-\u{E007F}]/gu;
 const HTML_COMMENT = /<!--([\s\S]*?)(?:-->|$)/g;
 
 const hideComments = (text: string): string =>

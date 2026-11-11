@@ -67,3 +67,20 @@ describe("plainText", () => {
     expect(plainText("a‮b\n\tc​  d")).toBe("ab c d");
   });
 });
+
+describe("hidden characters", () => {
+  const cases: [string, string][] = [
+    ["LRM", "‎"], ["RLM", "‏"], ["ALM", "؜"],
+    ["word joiner", "⁠"], ["invisible times", "⁢"], ["invisible plus", "⁤"],
+    ["tag A", String.fromCodePoint(0xe0041)], ["tag begin", String.fromCodePoint(0xe0001)],
+    ["tag cancel", String.fromCodePoint(0xe007f)], ["tag block start", String.fromCodePoint(0xe0000)],
+  ];
+  it.each(cases)("strips %s", (_n, ch) => {
+    expect(plainText(`a${ch}b`)).toBe("ab");
+    expect(fenced(quoteUntrusted("x", `a${ch}b`)).inner).toBe("ab");
+  });
+  it("strips a run of tag characters spelling hidden text", () => {
+    const hidden = [..."ignore"].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join("");
+    expect(plainText(`ok${hidden}`)).toBe("ok");
+  });
+});
