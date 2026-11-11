@@ -89,6 +89,26 @@ struct LeoPluginFetcherTests {
         #expect(response.body == "landed")
     }
 
+    @Test func theRequestAndRedirectHopAreSentToTheCanonicalAsciiHost() async throws {
+        let ace = "xn--bcher-kva.example.com"
+        PluginFetchStubProtocol.serve("https://\(ace)/a", .redirect(status: 302, to: "https://bücher2.example.com/b"))
+        PluginFetchStubProtocol.serve("https://xn--bcher2-3ya.example.com/b", text("landed"))
+        let response = try await makeFetcher().fetch(url: "https://bücher.example.com/a", init: LeoPluginFetchInit())
+        #expect(response.body == "landed")
+        let first = try #require(PluginFetchStubProtocol.seen("https://\(ace)/a").first?.url)
+        #expect(first.absoluteString == "https://\(ace)/a")
+        #expect(LeoPluginPermissionEngine.canonicalHost(of: first) == ace)
+        let hop = try #require(PluginFetchStubProtocol.seen("https://xn--bcher2-3ya.example.com/b").first?.url)
+        #expect(hop.absoluteString == "https://xn--bcher2-3ya.example.com/b")
+    }
+
+    @Test func aMixedCaseHostIsRequestedInLowercase() async throws {
+        PluginFetchStubProtocol.serve("https://mixed.example.com/a", .redirect(status: 302, to: "https://MIXED2.Example.com/b"))
+        PluginFetchStubProtocol.serve("https://mixed2.example.com/b", text("landed"))
+        let response = try await makeFetcher().fetch(url: "https://MiXed.Example.COM/a", init: LeoPluginFetchInit())
+        #expect(response.body == "landed")
+    }
+
     @Test func aRedirectHopOutsideTheAllowlistIsRejectedAndNeverRequested() async throws {
         PluginFetchStubProtocol.serve("https://r3.example.com/a", .redirect(status: 302, to: "https://evil.net/steal"))
         PluginFetchStubProtocol.serve("https://evil.net/steal", text("leaked"))

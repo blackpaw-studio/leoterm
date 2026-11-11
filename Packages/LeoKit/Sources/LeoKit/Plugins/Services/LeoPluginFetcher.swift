@@ -100,8 +100,9 @@ public final class LeoPluginFetcher: Sendable {
     }
 
     private func perform(url: String, options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse {
-        guard let parsed = URL(string: url) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
-        if case .denied(let reason) = engine.check(url: parsed, hop: 0) { throw LeoPluginFetchError.denied(reason) }
+        guard let given = URL(string: url) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
+        if case .denied(let reason) = engine.check(url: given, hop: 0) { throw LeoPluginFetchError.denied(reason) }
+        guard let parsed = Self.canonicalURL(given) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
         let request = try Self.makeRequest(url: parsed, options: options)
 
         // Only requests that passed every check spend quota.
@@ -115,7 +116,7 @@ public final class LeoPluginFetcher: Sendable {
 
         let configuration = Self.sessionConfiguration()
         configure(configuration)
-        let transfer = LeoPluginFetchTransfer(engine: engine, originHost: parsed.host?.lowercased(), maxBytes: Self.maxBodyBytes)
+        let transfer = LeoPluginFetchTransfer(engine: engine, originHost: LeoPluginPermissionEngine.canonicalHost(of: parsed), maxBytes: Self.maxBodyBytes)
         let session = URLSession(configuration: configuration, delegate: transfer, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         let task = session.dataTask(with: request)
@@ -130,6 +131,19 @@ public final class LeoPluginFetcher: Sendable {
     }
 
     // MARK: - Request
+
+    /// `url` rewritten so its host is exactly `LeoPluginPermissionEngine.canonicalHost(of:)`:
+    /// the host that was checked is the host that gets contacted. Nil if there is no canonical host.
+    static func canonicalURL(_ url: URL) -> URL? {
+        guard let host = LeoPluginPermissionEngine.canonicalHost(of: url) else { return nil }
+        let absolute = url.absoluteString
+        guard let schemeEnd = absolute.range(of: "://") else { return nil }
+        let rest = absolute[schemeEnd.upperBound...]
+        let authority = rest.prefix { !"/?#".contains($0) }
+        let port = authority.firstIndex(of: ":").map { String(authority[$0...]) } ?? ""
+        let tail = rest.dropFirst(authority.count)
+        return URL(string: "\(absolute[..<schemeEnd.upperBound])\(host)\(port)\(tail)")
+    }
 
     static func makeRequest(url: URL, options: LeoPluginFetchInit) throws -> URLRequest {
         let method = (options.method ?? "GET").uppercased()
@@ -230,8 +244,13 @@ private final class LeoPluginFetchTransfer: NSObject, URLSessionDataDelegate, @u
             finish(.failure(LeoPluginFetchError.denied(reason)))
             return completionHandler(nil)
         }
+        guard let canonical = LeoPluginFetcher.canonicalURL(url) else {
+            finish(.failure(LeoPluginFetchError.denied("redirect hop \(nextHop): no canonical host")))
+            return completionHandler(nil)
+        }
         var redirected = request
-        if url.host?.lowercased() != originHost {
+        redirected.url = canonical
+        if LeoPluginPermissionEngine.canonicalHost(of: canonical) != originHost {
             for header in LeoPluginFetcher.credentialHeaders { redirected.setValue(nil, forHTTPHeaderField: header) }
         }
         completionHandler(redirected)
