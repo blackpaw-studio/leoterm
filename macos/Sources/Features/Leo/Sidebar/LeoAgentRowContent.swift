@@ -86,6 +86,7 @@ struct LeoAgentRowContent: View {
                     .lineLimit(1)
                     .accessibilityLabel(presentation.accessibilityLabel(name: row.displayName))
             }
+            .frame(minWidth: LeoAgentRowMetrics.minimumNameWidth, alignment: .leading)
             Spacer(minLength: 4)
             LeoAgentBrowserBadge(host: row.host, agent: row.name, isSelected: isSelected)
             if row.movedTo == nil { LeoPluginRowAccessories(host: row.host, agent: row.name, isSelected: isSelected) }

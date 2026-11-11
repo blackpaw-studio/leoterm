@@ -3,7 +3,10 @@ import SwiftUI
 
 /// Slot 2 on an agent row: the plugins' accessories (symbol, a few
 /// characters, a semantic colour), at most two, then "+N". Sits on the name
-/// line beside the browser globe, so the row never gets taller.
+/// line beside the browser globe, so the row never gets taller. In a narrow
+/// row they collapse to "+N" before the name truncates: two chips, then one,
+/// then "+N" alone, each step the first that fits the room the name leaves
+/// (`LeoAgentRowMetrics.minimumNameWidth`). The tooltip still names every plugin.
 struct LeoPluginRowAccessories: View {
     let host: LeoHostID
     let agent: String
@@ -24,19 +27,30 @@ struct LeoPluginRowAccessories: View {
 
         var body: some View {
             let layout = surfaces.accessoryLayout(host: host, agent: agent)
-            if !layout.chips.isEmpty {
-                HStack(spacing: 5) {
-                    ForEach(layout.chips, id: \.pluginID) { chip in
-                        ChipView(chip: chip, isSelected: isSelected)
-                    }
-                    if let overflow = layout.overflow {
-                        Text(overflow.label)
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(LeoInk.secondary.style(isSelected: isSelected))
-                            .fixedSize()
-                            .help(overflow.help)
-                            .accessibilityLabel("\(overflow.count) more plugin badges")
-                    }
+            if layout.totalCount > 0 {
+                // Higher priority, so the stack offers this its room first
+                // (after reserving the name's minimum) and the name gets the rest.
+                ViewThatFits(in: .horizontal) {
+                    content(layout.showing(LeoPluginAccessoryLayout.maxVisible))
+                    content(layout.showing(1))
+                    content(layout.showing(0))
+                }
+                .layoutPriority(1)
+            }
+        }
+
+        private func content(_ layout: LeoPluginAccessoryLayout) -> some View {
+            HStack(spacing: 5) {
+                ForEach(layout.chips, id: \.pluginID) { chip in
+                    ChipView(chip: chip, isSelected: isSelected)
+                }
+                if let overflow = layout.overflow {
+                    Text(overflow.label)
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(LeoInk.secondary.style(isSelected: isSelected))
+                        .fixedSize()
+                        .help(overflow.help)
+                        .accessibilityLabel("\(overflow.count) more plugin badges")
                 }
             }
         }

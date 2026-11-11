@@ -26,6 +26,10 @@ enum LeoAgentRowMetrics {
     /// indicator sits centered in it. The name line is taller, so the row
     /// does not grow.
     static let taskIndicatorHitSize: CGFloat = 20
+    /// The room the name keeps on its line (about ten characters) however
+    /// much trailing content the row carries. Plugin accessories give way
+    /// first: see `LeoPluginRowAccessories`.
+    static let minimumNameWidth: CGFloat = 84
 
     /// The subagents chevron's square (B-331), at the name line's end.
     static let disclosureSize: CGFloat = 16
