@@ -15,6 +15,42 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
     public let diff: LeoPluginPermissionDiff?
     public let isDev: Bool
 
+    public init(
+        id: String, name: String, version: String, sha: String?, sourceDescription: String,
+        permissions: LeoPluginPermissions, diff: LeoPluginPermissionDiff?, isDev: Bool
+    ) {
+        self.id = id
+        self.name = name
+        self.version = version
+        self.sha = sha
+        self.sourceDescription = sourceDescription
+        self.permissions = permissions
+        self.diff = diff
+        self.isDev = isDev
+    }
+
+    /// The sheet for a plugin that already runs but now asks for more than the
+    /// user approved (an app update, a dev edit). Nil unless `info` is waiting
+    /// on approval and its manifest is loaded.
+    public init?(reviewing info: LeoPluginInfo) {
+        guard case .needsApproval(let diff) = info.state, let manifest = info.manifest else { return nil }
+        var sha: String?
+        var source = ""
+        var isDev = false
+        switch info.source {
+        case .bundled: source = "Built in to Leo"
+        case .git(let url, _, let pinned):
+            sha = pinned
+            source = url
+        case .dev(let path):
+            source = path
+            isDev = true
+        }
+        self.init(
+            id: info.id, name: manifest.name, version: manifest.version, sha: sha, sourceDescription: source,
+            permissions: manifest.permissions, diff: diff, isDev: isDev)
+    }
+
     public var isUpdate: Bool { diff != nil }
 
     public var shortSHA: String? { sha.map { String($0.prefix(7)) } }
