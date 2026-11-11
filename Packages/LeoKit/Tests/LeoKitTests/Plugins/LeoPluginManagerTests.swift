@@ -479,6 +479,37 @@ private let demo = "studio.blackpaw.demo"
         #expect(host.events.contains(.timerFired(id: "t1")))
     }
 
+    @Test func aRestartDoesNotReplayThePaletteCommand() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        let palette = LeoPluginSlotID.palette(commandID: "go")
+        rig.manager.open(palette, plugin: demo)
+
+        try #require(rig.hosts.last).crash("boom")
+        await rig.settle()
+        rig.sleeper.releaseAll()
+        await rig.settle()
+
+        #expect(rig.hosts.last?.events == [.activate(slot: nil)])
+    }
+
+    @Test func retryOnAPaletteSlotResendsTheCommandNotAnActivate() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        let palette = LeoPluginSlotID.palette(commandID: "go")
+        let host = try #require(rig.hosts.last)
+
+        rig.manager.retry(rig.key(demo, palette))
+
+        #expect(host.events.last == .command(id: "go", slot: palette))
+    }
+
     // MARK: Slot visibility survives a new session
 
     @Test func aVisibleSlotStaysVisibleAfterACrashRestartSoAfterStillFires() async throws {
