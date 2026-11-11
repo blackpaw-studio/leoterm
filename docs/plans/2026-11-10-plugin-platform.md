@@ -475,3 +475,4 @@ Evidence is in `docs/plans/2026-11-10-plugin-platform-spike.md`.
   - JSON slash escaping inflates the load frame. This only matters for bundles near the 10 MB cap.
   - A Sparkle mid-run update can pair a new helper with the old app.
   - All helpers share one sandbox container. Plugins get no file access, so this has no effect.
+- **M2 re-review:** all four fixes resolved. Follow-up: the idle-CPU budget scales with how much time actually passed in each poll window. A fixed 0.5 s budget could kill a plugin by mistake when App Nap stretches the poll gap, and a backgrounded Leo makes that realistic.
