@@ -185,6 +185,28 @@ struct LeoPluginFetcherTests {
         #expect(request.value(forHTTPHeaderField: "If-None-Match") == "\"v1\"")
     }
 
+    @Test func aBinaryBodyComesBackAsBase64AndRoundTrips() async throws {
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0xFF, 0xFE, 0x00, 0xC0])
+        PluginFetchStubProtocol.serve(
+            "https://bin.example.com/x", .respond(status: 200, headers: ["Content-Type": "image/png"], chunks: [png]))
+        let response = try await makeFetcher().fetch(url: "https://bin.example.com/x", init: LeoPluginFetchInit())
+        #expect(response.bodyEncoding == .base64)
+        #expect(Data(base64Encoded: response.body) == png)
+        guard case .object(let reply) = response.replyValue else { Issue.record("not an object"); return }
+        #expect(reply["bodyEncoding"] == .string("base64"))
+        #expect(reply["body"] == .string(response.body))
+        #expect(reply["status"] == .int(200))
+    }
+
+    @Test func aUtf8BodyStaysATextBodyEvenWithMultibyteCharacters() async throws {
+        PluginFetchStubProtocol.serve("https://txt.example.com/x", text("héllo ✓"))
+        let response = try await makeFetcher().fetch(url: "https://txt.example.com/x", init: LeoPluginFetchInit())
+        #expect(response.bodyEncoding == .utf8)
+        #expect(response.body == "héllo ✓")
+        guard case .object(let reply) = response.replyValue else { Issue.record("not an object"); return }
+        #expect(reply["bodyEncoding"] == .string("utf8"))
+    }
+
     @Test func serverErrorsAreResponsesNotRejections() async throws {
         PluginFetchStubProtocol.serve("https://err.example.com/x", .respond(status: 500, headers: [:], chunks: [Data("boom".utf8)]))
         let response = try await makeFetcher().fetch(url: "https://err.example.com/x", init: LeoPluginFetchInit())

@@ -1,16 +1,47 @@
 import Foundation
 import OSLog
 
+/// How `LeoPluginFetchResponse.body` carries the response bytes.
+public enum LeoPluginFetchBodyEncoding: String, Equatable, Sendable {
+    /// The body is the text itself.
+    case utf8
+    /// The bytes aren't valid UTF-8 (an image, say); the body is their base64.
+    case base64
+}
+
 public struct LeoPluginFetchResponse: Equatable, Sendable {
     public let status: Int
     /// Header names lowercased, like the web `Headers` API.
     public let headers: [String: String]
     public let body: String
+    public let bodyEncoding: LeoPluginFetchBodyEncoding
 
-    public init(status: Int, headers: [String: String], body: String) {
+    public init(status: Int, headers: [String: String], body: String, bodyEncoding: LeoPluginFetchBodyEncoding = .utf8) {
         self.status = status
         self.headers = headers
         self.body = body
+        self.bodyEncoding = bodyEncoding
+    }
+
+    /// Text when `data` is valid UTF-8, base64 otherwise, so no byte is altered.
+    init(status: Int, headers: [String: String], data: Data) {
+        // Invalid sequences decode to U+FFFD, so a lossless round trip proves the bytes were valid.
+        let text = String(decoding: data, as: UTF8.self)
+        if Data(text.utf8) == data {
+            self.init(status: status, headers: headers, body: text, bodyEncoding: .utf8)
+        } else {
+            self.init(status: status, headers: headers, body: data.base64EncodedString(), bodyEncoding: .base64)
+        }
+    }
+
+    /// What the plugin's `leo.fetch` promise resolves to: `{status, headers, body, bodyEncoding}`.
+    public var replyValue: LeoJSONValue {
+        .object([
+            "status": .int(status),
+            "headers": .object(headers.mapValues { .string($0) }),
+            "body": .string(body),
+            "bodyEncoding": .string(bodyEncoding.rawValue),
+        ])
     }
 }
 
@@ -296,7 +327,7 @@ private final class LeoPluginFetchTransfer: NSObject, URLSessionDataDelegate, @u
         for (key, value) in http.allHeaderFields {
             if let key = key as? String, let value = value as? String { headers[key.lowercased()] = value }
         }
-        finish(.success(LeoPluginFetchResponse(status: http.statusCode, headers: headers, body: String(decoding: data, as: UTF8.self))))
+        finish(.success(LeoPluginFetchResponse(status: http.statusCode, headers: headers, data: data)))
     }
 
     // MARK: - Completion
