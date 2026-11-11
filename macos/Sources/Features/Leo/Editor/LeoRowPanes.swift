@@ -18,6 +18,13 @@ enum LeoRowKey: Hashable, Sendable {
         guard case .agent(let host, _, _) = self else { return nil }
         return host
     }
+
+    /// Whether this row is the agent a plugin view was opened on (by host and
+    /// name; a dispatch id is not part of what the plugin knows).
+    func isAgent(_ agent: LeoPluginAgentRef) -> Bool {
+        guard case .agent(let host, let name, _) = self else { return false }
+        return host.displayName == agent.machine && name == agent.name
+    }
 }
 
 /// One row's editor tabs, workspace browser and, while its agent has one,
@@ -263,6 +270,7 @@ enum LeoRowKey: Hashable, Sendable {
     /// screen when it was on screen, otherwise until the window closes.
     func rowRemoved(_ key: LeoRowKey) {
         guard let pane = panes[key] else { return }
+        pane.closePluginView()  // its agent is gone; a kept pane must not show the view for it
         guard pane.hasUnsavedEdits else {
             remove(key)
             Task { await pane.release() }
@@ -285,6 +293,7 @@ enum LeoRowKey: Hashable, Sendable {
         if panes[new] != nil { rowRemoved(new) }
         remove(old)
         insert(pane, for: new)
+        if let ref = pane.pluginView, !new.isAgent(ref.agent) { pane.closePluginView() }
         if activeKey == old { activeKey = new }
         syncAgentBrowser(of: pane, for: new)
     }

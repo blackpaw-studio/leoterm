@@ -111,6 +111,58 @@ struct LeoRowPaneContentTests {
     }
 
     @Test
+    func aViewDoesNotFollowItsPaneToAnotherAgentOrToTheStartScreen() {
+        let panes = makePanes()
+        let ref = pluginViewRef(agent: "alpha")
+        // pluginViewRef's machine is "This Mac"; the sidebar's is the host's display name.
+        let local = LeoPluginViewRef(
+            pluginID: ref.pluginID, pluginName: ref.pluginName, viewID: ref.viewID, title: ref.title, sfSymbol: ref.sfSymbol,
+            agent: LeoPluginAgentRef(machine: LeoHostID.local.displayName, name: "alpha"))
+        panes.openPluginView(local, for: Self.agentA)
+
+        panes.rekey(Self.agentA, to: Self.agentB)
+
+        #expect(panes.existingPane(for: Self.agentB)?.pluginView == nil)
+        #expect(panes.existingPane(for: Self.agentB)?.content == .editor)
+    }
+
+    @Test
+    func aViewStaysWhenTheSameAgentIsRekeyedToAnotherDispatch() {
+        let panes = makePanes()
+        let local = LeoPluginViewRef(
+            pluginID: "studio.demo", pluginName: "Demo", viewID: "main", title: "Main", sfSymbol: "star",
+            agent: LeoPluginAgentRef(machine: LeoHostID.local.displayName, name: "alpha"))
+        panes.openPluginView(local, for: Self.agentA)
+        let moved = LeoRowKey.agent(host: .local, name: "alpha", dispatchID: "d-1")
+
+        panes.rekey(Self.agentA, to: moved)
+
+        #expect(panes.existingPane(for: moved)?.pluginView == local)
+    }
+
+    @Test
+    func aKeptPaneOfARemovedAgentLosesItsPluginView() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let panes = makePanes()
+            let local = LeoPluginViewRef(
+                pluginID: "studio.demo", pluginName: "Demo", viewID: "main", title: "Main", sfSymbol: "star",
+                agent: LeoPluginAgentRef(machine: LeoHostID.local.displayName, name: "alpha"))
+            panes.openPluginView(local, for: Self.agentA)
+            let pane = panes.pane(for: Self.agentA)
+            let path = try sandbox.file("a.txt", "a")
+            try await pane.tabs.open(LeoEditorFileID(host: .local, path: path))
+            pane.tabs.document?.edit("edited")
+            panes.activate(Self.agentB)
+
+            panes.rowRemoved(Self.agentA)
+
+            #expect(pane.pluginView == nil)
+            pane.tabs.document?.edit("a")
+            await panes.releaseAll()
+        }
+    }
+
+    @Test
     func closingTheViewBringsTheEditorBack() {
         let panes = makePanes()
         panes.openPluginView(pluginViewRef(), for: Self.agentA)
