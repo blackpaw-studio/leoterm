@@ -93,4 +93,14 @@ struct LeoPluginSidebarSectionStateTests {
         let (sections, _, _) = make([LeoPluginTestPlugins.info(state: .disabled(reason: "crashed"), sections: [issues])])
         #expect(sections.entries.count == 1)
     }
+
+    @Test func sectionIdentityChangesWithOpenStateSoTheListRebuildsIt() throws {
+        let (sections, _, _) = make([LeoPluginTestPlugins.info(sections: [issues, builds])])
+        let entry = sections.entries[0]
+        let closed = LeoPluginSectionIdentity.make(entry: entry, expanded: false)
+        let open = LeoPluginSectionIdentity.make(entry: entry, expanded: true)
+        #expect(closed != open)
+        #expect(closed == LeoPluginSectionIdentity.make(entry: entry, expanded: false))
+        #expect(open != LeoPluginSectionIdentity.make(entry: sections.entries[1], expanded: true))
+    }
 }

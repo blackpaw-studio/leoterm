@@ -36,6 +36,10 @@ struct LeoPluginSidebarSection: View {
             }
         }
         .collapsible(false)
+        // Opening a section at runtime must build it afresh, like a launch with
+        // it open does: SwiftUI's sidebar List doesn't swap the placeholder row
+        // for the plugin's rows in place (the section stays empty).
+        .id(LeoPluginSectionIdentity.make(entry: entry, expanded: expanded))
     }
 
     private func header(expanded: Bool) -> some View {
@@ -176,5 +180,13 @@ private struct LeoPluginSectionItemRow: View {
         .foregroundStyle(LeoPluginRenderStyle.ink(for: accessory.color).style(isSelected: false))
         .fixedSize()
         .help(accessory.help ?? accessory.text)
+    }
+}
+
+/// The SwiftUI identity of a sidebar section: it changes with the open state, so
+/// the List rebuilds the section on a toggle.
+enum LeoPluginSectionIdentity {
+    static func make(entry: LeoPluginSidebarSectionEntry, expanded: Bool) -> String {
+        "\(entry.id)#\(expanded ? "open" : "closed")"
     }
 }
