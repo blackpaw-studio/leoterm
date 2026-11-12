@@ -96,7 +96,9 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting?.rootView = AnyView(sidebar)
         context.coordinator.detailHosting?.rootView = AnyView(detail)
-        agentPane?.setAgent(agentPaneAgent)
+        // Opening the pane's plugin slots mutates published state, which must not happen
+        // inside a SwiftUI update: defer it (the last agent wins).
+        context.coordinator.scheduleAgent(agentPaneAgent, on: agentPane)
 
         guard let sidebarItem = controller.sidebarItem else { return }
 
@@ -146,9 +148,24 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// Holds the `NSHostingController`s so their `rootView` can be updated
     /// in place across SwiftUI body re-evaluations without recreating the
     /// AppKit view hierarchy.
-    final class Coordinator: NSObject {
+    @MainActor final class Coordinator: NSObject {
         var sidebarHosting: NSHostingController<AnyView>?
         var detailHosting: NSHostingController<AnyView>?
+        /// The agent the next main-queue turn hands to the pane model. Several
+        /// updates in one turn collapse to a single hand-off of the latest.
+        private var pendingAgent: LeoPluginAgentRef??
+
+        func scheduleAgent(_ agent: LeoPluginAgentRef?, on pane: LeoAgentPaneModel?) {
+            guard let pane else { return }
+            let isScheduled = pendingAgent != nil
+            pendingAgent = .some(agent)
+            guard !isScheduled else { return }
+            DispatchQueue.main.async { [weak self, weak pane] in
+                guard let self, let latest = self.pendingAgent else { return }
+                self.pendingAgent = nil
+                pane?.setAgent(latest)
+            }
+        }
     }
 }
 
