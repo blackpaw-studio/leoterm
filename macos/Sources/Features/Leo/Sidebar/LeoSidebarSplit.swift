@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 import SwiftUI
 
 enum LeoSidebarSplitMetrics {
@@ -238,6 +239,10 @@ struct LeoSidebarSplit<Terminal: View>: View {
             sidePaneHeaderTopInset: session.toolbarInset,
             panes: session.panes,
             onPaneContainer: { session.adopt($0) },
+            agentPane: session.agentPane,
+            agentPaneAgent: model.selectedRow.flatMap {
+                $0.movedTo == nil ? LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) : nil
+            },
             onSplitViewReady: { [weak session] in session?.onSplitViewReady($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.

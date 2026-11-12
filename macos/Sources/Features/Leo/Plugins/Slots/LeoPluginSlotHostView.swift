@@ -9,7 +9,13 @@ import SwiftUI
 /// and behave alike. It follows the slot through `LeoPluginSlotSurface` and
 /// tells it when the slot is on screen; it never reaches the manager itself.
 final class LeoPluginSlotHostView: NSView {
+    /// A body draws the full tree (and Loading, Error with Retry, notices); a
+    /// pane summary is one row that shows nothing while loading and a "!" on error.
+    enum Style { case body, summary }
+
     let key: LeoPluginSlotKey
+    private let style: Style
+    private var summaryRow: LeoPluginSummaryRowView?
     private let surface: any LeoPluginSlotSurface
     private let mint = LeoPluginGestureMint()
     /// Whether the slot's first focusable view takes the keyboard (the palette
@@ -29,8 +35,9 @@ final class LeoPluginSlotHostView: NSView {
     /// The shown content's natural height when it scrolls (a form), else nil.
     var onPreferredHeightChange: (CGFloat?) -> Void = { _ in }
 
-    @MainActor init(key: LeoPluginSlotKey, surface: any LeoPluginSlotSurface, takesFocus: Bool = false) {
+    @MainActor init(key: LeoPluginSlotKey, surface: any LeoPluginSlotSurface, takesFocus: Bool = false, style: Style = .body) {
         self.key = key
+        self.style = style
         self.surface = surface
         self.takesFocus = takesFocus
         visibility = LeoPluginVisibilityReporter(key: key, surface: surface)
@@ -52,6 +59,11 @@ final class LeoPluginSlotHostView: NSView {
         guard next != content else { return }
         let previous = content
         content = next
+        guard style == .body else {
+            refreshSummary(next)
+            onContentChange(next)
+            return
+        }
         switch next {
         case .loading:
             show(LeoPluginLoadingView(loading: .init(message: nil)))
@@ -73,6 +85,30 @@ final class LeoPluginSlotHostView: NSView {
         }
         focusIfNeeded()
         onContentChange(next)
+    }
+
+    /// The summary row's natural width (0 while there is none), for the tab bar's overflow fit.
+    var summaryWidth: CGFloat { shown?.fittingSize.width ?? 0 }
+    var summaryHeight: CGFloat { shown?.fittingSize.height ?? 0 }
+
+    @MainActor private func refreshSummary(_ content: LeoPluginSlotContent) {
+        switch content {
+        case .nodes(let nodes, _):
+            if let summaryRow, shown === summaryRow {
+                summaryRow.update(nodes: nodes)
+            } else {
+                let row = LeoPluginSummaryRowView(nodes: nodes)
+                summaryRow = row
+                show(row)
+            }
+        case .error(let message):
+            summaryRow = nil
+            show(LeoPluginSummaryErrorView(message: message))
+        case .loading, .notice:
+            summaryRow = nil
+            shown?.removeFromSuperview()
+            shown = nil
+        }
     }
 
     private var emitter: LeoPluginActionEmitter {

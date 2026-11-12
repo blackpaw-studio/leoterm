@@ -64,8 +64,12 @@ import SwiftUI
     }
 
     func setVisible(_ key: LeoPluginSlotKey, _ visible: Bool) {
-        guard let now = visibility.set(key, visible: visible) else { return }
-        manager?.setSlotVisible(plugin: key.pluginID, visible: now)
+        let wasPaneVisible = visibility.isPaneVisible(plugin: key.pluginID)
+        let now = visibility.set(key, visible: visible)
+        let isPaneVisible = visibility.isPaneVisible(plugin: key.pluginID)
+        if let now { manager?.setSlotVisible(plugin: key.pluginID, visible: now) }
+        // `usageChanged` goes only to a plugin with a pane on screen.
+        if wasPaneVisible != isPaneVisible { manager?.setPaneVisible(plugin: key.pluginID, visible: isPaneVisible) }
     }
 
     // MARK: Slot 2: row accessories
