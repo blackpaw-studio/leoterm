@@ -415,6 +415,19 @@ private let demo = "studio.blackpaw.demo"
         #expect(usageEvents(host).isEmpty)
     }
 
+    @Test func aPluginCannotFabricateAPaneSlotToReceiveUsageForAnAgentItWasNeverOpenedFor() async throws {
+        let rig = try paneRig()
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+
+        let victim = LeoPluginAgentRef(machine: "localhost", name: "victim")
+        host.send(.render(slot: .pane(id: "status", part: .summary, agent: victim), node: try LeoPluginSlotRoot(nodes: [.loading(.init(message: nil))])))
+        rig.manager.usageDidChange(agent: victim)
+        #expect(usageEvents(host).isEmpty)
+    }
+
     @Test func aBurstIsCoalescedToTheFirstChangePlusOneTrailingEvent() async throws {
         let rig = try paneRig()
         defer { rig.cleanup() }

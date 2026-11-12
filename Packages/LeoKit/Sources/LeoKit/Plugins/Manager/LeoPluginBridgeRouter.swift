@@ -134,6 +134,11 @@ import OSLog
             warn("render refused: the manifest declares no contribution for slot \(Self.clip(slot.key, 120))")
             return
         }
+        // A pane slot names an agent, so only slots the host opened may be rendered to;
+        // otherwise a plugin could make itself eligible for any agent's usage events.
+        if case .pane = slot, !deps.slots.isHostOpened(pluginID: deps.identity.id, slot: slot) {
+            return warn("render refused: the host never opened pane slot \(Self.clip(slot.key, 120))")
+        }
         if case .pane(_, .summary, _) = slot, let problem = LeoPluginPaneSummaryRules.violation(in: node) {
             // Fail the slot (drawn as "!" with the reason) instead of dropping the render silently.
             deps.slots.fail(pluginID: deps.identity.id, slot: slot, message: problem)

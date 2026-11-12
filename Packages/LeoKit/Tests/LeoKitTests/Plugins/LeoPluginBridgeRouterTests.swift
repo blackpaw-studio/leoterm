@@ -97,13 +97,25 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
     @Test func aRenderForADeclaredPaneReachesTheStore() throws {
         let rig = Rig()
         let slot = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        rig.slots.expect(pluginID: "studio.blackpaw.demo", slot: slot)
         rig.router.handle(.render(slot: slot, node: try sampleRoot()))
         #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: slot) == .tree(try sampleRoot()))
+    }
+
+    @Test func aRenderForAPaneSlotTheHostNeverOpenedIsRefused() throws {
+        let rig = Rig()
+        let opened = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        let fabricated = LeoPluginSlotID.pane(id: "status", part: .summary, agent: LeoPluginAgentRef(machine: "localhost", name: "victim"))
+        rig.slots.expect(pluginID: "studio.blackpaw.demo", slot: opened)
+        rig.router.handle(.render(slot: fabricated, node: try sampleRoot()))
+        #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: fabricated) == .loading)
+        #expect(rig.slots.slots(of: "studio.blackpaw.demo") == [opened])
     }
 
     @Test func aPaneSummaryAcceptsOnlyTextMeterAndAccessory() throws {
         let rig = Rig()
         let summary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
+        rig.slots.expect(pluginID: "studio.blackpaw.demo", slot: summary)
         let allowed = try LeoPluginSlotRoot(nodes: [
             .meter(.init(segments: [.init(value: 1, tone: .success)], max: 2)),
             .text(.init(runs: [.init(text: "62%")])),
@@ -132,6 +144,8 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
         let rig = Rig()
         let summary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
         let body = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        rig.slots.expect(pluginID: "studio.blackpaw.demo", slot: summary)
+        rig.slots.expect(pluginID: "studio.blackpaw.demo", slot: body)
         let list = try LeoPluginSlotRoot(nodes: [.list(.init(sections: []))])
         rig.router.handle(.render(slot: summary, node: list))
         rig.router.handle(.render(slot: body, node: list))
