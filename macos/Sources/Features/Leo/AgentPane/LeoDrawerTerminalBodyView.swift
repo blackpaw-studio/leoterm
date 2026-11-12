@@ -17,6 +17,7 @@ import LeoKit
     private var surface: Ghostty.SurfaceView?
     private var isShownOnScreen = false
     private var subscription: AnyCancellable?
+    private var closeRequestObserver: NSObjectProtocol?
 
     /// ⌘W with the drawer terminal focused: the pane collapses instead of
     /// closing the agent's main surface (wired by the pane).
@@ -46,6 +47,21 @@ import LeoKit
             messageStack.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
         ])
         setAccessibilityLabel("Terminal")
+        // The menu route to ⌘W is `close(_:)` below; a binding libghostty handles itself asks
+        // to close the surface instead (the process still alive): the same collapse.
+        closeRequestObserver = NotificationCenter.default.addObserver(
+            forName: Ghostty.Notification.ghosttyCloseSurface, object: nil, queue: .main
+        ) { [weak self] note in
+            guard note.userInfo?["process_alive"] as? Bool == true, let requested = note.object as? Ghostty.SurfaceView else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.surface === requested else { return }
+                self.onCloseRequested()
+            }
+        }
+    }
+
+    deinit {
+        if let closeRequestObserver { NotificationCenter.default.removeObserver(closeRequestObserver) }
     }
 
     @available(*, unavailable)
