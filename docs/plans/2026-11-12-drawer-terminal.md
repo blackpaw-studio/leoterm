@@ -179,3 +179,18 @@ Follow the `isolated-leo-daemon-recipe` memory: `-c`, a scratch cwd, `TMUX_TMPDI
 - **Q4:** confirmed. Dispatch rows get no agent and no shell.
 - **Q5:** ⌘W while the drawer terminal has focus collapses the pane. It never closes the main surface or the window.
 - **Q6:** close the shell even when the removed row is the one on screen.
+
+## Build outcome (2026-11-12)
+
+- Built in 20 commits, `61d0137eb` through `f577deff0`.
+- Review round 1 found two P2s, both fixed: the toggle-off now closes shells (`823522b0e`), and window close confirms a busy drawer shell (`f5acfb125`). ⌘Q already counted drawer surfaces through libghostty.
+- The E2E found four bugs, all fixed: a 1×1 surface (`fa4e3eb1e`), Restart focus (`c545b874e`), a closed-window pool re-spawning a shell (`b861d0896`), and summary width (`2d879feb7`).
+- Exit label: the local `login` wrapper always reports 0, so a status is shown only when it is non-zero (`1d9d2e6e6`).
+- E2E numbers: RSS was 233 MB with 1 shell and 282 MB with 10. CPU running a busy loop was 6.6% expanded and 1.4% collapsed.
+- Merge gate: GhosttyTests 4549/4549 and LeoKit 1712/1712 on the branch, with no failures that main doesn't have.
+
+## Accepted risks
+
+- **Focus after a restart on an offline host:** the shell exits, the host goes offline, the user presses Restart, and the state becomes "unavailable" with `focusesNextSurface` left set. When the host returns and the pane remounts, the shell takes focus unprompted. This is a contrived multi-event sequence.
+- **Not tested end to end:** agent move to another host (there is no second isolated host) and the remote `agent shell` path (the daemon hasn't shipped). The remote path will be checked live once leo ships `agent_shell`.
+- **Pre-existing, not from this branch:** `LeoAgentPaneStateTests.realPreferencesAreUnchanged` leaves stray plists on main as well. It is a follow-up.
