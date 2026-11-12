@@ -210,3 +210,22 @@ Step 0 runs first, on its own. It fixes the JSON names that lanes A–D all depe
 - **Q7, Q8:** accepted as written.
 - **R3 resolved:** the daemon has `model` on Agent (configured) and is adding `usage.model` (observed), per the `leo` agent on 2026-11-12. Step 5 decodes both, and the snapshot's `model` prefers the observed value.
 - **Daemon status:** the `leo` agent is building PR A (Claude telemetry plus git), then PR B (Codex). Wire names are `usage.{model, effort, context.breakdown, context.compact_at, rate_limits[{kind, percent_used, resets_at}], git{added, removed}}`.
+
+## Build outcome (2026-11-12)
+
+All lanes are merged. Reviews:
+- **Lane D:** review approved.
+- **Lanes A and B:** the security review found a P1, fabricated pane slots receiving `usageChanged`. It is fixed by gating pane renders and events on host-opened slots. The review also found a P2, a name probe through `usage` without `read`; the validator now requires `read` for `usage`. The re-review approved both.
+- **Lane C:** the review found two user-reachable P2s. A divider drag could collapse the pane (fixed: `canCollapse = false`), and shrinking the window overwrote the remembered height (fixed: `shouldPersistHeight`). The slot open was also deferred out of the SwiftUI update. All three were verified live in an isolated debug app. No re-review, because the fixes are below P1 and small.
+
+**Accepted risks:**
+- Pane slots are never closed for agents you leave. While its pane is visible, a plugin keeps getting `usageChanged` for agents opened earlier in the session, and there is a cap of 1024 slots per plugin.
+- With two windows, the last write to the pane state wins.
+- The Status plugin keeps re-rendering slots for agents you have left.
+- One failed usage read shows "Usage unavailable" until the next change.
+- Pushing a view onto a summary slot can't happen today, and the summary renderer ignores pushed views.
+
+**Merge gate:**
+- LeoKit: 1708 tests pass.
+- Status plugin: 82 tests pass. GitHub plugin: 274 tests pass.
+- macOS app suite: 34 failures, all in tunnel, socket, process, window and chat-store tests that are timing-sensitive under load. Re-run at lower load, 29 passed. The other 5 are in classes that also failed on main; this branch passed them twice in a row.
