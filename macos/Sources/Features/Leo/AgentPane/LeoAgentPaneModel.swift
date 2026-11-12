@@ -11,18 +11,18 @@ import LeoKit
     @Published private(set) var state: LeoAgentPaneState
     @Published private(set) var tabs: [LeoAgentPaneTab] = []
     /// The agent the window shows; nil for a terminal or nothing selected.
-    @Published private(set) var agent: LeoPluginAgentRef?
+    @Published private(set) var agent: LeoAgentPaneAgent?
 
-    let surfaces: LeoPluginSurfaces
+    let surfaces: LeoPluginSurfaces?
     private let store: LeoAgentPaneStateStore
     private var subscription: AnyCancellable?
 
-    init(surfaces: LeoPluginSurfaces, store: LeoAgentPaneStateStore) {
+    init(surfaces: LeoPluginSurfaces?, store: LeoAgentPaneStateStore) {
         self.surfaces = surfaces
         self.store = store
         state = store.load()
         // `changes` fires before a change lands; the hop reads the new plugins.
-        subscription = surfaces.changes
+        subscription = surfaces?.changes
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in MainActor.assumeIsolated { self?.refreshTabs() } }
         refreshTabs()
@@ -31,12 +31,12 @@ import LeoKit
     /// Nothing is drawn without an agent and at least one tab.
     var isShown: Bool { Self.isShown(agent: agent, tabs: tabs) }
 
-    static func isShown(agent: LeoPluginAgentRef?, tabs: [LeoAgentPaneTab]) -> Bool { agent != nil && !tabs.isEmpty }
+    static func isShown(agent: LeoAgentPaneAgent?, tabs: [LeoAgentPaneTab]) -> Bool { agent != nil && !tabs.isEmpty }
     var isExpanded: Bool { isShown && state.isExpanded }
     var selectedTabID: String? { state.resolvedSelection(available: tabs.map(\.id)) }
     var mounts: LeoAgentPaneMounts { LeoAgentPaneMounts(tabs: tabs, state: state, agent: agent) }
 
-    func setAgent(_ next: LeoPluginAgentRef?) {
+    func setAgent(_ next: LeoAgentPaneAgent?) {
         guard next != agent else { return }
         agent = next
         openSlots()
@@ -59,7 +59,7 @@ import LeoKit
     }
 
     private func refreshTabs() {
-        let next = LeoAgentPaneTabs.make(from: surfaces.manager?.plugins ?? [])
+        let next = LeoAgentPaneTabs.make(from: surfaces?.manager?.plugins ?? [])
         guard next != tabs else { return }
         tabs = next
         openSlots()
@@ -68,9 +68,9 @@ import LeoKit
     /// Asks each plugin for the slots the pane is about to show, once each:
     /// a slot the plugin already holds is skipped.
     private func openSlots() {
-        guard let manager = surfaces.manager else { return }
+        guard let manager = surfaces?.manager else { return }
         let mounts = mounts
-        for key in mounts.summaries + (mounts.body.map { [$0] } ?? []) {
+        for key in mounts.pluginKeys {
             guard !manager.slots.slots(of: key.pluginID).contains(key.slot) else { continue }
             manager.open(key.slot, plugin: key.pluginID)
         }

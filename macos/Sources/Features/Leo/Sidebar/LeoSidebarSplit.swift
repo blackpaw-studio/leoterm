@@ -241,7 +241,9 @@ struct LeoSidebarSplit<Terminal: View>: View {
             onPaneContainer: { session.adopt($0) },
             agentPane: session.agentPane,
             agentPaneAgent: model.selectedRow.flatMap {
-                $0.movedTo == nil ? LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) : nil
+                $0.movedTo == nil
+                    ? LeoAgentPaneAgent(ref: LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name), identity: $0.identity)
+                    : nil
             },
             onSplitViewReady: { [weak session] in session?.onSplitViewReady($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the

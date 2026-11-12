@@ -11,8 +11,9 @@ import LeoKit
     private let tabBar = LeoAgentPaneTabBarView()
     private let bodyContainer = NSView()
     private var bodyHost: LeoPluginSlotHostView?
-    private var bodyKey: LeoPluginSlotKey?
-    private var tabViews: [LeoPluginSlotKey: LeoAgentPaneTabView] = [:]
+    private var bodyMount: LeoAgentPaneMount?
+    private var summaryMounts: [String: LeoAgentPaneMount] = [:]
+    private var tabViews: [String: LeoAgentPaneTabView] = [:]
     private var subscription: AnyCancellable?
 
     init(model: LeoAgentPaneModel) {
@@ -62,30 +63,35 @@ import LeoKit
         bodyContainer.isHidden = !model.isExpanded
     }
 
-    private func syncTabs(summaries: [LeoPluginSlotKey]) {
-        var next: [LeoPluginSlotKey: LeoAgentPaneTabView] = [:]
-        for (tab, key) in zip(model.tabs, summaries) {
-            let existing = tabViews[key]
-            if let existing, existing.tab == tab {
-                next[key] = existing
+    private func syncTabs(summaries: [LeoAgentPaneMount]) {
+        var next: [String: LeoAgentPaneTabView] = [:]
+        for (tab, mount) in zip(model.tabs, summaries) {
+            // A tab view is kept while its tab and its mount (the agent) are the same.
+            if let existing = tabViews[tab.id], existing.tab == tab, summaryMounts[tab.id] == mount {
+                next[tab.id] = existing
                 continue
             }
-            let host = LeoPluginSlotHostView(key: key, surface: model.surfaces, style: .summary)
-            host.onContentChange = { [weak self] _ in self?.tabBar.needsLayout = true }
-            next[key] = LeoAgentPaneTabView(tab: tab, summary: host)
+            next[tab.id] = LeoAgentPaneTabView(tab: tab, summary: summaryHost(for: mount))
         }
         tabViews = next
-        tabBar.setTabs(
-            zip(model.tabs, summaries).compactMap { next[$0.1] }, selected: model.selectedTabID, isExpanded: model.isExpanded)
+        summaryMounts = Dictionary(uniqueKeysWithValues: zip(model.tabs.map(\.id), summaries))
+        tabBar.setTabs(model.tabs.compactMap { next[$0.id] }, selected: model.selectedTabID, isExpanded: model.isExpanded)
     }
 
-    private func syncBody(_ key: LeoPluginSlotKey?) {
-        guard key != bodyKey else { return }
-        bodyKey = key
+    private func summaryHost(for mount: LeoAgentPaneMount) -> LeoPluginSlotHostView? {
+        guard let key = mount.pluginKey, let surfaces = model.surfaces else { return nil }
+        let host = LeoPluginSlotHostView(key: key, surface: surfaces, style: .summary)
+        host.onContentChange = { [weak self] _ in self?.tabBar.needsLayout = true }
+        return host
+    }
+
+    private func syncBody(_ mount: LeoAgentPaneMount?) {
+        guard mount != bodyMount else { return }
+        bodyMount = mount
         bodyHost?.removeFromSuperview()
         bodyHost = nil
-        guard let key else { return }
-        let host = LeoPluginSlotHostView(key: key, surface: model.surfaces)
+        guard let key = mount?.pluginKey, let surfaces = model.surfaces else { return }
+        let host = LeoPluginSlotHostView(key: key, surface: surfaces)
         host.translatesAutoresizingMaskIntoConstraints = false
         bodyContainer.addSubview(host)
         NSLayoutConstraint.activate([

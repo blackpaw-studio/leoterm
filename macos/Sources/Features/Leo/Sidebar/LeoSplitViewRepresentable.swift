@@ -50,7 +50,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// The agent pane under the detail column (plugins' summaries and bodies), and
     /// the agent the window shows; nil without a plugin system.
     var agentPane: LeoAgentPaneModel?
-    var agentPaneAgent: LeoPluginAgentRef?
+    var agentPaneAgent: LeoAgentPaneAgent?
     /// The split view is in a window and has laid out once: the window's
     /// toolbar can bind its tracking separator to it. Called once.
     var onSplitViewReady: (NSSplitView) -> Void = { _ in }
@@ -153,9 +153,9 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         var detailHosting: NSHostingController<AnyView>?
         /// The agent the next main-queue turn hands to the pane model. Several
         /// updates in one turn collapse to a single hand-off of the latest.
-        private var pendingAgent: LeoPluginAgentRef??
+        private var pendingAgent: LeoAgentPaneAgent??
 
-        func scheduleAgent(_ agent: LeoPluginAgentRef?, on pane: LeoAgentPaneModel?) {
+        func scheduleAgent(_ agent: LeoAgentPaneAgent?, on pane: LeoAgentPaneModel?) {
             guard let pane else { return }
             let isScheduled = pendingAgent != nil
             pendingAgent = .some(agent)
