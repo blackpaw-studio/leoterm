@@ -41,6 +41,7 @@
   var formatPercent = (value, decimals) => `${value.toFixed(decimals)}%`;
   var formatMoney = (usd) => `$${usd.toFixed(2)}`;
   function formatReset(resetsAtISO, nowMs) {
+    if (resetsAtISO === void 0) return void 0;
     const target = Date.parse(resetsAtISO);
     if (Number.isNaN(target)) return void 0;
     const ms = target - nowMs;
