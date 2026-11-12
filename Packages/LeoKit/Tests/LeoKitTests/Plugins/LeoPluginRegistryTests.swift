@@ -109,6 +109,35 @@ struct LeoPluginRegistryTests {
         #expect(registry.record(for: "studio.blackpaw.demo")?.hiddenSections == [])
     }
 
+    @Test func hiddenPanesRoundTripAndAreSetPerPlugin() throws {
+        var registry = LeoPluginRegistry()
+        registry.registerInstalled(manifest(secrets: true), url: demoURL, ref: "main", sha: sha1)
+        registry.registerDev(manifest(id: "studio.blackpaw.local"), path: "/tmp/p")
+        registry.setPane("studio.blackpaw.demo", pane: "status", hidden: true)
+        registry.setPane("studio.blackpaw.demo", pane: "status", hidden: true)
+
+        let decoded = try JSONDecoder().decode(LeoPluginRegistry.self, from: JSONEncoder().encode(registry))
+        #expect(decoded == registry)
+        #expect(decoded.record(for: "studio.blackpaw.demo")?.hiddenPanes == ["status"])
+        #expect(decoded.record(for: "studio.blackpaw.local")?.hiddenPanes == [])
+        registry.setPane("studio.blackpaw.demo", pane: "status", hidden: false)
+        #expect(registry.record(for: "studio.blackpaw.demo")?.hiddenPanes == [])
+    }
+
+    @Test func aRegistrySavedBeforePanesExistedStillLoads() throws {
+        var registry = LeoPluginRegistry()
+        registry.registerInstalled(manifest(secrets: true), url: demoURL, ref: "main", sha: sha1)
+        let encoded = try JSONEncoder().encode(registry)
+        var json = try #require(try JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        var records = try #require(json["records"] as? [[String: Any]])
+        records[0].removeValue(forKey: "hiddenPanes")
+        json["records"] = records
+        let old = try JSONSerialization.data(withJSONObject: json)
+
+        let decoded = try JSONDecoder().decode(LeoPluginRegistry.self, from: old)
+        #expect(decoded.record(for: "studio.blackpaw.demo")?.hiddenPanes == [])
+    }
+
     @Test func removeAndSourceSwap() {
         var registry = LeoPluginRegistry()
         registry.registerInstalled(manifest(), url: demoURL, ref: "main", sha: sha1)

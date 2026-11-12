@@ -349,6 +349,20 @@ private let demo = "studio.blackpaw.demo"
         #expect(rig.slots.state(pluginID: demo, slot: summary) == .loading)
     }
 
+    @Test func hidingAPanePublishesItInThePluginInfo() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        let contributes = #"{"panes":[{"id":"status","title":"Status"}]}"#
+        try rig.addBundled(demo, manifest: manifestJSON(id: demo, contributes: contributes))
+        rig.buildManager()
+        rig.manager.reload()
+
+        try rig.manager.setPane(demo, pane: "status", hidden: true)
+        #expect(rig.manager.plugins.first { $0.id == demo }?.hiddenPanes == ["status"])
+        try rig.manager.setPane(demo, pane: "status", hidden: false)
+        #expect(rig.manager.plugins.first { $0.id == demo }?.hiddenPanes == [])
+    }
+
     // MARK: usageChanged
 
     private static let paneContributes = #"{"panes":[{"id":"status","title":"Status"}]}"#
