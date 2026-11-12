@@ -9,11 +9,11 @@ import Testing
 @MainActor
 struct LeoAgentPaneMountsTests {
     private let agent = LeoPluginAgentRef(machine: "Local", name: "alfred")
-    private let status = LeoAgentPaneTab(id: "p.status", paneID: "status", title: "Status", sfSymbol: nil, hasWarning: false)
-    private let github = LeoAgentPaneTab(id: "p.github", paneID: "gh", title: "GitHub", sfSymbol: nil, hasWarning: false)
+    private let status = LeoAgentPaneTab(id: "p.status", kind: .plugin(paneID: "status"), title: "Status", sfSymbol: nil, hasWarning: false)
+    private let github = LeoAgentPaneTab(id: "p.github", kind: .plugin(paneID: "gh"), title: "GitHub", sfSymbol: nil, hasWarning: false)
 
     private func key(_ tab: LeoAgentPaneTab, _ part: LeoPluginPanePart) -> LeoPluginSlotKey {
-        LeoPluginSlotKey(pluginID: tab.id, slot: .pane(id: tab.paneID, part: part, agent: agent))
+        LeoPluginSlotKey(pluginID: tab.id, slot: .pane(id: tab.paneID ?? "", part: part, agent: agent))
     }
 
     @Test

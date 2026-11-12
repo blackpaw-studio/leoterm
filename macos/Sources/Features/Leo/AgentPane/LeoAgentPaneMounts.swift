@@ -21,11 +21,11 @@ struct LeoAgentPaneMounts: Equatable {
             self = .none
             return
         }
-        func key(_ tab: LeoAgentPaneTab, _ part: LeoPluginPanePart) -> LeoPluginSlotKey {
-            LeoPluginSlotKey(pluginID: tab.id, slot: .pane(id: tab.paneID, part: part, agent: agent))
+        func key(_ tab: LeoAgentPaneTab, _ part: LeoPluginPanePart) -> LeoPluginSlotKey? {
+            tab.paneID.map { LeoPluginSlotKey(pluginID: tab.id, slot: .pane(id: $0, part: part, agent: agent)) }
         }
         let selected = state.resolvedSelection(available: tabs.map(\.id))
-        summaries = tabs.map { key($0, .summary) }
-        body = state.isExpanded ? tabs.first { $0.id == selected }.map { key($0, .body) } : nil
+        summaries = tabs.compactMap { key($0, .summary) }
+        body = state.isExpanded ? tabs.first { $0.id == selected }.flatMap { key($0, .body) } : nil
     }
 }

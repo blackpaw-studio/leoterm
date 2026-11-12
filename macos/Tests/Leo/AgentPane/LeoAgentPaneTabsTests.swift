@@ -20,9 +20,9 @@ struct LeoAgentPaneTabsTests {
 
     @Test
     func aPluginWithAPaneGetsATabWithItsTitleAndSymbol() {
-        let tabs = LeoAgentPaneTabs.make(from: [info("a")])
+        let tabs = LeoAgentPaneTabs.make(from: [info("a")], showsTerminal: false)
         #expect(tabs.map(\.id) == ["a"])
-        #expect(tabs.first?.paneID == "main")
+        #expect(tabs.first?.kind == .plugin(paneID: "main"))
         #expect(tabs.first?.title == "a title")
         #expect(tabs.first?.sfSymbol == "gauge")
         #expect(tabs.first?.hasWarning == false)
@@ -30,7 +30,7 @@ struct LeoAgentPaneTabsTests {
 
     @Test
     func pluginsWithoutAPaneOrManifestGetNoTab() {
-        let tabs = LeoAgentPaneTabs.make(from: [info("a", pane: nil), info("b", hasManifest: false)])
+        let tabs = LeoAgentPaneTabs.make(from: [info("a", pane: nil), info("b", hasManifest: false)], showsTerminal: false)
         #expect(tabs.isEmpty)
     }
 
@@ -38,43 +38,74 @@ struct LeoAgentPaneTabsTests {
     func firstPartyTabsComeFirstThenTheRestInTheOrderGiven() {
         let tabs = LeoAgentPaneTabs.make(from: [
             info("a", source: git), info("b", source: .bundled), info("c", source: .dev(path: "/tmp/c")), info("d", source: .bundled),
-        ])
+        ], showsTerminal: false)
         #expect(tabs.map(\.id) == ["b", "d", "a", "c"])
     }
 
     @Test
     func aPluginTheUserTurnedOffHasNoTab() {
-        #expect(LeoAgentPaneTabs.make(from: [info("a", enabled: false, state: .stoppedByUser)]).isEmpty)
+        #expect(LeoAgentPaneTabs.make(from: [info("a", enabled: false, state: .stoppedByUser)], showsTerminal: false).isEmpty)
     }
 
     @Test
     func aHiddenPaneHasNoTab() {
-        #expect(LeoAgentPaneTabs.make(from: [info("a", hidden: ["main"])]).isEmpty)
+        #expect(LeoAgentPaneTabs.make(from: [info("a", hidden: ["main"])], showsTerminal: false).isEmpty)
     }
 
     @Test
     func aHiddenOtherPaneIdDoesNotHideThisOne() {
-        #expect(LeoAgentPaneTabs.make(from: [info("a", hidden: ["other"])]).count == 1)
+        #expect(LeoAgentPaneTabs.make(from: [info("a", hidden: ["other"])], showsTerminal: false).count == 1)
     }
 
     @Test(arguments: [
         LeoPluginRunState.restarting(reason: "crashed"), .disabled(reason: "crashed 3 times"), .refused("bad"),
     ])
     func aCrashedOrDisabledPluginKeepsItsTabWithAWarning(_ state: LeoPluginRunState) {
-        let tabs = LeoAgentPaneTabs.make(from: [info("a", state: state)])
+        let tabs = LeoAgentPaneTabs.make(from: [info("a", state: state)], showsTerminal: false)
         #expect(tabs.count == 1)
         #expect(tabs.first?.hasWarning == true)
     }
 
     @Test
     func aRunningPluginHasNoWarning() {
-        #expect(LeoAgentPaneTabs.make(from: [info("a", state: .running)]).first?.hasWarning == false)
+        #expect(LeoAgentPaneTabs.make(from: [info("a", state: .running)], showsTerminal: false).first?.hasWarning == false)
+    }
+
+    // MARK: Built-in Terminal tab
+
+    @Test
+    func theTerminalTabComesFirstThenThePluginTabs() {
+        let tabs = LeoAgentPaneTabs.make(from: [info("a", source: git), info("b")])
+        #expect(tabs.map(\.id) == ["leo.terminal", "b", "a"])
+        #expect(tabs.first?.kind == .terminal)
+        #expect(tabs.first?.title == "Terminal")
+        #expect(tabs.first?.sfSymbol == "terminal")
+        #expect(tabs.first?.hasWarning == false)
+    }
+
+    @Test
+    func theTerminalTabIsOnByDefault() {
+        #expect(LeoAgentPaneTabs.make(from: []).map(\.id) == ["leo.terminal"])
+    }
+
+    @Test
+    func turningTheTerminalTabOffLeavesOnlyThePlugins() {
+        #expect(LeoAgentPaneTabs.make(from: [info("b")], showsTerminal: false).map(\.id) == ["b"])
+        #expect(LeoAgentPaneTabs.make(from: [], showsTerminal: false).isEmpty)
+    }
+
+    @Test
+    func aPluginClaimingTheTerminalIdGetsNoTab() {
+        let tabs = LeoAgentPaneTabs.make(from: [info("leo.terminal"), info("b")])
+        #expect(tabs.map(\.id) == ["leo.terminal", "b"])
+        #expect(tabs.first?.kind == .terminal)
+        #expect(LeoAgentPaneTabs.make(from: [info("leo.terminal")], showsTerminal: false).isEmpty)
     }
 
     // MARK: Tab icon
 
     private func tab(symbol: String?, warning: Bool = false) -> LeoAgentPaneTab {
-        LeoAgentPaneTab(id: "p", paneID: "main", title: "P", sfSymbol: symbol, hasWarning: warning)
+        LeoAgentPaneTab(id: "p", kind: .plugin(paneID: "main"), title: "P", sfSymbol: symbol, hasWarning: warning)
     }
 
     @Test
