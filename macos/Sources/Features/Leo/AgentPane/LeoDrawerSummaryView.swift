@@ -35,7 +35,13 @@ import LeoKit
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    var summaryWidth: CGFloat { label.stringValue.isEmpty ? 0 : ceil(label.intrinsicContentSize.width) }
+    /// Measured from the string and font: a truncating label's intrinsic width undercounts,
+    /// which clipped `/tmp` to `/…p` (the tab view measures its title the same way).
+    var summaryWidth: CGFloat {
+        guard !label.stringValue.isEmpty else { return 0 }
+        let text = NSAttributedString(string: label.stringValue, attributes: [.font: label.font as Any])
+        return ceil(text.size().width) + 4
+    }
     var summaryHeight: CGFloat { ceil(label.intrinsicContentSize.height) }
 
     override func layout() {
