@@ -6,9 +6,11 @@ public enum LeoPluginAPI {
 }
 
 /// Agent capabilities a plugin may request. `read` gates `leo.agents.list`,
-/// `send` gates the `sendToAgent` action and `spawn` the `spawnAgent` action.
+/// `send` gates the `sendToAgent` action, `spawn` the `spawnAgent` action, and
+/// `usage` gates `leo.agents.usage`, the `usageChanged` event and the `model` and
+/// `workspace` fields on `leo.agents.list` entries.
 public enum LeoPluginAgentVerb: String, Codable, CaseIterable, Hashable, Sendable {
-    case read, send, spawn
+    case read, send, spawn, usage
 }
 
 /// `permissions` block of `leo-plugin.json`. Network entries are raw host
@@ -68,11 +70,25 @@ public struct LeoPluginSidebarSectionContribution: Equatable, Sendable {
     }
 }
 
+/// A pane under the agent's terminal/chat view (at most one per plugin).
+public struct LeoPluginPaneContribution: Equatable, Sendable {
+    public let id: String
+    public let title: String
+    public let sfSymbol: String?
+
+    public init(id: String, title: String, sfSymbol: String? = nil) {
+        self.id = id
+        self.title = title
+        self.sfSymbol = sfSymbol
+    }
+}
+
 public struct LeoPluginContributions: Equatable, Sendable {
     public let views: [LeoPluginViewContribution]
     public let rowAccessories: [LeoPluginRowAccessoryContribution]
     public let commands: [LeoPluginCommandContribution]
     public let sidebarSections: [LeoPluginSidebarSectionContribution]
+    public let panes: [LeoPluginPaneContribution]
 
     public static let none = LeoPluginContributions()
 
@@ -80,12 +96,14 @@ public struct LeoPluginContributions: Equatable, Sendable {
         views: [LeoPluginViewContribution] = [],
         rowAccessories: [LeoPluginRowAccessoryContribution] = [],
         commands: [LeoPluginCommandContribution] = [],
-        sidebarSections: [LeoPluginSidebarSectionContribution] = []
+        sidebarSections: [LeoPluginSidebarSectionContribution] = [],
+        panes: [LeoPluginPaneContribution] = []
     ) {
         self.views = views
         self.rowAccessories = rowAccessories
         self.commands = commands
         self.sidebarSections = sidebarSections
+        self.panes = panes
     }
 }
 
@@ -151,7 +169,7 @@ extension LeoPluginAgentVerb {
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard let verb = LeoPluginAgentVerb(rawValue: raw) else {
-            throw LeoPluginManifestIssue(reason: "unknown agent permission '\(raw)' (expected read, send or spawn)")
+            throw LeoPluginManifestIssue(reason: "unknown agent permission '\(raw)' (expected read, send, spawn or usage)")
         }
         self = verb
     }
@@ -218,19 +236,34 @@ extension LeoPluginSidebarSectionContribution: Codable {
     }
 }
 
+extension LeoPluginPaneContribution: Codable {
+    private enum CodingKeys: String, CodingKey { case id, title, sfSymbol }
+
+    public init(from decoder: Decoder) throws {
+        try rejectUnknownKeys(decoder, allowed: ["id", "title", "sfSymbol"], in: "contributes.panes")
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try c.decode(String.self, forKey: .id),
+            title: try c.decode(String.self, forKey: .title),
+            sfSymbol: try c.decodeIfPresent(String.self, forKey: .sfSymbol)
+        )
+    }
+}
+
 extension LeoPluginContributions: Codable {
-    private enum CodingKeys: String, CodingKey { case views, rowAccessories, commands, sidebarSections }
+    private enum CodingKeys: String, CodingKey { case views, rowAccessories, commands, sidebarSections, panes }
 
     public init(from decoder: Decoder) throws {
         try rejectUnknownKeys(
-            decoder, allowed: ["views", "rowAccessories", "commands", "sidebarSections"], in: "contributes",
+            decoder, allowed: ["views", "rowAccessories", "commands", "sidebarSections", "panes"], in: "contributes",
             noun: "contribution kind")
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             views: try c.decodeIfPresent([LeoPluginViewContribution].self, forKey: .views) ?? [],
             rowAccessories: try c.decodeIfPresent([LeoPluginRowAccessoryContribution].self, forKey: .rowAccessories) ?? [],
             commands: try c.decodeIfPresent([LeoPluginCommandContribution].self, forKey: .commands) ?? [],
-            sidebarSections: try c.decodeIfPresent([LeoPluginSidebarSectionContribution].self, forKey: .sidebarSections) ?? []
+            sidebarSections: try c.decodeIfPresent([LeoPluginSidebarSectionContribution].self, forKey: .sidebarSections) ?? [],
+            panes: try c.decodeIfPresent([LeoPluginPaneContribution].self, forKey: .panes) ?? []
         )
     }
 }

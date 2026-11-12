@@ -71,6 +71,7 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
             case .read: lines.append("Agents: read the list of agents")
             case .send: lines.append("Agents: offer to send messages to agents (you confirm each one)")
             case .spawn: lines.append("Agents: offer to start new agents (you confirm each one)")
+            case .usage: lines.append("Agents: read each agent's model, working folder and usage (context, cost, rate limits)")
             }
         }
         return lines
