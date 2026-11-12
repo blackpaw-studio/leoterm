@@ -211,7 +211,7 @@ export interface AgentSnapshot {
 
 /** A named usage meter from the harness, such as a rate limit window. */
 export interface RateLimit {
-  /** Window kind. Unknown kinds are passed through as sent. */
+  /** Window kind. Entries with any other kind are dropped by the host, which also keeps at most one entry per kind. */
   kind: "five_hour" | "seven_day" | (string & {});
   /** Percent of the window used, 0 to 100 (may exceed 100 briefly). */
   percentUsed: number;
