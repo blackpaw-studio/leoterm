@@ -56,17 +56,22 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
     @Published private(set) var pendingUninstall: LeoPluginRow?
     @Published var isAskingInstallSource = false
 
+    /// The built-in pane tabs' switches (the "Built-in" row above the plugins).
+    let builtIn: LeoBuiltInPaneSettings
     private let manager: any LeoPluginsManaging
     private let installer: any LeoPluginInstalling
     private let updater: any LeoPluginUpdating
     /// Shows the approval sheet; true if the person approved.
     private let approve: @MainActor (LeoPluginApprovalRequest) async -> Bool
     private var subscription: AnyCancellable?
+    private var builtInSubscription: AnyCancellable?
 
     init(
         manager: any LeoPluginsManaging, installer: any LeoPluginInstalling, updater: any LeoPluginUpdating,
+        builtIn: LeoBuiltInPaneSettings,
         approve: @escaping @MainActor (LeoPluginApprovalRequest) async -> Bool
     ) {
+        self.builtIn = builtIn
         self.manager = manager
         self.installer = installer
         self.updater = updater
@@ -75,7 +80,15 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         subscription = manager.pluginsChanged
             .dropFirst()
             .sink { [weak self] in self?.rows = $0.map(LeoPluginRow.init) }
+        // The switches live in the shared settings object; the view redraws through this model.
+        builtInSubscription = builtIn.objectWillChange.sink { [weak self] in self?.objectWillChange.send() }
     }
+
+    // MARK: Built-in
+
+    /// Settings' "Show Terminal tab" switch (on by default).
+    var showsTerminalTab: Bool { builtIn.showsTerminalTab }
+    func setShowsTerminalTab(_ shown: Bool) { builtIn.setShowsTerminalTab(shown) }
 
     // MARK: Per-plugin
 

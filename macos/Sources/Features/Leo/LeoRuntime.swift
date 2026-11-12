@@ -15,6 +15,8 @@ import LeoKit
     /// What the sidebar, the menus and the row panes read the plugin system
     /// through; exists from launch and attaches once `plugins` starts.
     let pluginSurfaces: LeoPluginSurfaces
+    /// The agent pane's built-in tabs' switches, shared by every window's pane and Settings.
+    let builtInPanes: LeoBuiltInPaneSettings
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
@@ -45,7 +47,7 @@ import LeoKit
     private(set) lazy var settingsWindow = LeoSettingsWindowController(
         registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
         agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] },
-        plugins: { [weak self] in self?.plugins }
+        plugins: { [weak self] in self?.plugins }, builtInPanes: builtInPanes
     )
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
@@ -203,6 +205,7 @@ import LeoKit
             // Top-level agents only (dispatches have no plugin slots); a moved agent's dormant row isn't one.
             model?.rows.filter { $0.movedTo == nil }.map { LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) } ?? []
         })
+        builtInPanes = LeoBuiltInPaneSettings(defaults: defaults)
         self.registry = registry
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
