@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 
 @testable import Ghostty
@@ -68,5 +69,36 @@ struct LeoAgentPaneTabsTests {
     @Test
     func aRunningPluginHasNoWarning() {
         #expect(LeoAgentPaneTabs.make(from: [info("a", state: .running)]).first?.hasWarning == false)
+    }
+
+    // MARK: Tab icon
+
+    private func tab(symbol: String?, warning: Bool = false) -> LeoAgentPaneTab {
+        LeoAgentPaneTab(id: "p", paneID: "main", title: "P", sfSymbol: symbol, hasWarning: warning)
+    }
+
+    @Test
+    func aTabDrawsItsPanesOwnSymbol() {
+        #expect(tab(symbol: "gauge").iconName { _ in true } == "gauge")
+    }
+
+    @Test
+    func aTabFallsBackToInfoWhenTheSymbolIsAbsentOrUnresolvable() {
+        #expect(tab(symbol: nil).iconName { _ in true } == "info.circle")
+        #expect(tab(symbol: "no.such.symbol").iconName { $0 != "no.such.symbol" } == "info.circle")
+    }
+
+    @Test
+    func aWarningBeatsTheSymbol() {
+        #expect(tab(symbol: "gauge", warning: true).iconName { _ in true } == "exclamationmark.triangle.fill")
+    }
+
+    @Test
+    func theBundledStatusPluginsManifestSymbolResolvesOnThisSystem() throws {
+        let data = try Data(contentsOf: URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent().appendingPathComponent("../../../Bundled/Plugins/studio.blackpaw.status/leo-plugin.json"))
+        let manifest = try JSONDecoder().decode(LeoPluginManifest.self, from: data)
+        let symbol = try #require(manifest.contributes.panes.first?.sfSymbol)
+        #expect(NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil)
     }
 }

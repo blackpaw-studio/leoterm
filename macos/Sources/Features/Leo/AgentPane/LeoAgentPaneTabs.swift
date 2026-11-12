@@ -13,6 +13,18 @@ struct LeoAgentPaneTab: Equatable, Identifiable {
     /// The plugin crashed, was crash-disabled, or can't run: the tab stays,
     /// so the user can see why, with a warning glyph.
     let hasWarning: Bool
+
+    static let warningSymbol = "exclamationmark.triangle.fill"
+    static let fallbackSymbol = "info.circle"
+
+    /// The SF Symbol the tab draws: a warning glyph for a plugin that isn't
+    /// running, else the pane's own symbol, else ⓘ when the pane named none or
+    /// the name isn't a symbol on this system.
+    func iconName(isResolvable: (String) -> Bool) -> String {
+        if hasWarning { return Self.warningSymbol }
+        guard let sfSymbol, isResolvable(sfSymbol) else { return Self.fallbackSymbol }
+        return sfSymbol
+    }
 }
 
 enum LeoAgentPaneTabs {

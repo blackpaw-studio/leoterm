@@ -63,6 +63,13 @@ struct LeoAgentPaneMountsTests {
         reporter.setActive(false)
         #expect(surface.visible.isEmpty)
     }
+
+    @Test
+    func thePaneIsShownOnlyForASelectedAgentWithATab() {
+        #expect(LeoAgentPaneModel.isShown(agent: agent, tabs: [status]))
+        #expect(!LeoAgentPaneModel.isShown(agent: nil, tabs: [status]), "no agent selected: no strip")
+        #expect(!LeoAgentPaneModel.isShown(agent: agent, tabs: []))
+    }
 }
 
 @MainActor private final class FakePaneSurface: LeoPluginSlotSurface {

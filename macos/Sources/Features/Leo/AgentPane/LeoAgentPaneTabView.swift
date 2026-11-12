@@ -25,12 +25,14 @@ final class LeoAgentPaneTabView: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 6
-        icon.image = LeoPluginRenderStyle.symbol(tab.hasWarning ? "exclamationmark.triangle.fill" : tab.sfSymbol, pointSize: 11, weight: .medium)
+        let iconName = tab.iconName { NSImage(systemSymbolName: $0, accessibilityDescription: nil) != nil }
+        icon.image = LeoPluginRenderStyle.symbol(iconName, pointSize: 11, weight: .medium)
         icon.contentTintColor = tab.hasWarning ? .systemOrange : .secondaryLabelColor
         title.textColor = tab.hasWarning ? .secondaryLabelColor : .labelColor
         [icon, title].forEach(addSubview)
         if let summary { addSubview(summary) }
         toolTip = tab.hasWarning ? "\(tab.title) is not running" : nil
+        setAccessibilityElement(true)
         setAccessibilityRole(.button)
         setAccessibilityLabel(tab.title)
     }

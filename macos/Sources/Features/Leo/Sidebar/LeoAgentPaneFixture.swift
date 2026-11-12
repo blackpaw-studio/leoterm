@@ -3,17 +3,17 @@ import Combine
 import Foundation
 import LeoKit
 
-/// DEBUG builds only: `LEO_AGENT_PANE_FIXTURE=a|b|c` fills This Mac's sidebar
+/// DEBUG builds only: `LEO_AGENT_PANE_FIXTURE=a|b|c|n` fills This Mac's sidebar
 /// with three agents named `pane-fixture-*` and selects one, so the agent pane
 /// can be screenshotted with no daemon: `a` has the full usage payload
 /// (model, effort, context breakdown, rate limits, git), `b` only today's
-/// fields, `c` none. The names are not real agents; nothing attaches to them.
+/// fields, `c` none, `d` none from a harness that reports no usage, `n` the same rows with nothing selected. The names are not real agents; nothing attaches to them.
 enum LeoAgentPaneFixture {
     static let environmentKey = "LEO_AGENT_PANE_FIXTURE"
     private static let generation = Int.max / 4
 
     static func isEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
-        environment[environmentKey].map { ["a", "b", "c"].contains($0) } ?? false
+        environment[environmentKey].map { ["a", "b", "c", "d", "n"].contains($0) } ?? false
     }
 
     @MainActor static func arm(model: LeoSidebarModel, environment: [String: String] = ProcessInfo.processInfo.environment) -> AnyObject {
@@ -40,6 +40,7 @@ enum LeoAgentPaneFixture {
             row("pane-fixture-a", usage: Self.fullUsage, model: "claude-opus-5-5"),
             row("pane-fixture-b", usage: Self.todaysUsage, model: "claude-sonnet-5-5"),
             row("pane-fixture-c", usage: nil, model: nil),
+            row("pane-fixture-d", usage: nil, model: nil, harness: "gemini"),
         ]
         model.receive(
             LeoSidebarSnapshot(
@@ -49,12 +50,12 @@ enum LeoAgentPaneFixture {
         model.selection = rows.first { $0.name == "pane-fixture-\(letter)" }?.id
     }
 
-    private static func row(_ name: String, usage: LeoAgentUsage?, model: String?) -> LeoAgentRow {
+    private static func row(_ name: String, usage: LeoAgentUsage?, model: String?, harness: String = "claude") -> LeoAgentRow {
         LeoAgentRow(
             host: .local, name: name, template: "claude", status: .running, activity: .idle, actionDetail: nil,
             workspace: NSHomeDirectory() + "/.leo/agents/leoterm", repo: "blackpaw-studio/leoterm", branch: "feat/agent-bottom-pane",
             startedAt: "s", metadata: usage.map { LeoAgentMetadata(lastActiveAt: nil, isWorking: false, task: nil, usage: $0) },
-            harness: "claude", model: model)
+            harness: harness, model: model)
     }
 
     private static func decode(_ json: String) -> LeoAgentUsage? { try? JSONDecoder().decode(LeoAgentUsage.self, from: Data(json.utf8)) }

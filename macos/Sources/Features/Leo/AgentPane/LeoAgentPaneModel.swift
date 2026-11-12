@@ -29,7 +29,9 @@ import LeoKit
     }
 
     /// Nothing is drawn without an agent and at least one tab.
-    var isShown: Bool { agent != nil && !tabs.isEmpty }
+    var isShown: Bool { Self.isShown(agent: agent, tabs: tabs) }
+
+    static func isShown(agent: LeoPluginAgentRef?, tabs: [LeoAgentPaneTab]) -> Bool { agent != nil && !tabs.isEmpty }
     var isExpanded: Bool { isShown && state.isExpanded }
     var selectedTabID: String? { state.resolvedSelection(available: tabs.map(\.id)) }
     var mounts: LeoAgentPaneMounts { LeoAgentPaneMounts(tabs: tabs, state: state, agent: agent) }
