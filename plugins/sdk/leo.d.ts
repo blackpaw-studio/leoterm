@@ -215,8 +215,8 @@ export interface RateLimit {
   kind: "five_hour" | "seven_day" | (string & {});
   /** Percent of the window used, 0 to 100 (may exceed 100 briefly). */
   percentUsed: number;
-  /** When the window resets, ISO 8601 UTC (for example "2026-11-12T05:00:00Z"). */
-  resetsAt: string;
+  /** When the window resets, ISO 8601 UTC (for example "2026-11-12T05:00:00Z"). Absent when the harness gives no reset time. */
+  resetsAt?: string;
 }
 
 /**

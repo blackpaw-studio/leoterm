@@ -153,6 +153,11 @@ describe("buildBody", () => {
     expect(lines(body(usage))).toEqual(["limits   opus_weekly 5.0%"]);
   });
 
+  it("shows a limit without its resets part when there is no reset time", () => {
+    const usage: UsageSnapshot = { rateLimits: [{ kind: "five_hour", percentUsed: 3.44 }] };
+    expect(lines(body(usage))).toEqual(["limits   session 3.4%"]);
+  });
+
   it("shows empty states", () => {
     expect(body(null)).toEqual([expect.objectContaining({ type: "EmptyState", title: "No usage data yet" })]);
     expect(body({})).toEqual([expect.objectContaining({ type: "EmptyState", title: "No usage data" })]);

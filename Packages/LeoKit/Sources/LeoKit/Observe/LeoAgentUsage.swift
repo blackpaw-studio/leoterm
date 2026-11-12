@@ -97,12 +97,13 @@ public struct LeoRateLimit: Codable, Equatable, Sendable {
     public let kind: Kind
     /// 0 up to `maximumPercent`; the harness may briefly report more than 100.
     public let percentUsed: Double
-    public let resetsAt: Date
+    /// Nil when the harness gives no reset time (or an unreadable one).
+    public let resetsAt: Date?
 
     /// Anything past this is not a usage percentage; an entry that says so is malformed.
     public static let maximumPercent = 1000.0
 
-    public init(kind: Kind, percentUsed: Double, resetsAt: Date) {
+    public init(kind: Kind, percentUsed: Double, resetsAt: Date?) {
         self.kind = kind
         self.percentUsed = percentUsed
         self.resetsAt = resetsAt
@@ -114,14 +115,15 @@ public struct LeoRateLimit: Codable, Equatable, Sendable {
         case resetsAt = "resets_at"
     }
 
-    /// Fails on an unknown kind, an implausible percentage or an unreadable
-    /// RFC 3339 time, so a lenient list drops just this entry.
+    /// Fails on an unknown kind or an implausible percentage, so a lenient list
+    /// drops just this entry. A missing or unreadable RFC 3339 reset time only
+    /// leaves `resetsAt` nil: the percentage is still worth showing.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let kind = try container.decode(Kind.self, forKey: .kind)
         let percent = try container.decode(Double.self, forKey: .percentUsed)
-        let raw = try container.decode(String.self, forKey: .resetsAt)
-        guard percent.isFinite, (0...Self.maximumPercent).contains(percent), let date = LeoRFC3339.date(raw) else {
+        let date = ((try? container.decodeIfPresent(String.self, forKey: .resetsAt)) ?? nil).flatMap(LeoRFC3339.date)
+        guard percent.isFinite, (0...Self.maximumPercent).contains(percent) else {
             throw DecodingError.dataCorruptedError(forKey: .percentUsed, in: container, debugDescription: "implausible rate limit")
         }
         self.init(kind: kind, percentUsed: percent, resetsAt: date)
@@ -131,7 +133,7 @@ public struct LeoRateLimit: Codable, Equatable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(kind, forKey: .kind)
         try container.encode(percentUsed, forKey: .percentUsed)
-        try container.encode(LeoRFC3339.string(resetsAt), forKey: .resetsAt)
+        try container.encodeIfPresent(resetsAt.map(LeoRFC3339.string), forKey: .resetsAt)
     }
 }
 

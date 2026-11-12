@@ -22,7 +22,8 @@ export const formatPercent = (value: number, decimals: number): string => `${val
 export const formatMoney = (usd: number): string => `$${usd.toFixed(2)}`;
 
 /** Relative countdown to an ISO time: `3h 50m`, `4d 2h`, `12m`, `<1m`, `now`. Undefined when unparseable. */
-export function formatReset(resetsAtISO: string, nowMs: number): string | undefined {
+export function formatReset(resetsAtISO: string | undefined, nowMs: number): string | undefined {
+  if (resetsAtISO === undefined) return undefined;
   const target = Date.parse(resetsAtISO);
   if (Number.isNaN(target)) return undefined;
   const ms = target - nowMs;

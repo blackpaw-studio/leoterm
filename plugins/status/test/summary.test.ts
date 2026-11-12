@@ -81,6 +81,11 @@ describe("buildSummary", () => {
     expect(allText(s)).toBe("Opus 5.5|21% · $35.36");
   });
 
+  it("shows 5h without a reset time", () => {
+    const s = buildSummary({ ...full, rateLimits: [{ kind: "five_hour", percentUsed: 3.4 }] });
+    expect(allText(s)).toBe("Opus 5.5|21% · 5h 3% · $35.36");
+  });
+
   it("omits cost when absent", () => {
     const { session: _s, ...rest } = full;
     expect(allText(buildSummary(rest))).toBe("Opus 5.5|21% · 5h 3%");

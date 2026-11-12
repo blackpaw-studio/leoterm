@@ -82,10 +82,9 @@ public enum LeoPluginUsageSnapshot {
 
     private static func rateLimit(_ limit: LeoRateLimit) -> LeoJSONValue? {
         guard limit.percentUsed.isFinite, (0...LeoRateLimit.maximumPercent).contains(limit.percentUsed) else { return nil }
-        return .object([
-            "kind": .string(limit.kind.rawValue), "percentUsed": .double(limit.percentUsed),
-            "resetsAt": .string(LeoRFC3339.string(limit.resetsAt)),
-        ])
+        var fields: [String: LeoJSONValue] = ["kind": .string(limit.kind.rawValue), "percentUsed": .double(limit.percentUsed)]
+        if let resetsAt = limit.resetsAt { fields["resetsAt"] = .string(LeoRFC3339.string(resetsAt)) }
+        return .object(fields)
     }
 
     private static func git(_ git: LeoGitDelta) -> LeoJSONValue? {

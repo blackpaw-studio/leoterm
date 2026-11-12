@@ -63,6 +63,12 @@ struct LeoPluginUsageSnapshotTests {
         ]))
     }
 
+    @Test func aRateLimitWithoutAResetTimeOmitsTheResetsAtKey() throws {
+        let usage = LeoAgentUsage(
+            session: LeoUsageTotals(tokens: 1, costUSD: 0), rateLimits: [LeoRateLimit(kind: .fiveHour, percentUsed: 3, resetsAt: nil)])
+        #expect(object(try value(usage))["rateLimits"] == .array([.object(["kind": .string("five_hour"), "percentUsed": .double(3)])]))
+    }
+
     @Test func theSnapshotNeverCarriesAKeyOutsideTheContract() throws {
         let top = Set(object(try value(Self.full)).keys)
         #expect(top == ["model", "effort", "context", "session", "rateLimits", "git"])
