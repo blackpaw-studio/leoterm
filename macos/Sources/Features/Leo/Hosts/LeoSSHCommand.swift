@@ -186,6 +186,31 @@ struct LeoSSHCommand: Sendable {
         return parts.joined(separator: " ")
     }
 
+    /// The drawer Terminal's remote shell: the same transport and `env -u TMUX`
+    /// prefix as `attachShellCommand`, running the remote leo's
+    /// `agent shell -- <name>` (a login shell in the agent's workspace on
+    /// that machine). Refuses a name with a control newline or NUL.
+    func shellCommand(agent: String) throws -> String {
+        try validateConfiguration()
+        var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", "ssh", "-t"]
+        if let identityFile = configuration.identityFile {
+            parts += ["-i", try leoShellQuote(identityFile)]
+        }
+        if let port = configuration.port {
+            parts += ["-p", try leoShellQuote(String(port))]
+        }
+        parts += [try leoShellQuote(target), try leoShellQuote(remoteShellCommand(agent: agent))]
+        return parts.joined(separator: " ")
+    }
+
+    func remoteShellCommand(agent: String) throws -> String {
+        try validateConfiguration()
+        guard !agent.isEmpty, !agent.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
+            throw LeoAttachCommandError.invalidAgentName
+        }
+        return "\(try remoteLeoCommand()) agent shell -- \(try leoShellQuote(agent))"
+    }
+
     /// `attachShellCommand` for a dispatch subagent (B-266). The remote leo
     /// is local to that host, so no `--host`. `--rw` (B-288) only when the
     /// remote leo has it.

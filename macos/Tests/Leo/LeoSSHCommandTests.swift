@@ -36,6 +36,22 @@ struct LeoSSHCommandTests {
         #expect(try command.attachShellCommand(agent: "-it's $(bad)") == #"env -u TMUX -u TMUX_PANE ssh -t -i '/keys/it'\'' s' -p '2200' 'evan@build.example' ''\''/opt/leo $(bad)'\'' agent attach -- '\''-it'\''\'\'''\''s $(bad)'\'''"#)
     }
 
+    @Test func drawerShellRunsAgentShellOverTheSameSshTransport() throws {
+        let command = LeoSSHCommand(configuration: .init(
+            name: "Build", sshTarget: "evan@build.example:2200", identityFile: "/keys/id", remoteLeoPath: "/opt/leo"))
+        #expect(try command.remoteShellCommand(agent: "alfred") == "'/opt/leo' agent shell -- 'alfred'")
+        #expect(try command.shellCommand(agent: "alfred")
+            == "env -u TMUX -u TMUX_PANE ssh -t -i '/keys/id' -p '2200' 'evan@build.example' " + (try leoShellQuote("'/opt/leo' agent shell -- 'alfred'")))
+    }
+
+    @Test func drawerShellQuotesHostileNamesAndRefusesControlCharacters() throws {
+        let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
+        #expect(try command.remoteShellCommand(agent: "-it's $(bad)") == "'/opt/leo' agent shell -- '-it'\\''s $(bad)'")
+        for bad in ["a\nb", "a\rb", "a\0b", ""] {
+            #expect(throws: LeoAttachCommandError.invalidAgentName) { try command.shellCommand(agent: bad) }
+        }
+    }
+
     @Test func remoteAttachPlacesDispatchInBackgroundWhenAdvertised() throws {
         let command = LeoSSHCommand(configuration: .init(name: "Build", sshTarget: "build", remoteLeoPath: "/opt/leo"))
         let placement = LeoDaemonFeatures(["attach_dispatch_placement"])
