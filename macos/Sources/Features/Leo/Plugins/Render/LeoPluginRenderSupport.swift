@@ -27,6 +27,25 @@ enum LeoPluginRenderStyle {
         }
     }
 
+    /// A `Text` run or `Meter` segment's tone: system dynamic colours, so they
+    /// follow light and dark mode. The accents run in the order of the status
+    /// line the Status plugin mirrors; success/warning/failure reuse the
+    /// sidebar's tints.
+    static func color(for tone: LeoPluginTone) -> NSColor {
+        switch tone {
+        case .secondary: .secondaryLabelColor
+        case .accent1: .systemPurple
+        case .accent2: .systemBlue
+        case .accent3: .systemTeal
+        case .accent4: .systemOrange
+        case .accent5: .systemPink
+        case .accent6: .systemIndigo
+        case .success: nsColor(for: .tint(.green))
+        case .warning: nsColor(for: .tint(.orange))
+        case .failure: nsColor(for: .tint(.red))
+        }
+    }
+
     static func nsColor(for ink: LeoInk) -> NSColor {
         switch ink {
         case .tint(let tint): tint.nsColor
