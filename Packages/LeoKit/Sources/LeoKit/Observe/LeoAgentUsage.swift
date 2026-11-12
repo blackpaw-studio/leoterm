@@ -245,11 +245,16 @@ public struct LeoAgentUsage: Codable, Equatable, Sendable {
     public let rateLimits: [LeoRateLimit]
     /// Lines changed in the working tree (`usage.git`); nil when not reported.
     public let git: LeoGitDelta?
+    /// Whether the payload carried `session.cost_usd`. `session.costUSD` reads
+    /// 0 when it did not, so anything that shows a cost checks this first.
+    public let isSessionCostReported: Bool
 
     public init(
         sessionID: String? = nil, session: LeoUsageTotals, incarnation: LeoUsageTotals? = nil, context: LeoContextUsage? = nil,
-        model: String? = nil, effort: String? = nil, rateLimits: [LeoRateLimit] = [], git: LeoGitDelta? = nil
+        model: String? = nil, effort: String? = nil, rateLimits: [LeoRateLimit] = [], git: LeoGitDelta? = nil,
+        isSessionCostReported: Bool = true
     ) {
+        self.isSessionCostReported = isSessionCostReported
         self.sessionID = sessionID
         self.session = session
         self.incarnation = incarnation
@@ -264,13 +269,16 @@ public struct LeoAgentUsage: Codable, Equatable, Sendable {
         case sessionID = "session_id"
         case session, incarnation, context, model, effort, git
         case rateLimits = "rate_limits"
+        case isSessionCostReported = "session_cost_reported"
     }
 
     /// A usage with no readable `session` totals has nothing to show, so it fails.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         sessionID = (try? container.decodeIfPresent(String.self, forKey: .sessionID)) ?? nil
-        session = try container.decode(Totals.self, forKey: .session).value
+        let sessionTotals = try container.decode(Totals.self, forKey: .session)
+        session = sessionTotals.value
+        isSessionCostReported = sessionTotals.hasCost
         incarnation = ((try? container.decodeIfPresent(Totals.self, forKey: .incarnation)) ?? nil)?.value
         context = ((try? container.decodeIfPresent(LeoLenient<LeoContextUsage>.self, forKey: .context)) ?? nil)?.value
         model = LeoUsageText.clean((try? container.decodeIfPresent(String.self, forKey: .model)) ?? nil)
@@ -287,6 +295,7 @@ public struct LeoAgentUsage: Codable, Equatable, Sendable {
 
     private struct Totals: Decodable {
         let value: LeoUsageTotals
+        let hasCost: Bool
 
         enum CodingKeys: String, CodingKey { case tokens, costUSD = "cost_usd" }
 
@@ -298,6 +307,7 @@ public struct LeoAgentUsage: Codable, Equatable, Sendable {
                 throw DecodingError.dataCorruptedError(forKey: .tokens, in: container, debugDescription: "implausible usage")
             }
             value = LeoUsageTotals(tokens: tokens, costUSD: cost ?? 0)
+            hasCost = cost != nil
         }
     }
 }
