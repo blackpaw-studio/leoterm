@@ -11,12 +11,19 @@
     { key: "memory", label: "mem", tone: "accent4" },
     { key: "messages", label: "chat", tone: "accent5" }
   ];
+  function otherTokens(context) {
+    if (context.breakdown === void 0) return 0;
+    const known = CATEGORIES.reduce((sum, c) => sum + (context.breakdown?.[c.key] ?? 0), 0);
+    return Math.max(0, context.tokens - known);
+  }
   function contextSegments(context) {
     const present = CATEGORIES.flatMap((c) => {
       const value = context.breakdown?.[c.key];
       return value === void 0 ? [] : [{ value, tone: c.tone }];
     });
-    return present.length > 0 ? present : [{ value: context.tokens, tone: "accent1" }];
+    if (present.length === 0) return [{ value: context.tokens, tone: "accent1" }];
+    const other = otherTokens(context);
+    return other > 0 ? [...present, { value: other, tone: "secondary" }] : present;
   }
 
   // src/format.ts
@@ -94,12 +101,6 @@
     const runs = place.length > 0 && git.length > 0 ? [...place, { text: " " }, ...git] : [...place, ...git];
     return runs.length === 0 ? [] : [line(rowLabel("where"), ...runs)];
   }
-  function otherTokens(context) {
-    const known = CATEGORIES.map((c) => context.breakdown?.[c.key]).filter((v) => v !== void 0);
-    if (known.length === 0) return void 0;
-    const other = context.tokens - known.reduce((a, b) => a + b, 0);
-    return other > 0 ? other : void 0;
-  }
   function legend(context) {
     const other = otherTokens(context);
     const items = [
@@ -107,7 +108,7 @@
         const tokens = context.breakdown?.[c.key];
         return tokens === void 0 ? [] : [[{ text: `${c.label} ${formatTokens(tokens)}`, tone: c.tone }]];
       }),
-      ...other === void 0 ? [] : [[dim(`${formatTokens(other)} other`)]],
+      ...other <= 0 ? [] : [[dim(`${formatTokens(other)} other`)]],
       ...context.tokens <= context.window ? [[dim(`${formatTokens(context.window - context.tokens)} free`)]] : [],
       ...context.compactAt === void 0 ? [] : [[dim(`compacts at ${Math.round(context.compactAt * 100)}%`)]]
     ];

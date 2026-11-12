@@ -8,7 +8,8 @@ public enum LeoPluginAPI {
 /// Agent capabilities a plugin may request. `read` gates `leo.agents.list`,
 /// `send` gates the `sendToAgent` action, `spawn` the `spawnAgent` action, and
 /// `usage` gates `leo.agents.usage`, the `usageChanged` event and the `model` and
-/// `workspace` fields on `leo.agents.list` entries.
+/// `workspace` fields on `leo.agents.list` entries. `usage` requires `read`; the
+/// manifest validator refuses it alone.
 public enum LeoPluginAgentVerb: String, Codable, CaseIterable, Hashable, Sendable {
     case read, send, spawn, usage
 }

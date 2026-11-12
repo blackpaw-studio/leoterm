@@ -27,8 +27,8 @@ Your code runs in a sandboxed JavaScriptCore host with no network, files or proc
 - `leo.on(event, fn)`: `activate`, `agentsChanged`, `viewOpened(agent, slot)`, `usageChanged(agent)`, `command(id, slot)`, `callback(id, payload)`. One handler per event.
 - `leo.fetch(url, init)`: resolves `{status, headers, body, bodyEncoding}`; `bodyEncoding` is `"base64"` when the bytes are not UTF-8. Hosts must be listed in `permissions.network`, checked on every redirect hop. 60 requests/min, 4 in flight, 5 MB cap. Init takes string bodies only.
 - `leo.secrets.get/set/delete`: needs `permissions.secrets: true`.
-- `leo.agents.list()`: needs `agents: ["read"]`. With `"usage"` too, entries also carry `model` and `workspace` (home-relative, or absolute outside home).
-- `leo.agents.usage({machine, name})`: needs `agents: ["usage"]`. Resolves a `UsageSnapshot` (all keys optional, absent keys omitted), `null` for "no data yet", or `{}` when the agent's harness reports no usage.
+- `leo.agents.list()`: needs `agents: ["read"]`. With `"usage"` too (`usage` requires `read`; a manifest with `usage` alone is refused), entries also carry `model` and `workspace` (home-relative, or absolute outside home).
+- `leo.agents.usage({machine, name})`: needs `agents: ["read", "usage"]`. Resolves a `UsageSnapshot` (all keys optional, absent keys omitted), `null` for "no data yet", or `{}` when the agent's harness reports no usage.
 - `leo.timer(sec >= 60, fn)`, `leo.after(sec >= 1, fn)`: both return `{cancel()}`.
 - `leo.log(level, message)`.
 

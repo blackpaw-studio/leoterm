@@ -18,11 +18,25 @@ export const CATEGORIES: readonly Category[] = [
   { key: "messages", label: "chat", tone: "accent5" },
 ];
 
-/** Meter segments for the present categories, or one total segment when the breakdown is unknown. */
-export function contextSegments(context: NonNullable<UsageSnapshot["context"]>): MeterSegment[] {
+type Context = NonNullable<UsageSnapshot["context"]>;
+
+/** Tokens in use that no known breakdown category accounts for (0 without a breakdown). */
+export function otherTokens(context: Context): number {
+  if (context.breakdown === undefined) return 0;
+  const known = CATEGORIES.reduce((sum, c) => sum + (context.breakdown?.[c.key] ?? 0), 0);
+  return Math.max(0, context.tokens - known);
+}
+
+/**
+ * Meter segments for the present categories plus an "other" remainder, so the bar
+ * matches the percentage label; one total segment when the breakdown is unknown.
+ */
+export function contextSegments(context: Context): MeterSegment[] {
   const present = CATEGORIES.flatMap((c) => {
     const value = context.breakdown?.[c.key];
     return value === undefined ? [] : [{ value, tone: c.tone }];
   });
-  return present.length > 0 ? present : [{ value: context.tokens, tone: "accent1" }];
+  if (present.length === 0) return [{ value: context.tokens, tone: "accent1" }];
+  const other = otherTokens(context);
+  return other > 0 ? [...present, { value: other, tone: "secondary" }] : present;
 }

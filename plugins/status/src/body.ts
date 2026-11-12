@@ -1,5 +1,5 @@
 import type { EmptyState, Meter, Node, RateLimit, Text, TextRun, UsageSnapshot } from "../../sdk/leo";
-import { CATEGORIES, contextSegments } from "./categories";
+import { CATEGORIES, contextSegments, otherTokens } from "./categories";
 import { formatModel, formatMoney, formatPercent, formatReset, formatTokens, shortenPath } from "./format";
 
 /** What the plugin knows about the agent besides its usage. */
@@ -59,14 +59,6 @@ function whereRow(usage: UsageSnapshot, where: Where): Text[] {
   return runs.length === 0 ? [] : [line(rowLabel("where"), ...runs)];
 }
 
-/** Tokens in the context that no breakdown category accounts for, when there are any. */
-function otherTokens(context: Context): number | undefined {
-  const known = CATEGORIES.map((c) => context.breakdown?.[c.key]).filter((v): v is number => v !== undefined);
-  if (known.length === 0) return undefined;
-  const other = context.tokens - known.reduce((a, b) => a + b, 0);
-  return other > 0 ? other : undefined;
-}
-
 function legend(context: Context): Text | undefined {
   const other = otherTokens(context);
   const items: TextRun[][] = [
@@ -74,7 +66,7 @@ function legend(context: Context): Text | undefined {
       const tokens = context.breakdown?.[c.key];
       return tokens === undefined ? [] : [[{ text: `${c.label} ${formatTokens(tokens)}`, tone: c.tone } satisfies TextRun]];
     }),
-    ...(other === undefined ? [] : [[dim(`${formatTokens(other)} other`)]]),
+    ...(other <= 0 ? [] : [[dim(`${formatTokens(other)} other`)]]),
     ...(context.tokens <= context.window ? [[dim(`${formatTokens(context.window - context.tokens)} free`)]] : []),
     ...(context.compactAt === undefined ? [] : [[dim(`compacts at ${Math.round(context.compactAt * 100)}%`)]]),
   ];

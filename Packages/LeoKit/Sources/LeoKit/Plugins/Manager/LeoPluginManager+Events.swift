@@ -61,7 +61,7 @@ extension LeoPluginManager {
 
     /// An agent's usage changed. Plugins that hold `agents:usage` and have a
     /// pane on screen hear about it, at most once per agent per second, and only
-    /// for agents they hold a pane slot for.
+    /// for agents the host opened a pane slot for.
     public func usageDidChange(agent: LeoPluginAgentRef) {
         usageCoalescer.change(agent)
     }
@@ -74,7 +74,7 @@ extension LeoPluginManager {
 
     func deliverUsageChanged(for agent: LeoPluginAgentRef) {
         for entry in entries.values where entry.isPaneVisible && entry.approved?.agents.contains(.usage) == true {
-            let holdsPaneSlot = deps.slots.slots(of: entry.id).contains { slot in
+            let holdsPaneSlot = deps.slots.hostOpened(of: entry.id).contains { slot in
                 if case .pane(_, _, let slotAgent) = slot { slotAgent == agent } else { false }
             }
             if holdsPaneSlot { deliver(.usageChanged(agent: agent), to: entry) }
