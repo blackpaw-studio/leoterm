@@ -27,4 +27,17 @@ enum LeoAgentPaneSplitMetrics {
     static func paneHeight(dividerPosition: CGFloat, columnHeight: CGFloat, dividerThickness: CGFloat) -> CGFloat {
         columnHeight - dividerPosition - dividerThickness
     }
+
+    /// Whether a divider move is the user's drag, and so worth remembering.
+    /// A window resize moves the divider too (the 0.5x max clamp on a shrink),
+    /// and persisting that would overwrite the height the user chose: the column
+    /// height changing or a live resize in progress both mean the window did it.
+    static func shouldPersistHeight(
+        height: CGFloat, appliedHeight: CGFloat?, columnHeight: CGFloat,
+        previousColumnHeight: CGFloat?, isLiveResize: Bool
+    ) -> Bool {
+        guard !isLiveResize, height >= LeoAgentPaneState.minHeight else { return false }
+        if let previousColumnHeight, abs(columnHeight - previousColumnHeight) > 0.5 { return false }
+        return abs(height - (appliedHeight ?? height)) > 0.5
+    }
 }

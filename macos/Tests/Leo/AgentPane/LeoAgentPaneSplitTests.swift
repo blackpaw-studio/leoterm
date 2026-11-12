@@ -47,4 +47,39 @@ struct LeoAgentPaneSplitTests {
         #expect(LeoAgentPaneSplitMetrics.paneHeight(dividerPosition: 616, columnHeight: 800, dividerThickness: 0) == 184)
         #expect(LeoAgentPaneSplitMetrics.paneHeight(dividerPosition: 615, columnHeight: 800, dividerThickness: 1) == 184)
     }
+
+    // MARK: Which divider moves are the user's
+
+    @Test
+    func aDragOfTheDividerInAStableColumnIsPersisted() {
+        #expect(LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: 250, appliedHeight: 184, columnHeight: 800, previousColumnHeight: 800, isLiveResize: false))
+    }
+
+    @Test
+    func aWindowShrinkClampIsNotAUserDrag() {
+        // The column went 800 -> 400, so the 0.5x max clamp moves the pane from 300 to 200.
+        #expect(!LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: 200, appliedHeight: 300, columnHeight: 400, previousColumnHeight: 800, isLiveResize: false))
+    }
+
+    @Test
+    func nothingIsPersistedDuringAWindowLiveResize() {
+        #expect(!LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: 250, appliedHeight: 184, columnHeight: 800, previousColumnHeight: 800, isLiveResize: true))
+    }
+
+    @Test
+    func anUnchangedHeightOrOneBelowTheMinimumIsNotPersisted() {
+        #expect(!LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: 184.2, appliedHeight: 184, columnHeight: 800, previousColumnHeight: 800, isLiveResize: false))
+        #expect(!LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: 90, appliedHeight: 184, columnHeight: 800, previousColumnHeight: 800, isLiveResize: false))
+    }
+
+    @Test
+    func theFirstNotificationHasNoPreviousColumnToCompareWith() {
+        #expect(LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: 250, appliedHeight: 184, columnHeight: 800, previousColumnHeight: nil, isLiveResize: false))
+    }
 }

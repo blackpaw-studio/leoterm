@@ -19,6 +19,8 @@ import Combine
     /// whether a requested position is still waiting for the view to be in a window.
     private var appliedHeight: CGFloat?
     private var isApplying = false
+    /// The column height at the last divider notification: a change means the window moved the divider.
+    private var lastColumnHeight: CGFloat?
 
     init(detail: NSViewController, model: LeoAgentPaneModel) {
         self.model = model
@@ -87,11 +89,14 @@ import Combine
 
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
+        let columnHeight = columnHeight
+        defer { lastColumnHeight = columnHeight }
         guard !isApplying, model.isExpanded, isReadyToPosition, !paneItem.isCollapsed else { return }
         let height = paneItem.viewController.view.frame.height
-        guard height >= LeoAgentPaneState.minHeight else { return }
-        // A window resize moves the divider too; only a changed height is the user's.
-        guard abs(height - (appliedHeight ?? height)) > 0.5 else { return }
+        guard LeoAgentPaneSplitMetrics.shouldPersistHeight(
+            height: height, appliedHeight: appliedHeight, columnHeight: columnHeight,
+            previousColumnHeight: lastColumnHeight, isLiveResize: view.inLiveResize)
+        else { return }
         appliedHeight = height
         model.setHeight(height, columnHeight: columnHeight)
     }
