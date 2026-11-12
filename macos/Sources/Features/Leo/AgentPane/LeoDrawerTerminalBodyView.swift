@@ -15,6 +15,9 @@ import LeoKit
     private let restartButton = NSButton(title: "Restart", target: nil, action: nil)
     private let messageStack = NSStackView()
     private var surface: Ghostty.SurfaceView?
+    /// What hosts `surface`: libghostty only learns the pty's size from the scroll wrapper
+    /// (the same one a SwiftUI-hosted surface gets), so a surface added bare stays at 1x1.
+    private var surfaceContainer: SurfaceScrollView?
     private var isShownOnScreen = false
     private var subscription: AnyCancellable?
     private var closeRequestObserver: NSObjectProtocol?
@@ -93,6 +96,7 @@ import LeoKit
             surface.removeFromSuperview()
         }
         surface = nil
+        removeSurfaceContainer()
     }
 
     /// Draws or pauses the surface (from `LeoDrawerOcclusion`).
@@ -125,11 +129,14 @@ import LeoKit
         guard surface !== running else { return }
         let hadFocus = hasFocus
         surface?.removeFromSuperview()
+        removeSurfaceContainer()
         surface = running
         running.removeFromSuperview()
-        running.frame = bounds
-        running.autoresizingMask = [.width, .height]
-        addSubview(running, positioned: .below, relativeTo: messageStack)
+        let container = SurfaceScrollView(contentSize: bounds.size, surfaceView: running)
+        container.frame = bounds
+        container.autoresizingMask = [.width, .height]
+        addSubview(container, positioned: .below, relativeTo: messageStack)
+        surfaceContainer = container
         LeoSurfaceDrawing.set(running, visible: isShownOnScreen)
         if hadFocus { focusTerminal() }
     }
@@ -141,10 +148,16 @@ import LeoKit
             surface.removeFromSuperview()
         }
         surface = nil
+        removeSurfaceContainer()
         messageLabel.stringValue = text
         restartButton.isHidden = !canRestart
         messageStack.isHidden = false
         if hadFocus { environment.focusMain() }
+    }
+
+    private func removeSurfaceContainer() {
+        surfaceContainer?.removeFromSuperview()
+        surfaceContainer = nil
     }
 
     @objc private func restart() {
