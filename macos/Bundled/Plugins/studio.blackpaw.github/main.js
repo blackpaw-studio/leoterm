@@ -4,7 +4,7 @@
   var systemClock = { now: () => Date.now() };
 
   // src/config.ts
-  var OAUTH_CLIENT_ID = "";
+  var OAUTH_CLIENT_ID = "Ov23li4ZOf3yNXiTAcoC";
   var OAUTH_SCOPE = "repo read:org";
   var VIEW_ID = "github";
   var COMMANDS = {
