@@ -168,6 +168,43 @@ struct LeoDrawerShellPoolTests {
         token.cancel()
     }
 
+    // MARK: Running surfaces and the Terminal switch
+
+    @Test func runningSurfacesListsOnlyLiveShells() throws {
+        let h = Harness()
+        h.pool.open(a, launch: shell)
+        h.pool.open(b, launch: shell)
+        h.pool.markExited(b, status: 0)
+        #expect(h.pool.runningSurfaces.count == 1)
+        #expect(h.pool.runningSurfaces.first === running(h.pool, a))
+    }
+
+    @Test func turningTheTerminalSwitchOffClosesEveryShellAndTurningItOnSpawnsNothing() {
+        let h = Harness()
+        let defaults = LeoInMemoryDefaults()
+        let settings = LeoBuiltInPaneSettings(defaults: defaults)
+        let token = LeoDrawerTerminalSwitch.closeShellsWhenTurnedOff(settings: settings) { h.pool.closeAll() }
+        h.pool.open(a, launch: shell)
+        h.pool.open(b, launch: shell)
+        settings.setShowsTerminalTab(false)
+        #expect(h.closed.count == 2)
+        #expect(running(h.pool, a) == nil && running(h.pool, b) == nil)
+        settings.setShowsTerminalTab(true)
+        #expect(h.made.count == 2, "turning it back on starts no shell")
+        #expect(running(h.pool, a) == nil)
+        token.cancel()
+    }
+
+    @Test func theSwitchStartingOffOrStayingOnClosesNothing() {
+        let h = Harness()
+        let settings = LeoBuiltInPaneSettings(defaults: LeoInMemoryDefaults())
+        let token = LeoDrawerTerminalSwitch.closeShellsWhenTurnedOff(settings: settings) { h.pool.closeAll() }
+        h.pool.open(a, launch: shell)
+        settings.setShowsTerminalTab(true)
+        #expect(h.closed.isEmpty)
+        token.cancel()
+    }
+
     // MARK: Retention
 
     private func row(movedTo: String? = nil) -> LeoAgentRow {

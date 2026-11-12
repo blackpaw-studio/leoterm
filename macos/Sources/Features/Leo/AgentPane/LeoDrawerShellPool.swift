@@ -35,6 +35,11 @@ enum LeoDrawerShellState<Surface: AnyObject> {
         self.close = close
     }
 
+    /// The live shells' surfaces, for checks that walk them (quit and close confirmation).
+    var runningSurfaces: [Surface] {
+        states.values.compactMap { if case .running(let surface) = $0 { surface } else { nil } }
+    }
+
     func state(for key: Key) -> LeoDrawerShellState<Surface> { states[key] ?? .notStarted }
 
     /// The key of the shell this surface belongs to, if it is one of ours and still running.

@@ -17,6 +17,7 @@ import LeoKit
     let pluginSurfaces: LeoPluginSurfaces
     /// The agent pane's built-in tabs' switches, shared by every window's pane and Settings.
     let builtInPanes: LeoBuiltInPaneSettings
+    private var drawerSwitchSubscription: AnyCancellable?
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
@@ -207,6 +208,9 @@ import LeoKit
         })
         builtInPanes = LeoBuiltInPaneSettings(defaults: defaults)
         self.registry = registry
+        drawerSwitchSubscription = LeoDrawerTerminalSwitch.closeShellsWhenTurnedOff(settings: builtInPanes) { [weak registry] in
+            registry?.sessions.forEach { $0.drawerEnvironment?.pool.closeAll() }
+        }
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
             center: notificationCenter, defaults: defaults, isLive: { weakSelf?.feeds.contains($0) ?? false },
