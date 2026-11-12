@@ -82,7 +82,7 @@ describe("buildBody", () => {
   it("hides the legend parts it does not know", () => {
     const usage: UsageSnapshot = { context: { tokens: 50, window: 100, percent: 50, breakdown: { tools: 10 } } };
     const out = lines(body(usage));
-    expect(out).toContain("tools 10 · free 50");
+    expect(out).toContain("tools 10 · other 40 · free 50");
     expect(out.some((l) => l.includes("compacts"))).toBe(false);
   });
 

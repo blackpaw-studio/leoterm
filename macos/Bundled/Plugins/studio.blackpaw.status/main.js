@@ -11,12 +11,19 @@
     { key: "memory", label: "mem", tone: "accent4" },
     { key: "messages", label: "chat", tone: "accent5" }
   ];
+  function otherTokens(context) {
+    if (context.breakdown === void 0) return 0;
+    const known = CATEGORIES.reduce((sum, c) => sum + (context.breakdown?.[c.key] ?? 0), 0);
+    return Math.max(0, context.tokens - known);
+  }
   function contextSegments(context) {
     const present2 = CATEGORIES.flatMap((c) => {
       const value = context.breakdown?.[c.key];
       return value === void 0 ? [] : [{ value, tone: c.tone }];
     });
-    return present2.length > 0 ? present2 : [{ value: context.tokens, tone: "accent1" }];
+    if (present2.length === 0) return [{ value: context.tokens, tone: "accent1" }];
+    const other = otherTokens(context);
+    return other > 0 ? [...present2, { value: other, tone: "secondary" }] : present2;
   }
 
   // src/format.ts
@@ -103,6 +110,7 @@
         const tokens = context.breakdown?.[c.key];
         return tokens === void 0 ? [] : [{ text: `${c.label} ${formatTokens(tokens)}`, tone: c.tone }];
       }),
+      ...otherTokens(context) > 0 ? [{ text: `other ${formatTokens(otherTokens(context))}`, tone: "secondary" }] : [],
       ...context.tokens <= context.window ? [{ text: `free ${formatTokens(context.window - context.tokens)}`, tone: "secondary" }] : [],
       ...context.compactAt === void 0 ? [] : [{ text: `compacts at ${Math.round(context.compactAt * 100)}%`, tone: "secondary" }]
     ];

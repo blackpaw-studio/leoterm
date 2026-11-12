@@ -62,6 +62,20 @@ describe("buildSummary", () => {
     expect(m.segments.map((s) => s.tone)).toEqual(["accent2", "accent5"]);
   });
 
+  it("adds an other segment for tokens the breakdown does not account for", () => {
+    const m = meterOf(buildSummary({ context: { tokens: 100, window: 200, percent: 50, breakdown: { tools: 10, messages: 30 } } }))!;
+    expect(m.segments).toEqual([
+      { value: 10, tone: "accent2" },
+      { value: 30, tone: "accent5" },
+      { value: 60, tone: "secondary" },
+    ]);
+  });
+
+  it("adds no other segment when the breakdown covers every token", () => {
+    const m = meterOf(buildSummary({ context: { tokens: 10, window: 100, percent: 10, breakdown: { tools: 4, messages: 6 } } }))!;
+    expect(m.segments.some((s) => s.tone === "secondary")).toBe(false);
+  });
+
   it("omits 5h when no five_hour limit is present", () => {
     const s = buildSummary({ ...full, rateLimits: [full.rateLimits![1]] });
     expect(allText(s)).toBe("Opus 5.5|21% · $35.36");

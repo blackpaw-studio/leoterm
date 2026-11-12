@@ -1,5 +1,5 @@
 import type { EmptyState, Meter, Node, RateLimit, Text, TextRun, UsageSnapshot } from "../../sdk/leo";
-import { CATEGORIES, contextSegments } from "./categories";
+import { CATEGORIES, contextSegments, otherTokens } from "./categories";
 import { formatModel, formatMoney, formatPercent, formatReset, formatTokens, shortenPath } from "./format";
 
 /** What the plugin knows about the agent besides its usage. */
@@ -60,6 +60,7 @@ function legend(context: Context): Text | undefined {
       const tokens = context.breakdown?.[c.key];
       return tokens === undefined ? [] : [{ text: `${c.label} ${formatTokens(tokens)}`, tone: c.tone } satisfies TextRun];
     }),
+    ...(otherTokens(context) > 0 ? [{ text: `other ${formatTokens(otherTokens(context))}`, tone: "secondary" } satisfies TextRun] : []),
     ...(context.tokens <= context.window ? [{ text: `free ${formatTokens(context.window - context.tokens)}`, tone: "secondary" } satisfies TextRun] : []),
     ...(context.compactAt === undefined ? [] : [{ text: `compacts at ${Math.round(context.compactAt * 100)}%`, tone: "secondary" } satisfies TextRun]),
   ];
