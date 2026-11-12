@@ -7,6 +7,18 @@ public enum LeoPluginNodeLimits {
     public static let maxAccessoryText = 8
     public static let maxHelp = 80
     public static let maxActionTitle = 40
+    public static let maxTextRuns = 20
+    public static let maxRunText = 200
+    public static let maxMeterSegments = 8
+    public static let maxMeterLabel = 40
+}
+
+/// Semantic colour token for `Text` runs and `Meter` segments. The app maps
+/// each to a system dynamic colour; there are no raw colours on the wire.
+public enum LeoPluginTone: String, Codable, Equatable, Sendable, CaseIterable {
+    case secondary
+    case accent1, accent2, accent3, accent4, accent5, accent6
+    case success, warning, failure
 }
 
 public enum LeoPluginAccessoryColor: String, Codable, Equatable, Sendable {
@@ -19,6 +31,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
     case detail(Detail)
     case form(Form)
     case accessory(Accessory)
+    case text(Text)
+    case meter(Meter)
     case emptyState(EmptyState)
     case loading(Loading)
     case error(ErrorState)
@@ -109,6 +123,99 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         }
 
         private enum Keys: String, CodingKey { case sfSymbol, text, color, help }
+    }
+
+    /// An inline row of styled runs.
+    public struct Text: Codable, Equatable, Sendable {
+        public struct Run: Codable, Equatable, Sendable {
+            public enum Weight: String, Codable, Equatable, Sendable { case regular, semibold }
+            public var text: String
+            public var tone: LeoPluginTone?
+            public var weight: Weight
+            public var mono: Bool
+            public init(text: String, tone: LeoPluginTone? = nil, weight: Weight = .regular, mono: Bool = false) {
+                self.text = text; self.tone = tone; self.weight = weight; self.mono = mono
+            }
+
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: Keys.self)
+                text = try c.decode(String.self, forKey: .text)
+                tone = try c.decodeIfPresent(LeoPluginTone.self, forKey: .tone)
+                weight = try c.decodeIfPresent(Weight.self, forKey: .weight) ?? .regular
+                mono = try c.decodeIfPresent(Bool.self, forKey: .mono) ?? false
+                guard text.count <= LeoPluginNodeLimits.maxRunText else {
+                    throw DecodingError.dataCorruptedError(forKey: .text, in: c, debugDescription: "text run over \(LeoPluginNodeLimits.maxRunText) characters")
+                }
+            }
+
+            private enum Keys: String, CodingKey { case text, tone, weight, mono }
+        }
+
+        public var runs: [Run]
+        public init(runs: [Run]) { self.runs = runs }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: Keys.self)
+            runs = try c.decode([Run].self, forKey: .runs)
+            guard (1...LeoPluginNodeLimits.maxTextRuns).contains(runs.count) else {
+                throw DecodingError.dataCorruptedError(forKey: .runs, in: c, debugDescription: "Text needs 1 to \(LeoPluginNodeLimits.maxTextRuns) runs")
+            }
+        }
+
+        private enum Keys: String, CodingKey { case runs }
+
+        /// The runs' text joined, for surfaces that draw plain text.
+        public var plainText: String { runs.map(\.text).joined() }
+    }
+
+    /// A horizontal bar of toned segments out of a total `max`.
+    public struct Meter: Codable, Equatable, Sendable {
+        public struct Segment: Codable, Equatable, Sendable {
+            public var value: Double
+            public var tone: LeoPluginTone
+            public init(value: Double, tone: LeoPluginTone) { self.value = value; self.tone = tone }
+
+            public init(from decoder: Decoder) throws {
+                let c = try decoder.container(keyedBy: Keys.self)
+                value = try c.decode(Double.self, forKey: .value)
+                tone = try c.decode(LeoPluginTone.self, forKey: .tone)
+                guard value.isFinite, value >= 0 else {
+                    throw DecodingError.dataCorruptedError(forKey: .value, in: c, debugDescription: "segment value must be finite and >= 0")
+                }
+            }
+
+            private enum Keys: String, CodingKey { case value, tone }
+        }
+
+        public var segments: [Segment]
+        public var max: Double
+        public var label: String?
+        public var help: String?
+        public init(segments: [Segment], max: Double, label: String? = nil, help: String? = nil) {
+            self.segments = segments; self.max = max; self.label = label; self.help = help
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: Keys.self)
+            segments = try c.decode([Segment].self, forKey: .segments)
+            max = try c.decode(Double.self, forKey: .max)
+            label = try c.decodeIfPresent(String.self, forKey: .label)
+            help = try c.decodeIfPresent(String.self, forKey: .help)
+            guard (1...LeoPluginNodeLimits.maxMeterSegments).contains(segments.count) else {
+                throw DecodingError.dataCorruptedError(forKey: .segments, in: c, debugDescription: "Meter needs 1 to \(LeoPluginNodeLimits.maxMeterSegments) segments")
+            }
+            guard max.isFinite, max > 0 else {
+                throw DecodingError.dataCorruptedError(forKey: .max, in: c, debugDescription: "Meter max must be finite and > 0")
+            }
+            if let label, label.count > LeoPluginNodeLimits.maxMeterLabel {
+                throw DecodingError.dataCorruptedError(forKey: .label, in: c, debugDescription: "meter label over \(LeoPluginNodeLimits.maxMeterLabel) characters")
+            }
+            if let help, help.count > LeoPluginNodeLimits.maxHelp {
+                throw DecodingError.dataCorruptedError(forKey: .help, in: c, debugDescription: "meter help over \(LeoPluginNodeLimits.maxHelp) characters")
+            }
+        }
+
+        private enum Keys: String, CodingKey { case segments, max, label, help }
     }
 
     public struct Detail: Codable, Equatable, Sendable {
@@ -251,7 +358,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
 
 extension LeoPluginNode: Codable {
     private enum Keys: String, CodingKey { case type }
-    private static let typeNames = "List, Detail, Form, Accessory, EmptyState, Loading, Error"
+    private static let typeNames = "List, Detail, Form, Accessory, Text, Meter, EmptyState, Loading, Error"
 
     public init(from decoder: Decoder) throws {
         let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
@@ -262,6 +369,8 @@ extension LeoPluginNode: Codable {
         case "Detail": self = .detail(try .init(from: decoder))
         case "Form": self = .form(try .init(from: decoder))
         case "Accessory": self = .accessory(try .init(from: decoder))
+        case "Text": self = .text(try .init(from: decoder))
+        case "Meter": self = .meter(try .init(from: decoder))
         case "EmptyState": self = .emptyState(try .init(from: decoder))
         case "Loading": self = .loading(try .init(from: decoder))
         case "Error": self = .error(try .init(from: decoder))
@@ -279,6 +388,8 @@ extension LeoPluginNode: Codable {
         case .detail(let v): try c.encode("Detail", forKey: .type); try v.encode(to: encoder)
         case .form(let v): try c.encode("Form", forKey: .type); try v.encode(to: encoder)
         case .accessory(let v): try c.encode("Accessory", forKey: .type); try v.encode(to: encoder)
+        case .text(let v): try c.encode("Text", forKey: .type); try v.encode(to: encoder)
+        case .meter(let v): try c.encode("Meter", forKey: .type); try v.encode(to: encoder)
         case .emptyState(let v): try c.encode("EmptyState", forKey: .type); try v.encode(to: encoder)
         case .loading(let v): try c.encode("Loading", forKey: .type); try v.encode(to: encoder)
         case .error(let v): try c.encode("Error", forKey: .type); try v.encode(to: encoder)

@@ -14,6 +14,8 @@ public enum LeoPluginManifestValidator {
     /// Manifests are tiny; a cap stops a hostile repo from feeding us a huge blob.
     public static let maxManifestBytes = 256 * 1024
     static let maxContributionIDLength = 40
+    /// A plugin contributes at most one pane in v1.
+    static let maxPanes = 1
     static let maxIDLength = 128
     static let maxMainLength = 256
 
@@ -173,6 +175,7 @@ public enum LeoPluginManifestValidator {
             ("rowAccessories", c.rowAccessories.map(\.id)),
             ("commands", c.commands.map(\.id)),
             ("sidebarSections", c.sidebarSections.map(\.id)),
+            ("panes", c.panes.map(\.id)),
         ]
         for (kind, ids) in kinds {
             if let bad = ids.first(where: { !isContributionID($0) }) {
@@ -190,6 +193,15 @@ public enum LeoPluginManifestValidator {
         }
         for section in c.sidebarSections where isBlank(section.title) {
             return "sidebarSections '\(section.id)' needs a title"
+        }
+        return panesProblem(c.panes)
+    }
+
+    private static func panesProblem(_ panes: [LeoPluginPaneContribution]) -> String? {
+        if panes.count > maxPanes { return "panes may list at most \(maxPanes) pane (one per plugin)" }
+        for pane in panes {
+            if isBlank(pane.title) { return "panes '\(pane.id)' needs a title" }
+            if let symbol = pane.sfSymbol, isBlank(symbol) { return "panes '\(pane.id)' has a blank sfSymbol" }
         }
         return nil
     }

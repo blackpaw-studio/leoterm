@@ -91,6 +91,18 @@ struct LeoPluginTreeDiffTests {
         #expect(patch.sectionEdits.contains(.insert(key: "c", index: 1, section: new.listSections[1])))
         #expect(patch.sections.contains { $0.key == "a" && $0.title == "A2" && $0.retitled })
     }
+
+    @Test func aChangedTextOrMeterReplacesThatNodeAndTheKindIsStable() {
+        let oldText: [LeoPluginNode] = [.text(.init(runs: [.init(text: "a")]))]
+        let newText: [LeoPluginNode] = [.text(.init(runs: [.init(text: "b")]))]
+        #expect(LeoPluginTreeDiff.diff(old: oldText, new: newText) == [.replaceNode(index: 0, node: newText[0])])
+        #expect(LeoPluginTreeDiff.diff(old: oldText, new: oldText).isEmpty)
+
+        let oldMeter: [LeoPluginNode] = [.meter(.init(segments: [.init(value: 1, tone: .success)], max: 4))]
+        let newMeter: [LeoPluginNode] = [.meter(.init(segments: [.init(value: 2, tone: .success)], max: 4))]
+        #expect(LeoPluginTreeDiff.diff(old: oldMeter, new: newMeter) == [.replaceNode(index: 0, node: newMeter[0])])
+        #expect(LeoPluginTreeDiff.diff(old: oldText, new: oldMeter) == [.replaceRoot(oldMeter)])
+    }
 }
 
 extension [LeoPluginNode] {

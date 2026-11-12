@@ -144,6 +144,8 @@ final class LeoPluginNodeView: NSView {
         case .detail(let detail): LeoPluginDetailView(detail: detail, embedded: embedded)
         case .form(let form): LeoPluginFormView(form: form, emitter: emitter, embedded: embedded)
         case .accessory(let accessory): LeoPluginAccessoryView(accessory: accessory)
+        // Placeholder until the Text/Meter renderers land (plan step 9).
+        case .text, .meter: NSView()
         case .emptyState(let state): LeoPluginEmptyStateView(state: state, emitter: emitter)
         case .loading(let loading): LeoPluginLoadingView(loading: loading)
         case .error(let error): LeoPluginErrorView(error: error, emitter: emitter)

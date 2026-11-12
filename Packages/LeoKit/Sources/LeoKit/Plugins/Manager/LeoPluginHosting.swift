@@ -35,6 +35,15 @@ public protocol LeoPluginHostMaking: Sendable {
 /// The agents Leo currently knows, across machines (the sidebar feeds).
 @MainActor public protocol LeoPluginAgentSource: AnyObject {
     func currentAgents() -> [(LeoHostID, LeoAgent)]
+    /// What is known about one agent's usage, or nil for an agent Leo doesn't know.
+    func usage(for agent: LeoPluginAgentRef) -> LeoPluginUsageReading?
+    /// This Mac's home directory, so a local workspace can be shown home-relative.
+    var homeDirectory: String? { get }
+}
+
+extension LeoPluginAgentSource {
+    public func usage(for agent: LeoPluginAgentRef) -> LeoPluginUsageReading? { nil }
+    public var homeDirectory: String? { nil }
 }
 
 /// Moves a folder to the Trash (recoverable). Injected so tests don't touch the real one.

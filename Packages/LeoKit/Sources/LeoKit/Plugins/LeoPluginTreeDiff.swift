@@ -130,7 +130,7 @@ public enum LeoPluginTreeDiff {
     private static func sameKind(_ a: LeoPluginNode, _ b: LeoPluginNode) -> Bool {
         switch (a, b) {
         case (.list, .list), (.detail, .detail), (.form, .form), (.accessory, .accessory),
-             (.emptyState, .emptyState), (.loading, .loading), (.error, .error): true
+             (.text, .text), (.meter, .meter), (.emptyState, .emptyState), (.loading, .loading), (.error, .error): true
         default: false
         }
     }

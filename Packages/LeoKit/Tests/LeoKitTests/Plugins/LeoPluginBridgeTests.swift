@@ -21,6 +21,7 @@ struct LeoPluginBridgeTests {
             .secretsSet(id: "r4", key: "token", value: "v"),
             .secretsDelete(id: "r5", key: "token"),
             .agentsList(id: "r6"),
+            .agentsUsage(id: "r7", agent: agent),
             .timerStart(id: "t1", seconds: 60),
             .afterStart(id: "t2", seconds: 5),
             .timerStop(id: "t1"),
@@ -42,6 +43,7 @@ struct LeoPluginBridgeTests {
             .command(id: "open", slot: nil),
             .callback(ref: "c1", id: "refresh", payload: .object(["n": .int(2)]), gesture: true),
             .timerFired(id: "t1"),
+            .usageChanged(agent: agent),
             .reply(id: "r1", outcome: .value(.object(["status": .int(200)]))),
             .reply(id: "r2", outcome: .rejected(reason: "host not allowed")),
         ]
@@ -76,6 +78,15 @@ struct LeoPluginBridgeTests {
     @Test func knownCallWithBadFieldsFailsToDecode() {
         let json = Data(#"{"call":"timerStart","id":"t","seconds":"soon"}"#.utf8)
         #expect(throws: (any Error).self) { try JSONDecoder().decode(LeoPluginHostRequest.self, from: json) }
+    }
+
+    @Test(arguments: [
+        #"{"call":"agentsUsage","id":"r"}"#, #"{"call":"agentsUsage","id":"r","agent":"alfred"}"#,
+        #"{"call":"agentsUsage","id":"r","agent":{"machine":1,"name":"a"}}"#, #"{"call":"agentsUsage","id":"r","agent":{"machine":"m"}}"#,
+        #"{"call":"agentsUsage","agent":{"machine":"m","name":"a"}}"#,
+    ])
+    func anAgentsUsageRequestWithoutAWellFormedAgentFailsToDecode(_ json: String) {
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(LeoPluginHostRequest.self, from: Data(json.utf8)) }
     }
 
     @Test func spawnCanOnlyArriveAsACallbackFollowUp() throws {
