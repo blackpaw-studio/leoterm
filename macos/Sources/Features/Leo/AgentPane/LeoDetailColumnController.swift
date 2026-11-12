@@ -28,7 +28,9 @@ import Combine
         terminalItem.holdingPriority = LeoAgentPaneSplitMetrics.terminalHoldingPriority
         paneItem = NSSplitViewItem(viewController: LeoAgentPaneViewController(model: model))
         paneItem.holdingPriority = LeoAgentPaneSplitMetrics.paneHoldingPriority
-        paneItem.canCollapse = true
+        // A drag below the minimum must never collapse the pane (tab bar included);
+        // `isCollapsed` set from code still hides it when there is nothing to show.
+        paneItem.canCollapse = false
         paneItem.isCollapsed = true
         super.init(nibName: nil, bundle: nil)
         splitView.isVertical = false
