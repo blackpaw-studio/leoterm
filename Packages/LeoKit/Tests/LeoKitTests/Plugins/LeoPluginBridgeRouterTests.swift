@@ -95,6 +95,54 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
         #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: slot) == .tree(try sampleRoot()))
     }
 
+    @Test func aPaneSummaryAcceptsOnlyTextMeterAndAccessory() throws {
+        let rig = Rig()
+        let summary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
+        let allowed = try LeoPluginSlotRoot(nodes: [
+            .meter(.init(segments: [.init(value: 1, tone: .success)], max: 2)),
+            .text(.init(runs: [.init(text: "62%")])),
+            .accessory(.init(text: "ok")),
+        ])
+        rig.router.handle(.render(slot: summary, node: allowed))
+        #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: summary) == .tree(allowed))
+
+        let forbidden: [LeoPluginNode] = [
+            .list(.init(sections: [])), .detail(.init(markdown: "x")), .form(.init(id: "f", fields: [])),
+            .emptyState(.init(title: "x")), .loading(.init(message: nil)),
+            .error(.init(message: "x", retry: .callback(id: "r", payload: .null))),
+        ]
+        for node in forbidden {
+            // Mixed with allowed nodes, a single bad one still fails the slot.
+            rig.router.handle(.render(slot: summary, node: try LeoPluginSlotRoot(nodes: [.text(.init(runs: [.init(text: "a")])), node])))
+            guard case .error(let message) = rig.slots.state(pluginID: "studio.blackpaw.demo", slot: summary) else {
+                Issue.record("expected an error for \(node)")
+                continue
+            }
+            #expect(message.contains("Text, Meter and Accessory"))
+        }
+    }
+
+    @Test func aPaneSummaryRecoversOnTheNextAllowedRenderAndTheBodyAcceptsAnyComponent() throws {
+        let rig = Rig()
+        let summary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
+        let body = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        let list = try LeoPluginSlotRoot(nodes: [.list(.init(sections: []))])
+        rig.router.handle(.render(slot: summary, node: list))
+        rig.router.handle(.render(slot: body, node: list))
+        #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: body) == .tree(list))
+
+        let text = try LeoPluginSlotRoot(nodes: [.text(.init(runs: [.init(text: "ok")]))])
+        rig.router.handle(.render(slot: summary, node: text))
+        #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: summary) == .tree(text))
+    }
+
+    @Test func otherSlotKindsStillAcceptAnyComponent() throws {
+        let rig = Rig()
+        let list = try LeoPluginSlotRoot(nodes: [.list(.init(sections: []))])
+        rig.router.handle(.render(slot: .section(id: "issues"), node: list))
+        #expect(rig.slots.state(rig.slotKey) == .tree(list))
+    }
+
     @Test func fetchRepliesWithTheResponseValueAndItsBodyEncoding() async throws {
         let rig = Rig()
         let response = LeoPluginFetchResponse(status: 200, headers: ["etag": "x"], body: "AAEC", bodyEncoding: .base64)

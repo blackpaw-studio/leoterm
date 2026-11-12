@@ -121,6 +121,11 @@ import OSLog
             warn("render refused: the manifest declares no contribution for slot \(Self.clip(slot.key, 120))")
             return
         }
+        if case .pane(_, .summary, _) = slot, let problem = LeoPluginPaneSummaryRules.violation(in: node) {
+            // Fail the slot (drawn as "!" with the reason) instead of dropping the render silently.
+            deps.slots.fail(pluginID: deps.identity.id, slot: slot, message: problem)
+            return warn("render refused: \(problem)")
+        }
         if !deps.slots.render(pluginID: deps.identity.id, slot: slot, root: node) {
             warn("render refused: too many slots")
         }
