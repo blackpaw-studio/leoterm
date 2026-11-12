@@ -7,10 +7,20 @@ struct LeoDrawerOcclusionTests {
         #expect(LeoDrawerOcclusion.isVisible(isMounted: true, windowVisible: true, expanded: true, selectedIsTerminal: true))
     }
 
+    struct Conditions {
+        var isMounted = true
+        var windowVisible = true
+        var expanded = true
+        var selectedIsTerminal = true
+    }
+
     @Test(arguments: [
-        (false, true, true, true), (true, false, true, true), (true, true, false, true), (true, true, true, false),
+        Conditions(isMounted: false), Conditions(windowVisible: false),
+        Conditions(expanded: false), Conditions(selectedIsTerminal: false),
     ])
-    func anyOneConditionMissingHidesIt(_ c: (Bool, Bool, Bool, Bool)) {
-        #expect(!LeoDrawerOcclusion.isVisible(isMounted: c.0, windowVisible: c.1, expanded: c.2, selectedIsTerminal: c.3))
+    func anyOneConditionMissingHidesIt(_ c: Conditions) {
+        #expect(!LeoDrawerOcclusion.isVisible(
+            isMounted: c.isMounted, windowVisible: c.windowVisible, expanded: c.expanded,
+            selectedIsTerminal: c.selectedIsTerminal))
     }
 }
