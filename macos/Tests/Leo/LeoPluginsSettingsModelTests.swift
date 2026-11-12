@@ -23,6 +23,7 @@ import Testing
         func setEnabled(_ id: String, _ enabled: Bool) throws { log.events.append("setEnabled \(id) \(enabled)") }
         func approveCurrentPermissions(_ id: String) throws { log.events.append("approveCurrent \(id)") }
         func setSection(_ id: String, section: String, hidden: Bool) throws { log.events.append("section \(id) \(section) hidden=\(hidden)") }
+        func setPane(_ id: String, pane: String, hidden: Bool) throws { log.events.append("pane \(id) \(pane) hidden=\(hidden)") }
         func uninstall(_ id: String) throws {
             if let uninstallError { throw uninstallError }
             log.events.append("uninstall \(id)")
@@ -93,11 +94,11 @@ import Testing
     private static func info(
         _ id: String = "dev.example.demo", source: LeoPluginSource = .git(url: "https://github.com/acme/demo.git", ref: "main", sha: sha),
         enabled: Bool = true, state: LeoPluginRunState = .running, approved: LeoPluginPermissions = .none,
-        manifest: LeoPluginManifest? = nil, hidden: [String] = []
+        manifest: LeoPluginManifest? = nil, hidden: [String] = [], hiddenPanes: [String] = []
     ) -> LeoPluginInfo {
         LeoPluginInfo(
             id: id, name: "Demo", version: "1.2.0", source: source, isEnabled: enabled, state: state, approvedPermissions: approved,
-            manifest: manifest ?? Self.manifest(id), hiddenSections: hidden)
+            manifest: manifest ?? Self.manifest(id), hiddenSections: hidden, hiddenPanes: hiddenPanes)
     }
 
     private static func rig(_ plugins: [LeoPluginInfo] = []) -> Rig {
@@ -124,6 +125,34 @@ import Testing
             id: manifest.id, name: manifest.name, version: manifest.version, sha: sha, sourceDescription: result.url,
             permissions: manifest.permissions, diff: nil, isDev: false)
         return LeoPluginPendingInstall(result: result, request: request)
+    }
+
+    // MARK: Agent pane
+
+    private static func paneManifest(_ id: String = "dev.example.demo") -> LeoPluginManifest {
+        LeoPluginManifest(
+            id: id, name: "Demo", version: "1.2.0", apiVersion: 1, main: "main.js",
+            contributes: LeoPluginContributions(panes: [LeoPluginPaneContribution(id: "status", title: "Status")]))
+    }
+
+    @Test func aPluginWithAPaneOffersAShowAgentPaneSwitchThatIsOnUnlessHidden() throws {
+        let shown = try #require(Self.rig([Self.info(manifest: Self.paneManifest())]).model.rows.first?.pane)
+        #expect(shown.id == "status")
+        #expect(shown.isShown)
+
+        let hidden = try #require(Self.rig([Self.info(manifest: Self.paneManifest(), hiddenPanes: ["status"])]).model.rows.first?.pane)
+        #expect(!hidden.isShown)
+    }
+
+    @Test func aPluginWithoutAPaneOffersNoSwitch() throws {
+        #expect(try #require(Self.rig([Self.info()]).model.rows.first).pane == nil)
+    }
+
+    @Test func turningThePaneSwitchOffHidesItAndOnShowsIt() throws {
+        let rig = Self.rig([Self.info(manifest: Self.paneManifest())])
+        rig.model.setPaneShown("dev.example.demo", pane: "status", shown: false)
+        rig.model.setPaneShown("dev.example.demo", pane: "status", shown: true)
+        #expect(rig.log.events == ["pane dev.example.demo status hidden=true", "pane dev.example.demo status hidden=false"])
     }
 
     // MARK: Row presentation

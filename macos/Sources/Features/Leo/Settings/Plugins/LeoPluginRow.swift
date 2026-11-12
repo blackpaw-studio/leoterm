@@ -30,6 +30,13 @@ struct LeoPluginRow: Equatable, Identifiable {
     let status: Status
     let isEnabled: Bool
     let hiddenSections: [String]
+    /// The plugin's agent pane and whether it is shown; nil for a plugin with none.
+    let pane: Pane?
+
+    struct Pane: Equatable {
+        let id: String
+        let isShown: Bool
+    }
 
     var canUninstall: Bool { !isBundled }
 
@@ -53,6 +60,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         version = info.version
         isEnabled = info.isEnabled
         hiddenSections = info.hiddenSections
+        pane = info.manifest?.contributes.panes.first.map { Pane(id: $0.id, isShown: !info.hiddenPanes.contains($0.id)) }
         permissionsSummary = Self.summary(of: info.approvedPermissions)
         switch info.source {
         case .bundled:
