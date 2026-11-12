@@ -200,6 +200,8 @@ public enum LeoPluginEvent: Codable, Equatable, Sendable {
     /// the token itself.
     case callback(ref: String, id: String, payload: LeoJSONValue, gesture: Bool)
     case timerFired(id: String)
+    /// An agent's usage changed; the plugin reads the new data with `leo.agents.usage`.
+    case usageChanged(agent: LeoPluginAgentRef)
     case reply(id: String, outcome: LeoPluginReplyOutcome)
 
     private enum CodingKeys: String, CodingKey {
@@ -230,6 +232,8 @@ public enum LeoPluginEvent: Codable, Equatable, Sendable {
                 gesture: try c.decodeIfPresent(Bool.self, forKey: .gesture) ?? false)
         case "timerFired":
             self = .timerFired(id: try c.decode(String.self, forKey: .id))
+        case "usageChanged":
+            self = .usageChanged(agent: try c.decode(LeoPluginAgentRef.self, forKey: .agent))
         case "reply":
             self = .reply(id: try c.decode(String.self, forKey: .id), outcome: try LeoPluginReplyOutcome(from: decoder))
         default:
@@ -263,6 +267,9 @@ public enum LeoPluginEvent: Codable, Equatable, Sendable {
         case .timerFired(let id):
             try c.encode("timerFired", forKey: .type)
             try c.encode(id, forKey: .id)
+        case .usageChanged(let agent):
+            try c.encode("usageChanged", forKey: .type)
+            try c.encode(agent, forKey: .agent)
         case .reply(let id, let outcome):
             try c.encode("reply", forKey: .type)
             try c.encode(id, forKey: .id)

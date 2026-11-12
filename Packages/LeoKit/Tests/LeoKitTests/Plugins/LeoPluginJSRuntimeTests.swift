@@ -219,6 +219,14 @@ struct LeoPluginJSRuntimeTests {
         #expect(sink.logs == ["rejected permission denied"])
     }
 
+    @Test func usageChangedIsDeliveredToItsHandlerWithTheAgentRef() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("usageChanged", (agent) => leo.log("info", "usage " + agent.machine + "/" + agent.name));
+        """)
+        runtime.deliver(.usageChanged(agent: agent))
+        #expect(sink.logs == ["usage local/alfred"])
+    }
+
     // MARK: callbacks and follow-ups
 
     @Test func callbackDeliversIdAndPayload() throws {

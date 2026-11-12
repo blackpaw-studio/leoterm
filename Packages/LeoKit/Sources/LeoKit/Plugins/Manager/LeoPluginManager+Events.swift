@@ -59,6 +59,28 @@ extension LeoPluginManager {
         }
     }
 
+    /// An agent's usage changed. Plugins that hold `agents:usage` and have a
+    /// pane on screen hear about it, at most once per agent per second, and only
+    /// for agents they hold a pane slot for.
+    public func usageDidChange(agent: LeoPluginAgentRef) {
+        usageCoalescer.change(agent)
+    }
+
+    /// Whether one of the plugin's pane slots is on screen. `usageChanged` is
+    /// never sent while it is not.
+    public func setPaneVisible(plugin id: String, visible: Bool) {
+        entries[id]?.isPaneVisible = visible
+    }
+
+    func deliverUsageChanged(for agent: LeoPluginAgentRef) {
+        for entry in entries.values where entry.isPaneVisible && entry.approved?.agents.contains(.usage) == true {
+            let holdsPaneSlot = deps.slots.slots(of: entry.id).contains { slot in
+                if case .pane(_, _, let slotAgent) = slot { slotAgent == agent } else { false }
+            }
+            if holdsPaneSlot { deliver(.usageChanged(agent: agent), to: entry) }
+        }
+    }
+
     /// Whether one of the plugin's slots is on screen (`leo.after` waits for it).
     public func setSlotVisible(plugin id: String, visible: Bool) {
         guard let entry = entries[id] else { return }

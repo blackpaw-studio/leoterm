@@ -43,6 +43,7 @@ struct LeoPluginBridgeTests {
             .command(id: "open", slot: nil),
             .callback(ref: "c1", id: "refresh", payload: .object(["n": .int(2)]), gesture: true),
             .timerFired(id: "t1"),
+            .usageChanged(agent: agent),
             .reply(id: "r1", outcome: .value(.object(["status": .int(200)]))),
             .reply(id: "r2", outcome: .rejected(reason: "host not allowed")),
         ]
