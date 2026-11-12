@@ -66,13 +66,21 @@ enum LeoAgentPaneFixture {
     """#)
 
     /// Everything the telemetry request asks the daemon for.
-    private static let fullUsage = decode(#"""
-    {"session_id":"s1","session":{"tokens":1250000,"cost_usd":12.8},"model":"claude-opus-5-5","effort":"high",
-     "context":{"tokens":154000,"window":200000,"percent":77,"compact_at":0.9,
-       "breakdown":{"system":3000,"tools":12000,"mcp":500,"memory":1500,"messages":137000}},
-     "rate_limits":[{"kind":"five_hour","percent_used":42.5,"resets_at":"2030-01-01T05:00:00Z"},
-                    {"kind":"seven_day","percent_used":10,"resets_at":"2030-01-05T00:00:00Z"}],
-     "git":{"added":120,"removed":7}}
-    """#)
+    /// The limits reset relative to launch, so the countdowns read like a live session's
+    /// (2d 4h and 4d 2h), and the context holds 1.2k tokens no category accounts for.
+    private static var fullUsage: LeoAgentUsage? {
+        let hour: TimeInterval = 3600
+        let formatter = ISO8601DateFormatter()
+        let session = formatter.string(from: Date(timeIntervalSinceNow: 52 * hour + 60))
+        let weekly = formatter.string(from: Date(timeIntervalSinceNow: 98 * hour + 60))
+        return decode("""
+        {"session_id":"s1","session":{"tokens":1250000,"cost_usd":12.8},"model":"claude-opus-5-5","effort":"high",
+         "context":{"tokens":155200,"window":200000,"percent":77,"compact_at":0.9,
+           "breakdown":{"system":3000,"tools":12000,"mcp":500,"memory":1500,"messages":137000}},
+         "rate_limits":[{"kind":"five_hour","percent_used":42.5,"resets_at":"\(session)"},
+                        {"kind":"seven_day","percent_used":10,"resets_at":"\(weekly)"}],
+         "git":{"added":120,"removed":7}}
+        """)
+    }
 }
 #endif
