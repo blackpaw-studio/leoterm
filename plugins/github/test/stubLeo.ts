@@ -197,7 +197,7 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
         return null;
       },
     },
-    agents: { list: async () => agents.map((a) => ({ ...a })) },
+    agents: { list: async () => agents.map((a) => ({ ...a })), usage: async () => null },
     timer: (intervalSec, fn) => {
       if (intervalSec < MIN_TIMER_SEC) throw new Error("stubLeo: timer interval must be >= " + MIN_TIMER_SEC);
       return schedule(intervalSec, intervalSec, fn);

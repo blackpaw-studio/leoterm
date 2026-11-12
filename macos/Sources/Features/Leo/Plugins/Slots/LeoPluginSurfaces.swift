@@ -51,6 +51,7 @@ import SwiftUI
         case .section(let id): return contributes.sidebarSections.contains { $0.id == id }
         case .palette(let id): return contributes.commands.contains { $0.id == id }
         case .accessory(let id, _): return contributes.rowAccessories.contains { $0.id == id }
+        case .pane(let id, _, _): return contributes.panes.contains { $0.id == id }
         }
     }
 
@@ -63,8 +64,12 @@ import SwiftUI
     }
 
     func setVisible(_ key: LeoPluginSlotKey, _ visible: Bool) {
-        guard let now = visibility.set(key, visible: visible) else { return }
-        manager?.setSlotVisible(plugin: key.pluginID, visible: now)
+        let wasPaneVisible = visibility.isPaneVisible(plugin: key.pluginID)
+        let now = visibility.set(key, visible: visible)
+        let isPaneVisible = visibility.isPaneVisible(plugin: key.pluginID)
+        if let now { manager?.setSlotVisible(plugin: key.pluginID, visible: now) }
+        // `usageChanged` goes only to a plugin with a pane on screen.
+        if wasPaneVisible != isPaneVisible { manager?.setPaneVisible(plugin: key.pluginID, visible: isPaneVisible) }
     }
 
     // MARK: Slot 2: row accessories

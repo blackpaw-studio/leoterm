@@ -332,3 +332,73 @@ extension LeoPluginManifestTests {
         #expect(reason.contains("network"))
     }
 }
+
+// MARK: - Panes and the usage verb
+
+extension LeoPluginManifestTests {
+    private static let statusPane: [String: Any] = ["id": "status", "title": "Status", "sfSymbol": "gauge"]
+
+    @Test func aPaneDecodesWithOptionalSymbol() {
+        let object = Self.mutated {
+            $0["contributes"] = ["panes": [["id": "status", "title": "Status"]]]
+        }
+        guard case .valid(let manifest) = Self.validate(object) else {
+            Issue.record("expected valid")
+            return
+        }
+        #expect(manifest.contributes.panes == [LeoPluginPaneContribution(id: "status", title: "Status")])
+
+        guard case .valid(let withSymbol) = Self.validate(Self.mutated { $0["contributes"] = ["panes": [Self.statusPane]] }) else {
+            Issue.record("expected valid")
+            return
+        }
+        #expect(withSymbol.contributes.panes.first?.sfSymbol == "gauge")
+    }
+
+    @Test func twoPanesAreRefused() {
+        let reason = Self.refusal(Self.mutated {
+            $0["contributes"] = ["panes": [Self.statusPane, ["id": "other", "title": "Other"]]]
+        })
+        #expect(reason.contains("panes"))
+        #expect(reason.contains("one"))
+    }
+
+    @Test func anUnknownKeyInAPaneIsRefused() {
+        let reason = Self.refusal(Self.mutated {
+            $0["contributes"] = ["panes": [["id": "status", "title": "S", "icon": "x"]]]
+        })
+        #expect(reason.contains("icon"))
+    }
+
+    @Test(arguments: ["Upper", "has space", "", String(repeating: "a", count: 41)])
+    func aBadPaneIDIsRefused(_ id: String) {
+        let reason = Self.refusal(Self.mutated { $0["contributes"] = ["panes": [["id": id, "title": "S"]]] })
+        #expect(reason.contains("panes"))
+    }
+
+    @Test func aBlankPaneTitleOrSymbolIsRefused() {
+        let title = Self.refusal(Self.mutated { $0["contributes"] = ["panes": [["id": "s", "title": " "]]] })
+        #expect(title.contains("title"))
+        let symbol = Self.refusal(Self.mutated { $0["contributes"] = ["panes": [["id": "s", "title": "S", "sfSymbol": ""]]] })
+        #expect(symbol.contains("sfSymbol"))
+    }
+
+    @Test func theUsageVerbIsAccepted() {
+        guard case .valid(let manifest) = Self.validate(Self.mutated { $0["permissions"] = ["agents": ["read", "usage"]] }) else {
+            Issue.record("expected valid")
+            return
+        }
+        #expect(manifest.permissions.agents == [.read, .usage])
+    }
+
+    @Test func theUsageVerbWithoutReadIsRefused() {
+        let reason = Self.refusal(Self.mutated { $0["permissions"] = ["agents": ["usage"]] })
+        #expect(reason.contains("usage"))
+        #expect(reason.contains("read"))
+    }
+
+    @Test func anUnknownVerbErrorListsUsage() {
+        let reason = Self.refusal(Self.mutated { $0["permissions"] = ["agents": ["delete"]] })
+        #expect(reason.contains("usage"))
+    }
+}

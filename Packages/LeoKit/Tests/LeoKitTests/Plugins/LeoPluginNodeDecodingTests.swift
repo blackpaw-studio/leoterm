@@ -228,3 +228,106 @@ struct LeoPluginDecodeBudgetTests {
         #expect(request == .log(level: "info", message: "hi"))
     }
 }
+
+
+// MARK: - Text and Meter
+
+extension LeoPluginNodeDecodingTests {
+    private func decodeRoot(_ json: String) throws -> LeoPluginSlotRoot {
+        try JSONDecoder().decode(LeoPluginSlotRoot.self, from: Data(json.utf8))
+    }
+
+    private func textJSON(runs: Int, textLength: Int = 1) -> String {
+        let run = #"{"text":"\#(String(repeating: "a", count: textLength))"}"#
+        return #"{"type":"Text","runs":[\#(Array(repeating: run, count: runs).joined(separator: ","))]}"#
+    }
+
+    private func meterJSON(segments: Int = 1, value: String = "5", max: String = "10", extra: String = "") -> String {
+        let segment = #"{"value":\#(value),"tone":"accent1"}"#
+        return #"{"type":"Meter","segments":[\#(Array(repeating: segment, count: segments).joined(separator: ","))],"max":\#(max)\#(extra)}"#
+    }
+
+    @Test func textDecodesRunsWithToneWeightAndMono() throws {
+        let root = try decodeRoot(#"{"type":"Text","runs":[{"text":"Opus","tone":"accent1","weight":"semibold","mono":true},{"text":" 62%"}]}"#)
+        guard case .text(let text) = root.nodes[0] else { Issue.record("not text"); return }
+        #expect(text.runs == [
+            .init(text: "Opus", tone: .accent1, weight: .semibold, mono: true),
+            .init(text: " 62%", tone: nil, weight: .regular, mono: false),
+        ])
+    }
+
+    @Test func textRoundTrips() throws {
+        let root = try decodeRoot(#"[{"type":"Text","runs":[{"text":"a","tone":"failure"}]},{"type":"Meter","segments":[{"value":1,"tone":"success"}],"max":4,"label":"25%","help":"1 of 4"}]"#)
+        let again = try JSONDecoder().decode(LeoPluginSlotRoot.self, from: JSONEncoder().encode(root))
+        #expect(again == root)
+    }
+
+    @Test func textLimitsAre20RunsAnd200CharactersPerRun() throws {
+        _ = try decodeRoot(textJSON(runs: 20, textLength: 200))
+        #expect(throws: DecodingError.self) { try decodeRoot(textJSON(runs: 21)) }
+        #expect(throws: DecodingError.self) { try decodeRoot(textJSON(runs: 1, textLength: 201)) }
+        #expect(throws: DecodingError.self) { try decodeRoot(textJSON(runs: 0)) }
+    }
+
+    @Test(arguments: [##""tone":"rainbow""##, ##""tone":"#ff0000""##, ##""tone":"Accent1""##, ##""weight":"bold""##])
+    func textRejectsAnUnknownToneOrWeightIncludingRawHex(_ field: String) {
+        #expect(throws: DecodingError.self) { try decodeRoot(#"{"type":"Text","runs":[{"text":"x",\#(field)}]}"#) }
+    }
+
+    @Test(arguments: ["secondary", "accent1", "accent2", "accent3", "accent4", "accent5", "accent6", "success", "warning", "failure"])
+    func everyDocumentedToneDecodes(_ tone: String) throws {
+        _ = try decodeRoot(#"{"type":"Text","runs":[{"text":"x","tone":"\#(tone)"}]}"#)
+        #expect(LeoPluginTone(rawValue: tone) != nil)
+    }
+
+    @Test func meterDecodesAndHonoursItsLimits() throws {
+        let root = try decodeRoot(meterJSON(segments: 8, extra: #","label":"\#(String(repeating: "l", count: 40))","help":"\#(String(repeating: "h", count: 80))""#))
+        guard case .meter(let meter) = root.nodes[0] else { Issue.record("not meter"); return }
+        #expect(meter.segments.count == 8)
+        #expect(meter.max == 10)
+        #expect(throws: DecodingError.self) { try decodeRoot(meterJSON(segments: 9)) }
+        #expect(throws: DecodingError.self) { try decodeRoot(meterJSON(segments: 0)) }
+        #expect(throws: DecodingError.self) { try decodeRoot(meterJSON(extra: #","help":"\#(String(repeating: "h", count: 81))""#)) }
+        #expect(throws: DecodingError.self) { try decodeRoot(meterJSON(extra: #","label":"\#(String(repeating: "l", count: 41))""#)) }
+    }
+
+    @Test(arguments: ["0", "-1", "1e999"])
+    func meterRejectsANonPositiveOrNonFiniteMax(_ max: String) {
+        #expect(throws: DecodingError.self) { try decodeRoot(meterJSON(max: max)) }
+    }
+
+    @Test(arguments: ["-0.5", "1e999"])
+    func meterRejectsANegativeOrNonFiniteSegmentValue(_ value: String) {
+        #expect(throws: DecodingError.self) { try decodeRoot(meterJSON(value: value)) }
+    }
+
+    @Test func meterAllowsSegmentsThatSumPastMaxAndZeroValues() throws {
+        _ = try decodeRoot(meterJSON(segments: 3, value: "9"))
+        _ = try decodeRoot(meterJSON(value: "0"))
+    }
+
+    @Test func meterRejectsAnUnknownSegmentTone() {
+        #expect(throws: DecodingError.self) {
+            try decodeRoot(##"{"type":"Meter","segments":[{"value":1,"tone":"#fff"}],"max":2}"##)
+        }
+    }
+
+    @Test func eachTextAndMeterCountsAsOneNodeTowardTheLimit() throws {
+        let nodes = Array(repeating: #"{"type":"Text","runs":[{"text":"x"}]}"#, count: LeoPluginNodeLimits.maxNodes).joined(separator: ",")
+        let root = try decodeRoot("[\(nodes)]")
+        #expect(root.nodes.count == LeoPluginNodeLimits.maxNodes)
+        let over = Array(repeating: #"{"type":"Meter","segments":[{"value":1,"tone":"success"}],"max":2}"#, count: LeoPluginNodeLimits.maxNodes + 1)
+            .joined(separator: ",")
+        #expect(throws: DecodingError.self) { try decodeRoot("[\(over)]") }
+    }
+
+    @Test func theUnknownTypeMessageNamesTextAndMeter() {
+        do {
+            _ = try decodeRoot(#"{"type":"Gauge"}"#)
+            Issue.record("expected a failure")
+        } catch {
+            #expect("\(error)".contains("Text"))
+            #expect("\(error)".contains("Meter"))
+        }
+    }
+}

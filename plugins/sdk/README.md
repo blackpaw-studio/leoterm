@@ -24,14 +24,25 @@ npm run build     # dist/main.js, a single IIFE bundle
 Your code runs in a sandboxed JavaScriptCore host with no network, files or processes. Everything goes through the global `leo`:
 
 - `leo.render(slot, tree)`: draw a slot. Use the `slot` the app hands to `activate`, `viewOpened` or `command`.
-- `leo.on(event, fn)`: `activate`, `agentsChanged`, `viewOpened(agent, slot)`, `command(id, slot)`, `callback(id, payload)`. One handler per event.
+- `leo.on(event, fn)`: `activate`, `agentsChanged`, `viewOpened(agent, slot)`, `usageChanged(agent)`, `command(id, slot)`, `callback(id, payload)`. One handler per event.
 - `leo.fetch(url, init)`: resolves `{status, headers, body, bodyEncoding}`; `bodyEncoding` is `"base64"` when the bytes are not UTF-8. Hosts must be listed in `permissions.network`, checked on every redirect hop. 60 requests/min, 4 in flight, 5 MB cap. Init takes string bodies only.
 - `leo.secrets.get/set/delete`: needs `permissions.secrets: true`.
-- `leo.agents.list()`: needs `agents: ["read"]`.
+- `leo.agents.list()`: needs `agents: ["read"]`. With `"usage"` too (`usage` requires `read`; a manifest with `usage` alone is refused), entries also carry `model` and `workspace` (home-relative, or absolute outside home).
+- `leo.agents.usage({machine, name})`: needs `agents: ["read", "usage"]`. Resolves a `UsageSnapshot` (all keys optional, absent keys omitted), `null` for "no data yet", or `{}` when the agent's harness reports no usage.
 - `leo.timer(sec >= 60, fn)`, `leo.after(sec >= 1, fn)`: both return `{cancel()}`.
 - `leo.log(level, message)`.
 
 Rejections carry the reason (permission denied, rate limit, …) as the error message.
+
+## Agent pane
+
+A plugin may declare one pane in `contributes.panes: [{id, title, sfSymbol?}]`. Leo draws a tab bar under the selected agent's terminal/chat view; the collapsed tab shows your **summary**, the expanded drawer your **body**. Panes are per agent: `viewOpened(agent, slot)` hands you a `{kind:"pane", id, part:"summary"|"body", agent}` slot for each part, and you `leo.render` into it.
+
+- Summary accepts only `Text`, `Meter` and `Accessory` (laid out in one row); anything else shows "!" and an error tooltip. Body accepts every component.
+- `Text`: `{type:"Text", runs:[{text, tone?, weight?: "regular"|"semibold", mono?}]}`. At most 20 runs, 200 characters per run.
+- `Meter`: `{type:"Meter", segments:[{value, tone}], max, label?, help?}`. 1 to 8 segments, finite non-negative values, `max > 0`, `help` at most 80 characters.
+- `Tone`: `secondary`, `accent1` to `accent6`, `success`, `warning`, `failure`. No raw colours; Leo maps tones to light and dark mode.
+- Refresh on `usageChanged(agent)` (at most once per agent per second, only while a pane is visible), then call `leo.agents.usage(agent)`.
 
 ## Actions
 
@@ -39,4 +50,4 @@ Rejections carry the reason (permission denied, rate limit, …) as the error me
 
 ## Limits
 
-Tree depth 8, 2000 nodes, unique list item ids, accessory text ≤ 8 characters, accessory help ≤ 80, picker fields need options. `openURL` is https only.
+Tree depth 8, 2000 nodes (Text and Meter count one each), unique list item ids, accessory text ≤ 8 characters, accessory help ≤ 80, picker fields need options. `openURL` is https only.

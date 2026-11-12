@@ -25,14 +25,22 @@ import OSLog
         public let now: @Sendable () -> Date
         /// Delivers an event to this session's host (replies).
         public let send: @MainActor (LeoPluginEvent) -> Void
+        /// What is known about an agent's usage (`agents.usage`, and the model on `agents.list`).
+        public let usage: @MainActor (LeoPluginAgentRef) -> LeoPluginUsageReading?
+        /// This Mac's home directory, for home-relative workspaces; nil shows them absolute.
+        public let homeDirectory: String?
 
         public init(
             identity: LeoPluginIdentity, manifest: LeoPluginManifest, engine: LeoPluginPermissionEngine,
             gate: LeoPluginActionGate, fetcher: any LeoPluginFetching, secrets: LeoPluginSecrets?, timers: LeoPluginTimers,
             slots: LeoPluginSlotStore, actions: any LeoPluginActionRunning,
             agents: @escaping @MainActor () -> [(LeoHostID, LeoAgent)], now: @escaping @Sendable () -> Date,
-            send: @escaping @MainActor (LeoPluginEvent) -> Void
+            send: @escaping @MainActor (LeoPluginEvent) -> Void,
+            usage: @escaping @MainActor (LeoPluginAgentRef) -> LeoPluginUsageReading? = { _ in nil },
+            homeDirectory: String? = nil
         ) {
+            self.usage = usage
+            self.homeDirectory = homeDirectory
             self.identity = identity
             self.manifest = manifest
             self.engine = engine
@@ -103,7 +111,12 @@ import OSLog
                 return .null
             }
         case .agentsList(let id):
-            reply(id) { try LeoPluginAgentsSnapshot.value(agents: self.deps.agents(), engine: self.deps.engine) }
+            reply(id) {
+                try LeoPluginAgentsSnapshot.value(
+                    agents: self.deps.agents(), engine: self.deps.engine, usage: self.deps.usage, homeDirectory: self.deps.homeDirectory)
+            }
+        case .agentsUsage(let id, let agent):
+            reply(id) { try LeoPluginUsageSnapshot.value(reading: self.deps.usage(agent), engine: self.deps.engine) }
         case .timerStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startPeriodic(id: id, seconds: seconds) }
         case .afterStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startAfter(id: id, seconds: seconds) }
         case .timerStop(let id): deps.timers.stop(id: id)
@@ -121,6 +134,16 @@ import OSLog
             warn("render refused: the manifest declares no contribution for slot \(Self.clip(slot.key, 120))")
             return
         }
+        // A pane slot names an agent, so only slots the host opened may be rendered to;
+        // otherwise a plugin could make itself eligible for any agent's usage events.
+        if case .pane = slot, !deps.slots.isHostOpened(pluginID: deps.identity.id, slot: slot) {
+            return warn("render refused: the host never opened pane slot \(Self.clip(slot.key, 120))")
+        }
+        if case .pane(_, .summary, _) = slot, let problem = LeoPluginPaneSummaryRules.violation(in: node) {
+            // Fail the slot (drawn as "!" with the reason) instead of dropping the render silently.
+            deps.slots.fail(pluginID: deps.identity.id, slot: slot, message: problem)
+            return warn("render refused: \(problem)")
+        }
         if !deps.slots.render(pluginID: deps.identity.id, slot: slot, root: node) {
             warn("render refused: too many slots")
         }
@@ -133,6 +156,7 @@ import OSLog
         case .accessory(let id, _): return contributes.rowAccessories.contains { $0.id == id }
         case .section(let id): return contributes.sidebarSections.contains { $0.id == id }
         case .palette(let id): return contributes.commands.contains { $0.id == id }
+        case .pane(let id, _, _): return contributes.panes.contains { $0.id == id }
         }
     }
 

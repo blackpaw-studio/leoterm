@@ -78,6 +78,7 @@ private struct LeoPluginsPane: View {
                 reenable: { model.reenable(row.id) },
                 review: { Task { await model.reviewApproval(row.id) } },
                 showSection: { model.showSection(row.id, section: $0) },
+                setPaneShown: { pane, shown in model.setPaneShown(row.id, pane: pane, shown: shown) },
                 uninstall: { model.requestUninstall(row.id) })
         }
         .listStyle(.inset)
@@ -128,6 +129,7 @@ private struct LeoPluginRowView: View {
     let reenable: () -> Void
     let review: () -> Void
     let showSection: (String) -> Void
+    let setPaneShown: (String, Bool) -> Void
     let uninstall: () -> Void
 
     var body: some View {
@@ -140,6 +142,11 @@ private struct LeoPluginRowView: View {
                 Text(row.sourceText).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 Text(row.permissionsSummary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 status
+                if let pane = row.pane {
+                    Toggle("Show agent pane", isOn: Binding(get: { pane.isShown }, set: { setPaneShown(pane.id, $0) }))
+                        .toggleStyle(.checkbox).controlSize(.small).font(.caption)
+                        .help("Shows this plugin's tab in the pane under the agent's terminal.")
+                }
                 ForEach(row.hiddenSections, id: \.self) { section in
                     HStack(spacing: 6) {
                         Text("“\(section)” is hidden").font(.caption).foregroundStyle(.secondary)

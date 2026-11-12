@@ -31,6 +31,9 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// (`claude`, `codex`, ...); nil when the daemon omits them.
     public let template: String?
     public let harness: String?
+    /// The agent's configured model (`model`); nil when the daemon omits it.
+    /// The harness's observed model rides in `usage.model`.
+    public let model: String?
     /// The resolved emoji and color (`agent_appearance`); nil when nothing
     /// is set. Decoded by `LeoAppearanceWire`.
     public let appearance: LeoAgentAppearance?
@@ -52,7 +55,8 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
                 startedAt: String? = nil, usage: LeoAgentUsage? = nil,
                 environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil,
                 appearance: LeoAgentAppearance? = nil, movedTo: String? = nil, movedAt: String? = nil,
-                displayName: String? = nil, tasks: [LeoAgentTask] = []) {
+                displayName: String? = nil, tasks: [LeoAgentTask] = [], model: String? = nil) {
+        self.model = model
         self.tasks = tasks
         self.daemonDisplayName = displayName
         self.movedTo = movedTo
@@ -77,7 +81,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         case currentAction = "current_action"
         case lastActivityAt = "last_activity_at"
         case startedAt = "started_at"
-        case usage, template, harness
+        case usage, template, harness, model
         case movedTo = "moved_to"
         case movedAt = "moved_at"
         case daemonDisplayName = "display_name"
@@ -99,6 +103,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         environments = LeoEnvironmentsWire.agent(from: decoder)
         template = (try? container.decodeIfPresent(String.self, forKey: .template)) ?? nil
         harness = (try? container.decodeIfPresent(String.self, forKey: .harness)) ?? nil
+        model = LeoUsageText.clean((try? container.decodeIfPresent(String.self, forKey: .model)) ?? nil)
         appearance = LeoAppearanceWire.agent(from: decoder)
         tasks = LeoAgentTaskWire.agent(from: decoder)
         movedTo = (try? container.decodeIfPresent(String.self, forKey: .movedTo)) ?? nil

@@ -389,6 +389,12 @@
                                     <action selector="toggleLeoHideSubagents:" target="-1" id="Leo-Subagents-Hide-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Toggle Agent Pane" id="Leo-AgentPane-Toggle">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="toggleLeoAgentPane:" target="-1" id="Leo-AgentPane-Toggle-Action"/>
+                                </connections>
+                            </menuItem>
                             <!-- MARK: Leo editor previews (B-278) -->
                             <menuItem isSeparatorItem="YES" id="Leo-Editor-View-Separator"/>
                             <menuItem title="Show Raw" keyEquivalent="u" id="Leo-Editor-ToggleRaw">

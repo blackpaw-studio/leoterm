@@ -29,10 +29,13 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
     public let approvedPermissions: LeoPluginPermissions
     public let manifest: LeoPluginManifest?
     public let hiddenSections: [String]
+    /// Pane ids the user hid from the agent pane.
+    public let hiddenPanes: [String]
 
     public init(
         id: String, name: String, version: String, source: LeoPluginSource, isEnabled: Bool, state: LeoPluginRunState,
-        approvedPermissions: LeoPluginPermissions, manifest: LeoPluginManifest?, hiddenSections: [String]
+        approvedPermissions: LeoPluginPermissions, manifest: LeoPluginManifest?, hiddenSections: [String],
+        hiddenPanes: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -43,6 +46,7 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
         self.approvedPermissions = approvedPermissions
         self.manifest = manifest
         self.hiddenSections = hiddenSections
+        self.hiddenPanes = hiddenPanes
     }
 }
 
@@ -119,6 +123,9 @@ public struct LeoPluginManagerDependencies {
     var entries: [String: LeoPluginManagerEntry] = [:]
     private var hasReapedOrphans = false
     var agentsChangeTask: Task<Void, Never>?
+    /// One window per agent, shared by every plugin; eligibility is checked when it fires.
+    private(set) lazy var usageCoalescer = LeoPluginUsageCoalescer(
+        now: deps.clock, scheduler: deps.scheduler, fire: { [weak self] in self?.deliverUsageChanged(for: $0) })
     static let logger = LeoLog.logger(category: "leo.plugins")
 
     public var slots: LeoPluginSlotStore { deps.slots }
@@ -178,6 +185,11 @@ public struct LeoPluginManagerDependencies {
 
     public func setSection(_ id: String, section: String, hidden: Bool) throws {
         try deps.store.update { $0.setSection(id, section: section, hidden: hidden) }
+        publish()
+    }
+
+    public func setPane(_ id: String, pane: String, hidden: Bool) throws {
+        try deps.store.update { $0.setPane(id, pane: pane, hidden: hidden) }
         publish()
     }
 
@@ -338,7 +350,9 @@ public struct LeoPluginManagerDependencies {
                 send: { [weak self] event in
                     guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
                     self.deliver(event, to: entry)
-                }))
+                },
+                usage: { [agents = deps.agents] in agents.usage(for: $0) },
+                homeDirectory: deps.agents.homeDirectory))
         host.onRequest = { [weak self] request in
             MainActor.assumeIsolated {
                 guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
@@ -430,7 +444,8 @@ public struct LeoPluginManagerDependencies {
             return LeoPluginInfo(
                 id: record.id, name: entry?.manifest?.name ?? record.name, version: entry?.manifest?.version ?? record.version,
                 source: record.source, isEnabled: record.enabled, state: entry?.state ?? .refused("not loaded"),
-                approvedPermissions: record.approvedPermissions, manifest: entry?.manifest, hiddenSections: record.hiddenSections)
+                approvedPermissions: record.approvedPermissions, manifest: entry?.manifest, hiddenSections: record.hiddenSections,
+                hiddenPanes: record.hiddenPanes)
         }
     }
 }

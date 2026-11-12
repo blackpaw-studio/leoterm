@@ -49,4 +49,27 @@ struct LeoPluginSlotVisibilityTests {
         #expect(visibility.set(key("a"), visible: false) == nil)
         #expect(visibility.set(key("a"), visible: true) == true)
     }
+
+    @Test func aPaneIsVisibleOnlyWhileOneOfThePluginsPaneSlotsIs() {
+        var visibility = LeoPluginSlotVisibility()
+        let agent = LeoPluginAgentRef(machine: "m", name: "n")
+        let summary = LeoPluginSlotKey(pluginID: "p", slot: .pane(id: "status", part: .summary, agent: agent))
+        let body = LeoPluginSlotKey(pluginID: "p", slot: .pane(id: "status", part: .body, agent: agent))
+        let view = LeoPluginSlotKey(pluginID: "p", slot: .view(viewID: "v", agent: agent))
+
+        _ = visibility.set(view, visible: true)
+        #expect(visibility.isVisible(plugin: "p"))
+        #expect(!visibility.isPaneVisible(plugin: "p"))
+
+        _ = visibility.set(summary, visible: true)
+        _ = visibility.set(body, visible: true)
+        #expect(visibility.isPaneVisible(plugin: "p"))
+        #expect(!visibility.isPaneVisible(plugin: "other"))
+
+        _ = visibility.set(summary, visible: false)
+        #expect(visibility.isPaneVisible(plugin: "p"))
+        _ = visibility.set(body, visible: false)
+        #expect(!visibility.isPaneVisible(plugin: "p"))
+        #expect(visibility.isVisible(plugin: "p"))
+    }
 }

@@ -13,7 +13,7 @@ enum LeoPluginJSPrelude {
       const stringify = JSON.stringify;
       const parse = JSON.parse;
       const resolveValue = Promise.resolve.bind(Promise);
-      const EVENTS = ["activate", "agentsChanged", "viewOpened", "command", "callback"];
+      const EVENTS = ["activate", "agentsChanged", "viewOpened", "usageChanged", "command", "callback"];
       const MIN_TIMER_SECONDS = 60;
       const MIN_AFTER_SECONDS = 1;
 
@@ -59,6 +59,14 @@ enum LeoPluginJSPrelude {
           out.headers = headers;
         }
         return out;
+      }
+
+      // Only the two string fields cross the bridge; anything else on the object is dropped.
+      function checkedAgentRef(agent) {
+        if (agent === null || typeof agent !== "object" || typeof agent.machine !== "string" || typeof agent.name !== "string") {
+          throw new TypeError("an agent must be { machine: string, name: string }");
+        }
+        return { machine: agent.machine, name: agent.name };
       }
 
       function startTimer(kind, call, minimum, seconds, fn) {
@@ -113,7 +121,16 @@ enum LeoPluginJSPrelude {
           set: (key, value) => request({ call: "secretsSet", key: String(key), value: String(value) }),
           delete: (key) => request({ call: "secretsDelete", key: String(key) })
         }),
-        agents: Object.freeze({ list: () => request({ call: "agentsList" }) }),
+        agents: Object.freeze({
+          list: () => request({ call: "agentsList" }),
+          usage: function (agent) {
+            try {
+              return request({ call: "agentsUsage", agent: checkedAgentRef(agent) });
+            } catch (e) {
+              return Promise.reject(e);
+            }
+          }
+        }),
         timer: (seconds, fn) => startTimer("timer", "timerStart", MIN_TIMER_SECONDS, seconds, fn),
         after: (seconds, fn) => startTimer("after", "afterStart", MIN_AFTER_SECONDS, seconds, fn),
         log: function (level, message) { send({ call: "log", level: String(level), message: String(message) }); }
@@ -147,6 +164,7 @@ enum LeoPluginJSPrelude {
             case "activate": if (handlers.activate) watch(ev.type, handlers.activate(ev.slot)); return;
             case "agentsChanged": if (handlers.agentsChanged) watch(ev.type, handlers.agentsChanged()); return;
             case "viewOpened": if (handlers.viewOpened) watch(ev.type, handlers.viewOpened(ev.agent, ev.slot)); return;
+            case "usageChanged": if (handlers.usageChanged) watch(ev.type, handlers.usageChanged(ev.agent)); return;
             case "command": if (handlers.command) watch(ev.type, handlers.command(ev.id, ev.slot)); return;
           }
         } catch (e) {

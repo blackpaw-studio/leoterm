@@ -108,6 +108,48 @@ struct LeoPluginHostIntegrationTests {
         #expect(logs(all) == ["echo:loaded", "echo:activate", "echo:fetched 200"])
     }
 
+    @Test func aPanePluginRendersItsSlotsAndFollowsUsageChangedThroughTheRealHost() async throws {
+        let (connection, probe) = makeConnection()
+        defer { connection.stop() }
+        try connection.start(source: try fixture("pane-demo"))
+        let summary = LeoPluginSlotID.pane(id: "demo", part: .summary, agent: agent)
+        let body = LeoPluginSlotID.pane(id: "demo", part: .body, agent: agent)
+        try connection.deliver(.viewOpened(agent: agent, slot: summary))
+        try connection.deliver(.viewOpened(agent: agent, slot: body))
+
+        // loaded, summary (first open), summary again and body (second open).
+        let opened = await probe.requests(count: 4)
+        let renders: [(LeoPluginSlotID, LeoPluginSlotRoot)] = opened.compactMap {
+            if case .render(let slot, let node) = $0 { (slot, node) } else { nil }
+        }
+        #expect(renders.map(\.0) == [summary, summary, body])
+        let summaryRoot = try #require(renders.first?.1)
+        #expect(LeoPluginPaneSummaryRules.violation(in: summaryRoot) == nil)
+        #expect(summaryRoot.nodes.count == 3)
+        guard case .text(let bodyText)? = renders.last?.1.nodes.first else {
+            Issue.record("expected the body to open with a Text of every tone")
+            return
+        }
+        #expect(Set(bodyText.runs.compactMap(\.tone)) == Set(LeoPluginTone.allCases))
+
+        try connection.deliver(.usageChanged(agent: agent))
+        let asked = await probe.requests(count: 5)
+        guard case .agentsUsage(let id, let askedAbout)? = asked.last else {
+            Issue.record("expected the plugin to read agents.usage, got \(asked.last as Any)")
+            return
+        }
+        #expect(askedAbout == agent)
+        try connection.deliver(.reply(id: id, outcome: .value(.object(["session": .object(["tokens": .int(4_242)])]))))
+
+        // The usage log, then both slots re-rendered with the new tokens.
+        let after = await probe.requests(count: 8)
+        guard case .render(_, let updated)? = after[6..<8].first, case .text(let line)? = updated.nodes.first else {
+            Issue.record("expected the summary to re-render, got \(after.suffix(3))")
+            return
+        }
+        #expect(line.plainText.contains("4242 tok"))
+    }
+
     @Test func aHandlerThatNeverReturnsIsKilledAsACPUCrash() async throws {
         let (connection, probe) = makeConnection(fast)
         try connection.start(source: try fixture("spin"))

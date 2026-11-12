@@ -20,11 +20,46 @@ public struct LeoPluginRecord: Codable, Equatable, Sendable {
     public var enabled: Bool
     public var approvedPermissions: LeoPluginPermissions
     public var hiddenSections: [String]
+    /// Pane ids the user hid from the agent pane (Settings → Plugins).
+    public var hiddenPanes: [String] = []
     /// Set when the supervisor disabled the plugin after repeated crashes.
     public var disabledReason: String?
     /// The manifest's name and version when last seen, for lists that don't load the plugin.
     public var name: String
     public var version: String
+
+    private enum CodingKeys: String, CodingKey {
+        case id, source, enabled, approvedPermissions, hiddenSections, hiddenPanes, disabledReason, name, version
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        source = try c.decode(LeoPluginSource.self, forKey: .source)
+        enabled = try c.decode(Bool.self, forKey: .enabled)
+        approvedPermissions = try c.decode(LeoPluginPermissions.self, forKey: .approvedPermissions)
+        hiddenSections = try c.decode([String].self, forKey: .hiddenSections)
+        // Registries saved before panes existed have no key.
+        hiddenPanes = try c.decodeIfPresent([String].self, forKey: .hiddenPanes) ?? []
+        disabledReason = try c.decodeIfPresent(String.self, forKey: .disabledReason)
+        name = try c.decode(String.self, forKey: .name)
+        version = try c.decode(String.self, forKey: .version)
+    }
+
+    public init(
+        id: String, source: LeoPluginSource, enabled: Bool, approvedPermissions: LeoPluginPermissions,
+        hiddenSections: [String], hiddenPanes: [String] = [], disabledReason: String?, name: String, version: String
+    ) {
+        self.id = id
+        self.source = source
+        self.enabled = enabled
+        self.approvedPermissions = approvedPermissions
+        self.hiddenSections = hiddenSections
+        self.hiddenPanes = hiddenPanes
+        self.disabledReason = disabledReason
+        self.name = name
+        self.version = version
+    }
 
     /// Whether the manager should be running it.
     public var isRunnable: Bool { enabled && disabledReason == nil }
@@ -97,6 +132,14 @@ public struct LeoPluginRegistry: Codable, Equatable, Sendable, LeoPluginIDClaimL
             var sections = $0.hiddenSections.filter { $0 != section }
             if hidden { sections.append(section) }
             $0.hiddenSections = sections.sorted()
+        }
+    }
+
+    public mutating func setPane(_ id: String, pane: String, hidden: Bool) {
+        update(id) {
+            var panes = $0.hiddenPanes.filter { $0 != pane }
+            if hidden { panes.append(pane) }
+            $0.hiddenPanes = panes.sorted()
         }
     }
 

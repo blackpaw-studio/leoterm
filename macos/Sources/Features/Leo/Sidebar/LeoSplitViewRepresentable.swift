@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 import SwiftUI
 
 /// Bridges an `NSSplitViewController` into SwiftUI so the agents sidebar has
@@ -46,6 +47,10 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// `browser`.
     var panes: LeoRowPanes?
     var onPaneContainer: (LeoRowPaneContainerViewController) -> Void = { _ in }
+    /// The agent pane under the detail column (plugins' summaries and bodies), and
+    /// the agent the window shows; nil without a plugin system.
+    var agentPane: LeoAgentPaneModel?
+    var agentPaneAgent: LeoPluginAgentRef?
     /// The split view is in a window and has laid out once: the window's
     /// toolbar can bind its tracking separator to it. Called once.
     var onSplitViewReady: (NSSplitView) -> Void = { _ in }
@@ -69,6 +74,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             editor: editor,
             browser: browser,
             panes: panes,
+            agentPane: agentPane,
             sidePaneHeaderTopInset: sidePaneHeaderTopInset,
             onSidebarAutoCollapse: onSidebarAutoCollapse,
             onSidebarAutoRestore: onSidebarAutoRestore)
@@ -90,6 +96,9 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting?.rootView = AnyView(sidebar)
         context.coordinator.detailHosting?.rootView = AnyView(detail)
+        // Opening the pane's plugin slots mutates published state, which must not happen
+        // inside a SwiftUI update: defer it (the last agent wins).
+        context.coordinator.scheduleAgent(agentPaneAgent, on: agentPane)
 
         guard let sidebarItem = controller.sidebarItem else { return }
 
@@ -139,9 +148,24 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// Holds the `NSHostingController`s so their `rootView` can be updated
     /// in place across SwiftUI body re-evaluations without recreating the
     /// AppKit view hierarchy.
-    final class Coordinator: NSObject {
+    @MainActor final class Coordinator: NSObject {
         var sidebarHosting: NSHostingController<AnyView>?
         var detailHosting: NSHostingController<AnyView>?
+        /// The agent the next main-queue turn hands to the pane model. Several
+        /// updates in one turn collapse to a single hand-off of the latest.
+        private var pendingAgent: LeoPluginAgentRef??
+
+        func scheduleAgent(_ agent: LeoPluginAgentRef?, on pane: LeoAgentPaneModel?) {
+            guard let pane else { return }
+            let isScheduled = pendingAgent != nil
+            pendingAgent = .some(agent)
+            guard !isScheduled else { return }
+            DispatchQueue.main.async { [weak self, weak pane] in
+                guard let self, let latest = self.pendingAgent else { return }
+                self.pendingAgent = nil
+                pane?.setAgent(latest)
+            }
+        }
     }
 }
 
@@ -156,6 +180,7 @@ enum LeoSplitViewControllerFactory {
         editor: LeoEditorTabs? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
         panes: LeoRowPanes? = nil,
+        agentPane: LeoAgentPaneModel? = nil,
         sidePaneHeaderTopInset: LeoToolbarInset? = nil,
         onSidebarAutoCollapse: @escaping () -> Void = {},
         onSidebarAutoRestore: @escaping () -> Void = {}
@@ -172,7 +197,9 @@ enum LeoSplitViewControllerFactory {
         sidebarItem.isCollapsed = !isSidebarVisible
 
         let detailHosting = NSHostingController(rootView: detail)
-        let detailItem = NSSplitViewItem(viewController: detailHosting)
+        // With a plugin system the detail column is the terminal over the agent pane.
+        let detailController: NSViewController = agentPane.map { LeoDetailColumnController(detail: detailHosting, model: $0) } ?? detailHosting
+        let detailItem = NSSplitViewItem(viewController: detailController)
         detailItem.holdingPriority = LeoSidebarSplitMetrics.detailHoldingPriority
         detailItem.minimumThickness = LeoSidebarSplitMetrics.minimumTerminalWidth
 

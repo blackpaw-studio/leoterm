@@ -11,6 +11,15 @@ public struct LeoPluginSlotVisibility: Sendable {
 
     public func isVisible(plugin id: String) -> Bool { counts.keys.contains { $0.pluginID == id } }
 
+    /// Whether one of the plugin's pane slots (summary or body) is on screen.
+    /// The app compares this around each `set` and tells the manager when it flips.
+    public func isPaneVisible(plugin id: String) -> Bool {
+        counts.keys.contains { key in
+            guard key.pluginID == id, case .pane = key.slot else { return false }
+            return true
+        }
+    }
+
     /// Records one surface of `key` appearing or disappearing. Returns the
     /// plugin's new visibility when this changed it, nil when it didn't.
     public mutating func set(_ key: LeoPluginSlotKey, visible: Bool) -> Bool? {

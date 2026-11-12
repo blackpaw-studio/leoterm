@@ -42,6 +42,9 @@ public enum LeoPluginSlotStatus: Equatable, Sendable {
     @Published public private(set) var pushed: [LeoPluginSlotKey: [LeoPluginNode]] = [:]
     @Published public private(set) var statuses: [String: LeoPluginSlotStatus] = [:]
     private var knownSlots: [String: Set<LeoPluginSlotID>] = [:]
+    /// Slots the host asked the plugin for (`expect`), as opposed to ones the
+    /// plugin merely rendered to. Pane slots only exist in this set.
+    private var hostOpenedSlots: [String: Set<LeoPluginSlotID>] = [:]
 
     public init() {}
 
@@ -62,6 +65,13 @@ public enum LeoPluginSlotStatus: Equatable, Sendable {
 
     /// Slots that have rendered or been marked, for one plugin.
     public func slots(of pluginID: String) -> [LeoPluginSlotID] { Array(knownSlots[pluginID] ?? []) }
+
+    /// Slots the host opened for a plugin (never ones the plugin made up).
+    public func hostOpened(of pluginID: String) -> Set<LeoPluginSlotID> { hostOpenedSlots[pluginID] ?? [] }
+
+    public func isHostOpened(pluginID: String, slot: LeoPluginSlotID) -> Bool {
+        hostOpenedSlots[pluginID]?.contains(slot) == true
+    }
 
     /// Stores a render. False when the plugin is already at its slot cap.
     @discardableResult
@@ -93,6 +103,7 @@ public enum LeoPluginSlotStatus: Equatable, Sendable {
     /// the page and pushed views the last run left behind.
     public func expect(pluginID: String, slot: LeoPluginSlotID) {
         guard track(pluginID, slot) else { return }
+        hostOpenedSlots[pluginID, default: []].insert(slot)
         let key = LeoPluginSlotKey(pluginID: pluginID, slot: slot)
         slotErrors[key] = nil
         if case .palette = slot {
@@ -111,6 +122,7 @@ public enum LeoPluginSlotStatus: Equatable, Sendable {
         slotErrors = slotErrors.filter { $0.key.pluginID != pluginID }
         pushed = pushed.filter { $0.key.pluginID != pluginID }
         knownSlots[pluginID] = nil
+        hostOpenedSlots[pluginID] = nil
         statuses[pluginID] = nil
     }
 

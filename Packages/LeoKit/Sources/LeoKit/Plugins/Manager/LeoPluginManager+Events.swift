@@ -59,6 +59,28 @@ extension LeoPluginManager {
         }
     }
 
+    /// An agent's usage changed. Plugins that hold `agents:usage` and have a
+    /// pane on screen hear about it, at most once per agent per second, and only
+    /// for agents the host opened a pane slot for.
+    public func usageDidChange(agent: LeoPluginAgentRef) {
+        usageCoalescer.change(agent)
+    }
+
+    /// Whether one of the plugin's pane slots is on screen. `usageChanged` is
+    /// never sent while it is not.
+    public func setPaneVisible(plugin id: String, visible: Bool) {
+        entries[id]?.isPaneVisible = visible
+    }
+
+    func deliverUsageChanged(for agent: LeoPluginAgentRef) {
+        for entry in entries.values where entry.isPaneVisible && entry.approved?.agents.contains(.usage) == true {
+            let holdsPaneSlot = deps.slots.hostOpened(of: entry.id).contains { slot in
+                if case .pane(_, _, let slotAgent) = slot { slotAgent == agent } else { false }
+            }
+            if holdsPaneSlot { deliver(.usageChanged(agent: agent), to: entry) }
+        }
+    }
+
     /// Whether one of the plugin's slots is on screen (`leo.after` waits for it).
     public func setSlotVisible(plugin id: String, visible: Bool) {
         guard let entry = entries[id] else { return }
@@ -69,7 +91,7 @@ extension LeoPluginManager {
     /// The event that makes a slot render.
     static func openingEvent(for slot: LeoPluginSlotID) -> LeoPluginEvent {
         switch slot {
-        case .view(_, let agent): .viewOpened(agent: agent, slot: slot)
+        case .view(_, let agent), .pane(_, _, let agent): .viewOpened(agent: agent, slot: slot)
         case .accessory, .section: .activate(slot: slot)
         case .palette(let commandID): .command(id: commandID, slot: slot)
         }
@@ -82,6 +104,7 @@ extension LeoPluginManager {
         case .accessory(let id, _): return contributes.rowAccessories.contains { $0.id == id }
         case .section(let id): return contributes.sidebarSections.contains { $0.id == id }
         case .palette(let id): return contributes.commands.contains { $0.id == id }
+        case .pane(let id, _, _): return contributes.panes.contains { $0.id == id }
         }
     }
 }
