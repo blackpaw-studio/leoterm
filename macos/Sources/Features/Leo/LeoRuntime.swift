@@ -577,7 +577,11 @@ import LeoKit
         let names = Set(snapshot.rows.map(\.name))
         let dispatches = Set(snapshot.dispatchChildren.values.flatMap { $0.map(\.id) })
         let knowsDispatches = snapshot.features.contains(.dispatchTree)
+        let rows = Dictionary(snapshot.rows.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
         for session in registry.sessions {
+            // A drawer shell goes with its row, even the one on screen: it is not an editor
+            // pane's unsaved work, and the row it served is gone or lives on another machine now.
+            session.drawerEnvironment?.pool.retain(on: host) { LeoDrawerShellRetention.keep(row: rows[$0]) }
             session.panes.pruneAgents(on: host) { name, dispatchID in
                 guard let dispatchID else { return names.contains(name) }
                 return !knowsDispatches || dispatches.contains(dispatchID)

@@ -482,6 +482,8 @@ struct LeoWindowVisibilityState: Equatable {
 
     private func windowWillClose() {
         onWindowWillClose()
+        // The window's drawer shells end with it: their pty's go, and so do the shells.
+        drawerEnvironment?.pool.closeAll()
         let panes = panes
         Task { await panes.releaseAll() }
     }

@@ -38,10 +38,12 @@ extension LeoRuntime {
         model.setMachines(shown)
         feeds.setMachines(shown)
         statsPoller.setMachines(shown)
-        gone.forEach {
-            clients.unbind($0)
-            chatMachineDisconnected($0)
-            agentBrowsers.machineRemoved($0)
+        gone.forEach { host in
+            clients.unbind(host)
+            chatMachineDisconnected(host)
+            agentBrowsers.machineRemoved(host)
+            // Its agents' drawer shells are ssh sessions into it.
+            registry.sessions.forEach { $0.drawerEnvironment?.pool.closeAll(on: host) }
         }
     }
 
