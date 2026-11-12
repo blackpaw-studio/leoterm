@@ -25,6 +25,7 @@ enum LeoDrawerShellState<Surface: AnyObject> {
     private let make: (LeoDrawerShellLaunch) throws -> Surface
     private let close: (Surface) -> Void
     private var states: [Key: LeoDrawerShellState<Surface>] = [:]
+    private var isSealed = false
     private let subject = PassthroughSubject<Void, Never>()
 
     /// Fires after any state changes.
@@ -52,6 +53,7 @@ enum LeoDrawerShellState<Surface: AnyObject> {
     /// unavailable one is decided again, since the host may have connected or
     /// updated since.
     func open(_ key: Key, launch: @autoclosure () -> LeoDrawerShellLaunch) {
+        guard !isSealed else { return }
         switch state(for: key) {
         case .running, .exited, .failed: return
         case .notStarted, .unavailable: start(key, launch: launch())
@@ -60,6 +62,7 @@ enum LeoDrawerShellState<Surface: AnyObject> {
 
     /// Replaces whatever the agent has with a fresh shell.
     func restart(_ key: Key, launch: @autoclosure () -> LeoDrawerShellLaunch) {
+        guard !isSealed else { return }
         closeSurface(of: key)
         start(key, launch: launch())
     }
@@ -87,6 +90,13 @@ enum LeoDrawerShellState<Surface: AnyObject> {
         guard !states.isEmpty else { return }
         states = [:]
         subject.send()
+    }
+
+    /// The window is gone: closes every shell and starts no more. A closed window's session can
+    /// outlive it (the Terminal tab switching back on would otherwise spawn shells nobody can see).
+    func seal() {
+        isSealed = true
+        closeAll()
     }
 
     /// Closes the shells of `host`'s agents that `keeping` rejects (the row is

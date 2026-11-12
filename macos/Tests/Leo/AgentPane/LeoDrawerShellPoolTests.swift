@@ -106,6 +106,21 @@ struct LeoDrawerShellPoolTests {
         #expect(running(h.pool, a) != nil)
     }
 
+    @Test func aSealedPoolClosesWhatRunsAndStartsNothingMore() throws {
+        let h = Harness()
+        h.pool.open(a, launch: shell)
+        let first = try #require(running(h.pool, a))
+
+        h.pool.seal()
+        h.pool.open(b, launch: shell)
+        h.pool.restart(a, launch: shell)
+
+        #expect(h.closed.count == 1 && h.closed.first === first)
+        #expect(h.made.count == 1)
+        #expect(h.pool.runningSurfaces.isEmpty)
+        if case .notStarted = h.pool.state(for: b) {} else { Issue.record("a sealed pool must not start b") }
+    }
+
     @Test func anExitClosesTheSurfaceAndWaitsForARestartThatMakesANewOne() throws {
         let h = Harness()
         h.pool.open(a, launch: shell)
