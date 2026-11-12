@@ -133,6 +133,7 @@ import OSLog
         case .accessory(let id, _): return contributes.rowAccessories.contains { $0.id == id }
         case .section(let id): return contributes.sidebarSections.contains { $0.id == id }
         case .palette(let id): return contributes.commands.contains { $0.id == id }
+        case .pane(let id, _, _): return contributes.panes.contains { $0.id == id }
         }
     }
 

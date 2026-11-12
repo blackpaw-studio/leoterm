@@ -330,6 +330,25 @@ private let demo = "studio.blackpaw.demo"
         ])
     }
 
+    @Test func openingADeclaredPaneSendsViewOpenedAndAnUndeclaredOneIsRefused() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        let contributes = #"{"panes":[{"id":"status","title":"Status"}]}"#
+        try rig.addBundled(demo, manifest: manifestJSON(id: demo, contributes: contributes))
+        rig.buildManager()
+        rig.manager.reload()
+        let host = try #require(rig.hosts.last)
+
+        let summary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
+        let body = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        #expect(rig.manager.open(summary, plugin: demo))
+        #expect(rig.manager.open(body, plugin: demo))
+        #expect(!rig.manager.open(.pane(id: "ghost", part: .summary, agent: agent), plugin: demo))
+
+        #expect(host.events.dropFirst() == [.viewOpened(agent: agent, slot: summary), .viewOpened(agent: agent, slot: body)])
+        #expect(rig.slots.state(pluginID: demo, slot: summary) == .loading)
+    }
+
     // MARK: Commands that never render
 
     @Test func aCommandWhoseHandlerFinishesWithoutRenderingItsSlotIsReported() async throws {

@@ -69,7 +69,7 @@ extension LeoPluginManager {
     /// The event that makes a slot render.
     static func openingEvent(for slot: LeoPluginSlotID) -> LeoPluginEvent {
         switch slot {
-        case .view(_, let agent): .viewOpened(agent: agent, slot: slot)
+        case .view(_, let agent), .pane(_, _, let agent): .viewOpened(agent: agent, slot: slot)
         case .accessory, .section: .activate(slot: slot)
         case .palette(let commandID): .command(id: commandID, slot: slot)
         }
@@ -82,6 +82,7 @@ extension LeoPluginManager {
         case .accessory(let id, _): return contributes.rowAccessories.contains { $0.id == id }
         case .section(let id): return contributes.sidebarSections.contains { $0.id == id }
         case .palette(let id): return contributes.commands.contains { $0.id == id }
+        case .pane(let id, _, _): return contributes.panes.contains { $0.id == id }
         }
     }
 }

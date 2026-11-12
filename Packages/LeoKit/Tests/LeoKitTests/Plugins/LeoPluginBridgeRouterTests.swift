@@ -32,7 +32,8 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
                 views: [LeoPluginViewContribution(id: "main", title: "Main", sfSymbol: "star")],
                 rowAccessories: [LeoPluginRowAccessoryContribution(id: "pr")],
                 commands: [LeoPluginCommandContribution(id: "go", title: "Go")],
-                sidebarSections: [LeoPluginSidebarSectionContribution(id: "issues", title: "Issues")]))
+                sidebarSections: [LeoPluginSidebarSectionContribution(id: "issues", title: "Issues")],
+                panes: [LeoPluginPaneContribution(id: "status", title: "Status")]))
         let engine = LeoPluginPermissionEngine(permissions: permissions)
         timers = LeoPluginTimers(scheduler: scheduler, onFire: { _ in })
         let box = Box()
@@ -78,11 +79,20 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
 
     @Test func aRenderForAnUndeclaredContributionIsRefused() throws {
         let rig = Rig()
-        for slot in [LeoPluginSlotID.section(id: "nope"), .view(viewID: "nope", agent: agent), .accessory(id: "nope", agent: agent), .palette(commandID: "nope")] {
+        for slot in [LeoPluginSlotID.section(id: "nope"), .view(viewID: "nope", agent: agent), .accessory(id: "nope", agent: agent), .palette(commandID: "nope"),
+            .pane(id: "nope", part: .summary, agent: agent), .pane(id: "nope", part: .body, agent: agent),
+        ] {
             rig.router.handle(.render(slot: slot, node: try sampleRoot()))
             #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: slot) == .loading)
         }
         #expect(rig.slots.slots(of: "studio.blackpaw.demo").isEmpty)
+    }
+
+    @Test func aRenderForADeclaredPaneReachesTheStore() throws {
+        let rig = Rig()
+        let slot = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        rig.router.handle(.render(slot: slot, node: try sampleRoot()))
+        #expect(rig.slots.state(pluginID: "studio.blackpaw.demo", slot: slot) == .tree(try sampleRoot()))
     }
 
     @Test func fetchRepliesWithTheResponseValueAndItsBodyEncoding() async throws {
