@@ -307,3 +307,12 @@ Reviews: the E2E fixes got a security review, and the polish got a review plus a
 - macOS app suite: 2882 pass and 34 fail. All failures are in the tunnel, socket, process and stray-window suites, which are known-flaky on main and untouched by this branch.
 
 **Still open:** the Blackpaw OAuth App client ID (`OAUTH_CLIENT_ID=""`). Device-flow sign-in is untested live until it is set.
+
+## OAuth app and live sign-in (2026-11-11)
+
+- **OAuth App:** "Leo" (blackpaw-studio org) is registered with device flow on and non-expiring tokens, client ID `Ov23li4ZOf3yNXiTAcoC`. Sign-in passed live: the token was stored, the badges filled with real PR data, and signing out cleared both.
+- **Sidebar fix:** a plugin sidebar section expanded after launch showed no rows, because SwiftUI kept the placeholder. It is fixed with a section `.id` keyed on open state (f0f67ed07). Windowed check: expanding after launch now shows "Sign in to GitHub". The signed-in issue rows were not captured, because auto mode refused to seed the token.
+- **Accepted risks:**
+  - Toggling a section recreates its header button, so keyboard and VoiceOver focus on it is lost.
+  - The section animates as delete+insert instead of expand.
+  - Both sign-in commands appear in the palette regardless of state, because v1 manifest commands are static.

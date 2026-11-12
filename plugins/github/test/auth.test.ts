@@ -32,8 +32,8 @@ const titleOf = (root: SlotRoot | undefined): string | undefined => {
 const json = (value: unknown): string => JSON.stringify(value);
 
 describe("config", () => {
-  it("ships without an OAuth client ID until the app is registered", () => {
-    expect(OAUTH_CLIENT_ID).toBe("");
+  it("ships the registered Blackpaw OAuth App client ID", () => {
+    expect(OAUTH_CLIENT_ID).toMatch(/^Ov23[A-Za-z0-9]{16}$/);
   });
 });
 
