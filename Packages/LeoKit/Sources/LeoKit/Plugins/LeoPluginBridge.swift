@@ -29,6 +29,8 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     case secretsSet(id: String, key: String, value: String)
     case secretsDelete(id: String, key: String)
     case agentsList(id: String)
+    /// `leo.agents.usage(agent)`; needs `agents:usage`.
+    case agentsUsage(id: String, agent: LeoPluginAgentRef)
     /// Periodic; the router enforces `seconds >= 60`.
     case timerStart(id: String, seconds: Double)
     /// One-shot (`leo.after`); the router enforces `seconds >= 1`.
@@ -42,7 +44,7 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     case unsupported(call: String)
 
     private enum CodingKeys: String, CodingKey {
-        case call, slot, node, id, url, `init`, key, value, seconds, level, message, ref, action, source
+        case call, slot, node, id, url, `init`, key, value, seconds, level, message, ref, action, source, agent
     }
 
     public init(from decoder: any Decoder) throws {
@@ -71,6 +73,9 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
             self = .secretsDelete(id: try c.decode(String.self, forKey: .id), key: try c.decode(String.self, forKey: .key))
         case "agentsList":
             self = .agentsList(id: try c.decode(String.self, forKey: .id))
+        case "agentsUsage":
+            self = .agentsUsage(
+                id: try c.decode(String.self, forKey: .id), agent: try c.decode(LeoPluginAgentRef.self, forKey: .agent))
         case "timerStart":
             self = .timerStart(id: try c.decode(String.self, forKey: .id), seconds: try c.decode(Double.self, forKey: .seconds))
         case "afterStart":
@@ -120,6 +125,10 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
         case .agentsList(let id):
             try c.encode("agentsList", forKey: .call)
             try c.encode(id, forKey: .id)
+        case .agentsUsage(let id, let agent):
+            try c.encode("agentsUsage", forKey: .call)
+            try c.encode(id, forKey: .id)
+            try c.encode(agent, forKey: .agent)
         case .timerStart(let id, let seconds):
             try c.encode("timerStart", forKey: .call)
             try c.encode(id, forKey: .id)

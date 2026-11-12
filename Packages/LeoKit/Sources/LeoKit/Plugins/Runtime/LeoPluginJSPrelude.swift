@@ -61,6 +61,14 @@ enum LeoPluginJSPrelude {
         return out;
       }
 
+      // Only the two string fields cross the bridge; anything else on the object is dropped.
+      function checkedAgentRef(agent) {
+        if (agent === null || typeof agent !== "object" || typeof agent.machine !== "string" || typeof agent.name !== "string") {
+          throw new TypeError("an agent must be { machine: string, name: string }");
+        }
+        return { machine: agent.machine, name: agent.name };
+      }
+
       function startTimer(kind, call, minimum, seconds, fn) {
         if (typeof seconds !== "number" || !isFinite(seconds) || seconds < minimum) {
           throw new RangeError("leo." + kind + " needs at least " + minimum + " seconds");
@@ -113,7 +121,16 @@ enum LeoPluginJSPrelude {
           set: (key, value) => request({ call: "secretsSet", key: String(key), value: String(value) }),
           delete: (key) => request({ call: "secretsDelete", key: String(key) })
         }),
-        agents: Object.freeze({ list: () => request({ call: "agentsList" }) }),
+        agents: Object.freeze({
+          list: () => request({ call: "agentsList" }),
+          usage: function (agent) {
+            try {
+              return request({ call: "agentsUsage", agent: checkedAgentRef(agent) });
+            } catch (e) {
+              return Promise.reject(e);
+            }
+          }
+        }),
         timer: (seconds, fn) => startTimer("timer", "timerStart", MIN_TIMER_SECONDS, seconds, fn),
         after: (seconds, fn) => startTimer("after", "afterStart", MIN_AFTER_SECONDS, seconds, fn),
         log: function (level, message) { send({ call: "log", level: String(level), message: String(message) }); }

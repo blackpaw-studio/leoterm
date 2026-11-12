@@ -25,14 +25,22 @@ import OSLog
         public let now: @Sendable () -> Date
         /// Delivers an event to this session's host (replies).
         public let send: @MainActor (LeoPluginEvent) -> Void
+        /// What is known about an agent's usage (`agents.usage`, and the model on `agents.list`).
+        public let usage: @MainActor (LeoPluginAgentRef) -> LeoPluginUsageReading?
+        /// This Mac's home directory, for home-relative workspaces; nil shows them absolute.
+        public let homeDirectory: String?
 
         public init(
             identity: LeoPluginIdentity, manifest: LeoPluginManifest, engine: LeoPluginPermissionEngine,
             gate: LeoPluginActionGate, fetcher: any LeoPluginFetching, secrets: LeoPluginSecrets?, timers: LeoPluginTimers,
             slots: LeoPluginSlotStore, actions: any LeoPluginActionRunning,
             agents: @escaping @MainActor () -> [(LeoHostID, LeoAgent)], now: @escaping @Sendable () -> Date,
-            send: @escaping @MainActor (LeoPluginEvent) -> Void
+            send: @escaping @MainActor (LeoPluginEvent) -> Void,
+            usage: @escaping @MainActor (LeoPluginAgentRef) -> LeoPluginUsageReading? = { _ in nil },
+            homeDirectory: String? = nil
         ) {
+            self.usage = usage
+            self.homeDirectory = homeDirectory
             self.identity = identity
             self.manifest = manifest
             self.engine = engine
@@ -103,7 +111,12 @@ import OSLog
                 return .null
             }
         case .agentsList(let id):
-            reply(id) { try LeoPluginAgentsSnapshot.value(agents: self.deps.agents(), engine: self.deps.engine) }
+            reply(id) {
+                try LeoPluginAgentsSnapshot.value(
+                    agents: self.deps.agents(), engine: self.deps.engine, usage: self.deps.usage, homeDirectory: self.deps.homeDirectory)
+            }
+        case .agentsUsage(let id, let agent):
+            reply(id) { try LeoPluginUsageSnapshot.value(reading: self.deps.usage(agent), engine: self.deps.engine) }
         case .timerStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startPeriodic(id: id, seconds: seconds) }
         case .afterStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startAfter(id: id, seconds: seconds) }
         case .timerStop(let id): deps.timers.stop(id: id)

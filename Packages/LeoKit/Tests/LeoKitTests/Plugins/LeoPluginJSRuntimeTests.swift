@@ -170,6 +170,55 @@ struct LeoPluginJSRuntimeTests {
         #expect(sink.logs == ["got v", "agents 2"])
     }
 
+    @Test func agentsExposesExactlyListAndUsage() throws {
+        let (_, sink) = try makeRuntime(#"leo.log("info", Object.keys(leo.agents).sort().join(","));"#)
+        #expect(sink.logs == ["list,usage"])
+    }
+
+    @Test func agentsUsageSendsTheAgentRefAndResolvesWithTheReply() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("activate", async () => {
+          const u = await leo.agents.usage({ machine: "local", name: "alfred", extra: "dropped" });
+          leo.log("info", "usage " + JSON.stringify(u));
+        });
+        """)
+        runtime.deliver(.activate(slot: nil))
+        guard case .agentsUsage(let id, let ref)? = sink.requests.first else {
+            Issue.record("expected agentsUsage, got \(sink.requests)")
+            return
+        }
+        #expect(ref == agent)
+        runtime.deliver(.reply(id: id, outcome: .value(.object(["model": .string("m")]))))
+        #expect(sink.logs == [#"usage {"model":"m"}"#])
+    }
+
+    @Test func agentsUsageRejectsAMalformedAgentWithoutSendingAnything() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("activate", async () => {
+          for (const bad of [undefined, null, "alfred", {}, { machine: "m" }, { machine: 1, name: "a" }, { machine: "m", name: {} }]) {
+            try { await leo.agents.usage(bad); leo.log("info", "no error"); }
+            catch (e) { leo.log("info", e.name); }
+          }
+        });
+        """)
+        runtime.deliver(.activate(slot: nil))
+        #expect(sink.logs == Array(repeating: "TypeError", count: 7))
+        #expect(!sink.requests.contains { if case .agentsUsage = $0 { true } else { false } })
+    }
+
+    @Test func aRejectedUsageReplySurfacesAsAnError() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("activate", async () => {
+          try { await leo.agents.usage({ machine: "local", name: "alfred" }); }
+          catch (e) { leo.log("info", "rejected " + e.message); }
+        });
+        """)
+        runtime.deliver(.activate(slot: nil))
+        guard case .agentsUsage(let id, _)? = sink.requests.first else { Issue.record("no request"); return }
+        runtime.deliver(.reply(id: id, outcome: .rejected(reason: "permission denied")))
+        #expect(sink.logs == ["rejected permission denied"])
+    }
+
     // MARK: callbacks and follow-ups
 
     @Test func callbackDeliversIdAndPayload() throws {

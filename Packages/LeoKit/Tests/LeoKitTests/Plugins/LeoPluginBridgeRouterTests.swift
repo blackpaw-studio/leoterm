@@ -24,6 +24,10 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
         get { box.agents }
         set { box.agents = newValue }
     }
+    var readings: [LeoPluginAgentRef: LeoPluginUsageReading] {
+        get { box.readings }
+        set { box.readings = newValue }
+    }
 
     init(permissions: LeoPluginPermissions = LeoPluginPermissions(network: ["api.example.com"], secrets: true, agents: [.read, .send, .spawn])) {
         let manifest = LeoPluginManifest(
@@ -47,7 +51,8 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
             LeoPluginBridgeRouter.Dependencies(
                 identity: LeoPluginIdentity(id: manifest.id, name: manifest.name), manifest: manifest, engine: engine, gate: gate,
                 fetcher: rigFetcher, secrets: secrets, timers: timers, slots: rigSlots, actions: rigActions,
-                agents: { box.agents }, now: { box.now }, send: { sink.events.append($0) }))
+                agents: { box.agents }, now: { box.now }, send: { sink.events.append($0) },
+                usage: { box.readings[$0] }, homeDirectory: "/Users/evan"))
         self.box = box
         self.sink = sink
     }
@@ -60,6 +65,7 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
     final class Box: @unchecked Sendable {
         var now = Date(timeIntervalSince1970: 1_000)
         var agents: [(LeoHostID, LeoAgent)] = []
+        var readings: [LeoPluginAgentRef: LeoPluginUsageReading] = [:]
     }
     @MainActor final class Sink { var events: [LeoPluginEvent] = [] }
 
@@ -207,6 +213,61 @@ private func sampleRoot() throws -> LeoPluginSlotRoot {
         let denied = Rig(permissions: .none)
         denied.router.handle(.agentsList(id: "r2"))
         guard case .reply(_, .rejected)? = denied.events.first else { Issue.record("expected rejection"); return }
+    }
+
+    // MARK: agents.usage
+
+    private func usageRig(_ verbs: [LeoPluginAgentVerb]) -> Rig {
+        let rig = Rig(permissions: LeoPluginPermissions(agents: verbs))
+        rig.readings[agent] = LeoPluginUsageReading(
+            configuredModel: "configured",
+            usage: LeoAgentUsage(session: LeoUsageTotals(tokens: 5, costUSD: 1.5), model: "observed"), harnessReportsUsage: true)
+        return rig
+    }
+
+    @Test func agentsUsageRepliesWithTheSnapshotWhenUsageIsGranted() {
+        let rig = usageRig([.usage])
+        rig.router.handle(.agentsUsage(id: "u1", agent: agent))
+        #expect(rig.events == [.reply(id: "u1", outcome: .value(.object([
+            "model": .string("observed"), "session": .object(["tokens": .int(5), "costUsd": .double(1.5)]),
+        ])))])
+    }
+
+    @Test(arguments: [[LeoPluginAgentVerb](), [.read], [.read, .send, .spawn]])
+    func agentsUsageIsRejectedWithoutTheUsagePermissionAndLeaksNothing(_ verbs: [LeoPluginAgentVerb]) {
+        let rig = usageRig(verbs)
+        rig.router.handle(.agentsUsage(id: "u1", agent: agent))
+        guard case .reply(_, .rejected(let reason))? = rig.events.first else { Issue.record("expected rejection"); return }
+        #expect(reason.contains("usage"))
+        #expect(!reason.contains("observed"))
+    }
+
+    @Test func agentsUsageForAnUnknownAgentIsNullAndAfterCloseNothingIsSent() {
+        let rig = usageRig([.usage])
+        rig.router.handle(.agentsUsage(id: "u1", agent: LeoPluginAgentRef(machine: "elsewhere", name: "ghost")))
+        #expect(rig.events == [.reply(id: "u1", outcome: .value(.null))])
+        rig.router.close()
+        rig.router.handle(.agentsUsage(id: "u2", agent: agent))
+        #expect(rig.events.count == 1)
+    }
+
+    @Test func agentsListGainsModelAndWorkspaceOnlyBehindUsage() {
+        func fields(_ verbs: [LeoPluginAgentVerb]) -> [String: LeoJSONValue] {
+            let rig = usageRig(verbs)
+            rig.agents = [(.local, LeoAgent(name: "alfred", workspace: "/Users/evan/.leo/agents/alfred", model: "configured"))]
+            rig.readings = [LeoPluginAgentRef(machine: "localhost", name: "alfred"): LeoPluginUsageReading(
+                configuredModel: "configured", usage: LeoAgentUsage(session: LeoUsageTotals(tokens: 1, costUSD: 1), model: "observed"),
+                harnessReportsUsage: true)]
+            rig.router.handle(.agentsList(id: "l"))
+            guard case .reply(_, .value(.array(let entries)))? = rig.events.first, case .object(let object)? = entries.first else { return [:] }
+            return object
+        }
+        let granted = fields([.read, .usage])
+        #expect(granted["workspace"] == .string("~/.leo/agents/alfred"))
+        #expect(granted["model"] == .string("observed"))
+        let readOnly = fields([.read])
+        #expect(readOnly["workspace"] == nil)
+        #expect(readOnly["model"] == nil)
     }
 
     @Test func timersAreBoundedAndStoppable() {

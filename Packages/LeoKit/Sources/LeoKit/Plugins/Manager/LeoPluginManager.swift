@@ -338,7 +338,9 @@ public struct LeoPluginManagerDependencies {
                 send: { [weak self] event in
                     guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
                     self.deliver(event, to: entry)
-                }))
+                },
+                usage: { [agents = deps.agents] in agents.usage(for: $0) },
+                homeDirectory: deps.agents.homeDirectory))
         host.onRequest = { [weak self] request in
             MainActor.assumeIsolated {
                 guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
