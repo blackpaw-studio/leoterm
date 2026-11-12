@@ -354,7 +354,7 @@ private let demo = "studio.blackpaw.demo"
     private static let paneContributes = #"{"panes":[{"id":"status","title":"Status"}]}"#
     private let paneSummary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
 
-    private func paneRig(plugin: String = demo, agents: String = #"["usage"]"#) throws -> Rig {
+    private func paneRig(plugin: String = demo, agents: String = #"["read","usage"]"#) throws -> Rig {
         let rig = try Rig()
         try rig.addBundled(plugin, manifest: manifestJSON(id: plugin, agents: agents, contributes: Self.paneContributes))
         rig.buildManager()

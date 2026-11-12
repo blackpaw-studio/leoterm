@@ -198,13 +198,13 @@ export interface AgentSnapshot {
   /**
    * The agent's working directory, home-relative (`~/.leo/agents/leoterm`), or
    * absolute when it is outside the home directory. Present only when the plugin
-   * holds `agents: ["usage"]`; omitted otherwise (and when unknown). The plugin
+   * holds `agents: ["read", "usage"]` (`usage` requires `read`); omitted otherwise (and when unknown). The plugin
    * shortens it itself.
    */
   workspace?: string;
   /**
    * The model: the observed one when the daemon reports it, else the configured
-   * one. Present only with `agents: ["usage"]`; omitted otherwise or when unknown.
+   * one. Present only with `agents: ["read", "usage"]`; omitted otherwise or when unknown.
    */
   model?: string;
 }
@@ -268,7 +268,7 @@ export interface Events {
   viewOpened: (agent: AgentRef, slot: SlotID) => void | Promise<void>;
   /**
    * An agent's usage data changed (the daemon's agent_usage or agent_turn_completed).
-   * Needs `agents: ["usage"]`. Coalesced to at most one per agent per second, and
+   * Needs `agents: ["read", "usage"]` (`usage` requires `read`). Coalesced to at most one per agent per second, and
    * delivered only while one of the plugin's panes is visible. Call
    * `leo.agents.usage(agent)` to read the new data.
    */
@@ -292,7 +292,7 @@ export interface Leo {
   agents: {
     list(): Promise<AgentSnapshot[]>;
     /**
-     * The latest usage snapshot for an agent. Needs `agents: ["usage"]`; rejects
+     * The latest usage snapshot for an agent. Needs `agents: ["read", "usage"]` (`usage` requires `read`); rejects
      * with "permission denied" otherwise.
      * - `null`: no data yet (the agent has not reported); try again after `usageChanged`.
      * - `{}`: the agent's harness does not report usage; do not wait for data.

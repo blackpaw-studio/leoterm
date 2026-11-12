@@ -155,6 +155,9 @@ public enum LeoPluginManifestValidator {
         if let dup = firstDuplicate(p.agents.map(\.rawValue)) {
             return "permissions.agents lists '\(dup)' more than once"
         }
+        if p.agents.contains(.usage), !p.agents.contains(.read) {
+            return "permissions.agents 'usage' requires 'read' (usage is read access to each agent's data)"
+        }
         var hosts: [String] = []
         for raw in p.network {
             do {

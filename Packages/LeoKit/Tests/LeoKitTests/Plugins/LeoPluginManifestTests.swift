@@ -391,6 +391,12 @@ extension LeoPluginManifestTests {
         #expect(manifest.permissions.agents == [.read, .usage])
     }
 
+    @Test func theUsageVerbWithoutReadIsRefused() {
+        let reason = Self.refusal(Self.mutated { $0["permissions"] = ["agents": ["usage"]] })
+        #expect(reason.contains("usage"))
+        #expect(reason.contains("read"))
+    }
+
     @Test func anUnknownVerbErrorListsUsage() {
         let reason = Self.refusal(Self.mutated { $0["permissions"] = ["agents": ["delete"]] })
         #expect(reason.contains("usage"))
