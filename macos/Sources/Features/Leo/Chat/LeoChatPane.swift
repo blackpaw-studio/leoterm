@@ -95,7 +95,7 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     /// A terminal hidden behind the chat must not keep the keyboard: a
     /// keystroke would land in an agent nobody can see.
     private func handBackHiddenTerminalFocus(_ layout: LeoChatLayout) {
-        guard !layout.isTerminalVisible, session.window?.firstResponder is Ghostty.SurfaceView else { return }
+        guard !layout.isTerminalVisible, session.isTerminalFocused() else { return }
         session.requestChatFocus()
     }
 }

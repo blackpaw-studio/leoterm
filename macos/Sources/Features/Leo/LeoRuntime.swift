@@ -633,6 +633,21 @@ import LeoKit
         statsPoller.stop()
         plugins?.shutDown()
     }
+    /// How an agent's drawer Terminal starts, from the machine's connection and advertised features now.
+    private func drawerShellLaunch(for identity: LeoAgentIdentity) -> LeoDrawerShellLaunch {
+        LeoDrawerShellLauncher.choose(
+            identity: identity,
+            features: model.features(for: identity.host),
+            isConnected: model.snapshot(for: identity.host).map { !$0.connectivity.isOffline } ?? false,
+            home: NSHomeDirectory(),
+            remoteCommand: { [weak machines] identity in
+                guard let configuration = machines?.configuration(for: identity.host) else {
+                    throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
+                }
+                return try LeoSSHCommand(configuration: configuration).shellCommand(agent: identity.name)
+            })
+    }
+
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
             window: controller.window, controller: controller, defaults: defaults,
@@ -654,6 +669,14 @@ import LeoKit
         let sessionID = session.id
         session.builtInPanes = builtInPanes
         session.pluginSurfaces = pluginSurfaces
+        session.drawerEnvironment = LeoDrawerEnvironment(
+            shells: LeoDrawerShells(app: { [weak controller] in controller?.ghostty.app }),
+            launch: { [weak self] identity in
+                self?.drawerShellLaunch(for: identity) ?? .unavailable("Leo is shutting down.")
+            },
+            focusMain: { [weak controller] in
+                if let surface = controller?.focusedSurface { Ghostty.moveFocus(to: surface) }
+            })
         session.openPicker = { [weak self] surfaceID in
             guard let self else { return }
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)

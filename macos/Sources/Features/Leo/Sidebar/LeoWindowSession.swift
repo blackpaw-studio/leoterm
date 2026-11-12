@@ -137,10 +137,16 @@ struct LeoWindowVisibilityState: Equatable {
     /// without a plugin system.
     private(set) var agentPane: LeoAgentPaneModel?
 
+    /// What the pane's Terminal tab runs on (its shells, launch rule and focus
+    /// hand-back); wired by the runtime once the window has a controller.
+    var drawerEnvironment: LeoDrawerEnvironment? { didSet { agentPane?.drawer = drawerEnvironment } }
+
     private func makeAgentPane() -> LeoAgentPaneModel {
-        LeoAgentPaneModel(
+        let model = LeoAgentPaneModel(
             surfaces: pluginSurfaces, settings: builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults),
             store: LeoAgentPaneStateStore(defaults: defaults))
+        model.drawer = drawerEnvironment
+        return model
     }
 
     /// Whether showing the sidebar now would take the terminal under its
@@ -166,7 +172,11 @@ struct LeoWindowVisibilityState: Equatable {
     private(set) weak var window: NSWindow?
 
     /// Whether a terminal surface holds the keyboard right now. Replaced in tests.
-    lazy var isTerminalFocused: () -> Bool = { [weak self] in self?.window?.firstResponder is Ghostty.SurfaceView }
+    /// The agent's own terminal holds the keyboard; the drawer's shell is not it.
+    lazy var isTerminalFocused: () -> Bool = { [weak self] in
+        guard let self, let surface = self.window?.firstResponder as? Ghostty.SurfaceView else { return false }
+        return !(self.drawerEnvironment?.owns(surface) ?? false)
+    }
     private var observers: [NSObjectProtocol] = []
     /// Keeps `preferredChatWidth` in step with writes from other windows.
     private var defaultsObserver: NSObjectProtocol?

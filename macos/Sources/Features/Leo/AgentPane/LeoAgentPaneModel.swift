@@ -16,6 +16,9 @@ import LeoKit
     @Published private(set) var agent: LeoAgentPaneAgent?
 
     let surfaces: LeoPluginSurfaces?
+    /// What the Terminal tab runs on; set by the window's session once it has a
+    /// controller. Without it the Terminal tab draws nothing.
+    var drawer: LeoDrawerEnvironment?
     private let store: LeoAgentPaneStateStore
     private let settings: LeoBuiltInPaneSettings
     private var subscription: AnyCancellable?
