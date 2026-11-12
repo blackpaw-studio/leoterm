@@ -41,7 +41,11 @@ final class LeoAgentPaneTabView: NSView {
     // MARK: Measuring (for `LeoAgentPaneTabLayout.fit`)
 
     private var iconWidth: CGFloat { icon.image == nil ? 0 : 14 + Self.gap }
-    private var titleWidth: CGFloat { ceil(title.intrinsicContentSize.width) }
+    /// Measured from the string and font, not the label's intrinsic size, which
+    /// undercounts a truncating label and clips the last characters.
+    private var titleWidth: CGFloat {
+        ceil(NSAttributedString(string: tab.title, attributes: [.font: title.font as Any]).size().width) + 6
+    }
 
     var measuredTab: LeoAgentPaneTabLayout.Tab {
         let titleOnly = Self.padding * 2 + iconWidth + titleWidth

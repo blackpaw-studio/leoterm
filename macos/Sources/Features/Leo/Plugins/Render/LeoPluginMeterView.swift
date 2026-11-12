@@ -18,6 +18,8 @@ final class LeoPluginMeterView: NSStackView {
         orientation = .horizontal
         alignment = .centerY
         spacing = 6
+        // A body's meter sits in the gutter like the other components; a summary's is flush.
+        if style == .body { edgeInsets = NSEdgeInsets(top: 4, left: LeoPluginRenderStyle.gutter, bottom: 4, right: LeoPluginRenderStyle.gutter) }
         addArrangedSubview(bar)
         addArrangedSubview(label)
         label.setContentHuggingPriority(.required, for: .horizontal)

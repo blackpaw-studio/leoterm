@@ -10,6 +10,7 @@ final class LeoAgentPaneTabBarView: NSView {
 
     private(set) var tabViews: [LeoAgentPaneTabView] = []
     private var selectedID: String?
+    private var isExpanded = false
     private let overflow = NSButton(title: "", target: nil, action: nil)
     private let chevron = NSButton(title: "", target: nil, action: nil)
     private let separator = NSBox()
@@ -48,6 +49,7 @@ final class LeoAgentPaneTabBarView: NSView {
             }
         }
         selectedID = selected
+        self.isExpanded = isExpanded
         let symbol = isExpanded ? "chevron.down" : "chevron.up"
         chevron.image = NSImage(systemSymbolName: symbol, accessibilityDescription: isExpanded ? "Collapse agent pane" : "Expand agent pane")
         chevron.toolTip = isExpanded ? "Collapse" : "Expand"
@@ -69,7 +71,7 @@ final class LeoAgentPaneTabBarView: NSView {
             guard entry.presentation != .overflow else { continue }
             let measured = view.measuredTab
             let width = CGFloat(entry.presentation == .full ? measured.fullWidth : measured.titleWidth)
-            view.update(isSelected: view.tab.id == selectedID, showsSummary: entry.presentation == .full)
+            view.update(isSelected: isExpanded && view.tab.id == selectedID, showsSummary: entry.presentation == .full)
             view.frame = NSRect(x: x, y: 3, width: min(width, max(0, room - x)), height: height - 6)
             x += width + Self.spacing
         }
