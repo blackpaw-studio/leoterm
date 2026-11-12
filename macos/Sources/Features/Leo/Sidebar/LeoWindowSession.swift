@@ -126,11 +126,35 @@ struct LeoWindowVisibilityState: Equatable {
     var pluginSurfaces: LeoPluginSurfaces? {
         didSet {
             panes.pluginHost = pluginSurfaces
-            agentPane = pluginSurfaces.map { LeoAgentPaneModel(surfaces: $0, store: LeoAgentPaneStateStore(defaults: defaults)) }
+            agentPane = makeAgentPane()
         }
     }
-    /// The pane under the agent's terminal or chat (plugins' summaries and bodies); nil without a plugin system.
+    /// The built-in pane tabs' switches, shared app-wide (wired by the runtime;
+    /// a session without them reads its own defaults).
+    var builtInPanes: LeoBuiltInPaneSettings? { didSet { agentPane = makeAgentPane() } }
+    /// The pane under the agent's terminal or chat: the built-in Terminal and
+    /// the plugins' summaries and bodies. Always there; empty of plugins
+    /// without a plugin system.
     private(set) var agentPane: LeoAgentPaneModel?
+
+    /// What the pane's Terminal tab runs on (its shells, launch rule and focus
+    /// hand-back); wired by the runtime once the window has a controller.
+    var drawerEnvironment: LeoDrawerEnvironment? { didSet { agentPane?.drawer = drawerEnvironment } }
+
+    /// Whether a drawer shell is running something that closing the window would
+    /// kill: the same per-surface check the window's own surfaces get. Drawer
+    /// surfaces are in no `surfaceTree`, so the controller's checks add this.
+    var hasBusyDrawerShell: Bool {
+        drawerEnvironment?.pool.runningSurfaces.contains { $0.needsConfirmQuit } ?? false
+    }
+
+    private func makeAgentPane() -> LeoAgentPaneModel {
+        let model = LeoAgentPaneModel(
+            surfaces: pluginSurfaces, settings: builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults),
+            store: LeoAgentPaneStateStore(defaults: defaults))
+        model.drawer = drawerEnvironment
+        return model
+    }
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).
@@ -155,7 +179,11 @@ struct LeoWindowVisibilityState: Equatable {
     private(set) weak var window: NSWindow?
 
     /// Whether a terminal surface holds the keyboard right now. Replaced in tests.
-    lazy var isTerminalFocused: () -> Bool = { [weak self] in self?.window?.firstResponder is Ghostty.SurfaceView }
+    /// The agent's own terminal holds the keyboard; the drawer's shell is not it.
+    lazy var isTerminalFocused: () -> Bool = { [weak self] in
+        guard let self, let surface = self.window?.firstResponder as? Ghostty.SurfaceView else { return false }
+        return !(self.drawerEnvironment?.owns(surface) ?? false)
+    }
     private var observers: [NSObjectProtocol] = []
     /// Keeps `preferredChatWidth` in step with writes from other windows.
     private var defaultsObserver: NSObjectProtocol?
@@ -209,6 +237,7 @@ struct LeoWindowVisibilityState: Equatable {
             case .startScreen: nil
             }
         }
+        agentPane = makeAgentPane()
         observeWindow()
         // Leaving a shell row for the agent row is a selection too. A turn
         // later, so the row's selection reads the new value.
@@ -460,6 +489,8 @@ struct LeoWindowVisibilityState: Equatable {
 
     private func windowWillClose() {
         onWindowWillClose()
+        // The window's drawer shells end with it: their pty's go, and so do the shells.
+        drawerEnvironment?.pool.seal()
         let panes = panes
         Task { await panes.releaseAll() }
     }

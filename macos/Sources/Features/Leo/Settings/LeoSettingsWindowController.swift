@@ -46,6 +46,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     private let prompting: any LeoSettingsPrompting
     /// The plugin system, once the app has started it (nil before).
     private let plugins: @MainActor () -> LeoPluginSystem?
+    private let builtInPanes: LeoBuiltInPaneSettings
     private(set) var model: LeoMachinesSettingsModel?
     private(set) var target: LeoSettingsTargetModel?
 
@@ -53,9 +54,11 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
         registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
         agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil,
         agents: @escaping @MainActor (LeoHostID) -> [LeoAgentRow] = { _ in [] },
-        plugins: @escaping @MainActor () -> LeoPluginSystem? = { nil }
+        plugins: @escaping @MainActor () -> LeoPluginSystem? = { nil },
+        builtInPanes: LeoBuiltInPaneSettings? = nil
     ) {
         self.plugins = plugins
+        self.builtInPanes = builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults)
         self.prompting = prompting ?? LeoAlertPrompting()
         self.agents = agents
         self.registry = registry
@@ -101,7 +104,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
         self.target = target
         let content = LeoSettingsView(
             model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry, agents: agents,
-            plugins: plugins
+            plugins: plugins, builtInPanes: builtInPanes
         )
         let window = NSWindow(contentViewController: NSHostingController(rootView: content))
         window.title = "Leo Settings"
@@ -203,6 +206,7 @@ private struct LeoSettingsView: View {
     @ObservedObject var registry: LeoMachineRegistry
     let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
     let plugins: @MainActor () -> LeoPluginSystem?
+    let builtInPanes: LeoBuiltInPaneSettings
 
     var body: some View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
@@ -233,7 +237,7 @@ private struct LeoSettingsView: View {
             LeoServiceSettingsView(target: target)
                 .tabItem { Label("Service", systemImage: "waveform.path.ecg") }
                 .tag(LeoServiceSettingsView.tab)
-            LeoPluginsSettingsView(system: plugins)
+            LeoPluginsSettingsView(system: plugins, builtIn: builtInPanes)
                 .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }
                 .tag(LeoPluginsSettingsView.tab)
         }

@@ -8,12 +8,19 @@ import Testing
 /// (the host view reports while it is in a window), for each pane state.
 @MainActor
 struct LeoAgentPaneMountsTests {
-    private let agent = LeoPluginAgentRef(machine: "Local", name: "alfred")
-    private let status = LeoAgentPaneTab(id: "p.status", paneID: "status", title: "Status", sfSymbol: nil, hasWarning: false)
-    private let github = LeoAgentPaneTab(id: "p.github", paneID: "gh", title: "GitHub", sfSymbol: nil, hasWarning: false)
+    private let ref = LeoPluginAgentRef(machine: "Local", name: "alfred")
+    private let identity = LeoAgentIdentity(host: .local, name: "alfred", workspace: "/w/alfred")
+    private var agent: LeoAgentPaneAgent { LeoAgentPaneAgent(ref: ref, identity: identity) }
+    private let terminal = LeoAgentPaneTab.terminal
+    private let status = LeoAgentPaneTab(id: "p.status", kind: .plugin(paneID: "status"), title: "Status", sfSymbol: nil, hasWarning: false)
+    private let github = LeoAgentPaneTab(id: "p.github", kind: .plugin(paneID: "gh"), title: "GitHub", sfSymbol: nil, hasWarning: false)
 
-    private func key(_ tab: LeoAgentPaneTab, _ part: LeoPluginPanePart) -> LeoPluginSlotKey {
-        LeoPluginSlotKey(pluginID: tab.id, slot: .pane(id: tab.paneID, part: part, agent: agent))
+    private func slot(_ tab: LeoAgentPaneTab, _ part: LeoPluginPanePart) -> LeoPluginSlotKey {
+        LeoPluginSlotKey(pluginID: tab.id, slot: .pane(id: tab.paneID ?? "", part: part, agent: ref))
+    }
+
+    private func key(_ tab: LeoAgentPaneTab, _ part: LeoPluginPanePart) -> LeoAgentPaneMount {
+        .plugin(slot(tab, part))
     }
 
     @Test
@@ -46,7 +53,8 @@ struct LeoAgentPaneMountsTests {
 
     @Test
     func theKeysFollowTheAgent() {
-        let other = LeoPluginAgentRef(machine: "Local", name: "rocket")
+        let other = LeoAgentPaneAgent(
+            ref: LeoPluginAgentRef(machine: "Local", name: "rocket"), identity: LeoAgentIdentity(host: .local, name: "rocket"))
         let a = LeoAgentPaneMounts(tabs: [status], state: LeoAgentPaneState(), agent: agent)
         let b = LeoAgentPaneMounts(tabs: [status], state: LeoAgentPaneState(), agent: other)
         #expect(a.summaries != b.summaries)
@@ -55,11 +63,11 @@ struct LeoAgentPaneMountsTests {
     @Test
     func aMountedSummaryReportsThroughTheRefCountedReporterOnlyWhileActive() {
         let surface = FakePaneSurface()
-        let reporter = LeoPluginVisibilityReporter(key: key(status, .body), surface: surface, isActive: false)
+        let reporter = LeoPluginVisibilityReporter(key: slot(status, .body), surface: surface, isActive: false)
         reporter.setAppeared(true)
         #expect(surface.visible.isEmpty)
         reporter.setActive(true)
-        #expect(surface.visible == [key(status, .body): 1])
+        #expect(surface.visible == [slot(status, .body): 1])
         reporter.setActive(false)
         #expect(surface.visible.isEmpty)
     }
@@ -69,6 +77,37 @@ struct LeoAgentPaneMountsTests {
         #expect(LeoAgentPaneModel.isShown(agent: agent, tabs: [status]))
         #expect(!LeoAgentPaneModel.isShown(agent: nil, tabs: [status]), "no agent selected: no strip")
         #expect(!LeoAgentPaneModel.isShown(agent: agent, tabs: []))
+    }
+
+    // MARK: Built-in Terminal
+
+    @Test
+    func aTerminalOnlyPaneIsShownWithAnAgentAndHiddenWithout() {
+        #expect(LeoAgentPaneModel.isShown(agent: agent, tabs: [terminal]))
+        #expect(!LeoAgentPaneModel.isShown(agent: nil, tabs: [terminal]))
+        #expect(LeoAgentPaneMounts(tabs: [terminal], state: LeoAgentPaneState(), agent: nil) == LeoAgentPaneMounts.none)
+    }
+
+    @Test
+    func collapsedTerminalMountsItsSummaryByIdentityBesideThePlugins() {
+        let mounts = LeoAgentPaneMounts(tabs: [terminal, status], state: LeoAgentPaneState(), agent: agent)
+        #expect(mounts.summaries == [.terminal(identity), key(status, .summary)])
+        #expect(mounts.body == nil)
+    }
+
+    @Test
+    func expandedOnTheTerminalMountsItsBodyAndNoPluginBody() {
+        let state = LeoAgentPaneState(isExpanded: true, selectedTabID: "leo.terminal")
+        let mounts = LeoAgentPaneMounts(tabs: [terminal, status], state: state, agent: agent)
+        #expect(mounts.body == .terminal(identity))
+        #expect(mounts.pluginKeys == [slot(status, .summary)])
+    }
+
+    @Test
+    func theTerminalHasNoPluginSlotsToOpenOrReport() {
+        let state = LeoAgentPaneState(isExpanded: true, selectedTabID: "p.status")
+        let mounts = LeoAgentPaneMounts(tabs: [terminal, status], state: state, agent: agent)
+        #expect(mounts.pluginKeys == [slot(status, .summary), slot(status, .body)])
     }
 }
 

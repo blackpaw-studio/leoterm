@@ -9,10 +9,12 @@ struct LeoPluginsSettingsView: View {
 
     /// The plugin system, once the app has started it.
     let system: @MainActor () -> LeoPluginSystem?
+    /// The agent pane's built-in tabs' switches, shared with the windows' panes.
+    let builtIn: LeoBuiltInPaneSettings
 
     var body: some View {
         if let system = system() {
-            LeoPluginsPane(model: LeoPluginsSettingsModel(system: system))
+            LeoPluginsPane(model: LeoPluginsSettingsModel(system: system, builtIn: builtIn))
         } else {
             ProgressView("Starting plugins…").frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -20,9 +22,9 @@ struct LeoPluginsSettingsView: View {
 }
 
 extension LeoPluginsSettingsModel {
-    convenience init(system: LeoPluginSystem) {
+    convenience init(system: LeoPluginSystem, builtIn: LeoBuiltInPaneSettings) {
         self.init(
-            manager: system.manager, installer: system.installFlow, updater: system.updater,
+            manager: system.manager, installer: system.installFlow, updater: system.updater, builtIn: builtIn,
             approve: { await system.presenter.approve($0) })
     }
 }
@@ -37,6 +39,8 @@ private struct LeoPluginsPane: View {
     var body: some View {
         VStack(spacing: 0) {
             toolbar
+            Divider()
+            builtInRow
             Divider()
             if model.rows.isEmpty { emptyState } else { list }
             footer
@@ -68,6 +72,17 @@ private struct LeoPluginsPane: View {
         }
         .disabled(model.isBusy)
         .padding(12)
+    }
+
+    /// The built-in pane tabs, above the plugins' own "Show agent pane" switches.
+    private var builtInRow: some View {
+        HStack {
+            Label("Built-in", systemImage: "terminal").font(.headline)
+            Spacer()
+            Toggle("Show Terminal tab", isOn: Binding(get: { model.showsTerminalTab }, set: { model.setShowsTerminalTab($0) }))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     private var list: some View {

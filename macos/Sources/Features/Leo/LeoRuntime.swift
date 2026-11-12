@@ -15,6 +15,9 @@ import LeoKit
     /// What the sidebar, the menus and the row panes read the plugin system
     /// through; exists from launch and attaches once `plugins` starts.
     let pluginSurfaces: LeoPluginSurfaces
+    /// The agent pane's built-in tabs' switches, shared by every window's pane and Settings.
+    let builtInPanes: LeoBuiltInPaneSettings
+    private var drawerSwitchSubscription: AnyCancellable?
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
     /// The prompt box and Interrupt / Compact / Clear (B-262), each call
@@ -45,7 +48,7 @@ import LeoKit
     private(set) lazy var settingsWindow = LeoSettingsWindowController(
         registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
         agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] },
-        plugins: { [weak self] in self?.plugins }
+        plugins: { [weak self] in self?.plugins }, builtInPanes: builtInPanes
     )
     /// Each machine's daemon client, handed to actions and control per row.
     let clients: LeoRegistryMachineClients
@@ -203,7 +206,11 @@ import LeoKit
             // Top-level agents only (dispatches have no plugin slots); a moved agent's dormant row isn't one.
             model?.rows.filter { $0.movedTo == nil }.map { LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) } ?? []
         })
+        builtInPanes = LeoBuiltInPaneSettings(defaults: defaults)
         self.registry = registry
+        drawerSwitchSubscription = LeoDrawerTerminalSwitch.closeShellsWhenTurnedOff(settings: builtInPanes) { [weak registry] in
+            registry?.sessions.forEach { $0.drawerEnvironment?.pool.closeAll() }
+        }
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
             center: notificationCenter, defaults: defaults, isLive: { weakSelf?.feeds.contains($0) ?? false },
@@ -574,7 +581,11 @@ import LeoKit
         let names = Set(snapshot.rows.map(\.name))
         let dispatches = Set(snapshot.dispatchChildren.values.flatMap { $0.map(\.id) })
         let knowsDispatches = snapshot.features.contains(.dispatchTree)
+        let rows = Dictionary(snapshot.rows.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
         for session in registry.sessions {
+            // A drawer shell goes with its row, even the one on screen: it is not an editor
+            // pane's unsaved work, and the row it served is gone or lives on another machine now.
+            session.drawerEnvironment?.pool.retain(on: host) { LeoDrawerShellRetention.keep(row: rows[$0]) }
             session.panes.pruneAgents(on: host) { name, dispatchID in
                 guard let dispatchID else { return names.contains(name) }
                 return !knowsDispatches || dispatches.contains(dispatchID)
@@ -630,6 +641,21 @@ import LeoKit
         statsPoller.stop()
         plugins?.shutDown()
     }
+    /// How an agent's drawer Terminal starts, from the machine's connection and advertised features now.
+    private func drawerShellLaunch(for identity: LeoAgentIdentity) -> LeoDrawerShellLaunch {
+        LeoDrawerShellLauncher.choose(
+            identity: identity,
+            features: model.features(for: identity.host),
+            isConnected: model.snapshot(for: identity.host).map { !$0.connectivity.isOffline } ?? false,
+            home: NSHomeDirectory(),
+            remoteCommand: { [weak machines] identity in
+                guard let configuration = machines?.configuration(for: identity.host) else {
+                    throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
+                }
+                return try LeoSSHCommand(configuration: configuration).shellCommand(agent: identity.name)
+            })
+    }
+
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
             window: controller.window, controller: controller, defaults: defaults,
@@ -649,7 +675,16 @@ import LeoKit
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
+        session.builtInPanes = builtInPanes
         session.pluginSurfaces = pluginSurfaces
+        session.drawerEnvironment = LeoDrawerEnvironment(
+            shells: LeoDrawerShells(app: { [weak controller] in controller?.ghostty.app }),
+            launch: { [weak self] identity in
+                self?.drawerShellLaunch(for: identity) ?? .unavailable("Leo is shutting down.")
+            },
+            focusMain: { [weak controller] in
+                if let surface = controller?.focusedSurface { Ghostty.moveFocus(to: surface) }
+            })
         session.openPicker = { [weak self] surfaceID in
             guard let self else { return }
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)

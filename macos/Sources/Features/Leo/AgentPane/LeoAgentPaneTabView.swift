@@ -1,6 +1,16 @@
 import AppKit
 import LeoKit
 
+/// A tab's summary: drawn after the title when there is room. The plugin
+/// slot host is one; the Terminal's directory label is another.
+@MainActor protocol LeoAgentPaneSummaryView: NSView {
+    /// Its natural size (width 0 while there is nothing to show), for the tab bar's overflow fit.
+    var summaryWidth: CGFloat { get }
+    var summaryHeight: CGFloat { get }
+}
+
+extension LeoPluginSlotHostView: LeoAgentPaneSummaryView {}
+
 /// One tab in the pane's bar: an icon (a warning glyph for a crashed plugin),
 /// the plugin's title and, when there is room, its summary. A click anywhere
 /// on it taps the tab.
@@ -10,7 +20,7 @@ final class LeoAgentPaneTabView: NSView {
     private static let gap: CGFloat = 5
 
     let tab: LeoAgentPaneTab
-    let summary: LeoPluginSlotHostView?
+    let summary: (any LeoAgentPaneSummaryView)?
     var onTap: () -> Void = {}
     private let icon = NSImageView()
     private let title: NSTextField
@@ -18,7 +28,7 @@ final class LeoAgentPaneTabView: NSView {
     /// Whether the summary is drawn; the tab bar turns it off when it needs the room.
     private(set) var showsSummary = false
 
-    init(tab: LeoAgentPaneTab, summary: LeoPluginSlotHostView?) {
+    init(tab: LeoAgentPaneTab, summary: (any LeoAgentPaneSummaryView)?) {
         self.tab = tab
         self.summary = summary
         title = LeoPluginRenderStyle.label(tab.title, font: .systemFont(ofSize: 12, weight: .medium))
