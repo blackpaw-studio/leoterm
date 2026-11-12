@@ -62,6 +62,8 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
     public let movedAt: String?
     /// The daemon's `display_name`, nil from older daemons; read `displayName`.
     public let daemonDisplayName: String?
+    /// The configured model (`model`); nil from daemons that omit it.
+    public let model: String?
 
     public var id: String { name }
     /// What the user sees: `display_name` when set, else `name`.
@@ -71,8 +73,9 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
         name: String, template: String? = nil, repo: String? = nil, workspace: String? = nil, branch: String? = nil,
         canonicalPath: String? = nil, status: LeoAgentStatus? = nil, startedAt: String? = nil, restarts: Int? = nil,
         stoppedReason: String? = nil, wakeOnMessage: Bool? = nil,
-        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, model: String? = nil
     ) {
+        self.model = model
         self.name = name
         self.daemonDisplayName = displayName
         self.template = template
@@ -90,7 +93,7 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case name, template, repo, workspace, branch, status, restarts
+        case name, template, repo, workspace, branch, status, restarts, model
         case canonicalPath = "canonical_path"
         case startedAt = "started_at"
         case stoppedReason = "stopped_reason"
@@ -116,6 +119,7 @@ public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
         movedTo = try c.decodeIfPresent(String.self, forKey: .movedTo)
         movedAt = try c.decodeIfPresent(String.self, forKey: .movedAt)
         daemonDisplayName = (try? c.decodeIfPresent(String.self, forKey: .daemonDisplayName)) ?? nil
+        model = LeoUsageText.clean((try? c.decodeIfPresent(String.self, forKey: .model)) ?? nil)
     }
 }
 
