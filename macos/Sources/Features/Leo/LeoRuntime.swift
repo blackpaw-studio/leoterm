@@ -652,6 +652,7 @@ import LeoKit
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
+        session.builtInPanes = builtInPanes
         session.pluginSurfaces = pluginSurfaces
         session.openPicker = { [weak self] surfaceID in
             guard let self else { return }

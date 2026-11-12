@@ -126,11 +126,22 @@ struct LeoWindowVisibilityState: Equatable {
     var pluginSurfaces: LeoPluginSurfaces? {
         didSet {
             panes.pluginHost = pluginSurfaces
-            agentPane = pluginSurfaces.map { LeoAgentPaneModel(surfaces: $0, store: LeoAgentPaneStateStore(defaults: defaults)) }
+            agentPane = makeAgentPane()
         }
     }
-    /// The pane under the agent's terminal or chat (plugins' summaries and bodies); nil without a plugin system.
+    /// The built-in pane tabs' switches, shared app-wide (wired by the runtime;
+    /// a session without them reads its own defaults).
+    var builtInPanes: LeoBuiltInPaneSettings? { didSet { agentPane = makeAgentPane() } }
+    /// The pane under the agent's terminal or chat: the built-in Terminal and
+    /// the plugins' summaries and bodies. Always there; empty of plugins
+    /// without a plugin system.
     private(set) var agentPane: LeoAgentPaneModel?
+
+    private func makeAgentPane() -> LeoAgentPaneModel {
+        LeoAgentPaneModel(
+            surfaces: pluginSurfaces, settings: builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults),
+            store: LeoAgentPaneStateStore(defaults: defaults))
+    }
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).
@@ -209,6 +220,7 @@ struct LeoWindowVisibilityState: Equatable {
             case .startScreen: nil
             }
         }
+        agentPane = makeAgentPane()
         observeWindow()
         // Leaving a shell row for the agent row is a selection too. A turn
         // later, so the row's selection reads the new value.

@@ -4,9 +4,11 @@ import LeoKit
 
 /// The agent pane's live model, one per window: the remembered state
 /// (expanded, selected tab, height; shared app-wide through the store), the
-/// tabs the plugins contribute, and the agent the window shows. It opens the
-/// pane slots plugins render into; the views mount what `mounts` names, and
-/// those hosts report visibility through the plugin surfaces.
+/// tabs (the built-in Terminal, when on, then what the plugins contribute),
+/// and the agent the window shows. It opens the pane slots plugins render
+/// into; the views mount what `mounts` names, and those hosts report
+/// visibility through the plugin surfaces. Without a plugin system it still
+/// works: the Terminal is the only tab.
 @MainActor final class LeoAgentPaneModel: ObservableObject {
     @Published private(set) var state: LeoAgentPaneState
     @Published private(set) var tabs: [LeoAgentPaneTab] = []
@@ -15,16 +17,22 @@ import LeoKit
 
     let surfaces: LeoPluginSurfaces?
     private let store: LeoAgentPaneStateStore
+    private let settings: LeoBuiltInPaneSettings
     private var subscription: AnyCancellable?
+    private var settingsSubscription: AnyCancellable?
 
-    init(surfaces: LeoPluginSurfaces?, store: LeoAgentPaneStateStore) {
+    init(surfaces: LeoPluginSurfaces?, settings: LeoBuiltInPaneSettings, store: LeoAgentPaneStateStore) {
         self.surfaces = surfaces
+        self.settings = settings
         self.store = store
         state = store.load()
         // `changes` fires before a change lands; the hop reads the new plugins.
         subscription = surfaces?.changes
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in MainActor.assumeIsolated { self?.refreshTabs() } }
+        // The published value is the new one (reading the property here would still see the old).
+        settingsSubscription = settings.$showsTerminalTab.dropFirst()
+            .sink { [weak self] in self?.refreshTabs(showsTerminal: $0) }
         refreshTabs()
     }
 
@@ -58,8 +66,9 @@ import LeoKit
         openSlots()
     }
 
-    private func refreshTabs() {
-        let next = LeoAgentPaneTabs.make(from: surfaces?.manager?.plugins ?? [])
+    private func refreshTabs(showsTerminal: Bool? = nil) {
+        let next = LeoAgentPaneTabs.make(
+            from: surfaces?.manager?.plugins ?? [], showsTerminal: showsTerminal ?? settings.showsTerminalTab)
         guard next != tabs else { return }
         tabs = next
         openSlots()
