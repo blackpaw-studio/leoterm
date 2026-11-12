@@ -41,3 +41,14 @@ export function shortenPath(path: string): string {
   const last = parts.length - 1;
   return head + parts.map((p, i) => (i === last || (i === 0 && p === "~") ? p : abbreviate(p))).join("/");
 }
+
+const CLAUDE_ID = /^claude-([a-z]+)-(\d+)-(\d+)(?:-\d{8})?(\[1m\])?$/i;
+
+/** `claude-opus-5-5[1m]` -> `Opus 5.5 1M`. Anything that is not a Claude id passes through unchanged. */
+export function formatModel(id: string): string {
+  const match = CLAUDE_ID.exec(id);
+  if (!match) return id;
+  const [, family, major, minor, longContext] = match;
+  const name = family.charAt(0).toUpperCase() + family.slice(1).toLowerCase();
+  return `${name} ${major}.${minor}${longContext ? " 1M" : ""}`;
+}

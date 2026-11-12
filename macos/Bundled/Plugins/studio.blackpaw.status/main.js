@@ -50,6 +50,14 @@
     const last = parts.length - 1;
     return head + parts.map((p, i) => i === last || i === 0 && p === "~" ? p : abbreviate(p)).join("/");
   }
+  var CLAUDE_ID = /^claude-([a-z]+)-(\d+)-(\d+)(?:-\d{8})?(\[1m\])?$/i;
+  function formatModel(id) {
+    const match = CLAUDE_ID.exec(id);
+    if (!match) return id;
+    const [, family, major, minor, longContext] = match;
+    const name = family.charAt(0).toUpperCase() + family.slice(1).toLowerCase();
+    return `${name} ${major}.${minor}${longContext ? " 1M" : ""}`;
+  }
 
   // src/body.ts
   var GAP = "  ";
@@ -66,7 +74,7 @@
       line(
         ...present([
           label("Model" + GAP),
-          usage.model === void 0 ? void 0 : { text: usage.model, tone: "accent1", weight: "semibold" },
+          usage.model === void 0 ? void 0 : { text: formatModel(usage.model), tone: "accent1", weight: "semibold" },
           usage.model !== void 0 && usage.effort !== void 0 ? gap() : void 0,
           usage.effort === void 0 ? void 0 : label(`thinking ${usage.effort}`)
         ])
@@ -154,7 +162,7 @@
   // src/summary.ts
   var SEPARATOR2 = " \xB7 ";
   var plain = (text) => ({ type: "Text", runs: [{ text, tone: "secondary" }] });
-  var modelNode = (model) => ({ type: "Text", runs: [{ text: model, tone: "accent1", weight: "semibold" }] });
+  var modelNode = (model) => ({ type: "Text", runs: [{ text: formatModel(model), tone: "accent1", weight: "semibold" }] });
   function meterNode(context) {
     if (!(context.window > 0)) return void 0;
     return {

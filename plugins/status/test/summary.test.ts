@@ -35,6 +35,10 @@ describe("buildSummary", () => {
     expect(model.runs[0].tone).toBe("accent1");
   });
 
+  it("prettifies a model id", () => {
+    expect(allText(buildSummary({ model: "claude-opus-5-5" }))).toBe("Opus 5.5");
+  });
+
   it("splits the meter by breakdown with the token count as help", () => {
     const m = meterOf(buildSummary(full))!;
     expect(m.max).toBe(200_000);

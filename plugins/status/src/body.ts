@@ -1,6 +1,6 @@
 import type { EmptyState, Meter, Node, RateLimit, Text, TextRun, UsageSnapshot } from "../../sdk/leo";
 import { CATEGORIES, contextSegments } from "./categories";
-import { formatMoney, formatPercent, formatReset, formatTokens, shortenPath } from "./format";
+import { formatModel, formatMoney, formatPercent, formatReset, formatTokens, shortenPath } from "./format";
 
 /** What the plugin knows about the agent besides its usage. */
 export interface Where {
@@ -27,7 +27,7 @@ function modelRow(usage: UsageSnapshot): Text[] {
     line(
       ...present([
         label("Model" + GAP),
-        usage.model === undefined ? undefined : { text: usage.model, tone: "accent1", weight: "semibold" },
+        usage.model === undefined ? undefined : { text: formatModel(usage.model), tone: "accent1", weight: "semibold" },
         usage.model !== undefined && usage.effort !== undefined ? gap() : undefined,
         usage.effort === undefined ? undefined : label(`thinking ${usage.effort}`),
       ]),

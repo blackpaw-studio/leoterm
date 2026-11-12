@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, formatPercent, formatReset, formatTokens, shortenPath } from "../src/format";
+import { formatModel, formatMoney, formatPercent, formatReset, formatTokens, shortenPath } from "../src/format";
 
 describe("formatTokens", () => {
   it.each([
@@ -60,4 +60,20 @@ describe("shortenPath", () => {
     expect(shortenPath("/")).toBe("/");
   });
   it("ignores trailing and doubled slashes", () => expect(shortenPath("~/a//bcd/ef/")).toBe("~/a/b/ef"));
+});
+
+describe("formatModel", () => {
+  it.each([
+    ["claude-opus-5-5", "Opus 5.5"],
+    ["claude-sonnet-5-5", "Sonnet 5.5"],
+    ["claude-haiku-5-5", "Haiku 5.5"],
+    ["claude-fable-5-2", "Fable 5.2"],
+    ["claude-haiku-4-5-20251001", "Haiku 4.5"],
+    ["claude-opus-5-5[1m]", "Opus 5.5 1M"],
+    ["claude-opus-5-5-20261101[1m]", "Opus 5.5 1M"],
+    ["gpt-5.1-codex", "gpt-5.1-codex"],
+    ["Opus 5.5", "Opus 5.5"],
+    ["claude-opus", "claude-opus"],
+    ["", ""],
+  ])("%s -> %s", (id, out) => expect(formatModel(id)).toBe(out));
 });

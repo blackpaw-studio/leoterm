@@ -54,6 +54,10 @@ describe("buildBody", () => {
     expect(m.help).toBe("80k / 200k tokens");
   });
 
+  it("prettifies a model id", () => {
+    expect(lines(body({ model: "claude-sonnet-5-5[1m]" }))[0]).toBe("Model  Sonnet 5.5 1M");
+  });
+
   it("hides the effort without hiding the model", () => {
     const { effort: _e, ...rest } = full;
     expect(lines(body(rest, where))[0]).toBe("Model  Opus 5.5");

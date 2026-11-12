@@ -1,12 +1,12 @@
 import type { Meter, SlotRoot, Text, UsageSnapshot } from "../../sdk/leo";
 import { contextSegments } from "./categories";
-import { formatMoney, formatPercent, formatTokens } from "./format";
+import { formatModel, formatMoney, formatPercent, formatTokens } from "./format";
 
 const SEPARATOR = " · ";
 
 const plain = (text: string): Text => ({ type: "Text", runs: [{ text, tone: "secondary" }] });
 
-const modelNode = (model: string): Text => ({ type: "Text", runs: [{ text: model, tone: "accent1", weight: "semibold" }] });
+const modelNode = (model: string): Text => ({ type: "Text", runs: [{ text: formatModel(model), tone: "accent1", weight: "semibold" }] });
 
 function meterNode(context: NonNullable<UsageSnapshot["context"]>): Meter | undefined {
   if (!(context.window > 0)) return undefined;
