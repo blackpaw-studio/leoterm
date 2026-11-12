@@ -330,6 +330,126 @@ private let demo = "studio.blackpaw.demo"
         ])
     }
 
+    @Test func openingADeclaredPaneSendsViewOpenedAndAnUndeclaredOneIsRefused() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        let contributes = #"{"panes":[{"id":"status","title":"Status"}]}"#
+        try rig.addBundled(demo, manifest: manifestJSON(id: demo, contributes: contributes))
+        rig.buildManager()
+        rig.manager.reload()
+        let host = try #require(rig.hosts.last)
+
+        let summary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
+        let body = LeoPluginSlotID.pane(id: "status", part: .body, agent: agent)
+        #expect(rig.manager.open(summary, plugin: demo))
+        #expect(rig.manager.open(body, plugin: demo))
+        #expect(!rig.manager.open(.pane(id: "ghost", part: .summary, agent: agent), plugin: demo))
+
+        #expect(host.events.dropFirst() == [.viewOpened(agent: agent, slot: summary), .viewOpened(agent: agent, slot: body)])
+        #expect(rig.slots.state(pluginID: demo, slot: summary) == .loading)
+    }
+
+    // MARK: usageChanged
+
+    private static let paneContributes = #"{"panes":[{"id":"status","title":"Status"}]}"#
+    private let paneSummary = LeoPluginSlotID.pane(id: "status", part: .summary, agent: agent)
+
+    private func paneRig(plugin: String = demo, agents: String = #"["usage"]"#) throws -> Rig {
+        let rig = try Rig()
+        try rig.addBundled(plugin, manifest: manifestJSON(id: plugin, agents: agents, contributes: Self.paneContributes))
+        rig.buildManager()
+        rig.manager.reload()
+        return rig
+    }
+
+    private func usageEvents(_ host: PluginFakeHost?) -> [LeoPluginEvent] {
+        (host?.events ?? []).filter { if case .usageChanged = $0 { true } else { false } }
+    }
+
+    @Test func usageChangedReachesAPluginWithUsageAndAVisiblePaneForThatAgent() async throws {
+        let rig = try paneRig()
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+
+        rig.manager.usageDidChange(agent: agent)
+        #expect(usageEvents(host) == [.usageChanged(agent: agent)])
+    }
+
+    @Test func nothingIsDeliveredWhileThePaneIsHidden() async throws {
+        let rig = try paneRig()
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+
+        rig.manager.usageDidChange(agent: agent)
+        #expect(usageEvents(host).isEmpty)
+
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+        rig.manager.setPaneVisible(plugin: demo, visible: false)
+        rig.clock.value = 5
+        rig.manager.usageDidChange(agent: agent)
+        #expect(usageEvents(host).isEmpty)
+    }
+
+    @Test func aPluginWithoutUsageNeverGetsTheEvent() async throws {
+        let rig = try paneRig(agents: #"["read"]"#)
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+
+        rig.manager.usageDidChange(agent: agent)
+        #expect(usageEvents(host).isEmpty)
+    }
+
+    @Test func onlyAgentsThePluginHoldsAPaneSlotForAreDelivered() async throws {
+        let rig = try paneRig()
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+
+        rig.manager.usageDidChange(agent: LeoPluginAgentRef(machine: "localhost", name: "someone-else"))
+        #expect(usageEvents(host).isEmpty)
+    }
+
+    @Test func aBurstIsCoalescedToTheFirstChangePlusOneTrailingEvent() async throws {
+        let rig = try paneRig()
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+
+        for step in 0..<5 {
+            rig.clock.value = Double(step) * 0.1
+            rig.manager.usageDidChange(agent: agent)
+        }
+        #expect(usageEvents(host).count == 1)
+        rig.clock.value = 1.0
+        rig.scheduler.fireAll()
+        await rig.settle()
+        #expect(usageEvents(host).count == 2)
+    }
+
+    @Test func aTrailingEventIsDroppedIfThePaneWentHiddenMeanwhile() async throws {
+        let rig = try paneRig()
+        defer { rig.cleanup() }
+        let host = try #require(rig.hosts.last)
+        rig.manager.open(paneSummary, plugin: demo)
+        rig.manager.setPaneVisible(plugin: demo, visible: true)
+
+        rig.manager.usageDidChange(agent: agent)
+        rig.clock.value = 0.2
+        rig.manager.usageDidChange(agent: agent)
+        rig.manager.setPaneVisible(plugin: demo, visible: false)
+        rig.clock.value = 1.0
+        rig.scheduler.fireAll()
+        await rig.settle()
+        #expect(usageEvents(host).count == 1)
+    }
+
     // MARK: Commands that never render
 
     @Test func aCommandWhoseHandlerFinishesWithoutRenderingItsSlotIsReported() async throws {

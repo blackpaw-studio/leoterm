@@ -119,6 +119,9 @@ public struct LeoPluginManagerDependencies {
     var entries: [String: LeoPluginManagerEntry] = [:]
     private var hasReapedOrphans = false
     var agentsChangeTask: Task<Void, Never>?
+    /// One window per agent, shared by every plugin; eligibility is checked when it fires.
+    private(set) lazy var usageCoalescer = LeoPluginUsageCoalescer(
+        now: deps.clock, scheduler: deps.scheduler, fire: { [weak self] in self?.deliverUsageChanged(for: $0) })
     static let logger = LeoLog.logger(category: "leo.plugins")
 
     public var slots: LeoPluginSlotStore { deps.slots }
@@ -338,7 +341,9 @@ public struct LeoPluginManagerDependencies {
                 send: { [weak self] event in
                     guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
                     self.deliver(event, to: entry)
-                }))
+                },
+                usage: { [agents = deps.agents] in agents.usage(for: $0) },
+                homeDirectory: deps.agents.homeDirectory))
         host.onRequest = { [weak self] request in
             MainActor.assumeIsolated {
                 guard let self, let entry = self.entries[id], entry.session?.token == token else { return }

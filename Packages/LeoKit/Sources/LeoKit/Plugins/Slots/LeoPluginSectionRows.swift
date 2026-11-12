@@ -42,7 +42,9 @@ public enum LeoPluginSectionRows {
             return [.message(id: "n\(index)", title: state.message, detail: nil)]
         case .loading(let loading):
             return [.message(id: "n\(index)", title: loading.message ?? "Loading…", detail: nil)]
-        case .form, .accessory:
+        case .text(let text):
+            return [.message(id: "n\(index)", title: text.plainText, detail: nil)]
+        case .form, .accessory, .meter:
             return []
         }
     }

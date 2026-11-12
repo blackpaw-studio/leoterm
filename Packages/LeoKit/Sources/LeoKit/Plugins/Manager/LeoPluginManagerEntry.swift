@@ -23,6 +23,8 @@ import Foundation
     /// the slots don't re-report after a restart, a disable/enable or an
     /// approval reload, so each new session is seeded from this.
     var isSlotVisible = false
+    /// Whether one of the plugin's pane slots is on screen (`usageChanged` is only sent then).
+    var isPaneVisible = false
     /// The event that last opened each slot, re-sent after a restart or a Retry.
     var lastEvents: [LeoPluginSlotID: LeoPluginEvent] = [:]
     /// Commands (the bundle load, then each delivered event) the helper hasn't

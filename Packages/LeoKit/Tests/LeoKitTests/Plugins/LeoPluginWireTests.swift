@@ -72,4 +72,23 @@ struct LeoPluginWireTests {
             #expect(try JSONDecoder().decode(LeoPluginHostCommand.self, from: data) == command)
         }
     }
+
+    @Test func aPaneSlotRoundTripsWithItsWireShape() throws {
+        let ref = LeoPluginAgentRef(machine: "localhost", name: "alpha")
+        let slot = LeoPluginSlotID.pane(id: "status", part: .summary, agent: ref)
+        let data = try JSONEncoder().encode(slot)
+        #expect(try JSONDecoder().decode(LeoPluginSlotID.self, from: data) == slot)
+        let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(object["kind"] as? String == "pane")
+        #expect(object["id"] as? String == "status")
+        #expect(object["part"] as? String == "summary")
+        #expect(slot.key == "pane:status:summary:localhost:alpha")
+        #expect(slot != .pane(id: "status", part: .body, agent: ref))
+        #expect(slot.key != LeoPluginSlotID.pane(id: "status", part: .body, agent: ref).key)
+    }
+
+    @Test func aPaneSlotWithAnUnknownPartIsRefused() {
+        let json = #"{"kind":"pane","id":"status","part":"footer","agent":{"machine":"m","name":"a"}}"#
+        #expect(throws: DecodingError.self) { try JSONDecoder().decode(LeoPluginSlotID.self, from: Data(json.utf8)) }
+    }
 }

@@ -53,3 +53,22 @@ struct LeoPluginApprovalReviewTests {
         #expect(LeoPluginApprovalRequest(reviewing: Self.info(source: .bundled, state: .needsApproval(diff), manifest: nil)) == nil)
     }
 }
+
+extension LeoPluginApprovalReviewTests {
+    @Test func anUpdateAddingUsageShowsAsAPermissionIncrease() throws {
+        let old = LeoPluginPermissions(agents: [.read])
+        let new = LeoPluginPermissions(agents: [.read, .usage])
+        let diff = LeoPluginPermissionDiff(old: old, new: new)
+        #expect(diff.addedAgentVerbs == [.usage])
+        #expect(!diff.isEmpty)
+
+        let manifest = LeoPluginManifest(
+            id: "dev.example.demo", name: "Demo", version: "2.0.0", apiVersion: 1, main: "main.js", permissions: new)
+        let info = LeoPluginInfo(
+            id: "dev.example.demo", name: "Demo", version: "1.0.0", source: .bundled, isEnabled: true, state: .needsApproval(diff),
+            approvedPermissions: old, manifest: manifest, hiddenSections: [])
+        let request = try #require(LeoPluginApprovalRequest(reviewing: info))
+        #expect(request.permissionLines.count == 1)
+        #expect(request.permissionLines[0].contains("usage"))
+    }
+}
