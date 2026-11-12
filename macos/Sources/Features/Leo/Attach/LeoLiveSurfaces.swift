@@ -328,10 +328,6 @@ import GhosttyKit
     /// drawing it. The controller's occlusion sync marks it visible again
     /// when it is back in a visible window's tree.
     private static func stopDrawing(_ view: Ghostty.SurfaceView) {
-        view.focusDidChange(false)
-        if view.isWindowVisible, let surface = view.surface {
-            ghostty_surface_set_occlusion(surface, false)
-        }
-        view.isWindowVisible = false
+        LeoSurfaceDrawing.set(view, visible: false)
     }
 }
