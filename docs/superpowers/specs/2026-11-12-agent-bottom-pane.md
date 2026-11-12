@@ -23,7 +23,7 @@ Give plugins a pane under the agent's terminal/chat view. Collapsed, it is a one
 
 ## Renders
 
-- The plugin calls `leo.render("<paneId>.summary", tree)` and `leo.render("<paneId>.body", tree)`. The summary slot only accepts `Text`, `Meter` and `Accessory`, laid out in one row. Any other component is rejected as a render error, shown as a "!" in place of the summary.
+- Panes are per agent. The plugin receives a `pane` slot object (`{kind:"pane", id, part:"summary"|"body", agent:{machine,name}}`) through `viewOpened(agent, slot)`, then renders into it with `leo.render(slot, tree)`. The summary slot only accepts `Text`, `Meter` and `Accessory`, laid out in one row. Any other component is rejected as a render error, shown as a "!" in place of the summary.
 - The body accepts every existing component plus `Text` and `Meter`.
 - Visibility for `leo.after` and refresh: a summary is visible whenever the pane is shown, and a body only while its tab is expanded. Both use the existing ref-counted visibility reporter.
 
@@ -34,13 +34,14 @@ Give plugins a pane under the agent's terminal/chat view. Collapsed, it is a one
 
 ## Bridge additions
 
-- `leo.agents.usage(agentName)` returns the latest usage snapshot, or `null`. It requires the new permission `agents: ["usage"]`. Fields:
+- `leo.agents.usage({machine, name})` returns the latest usage snapshot, or `null`. It requires the new permission `agents: ["usage"]`. Fields:
   - available today: `model`, `context {tokens, window, percent}`, `session {tokens, costUsd}`;
   - `model` is the observed model from the daemon's `usage.model` when present, otherwise the agent's configured `model`.
   - optional, filled in as the daemon adds them (`2026-11-12-agent-telemetry-request.md`): `effort`, `context.breakdown {system, tools, mcp, memory, messages}`, `context.compactAt` (a fraction 0–1), `rateLimits [{kind: "five_hour"|"seven_day", percentUsed, resetsAt}]`, `git {added, removed}`.
   - Unknown fields are dropped, and absent ones stay absent rather than being zero-filled.
-- `leo.on("usageChanged", fn(agentName))` comes from the daemon's `agent_usage` and `agent_turn_completed` events. It is coalesced to at most 1 per agent per second, and fires only while one of the plugin's panes is visible.
-- `leo.agents.list()` entries gain `model`, behind the same `usage` permission.
+- `usage()` returns `null` when there is no data yet, and `{}` when the agent's harness doesn't report usage.
+- `leo.on("usageChanged", fn({machine, name}))` comes from the daemon's `agent_usage` and `agent_turn_completed` events. It is coalesced to at most 1 per agent per second, and fires only while one of the plugin's panes is visible.
+- `leo.agents.list()` entries gain `model` and `workspace`, both behind the same `usage` permission. `workspace` is home-relative (`~/.leo/agents/leoterm`), or absolute when it is outside home. Evan decided this on 2026-11-12; it relaxes the base spec's no-paths rule only for plugins granted `usage`.
 
 ## Errors
 
