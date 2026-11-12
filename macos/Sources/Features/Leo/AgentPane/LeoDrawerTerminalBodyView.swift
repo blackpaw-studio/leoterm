@@ -19,6 +19,9 @@ import LeoKit
     /// (the same one a SwiftUI-hosted surface gets), so a surface added bare stays at 1x1.
     private var surfaceContainer: SurfaceScrollView?
     private var isShownOnScreen = false
+    /// Restart was pressed: the next surface to appear takes the keyboard (the button, and
+    /// so the focus, goes away with the exited state).
+    private var focusesNextSurface = false
     private var subscription: AnyCancellable?
     private var closeRequestObserver: NSObjectProtocol?
 
@@ -127,7 +130,8 @@ import LeoKit
     private func show(_ running: Ghostty.SurfaceView) {
         messageStack.isHidden = true
         guard surface !== running else { return }
-        let hadFocus = hasFocus
+        let hadFocus = hasFocus || focusesNextSurface
+        focusesNextSurface = false
         surface?.removeFromSuperview()
         removeSurfaceContainer()
         surface = running
@@ -161,8 +165,8 @@ import LeoKit
     }
 
     @objc private func restart() {
+        focusesNextSurface = true
         environment.pool.restart(key, launch: environment.launch(identity))
-        focusTerminal()
     }
 
     // MARK: Responder chain
