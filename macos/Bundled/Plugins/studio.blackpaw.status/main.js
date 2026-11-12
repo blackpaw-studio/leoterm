@@ -17,13 +17,13 @@
     return Math.max(0, context.tokens - known);
   }
   function contextSegments(context) {
-    const present2 = CATEGORIES.flatMap((c) => {
+    const present = CATEGORIES.flatMap((c) => {
       const value = context.breakdown?.[c.key];
       return value === void 0 ? [] : [{ value, tone: c.tone }];
     });
-    if (present2.length === 0) return [{ value: context.tokens, tone: "accent1" }];
+    if (present.length === 0) return [{ value: context.tokens, tone: "accent1" }];
     const other = otherTokens(context);
-    return other > 0 ? [...present2, { value: other, tone: "secondary" }] : present2;
+    return other > 0 ? [...present, { value: other, tone: "secondary" }] : present;
   }
 
   // src/format.ts
@@ -67,61 +67,60 @@
   }
 
   // src/body.ts
-  var GAP = "  ";
   var SEPARATOR = " \xB7 ";
+  var LABEL_WIDTH = 9;
   var LIMIT_LABELS = { five_hour: "session", seven_day: "weekly" };
   var LIMIT_ORDER = ["five_hour", "seven_day"];
   var line = (...runs) => ({ type: "Text", runs });
-  var label = (text) => ({ text, tone: "secondary" });
-  var gap = () => ({ text: GAP });
-  var present = (runs) => runs.filter((r) => r !== void 0);
+  var dim = (text) => ({ text, tone: "secondary" });
+  var rowLabel = (name) => ({ text: name.padEnd(LABEL_WIDTH), tone: "secondary", mono: true });
+  var indent = () => ({ text: " ".repeat(LABEL_WIDTH), mono: true });
+  var joined = (parts) => parts.filter((p) => p.length > 0).flatMap((p, i) => i === 0 ? p : [dim(SEPARATOR), ...p]);
+  function row(name, parts) {
+    const runs = joined(parts);
+    return runs.length === 0 ? [] : [line(rowLabel(name), ...runs)];
+  }
   function modelRow(usage) {
-    if (usage.model === void 0 && usage.effort === void 0) return [];
-    return [
-      line(
-        ...present([
-          label("Model" + GAP),
-          usage.model === void 0 ? void 0 : { text: formatModel(usage.model), tone: "accent1", weight: "semibold" },
-          usage.model !== void 0 && usage.effort !== void 0 ? gap() : void 0,
-          usage.effort === void 0 ? void 0 : label(`thinking ${usage.effort}`)
-        ])
-      )
-    ];
+    return row("model", [
+      usage.model === void 0 ? [] : [{ text: formatModel(usage.model), tone: "accent1", weight: "semibold" }],
+      usage.effort === void 0 ? [] : [dim(`thinking ${usage.effort}`)]
+    ]);
   }
   function whereRow(usage, where) {
-    const candidates = [
+    const place = joined([
       where.workspace === void 0 ? [] : [{ text: shortenPath(where.workspace), mono: true }],
-      where.branch === void 0 ? [] : [{ text: where.branch, tone: "accent3" }],
-      usage.git === void 0 ? [] : [
-        { text: "(" },
-        { text: `+${usage.git.added}`, tone: "success", mono: true },
-        { text: "," },
-        { text: `\u2212${usage.git.removed}`, tone: "failure", mono: true },
-        { text: ")" }
-      ]
+      where.branch === void 0 ? [] : [{ text: where.branch, tone: "accent3" }]
+    ]);
+    const git = usage.git === void 0 ? [] : [
+      { text: "(" },
+      { text: `+${usage.git.added}`, tone: "success", mono: true },
+      { text: "," },
+      { text: `\u2212${usage.git.removed}`, tone: "failure", mono: true },
+      { text: ")" }
     ];
-    const parts = candidates.filter((p) => p.length > 0);
-    if (parts.length === 0) return [];
-    return [line(label("Where" + GAP), ...parts.flatMap((p, i) => i === 0 ? p : [gap(), ...p]))];
+    const runs = place.length > 0 && git.length > 0 ? [...place, { text: " " }, ...git] : [...place, ...git];
+    return runs.length === 0 ? [] : [line(rowLabel("where"), ...runs)];
   }
   function legend(context) {
+    const other = otherTokens(context);
     const items = [
       ...CATEGORIES.flatMap((c) => {
         const tokens = context.breakdown?.[c.key];
-        return tokens === void 0 ? [] : [{ text: `${c.label} ${formatTokens(tokens)}`, tone: c.tone }];
+        return tokens === void 0 ? [] : [[{ text: `${c.label} ${formatTokens(tokens)}`, tone: c.tone }]];
       }),
-      ...otherTokens(context) > 0 ? [{ text: `other ${formatTokens(otherTokens(context))}`, tone: "secondary" }] : [],
-      ...context.tokens <= context.window ? [{ text: `free ${formatTokens(context.window - context.tokens)}`, tone: "secondary" }] : [],
-      ...context.compactAt === void 0 ? [] : [{ text: `compacts at ${Math.round(context.compactAt * 100)}%`, tone: "secondary" }]
+      ...other <= 0 ? [] : [[dim(`${formatTokens(other)} other`)]],
+      ...context.tokens <= context.window ? [[dim(`${formatTokens(context.window - context.tokens)} free`)]] : [],
+      ...context.compactAt === void 0 ? [] : [[dim(`compacts at ${Math.round(context.compactAt * 100)}%`)]]
     ];
-    if (items.length === 0) return void 0;
-    return line(...items.flatMap((r, i) => i === 0 ? [r] : [label(SEPARATOR), r]));
+    const runs = joined(items);
+    return runs.length === 0 ? void 0 : line(indent(), ...runs);
   }
   function contextRows(context) {
     if (context === void 0) return [];
     const percent = formatPercent(context.percent, 1);
-    const rows = [line(label("Context" + GAP), { text: percent, mono: true })];
-    if (context.window > 0) {
+    const hasMeter = context.window > 0;
+    const rows = [line(rowLabel("context"), ...hasMeter ? [] : [{ text: percent, mono: true }])];
+    if (hasMeter) {
       const bar = {
         type: "Meter",
         segments: contextSegments(context),
@@ -138,21 +137,18 @@
     const i = LIMIT_ORDER.indexOf(kind);
     return i === -1 ? LIMIT_ORDER.length : i;
   };
-  function limitLine(limit, nowMs) {
+  function limitParts(limit, nowMs) {
     const reset = formatReset(limit.resetsAt, nowMs);
-    return line(
-      ...present([
-        { text: LIMIT_LABELS[limit.kind] ?? limit.kind },
-        { text: " " + formatPercent(limit.percentUsed, 1), mono: true },
-        reset === void 0 ? void 0 : label(` resets ${reset}`)
-      ])
-    );
+    return [
+      { text: LIMIT_LABELS[limit.kind] ?? limit.kind },
+      { text: " " + formatPercent(limit.percentUsed, 1), mono: true },
+      ...reset === void 0 ? [] : [dim(` resets ${reset}`)]
+    ];
   }
-  function limitRows(usage, nowMs) {
+  function limitsRow(usage, nowMs) {
     const limits = [...usage.rateLimits ?? []].sort((a, b) => limitRank(a.kind) - limitRank(b.kind));
-    const cost = usage.session === void 0 ? [] : [line(label("cost "), { text: formatMoney(usage.session.costUsd), mono: true })];
-    const rows = [...limits.map((l) => limitLine(l, nowMs)), ...cost];
-    return rows.length === 0 ? [] : [line(label("Limits")), ...rows];
+    const cost = usage.session === void 0 ? [] : [[{ text: formatMoney(usage.session.costUsd), mono: true }]];
+    return row("limits", [...limits.map((l) => limitParts(l, nowMs)), ...cost]);
   }
   var emptyState = (title, message) => ({ type: "EmptyState", title, ...message === void 0 ? {} : { message } });
   function buildBody(usage, where, nowMs) {
@@ -162,7 +158,7 @@
       ...modelRow(usage),
       ...whereRow(usage, where),
       ...contextRows(usage.context),
-      ...limitRows(usage, nowMs)
+      ...limitsRow(usage, nowMs)
     ];
     return rows.length === 0 ? [emptyState("No usage data yet")] : rows;
   }

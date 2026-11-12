@@ -521,7 +521,7 @@ actor LeoSidebarFeed {
                     status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil,
                     workspace: agent.workspace, repo: agent.repo, branch: agent.branch,
                     startedAt: agent.startedAt, wakeOnMessage: agent.wakeOnMessage,
-                    movedTo: agent.movedTo, movedAt: agent.movedAt)
+                    movedTo: agent.movedTo, movedAt: agent.movedAt, model: agent.model)
     }
 }
 

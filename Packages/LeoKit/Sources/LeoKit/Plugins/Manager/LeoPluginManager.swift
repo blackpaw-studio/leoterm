@@ -29,10 +29,13 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
     public let approvedPermissions: LeoPluginPermissions
     public let manifest: LeoPluginManifest?
     public let hiddenSections: [String]
+    /// Pane ids the user hid from the agent pane.
+    public let hiddenPanes: [String]
 
     public init(
         id: String, name: String, version: String, source: LeoPluginSource, isEnabled: Bool, state: LeoPluginRunState,
-        approvedPermissions: LeoPluginPermissions, manifest: LeoPluginManifest?, hiddenSections: [String]
+        approvedPermissions: LeoPluginPermissions, manifest: LeoPluginManifest?, hiddenSections: [String],
+        hiddenPanes: [String] = []
     ) {
         self.id = id
         self.name = name
@@ -43,6 +46,7 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
         self.approvedPermissions = approvedPermissions
         self.manifest = manifest
         self.hiddenSections = hiddenSections
+        self.hiddenPanes = hiddenPanes
     }
 }
 
@@ -181,6 +185,11 @@ public struct LeoPluginManagerDependencies {
 
     public func setSection(_ id: String, section: String, hidden: Bool) throws {
         try deps.store.update { $0.setSection(id, section: section, hidden: hidden) }
+        publish()
+    }
+
+    public func setPane(_ id: String, pane: String, hidden: Bool) throws {
+        try deps.store.update { $0.setPane(id, pane: pane, hidden: hidden) }
         publish()
     }
 
@@ -435,7 +444,8 @@ public struct LeoPluginManagerDependencies {
             return LeoPluginInfo(
                 id: record.id, name: entry?.manifest?.name ?? record.name, version: entry?.manifest?.version ?? record.version,
                 source: record.source, isEnabled: record.enabled, state: entry?.state ?? .refused("not loaded"),
-                approvedPermissions: record.approvedPermissions, manifest: entry?.manifest, hiddenSections: record.hiddenSections)
+                approvedPermissions: record.approvedPermissions, manifest: entry?.manifest, hiddenSections: record.hiddenSections,
+                hiddenPanes: record.hiddenPanes)
         }
     }
 }

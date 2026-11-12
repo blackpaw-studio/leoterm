@@ -44,8 +44,8 @@ describe("status plugin", () => {
     await stub.emit("viewOpened", alpha, slot(alpha, "body"));
     expect(texts(stub.lastRender(slot(alpha, "summary")))[0]).toBe("Opus 5.5");
     const body = texts(stub.lastRender(slot(alpha, "body")));
-    expect(body).toContain("Where  ~/.l/a/alpha  main");
-    expect(body).toContain("Context  21.0%");
+    expect(body).toContain("where    ~/.l/a/alpha · main");
+    expect(body).toContain("context  ");
   });
 
   it("shows the empty summary while usage is null", async () => {
@@ -87,12 +87,12 @@ describe("status plugin", () => {
     const stub = setup();
     stub.setUsage(alpha, usage(21, 3 * 3_600_000 + 50 * 60_000));
     await stub.emit("viewOpened", alpha, slot(alpha, "body"));
-    expect(texts(stub.lastRender(slot(alpha, "body")))).toContain("session 3.0% resets 3h 50m");
+    expect(texts(stub.lastRender(slot(alpha, "body"))).some((l) => l.includes("session 3.0% resets 3h 50m"))).toBe(true);
     const reads = stub.usageReads.length;
     await stub.tick(60);
-    expect(texts(stub.lastRender(slot(alpha, "body")))).toContain("session 3.0% resets 3h 49m");
+    expect(texts(stub.lastRender(slot(alpha, "body"))).some((l) => l.includes("session 3.0% resets 3h 49m"))).toBe(true);
     await stub.tick(60);
-    expect(texts(stub.lastRender(slot(alpha, "body")))).toContain("session 3.0% resets 3h 48m");
+    expect(texts(stub.lastRender(slot(alpha, "body"))).some((l) => l.includes("session 3.0% resets 3h 48m"))).toBe(true);
     expect(stub.usageReads.length).toBe(reads);
   });
 

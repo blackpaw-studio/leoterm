@@ -115,6 +115,7 @@ import LeoKit
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
     private var machinesFixture: AnyObject?
+    private var agentPaneFixture: AnyObject?
     #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
@@ -547,6 +548,7 @@ import LeoKit
         statsObservations = Self.observeStatsInputs(poller: statsPoller, defaults: defaults, activation: appActivationNotifications)
         #if DEBUG
         if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
+        if LeoAgentPaneFixture.isEnabled() { agentPaneFixture = LeoAgentPaneFixture.arm(model: model) }
         if let moveFixture {
             moveFixture.arm()
             moveFixture.seedDestinations(into: actions)

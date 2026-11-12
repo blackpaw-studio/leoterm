@@ -124,8 +124,13 @@ struct LeoWindowVisibilityState: Equatable {
     let agentBrowserBadges: LeoAgentBrowserBadges?
     /// The plugin system's views and row accessories; nil in tests and for a runtime without one.
     var pluginSurfaces: LeoPluginSurfaces? {
-        didSet { panes.pluginHost = pluginSurfaces }
+        didSet {
+            panes.pluginHost = pluginSurfaces
+            agentPane = pluginSurfaces.map { LeoAgentPaneModel(surfaces: $0, store: LeoAgentPaneStateStore(defaults: defaults)) }
+        }
     }
+    /// The pane under the agent's terminal or chat (plugins' summaries and bodies); nil without a plugin system.
+    private(set) var agentPane: LeoAgentPaneModel?
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).

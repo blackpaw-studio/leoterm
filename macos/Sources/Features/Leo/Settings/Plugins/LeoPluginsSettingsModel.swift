@@ -10,6 +10,7 @@ import LeoKit
     func setEnabled(_ id: String, _ enabled: Bool) throws
     func approveCurrentPermissions(_ id: String) throws
     func setSection(_ id: String, section: String, hidden: Bool) throws
+    func setPane(_ id: String, pane: String, hidden: Bool) throws
     func uninstall(_ id: String) throws
     func reload(restarting: Set<String>)
 }
@@ -89,6 +90,11 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
 
     func showSection(_ id: String, section: String) {
         attempt { try manager.setSection(id, section: section, hidden: false) }
+    }
+
+    /// Settings' "Show agent pane" switch for a plugin's pane.
+    func setPaneShown(_ id: String, pane: String, shown: Bool) {
+        attempt { try manager.setPane(id, pane: pane, hidden: !shown) }
     }
 
     /// Opens the approval sheet for a plugin that asks for more than was
