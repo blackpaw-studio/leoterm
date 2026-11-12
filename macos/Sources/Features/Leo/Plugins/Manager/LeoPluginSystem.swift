@@ -63,6 +63,7 @@ import LeoKit
             clock: { ProcessInfo.processInfo.systemUptime },
             devWatcher: watcher))
         watcher.onChange = { [weak manager] id in manager?.devPluginChanged(id) }
+        sources.onUsageChange = { [weak manager] agent in manager?.usageDidChange(agent: agent) }
         let installer = LeoPluginGitInstaller(root: root, runner: LeoPluginProcessRunner(), idClaims: store)
         self.store = store
         self.manager = manager
