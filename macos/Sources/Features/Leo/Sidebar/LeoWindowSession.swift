@@ -141,6 +141,13 @@ struct LeoWindowVisibilityState: Equatable {
     /// hand-back); wired by the runtime once the window has a controller.
     var drawerEnvironment: LeoDrawerEnvironment? { didSet { agentPane?.drawer = drawerEnvironment } }
 
+    /// Whether a drawer shell is running something that closing the window would
+    /// kill: the same per-surface check the window's own surfaces get. Drawer
+    /// surfaces are in no `surfaceTree`, so the controller's checks add this.
+    var hasBusyDrawerShell: Bool {
+        drawerEnvironment?.pool.runningSurfaces.contains { $0.needsConfirmQuit } ?? false
+    }
+
     private func makeAgentPane() -> LeoAgentPaneModel {
         let model = LeoAgentPaneModel(
             surfaces: pluginSurfaces, settings: builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults),

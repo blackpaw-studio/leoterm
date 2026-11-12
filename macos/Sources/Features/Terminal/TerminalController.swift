@@ -1584,6 +1584,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // terminal row, as closing the window does (B-057).
     override func windowCanBeClosedWithoutConfirmation() -> Bool {
         super.windowCanBeClosedWithoutConfirmation() && leoSession?.terminals.hasBusyHiddenShell() != true
+            && leoSession?.hasBusyDrawerShell != true
     }
 
     override func windowWillClose(_ notification: Notification) {

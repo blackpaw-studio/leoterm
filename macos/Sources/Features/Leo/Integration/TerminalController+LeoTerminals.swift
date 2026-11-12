@@ -64,9 +64,11 @@ extension TerminalController {
     }
 
     /// Whether closing this window would kill a running process: one it
-    /// shows, or one in a shell it keeps hidden for a terminal row.
+    /// shows, one in a shell it keeps hidden for a terminal row, or one in
+    /// its drawer Terminal.
     var leoNeedsConfirmClose: Bool {
         surfaceTree.contains(where: { $0.needsConfirmQuit }) || leoSession?.terminals.hasBusyHiddenShell() == true
+            || leoSession?.hasBusyDrawerShell == true
     }
 
     /// Whether closing `windows` would kill a running process: shown, or
