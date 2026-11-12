@@ -137,6 +137,12 @@ struct LeoDrawerShellPoolTests {
         #expect(h.closed.count == 1, "the exited surface isn't closed twice")
     }
 
+    @Test func theExitLabelShowsOnlyANonZeroStatus() {
+        #expect(LeoDrawerExitLabel.text(status: nil) == "Shell exited")
+        #expect(LeoDrawerExitLabel.text(status: 0) == "Shell exited")
+        #expect(LeoDrawerExitLabel.text(status: 3) == "Shell exited (status 3)")
+    }
+
     @Test func anExitWithAnUnknownStatusKeepsNoStatus() throws {
         let h = Harness()
         h.pool.open(a, launch: shell)

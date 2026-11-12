@@ -139,3 +139,13 @@ enum LeoDrawerShellState<Surface: AnyObject> {
 enum LeoDrawerShellRetention {
     static func keep(row: LeoAgentRow?) -> Bool { row != nil && row?.movedTo == nil }
 }
+
+/// What the Terminal body says when a shell ended. A local shell starts under
+/// `login`, which reports 0 whatever the shell returned, so 0 and unknown both
+/// read plain; only a non-zero status (a remote ssh shell can report one) is shown.
+enum LeoDrawerExitLabel {
+    static func text(status: Int?) -> String {
+        guard let status, status != 0 else { return "Shell exited" }
+        return "Shell exited (status \(status))"
+    }
+}

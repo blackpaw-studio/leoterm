@@ -121,7 +121,7 @@ import LeoKit
         case .running(let running): show(running)
         case .notStarted: showMessage("", canRestart: false)
         case .exited(let status):
-            showMessage(status.map { "Shell exited (status \($0))" } ?? "Shell exited", canRestart: true)
+            showMessage(LeoDrawerExitLabel.text(status: status), canRestart: true)
         case .unavailable(let message): showMessage(message, canRestart: false)
         case .failed(let message): showMessage("Couldn't start the shell: \(message)", canRestart: true)
         }
