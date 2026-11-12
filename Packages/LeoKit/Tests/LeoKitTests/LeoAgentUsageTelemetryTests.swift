@@ -80,8 +80,6 @@ struct LeoAgentUsageTelemetryTests {
           {"kind":"monthly","percent_used":1,"resets_at":"2026-11-12T05:00:00Z"},
           {"kind":"five_hour","percent_used":-1,"resets_at":"2026-11-12T05:00:00Z"},
           {"kind":"five_hour","percent_used":5000,"resets_at":"2026-11-12T05:00:00Z"},
-          {"kind":"five_hour","percent_used":1,"resets_at":"yesterday"},
-          {"kind":"five_hour","percent_used":1},
           "junk",
           {"kind":"seven_day","percent_used":3,"resets_at":"2026-11-12T05:00:00Z"}]}
         """)
@@ -92,6 +90,18 @@ struct LeoAgentUsageTelemetryTests {
     @Test func aRateLimitPercentAbove100IsKeptBriefly() throws {
         let decoded = try usage(#"{\#(Self.session),"rate_limits":[{"kind":"five_hour","percent_used":103.2,"resets_at":"2026-11-12T05:00:00Z"}]}"#)
         #expect(decoded.rateLimits.first?.percentUsed == 103.2)
+    }
+
+    @Test func aRateLimitWithoutAResetTimeIsKeptWithANilReset() throws {
+        let decoded = try usage(#"{\#(Self.session),"rate_limits":[{"kind":"five_hour","percent_used":3},{"kind":"seven_day","percent_used":4,"resets_at":"yesterday"}]}"#)
+        #expect(decoded.rateLimits.map(\.percentUsed) == [3, 4])
+        #expect(decoded.rateLimits.allSatisfy { $0.resetsAt == nil })
+    }
+
+    @Test func aRateLimitWithoutAResetTimeEncodesWithoutTheKey() throws {
+        let original = try usage(#"{\#(Self.session),"rate_limits":[{"kind":"five_hour","percent_used":3}]}"#)
+        let again = try JSONDecoder().decode(LeoAgentUsage.self, from: JSONEncoder().encode(original))
+        #expect(again.rateLimits == original.rateLimits)
     }
 
     @Test func theRateLimitListIsCappedAtOneEntryPerKind() throws {
