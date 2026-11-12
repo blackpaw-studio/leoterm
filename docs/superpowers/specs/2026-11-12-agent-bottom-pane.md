@@ -36,6 +36,7 @@ Give plugins a pane under the agent's terminal/chat view. Collapsed, it is a one
 
 - `leo.agents.usage(agentName)` returns the latest usage snapshot, or `null`. It requires the new permission `agents: ["usage"]`. Fields:
   - available today: `model`, `context {tokens, window, percent}`, `session {tokens, costUsd}`;
+  - `model` is the observed model from the daemon's `usage.model` when present, otherwise the agent's configured `model`.
   - optional, filled in as the daemon adds them (`2026-11-12-agent-telemetry-request.md`): `effort`, `context.breakdown {system, tools, mcp, memory, messages}`, `context.compactAt` (a fraction 0–1), `rateLimits [{kind: "five_hour"|"seven_day", percentUsed, resetsAt}]`, `git {added, removed}`.
   - Unknown fields are dropped, and absent ones stay absent rather than being zero-filled.
 - `leo.on("usageChanged", fn(agentName))` comes from the daemon's `agent_usage` and `agent_turn_completed` events. It is coalesced to at most 1 per agent per second, and fires only while one of the plugin's panes is visible.
