@@ -69,9 +69,14 @@ enum LeoAgentTitleMenuItems {
 
     /// Finder shows this Mac's files only: a remote agent's workspace, or
     /// one whose directory is gone, has nothing to reveal.
+    static func canRevealWorkspace(host: LeoHostID, workspace: String?, fileExists: (String) -> Bool) -> Bool {
+        guard host == .local, let workspace, !workspace.isEmpty else { return false }
+        return fileExists(workspace)
+    }
+
     static func canRevealWorkspace(_ agent: Context.Agent?, fileExists: (String) -> Bool) -> Bool {
-        guard let agent, agent.host == .local, let path = agent.workspace, !path.isEmpty else { return false }
-        return fileExists(path)
+        guard let agent else { return false }
+        return canRevealWorkspace(host: agent.host, workspace: agent.workspace, fileExists: fileExists)
     }
 
     /// Any agent with a known workspace, remote included: it copies the path as its host reports it.

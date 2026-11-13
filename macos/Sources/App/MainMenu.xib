@@ -516,6 +516,18 @@
                                     <action selector="reloadLeoAgentFiles:" target="-1" id="Leo-Agents-ReloadFiles-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Reveal Workspace in Finder" id="Leo-Agents-RevealWorkspace">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="revealLeoWorkspaceInFinder:" target="-1" id="Leo-Agents-RevealWorkspace-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Copy Workspace Path" keyEquivalent="c" id="Leo-Agents-CopyWorkspacePath">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="copyLeoWorkspacePath:" target="-1" id="Leo-Agents-CopyWorkspacePath-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-1"/>
                             <menuItem title="Start" id="Leo-Agents-Start">
                                 <modifierMask key="keyEquivalentModifierMask"/>
