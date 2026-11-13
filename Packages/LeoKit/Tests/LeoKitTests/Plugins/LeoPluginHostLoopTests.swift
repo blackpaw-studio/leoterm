@@ -4,7 +4,7 @@ import Testing
 @testable import LeoKit
 
 /// Runs the helper's loop on a thread against a socketpair, playing the app.
-private final class LoopHarness {
+private final class LoopHarness: @unchecked Sendable {
     let appFD: Int32
     private let hostFD: Int32
     private let finished = DispatchSemaphore(value: 0)
@@ -22,18 +22,27 @@ private final class LoopHarness {
         }
     }
 
-    func send(_ command: LeoPluginHostCommand) throws {
+    // Every call that can block on the socket runs off the cooperative pool (see `offCooperativePool`).
+    func send(_ command: LeoPluginHostCommand) async throws {
         let frame = try LeoPluginWire.encode(JSONEncoder().encode(command), limit: LeoPluginWire.maxAppToHostBytes)
-        try LeoPluginWire.writeAll(frame, to: appFD)
+        try await writeRaw(frame)
     }
 
-    func receive() throws -> LeoPluginHostMessage? {
+    func writeRaw(_ bytes: Data) async throws {
+        try await offCooperativePool { [appFD] in try LeoPluginWire.writeAll(bytes, to: appFD) }
+    }
+
+    private func receive() throws -> LeoPluginHostMessage? {
         guard let frame = try LeoPluginWire.readFrame(from: appFD, limit: LeoPluginWire.maxHostToAppBytes) else { return nil }
         return try LeoPluginHostMessage.decode(frame: frame)
     }
 
     /// Messages up to and including the next handler-done marker.
-    func receiveUntilDone() throws -> [LeoPluginHostRequest] {
+    func receiveUntilDone() async throws -> [LeoPluginHostRequest] {
+        try await offCooperativePool { try self.drainUntilDone() }
+    }
+
+    private func drainUntilDone() throws -> [LeoPluginHostRequest] {
         var requests: [LeoPluginHostRequest] = []
         while let message = try receive() {
             switch message {
@@ -44,7 +53,11 @@ private final class LoopHarness {
         return requests
     }
 
-    func closeAppEndAndWait() -> Int32 {
+    func closeAppEndAndWait() async -> Int32 {
+        (try? await offCooperativePool { self.closeAndJoin() }) ?? -1
+    }
+
+    private func closeAndJoin() -> Int32 {
         close(appFD)
         _ = finished.wait(timeout: .now() + 5)
         close(hostFD)
@@ -55,67 +68,67 @@ private final class LoopHarness {
 struct LeoPluginHostLoopTests {
     private let agent = LeoPluginAgentRef(machine: "local", name: "alfred")
 
-    @Test func loadThenEventRoundTripsARender() throws {
+    @Test func loadThenEventRoundTripsARender() async throws {
         let harness = try LoopHarness()
-        try harness.send(.load(source: """
+        try await harness.send(.load(source: """
         leo.on("viewOpened", (agent, slot) => leo.render(slot, { type: "Loading" }));
         """))
-        #expect(try harness.receiveUntilDone() == [])
+        #expect(try await harness.receiveUntilDone() == [])
         let slot = LeoPluginSlotID.view(viewID: "pr", agent: agent)
-        try harness.send(.deliver(.viewOpened(agent: agent, slot: slot)))
-        let requests = try harness.receiveUntilDone()
+        try await harness.send(.deliver(.viewOpened(agent: agent, slot: slot)))
+        let requests = try await harness.receiveUntilDone()
         #expect(requests == [.render(slot: slot, node: try LeoPluginSlotRoot(nodes: [.loading(.init(message: nil))]))])
-        #expect(harness.closeAppEndAndWait() == 0)
+        #expect(await harness.closeAppEndAndWait() == 0)
     }
 
-    @Test func aBundleThatThrowsOnLoadIsReportedAsAHandlerError() throws {
+    @Test func aBundleThatThrowsOnLoadIsReportedAsAHandlerError() async throws {
         let harness = try LoopHarness()
-        try harness.send(.load(source: "throw new Error('boom')"))
-        let requests = try harness.receiveUntilDone()
+        try await harness.send(.load(source: "throw new Error('boom')"))
+        let requests = try await harness.receiveUntilDone()
         guard case .handlerError(let source, let message) = requests.first else {
             Issue.record("expected handlerError, got \(requests)")
             return
         }
         #expect(source == "load")
         #expect(message.contains("boom"))
-        #expect(harness.closeAppEndAndWait() == 0)
+        #expect(await harness.closeAppEndAndWait() == 0)
     }
 
-    @Test func requestsEmittedByAHandlerArriveBeforeItsDoneMarker() throws {
+    @Test func requestsEmittedByAHandlerArriveBeforeItsDoneMarker() async throws {
         let harness = try LoopHarness()
-        try harness.send(.load(source: "leo.on('agentsChanged', () => { leo.log('info', 'a'); leo.log('info', 'b'); });"))
-        _ = try harness.receiveUntilDone()
-        try harness.send(.deliver(.agentsChanged))
-        #expect(try harness.receiveUntilDone() == [.log(level: "info", message: "a"), .log(level: "info", message: "b")])
-        #expect(harness.closeAppEndAndWait() == 0)
+        try await harness.send(.load(source: "leo.on('agentsChanged', () => { leo.log('info', 'a'); leo.log('info', 'b'); });"))
+        _ = try await harness.receiveUntilDone()
+        try await harness.send(.deliver(.agentsChanged))
+        #expect(try await harness.receiveUntilDone() == [.log(level: "info", message: "a"), .log(level: "info", message: "b")])
+        #expect(await harness.closeAppEndAndWait() == 0)
     }
 
-    @Test func theLoopExitsCleanlyWhenTheAppEndCloses() throws {
+    @Test func theLoopExitsCleanlyWhenTheAppEndCloses() async throws {
         let harness = try LoopHarness()
-        #expect(harness.closeAppEndAndWait() == 0)
+        #expect(await harness.closeAppEndAndWait() == 0)
     }
 
-    @Test func anOversizedFrameFromTheAppEndsTheLoopWithFailure() throws {
+    @Test func anOversizedFrameFromTheAppEndsTheLoopWithFailure() async throws {
         let harness = try LoopHarness()
-        try LeoPluginWire.writeAll(Data([0x7F, 0xFF, 0xFF, 0xFF]), to: harness.appFD)
-        #expect(harness.closeAppEndAndWait() == 1)
+        try await harness.writeRaw(Data([0x7F, 0xFF, 0xFF, 0xFF]))
+        #expect(await harness.closeAppEndAndWait() == 1)
     }
 
-    @Test func garbageFromTheAppEndsTheLoopWithFailure() throws {
+    @Test func garbageFromTheAppEndsTheLoopWithFailure() async throws {
         let harness = try LoopHarness()
-        try LeoPluginWire.writeAll(LeoPluginWire.encode(Data("not json".utf8), limit: 100), to: harness.appFD)
-        #expect(harness.closeAppEndAndWait() == 1)
+        try await harness.writeRaw(LeoPluginWire.encode(Data("not json".utf8), limit: 100))
+        #expect(await harness.closeAppEndAndWait() == 1)
     }
 
-    @Test func aLargeSlashHeavyMessageIsNotInflatedByEscaping() throws {
+    @Test func aLargeSlashHeavyMessageIsNotInflatedByEscaping() async throws {
         let harness = try LoopHarness()
         // JSONEncoder escapes "/" by default, which would double this past the cap.
-        try harness.send(.load(source: """
+        try await harness.send(.load(source: """
         leo.on('agentsChanged', () => leo.log('info', '/'.repeat(600000)));
         """))
-        _ = try harness.receiveUntilDone()
-        try harness.send(.deliver(.agentsChanged))
-        #expect(try harness.receiveUntilDone() == [.log(level: "info", message: String(repeating: "/", count: 600_000))])
-        #expect(harness.closeAppEndAndWait() == 0)
+        _ = try await harness.receiveUntilDone()
+        try await harness.send(.deliver(.agentsChanged))
+        #expect(try await harness.receiveUntilDone() == [.log(level: "info", message: String(repeating: "/", count: 600_000))])
+        #expect(await harness.closeAppEndAndWait() == 0)
     }
 }

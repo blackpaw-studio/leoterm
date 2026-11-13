@@ -3,15 +3,6 @@ import Testing
 
 @testable import LeoKit
 
-/// Runs blocking work (child processes, pipe reads) on a dispatch thread instead of a Swift
-/// cooperative-pool thread. The pool is only as wide as the CPU count (3 on a hosted runner), so
-/// blocking it here starves every other test's `Task.sleep` / `awaitCondition` wake-up.
-private func offCooperativePool<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
-    try await withCheckedThrowingContinuation { continuation in
-        DispatchQueue.global().async { continuation.resume(with: Result(catching: work)) }
-    }
-}
-
 /// Runs the real `/usr/bin/git` with exactly the environment the installer asks for.
 private struct ProcessRunner: LeoPluginCommandRunning {
     func run(
