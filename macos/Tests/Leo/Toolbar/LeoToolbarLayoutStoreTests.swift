@@ -67,6 +67,21 @@ struct LeoToolbarLayoutStoreTests {
         #expect(switchIndex == restored.firstIndex(of: .leoInterrupt).map { $0 - 1 })
     }
 
+    @Test func aRestoredItemLandsAheadOfTheWholeGroupItBelongsBefore() {
+        let defaults = LeoInMemoryDefaults()
+        // Files is gone and the user put Agent Pane before Browser: the pill
+        // (and reset zoom) belong ahead of both, not between them.
+        defaults.set(
+            [Identifier.leoTitleMenu, .leoActivity, .leoAgentPane, .leoBrowser, .leoViewSwitch, .leoMore].map(\.rawValue),
+            forKey: LeoToolbarLayoutStore.key)
+
+        let restored = makeStore(defaults).restoredOrder()
+
+        let group = [Identifier.leoAgentPane, .leoBrowser].compactMap { restored.firstIndex(of: $0) }
+        #expect(restored.firstIndex(of: .leoUpdate) == group.min().map { $0 - 1 })
+        #expect(restored.firstIndex(of: .leoResetZoom).map { $0 < (restored.firstIndex(of: .leoUpdate) ?? 0) } == true)
+    }
+
     @Test func anInjectedStoreNeverTouchesTheStandardDefaults() {
         let key = LeoToolbarLayoutStore.key
         let before = UserDefaults.standard.object(forKey: key) as? [String]

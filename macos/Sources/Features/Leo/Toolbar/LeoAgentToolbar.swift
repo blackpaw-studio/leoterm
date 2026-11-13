@@ -54,7 +54,13 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private weak var titleView: LeoToolbarTitleView?
     private var titlePresentation = LeoToolbarTitlePresentation()
     /// The title item's view: the anchor for what the title menu presents (the Appearance popover).
-    var titleAnchorView: NSView? { titleView }
+    /// Nil while the title is not on screen in this window (the toolbar hidden,
+    /// or the title folded into the overflow), where a popover can't anchor to it.
+    var titleAnchorView: NSView? {
+        guard let titleView, let window, titleView.window === window, !titleView.isHidden, toolbar?.isVisible == true else { return nil }
+        return titleView
+    }
+    private var toolbarVisibilityObservation: NSKeyValueObservation?
     private weak var toolbar: NSToolbar?
     private weak var window: NSWindow?
     private weak var splitView: NSSplitView?
@@ -126,12 +132,27 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         // stays set, for the Window menu and Mission Control.
         window.titleVisibility = .hidden
         window.toolbar = toolbar
+        // With the toolbar hidden the title item goes with it: show the window's own.
+        // `isVisible` is not always observable (View ▸ Hide Toolbar also calls
+        // `syncTitleVisibility` from the window).
+        toolbarVisibilityObservation = toolbar.observe(\.isVisible, options: [.initial, .new]) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.syncTitleVisibility() }
+        }
         self.toolbar = toolbar
         self.window = window
         observeLayout(of: window, splitView: nil)
         sheetObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didEndSheetNotification, object: window, queue: .main
         ) { [weak self] _ in MainActor.assumeIsolated { self?.saveLayoutIfCustomized() } }
+    }
+
+    /// The title item stands in for the window's own title while the toolbar
+    /// shows; with the toolbar hidden the window's title shows instead.
+    @MainActor
+    func syncTitleVisibility() {
+        guard let toolbar, let window else { return }
+        let wanted: NSWindow.TitleVisibility = toolbar.isVisible ? .hidden : .visible
+        if window.titleVisibility != wanted { window.titleVisibility = wanted }
     }
 
     deinit {
@@ -362,7 +383,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     }
 
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        Self.itemOrder
+        LeoAgentToolbarItems.allowed(browserSettingOn: toolState.browser.isPresent)
     }
 
     func toolbar(

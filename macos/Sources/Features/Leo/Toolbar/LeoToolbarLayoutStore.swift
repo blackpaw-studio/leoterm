@@ -40,8 +40,10 @@ struct LeoToolbarLayoutStore {
     }
 
     /// Puts each missing app-managed or immovable item back ahead of the
-    /// first item after it in the default order that the list has, or at the
-    /// end when none is.
+    /// earliest-placed item that follows it in the default order, or at the
+    /// end when none is. Earliest in the list, not in the default order: with
+    /// the user's toggles rearranged or removed, the update pill still lands
+    /// ahead of the whole toggle group rather than between its toggles.
     private static func restoringMissingItems(in saved: [NSToolbarItem.Identifier]) -> [NSToolbarItem.Identifier] {
         let required = LeoAgentToolbarItems.defaultOrder.filter {
             LeoAgentToolbarItems.immovable.contains($0) || LeoAgentToolbarItems.appManaged.contains($0)
@@ -49,8 +51,7 @@ struct LeoToolbarLayoutStore {
         let order = LeoAgentToolbarItems.defaultOrder
         return required.reduce(saved) { list, identifier in
             guard !list.contains(identifier), let home = order.firstIndex(of: identifier) else { return list }
-            let successor = order[(home + 1)...].first { $0 != .flexibleSpace && list.contains($0) }
-            let index = successor.flatMap { list.firstIndex(of: $0) } ?? list.count
+            let index = order[(home + 1)...].compactMap { list.firstIndex(of: $0) }.min() ?? list.count
             return Array(list[..<index]) + [identifier] + Array(list[index...])
         }
     }

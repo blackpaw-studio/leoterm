@@ -34,6 +34,13 @@ enum LeoAgentToolbarItems {
     /// What the palette offers: every item but the tracking separator.
     static let paletteOrder: [Identifier] = defaultOrder.filter { $0 != .leoSplitSeparator && $0 != .flexibleSpace }
 
+    /// What the toolbar lets the user add: the palette, less what the app
+    /// places itself (sidebar toggle, update pill, reset zoom) and, with
+    /// Agent browser off, the Browser toggle.
+    static func allowed(browserSettingOn: Bool) -> [Identifier] {
+        paletteOrder.filter { !appManaged.contains($0) && ($0 != .leoBrowser || browserSettingOn) }
+    }
+
     private static let paletteLabels: [Identifier: String] = [
         .leoTitleMenu: "Agent", .leoSidebarToggle: "Sidebar", .leoActivity: "Status", .leoResetZoom: "Reset Zoom",
         .leoUpdate: "Update", .leoFiles: "Files", .leoBrowser: "Browser", .leoAgentPane: "Agent Pane",

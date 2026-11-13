@@ -30,6 +30,19 @@ struct LeoAgentToolbarItemsTests {
         #expect(removable == [.leoFiles, .leoBrowser, .leoAgentPane, .leoActivity, .leoInterrupt])
     }
 
+    @Test func theAllowedItemsAreThePaletteLessWhatTheAppPlacesItself() {
+        let allowed = Items.allowed(browserSettingOn: true)
+        for managed in Items.appManaged { #expect(!allowed.contains(managed)) }
+        #expect(!allowed.contains(.leoSplitSeparator))
+        #expect(allowed.contains(.leoBrowser) && allowed.contains(.leoFiles) && allowed.contains(.leoActivity))
+    }
+
+    @Test func theBrowserIsNotAllowedWhileTheSettingIsOff() {
+        let allowed = Items.allowed(browserSettingOn: false)
+        #expect(!allowed.contains(.leoBrowser))
+        #expect(allowed.contains(.leoAgentPane))
+    }
+
     @Test func theSeparatorIsNotInThePalette() {
         #expect(!Items.paletteOrder.contains(.leoSplitSeparator))
         #expect(Items.paletteOrder.contains(.leoFiles))

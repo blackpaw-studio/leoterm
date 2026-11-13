@@ -29,6 +29,27 @@ struct LeoAgentToolbarCustomizationTests {
         #expect(ids.contains(.leoAgentPane) && ids.contains(.leoViewSwitch) && ids.contains(.leoMore))
     }
 
+    @Test func theWindowsOwnTitleReturnsWhileTheToolbarIsHidden() {
+        let (window, toolbar) = install(LeoInMemoryDefaults())
+        defer { window.close() }
+
+        #expect(window.titleVisibility == .hidden)
+        window.toolbar?.isVisible = false
+        toolbar.syncTitleVisibility()
+        #expect(window.titleVisibility == .visible)
+        window.toolbar?.isVisible = true
+        toolbar.syncTitleVisibility()
+        #expect(window.titleVisibility == .hidden)
+    }
+
+    @Test func noPopoverAnchorIsOfferedWhileTheToolbarIsHidden() {
+        let (window, toolbar) = install(LeoInMemoryDefaults())
+        defer { window.close() }
+
+        window.toolbar?.isVisible = false
+        #expect(toolbar.titleAnchorView == nil)
+    }
+
     @Test func theToolbarIsCustomizableButNeverAutosavesItself() {
         let (window, _) = install(LeoInMemoryDefaults())
         defer { window.close() }

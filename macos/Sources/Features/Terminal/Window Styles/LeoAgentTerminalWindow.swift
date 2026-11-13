@@ -35,6 +35,12 @@ final class LeoAgentTerminalWindow: TerminalWindow {
         toolbarStyle = .unified
     }
 
+    /// View ▸ Hide/Show Toolbar: the window's own title takes over while it is hidden.
+    override func toggleToolbarShown(_ sender: Any?) {
+        super.toggleToolbarShown(sender)
+        leoToolbar.syncTitleVisibility()
+    }
+
     deinit {
         fullScreenObservers.forEach(NotificationCenter.default.removeObserver)
     }
