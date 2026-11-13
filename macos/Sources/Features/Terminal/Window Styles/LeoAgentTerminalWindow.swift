@@ -12,7 +12,7 @@ import Combine
 final class LeoAgentTerminalWindow: TerminalWindow {
     /// The toolbar's delegate; the window owns it (an `NSToolbar` holds its
     /// delegate weakly).
-    let leoToolbar = LeoAgentToolbar()
+    let leoToolbar = LeoAgentToolbar(layoutStore: LeoToolbarLayoutStore(defaults: .standard))
     /// What keeps the window's chrome in step with the app's state (the
     /// subtitle), released with the window.
     var chromeSubscriptions: Set<AnyCancellable> = []

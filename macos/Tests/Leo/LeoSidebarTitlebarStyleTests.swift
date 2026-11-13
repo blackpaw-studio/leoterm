@@ -47,7 +47,7 @@ struct LeoSidebarTitlebarStyleTests {
             try? await Task.sleep(for: .milliseconds(20))
         }
         #expect(toolbar.centeredItemIdentifiers == [.leoActivity], "\(style)")
-        #expect(!toolbar.allowsUserCustomization, "\(style)")
+        #expect(toolbar.allowsUserCustomization, "\(style)")
         #expect(fixture.window.toolbarStyle == .unified, "\(style)")
     }
 

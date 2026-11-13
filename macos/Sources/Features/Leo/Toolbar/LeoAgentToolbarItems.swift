@@ -27,6 +27,10 @@ enum LeoAgentToolbarItems {
         .leoTitleMenu, .leoViewSwitch, .leoMore, .leoSidebarToggle, .leoSplitSeparator, .leoUpdate, .leoResetZoom,
     ]
 
+    /// Items the app shows, hides and places itself, from window state. A
+    /// saved layout never records them (`LeoToolbarLayoutStore`).
+    static let appManaged: Set<Identifier> = [.leoSidebarToggle, .leoSplitSeparator, .leoUpdate, .leoResetZoom]
+
     /// What the palette offers: every item but the tracking separator.
     static let paletteOrder: [Identifier] = defaultOrder.filter { $0 != .leoSplitSeparator && $0 != .flexibleSpace }
 

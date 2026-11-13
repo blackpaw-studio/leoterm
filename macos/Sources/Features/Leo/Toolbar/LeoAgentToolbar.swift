@@ -85,6 +85,12 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// A toggle the user removed stays removed.
     private var didRemoveBrowserForSetting = false
     private var showsUpdateItem = true
+    /// Where the user's arrangement is kept; nil keeps the default layout and
+    /// saves nothing (tests, and windows before the owner sets it up).
+    let layoutStore: LeoToolbarLayoutStore?
+    private var didCustomize = false
+    private var isSavePending = false
+    private var sheetObserver: NSObjectProtocol?
     /// Whether `NSToolbarItem.isHidden` takes effect (macOS 15+). Below that
     /// the items that come and go are inserted and removed instead; tests
     /// turn this off (before `install`) to exercise that path here.
@@ -100,11 +106,19 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private var isSidebarToggleHidden = true
     private var sideBySideChatWidth: CGFloat = 0
 
+    init(layoutStore: LeoToolbarLayoutStore? = nil) {
+        self.layoutStore = layoutStore
+        super.init()
+    }
+
     @MainActor
     func install(on window: NSWindow) {
         let toolbar = NSToolbar(identifier: Self.makeToolbarIdentifier())
         toolbar.delegate = self
-        toolbar.allowsUserCustomization = false
+        toolbar.allowsUserCustomization = true
+        // The layout is saved by `layoutStore`, once for every window: AppKit's
+        // autosave is keyed by this toolbar's per-window identifier.
+        toolbar.autosavesConfiguration = false
         toolbar.displayMode = .iconOnly
         toolbar.centeredItemIdentifiers = [.leoActivity]
         window.toolbarStyle = .unified
@@ -115,10 +129,14 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         self.toolbar = toolbar
         self.window = window
         observeLayout(of: window, splitView: nil)
+        sheetObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didEndSheetNotification, object: window, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.saveLayoutIfCustomized() } }
     }
 
     deinit {
         layoutObservers.forEach(NotificationCenter.default.removeObserver)
+        sheetObserver.map(NotificationCenter.default.removeObserver)
     }
 
     /// Keeps the sidebar toggle visible exactly while the sidebar is
@@ -233,8 +251,58 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
 
     // MARK: NSToolbarDelegate
 
+    /// The toolbar's first item list: the user's saved arrangement, else the
+    /// default order. The tracking separator joins when the split view arrives.
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        Self.itemOrder.filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
+        let order = layoutStore?.restoredOrder() ?? Self.itemOrder
+        return order.filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
+    }
+
+    func toolbarImmovableItemIdentifiers(_ toolbar: NSToolbar) -> Set<NSToolbarItem.Identifier> {
+        LeoAgentToolbarItems.immovable
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemIdentifier: NSToolbarItem.Identifier, canBeInsertedAt index: Int) -> Bool {
+        LeoAgentToolbarItems.canInsert(itemIdentifier, at: index, in: toolbar.items.map(\.itemIdentifier))
+    }
+
+    // MARK: Saving the arrangement
+
+    func toolbarWillAddItem(_ notification: Notification) { arrangementChanged() }
+    func toolbarDidRemoveItem(_ notification: Notification) { arrangementChanged() }
+
+    /// Only a change made in the customization palette counts: the app adds
+    /// and removes items itself as window state changes, and that must not
+    /// freeze today's default layout as the user's choice.
+    private func arrangementChanged() {
+        guard layoutStore != nil, toolbar?.customizationPaletteIsRunning == true else { return }
+        didCustomize = true
+        guard !isSavePending else { return }
+        isSavePending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            isSavePending = false
+            saveLayout()
+        }
+    }
+
+    /// The palette's sheet ended: whatever it changed is saved.
+    private func saveLayoutIfCustomized() {
+        guard didCustomize else { return }
+        didCustomize = false
+        saveLayout()
+    }
+
+    private func saveLayout() {
+        guard let layoutStore, let toolbar else { return }
+        var identifiers = toolbar.items.map(\.itemIdentifier)
+        // A Browser toggle the setting took away (macOS 14 and earlier) is not
+        // one the user removed: keep it in the saved arrangement.
+        if didRemoveBrowserForSetting, !identifiers.contains(.leoBrowser) {
+            let next = identifiers.firstIndex { [.leoAgentPane, .leoViewSwitch].contains($0) } ?? identifiers.count
+            identifiers.insert(.leoBrowser, at: next)
+        }
+        layoutStore.save(identifiers)
     }
 
     /// Below macOS 15 `NSToolbarItem.isHidden` does nothing, so the items
