@@ -23,6 +23,9 @@ final class LeoToolbarTitleView: NSView {
     private let subtitleField = NSTextField(labelWithString: "")
     private let chevron = NSImageView()
     private var widthConstraint = NSLayoutConstraint()
+    /// The title sits at the top over its subtitle, or centred without one.
+    private var titleTopConstraint = NSLayoutConstraint()
+    private var titleCenterConstraint = NSLayoutConstraint()
     private(set) var presentation = LeoToolbarTitlePresentation()
     /// The pull-down, built fresh each time it opens.
     var pullDown: NSMenu?
@@ -30,6 +33,8 @@ final class LeoToolbarTitleView: NSView {
     init() {
         super.init(frame: .zero)
         widthConstraint = widthAnchor.constraint(equalToConstant: LeoActivityCapsuleSizing.maxTitleWidth)
+        titleTopConstraint = titleField.topAnchor.constraint(equalTo: topAnchor, constant: 1)
+        titleCenterConstraint = titleField.centerYAnchor.constraint(equalTo: centerYAnchor)
         translatesAutoresizingMaskIntoConstraints = false
         titleField.font = Self.titleFont
         titleField.textColor = .labelColor
@@ -51,7 +56,6 @@ final class LeoToolbarTitleView: NSView {
             widthConstraint,
             heightAnchor.constraint(equalToConstant: 34),
             titleField.leadingAnchor.constraint(equalTo: leadingAnchor),
-            titleField.topAnchor.constraint(equalTo: topAnchor, constant: 1),
             chevron.leadingAnchor.constraint(equalTo: titleField.trailingAnchor, constant: Self.chevronGap),
             chevron.centerYAnchor.constraint(equalTo: titleField.centerYAnchor),
             chevron.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
@@ -82,6 +86,8 @@ final class LeoToolbarTitleView: NSView {
         titleField.stringValue = presentation.title
         subtitleField.stringValue = presentation.subtitle
         subtitleField.isHidden = presentation.subtitle.isEmpty
+        titleTopConstraint.isActive = !subtitleField.isHidden
+        titleCenterConstraint.isActive = subtitleField.isHidden
         chevron.isHidden = !presentation.isEnabled
         alphaValue = presentation.isEnabled ? 1 : 0.9
         setAccessibilityValue(presentation.title)

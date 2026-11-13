@@ -73,7 +73,10 @@ struct LeoAgentToolbarActivityTests {
         let split = NSSplitView(frame: NSRect(x: 0, y: 0, width: 1100, height: 600))
         split.isVertical = true
         split.dividerStyle = .thin
-        split.addArrangedSubview(NSView())
+        let sidebar = NSView()
+        sidebar.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.widthAnchor.constraint(equalToConstant: 240).isActive = true
+        split.addArrangedSubview(sidebar)
         split.addArrangedSubview(NSView())
         window.contentView = split
         split.setPosition(240, ofDividerAt: 0)
@@ -194,7 +197,7 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1600, height: 600))
         fixture.updateVisible.send(true)
         await fixture.settle()
         fixture.updateVisible.send(false)
@@ -242,7 +245,7 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture(updateView: host)
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1600, height: 600))
         await fixture.settle()
 
         model.state = .updateAvailable(.init(appcastItem: SUAppcastItem.empty(), reply: { _ in }))

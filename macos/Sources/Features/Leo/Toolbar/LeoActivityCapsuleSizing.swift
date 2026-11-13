@@ -105,8 +105,8 @@ enum LeoActivityCapsuleSizing {
     private static let tiers = [
         Tier(leftReserve: subtitleSideReserve, showsSubtitle: true, showsTitle: true, showsUpdateItem: true, showsToggles: true, showsInterrupt: true),
         Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true, showsToggles: true, showsInterrupt: true),
-        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true, showsToggles: false, showsInterrupt: true),
-        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true, showsToggles: false, showsInterrupt: false),
+        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: false, showsToggles: true, showsInterrupt: true),
+        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: false, showsToggles: false, showsInterrupt: true),
         Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: false, showsToggles: false, showsInterrupt: false),
         Tier(leftReserve: 0, showsSubtitle: false, showsTitle: false, showsUpdateItem: false, showsToggles: false, showsInterrupt: false),
     ]

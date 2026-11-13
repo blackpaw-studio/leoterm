@@ -142,7 +142,7 @@ struct LeoActivityCapsuleSizingTests {
         #expect(layout.width == 1100 - 2 * (Sizing.trailingGroupsReserve + 40))
     }
 
-    @Test func thePillGivesWayAfterTheSubtitleAndBeforeTheTitle() {
+    @Test func thePillGivesWayAfterTheSubtitleAndBeforeTheToolToggles() {
         let pill: CGFloat = 100
         let chrome = Sizing.collapsedSidebarChrome
         func layout(_ width: CGFloat) -> Sizing.Layout {
@@ -151,18 +151,19 @@ struct LeoActivityCapsuleSizingTests {
         func fits(left: CGFloat, trailing: CGFloat, pill showsPill: Bool) -> CGFloat {
             Sizing.minimumWidth + 2 * max(chrome + left, trailing + (showsPill ? pill : 0))
         }
+        let groups = Sizing.trailingGroupsReserve
         let minimal = Sizing.trailingReserveMinimal
 
         // Room for everything.
-        let roomy = layout(fits(left: Sizing.subtitleSideReserve, trailing: Sizing.trailingGroupsReserve, pill: true))
-        #expect(roomy.showsSubtitle && roomy.showsUpdateItem && roomy.showsTitle)
-        // With the toggles and Interrupt folded and the subtitle gone, the pill stays.
-        let noSubtitleMinimal = layout(fits(left: Sizing.titleSideReserve, trailing: minimal, pill: true))
-        #expect(!noSubtitleMinimal.showsSubtitle && noSubtitleMinimal.showsUpdateItem && noSubtitleMinimal.showsTitle)
-        // Less still: the pill goes, the title stays.
-        let noPill = layout(fits(left: Sizing.titleSideReserve, trailing: minimal, pill: true) - 1)
-        #expect(!noPill.showsUpdateItem && noPill.showsTitle)
-        // Only then the title; the capsule itself shrinks last, to its floor.
+        let roomy = layout(fits(left: Sizing.subtitleSideReserve, trailing: groups, pill: true))
+        #expect(roomy.showsSubtitle && roomy.showsUpdateItem && roomy.showsToggles && roomy.showsTitle)
+        // Less: the pill goes while the toggles stay.
+        let noPill = layout(fits(left: Sizing.titleSideReserve, trailing: groups, pill: true) - 1)
+        #expect(!noPill.showsUpdateItem && noPill.showsToggles && noPill.showsTitle)
+        // Then the toggles.
+        let noToggles = layout(fits(left: Sizing.titleSideReserve, trailing: groups, pill: false) - 1)
+        #expect(!noToggles.showsToggles && noToggles.showsInterrupt && noToggles.showsTitle)
+        // Only after Interrupt too the title; the capsule itself shrinks last, to its floor.
         let noTitle = layout(fits(left: Sizing.titleSideReserve, trailing: minimal, pill: false) - 1)
         #expect(!noTitle.showsTitle && !noTitle.showsUpdateItem)
         #expect(layout(100).width == Sizing.compactWidth)
