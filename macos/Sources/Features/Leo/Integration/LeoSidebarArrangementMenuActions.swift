@@ -20,11 +20,12 @@ extension TerminalController {
 
     @IBAction func toggleLeoHideSubagents(_ sender: Any?) { leoRuntime?.model.toggleHideSubagents() }
 
-    /// View ▸ Toggle Agent Pane: opens or closes the drawer on the selected tab.
+    /// View ▸ Show/Hide Agent Pane: opens or closes the drawer on the selected tab.
     @IBAction func toggleLeoAgentPane(_ sender: Any?) { leoSession?.agentPane?.toggle() }
 
     func validateLeoAgentPaneMenuItem(_ item: NSMenuItem) -> Bool {
-        leoSession?.agentPane?.isShown ?? false
+        item.title = leoToolState.agentPaneMenuTitle
+        return leoSession?.agentPane?.isShown ?? false
     }
 
     func validateLeoPinMenuItem(_ item: NSMenuItem) -> Bool {

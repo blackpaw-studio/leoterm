@@ -2094,6 +2094,7 @@ extension TerminalController {
         if let enabled = validateLeoRowMenuItem(item) { return enabled }
         if let enabled = validateLeoBrowserMenuItem(item) { return enabled }
         if let enabled = validateLeoWorkspaceMenuItem(item) { return enabled }
+        if let enabled = validateLeoToolMenuItem(item) { return enabled }
         switch item.action {
         // MARK: Leo
         case #selector(toggleLeoSidebar(_:)):

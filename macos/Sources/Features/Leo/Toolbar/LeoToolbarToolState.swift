@@ -4,7 +4,8 @@
 /// toolbar; the menu bar's Show/Hide titles read the same value.
 ///
 /// With no agent shown (a plain terminal, the start screen) every toggle is
-/// disabled, the rule Interrupt follows. A toggle the setting removes (the
+/// disabled, the rule Interrupt follows. The Agent Pane also needs tabs to
+/// show (`paneShown`). A toggle the setting removes (the
 /// Browser, with Agent browser off) is not present rather than disabled.
 struct LeoToolbarToolState: Equatable {
     struct Tool: Equatable {
@@ -39,7 +40,7 @@ struct LeoToolbarToolState: Equatable {
     ) {
         files = Tool(isPresent: true, isEnabled: hasAgent, isOn: hasAgent && filesOpen)
         browser = Tool(isPresent: browserSettingOn, isEnabled: hasAgent, isOn: hasAgent && browserFront)
-        agentPane = Tool(isPresent: true, isEnabled: hasAgent, isOn: hasAgent && paneShown && paneExpanded)
+        agentPane = Tool(isPresent: true, isEnabled: hasAgent && paneShown, isOn: hasAgent && paneShown && paneExpanded)
         filesStep = filesOpen ? .close : .open
         browserStep = !browserFront ? .open : (editorHasTabs ? .showEditor : .close)
     }

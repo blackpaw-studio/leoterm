@@ -6,7 +6,7 @@ import Testing
 struct LeoToolbarToolStateTests {
     private func state(
         hasAgent: Bool = true, browserSettingOn: Bool = true, filesOpen: Bool = false, browserFront: Bool = false,
-        editorHasTabs: Bool = false, paneShown: Bool = false, paneExpanded: Bool = false
+        editorHasTabs: Bool = false, paneShown: Bool = true, paneExpanded: Bool = false
     ) -> LeoToolbarToolState {
         LeoToolbarToolState(
             hasAgent: hasAgent, browserSettingOn: browserSettingOn, filesOpen: filesOpen, browserFront: browserFront,
@@ -21,6 +21,12 @@ struct LeoToolbarToolStateTests {
     @Test func withAnAgentEveryToggleIsEnabled() {
         let some = state()
         for tool in [some.files, some.browser, some.agentPane] { #expect(tool.isEnabled && tool.isPresent && !tool.isOn) }
+    }
+
+    @Test func theAgentPaneIsDisabledWhileItHasNoTabsToShow() {
+        let empty = state(paneShown: false)
+        #expect(!empty.agentPane.isEnabled)
+        #expect(empty.files.isEnabled && empty.browser.isEnabled)
     }
 
     @Test func eachToggleIsOnWhileItsPanelIsOpen() {
