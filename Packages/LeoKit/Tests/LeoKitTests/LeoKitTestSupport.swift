@@ -1,8 +1,10 @@
 import Foundation
 import Testing
 
+/// Polls until `condition` holds. The timeout is only a failure ceiling: a passing test returns as
+/// soon as the condition is true, so it is generous enough to ride out a starved 3-core CI runner.
 func awaitCondition(
-    timeout: TimeInterval = 1,
+    timeout: TimeInterval = 10,
     message: String = "Condition was not satisfied",
     _ condition: @escaping @Sendable () async -> Bool
 ) async {
