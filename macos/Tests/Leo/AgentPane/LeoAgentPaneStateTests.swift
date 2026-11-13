@@ -148,13 +148,13 @@ struct LeoAgentPaneStateTests {
 
     @Test
     func emptyDefaultsLoadTheDefaultState() throws {
-        let store = LeoAgentPaneStateStore(defaults: try suite())
+        let store = LeoAgentPaneStateStore(defaults: suite())
         #expect(store.load() == LeoAgentPaneState())
     }
 
     @Test
     func savedStateRoundTripsThroughAFreshStoreOnTheSameSuite() throws {
-        let defaults = try suite()
+        let defaults = suite()
         let state = LeoAgentPaneState(isExpanded: true, selectedTabID: "github", height: 260)
         LeoAgentPaneStateStore(defaults: defaults).save(state)
         #expect(LeoAgentPaneStateStore(defaults: defaults).load() == state)
@@ -162,7 +162,7 @@ struct LeoAgentPaneStateTests {
 
     @Test
     func savingNoSelectionClearsAPreviousOne() throws {
-        let defaults = try suite()
+        let defaults = suite()
         let store = LeoAgentPaneStateStore(defaults: defaults)
         store.save(LeoAgentPaneState(selectedTabID: "github"))
         store.save(LeoAgentPaneState())
@@ -171,7 +171,7 @@ struct LeoAgentPaneStateTests {
 
     @Test
     func corruptStoredValuesFallBackPerField() throws {
-        let defaults = try suite()
+        let defaults = suite()
         defaults.set("yes", forKey: LeoAgentPaneStateStore.Keys.expanded)
         defaults.set(42, forKey: LeoAgentPaneStateStore.Keys.selectedTab)
         defaults.set(-5.0, forKey: LeoAgentPaneStateStore.Keys.height)
@@ -183,16 +183,13 @@ struct LeoAgentPaneStateTests {
 
     @Test
     func suitesAreIsolatedFromEachOther() throws {
-        let first = try suite()
-        let second = try suite()
+        let first = suite()
+        let second = suite()
         LeoAgentPaneStateStore(defaults: first).save(LeoAgentPaneState(isExpanded: true))
         #expect(!LeoAgentPaneStateStore(defaults: second).load().isExpanded)
     }
 
-    private func suite() throws -> UserDefaults {
-        let name = "LeoAgentPaneStateTests.\(UUID().uuidString)"
-        let defaults = try #require(UserDefaults(suiteName: name))
-        defaults.removePersistentDomain(forName: name)
-        return defaults
+    private func suite() -> UserDefaults {
+        LeoInMemoryDefaults()
     }
 }
