@@ -14,7 +14,8 @@ extension NSToolbarItem.Identifier {
 
 /// The agent window's toolbar: the sidebar toggle (shown only while the
 /// sidebar is collapsed), a tracking separator that keeps the title and the
-/// items over the detail column, the activity capsule centred, and the
+/// items over the detail column, the title item (title, subtitle and a ▾
+/// pull-down of the agent's actions, in place of the window's own title), the activity capsule centred, and the
 /// trailing groups: the tool toggles (Files, Browser, Agent Pane), the
 /// Terminal | Chat switch, then Interrupt and a "⋯" menu (one glass group).
 /// The switch, Interrupt and "⋯" are always present, at every width
@@ -26,7 +27,7 @@ extension NSToolbarItem.Identifier {
 /// hands itself over (`attach(splitView:)`).
 final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// The items in order once the split has been handed over.
-    static let itemOrder = LeoAgentToolbarItems.defaultOrder.filter { $0 != .leoTitleMenu }
+    static let itemOrder = LeoAgentToolbarItems.defaultOrder
     /// Toolbars with one identifier are a family: AppKit mirrors item
     /// inserts across them. Each window's separator binds to its own split
     /// view, so every window gets an identifier of its own.
@@ -43,10 +44,17 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// The live main menu, where Interrupt's tooltip reads its shortcut (set
     /// before `install`).
     var mainMenu: () -> NSMenu? = { nil }
+    /// The title item's pull-down (set before `install`).
+    var titleMenu = NSMenu()
     /// The "⋯" item's menu (set before `install`).
     var moreMenu = NSMenu()
     /// Keeps the menu's controller alive: an `NSMenu` holds its delegate weakly.
     var retainedMenu: AnyObject?
+    var retainedTitleMenu: AnyObject?
+    private weak var titleView: LeoToolbarTitleView?
+    private var titlePresentation = LeoToolbarTitlePresentation()
+    /// The title item's view: the anchor for what the title menu presents (the Appearance popover).
+    var titleAnchorView: NSView? { titleView }
     private weak var toolbar: NSToolbar?
     private weak var window: NSWindow?
     private weak var splitView: NSSplitView?
@@ -100,6 +108,9 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         toolbar.displayMode = .iconOnly
         toolbar.centeredItemIdentifiers = [.leoActivity]
         window.toolbarStyle = .unified
+        // The title item stands in for the window's own title; `window.title`
+        // stays set, for the Window menu and Mission Control.
+        window.titleVisibility = .hidden
         window.toolbar = toolbar
         self.toolbar = toolbar
         self.window = window
@@ -174,6 +185,13 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }.store(in: &subscriptions)
     }
 
+    /// Shows `presentation` in the title item.
+    @MainActor
+    func setTitle(_ presentation: LeoToolbarTitlePresentation) {
+        titlePresentation = presentation
+        titleView?.apply(presentation)
+    }
+
     /// Keeps the three tool toggles lit and enabled as `state` says, and the
     /// Browser toggle in the toolbar exactly while the Agent browser setting
     /// is on. Pushed, not autovalidated, like Interrupt.
@@ -237,11 +255,12 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private func syncItemPresence() {
         guard let toolbar else { return }
         setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
+        let toggles: Set<NSToolbarItem.Identifier> = [.leoFiles, .leoBrowser, .leoAgentPane, .leoViewSwitch]
         setPresence(of: .leoUpdate, isUpdateShowing && showsUpdateItem, in: toolbar) { toolbar in
-            toolbar.items.firstIndex { $0.itemIdentifier == .leoViewSwitch } ?? toolbar.items.count
+            toolbar.items.firstIndex { toggles.contains($0.itemIdentifier) } ?? toolbar.items.count
         }
         setPresence(of: .leoResetZoom, isSurfaceZoomed, in: toolbar) { toolbar in
-            toolbar.items.firstIndex { [.leoUpdate, .leoViewSwitch].contains($0.itemIdentifier) } ?? toolbar.items.count
+            toolbar.items.firstIndex { toggles.union([.leoUpdate]).contains($0.itemIdentifier) } ?? toolbar.items.count
         }
     }
 
@@ -283,6 +302,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     ) -> NSToolbarItem? {
         switch identifier {
         case .leoSidebarToggle: makeSidebarToggle()
+        case .leoTitleMenu: makeTitleItem()
         case .leoSplitSeparator: splitView.map { NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: $0, dividerIndex: 0) }
         case .leoActivity: makeActivityItem()
         case .leoResetZoom: makeResetZoomItem()
@@ -383,8 +403,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         } else {
             syncItemPresence()
         }
-        let titleVisibility: NSWindow.TitleVisibility = layout.showsTitle ? .visible : .hidden
-        if window.titleVisibility != titleVisibility { window.titleVisibility = titleVisibility }
+        MainActor.assumeIsolated { titleView?.setWidth(layout.titleWidth) }
         if showsSubtitle != layout.showsSubtitle {
             showsSubtitle = layout.showsSubtitle
             onSubtitleVisibilityChange()
@@ -452,6 +471,26 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.label = "Update"
         setHidden(item, !(isUpdateShowing && showsUpdateItem))
         updateItem = item
+        return item
+    }
+
+    /// The title, subtitle and ▾, left of the capsule. Its width follows the
+    /// room (`LeoActivityCapsuleSizing.Layout.titleWidth`).
+    private func makeTitleItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoTitleMenu)
+        let view = MainActor.assumeIsolated {
+            let view = LeoToolbarTitleView()
+            view.pullDown = titleMenu
+            view.apply(titlePresentation)
+            return view
+        }
+        item.view = view
+        item.isBordered = false
+        item.label = LeoAgentToolbarItems.paletteLabel(for: .leoTitleMenu) ?? "Agent"
+        item.paletteLabel = item.label
+        item.visibilityPriority = LeoAgentToolbarItems.visibilityPriority(for: .leoTitleMenu)
+        titleView = view
+        updateActivityWidth()
         return item
     }
 

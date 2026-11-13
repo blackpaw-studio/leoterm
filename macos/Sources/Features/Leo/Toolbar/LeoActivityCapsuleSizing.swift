@@ -21,6 +21,10 @@ enum LeoActivityCapsuleSizing {
     /// The narrowest the capsule goes when there is no room to centre it: the
     /// glyph, a title stub, the badge and the bar. Its text truncates.
     static let compactWidth: CGFloat = 88
+    /// The most the title item (title, subtitle and its ▾) takes, and the
+    /// gap it keeps from the capsule's side.
+    static let maxTitleWidth: CGFloat = 360
+    static let titleGap: CGFloat = 12
     /// The gap between an uncentred capsule and the trailing groups.
     static let capsuleGap: CGFloat = 8
     /// What the title with its subtitle, and the title alone, keep on each
@@ -66,6 +70,9 @@ enum LeoActivityCapsuleSizing {
         /// capsule; where they don't, the toolbar folds them into its overflow.
         let showsToggles: Bool
         let showsInterrupt: Bool
+        /// The title item's width: the room left of the capsule beside the
+        /// sidebar chrome, up to `maxTitleWidth`; 0 once the title has gone.
+        let titleWidth: CGFloat
     }
 
     private struct Tier {
@@ -117,20 +124,23 @@ enum LeoActivityCapsuleSizing {
         availableToolbarWidth: CGFloat, leadingChrome: CGFloat, trailingReserve: CGFloat = 0,
         fixedReserve: CGFloat = 0, farSideReserve: CGFloat? = nil
     ) -> Layout {
-        func width(_ tier: Tier) -> CGFloat {
-            availableToolbarWidth - 2 * tier.side(
-                leadingChrome: leadingChrome, pillReserve: trailingReserve, farSideReserve: farSideReserve, fixedReserve: fixedReserve)
+        func side(_ tier: Tier) -> CGFloat {
+            tier.side(leadingChrome: leadingChrome, pillReserve: trailingReserve, farSideReserve: farSideReserve, fixedReserve: fixedReserve)
         }
+        func width(_ tier: Tier) -> CGFloat { availableToolbarWidth - 2 * side(tier) }
+        func titleWidth(for tier: Tier) -> CGFloat { min(maxTitleWidth, max(0, side(tier) - leadingChrome - titleGap)) }
         guard let tier = tiers.first(where: { width($0) >= minimumWidth }) else {
             let room = availableToolbarWidth - leadingChrome - (farSideReserve ?? trailingReserveMinimal) - fixedReserve - capsuleGap
             return Layout(
                 width: min(minimumWidth, max(compactWidth, room)), showsSubtitle: false, showsTitle: false,
-                showsUpdateItem: false, isCentered: false, showsToggles: farSideReserve != nil, showsInterrupt: farSideReserve != nil)
+                showsUpdateItem: false, isCentered: false, showsToggles: farSideReserve != nil, showsInterrupt: farSideReserve != nil,
+                titleWidth: 0)
         }
         return Layout(
             width: min(LeoActivityCapsulePresentation.maxWidth, width(tier)),
             showsSubtitle: tier.showsSubtitle, showsTitle: tier.showsTitle,
             showsUpdateItem: tier.showsUpdateItem, isCentered: true,
-            showsToggles: tier.showsToggles || farSideReserve != nil, showsInterrupt: tier.showsInterrupt || farSideReserve != nil)
+            showsToggles: tier.showsToggles || farSideReserve != nil, showsInterrupt: tier.showsInterrupt || farSideReserve != nil,
+            titleWidth: tier.showsTitle ? titleWidth(for: tier) : 0)
     }
 }

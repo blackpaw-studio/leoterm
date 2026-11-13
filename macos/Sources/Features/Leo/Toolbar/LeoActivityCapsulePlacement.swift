@@ -68,6 +68,6 @@ extension LeoActivityCapsuleSizing {
             width: width, showsSubtitle: layout.showsSubtitle, showsTitle: layout.showsTitle,
             showsUpdateItem: layout.showsUpdateItem, isCentered: layout.isCentered,
             showsToggles: space >= trailingGroupsReserve + fixedReserve,
-            showsInterrupt: space >= trailingReserveWithoutToggles + fixedReserve)
+            showsInterrupt: space >= trailingReserveWithoutToggles + fixedReserve, titleWidth: layout.titleWidth)
     }
 }

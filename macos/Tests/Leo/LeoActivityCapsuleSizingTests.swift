@@ -18,7 +18,24 @@ struct LeoActivityCapsuleSizingTests {
         #expect(
             layout == .init(
                 width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsUpdateItem: true,
-                isCentered: true, showsToggles: true, showsInterrupt: true))
+                isCentered: true, showsToggles: true, showsInterrupt: true, titleWidth: Sizing.maxTitleWidth))
+    }
+
+    @Test func theTitleItemGetsTheRoomLeftOfTheCentredCapsuleUpToItsMaximum() {
+        // Wide: the trailing groups' room on the left is more than the title needs.
+        #expect(Sizing.layout(availableToolbarWidth: 1400, leadingChrome: 0).titleWidth == Sizing.maxTitleWidth)
+        // With the toggles folded, the left side is what the trailing reserve leaves, less the gap.
+        let folded = Sizing.layout(availableToolbarWidth: 800, leadingChrome: 0)
+        #expect(!folded.showsToggles && folded.titleWidth == Sizing.trailingReserveWithoutToggles - Sizing.titleGap)
+        // The collapsed sidebar's chrome sits left of the title and is not its room.
+        let collapsed = Sizing.layout(availableToolbarWidth: 1100, leadingChrome: 300)
+        #expect(collapsed.showsSubtitle && collapsed.titleWidth == Sizing.subtitleSideReserve - Sizing.titleGap)
+    }
+
+    @Test func noTitleItemIsLeftOnceTheTitleHasGoneAndWithNoRoomToCentre() {
+        let noTitle = Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal, leadingChrome: 160)
+        #expect(!noTitle.showsTitle && noTitle.titleWidth == 0)
+        #expect(Sizing.layout(availableToolbarWidth: 100, leadingChrome: 0).titleWidth == 0)
     }
 
     @Test func theCapsuleGetsWhatTheSubtitleLeavesOnEachSide() {

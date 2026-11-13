@@ -487,6 +487,12 @@
                                     <action selector="attachSelectedLeoAgent:" target="-1" id="Leo-Agents-Attach-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem title="Open in New Window" id="Leo-Agents-OpenInNewWindow">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="openSelectedLeoAgentInNewWindow:" target="-1" id="Leo-Agents-OpenInNewWindow-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="New Agent…" keyEquivalent="A" id="Leo-New-Agent">
                                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                                 <connections>
@@ -571,6 +577,12 @@
                                 <modifierMask key="keyEquivalentModifierMask"/>
                                 <connections>
                                     <action selector="renameSelectedLeoAgent:" target="-1" id="Leo-Agents-Rename-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Appearance…" id="Leo-Agents-Appearance">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="showLeoAgentAppearance:" target="-1" id="Leo-Agents-Appearance-Action"/>
                                 </connections>
                             </menuItem>
                             <menuItem title="Set Template" identifier="leo.agents.setTemplate" id="Leo-Agents-SetTemplate">

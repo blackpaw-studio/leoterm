@@ -30,7 +30,8 @@ final class LeoAgentTerminalWindow: TerminalWindow {
         super.awakeFromNib()
         styleMask.insert(.fullSizeContentView)
         titlebarAppearsTransparent = false
-        titleVisibility = .visible
+        // The toolbar's title item stands in for the window's own title.
+        titleVisibility = .hidden
         toolbarStyle = .unified
     }
 
