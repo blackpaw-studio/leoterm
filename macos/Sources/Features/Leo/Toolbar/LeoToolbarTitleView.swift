@@ -114,6 +114,9 @@ final class LeoToolbarTitleView: NSView {
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -2), in: self)
     }
 
+    /// The title is one element: its text and ▾ are not exposed on their own.
+    override func accessibilityChildren() -> [Any]? { [] }
+
     override func accessibilityPerformPress() -> Bool {
         guard presentation.isEnabled, let menu = pullDown else { return false }
         menu.popUp(positioning: nil, at: NSPoint(x: 0, y: -2), in: self)

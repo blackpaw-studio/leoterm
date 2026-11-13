@@ -140,7 +140,7 @@ struct LeoAgentToolbarToolsTests {
             #expect(try #require(fixture.item(id)).isHidden == false, "wide \(id.rawValue)")
         }
         // Narrower: the toggles fold first, Interrupt stays.
-        fixture.window.setContentSize(NSSize(width: 700, height: 600))
+        fixture.window.setContentSize(NSSize(width: 900, height: 600))
         fixture.window.layoutIfNeeded()
         for id in [NSToolbarItem.Identifier.leoFiles, .leoBrowser, .leoAgentPane] {
             #expect(try #require(fixture.item(id)).isHidden, "narrower \(id.rawValue)")

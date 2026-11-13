@@ -14,7 +14,7 @@ struct LeoToolbarTitleViewTests {
         #expect(view.accessibilityLabel() == "Agent actions")
         #expect(view.accessibilityValue() as? String == "scratch")
         #expect(view.isAccessibilityEnabled())
-        for image in view.subviews.compactMap({ $0 as? NSImageView }) { #expect(!image.isAccessibilityElement()) }
+        #expect(view.accessibilityChildren()?.isEmpty == true)
     }
 
     @Test func withNoAgentTheTitleStaysButItsMenuIsDisabled() {
