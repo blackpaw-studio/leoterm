@@ -63,6 +63,7 @@ final class LeoToolbarTitleView: NSView {
             subtitleField.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor),
             subtitleField.topAnchor.constraint(equalTo: titleField.bottomAnchor),
         ])
+        setAccessibilityElement(true)
         setAccessibilityRole(.popUpButton)
         setAccessibilityLabel("Agent actions")
         apply(presentation)
