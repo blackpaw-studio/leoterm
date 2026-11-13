@@ -145,6 +145,7 @@ extension TerminalController {
         window.leoToolbar.moreMenu = toolbarMenu.menu
         window.leoToolbar.retainedMenu = toolbarMenu
         let titleMenu = LeoAgentTitleMenu(
+            target: { [weak self] in self },
             context: { [weak self] in
                 self?.leoTitleMenuContext ?? .init(agent: nil, movesSupported: true, appearanceSupported: true)
             },
@@ -166,6 +167,11 @@ extension TerminalController {
             })
         window.leoToolbar.bind(interruptEnabled: leoInterruptAvailability)
         window.leoToolbar.bind(tools: leoToolStates)
+        // This window's controller, not whichever responder happens to be first.
+        window.leoToolbar.setToggleSender { [weak self] action, sender in
+            guard let self else { return }
+            NSApp.sendAction(action, to: self, from: sender)
+        }
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.

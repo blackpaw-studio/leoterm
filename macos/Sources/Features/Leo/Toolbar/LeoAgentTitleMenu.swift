@@ -2,17 +2,24 @@ import AppKit
 
 /// The title item's pull-down. It rebuilds its items from
 /// `LeoAgentTitleMenuItems` each time it opens; every command is the Agents
-/// menu's own action with no target, so it goes down the responder chain to
-/// `TerminalController`, which validates it (the same validators as the menu
-/// bar's: one implementation). Move To's list is filled by
+/// menu's own action aimed at the window's own `TerminalController`, which
+/// validates it (the same validators as the menu bar's: one implementation).
+/// The target is explicit: a nil target resolves through whichever view is
+/// first responder (the Chat pane, say), and left every item disabled there. Move To's list is filled by
 /// `LeoAgentsMenuController`, which fills the menu bar's.
 @MainActor
 final class LeoAgentTitleMenu: NSObject, NSMenuDelegate {
     let menu = NSMenu(title: "Agent")
     private let context: () -> LeoAgentTitleMenuItems.Context
     private let fileExists: (String) -> Bool
+    /// What the items act on; `NSMenuItem.target` is weak, so it is read each time the menu rebuilds.
+    private let target: () -> AnyObject?
 
-    init(context: @escaping () -> LeoAgentTitleMenuItems.Context, fileExists: @escaping (String) -> Bool) {
+    init(
+        target: @escaping () -> AnyObject?, context: @escaping () -> LeoAgentTitleMenuItems.Context,
+        fileExists: @escaping (String) -> Bool
+    ) {
+        self.target = target
         self.context = context
         self.fileExists = fileExists
         super.init()
@@ -41,7 +48,7 @@ final class LeoAgentTitleMenu: NSObject, NSMenuDelegate {
 
     private func makeItem(_ item: LeoAgentTitleMenuItems.Item) -> NSMenuItem {
         let menuItem = NSMenuItem(title: item.title, action: Self.action(for: item.command), keyEquivalent: "")
-        menuItem.target = nil
+        menuItem.target = target()
         if item.command == .moveTo {
             menuItem.identifier = LeoAgentsMenuController.moveToItemIdentifier
             menuItem.submenu = NSMenu(title: item.title)

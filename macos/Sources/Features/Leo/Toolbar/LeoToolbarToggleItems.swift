@@ -28,7 +28,8 @@ final class LeoToolbarToggleItems: NSObject {
             action: #selector(TerminalController.toggleLeoAgentPane(_:)), tool: \.agentPane),
     ]
 
-    /// Sends a toggle's action to whoever handles it: the responder chain.
+    /// Sends a toggle's action to whoever handles it: the responder chain by
+    /// default, the window's own controller once the toolbar is installed.
     var send: (Selector, Any?) -> Void = { action, sender in NSApp.sendAction(action, to: nil, from: sender) }
 
     private(set) var state = LeoToolbarToolState.none
