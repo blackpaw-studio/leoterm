@@ -229,7 +229,6 @@ struct LeoPluginDecodeBudgetTests {
     }
 }
 
-
 // MARK: - Text and Meter
 
 extension LeoPluginNodeDecodingTests {
