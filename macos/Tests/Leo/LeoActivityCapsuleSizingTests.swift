@@ -6,53 +6,76 @@ import Testing
 /// and traffic lights when the sidebar is collapsed, then the window title)
 /// is also taken from its right. AppKit folds an item that doesn't fit into
 /// the overflow chevron instead of shrinking it, so the width is chosen from
-/// the room: the subtitle, the update pill, then the title yield before the
-/// capsule does. The trailing items (view switch, Interrupt, "⋯") never fold:
-/// their room is always reserved.
+/// the room: the subtitle, the tool toggles, Interrupt, the update pill, then
+/// the title yield before the capsule does. Their room is reserved while
+/// they fit; the view switch and "⋯" never fold, so their room always is.
 struct LeoActivityCapsuleSizingTests {
     private typealias Sizing = LeoActivityCapsuleSizing
 
     @Test func aWideToolbarKeepsEverythingAndTheMaximumWidth() {
         let layout = Sizing.layout(availableToolbarWidth: 1400, leadingChrome: 0)
 
-        #expect(layout == .init(width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsUpdateItem: true, isCentered: true))
+        #expect(
+            layout == .init(
+                width: LeoActivityCapsulePresentation.maxWidth, showsSubtitle: true, showsTitle: true, showsUpdateItem: true,
+                isCentered: true, showsToggles: true, showsInterrupt: true))
     }
 
     @Test func theCapsuleGetsWhatTheSubtitleLeavesOnEachSide() {
-        let layout = Sizing.layout(availableToolbarWidth: 550, leadingChrome: 0)
+        let layout = Sizing.layout(availableToolbarWidth: 1000, leadingChrome: 0)
 
         let side = max(Sizing.subtitleSideReserve, Sizing.trailingGroupsReserve)
-        #expect(layout.width == 550 - 2 * side)
+        #expect(layout.width == 1000 - 2 * side)
         #expect(layout.showsSubtitle)
     }
 
     @Test func theSubtitleGoesWhenTheMinimumCapsuleNoLongerFitsBesideIt() {
-        // The collapsed sidebar's chrome makes the left side the binding one.
-        let chrome = Sizing.collapsedSidebarChrome
+        // A sidebar chrome wide enough to make the title's side the binding one.
+        let chrome: CGFloat = 300
         let fits = Sizing.minimumWidth + 2 * (chrome + Sizing.subtitleSideReserve)
 
         #expect(Sizing.layout(availableToolbarWidth: fits, leadingChrome: chrome).showsSubtitle)
         let layout = Sizing.layout(availableToolbarWidth: fits - 1, leadingChrome: chrome)
         #expect(!layout.showsSubtitle && layout.showsTitle)
-        #expect(layout.width == fits - 1 - 2 * (chrome + Sizing.titleSideReserve))
+        #expect(layout.width == fits - 1 - 2 * max(chrome + Sizing.titleSideReserve, Sizing.trailingGroupsReserve))
     }
 
-    @Test func theTitleGoesWhenEvenTheTitleAloneLeavesNoRoom() {
-        let layout = Sizing.layout(availableToolbarWidth: 560, leadingChrome: Sizing.collapsedSidebarChrome)
+    @Test func theToolTogglesFoldBeforeInterruptAndBothBeforeTheTitle() {
+        func layout(_ width: CGFloat) -> Sizing.Layout { Sizing.layout(availableToolbarWidth: width, leadingChrome: 0) }
+        let full = Sizing.minimumWidth + 2 * Sizing.trailingGroupsReserve
+        // Room for every trailing item: the capsule is centred with all of them reserved.
+        #expect(layout(full).isCentered && layout(full).showsToggles && layout(full).showsInterrupt)
+        // Less: the toggles fold, Interrupt stays.
+        let noToggles = layout(full - 1)
+        #expect(!noToggles.showsToggles && noToggles.showsInterrupt && noToggles.isCentered && noToggles.showsTitle)
+        #expect(noToggles.width == full - 1 - 2 * Sizing.trailingReserveWithoutToggles)
+        // Less still: Interrupt folds too; the title is still there.
+        let minimal = layout(Sizing.minimumWidth + 2 * Sizing.trailingReserveWithoutToggles - 1)
+        #expect(!minimal.showsToggles && !minimal.showsInterrupt && minimal.showsTitle)
+        // Only after both: the title goes.
+        let noTitle = layout(Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal - 1)
+        #expect(!noTitle.showsTitle)
+    }
 
-        #expect(!layout.showsSubtitle && !layout.showsTitle)
-        #expect(layout.width == 560 - 2 * Sizing.trailingGroupsReserve)
+    @Test func theViewSwitchAndMoreKeepTheirRoomAtEveryWidth() {
+        for width in [Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal - 1, 300, 0] as [CGFloat] {
+            let layout = Sizing.layout(availableToolbarWidth: width, leadingChrome: 0)
+            #expect(!layout.showsToggles && !layout.showsInterrupt, "\(width)")
+            if !layout.isCentered { #expect(layout.width + Sizing.capsuleGap + Sizing.trailingReserveMinimal <= max(width, Sizing.compactWidth + Sizing.capsuleGap + Sizing.trailingReserveMinimal)) }
+        }
     }
 
     @Test func theCollapsedSidebarsChromeCountsAgainstTheRoomOnTheLeft() {
-        let open = Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0)
-        let collapsed = Sizing.layout(availableToolbarWidth: 700, leadingChrome: Sizing.collapsedSidebarChrome)
+        // Wide enough chrome to bind: the trailing groups' room is the larger side otherwise.
+        let open = Sizing.layout(availableToolbarWidth: 1100, leadingChrome: 0)
+        let collapsed = Sizing.layout(availableToolbarWidth: 1100, leadingChrome: 300)
 
         #expect(collapsed.width < open.width)
     }
 
     @Test func aNarrowCollapsedWindowDropsTheTitleAndStillShowsTheCapsule() {
-        let layout = Sizing.layout(availableToolbarWidth: 480, leadingChrome: Sizing.collapsedSidebarChrome)
+        let width = Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal
+        let layout = Sizing.layout(availableToolbarWidth: width, leadingChrome: 160)
 
         // The trailing groups keep their room, so the capsule sits at its floor.
         #expect(!layout.showsTitle)
@@ -61,12 +84,12 @@ struct LeoActivityCapsuleSizingTests {
 
     @Test func theTrailingGroupsStayReservedAtEveryWidth() {
         // Too narrow to centre the capsule: it gives up centring and takes what the trailing groups leave.
-        let narrow = Sizing.layout(availableToolbarWidth: 450, leadingChrome: 0)
+        let narrow = Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal - 1, leadingChrome: 0)
         #expect(narrow.width == Sizing.minimumWidth)
         #expect(!narrow.showsSubtitle && !narrow.showsTitle && !narrow.showsUpdateItem && !narrow.isCentered)
 
-        let tight = Sizing.layout(availableToolbarWidth: 300, leadingChrome: 0)
-        #expect(tight.width == 300 - Sizing.trailingGroupsReserve - Sizing.capsuleGap)
+        let tight = Sizing.layout(availableToolbarWidth: 345, leadingChrome: 0)
+        #expect(tight.width == 345 - Sizing.trailingReserveMinimal - Sizing.capsuleGap)
 
         // Narrower than the compact capsule: it stops shrinking there.
         for width in [100, 0] as [CGFloat] {
@@ -74,31 +97,32 @@ struct LeoActivityCapsuleSizingTests {
         }
     }
 
-    @Test func aWindowAt480WithTheSidebarOpenLeavesRoomForEveryTrailingItem() {
-        // 480 pt window, 200 pt sidebar: 280 pt of toolbar. Nothing may overflow into the chevron.
-        let layout = Sizing.layout(availableToolbarWidth: 280, leadingChrome: 0)
+    @Test func aWindowAt560WithTheSidebarOpenLeavesRoomForTheSwitchAndMore() {
+        // 560 pt window, 200 pt sidebar: 360 pt of toolbar. The switch (with its
+        // labels) and "⋯" never fold, so the capsule gives way to them.
+        let layout = Sizing.layout(availableToolbarWidth: 360, leadingChrome: 0)
 
         #expect(!layout.isCentered)
         #expect(layout.width >= Sizing.compactWidth)
-        #expect(layout.width + Sizing.capsuleGap + Sizing.trailingGroupsReserve <= 280)
+        #expect(layout.width + Sizing.capsuleGap + Sizing.trailingReserveMinimal <= 360)
     }
 
     @Test func theCapsuleStaysCentredWhileItFitsCentred() {
-        #expect(Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingGroupsReserve, leadingChrome: 0).isCentered)
-        #expect(!Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingGroupsReserve - 1, leadingChrome: 0).isCentered)
+        #expect(Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal, leadingChrome: 0).isCentered)
+        #expect(!Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal - 1, leadingChrome: 0).isCentered)
     }
 
     @Test func theCapsuleKeepsTheTrailingGroupsRoomOnBothSides() {
-        let layout = Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0, trailingReserve: 0)
+        let layout = Sizing.layout(availableToolbarWidth: 1100, leadingChrome: 0, trailingReserve: 0)
 
-        #expect(layout.width <= 700 - 2 * Sizing.trailingGroupsReserve)
+        #expect(layout.width <= 1100 - 2 * Sizing.trailingGroupsReserve)
     }
 
     @Test func theUpdateItemsWidthIsTakenFromBothSidesOfTheCentredCapsule() {
-        let layout = Sizing.layout(availableToolbarWidth: 700, leadingChrome: 0, trailingReserve: 40)
+        let layout = Sizing.layout(availableToolbarWidth: 1100, leadingChrome: 0, trailingReserve: 40)
 
         // Centred: what sits right of the capsule (beside the trailing groups) is also taken from its left.
-        #expect(layout.width == 700 - 2 * (Sizing.trailingGroupsReserve + 40))
+        #expect(layout.width == 1100 - 2 * (Sizing.trailingGroupsReserve + 40))
     }
 
     @Test func thePillGivesWayAfterTheSubtitleAndBeforeTheTitle() {
@@ -107,30 +131,32 @@ struct LeoActivityCapsuleSizingTests {
         func layout(_ width: CGFloat) -> Sizing.Layout {
             Sizing.layout(availableToolbarWidth: width, leadingChrome: chrome, trailingReserve: pill)
         }
-        func fits(left: CGFloat, pill showsPill: Bool) -> CGFloat {
-            Sizing.minimumWidth + 2 * max(chrome + left, Sizing.trailingGroupsReserve + (showsPill ? pill : 0))
+        func fits(left: CGFloat, trailing: CGFloat, pill showsPill: Bool) -> CGFloat {
+            Sizing.minimumWidth + 2 * max(chrome + left, trailing + (showsPill ? pill : 0))
         }
+        let minimal = Sizing.trailingReserveMinimal
 
         // Room for everything.
-        let roomy = layout(fits(left: Sizing.subtitleSideReserve, pill: true))
+        let roomy = layout(fits(left: Sizing.subtitleSideReserve, trailing: Sizing.trailingGroupsReserve, pill: true))
         #expect(roomy.showsSubtitle && roomy.showsUpdateItem && roomy.showsTitle)
-        // Less: the subtitle goes first, the pill stays.
-        let noSubtitle = layout(fits(left: Sizing.subtitleSideReserve, pill: true) - 1)
-        #expect(!noSubtitle.showsSubtitle && noSubtitle.showsUpdateItem && noSubtitle.showsTitle)
+        // With the toggles and Interrupt folded and the subtitle gone, the pill stays.
+        let noSubtitleMinimal = layout(fits(left: Sizing.titleSideReserve, trailing: minimal, pill: true))
+        #expect(!noSubtitleMinimal.showsSubtitle && noSubtitleMinimal.showsUpdateItem && noSubtitleMinimal.showsTitle)
         // Less still: the pill goes, the title stays.
-        let noPill = layout(fits(left: Sizing.titleSideReserve, pill: true) - 1)
+        let noPill = layout(fits(left: Sizing.titleSideReserve, trailing: minimal, pill: true) - 1)
         #expect(!noPill.showsUpdateItem && noPill.showsTitle)
         // Only then the title; the capsule itself shrinks last, to its floor.
-        let noTitle = layout(fits(left: Sizing.titleSideReserve, pill: false) - 1)
+        let noTitle = layout(fits(left: Sizing.titleSideReserve, trailing: minimal, pill: false) - 1)
         #expect(!noTitle.showsTitle && !noTitle.showsUpdateItem)
         #expect(layout(100).width == Sizing.compactWidth)
     }
 
     @Test func aDroppedPillReservesNothing() {
-        let layout = Sizing.layout(availableToolbarWidth: 500, leadingChrome: 0, trailingReserve: 100)
+        let width = Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal + 20
+        let layout = Sizing.layout(availableToolbarWidth: width, leadingChrome: 0, trailingReserve: 100)
 
         #expect(!layout.showsUpdateItem)
-        #expect(layout.width == 500 - 2 * max(Sizing.titleSideReserve, Sizing.trailingGroupsReserve))
+        #expect(layout.width == width - 2 * max(Sizing.titleSideReserve, Sizing.trailingReserveMinimal))
     }
 
     @Test func noUpdateItemLeavesTheLayoutUnchanged() {

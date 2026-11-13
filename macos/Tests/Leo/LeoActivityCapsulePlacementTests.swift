@@ -70,9 +70,24 @@ struct LeoActivityCapsulePlacementTests {
                     let result = placement(window: window, sidebar: sidebar, chatWidth: chat, chrome: sidebar == 0 ? Sizing.collapsedSidebarChrome : 0)
                     #expect(result.maxX <= window - chat - Sizing.chatClearance, "window \(window) sidebar \(sidebar) chat \(chat)")
                     #expect(result.minX >= sidebar, "window \(window) sidebar \(sidebar) chat \(chat)")
+                    // The container's padded right edge must clear the switch and "⋯", which never fold.
+                    if result.width > Sizing.compactWidth {
+                        let containerRight = result.minX + result.width + result.trailingPad
+                        #expect(
+                            containerRight <= window - Sizing.trailingReserveMinimal + 0.5,
+                            "window \(window) sidebar \(sidebar) chat \(chat) right \(containerRight)")
+                    }
                 }
             }
         }
+    }
+
+    @Test func sideBySideTheTogglesFoldWhenTheCapsulesContainerReachesThem() {
+        // The container is padded to the right so AppKit centres it; it reaches under the trailing groups.
+        func shown(window: CGFloat) -> Sizing.Layout { placement(window: window, sidebar: 220, chatWidth: 448).layout }
+        #expect(shown(window: 2400).showsToggles && shown(window: 2400).showsInterrupt)
+        let narrow = shown(window: 1400)
+        #expect(!narrow.showsToggles)
     }
 
     @Test func sideBySideThePillsReserveIsTakenFromTheTerminalColumn() {
@@ -81,9 +96,10 @@ struct LeoActivityCapsulePlacementTests {
         let withPill = Sizing.placement(
             windowWidth: 1400, sidebarWidth: 220, chatLeadingEdge: 1400 - 448, leadingChrome: 0, trailingReserve: 200)
 
-        #expect(
-            withPill.layout == Sizing.layout(
-                availableToolbarWidth: terminalWidth, leadingChrome: 0, trailingReserve: 200, farSideReserve: Sizing.sideBySideFarSideReserve))
+        let column = Sizing.layout(
+            availableToolbarWidth: terminalWidth, leadingChrome: 0, trailingReserve: 200, farSideReserve: Sizing.sideBySideFarSideReserve)
+        #expect(withPill.layout.showsUpdateItem == column.showsUpdateItem)
+        #expect(withPill.width <= column.width)
         #expect(withPill.width < plain.width)
     }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 /// The tool toggles' actions and state: Files, the agent's Browser and the
 /// Agent Pane, from the toolbar and from View ▸ Show/Hide Files, Show/Hide
@@ -18,6 +19,33 @@ extension TerminalController {
             hasAgent: hasAgent, browserSettingOn: leoRuntime.agentBrowsers.setting.isEnabled, filesOpen: pane.browser.isOpen,
             browserFront: pane.content == .agentBrowser, editorHasTabs: !pane.tabs.tabs.isEmpty,
             paneShown: leoSession.agentPane?.isShown ?? false, paneExpanded: leoSession.agentPane?.isExpanded ?? false)
+    }
+
+    /// The toggles' state, re-read (next turn) whenever any panel it folds
+    /// can have changed: the selection, the window's panes and the one on
+    /// screen (its tabs, browser and agent browser), the agent pane, or the
+    /// Agent browser setting.
+    var leoToolStates: AnyPublisher<LeoToolbarToolState, Never> {
+        guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
+        func void<P: Publisher>(_ publisher: P) -> AnyPublisher<Void, Never> where P.Failure == Never {
+            publisher.map { _ in () }.eraseToAnyPublisher()
+        }
+        let activePane = leoSession.panes.$active
+            .map { pane in
+                Publishers.MergeMany(void(pane.objectWillChange), void(pane.browser.objectWillChange), void(pane.tabs.objectWillChange))
+            }
+            .switchToLatest()
+        let agentPane = leoSession.$agentPane
+            .map { $0.map { void($0.objectWillChange) } ?? Empty().eraseToAnyPublisher() }
+            .switchToLatest()
+        return Publishers.MergeMany(
+            leoSelectionChanges, void(leoSession.panes.objectWillChange), void(activePane), void(agentPane),
+            void(leoRuntime.agentBrowsers.setting.objectWillChange)
+        )
+        .receive(on: DispatchQueue.main)
+        .prepend(())
+        .map { [weak self] in self?.leoToolState ?? .none }
+        .eraseToAnyPublisher()
     }
 
     /// The Files toolbar toggle: open or closed, nothing else. ⌥⌘B

@@ -8,11 +8,14 @@ import CoreGraphics
 /// right. AppKit won't shrink a custom-view item to fit: one that doesn't
 /// fit goes to the overflow chevron at its preferred width. So the width is
 /// chosen from the room, and the rest gives way in order: the subtitle, the
-/// update pill (ambient status, not "needs you"), then the title, before the
-/// capsule shrinks to `minimumWidth` (a title stub, the glyph, the badge and
-/// the bar). The trailing groups (view switch, Interrupt, "⋯") never give
-/// way: their room is reserved at every width, so below the floor the
-/// capsule stops shrinking and the window's own minimum size takes over.
+/// tool toggles, Interrupt, the update pill (ambient status, not "needs
+/// you"), then the title, before the capsule shrinks to `minimumWidth` (a
+/// title stub, the glyph, the badge and the bar). The toggles and Interrupt
+/// fold into the toolbar's own overflow (their visibility priorities are the
+/// lowest), so their room is reserved only while the capsule can keep its
+/// floor with them. The view switch and "⋯" never fold: their room is
+/// reserved at every width, and below the floor the capsule stops shrinking
+/// and the window's own minimum size takes over.
 enum LeoActivityCapsuleSizing {
     static let minimumWidth: CGFloat = 120
     /// The narrowest the capsule goes when there is no room to centre it: the
@@ -24,11 +27,17 @@ enum LeoActivityCapsuleSizing {
     /// side of the centred capsule.
     static let subtitleSideReserve: CGFloat = 190
     static let titleSideReserve: CGFloat = 100
-    /// What the trailing groups take right of the capsule at every width: the
-    /// view switch (about 78 pt), Interrupt and "⋯" (one glass group, about
-    /// 74 pt), the toolbar's gaps and trailing margin. Measured in the spike
-    /// (see the plan's Step 0 findings).
-    static let trailingGroupsReserve: CGFloat = 180
+    /// What the trailing groups take right of the capsule while every one
+    /// fits: the tool toggles (one glass group, 116 pt), the Terminal | Chat
+    /// switch with its labels (177 pt), Interrupt and "⋯" (one group, 73 pt),
+    /// the toolbar's gaps and trailing margin. Measured in a test host's
+    /// toolbar on macOS 27 (390 pt) plus slack.
+    static let trailingGroupsReserve: CGFloat = 400
+    /// The same with the toggles folded into the overflow (the toggles' 116 pt
+    /// and one gap fewer).
+    static let trailingReserveWithoutToggles: CGFloat = 280
+    /// The same with Interrupt folded too: the switch and "⋯" alone.
+    static let trailingReserveMinimal: CGFloat = 245
     /// What the capsule keeps on its far side while Chat sits beside the
     /// terminal: the trailing groups are over the chat pane then, so the
     /// column only needs a gap before the divider.
@@ -53,6 +62,10 @@ enum LeoActivityCapsuleSizing {
         /// centred item) it sits left of the trailing groups instead, and
         /// never overflows into the toolbar's chevron.
         let isCentered: Bool
+        /// Whether the tool toggles and Interrupt have room beside the
+        /// capsule; where they don't, the toolbar folds them into its overflow.
+        let showsToggles: Bool
+        let showsInterrupt: Bool
     }
 
     private struct Tier {
@@ -60,46 +73,64 @@ enum LeoActivityCapsuleSizing {
         let showsSubtitle: Bool
         let showsTitle: Bool
         let showsUpdateItem: Bool
+        let showsToggles: Bool
+        let showsInterrupt: Bool
+
+        /// What the tier reserves right of the capsule for the trailing
+        /// groups, unless the caller fixed it (Chat beside the terminal).
+        var trailingReserve: CGFloat {
+            switch (showsToggles, showsInterrupt) {
+            case (true, _): LeoActivityCapsuleSizing.trailingGroupsReserve
+            case (false, true): LeoActivityCapsuleSizing.trailingReserveWithoutToggles
+            case (false, false): LeoActivityCapsuleSizing.trailingReserveMinimal
+            }
+        }
 
         /// The room the tier keeps right of the capsule: the trailing
         /// groups, and the update pill's `pillReserve` while the tier shows it.
-        func side(leadingChrome: CGFloat, pillReserve: CGFloat, farSideReserve: CGFloat) -> CGFloat {
-            max(leadingChrome + leftReserve, farSideReserve + (showsUpdateItem ? pillReserve : 0))
+        func side(leadingChrome: CGFloat, pillReserve: CGFloat, farSideReserve: CGFloat?, fixedReserve: CGFloat) -> CGFloat {
+            let trailing = (farSideReserve ?? trailingReserve) + fixedReserve
+            return max(leadingChrome + leftReserve, trailing + (showsUpdateItem ? pillReserve : 0))
         }
     }
 
     /// Richest first: the first tier whose capsule reaches `minimumWidth` wins.
     private static let tiers = [
-        Tier(leftReserve: subtitleSideReserve, showsSubtitle: true, showsTitle: true, showsUpdateItem: true),
-        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true),
-        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: false),
-        Tier(leftReserve: 0, showsSubtitle: false, showsTitle: false, showsUpdateItem: false),
+        Tier(leftReserve: subtitleSideReserve, showsSubtitle: true, showsTitle: true, showsUpdateItem: true, showsToggles: true, showsInterrupt: true),
+        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true, showsToggles: true, showsInterrupt: true),
+        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true, showsToggles: false, showsInterrupt: true),
+        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: true, showsToggles: false, showsInterrupt: false),
+        Tier(leftReserve: titleSideReserve, showsSubtitle: false, showsTitle: true, showsUpdateItem: false, showsToggles: false, showsInterrupt: false),
+        Tier(leftReserve: 0, showsSubtitle: false, showsTitle: false, showsUpdateItem: false, showsToggles: false, showsInterrupt: false),
     ]
 
     /// `leadingChrome` is what sits left of the title inside the region
     /// (`collapsedSidebarChrome` or 0); `trailingReserve` is what sits right
     /// of the capsule beyond the trailing groups (`updateItemReserve` or 0).
-    /// `farSideReserve` is what the trailing items keep right of the capsule
-    /// (the trailing groups, unless Chat sits beside the terminal).
+    /// `farSideReserve` fixes what the trailing items keep right of the
+    /// capsule when they don't sit beside it (Chat beside the terminal puts
+    /// them over the chat pane); nil reserves the trailing groups, shedding
+    /// the toggles and Interrupt as the room runs out.
     /// `fixedReserve` is an item that never gives way (the reset-zoom
-    /// button while a split is zoomed): added to `farSideReserve` at every tier.
+    /// button while a split is zoomed): added to the trailing reserve at every tier.
     static func layout(
         availableToolbarWidth: CGFloat, leadingChrome: CGFloat, trailingReserve: CGFloat = 0,
-        fixedReserve: CGFloat = 0, farSideReserve baseFarSideReserve: CGFloat = trailingGroupsReserve
+        fixedReserve: CGFloat = 0, farSideReserve: CGFloat? = nil
     ) -> Layout {
-        let farSideReserve = baseFarSideReserve + fixedReserve
         func width(_ tier: Tier) -> CGFloat {
-            availableToolbarWidth - 2 * tier.side(leadingChrome: leadingChrome, pillReserve: trailingReserve, farSideReserve: farSideReserve)
+            availableToolbarWidth - 2 * tier.side(
+                leadingChrome: leadingChrome, pillReserve: trailingReserve, farSideReserve: farSideReserve, fixedReserve: fixedReserve)
         }
         guard let tier = tiers.first(where: { width($0) >= minimumWidth }) else {
-            let room = availableToolbarWidth - leadingChrome - farSideReserve - capsuleGap
+            let room = availableToolbarWidth - leadingChrome - (farSideReserve ?? trailingReserveMinimal) - fixedReserve - capsuleGap
             return Layout(
                 width: min(minimumWidth, max(compactWidth, room)), showsSubtitle: false, showsTitle: false,
-                showsUpdateItem: false, isCentered: false)
+                showsUpdateItem: false, isCentered: false, showsToggles: farSideReserve != nil, showsInterrupt: farSideReserve != nil)
         }
         return Layout(
             width: min(LeoActivityCapsulePresentation.maxWidth, width(tier)),
             showsSubtitle: tier.showsSubtitle, showsTitle: tier.showsTitle,
-            showsUpdateItem: tier.showsUpdateItem, isCentered: true)
+            showsUpdateItem: tier.showsUpdateItem, isCentered: true,
+            showsToggles: tier.showsToggles || farSideReserve != nil, showsInterrupt: tier.showsInterrupt || farSideReserve != nil)
     }
 }

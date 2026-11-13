@@ -40,10 +40,34 @@ extension LeoActivityCapsuleSizing {
         }
         let terminalWidth = chatLeadingEdge - LeoChatLayout.dividerWidth - sidebarWidth
         let terminalCentre = sidebarWidth + terminalWidth / 2
-        let layout = layout(
+        let columnLayout = layout(
             availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve,
             fixedReserve: fixedReserve, farSideReserve: sideBySideFarSideReserve)
-        return Placement(
-            layout: layout, minX: terminalCentre - layout.width / 2, trailingPad: max(0, 2 * (regionCentre - terminalCentre)))
+        let trailingPad = max(0, 2 * (regionCentre - terminalCentre))
+        // The container's padded right edge reaches under the trailing groups:
+        // clear of the switch and "⋯" (they never fold), and the toggles and
+        // Interrupt fold while it reaches them.
+        let fitted = clearingTrailingGroups(
+            columnLayout, centre: terminalCentre, trailingPad: trailingPad, windowWidth: windowWidth, fixedReserve: fixedReserve)
+        return Placement(layout: fitted, minX: terminalCentre - fitted.width / 2, trailingPad: trailingPad)
+    }
+
+    /// `layout` narrowed, if it has to be, so its container (the capsule plus
+    /// `trailingPad`, centred on `centre`) ends `trailingReserveMinimal` short
+    /// of the window's edge; and which trailing items the room that is left
+    /// right of the container still holds.
+    private static func clearingTrailingGroups(
+        _ layout: Layout, centre: CGFloat, trailingPad: CGFloat, windowWidth: CGFloat, fixedReserve: CGFloat
+    ) -> Layout {
+        func room(_ width: CGFloat) -> CGFloat { windowWidth - (centre - width / 2 + width + trailingPad) }
+        let minimal = trailingReserveMinimal + fixedReserve
+        var width = layout.width
+        if room(width) < minimal { width = max(compactWidth, width - 2 * (minimal - room(width))) }
+        let space = room(width)
+        return Layout(
+            width: width, showsSubtitle: layout.showsSubtitle, showsTitle: layout.showsTitle,
+            showsUpdateItem: layout.showsUpdateItem, isCentered: layout.isCentered,
+            showsToggles: space >= trailingGroupsReserve + fixedReserve,
+            showsInterrupt: space >= trailingReserveWithoutToggles + fixedReserve)
     }
 }

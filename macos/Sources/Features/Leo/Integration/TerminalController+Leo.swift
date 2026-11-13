@@ -158,6 +158,7 @@ extension TerminalController {
                 if let leoSession { LeoViewMenuActions.show(choice, in: leoSession) }
             })
         window.leoToolbar.bind(interruptEnabled: leoInterruptAvailability)
+        window.leoToolbar.bind(tools: leoToolStates)
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
@@ -178,7 +179,7 @@ extension TerminalController {
 
     /// Fires (next turn, after the change landed) whenever the shown row or
     /// the rows' data change.
-    private var leoSelectionChanges: AnyPublisher<Void, Never> {
+    var leoSelectionChanges: AnyPublisher<Void, Never> {
         guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
         return leoRuntime.model.objectWillChange.map { _ in () }
             .merge(with: leoSession.terminals.objectWillChange.map { _ in () })

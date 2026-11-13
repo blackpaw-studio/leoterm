@@ -15,9 +15,10 @@ extension NSToolbarItem.Identifier {
 /// The agent window's toolbar: the sidebar toggle (shown only while the
 /// sidebar is collapsed), a tracking separator that keeps the title and the
 /// items over the detail column, the activity capsule centred, and the
-/// trailing groups: the Terminal | Chat switch, then Interrupt and a "⋯"
-/// menu (one glass group). The trailing items are always present, at every
-/// width (`LeoActivityCapsuleSizing.trailingGroupsReserve`).
+/// trailing groups: the tool toggles (Files, Browser, Agent Pane), the
+/// Terminal | Chat switch, then Interrupt and a "⋯" menu (one glass group).
+/// The switch, Interrupt and "⋯" are always present, at every width
+/// (`LeoActivityCapsuleSizing.trailingGroupsReserve`).
 ///
 /// The tracking separator needs the window's `NSSplitView`, which exists
 /// only after SwiftUI's first layout, so the toolbar goes up at once (the
@@ -25,10 +26,7 @@ extension NSToolbarItem.Identifier {
 /// hands itself over (`attach(splitView:)`).
 final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// The items in order once the split has been handed over.
-    static let itemOrder: [NSToolbarItem.Identifier] = [
-        .leoSidebarToggle, .leoSplitSeparator, .flexibleSpace, .leoActivity, .flexibleSpace, .leoResetZoom, .leoUpdate,
-        .leoViewSwitch, .leoInterrupt, .leoMore,
-    ]
+    static let itemOrder = LeoAgentToolbarItems.defaultOrder.filter { $0 != .leoTitleMenu }
     /// Toolbars with one identifier are a family: AppKit mirrors item
     /// inserts across them. Each window's separator binds to its own split
     /// view, so every window gets an identifier of its own.
@@ -64,12 +62,20 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private weak var viewSwitchControl: LeoToolbarViewSwitch?
     private weak var interruptItem: NSToolbarItem?
     private var interruptIsEnabled = false
+    /// There is no room for Interrupt beside the capsule (macOS 15 and later).
+    private var interruptIsFolded = false
     /// What the switch binding last said, so a switch AppKit builds later starts right.
     private var viewSwitchPresentation = LeoViewSwitchPresentation(layout: nil, unreadCount: 0)
     private var selectView: (LeoAgentViewChoice) -> Void = { _ in }
     private weak var resetZoomItem: NSToolbarItem?
     private var isSurfaceZoomed = false
     private var isUpdateShowing = false
+    private lazy var toggles: LeoToolbarToggleItems = MainActor.assumeIsolated { LeoToolbarToggleItems() }
+    private var toolState: LeoToolbarToolState { MainActor.assumeIsolated { toggles.state } }
+    /// The Browser toggle left the toolbar because the Agent browser setting
+    /// went off (macOS 14 and earlier), so it may come back with the setting.
+    /// A toggle the user removed stays removed.
+    private var didRemoveBrowserForSetting = false
     private var showsUpdateItem = true
     /// Whether `NSToolbarItem.isHidden` takes effect (macOS 15+). Below that
     /// the items that come and go are inserted and removed instead; tests
@@ -168,6 +174,22 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }.store(in: &subscriptions)
     }
 
+    /// Keeps the three tool toggles lit and enabled as `state` says, and the
+    /// Browser toggle in the toolbar exactly while the Agent browser setting
+    /// is on. Pushed, not autovalidated, like Interrupt.
+    @MainActor
+    func bind(tools: some Publisher<LeoToolbarToolState, Never>) {
+        tools.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] state in
+            guard let self else { return }
+            toggles.apply(state)
+            if hidesItemsInPlace { toggles.syncVisibility() } else { syncBrowserPresence() }
+        }.store(in: &subscriptions)
+    }
+
+    /// Sends the toggles' clicks somewhere else (tests).
+    @MainActor
+    func setToggleSender(_ send: @escaping (Selector, Any?) -> Void) { toggles.send = send }
+
     /// Keeps the reset-zoom button in the toolbar exactly while a split is
     /// zoomed (it used to be a titlebar accessory, which hangs under the
     /// unified toolbar, off its row), and the capsule clear of it.
@@ -205,6 +227,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         case .leoSidebarToggle: return !isSidebarToggleHidden
         case .leoResetZoom: return isSurfaceZoomed
         case .leoUpdate: return isUpdateShowing && showsUpdateItem
+        case .leoBrowser: return toolState.browser.isPresent
         default: return true
         }
     }
@@ -219,6 +242,24 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }
         setPresence(of: .leoResetZoom, isSurfaceZoomed, in: toolbar) { toolbar in
             toolbar.items.firstIndex { [.leoUpdate, .leoViewSwitch].contains($0.itemIdentifier) } ?? toolbar.items.count
+        }
+    }
+
+    /// Inserts or removes the Browser toggle to match the setting (macOS 14
+    /// and earlier). Only a toggle the setting removed comes back.
+    private func syncBrowserPresence() {
+        guard let toolbar else { return }
+        let isPresent = toolState.browser.isPresent
+        let current = toolbar.items.firstIndex { $0.itemIdentifier == .leoBrowser }
+        switch (isPresent, current) {
+        case (true, nil) where didRemoveBrowserForSetting:
+            didRemoveBrowserForSetting = false
+            let next = toolbar.items.firstIndex { [.leoAgentPane, .leoViewSwitch].contains($0.itemIdentifier) } ?? toolbar.items.count
+            toolbar.insertItem(withItemIdentifier: .leoBrowser, at: next)
+        case (false, let position?):
+            didRemoveBrowserForSetting = true
+            toolbar.removeItem(at: position)
+        default: break
         }
     }
 
@@ -247,6 +288,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         case .leoResetZoom: makeResetZoomItem()
         case .leoUpdate: makeUpdateItem()
         case .leoViewSwitch: makeViewSwitchItem()
+        case .leoFiles, .leoBrowser, .leoAgentPane: makeToggleItem(identifier)
         case .leoInterrupt: makeInterruptItem()
         case .leoMore: makeMoreItem()
         default: nil
@@ -332,6 +374,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         let centered: Set<NSToolbarItem.Identifier> = layout.isCentered ? [.leoActivity] : []
         if let toolbar, toolbar.centeredItemIdentifiers != centered { toolbar.centeredItemIdentifiers = centered }
         if hidesItemsInPlace {
+            // The toggles and Interrupt are hidden while the capsule's room has none for them.
+            MainActor.assumeIsolated { toggles.setFolded(!layout.showsToggles) }
+            interruptIsFolded = !layout.showsInterrupt
+            setHidden(interruptItem, interruptIsFolded)
             setHidden(updateItem, !(isUpdateShowing && showsUpdateItem))
             setHidden(resetZoomItem, !isSurfaceZoomed)
         } else {
@@ -409,6 +455,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         return item
     }
 
+    private func makeToggleItem(_ identifier: NSToolbarItem.Identifier) -> NSToolbarItem? {
+        MainActor.assumeIsolated { toggles.makeItem(identifier) }
+    }
+
     /// The Terminal | Chat switch, in its own glass group. Never hidden.
     private func makeViewSwitchItem() -> NSToolbarItem {
         let item = NSToolbarItem(itemIdentifier: .leoViewSwitch)
@@ -435,7 +485,8 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         item.target = nil
         item.action = #selector(TerminalController.interruptSelectedLeoAgent(_:))
         item.isBordered = true
-        item.visibilityPriority = Self.trailingPriority
+        item.visibilityPriority = LeoAgentToolbarItems.visibilityPriority(for: .leoInterrupt)
+        setHidden(item, interruptIsFolded)
         // Nothing to interrupt until the binding says so.
         item.autovalidates = false
         item.isEnabled = interruptIsEnabled

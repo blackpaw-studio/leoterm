@@ -160,7 +160,7 @@ struct LeoAgentToolbarActivityTests {
 
     // MARK: The update pill (B-349)
 
-    @Test func thePillSitsInTheToolbarRowJustBeforeTheTrailingGroups() async throws {
+    @Test func thePillSitsInTheToolbarRowJustBeforeTheToolToggles() async throws {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
@@ -171,7 +171,7 @@ struct LeoAgentToolbarActivityTests {
         let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
 
         let ids = fixture.identifiers
-        #expect(ids.firstIndex(of: .leoUpdate) == ids.firstIndex(of: .leoViewSwitch).map { $0 - 1 }, "\(ids.map(\.rawValue))")
+        #expect(ids.firstIndex(of: .leoUpdate) == ids.firstIndex(of: .leoFiles).map { $0 - 1 }, "\(ids.map(\.rawValue))")
         #expect(!item.isHidden)
         let pill = fixture.windowFrame(of: fixture.pill)
         let capsule = fixture.windowFrame(of: container)
