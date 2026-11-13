@@ -1,11 +1,11 @@
 import AppKit
 
 /// Menu bar actions for the window's workspace browser (B-005): Agents ▸
-/// Browse Agent Files (⌥⌘B), Show Hidden Files (⇧⌘.) and Reload Files
+/// View ▸ Show/Hide Files (⌥⌘B), Show Hidden Files (⇧⌘.) and Reload Files
 /// (⌘R, while the browser has focus). ⌘W closes the browser only while
 /// it has focus (see `LeoWorkspaceBrowserViewController.close(_:)`).
 extension TerminalController {
-    /// Agents ▸ Browse Agent Files: the focused agent's workspace, else the
+    /// View ▸ Show/Hide Files (⌥⌘B): the focused agent's workspace, else the
     /// sidebar selection's. Toggles: open, then focus, then close.
     @IBAction func browseLeoAgentFiles(_ sender: Any?) {
         guard let runtime = leoRuntime else { return }
@@ -61,10 +61,10 @@ extension TerminalController {
         let browser = leoSession?.browser
         switch item.action {
         case #selector(browseLeoAgentFiles(_:)):
-            guard let runtime = leoRuntime, let browser else { return false }
+            guard let runtime = leoRuntime, browser != nil else { return false }
             let agent = runtime.editorContext(in: self)
-            let isClosing = browser.browseStep(for: agent, hasFocus: leoSession?.browserPane?.hasFocus == true) == .close
-            item.title = isClosing ? "Close Agent Files" : "Browse Agent Files"
+            let step = browser?.browseStep(for: agent, hasFocus: leoSession?.browserPane?.hasFocus == true) ?? .open
+            item.title = LeoToolbarToolState.filesMenuTitle(for: step)
             return agent.name != nil
         case #selector(toggleLeoHiddenFiles(_:)):
             item.state = browser?.showsHiddenFiles == true ? .on : .off
@@ -76,7 +76,7 @@ extension TerminalController {
         }
     }
 
-    private func closeLeoBrowser() {
+    func closeLeoBrowser() {
         guard let leoSession else { return }
         let surface = focusedSurface
         Task {

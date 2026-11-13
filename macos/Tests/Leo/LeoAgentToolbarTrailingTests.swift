@@ -62,13 +62,14 @@ struct LeoAgentToolbarTrailingTests {
         #expect(Array(ids.suffix(3)) == [.leoViewSwitch, .leoInterrupt, .leoMore], "\(ids.map(\.rawValue))")
     }
 
-    @Test func theTrailingItemsAreNeverHidden() {
+    @Test func theSwitchAndMoreAreNeverHiddenAndInterruptFoldsBeforeThem() {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
-        for identifier in [NSToolbarItem.Identifier.leoViewSwitch, .leoInterrupt, .leoMore] {
+        for identifier in [NSToolbarItem.Identifier.leoViewSwitch, .leoMore] {
             let item = fixture.item(identifier)
             #expect(item != nil && item?.isHidden == false && item?.visibilityPriority == .user, "\(identifier.rawValue)")
         }
+        #expect(fixture.interrupt?.visibilityPriority == .standard)
     }
 
     // MARK: Interrupt

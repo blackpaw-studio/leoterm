@@ -135,7 +135,7 @@ struct LeoWindowVisibilityState: Equatable {
     /// The pane under the agent's terminal or chat: the built-in Terminal and
     /// the plugins' summaries and bodies. Always there; empty of plugins
     /// without a plugin system.
-    private(set) var agentPane: LeoAgentPaneModel?
+    @Published private(set) var agentPane: LeoAgentPaneModel?
 
     /// What the pane's Terminal tab runs on (its shells, launch rule and focus
     /// hand-back); wired by the runtime once the window has a controller.

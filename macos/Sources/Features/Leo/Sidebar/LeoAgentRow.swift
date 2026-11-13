@@ -191,6 +191,11 @@ struct LeoAgentRowView: View {
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
+        Button("Reveal Workspace in Finder") { LeoWorkspaceActions.live.reveal(host: row.host, workspace: row.workspace) }
+            .disabled(!LeoAgentTitleMenuItems.canRevealWorkspace(
+                host: row.host, workspace: row.workspace, fileExists: LeoWorkspaceActions.live.fileExists))
+        Button("Copy Workspace Path") { LeoWorkspaceActions.live.copyPath(workspace: row.workspace) }
+            .disabled(row.workspace?.isEmpty ?? true)
         Button("Open Browser") { openBrowser() }
         pluginViewItems
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)

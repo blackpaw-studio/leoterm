@@ -41,8 +41,13 @@ struct LeoSidebarTitlebarStyleTests {
         #expect(
             toolbar.items.map(\.itemIdentifier) == LeoAgentToolbar.itemOrder,
             "\(style): \(toolbar.items.map(\.itemIdentifier.rawValue))")
+        // The trailing groups (toggles, labelled switch, Interrupt, "⋯") need a wide window to leave the capsule centred.
+        fixture.window.setContentSize(NSSize(width: 1500, height: fixture.window.contentLayoutRect.height))
+        for _ in 0 ..< 100 where toolbar.centeredItemIdentifiers != [.leoActivity] {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
         #expect(toolbar.centeredItemIdentifiers == [.leoActivity], "\(style)")
-        #expect(!toolbar.allowsUserCustomization, "\(style)")
+        #expect(toolbar.allowsUserCustomization, "\(style)")
         #expect(fixture.window.toolbarStyle == .unified, "\(style)")
     }
 

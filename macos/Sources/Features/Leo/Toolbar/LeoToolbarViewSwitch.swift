@@ -1,7 +1,7 @@
 import AppKit
 
 /// The toolbar's Terminal | Chat switch: a system segmented control with two
-/// SF Symbol segments, drawn by AppKit on its own glass group. It mirrors a
+/// segments, each an SF Symbol and a noun label, drawn by AppKit on its own glass group. It mirrors a
 /// `LeoViewSwitchPresentation` and reports clicks as view choices; it holds
 /// no view state of its own, so after a click it snaps back to what is shown
 /// until the session changes the choice.
@@ -33,6 +33,7 @@ final class LeoToolbarViewSwitch: NSSegmentedControl {
         setContentCompressionResistancePriority(.required, for: .horizontal)
         setAccessibilityLabel(LeoViewSwitchPresentation.groupLabel)
         for (index, tooltip) in LeoViewSwitchPresentation.tooltips.enumerated() { setToolTip(tooltip, forSegment: index) }
+        for (index, label) in LeoViewSwitchPresentation.segmentLabels.enumerated() { setLabel(label, forSegment: index) }
         apply(presentation)
     }
 
@@ -92,11 +93,11 @@ enum LeoViewSwitchImages {
     private static let dotDiameter: CGFloat = 6
 
     static func terminal() -> NSImage {
-        symbol("terminal", description: LeoViewSwitchPresentation.tooltips[0])
+        symbol(LeoViewSwitchPresentation.segmentSymbols[0], description: LeoViewSwitchPresentation.tooltips[0])
     }
 
     static func chat(showsDot: Bool, label: String) -> NSImage {
-        let base = symbol("bubble.left", description: label)
+        let base = symbol(LeoViewSwitchPresentation.segmentSymbols[1], description: label)
         return showsDot ? withDot(base, description: label) : base
     }
 

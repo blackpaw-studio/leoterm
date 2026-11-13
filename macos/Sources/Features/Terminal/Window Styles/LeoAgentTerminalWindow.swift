@@ -12,7 +12,7 @@ import Combine
 final class LeoAgentTerminalWindow: TerminalWindow {
     /// The toolbar's delegate; the window owns it (an `NSToolbar` holds its
     /// delegate weakly).
-    let leoToolbar = LeoAgentToolbar()
+    let leoToolbar = LeoAgentToolbar(layoutStore: LeoToolbarLayoutStore(defaults: .standard))
     /// What keeps the window's chrome in step with the app's state (the
     /// subtitle), released with the window.
     var chromeSubscriptions: Set<AnyCancellable> = []
@@ -30,8 +30,15 @@ final class LeoAgentTerminalWindow: TerminalWindow {
         super.awakeFromNib()
         styleMask.insert(.fullSizeContentView)
         titlebarAppearsTransparent = false
-        titleVisibility = .visible
+        // The toolbar's title item stands in for the window's own title.
+        titleVisibility = .hidden
         toolbarStyle = .unified
+    }
+
+    /// View ▸ Hide/Show Toolbar: the window's own title takes over while it is hidden.
+    override func toggleToolbarShown(_ sender: Any?) {
+        super.toggleToolbarShown(sender)
+        leoToolbar.syncTitleVisibility()
     }
 
     deinit {

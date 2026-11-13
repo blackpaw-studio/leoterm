@@ -68,7 +68,18 @@ struct LeoAgentToolbarActivityTests {
         // close() must not over-release: ARC owns the window, and the default
         // (true) crashes the host at the next autorelease-pool drain.
         window.isReleasedWhenClosed = false
-        window.contentView = NSView(frame: NSRect(x: 0, y: 0, width: 1100, height: 600))
+        // The agent window's sidebar sits left of the toolbar region; the
+        // title item starts at its edge, so the capsule is placed right of it.
+        let split = NSSplitView(frame: NSRect(x: 0, y: 0, width: 1100, height: 600))
+        split.isVertical = true
+        split.dividerStyle = .thin
+        let sidebar = NSView()
+        sidebar.translatesAutoresizingMaskIntoConstraints = false
+        sidebar.widthAnchor.constraint(equalToConstant: 240).isActive = true
+        split.addArrangedSubview(sidebar)
+        split.addArrangedSubview(NSView())
+        window.contentView = split
+        split.setPosition(240, ofDividerAt: 0)
         let capsule = CapsuleStandIn()
         let pill = PillStandIn()
         let toolbar = LeoAgentToolbar()
@@ -76,6 +87,7 @@ struct LeoAgentToolbarActivityTests {
         toolbar.makeUpdateView = { updateView ?? pill }
         if let hidesItemsInPlace { toolbar.hidesItemsInPlace = hidesItemsInPlace }
         toolbar.install(on: window)
+        toolbar.attach(splitView: split)
         let fixture = Fixture(window: window, toolbar: toolbar, capsule: capsule, pill: pill)
         toolbar.bind(sideBySideChatWidth: fixture.chatWidth)
         toolbar.bind(updateVisible: fixture.updateVisible)
@@ -100,7 +112,8 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1400, height: 600))
+        // Too narrow to flow the capsule between the title and every trailing item.
+        fixture.window.setContentSize(NSSize(width: 980, height: 600))
         await fixture.settle()
         let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
 
@@ -114,6 +127,21 @@ struct LeoAgentToolbarActivityTests {
         fixture.chatWidth.send(0)
         await fixture.settle()
 
+        #expect(container.frame.width == fixture.capsule.frame.width, "\(container.frame) \(fixture.capsule.frame)")
+    }
+
+    @Test func withRoomForTheTrailingItemsChatBesideTheTerminalPadsNothing() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.window.close() }
+        fixture.window.orderFrontRegardless()
+        fixture.window.setContentSize(NSSize(width: 1400, height: 600))
+        await fixture.settle()
+        let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
+
+        fixture.chatWidth.send(448)
+        await fixture.settle()
+
+        // The capsule flows between the title and the trailing items instead of being centred over the column.
         #expect(container.frame.width == fixture.capsule.frame.width, "\(container.frame) \(fixture.capsule.frame)")
     }
 
@@ -151,7 +179,7 @@ struct LeoAgentToolbarActivityTests {
         fixture.zoomed.send(true)
         await fixture.settle()
         let shown = fixture.identifiers
-        #expect(shown.firstIndex(of: .leoResetZoom).map { $0 + 1 } == shown.firstIndex(of: .leoViewSwitch), "\(shown.map(\.rawValue))")
+        #expect(shown.firstIndex(of: .leoResetZoom).map { $0 + 1 } == shown.firstIndex(of: .leoFiles), "\(shown.map(\.rawValue))")
 
         fixture.zoomed.send(false)
         await fixture.settle()
@@ -160,18 +188,18 @@ struct LeoAgentToolbarActivityTests {
 
     // MARK: The update pill (B-349)
 
-    @Test func thePillSitsInTheToolbarRowJustBeforeTheTrailingGroups() async throws {
+    @Test func thePillSitsInTheToolbarRowJustBeforeTheToolToggles() async throws {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1600, height: 600))
         fixture.updateVisible.send(true)
         await fixture.settle()
         let item = try #require(fixture.updateItem, "no update item: \(fixture.identifiers)")
         let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
 
         let ids = fixture.identifiers
-        #expect(ids.firstIndex(of: .leoUpdate) == ids.firstIndex(of: .leoViewSwitch).map { $0 - 1 }, "\(ids.map(\.rawValue))")
+        #expect(ids.firstIndex(of: .leoUpdate) == ids.firstIndex(of: .leoFiles).map { $0 - 1 }, "\(ids.map(\.rawValue))")
         #expect(!item.isHidden)
         let pill = fixture.windowFrame(of: fixture.pill)
         let capsule = fixture.windowFrame(of: container)
@@ -185,7 +213,7 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1600, height: 600))
         fixture.updateVisible.send(true)
         await fixture.settle()
         fixture.updateVisible.send(false)
@@ -206,19 +234,19 @@ struct LeoAgentToolbarActivityTests {
     }
 
     /// Below macOS 15 `isHidden` does nothing: the item is inserted right
-    /// before the view switch and removed again, never left as a ghost.
-    @Test func withoutItemHidingThePillIsInsertedBeforeTheViewSwitchAndRemoved() async throws {
+    /// before the tool toggles and removed again, never left as a ghost.
+    @Test func withoutItemHidingThePillIsInsertedBeforeTheToolTogglesAndRemoved() async throws {
         let fixture = Self.makeFixture(hidesItemsInPlace: false)
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1800, height: 600))
         await fixture.settle()
         #expect(!fixture.identifiers.contains(.leoUpdate), "\(fixture.identifiers.map(\.rawValue))")
 
         fixture.updateVisible.send(true)
         await fixture.settle()
         let shown = fixture.identifiers
-        #expect(shown.firstIndex(of: .leoUpdate) == shown.firstIndex(of: .leoViewSwitch).map { $0 - 1 }, "\(shown.map(\.rawValue))")
+        #expect(shown.firstIndex(of: .leoUpdate) == shown.firstIndex(of: .leoFiles).map { $0 - 1 }, "\(shown.map(\.rawValue))")
 
         fixture.updateVisible.send(false)
         await fixture.settle()
@@ -233,7 +261,7 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture(updateView: host)
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1200, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1600, height: 600))
         await fixture.settle()
 
         model.state = .updateAvailable(.init(appcastItem: SUAppcastItem.empty(), reply: { _ in }))

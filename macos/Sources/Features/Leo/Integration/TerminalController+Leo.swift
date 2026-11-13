@@ -144,6 +144,14 @@ extension TerminalController {
                 }))
         window.leoToolbar.moreMenu = toolbarMenu.menu
         window.leoToolbar.retainedMenu = toolbarMenu
+        let titleMenu = LeoAgentTitleMenu(
+            target: { [weak self] in self },
+            context: { [weak self] in
+                self?.leoTitleMenuContext ?? .init(agent: nil, movesSupported: true, appearanceSupported: true)
+            },
+            fileExists: LeoWorkspaceActions.live.fileExists)
+        window.leoToolbar.titleMenu = titleMenu.menu
+        window.leoToolbar.retainedTitleMenu = titleMenu
         window.installToolbar(inset: leoSession.toolbarInset)
         window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
         window.leoToolbar.bind(sideBySideChatWidth: leoSession.$sideBySideChatWidth)
@@ -158,11 +166,22 @@ extension TerminalController {
                 if let leoSession { LeoViewMenuActions.show(choice, in: leoSession) }
             })
         window.leoToolbar.bind(interruptEnabled: leoInterruptAvailability)
+        window.leoToolbar.bind(tools: leoToolStates)
+        // This window's controller, not whichever responder happens to be first.
+        window.leoToolbar.setToggleSender { [weak self] action, sender in
+            guard let self else { return }
+            NSApp.sendAction(action, to: self, from: sender)
+        }
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
         leoSelectionChanges
             .sink { [weak self] in self?.leoRefreshSubtitle() }
+            .store(in: &window.chromeSubscriptions)
+        // The title item follows `window.title`.
+        window.publisher(for: \.title)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.leoRefreshSubtitle() }
             .store(in: &window.chromeSubscriptions)
         leoRefreshSubtitle()
     }
@@ -178,7 +197,7 @@ extension TerminalController {
 
     /// Fires (next turn, after the change landed) whenever the shown row or
     /// the rows' data change.
-    private var leoSelectionChanges: AnyPublisher<Void, Never> {
+    var leoSelectionChanges: AnyPublisher<Void, Never> {
         guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
         return leoRuntime.model.objectWillChange.map { _ in () }
             .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
@@ -220,16 +239,17 @@ extension TerminalController {
             .eraseToAnyPublisher()
     }
 
-    /// The selected agent's `<cwd> · <harness>`; empty for a terminal row,
-    /// the start screen, or while disconnected.
+    /// The toolbar's title item: the window title, and under it the selected
+    /// agent's `<cwd> · <harness>` (empty for a terminal row, the start
+    /// screen, or while disconnected, and while the subtitle has no room).
     func leoRefreshSubtitle() {
         guard let window = window as? LeoAgentTerminalWindow, let leoRuntime else { return }
-        let text = selectedLeoRow.map { row in
+        let subtitle = selectedLeoRow.map { row in
             LeoAgentWindowSubtitle.text(
                 workspace: row.workspace, harness: row.harness, host: row.host,
                 localHome: NSHomeDirectory(), remoteUser: leoRuntime.machines.configuration(for: row.host)?.user)
         }.flatMap { window.leoToolbar.showsSubtitle ? $0 : nil } ?? ""
-        if window.subtitle != text { window.subtitle = text }
+        window.leoToolbar.setTitle(.init(title: window.title, subtitle: subtitle, isEnabled: selectedLeoRow != nil))
     }
 
     @IBAction func toggleLeoSidebar(_ sender: Any?) {
