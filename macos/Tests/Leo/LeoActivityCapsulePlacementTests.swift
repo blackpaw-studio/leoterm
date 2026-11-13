@@ -90,16 +90,18 @@ struct LeoActivityCapsulePlacementTests {
         #expect(!narrow.showsToggles)
     }
 
-    @Test func sideBySideThePillsReserveIsTakenFromTheTerminalColumn() {
-        let terminalWidth: CGFloat = 1400 - 448 - LeoChatLayout.dividerWidth - 220
-        let plain = placement(window: 1400, sidebar: 220, chatWidth: 448)
-        let withPill = Sizing.placement(
-            windowWidth: 1400, sidebarWidth: 220, chatLeadingEdge: 1400 - 448, leadingChrome: 0, trailingReserve: 200)
-
-        let column = Sizing.layout(
-            availableToolbarWidth: terminalWidth, leadingChrome: 0, trailingReserve: 200, farSideReserve: Sizing.sideBySideFarSideReserve)
-        #expect(withPill.layout.showsUpdateItem == column.showsUpdateItem)
-        #expect(withPill.width <= column.width)
-        #expect(withPill.width < plain.width)
+    @Test func sideBySideThePillNeedsRoomRightOfTheContainerElseItIsHidden() {
+        // The pill sits with the trailing groups, over the chat pane; a pill with no room there
+        // would fold into AppKit's overflow, and its chevron takes the capsule's room too.
+        func shown(window: CGFloat, pill: CGFloat) -> Sizing.Placement {
+            Sizing.placement(
+                windowWidth: window, sidebarWidth: 220, chatLeadingEdge: window - 448, leadingChrome: 0, trailingReserve: pill)
+        }
+        #expect(!shown(window: 1400, pill: 200).layout.showsUpdateItem)
+        #expect(!shown(window: 1400, pill: 200).layout.showsToggles)
+        #expect(shown(window: 3200, pill: 200).layout.showsUpdateItem)
+        // No pill: nothing to show, and the capsule is the same either way while the pill is hidden.
+        #expect(!shown(window: 3200, pill: 0).layout.showsUpdateItem)
+        #expect(shown(window: 1400, pill: 200).width == shown(window: 1400, pill: 0).width)
     }
 }

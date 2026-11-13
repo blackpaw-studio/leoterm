@@ -49,6 +49,8 @@ final class LeoToolbarTitleView: NSView {
         chevron.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 8, weight: .semibold))
         chevron.contentTintColor = .secondaryLabelColor
+        // Decoration: the title is the one element, a pop-up button.
+        chevron.setAccessibilityElement(false)
         chevron.translatesAutoresizingMaskIntoConstraints = false
         chevron.setContentCompressionResistancePriority(.required, for: .horizontal)
         addSubview(chevron)

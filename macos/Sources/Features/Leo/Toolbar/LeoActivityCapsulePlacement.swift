@@ -40,24 +40,30 @@ extension LeoActivityCapsuleSizing {
         }
         let terminalWidth = chatLeadingEdge - LeoChatLayout.dividerWidth - sidebarWidth
         let terminalCentre = sidebarWidth + terminalWidth / 2
+        // The pill is not in the column: it sits with the trailing groups, over the chat pane.
         let columnLayout = layout(
-            availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: trailingReserve,
+            availableToolbarWidth: terminalWidth, leadingChrome: leadingChrome, trailingReserve: 0,
             fixedReserve: fixedReserve, farSideReserve: sideBySideFarSideReserve)
         let trailingPad = max(0, 2 * (regionCentre - terminalCentre))
         // The container's padded right edge reaches under the trailing groups:
         // clear of the switch and "⋯" (they never fold), and the toggles and
         // Interrupt fold while it reaches them.
         let fitted = clearingTrailingGroups(
-            columnLayout, centre: terminalCentre, trailingPad: trailingPad, windowWidth: windowWidth, fixedReserve: fixedReserve)
+            columnLayout, centre: terminalCentre, trailingPad: trailingPad, windowWidth: windowWidth, fixedReserve: fixedReserve,
+            pillReserve: trailingReserve)
         return Placement(layout: fitted, minX: terminalCentre - fitted.width / 2, trailingPad: trailingPad)
     }
 
     /// `layout` narrowed, if it has to be, so its container (the capsule plus
     /// `trailingPad`, centred on `centre`) ends `trailingReserveMinimal` short
     /// of the window's edge; and which trailing items the room that is left
-    /// right of the container still holds.
+    /// right of the container still holds. An item that does not fit there
+    /// must be hidden: AppKit would fold it into the overflow, and its
+    /// chevron takes room the centred container then lacks (it folds too).
+    /// `pillReserve` is the update pill's room (0: no pill showing).
     private static func clearingTrailingGroups(
-        _ layout: Layout, centre: CGFloat, trailingPad: CGFloat, windowWidth: CGFloat, fixedReserve: CGFloat
+        _ layout: Layout, centre: CGFloat, trailingPad: CGFloat, windowWidth: CGFloat, fixedReserve: CGFloat,
+        pillReserve: CGFloat
     ) -> Layout {
         func room(_ width: CGFloat) -> CGFloat { windowWidth - (centre - width / 2 + width + trailingPad) }
         let minimal = trailingReserveMinimal + fixedReserve
@@ -66,7 +72,9 @@ extension LeoActivityCapsuleSizing {
         let space = room(width)
         return Layout(
             width: width, showsSubtitle: layout.showsSubtitle, showsTitle: layout.showsTitle,
-            showsUpdateItem: layout.showsUpdateItem, isCentered: layout.isCentered,
+            // The pill gives way before the toggles, as everywhere else: it needs the room for all of them too.
+            showsUpdateItem: pillReserve > 0 && space >= trailingGroupsReserve + fixedReserve + pillReserve,
+            isCentered: layout.isCentered,
             showsToggles: space >= trailingGroupsReserve + fixedReserve,
             showsInterrupt: space >= trailingReserveWithoutToggles + fixedReserve, titleWidth: layout.titleWidth)
     }

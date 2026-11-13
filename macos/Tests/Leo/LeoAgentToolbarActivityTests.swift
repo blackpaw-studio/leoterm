@@ -223,7 +223,7 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture(hidesItemsInPlace: false)
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1600, height: 600))
+        fixture.window.setContentSize(NSSize(width: 1800, height: 600))
         await fixture.settle()
         #expect(!fixture.identifiers.contains(.leoUpdate), "\(fixture.identifiers.map(\.rawValue))")
 

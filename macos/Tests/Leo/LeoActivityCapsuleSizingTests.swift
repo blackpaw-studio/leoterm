@@ -33,7 +33,8 @@ struct LeoActivityCapsuleSizingTests {
     }
 
     @Test func noTitleItemIsLeftOnceTheTitleHasGoneAndWithNoRoomToCentre() {
-        let noTitle = Sizing.layout(availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal, leadingChrome: 160)
+        let noTitle = Sizing.layout(
+            availableToolbarWidth: Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal, leadingChrome: Sizing.trailingReserveMinimal)
         #expect(!noTitle.showsTitle && noTitle.titleWidth == 0)
         #expect(Sizing.layout(availableToolbarWidth: 100, leadingChrome: 0).titleWidth == 0)
     }
@@ -92,7 +93,7 @@ struct LeoActivityCapsuleSizingTests {
 
     @Test func aNarrowCollapsedWindowDropsTheTitleAndStillShowsTheCapsule() {
         let width = Sizing.minimumWidth + 2 * Sizing.trailingReserveMinimal
-        let layout = Sizing.layout(availableToolbarWidth: width, leadingChrome: 160)
+        let layout = Sizing.layout(availableToolbarWidth: width, leadingChrome: Sizing.trailingReserveMinimal)
 
         // The trailing groups keep their room, so the capsule sits at its floor.
         #expect(!layout.showsTitle)
@@ -105,8 +106,10 @@ struct LeoActivityCapsuleSizingTests {
         #expect(narrow.width == Sizing.minimumWidth)
         #expect(!narrow.showsSubtitle && !narrow.showsTitle && !narrow.showsUpdateItem && !narrow.isCentered)
 
-        let tight = Sizing.layout(availableToolbarWidth: 345, leadingChrome: 0)
-        #expect(tight.width == 345 - Sizing.trailingReserveMinimal - Sizing.capsuleGap)
+        let tight = Sizing.layout(availableToolbarWidth: 400, leadingChrome: 0)
+        // The uncentred capsule keeps the measured widths only (no centring slack), plus its own clearance.
+        let measuredMinimal = Sizing.trailingReserveMinimal - Sizing.itemSlack
+        #expect(tight.width == 400 - measuredMinimal - Sizing.capsuleGap - Sizing.uncentredClearance)
 
         // Narrower than the compact capsule: it stops shrinking there.
         for width in [100, 0] as [CGFloat] {
@@ -121,7 +124,7 @@ struct LeoActivityCapsuleSizingTests {
 
         #expect(!layout.isCentered)
         #expect(layout.width >= Sizing.compactWidth)
-        #expect(layout.width + Sizing.capsuleGap + Sizing.trailingReserveMinimal <= 360)
+        #expect(layout.width + Sizing.capsuleGap + Sizing.trailingReserveMinimal - Sizing.itemSlack <= 360)
     }
 
     @Test func theCapsuleStaysCentredWhileItFitsCentred() {

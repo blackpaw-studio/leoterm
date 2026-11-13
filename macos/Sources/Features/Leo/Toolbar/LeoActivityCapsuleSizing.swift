@@ -27,21 +27,31 @@ enum LeoActivityCapsuleSizing {
     static let titleGap: CGFloat = 12
     /// The gap between an uncentred capsule and the trailing groups.
     static let capsuleGap: CGFloat = 8
+    /// Spare room an uncentred capsule keeps beside that gap: AppKit folded it
+    /// into the overflow with 27 pt spare (a 600 pt window, sidebar open) and
+    /// not with 40.
+    static let uncentredClearance: CGFloat = 40
     /// What the title with its subtitle, and the title alone, keep on each
     /// side of the centred capsule.
     static let subtitleSideReserve: CGFloat = 190
     static let titleSideReserve: CGFloat = 100
+    /// Room kept beyond the measured widths of the trailing groups while the
+    /// capsule is centred. AppKit puts gaps around a centred item that the
+    /// items' own frames don't show: with only the measured 10 pt spare at a
+    /// 1050 pt window it folded the capsule into the overflow chevron, and
+    /// 24 pt keeps it. An uncentred capsule needs none (`layout` takes it back).
+    static let itemSlack: CGFloat = 24
     /// What the trailing groups take right of the capsule while every one
     /// fits: the tool toggles (one glass group, 116 pt), the Terminal | Chat
     /// switch with its labels (177 pt), Interrupt and "⋯" (one group, 73 pt),
     /// the toolbar's gaps and trailing margin. Measured in a test host's
     /// toolbar on macOS 27 (390 pt) plus slack.
-    static let trailingGroupsReserve: CGFloat = 400
+    static let trailingGroupsReserve: CGFloat = 400 + itemSlack
     /// The same with the toggles folded into the overflow (the toggles' 116 pt
     /// and one gap fewer).
-    static let trailingReserveWithoutToggles: CGFloat = 280
+    static let trailingReserveWithoutToggles: CGFloat = 280 + itemSlack
     /// The same with Interrupt folded too: the switch and "⋯" alone.
-    static let trailingReserveMinimal: CGFloat = 245
+    static let trailingReserveMinimal: CGFloat = 245 + itemSlack
     /// What the capsule keeps on its far side while Chat sits beside the
     /// terminal: the trailing groups are over the chat pane then, so the
     /// column only needs a gap before the divider.
@@ -130,7 +140,7 @@ enum LeoActivityCapsuleSizing {
         func width(_ tier: Tier) -> CGFloat { availableToolbarWidth - 2 * side(tier) }
         func titleWidth(for tier: Tier) -> CGFloat { min(maxTitleWidth, max(0, side(tier) - leadingChrome - titleGap)) }
         guard let tier = tiers.first(where: { width($0) >= minimumWidth }) else {
-            let room = availableToolbarWidth - leadingChrome - (farSideReserve ?? trailingReserveMinimal) - fixedReserve - capsuleGap
+            let room = availableToolbarWidth - leadingChrome - (farSideReserve ?? trailingReserveMinimal - itemSlack) - fixedReserve - capsuleGap - uncentredClearance
             return Layout(
                 width: min(minimumWidth, max(compactWidth, room)), showsSubtitle: false, showsTitle: false,
                 showsUpdateItem: false, isCentered: false, showsToggles: farSideReserve != nil, showsInterrupt: farSideReserve != nil,
