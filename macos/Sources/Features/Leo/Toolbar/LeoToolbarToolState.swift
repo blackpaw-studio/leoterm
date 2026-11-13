@@ -4,7 +4,8 @@
 /// toolbar; the menu bar's Show/Hide titles read the same value.
 ///
 /// With no agent shown (a plain terminal, the start screen) every toggle is
-/// disabled, the rule Interrupt follows. The Agent Pane also needs tabs to
+/// disabled, the rule Interrupt follows (the Agent Pane toggle still shows
+/// the pane's state). The Agent Pane also needs tabs to
 /// show (`paneShown`). A toggle the setting removes (the
 /// Browser, with Agent browser off) is not present rather than disabled.
 struct LeoToolbarToolState: Equatable {
@@ -39,13 +40,19 @@ struct LeoToolbarToolState: Equatable {
         paneExpanded: Bool
     ) {
         files = Tool(isPresent: true, isEnabled: hasAgent, isOn: hasAgent && filesOpen)
-        browser = Tool(isPresent: browserSettingOn, isEnabled: hasAgent, isOn: hasAgent && browserFront)
-        agentPane = Tool(isPresent: true, isEnabled: hasAgent && paneShown, isOn: hasAgent && paneShown && paneExpanded)
+        browser = Tool(
+            isPresent: browserSettingOn, isEnabled: hasAgent && browserSettingOn, isOn: hasAgent && browserSettingOn && browserFront)
+        agentPane = Tool(isPresent: true, isEnabled: hasAgent && paneShown, isOn: paneShown && paneExpanded)
         filesStep = filesOpen ? .close : .open
         browserStep = !browserFront ? .open : (editorHasTabs ? .showEditor : .close)
     }
 
-    var filesMenuTitle: String { files.isOn ? "Hide Files" : "Show Files" }
+    /// View ▸ Show/Hide Files: ⌥⌘B opens, then focuses, then closes, so "Hide"
+    /// only where the item would close the browser.
+    static func filesMenuTitle(for step: LeoWorkspaceBrowserModel.BrowseStep) -> String {
+        step == .close ? "Hide Files" : "Show Files"
+    }
+
     var browserMenuTitle: String { browser.isOn ? "Hide Agent Browser" : "Show Agent Browser" }
     var agentPaneMenuTitle: String { agentPane.isOn ? "Hide Agent Pane" : "Show Agent Pane" }
 }

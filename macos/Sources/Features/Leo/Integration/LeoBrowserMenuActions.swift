@@ -62,8 +62,10 @@ extension TerminalController {
         switch item.action {
         case #selector(browseLeoAgentFiles(_:)):
             guard let runtime = leoRuntime, browser != nil else { return false }
-            item.title = leoToolState.filesMenuTitle
-            return runtime.editorContext(in: self).name != nil
+            let agent = runtime.editorContext(in: self)
+            let step = browser?.browseStep(for: agent, hasFocus: leoSession?.browserPane?.hasFocus == true) ?? .open
+            item.title = LeoToolbarToolState.filesMenuTitle(for: step)
+            return agent.name != nil
         case #selector(toggleLeoHiddenFiles(_:)):
             item.state = browser?.showsHiddenFiles == true ? .on : .off
             return browser?.isOpen == true

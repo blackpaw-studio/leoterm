@@ -15,7 +15,14 @@ struct LeoToolbarToolStateTests {
 
     @Test func withNoAgentEveryToggleIsDisabledAndOff() {
         let none = state(hasAgent: false, filesOpen: true, browserFront: true, paneShown: true, paneExpanded: true)
-        for tool in [none.files, none.browser, none.agentPane] { #expect(!tool.isEnabled && !tool.isOn) }
+        for tool in [none.files, none.browser, none.agentPane] { #expect(!tool.isEnabled) }
+        #expect(!none.files.isOn && !none.browser.isOn)
+    }
+
+    @Test func theAgentPaneToggleFollowsThePaneEvenWhileDisabledOnATerminalRow() {
+        let terminalRow = state(hasAgent: false, paneShown: true, paneExpanded: true)
+        #expect(terminalRow.agentPane.isOn && !terminalRow.agentPane.isEnabled)
+        #expect(terminalRow.agentPaneMenuTitle == "Hide Agent Pane")
     }
 
     @Test func withAnAgentEveryToggleIsEnabled() {
@@ -51,9 +58,19 @@ struct LeoToolbarToolStateTests {
         #expect(off.files.isPresent && off.agentPane.isPresent)
     }
 
+    @Test func theBrowserIsDisabledAndOffWhileTheSettingIsOff() {
+        let off = state(browserSettingOn: false, browserFront: true)
+        #expect(!off.browser.isEnabled && !off.browser.isOn)
+    }
+
+    @Test func theFilesMenuTitleHidesOnlyWhereTheMenuItemWouldClose() {
+        // ⌥⌘B opens, then focuses, then closes: "Hide" only for the closing step.
+        #expect(LeoToolbarToolState.filesMenuTitle(for: .open) == "Show Files")
+        #expect(LeoToolbarToolState.filesMenuTitle(for: .focus) == "Show Files")
+        #expect(LeoToolbarToolState.filesMenuTitle(for: .close) == "Hide Files")
+    }
+
     @Test func theMenuTitlesFollowTheState() {
-        #expect(state().filesMenuTitle == "Show Files")
-        #expect(state(filesOpen: true).filesMenuTitle == "Hide Files")
         #expect(state().browserMenuTitle == "Show Agent Browser")
         #expect(state(browserFront: true).browserMenuTitle == "Hide Agent Browser")
         #expect(state().agentPaneMenuTitle == "Show Agent Pane")

@@ -25,7 +25,7 @@ extension TerminalController {
 
     func validateLeoAgentPaneMenuItem(_ item: NSMenuItem) -> Bool {
         item.title = leoToolState.agentPaneMenuTitle
-        return leoSession?.agentPane?.isShown ?? false
+        return leoToolState.agentPane.isEnabled
     }
 
     func validateLeoPinMenuItem(_ item: NSMenuItem) -> Bool {
