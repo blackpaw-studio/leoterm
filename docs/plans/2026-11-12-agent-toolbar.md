@@ -170,3 +170,18 @@ Follow the isolated-leo-daemon-recipe memory: run with `-c`, a scratch cwd, `TMU
 - **Browser badge:** dropped per the spec. It is queued as an autopilot idea.
 - **D6:** add **Agents ▸ Appearance…** and **Agents ▸ Open in New Window** to the main menu, using the step 7 selectors. The HIG requires every toolbar command to be in the menu bar, and that compliance is what Evan asked for.
 - **Step 7 fallback:** if the title spike can't match the native typography, use the title-styled `NSMenuToolbarItem`. Bring screenshots of both to the orchestrator; don't go to Evan directly.
+
+## Build outcome (2026-11-12)
+
+Steps 1–10 built on `feat/agent-toolbar` (HEAD a7a721272). Review round 1 found one P1 (Appearance… crash with toolbar hidden) and four P2s; the E2E found B1–B5. All fixed except as below; re-reviews of 3276c367a..462744862+ and a7a721272 came back clean at the P0/P1 + user-hittable bar. Gate: full GhosttyTests 4625 tests, 1 failure (`LeoLaunchPlaceholderIntegrationTests/aNewTabWindowReplacesTheLaunchWindowOnItsSpot`, window-geometry flake, passes alone, untouched by this diff); swiftlint clean; launch check 124.
+
+**Accepted risks**
+- Narrow windows fold the toggles and Interrupt with `isHidden` (macOS 15+), not AppKit overflow: AppKit overflow also took Interrupt and shifted the capsule off centre. Toggles stay in the View menu, Interrupt in ⋯.
+- Toggle on/off state is not exposed to VoiceOver (tooltip/AXHelp flips Show→Hide). An NSButton view lost the glass group; a `.selectAny` NSToolbarItemGroup lost the lit state and still exposed no value.
+- Side by side with a very wide chat pane (≳45% of the window), the capsule falls back to the column layout and the toggles and Interrupt fold.
+- The real-toolbar test doesn't assert toggles/Interrupt are visible side by side; covered by E2E shots only.
+- Capsule sizing keeps a fixed trailing reserve after the user removes toolbar items.
+- A layout change in one window reaches other open windows only after relaunch.
+- `LeoAgentTitleMenuItems.Item.isEnabled` is not what the live menu uses (responder validators are); pure tests don't cover the live enablement.
+- The "ambiguous height or width" NSToolbarItem warning at launch is unattributed (suspect the update pill's hosting view).
+- macOS 13/14 fold path (`visibilityPriority`) untested.
