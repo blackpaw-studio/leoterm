@@ -8,6 +8,11 @@ struct LeoViewSwitchPresentation: Equatable {
     /// Segment order: left to right.
     static let choices: [LeoAgentViewChoice] = [.terminal, .chat]
     static let tooltips = ["Terminal", "Chat"]
+    /// HIG: the same content kind in every segment, and noun labels. Each
+    /// segment shows its symbol and this text; the unread count stays a dot
+    /// on Chat's symbol (the label never changes).
+    static let segmentLabels = ["Terminal", "Chat"]
+    static let segmentSymbols = ["terminal", "bubble.left"]
     static let groupLabel = "View"
 
     let isEnabled: Bool

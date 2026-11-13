@@ -49,6 +49,19 @@ struct LeoViewSwitchPresentationTests {
         #expect(LeoViewSwitchPresentation.choices == [.terminal, .chat])
     }
 
+    @Test func everySegmentShowsASymbolAndANounLabel() {
+        #expect(LeoViewSwitchPresentation.segmentLabels == ["Terminal", "Chat"])
+        #expect(LeoViewSwitchPresentation.segmentSymbols == ["terminal", "bubble.left"])
+        #expect(LeoViewSwitchPresentation.segmentLabels.count == LeoViewSwitchPresentation.choices.count)
+    }
+
+    @Test func theUnreadCountStaysOnChatAsADotAndNeverChangesTheVisibleLabel() {
+        let unread = LeoViewSwitchPresentation(layout: .terminal, unreadCount: 4)
+        #expect(unread.showsUnreadDot)
+        #expect(unread.chatAccessibilityLabel == "Chat, 4 unread")
+        #expect(LeoViewSwitchPresentation.segmentLabels[1] == "Chat")
+    }
+
     @Test func clickingChatWhileOnlyTerminalShowsPicksChat() {
         let presentation = LeoViewSwitchPresentation(layout: .terminal, unreadCount: 0)
         #expect(presentation.clicked(segmentStates: [true, true]) == .chat)
