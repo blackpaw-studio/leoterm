@@ -6,12 +6,13 @@ import Testing
 
 @MainActor
 struct LeoAgentToolbarCustomizationTests {
-    private func install(_ defaults: UserDefaults) -> (window: NSWindow, toolbar: LeoAgentToolbar) {
+    private func install(_ defaults: UserDefaults, hidesItemsInPlace: Bool? = nil) -> (window: NSWindow, toolbar: LeoAgentToolbar) {
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 1200, height: 600),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         let toolbar = LeoAgentToolbar(layoutStore: LeoToolbarLayoutStore(defaults: defaults))
+        if let hidesItemsInPlace { toolbar.hidesItemsInPlace = hidesItemsInPlace }
         toolbar.install(on: window)
         return (window, toolbar)
     }
@@ -48,6 +49,22 @@ struct LeoAgentToolbarCustomizationTests {
 
         window.toolbar?.isVisible = false
         #expect(toolbar.titleAnchorView == nil)
+    }
+
+    @Test func theDefaultSetStaysTheShippedOneWhileTheSavedLayoutIsTheLiveToolbar() throws {
+        let defaults = LeoInMemoryDefaults()
+        LeoToolbarLayoutStore(defaults: defaults).save([
+            .leoTitleMenu, .flexibleSpace, .leoActivity, .flexibleSpace, .leoAgentPane, .leoViewSwitch, .leoMore,
+        ])
+        let (window, toolbar) = install(defaults, hidesItemsInPlace: true)
+        defer { window.close() }
+        let nsToolbar = try #require(window.toolbar)
+
+        // The palette's "drag the default set" row reads this: it must restore the shipped layout.
+        let defaultSet = toolbar.toolbarDefaultItemIdentifiers(nsToolbar)
+        #expect(defaultSet.contains(.leoFiles) && defaultSet.contains(.leoInterrupt), "\(defaultSet.map(\.rawValue))")
+        let live = nsToolbar.items.map(\.itemIdentifier)
+        #expect(!live.contains(.leoFiles) && !live.contains(.leoInterrupt), "\(live.map(\.rawValue))")
     }
 
     @Test func theToolbarIsCustomizableButNeverAutosavesItself() {

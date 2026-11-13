@@ -132,6 +132,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         // stays set, for the Window menu and Mission Control.
         window.titleVisibility = .hidden
         window.toolbar = toolbar
+        if #available(macOS 15.0, *), let saved = savedItemIdentifiers() { toolbar.itemIdentifiers = saved }
         // With the toolbar hidden the title item goes with it: show the window's own.
         // `isVisible` is not always observable (View ▸ Hide Toolbar also calls
         // `syncTitleVisibility` from the window).
@@ -272,11 +273,23 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
 
     // MARK: NSToolbarDelegate
 
-    /// The toolbar's first item list: the user's saved arrangement, else the
-    /// default order. The tracking separator joins when the split view arrives.
+    /// The toolbar's default set, which the palette's "drag the default set"
+    /// row offers as the one-drag reset. With item hiding (macOS 15 and later)
+    /// that is always the shipped order, and the user's saved arrangement is
+    /// applied on top through `itemIdentifiers` (`install`). Before that the
+    /// first item list is the only way to restore a layout, so the saved one
+    /// stands in as the default there. The tracking separator joins when the
+    /// split view arrives.
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        let order = layoutStore?.restoredOrder() ?? Self.itemOrder
+        let order = hidesItemsInPlace ? Self.itemOrder : (layoutStore?.restoredOrder() ?? Self.itemOrder)
         return order.filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
+    }
+
+    /// The saved arrangement to put on the toolbar after it is created
+    /// (nil: none saved, or the layout comes through the default set).
+    private func savedItemIdentifiers() -> [NSToolbarItem.Identifier]? {
+        guard hidesItemsInPlace, let layoutStore, layoutStore.hasSavedLayout else { return nil }
+        return layoutStore.restoredOrder().filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
     }
 
     func toolbarImmovableItemIdentifiers(_ toolbar: NSToolbar) -> Set<NSToolbarItem.Identifier> {

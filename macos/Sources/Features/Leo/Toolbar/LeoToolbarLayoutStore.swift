@@ -21,6 +21,8 @@ struct LeoToolbarLayoutStore {
         defaults.set(kept.map(\.rawValue), forKey: Self.key)
     }
 
+    var hasSavedLayout: Bool { defaults.stringArray(forKey: Self.key) != nil }
+
     /// The saved layout, cleaned up; the default order when nothing is saved.
     func restoredOrder() -> [NSToolbarItem.Identifier] {
         guard let saved = defaults.stringArray(forKey: Self.key) else { return LeoAgentToolbarItems.defaultOrder }
