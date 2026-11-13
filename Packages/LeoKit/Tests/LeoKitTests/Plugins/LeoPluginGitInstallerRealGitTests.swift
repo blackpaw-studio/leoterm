@@ -3,12 +3,21 @@ import Testing
 
 @testable import LeoKit
 
+/// Runs blocking work (child processes, pipe reads) on a dispatch thread instead of a Swift
+/// cooperative-pool thread. The pool is only as wide as the CPU count (3 on a hosted runner), so
+/// blocking it here starves every other test's `Task.sleep` / `awaitCondition` wake-up.
+private func offCooperativePool<T: Sendable>(_ work: @escaping @Sendable () throws -> T) async throws -> T {
+    try await withCheckedThrowingContinuation { continuation in
+        DispatchQueue.global().async { continuation.resume(with: Result(catching: work)) }
+    }
+}
+
 /// Runs the real `/usr/bin/git` with exactly the environment the installer asks for.
 private struct ProcessRunner: LeoPluginCommandRunning {
     func run(
         executable: String, arguments: [String], environment: [String: String], timeout: TimeInterval
     ) async throws -> LeoPluginCommandResult {
-        try await Task.detached {
+        try await offCooperativePool {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: executable)
             process.arguments = arguments
@@ -22,7 +31,7 @@ private struct ProcessRunner: LeoPluginCommandRunning {
             let stderr = err.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
             return LeoPluginCommandResult(stdout: stdout, stderr: stderr, status: process.terminationStatus)
-        }.value
+        }
     }
 }
 
@@ -41,7 +50,11 @@ private func git(_ arguments: [String], in directory: URL) throws -> String {
 }
 
 /// A bare repo with one commit on `main` (a plugin) and an annotated tag `v1`.
-private func makeRemote(in base: URL, symlinkedMain: Bool = false) throws -> (url: String, sha: String) {
+private func makeRemote(in base: URL, symlinkedMain: Bool = false) async throws -> (url: String, sha: String) {
+    try await offCooperativePool { try buildRemote(in: base, symlinkedMain: symlinkedMain) }
+}
+
+private func buildRemote(in base: URL, symlinkedMain: Bool) throws -> (url: String, sha: String) {
     let work = base.appendingPathComponent("work")
     let bare = base.appendingPathComponent("remote.git")
     try FileManager.default.createDirectory(at: work.appendingPathComponent("dist"), withIntermediateDirectories: true)
@@ -71,7 +84,7 @@ struct LeoPluginGitInstallerRealGitTests {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent("leo-realgit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: base) }
-        let remote = try makeRemote(in: base)
+        let remote = try await makeRemote(in: base)
         let root = base.appendingPathComponent("plugins")
 
         let installer = installer(root: root)
@@ -89,7 +102,7 @@ struct LeoPluginGitInstallerRealGitTests {
         let base = FileManager.default.temporaryDirectory.appendingPathComponent("leo-realgit-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: base) }
-        let remote = try makeRemote(in: base, symlinkedMain: true)
+        let remote = try await makeRemote(in: base, symlinkedMain: true)
         let root = base.appendingPathComponent("plugins")
 
         await #expect(throws: LeoPluginInstallError.self) {
