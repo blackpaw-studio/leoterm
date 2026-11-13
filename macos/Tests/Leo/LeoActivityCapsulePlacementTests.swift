@@ -24,11 +24,30 @@ struct LeoActivityCapsulePlacementTests {
         #expect(result.trailingPad == 0)
     }
 
-    @Test func sideBySideTheCapsuleIsCentredOverTheTerminalColumn() {
-        let result = placement(window: 1400, sidebar: 220, chatWidth: 448)
+    @Test func sideBySideTheCapsuleIsCentredOverTheTerminalColumnWhereTheTrailingItemsStillFit() {
+        // Only a very wide window keeps every trailing item beside the padded container.
+        let result = placement(window: 3000, sidebar: 220, chatWidth: 448)
 
-        let terminalCentre = (220 + (1400 - 448 - LeoChatLayout.dividerWidth)) / 2
+        let terminalCentre = (220 + (3000 - 448 - LeoChatLayout.dividerWidth)) / 2
         #expect(abs(result.minX + result.width / 2 - terminalCentre) <= 0.5)
+    }
+
+    /// The trailing items are always right-aligned over the chat pane, and the
+    /// padded container that centres the capsule on the terminal column reaches
+    /// as far right as the capsule plus the chat pane's width, so it covers the
+    /// room they need: the toggles and Interrupt can never fit beside it. Where
+    /// they fit at all, the capsule flows between the title and them instead.
+    @Test func sideBySideTheTogglesAndInterruptStayWhereTheyFit() {
+        for (window, chat) in [(CGFloat(1660), CGFloat(530)), (1400, 440), (1200, 400)] {
+            let result = placement(window: window, sidebar: 260, chatWidth: chat)
+
+            #expect(result.layout.showsToggles && result.layout.showsInterrupt, "window \(window)")
+            #expect(!result.layout.isCentered && result.trailingPad == 0, "window \(window)")
+            #expect(result.maxX <= window - chat - Sizing.chatClearance, "window \(window)")
+            #expect(result.minX >= 260 && result.width >= Sizing.minimumWidth, "window \(window)")
+            // Clear of the trailing groups it keeps beside it.
+            #expect(result.maxX <= window - Sizing.trailingGroupsReserve, "window \(window)")
+        }
     }
 
     @Test func sideBySideTheCapsuleKeepsClearOfTheChatPane() {
@@ -39,16 +58,18 @@ struct LeoActivityCapsulePlacementTests {
     }
 
     @Test func theContainerStaysCentredInTheRegionWhateverTheOffset() {
-        let result = placement(window: 1400, sidebar: 220, chatWidth: 448)
+        // Too narrow to flow between the title and the trailing groups: the centred container, with items shed.
+        let result = placement(window: 900, sidebar: 220, chatWidth: 300)
 
         let containerCentre = result.minX + (result.width + result.trailingPad) / 2
-        let regionCentre: CGFloat = 220 + 1180 / 2
+        let regionCentre: CGFloat = 220 + 680 / 2
         #expect(abs(containerCentre - regionCentre) <= 0.5)
     }
 
     @Test func aNarrowTerminalColumnDropsTheSubtitleButKeepsTheTitle() {
         // The column is the terminal's 480 pt minimum: too tight for the subtitle.
-        let result = placement(window: 1280, sidebar: 220, chatWidth: 1280 - 220 - 480 - LeoChatLayout.dividerWidth)
+        // Too narrow to flow between the title and the trailing groups, so the column is the room.
+        let result = placement(window: 900, sidebar: 220, chatWidth: 900 - 220 - 480 - LeoChatLayout.dividerWidth)
 
         #expect(!result.layout.showsSubtitle && result.layout.showsTitle)
     }
@@ -82,26 +103,25 @@ struct LeoActivityCapsulePlacementTests {
         }
     }
 
-    @Test func sideBySideTheTogglesFoldWhenTheCapsulesContainerReachesThem() {
-        // The container is padded to the right so AppKit centres it; it reaches under the trailing groups.
-        func shown(window: CGFloat) -> Sizing.Layout { placement(window: window, sidebar: 220, chatWidth: 448).layout }
-        #expect(shown(window: 2400).showsToggles && shown(window: 2400).showsInterrupt)
-        let narrow = shown(window: 1400)
-        #expect(!narrow.showsToggles)
+    @Test func sideBySideTheTogglesFoldOnlyWhereTheyCannotFitAtAll() {
+        func shown(window: CGFloat) -> Sizing.Layout { placement(window: window, sidebar: 220, chatWidth: 300).layout }
+        #expect(shown(window: 1400).showsToggles && shown(window: 1400).showsInterrupt)
+        // Too narrow for the title, the capsule's floor and the trailing groups: the padded, centred container, items shed.
+        #expect(!shown(window: 900).showsToggles)
     }
 
-    @Test func sideBySideThePillNeedsRoomRightOfTheContainerElseItIsHidden() {
+    @Test func sideBySideThePillNeedsRoomRightOfTheCapsuleElseItIsHidden() {
         // The pill sits with the trailing groups, over the chat pane; a pill with no room there
         // would fold into AppKit's overflow, and its chevron takes the capsule's room too.
         func shown(window: CGFloat, pill: CGFloat) -> Sizing.Placement {
             Sizing.placement(
                 windowWidth: window, sidebarWidth: 220, chatLeadingEdge: window - 448, leadingChrome: 0, trailingReserve: pill)
         }
-        #expect(!shown(window: 1400, pill: 200).layout.showsUpdateItem)
-        #expect(!shown(window: 1400, pill: 200).layout.showsToggles)
+        #expect(shown(window: 1400, pill: 200).layout.showsUpdateItem)
+        #expect(shown(window: 1400, pill: 200).layout.showsToggles)
+        #expect(!shown(window: 900, pill: 200).layout.showsUpdateItem)
+        #expect(!shown(window: 900, pill: 200).layout.showsToggles)
         #expect(shown(window: 3200, pill: 200).layout.showsUpdateItem)
-        // No pill: nothing to show, and the capsule is the same either way while the pill is hidden.
         #expect(!shown(window: 3200, pill: 0).layout.showsUpdateItem)
-        #expect(shown(window: 1400, pill: 200).width == shown(window: 1400, pill: 0).width)
     }
 }

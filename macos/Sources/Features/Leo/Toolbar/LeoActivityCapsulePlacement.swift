@@ -51,7 +51,43 @@ extension LeoActivityCapsuleSizing {
         let fitted = clearingTrailingGroups(
             columnLayout, centre: terminalCentre, trailingPad: trailingPad, windowWidth: windowWidth, fixedReserve: fixedReserve,
             pillReserve: trailingReserve)
-        return Placement(layout: fitted, minX: terminalCentre - fitted.width / 2, trailingPad: trailingPad)
+        let columnPlacement = Placement(layout: fitted, minX: terminalCentre - fitted.width / 2, trailingPad: trailingPad)
+        let keepsEverything = fitted.showsToggles && fitted.showsInterrupt && (trailingReserve == 0 || fitted.showsUpdateItem)
+        if keepsEverything { return columnPlacement }
+        return flowing(
+            windowWidth: windowWidth, sidebarWidth: sidebarWidth, chatLeadingEdge: chatLeadingEdge, leadingChrome: leadingChrome,
+            pillReserve: trailingReserve, fixedReserve: fixedReserve) ?? columnPlacement
+    }
+
+    /// The capsule between the title and the trailing groups, with all of them
+    /// shown, when the room allows. The trailing items sit over the chat pane,
+    /// but the padded container that centres the capsule on the terminal
+    /// column reaches as far right as the capsule plus the chat pane's width,
+    /// so the toggles and Interrupt cannot fit beside it (the container would
+    /// cover them); the capsule is not centred then, and AppKit's flexible
+    /// spaces put it midway between the title and the pill or toggles. The
+    /// title keeps its subtitle's room, so the capsule sits as far left as it
+    /// can, and the pill gives way before the capsule shrinks below its floor.
+    private static func flowing(
+        windowWidth: CGFloat, sidebarWidth: CGFloat, chatLeadingEdge: CGFloat, leadingChrome: CGFloat, pillReserve: CGFloat,
+        fixedReserve: CGFloat
+    ) -> Placement? {
+        let titleWidth = subtitleSideReserve - titleGap
+        for pill in pillReserve > 0 ? [pillReserve, 0] : [0] {
+            let trailing = trailingGroupsReserve + fixedReserve + pill
+            let titleEnd = sidebarWidth + leadingChrome + titleWidth
+            let trailingStart = windowWidth - trailing
+            let centre = (titleEnd + trailingStart) / 2
+            let room = min(
+                trailingStart - titleEnd - 2 * titleGap, 2 * (chatLeadingEdge - chatClearance - centre),
+                LeoActivityCapsulePresentation.maxWidth)
+            guard room >= minimumWidth else { continue }
+            let layout = Layout(
+                width: room, showsSubtitle: true, showsTitle: true, showsUpdateItem: pill > 0, isCentered: false,
+                showsToggles: true, showsInterrupt: true, titleWidth: titleWidth)
+            return Placement(layout: layout, minX: centre - room / 2, trailingPad: 0)
+        }
+        return nil
     }
 
     /// `layout` narrowed, if it has to be, so its container (the capsule plus

@@ -112,7 +112,8 @@ struct LeoAgentToolbarActivityTests {
         let fixture = Self.makeFixture()
         defer { fixture.window.close() }
         fixture.window.orderFrontRegardless()
-        fixture.window.setContentSize(NSSize(width: 1400, height: 600))
+        // Too narrow to flow the capsule between the title and every trailing item.
+        fixture.window.setContentSize(NSSize(width: 980, height: 600))
         await fixture.settle()
         let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
 
@@ -126,6 +127,21 @@ struct LeoAgentToolbarActivityTests {
         fixture.chatWidth.send(0)
         await fixture.settle()
 
+        #expect(container.frame.width == fixture.capsule.frame.width, "\(container.frame) \(fixture.capsule.frame)")
+    }
+
+    @Test func withRoomForTheTrailingItemsChatBesideTheTerminalPadsNothing() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.window.close() }
+        fixture.window.orderFrontRegardless()
+        fixture.window.setContentSize(NSSize(width: 1400, height: 600))
+        await fixture.settle()
+        let container = try #require(fixture.itemView, "the toolbar never built the capsule item")
+
+        fixture.chatWidth.send(448)
+        await fixture.settle()
+
+        // The capsule flows between the title and the trailing items instead of being centred over the column.
         #expect(container.frame.width == fixture.capsule.frame.width, "\(container.frame) \(fixture.capsule.frame)")
     }
 
