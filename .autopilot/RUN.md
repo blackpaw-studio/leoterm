@@ -36,6 +36,7 @@ Lane: B-393
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-14T19:29:03Z
 
 Lane: B-395
   Branch: autopilot-lane/B-395
@@ -46,7 +47,9 @@ Lane: B-395
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-14T19:29:03Z
 
 Progress:
 - Preflight: main merged; no open bump/leo-* PR; inbox applied: created B-393, B-395 (bugs), B-394 (idea); B-014/B-380 dropped per owner answers; B-051 dropped (owner, in session). Inbox entry 20261114T012321201831Z-fc7a345a (CI flakes, "/issue leoterm: …" prefix) unparseable, not applied.
 - Picks: B-393 light (sidebar attention state), B-395 light (move UI feedback). Independent footprints.
+- Runners: B-393 d-dc298b94317b, B-395 d-9b747e361293 (leo implement role), parallel.
