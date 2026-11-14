@@ -116,7 +116,7 @@ struct LeoAgentRowView: View {
 
     var body: some View {
         LeoAgentRowContent(
-            row: row, error: error, isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
+            row: row, error: error, moveStage: actions.moveStages[row.id], isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
             nameHighlights: nameHighlights, inWorkingSection: inWorkingSection, unreadCount: unreadCount,
             subagents: subagents, dismissTask: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) },
             showingTasks: $showingTasks

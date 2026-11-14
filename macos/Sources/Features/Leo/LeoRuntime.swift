@@ -39,6 +39,7 @@ import LeoKit
     /// selection change, and when a seed lands after one.
     private var unreadOpenSubscriptions: Set<AnyCancellable> = []
     private var moveForceOffers: AnyCancellable?
+    private var moveNotices: AnyCancellable?
     #if DEBUG
     private var moveFixture: LeoMoveFixture?
     #endif
@@ -459,6 +460,11 @@ import LeoKit
         moveForceOffers = actions.$forceOffer.compactMap { $0 }.sink { [weak actions] offer in
             guard let actions else { return }
             LeoMoveFlow.offerForce(offer, actions: actions, in: NSApp.keyWindow)
+        }
+        // A refused move or copy says why, whichever window is key (B-395).
+        moveNotices = actions.$moveNotice.compactMap { $0 }.sink { [weak actions] notice in
+            guard let actions else { return }
+            LeoMoveFlow.show(notice, actions: actions, in: NSApp.keyWindow)
         }
         LeoAgentsMenuController.shared.installMoveShortcuts()
         control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in

@@ -29,6 +29,13 @@ struct LeoAgentRowProgressPresentationTests {
         return LeoAgentRowPresentation(row: row, error: error, now: now)
     }
 
+    /// B-395: a move's stage is the daemon's own word, below an error and above task text.
+    @Test func aRunningMovesStageShowsOnTheDetailLine() {
+        let row = LeoAgentRow(host: .local, name: "alpha", template: "claude", status: .running, activity: .idle, actionDetail: nil)
+        #expect(LeoAgentRowPresentation(row: row, error: nil, moveStage: "rsync-workspace").detail == .progress("rsync-workspace\u{2026}"))
+        #expect(LeoAgentRowPresentation(row: row, error: "boom", moveStage: "rsync-workspace").detail == .error("boom"))
+    }
+
     @Test func determinateTaskShowsPieAndTitleOnly() {
         let eta = Self.t0.addingTimeInterval(100 + 240)
         let p = presentation([Self.task()], eta: ["build": eta])

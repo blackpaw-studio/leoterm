@@ -32,6 +32,12 @@ import OSLog
     /// A move the daemon refused only because the agent is mid-turn; the UI
     /// asks whether to move it anyway (`acceptForceOffer`).
     @Published private(set) var forceOffer: LeoMoveForceOffer?
+    /// B-395: why a move or copy didn't happen, in the daemon's words (every
+    /// preflight reason). Shown as an alert; the row error stays as the
+    /// quieter trace.
+    @Published private(set) var moveNotice: LeoMoveNotice?
+    /// The stage the daemon reports for each row's running move or copy.
+    @Published private(set) var moveStages: [LeoAgentRow.ID: String] = [:]
     private let moveSleep: LeoAgentMover.Sleep
     /// Resolves the daemon, generation and configuration of the row's own
     /// host for every call below, so actions on one machine never wait on,
@@ -268,6 +274,7 @@ import OSLog
         move(offer.row, to: offer.destination, force: true)
     }
     func dismissForceOffer() { forceOffer = nil }
+    func dismissMoveNotice() { moveNotice = nil }
 
     /// Runs the job to its outcome while the row stays pending. A finished
     /// job (or a lost one) refreshes the list: a moved agent turns dormant
@@ -278,9 +285,21 @@ import OSLog
         run(
             row, refreshOnSuccess: false, outlivesReconnect: true,
             onSuccess: { [weak self] (outcome: LeoAgentMoveOutcome) in self?.finish(outcome, row: row, request: request) },
-            operation: { daemon in try await LeoAgentMover(client: daemon, sleep: sleep).run(row.name, request) }
+            operation: { [weak self] daemon in
+                defer { self?.moveStages[row.id] = nil }
+                do {
+                    return try await LeoAgentMover(client: daemon, sleep: sleep).run(
+                        row.name, request, onStage: { stage in await self?.setMoveStage(stage, for: row.id) }
+                    )
+                } catch let error as LeoDaemonError {
+                    self?.moveNotice = LeoMoveNotice(row: row, request: request, message: error.localizedDescription)
+                    throw error
+                }
+            }
         )
     }
+
+    private func setMoveStage(_ stage: String, for id: LeoAgentRow.ID) { moveStages[id] = stage }
 
     private func finish(_ outcome: LeoAgentMoveOutcome, row: LeoAgentRow, request: LeoMoveRequest) {
         switch outcome {
@@ -288,12 +307,14 @@ import OSLog
             refresh()
         case .unknown(let message):
             model.setRowError(message, for: row.id)
+            moveNotice = LeoMoveNotice(row: row, request: request, message: message)
             refresh()
         case .refused(let code, let message, let offersForce):
             if offersForce, let destination = request.to {
                 forceOffer = LeoMoveForceOffer(row: row, destination: destination, message: message)
             } else {
                 model.setRowError(message, code: code, for: row.id)
+                moveNotice = LeoMoveNotice(row: row, request: request, message: message)
             }
         }
     }
@@ -455,4 +476,19 @@ struct LeoMoveForceOffer: Equatable {
     let row: LeoAgentRow
     let destination: String
     let message: String
+}
+
+/// A move or copy that did not happen, with the daemon's reasons (one per line).
+struct LeoMoveNotice: Equatable {
+    let title: String
+    let message: String
+
+    init(title: String, message: String) {
+        self.title = title
+        self.message = message
+    }
+
+    init(row: LeoAgentRow, request: LeoMoveRequest, message: String) {
+        self.init(title: "Couldn\u{2019}t \(request.mode.rawValue) \(row.displayName)", message: message)
+    }
 }

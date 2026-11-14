@@ -98,7 +98,7 @@ struct LeoAgentRowPresentation: Equatable {
     /// `now` dates the "last active" label; without it (no clock yet) the
     /// row has no time. Metadata the daemon didn't report adds nothing.
     init(
-        row: LeoAgentRow, error: String?, now: Date? = nil,
+        row: LeoAgentRow, error: String?, moveStage: String? = nil, now: Date? = nil,
         timeZone: TimeZone = .current, locale: Locale = .current, inWorkingSection: Bool = false
     ) {
         let resolved = LeoAgentRowState(row: row, error: error, inWorkingSection: inWorkingSection)
@@ -107,7 +107,7 @@ struct LeoAgentRowPresentation: Equatable {
         let summary = Self.taskSummary(row: row, agentIsInError: resolved.state == .error, now: now)
         task = summary
         isTaskFailure = summary != nil && row.tasks.primary?.state == .failed
-        detail = Self.detail(row: row, error: error, template: template, usage: usage, progress: summary?.detail)
+        detail = Self.detail(row: row, error: error, moveStage: moveStage, template: template, usage: usage, progress: summary?.detail)
         if case .warning = detail { state = resolved.showingWarning() } else { state = resolved }
         let active = Self.lastActive(row.metadata, now: now)
         lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
@@ -161,12 +161,13 @@ struct LeoAgentRowPresentation: Equatable {
         ["\(name), \(state.accessibilityLabel)", barColor?.displayName].compactMap { $0 }.joined(separator: ", ")
     }
 
-    private static func detail(row: LeoAgentRow, error: String?, template: String?, usage: LeoAgentUsage?, progress: String?) -> Detail {
+    private static func detail(row: LeoAgentRow, error: String?, moveStage: String?, template: String?, usage: LeoAgentUsage?, progress: String?) -> Detail {
         let metadata = row.metadata
         let reason = row.attention == .needsInput ? row.attentionReason : nil
         let attention = reason.flatMap { [$0.tool, $0.detail].compactMap { $0 }.nonEmptyJoined(": ") }
         if let attention { return .attention(attention) }
         if let error, !error.isEmpty { return .error(error) }
+        if let moveStage { return .progress("\(moveStage)\u{2026}") }
         if let warning = row.environments?.error, !warning.isEmpty { return .warning(warning) }
         if let progress { return .progress(progress) }
         if let task = metadata?.task { return .task(task) }
