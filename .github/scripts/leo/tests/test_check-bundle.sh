@@ -204,6 +204,32 @@ paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
 [[ "$rc" -ne 0 && "$paths" == *Linked* && "$paths" != *"$app" ]] && ok=yes || ok=no
 result "$ok" "a symlinked helper is rejected before anything is listed (the signer would follow it out of the bundle)" "rc=$rc: $paths"
 
+app="$(fake_app orderhelpersdir)"
+mkdir "$work/outside-helpers"
+install -m 0755 "$work/stubs/tmux" "$work/outside-helpers/tmux"
+rm -rf "$app/Contents/Helpers"
+ln -s "$work/outside-helpers" "$app/Contents/Helpers"
+paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 && "$paths" != *outside-helpers/tmux* ]] && ok=yes || ok=no
+result "$ok" "a symlinked Contents/Helpers is rejected, not walked" "rc=$rc: $paths"
+
+app="$(fake_app ordercontents)"
+mkdir "$work/outside-contents"
+mv "$app/Contents" "$work/outside-contents/Contents"
+ln -s "$work/outside-contents/Contents" "$app/Contents"
+paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 && "$paths" != *outside-contents* ]] && ok=yes || ok=no
+result "$ok" "a symlinked Contents is rejected, not walked" "rc=$rc: $paths"
+
+app="$(fake_app hostsdir)"
+mkdir "$work/outside-hosts"
+mv "$app/Contents/Helpers"/* "$work/outside-hosts/"
+rmdir "$app/Contents/Helpers"
+ln -s "$work/outside-hosts" "$app/Contents/Helpers"
+run "$app"
+[[ "$RC" -ne 0 && "$OUT" == *symlink* ]] && ok=yes || ok=no
+result "$ok" "check-bundle rejects a symlinked Contents/Helpers" "rc=$RC: $OUT"
+
 app="$(fake_app orderdir)"
 mkdir "$app/Contents/Helpers/Nested"
 paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
@@ -221,6 +247,9 @@ result "$ok" "a project that builds LeoPluginHost requires it"
 result "$ok" "a project from before LeoPluginHost is the legacy path"
 [[ "$(bash "$expected" "$work/missing.pbxproj")" == yes ]] && ok=yes || ok=no
 result "$ok" "an unreadable project fails closed (required)"
+mkdir "$work/dir.pbxproj"
+[[ "$(bash "$expected" "$work/dir.pbxproj")" == yes ]] && ok=yes || ok=no
+result "$ok" "a directory (grep read error) fails closed, not 'absent'"
 [[ "$(bash "$expected" "$macos/Ghostty.xcodeproj/project.pbxproj")" == yes ]] && ok=yes || ok=no
 result "$ok" "this repo's Xcode project requires LeoPluginHost (guards a rename silently disabling the check)"
 

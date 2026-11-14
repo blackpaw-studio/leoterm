@@ -50,6 +50,17 @@ check_helper() {
       || fail "$bin TeamIdentifier is '$(sed -n 's/^TeamIdentifier=//p' <<<"$info")', expected $team"
   fi
 }
+# Mirror of nested-code-paths.sh: Contents and Contents/Helpers must be real
+# directories inside the bundle, or the checks below would inspect (and the
+# signer would have signed) files outside it.
+for dir in "$app/Contents" "$app/Contents/Helpers"; do
+  [[ ! -L "$dir" ]] || fail "$dir is a symlink"
+done
+if [[ -d "$app/Contents/Helpers" ]]; then
+  real_app="$(cd -P "$app" && pwd)"
+  real_helpers="$(cd -P "$app/Contents/Helpers" && pwd)"
+  [[ "$real_helpers" == "$real_app/Contents/Helpers" ]] || fail "$app/Contents/Helpers resolves outside the bundle ($real_helpers)"
+fi
 check_helper "$app/Contents/Helpers/leo"
 check_helper "$app/Contents/Helpers/tmux"
 # Anything else in Helpers (LeoPluginHost today) is held to the same bar, so

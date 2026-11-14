@@ -26,6 +26,23 @@ printf '%s\n' \
 # codesign follows symlinks, so a linked helper would have the signer rewrite
 # a file outside the bundle: every entry must be a regular file. Checked
 # before anything is printed, so a rejected bundle lists nothing.
+# The same goes for the directories on the way: a symlinked Contents or
+# Contents/Helpers would walk the per-entry checks straight out of the bundle,
+# so both must be real directories whose resolved path sits inside the bundle.
+for dir in "$app/Contents" "$app/Contents/Helpers"; do
+  if [[ -L "$dir" ]]; then
+    echo "::error::nested-code-paths: $dir is a symlink" >&2
+    exit 1
+  fi
+done
+if [[ -d "$app/Contents/Helpers" ]]; then
+  real_app="$(cd -P "$app" && pwd)"
+  real_helpers="$(cd -P "$app/Contents/Helpers" && pwd)"
+  if [[ "$real_helpers" != "$real_app/Contents/Helpers" ]]; then
+    echo "::error::nested-code-paths: $app/Contents/Helpers resolves outside the bundle ($real_helpers)" >&2
+    exit 1
+  fi
+fi
 shopt -s dotglob nullglob
 helpers=("$app"/Contents/Helpers/*)
 for helper in ${helpers[@]+"${helpers[@]}"}; do
