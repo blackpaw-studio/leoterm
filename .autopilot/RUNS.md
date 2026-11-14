@@ -900,3 +900,29 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-14
+
+🛠 leoterm autopilot — 1 fixed, 0 shipped, 1 blocked
+Fixed
+• B-395 Agent move feedback — refused moves show every daemon reason in an alert; running moves show the daemon's stage on the row (Mac) (verified: not visually verified — screen capture only; stages and multi-reason refusal covered by tests) · light
+Nothing shipped: the only ready items were two bugs.
+Calls I made — reply "veto D-0xx" to undo
+• D-779 Mac only; iOS stage display deferred (B-396) — Mac/iOS rule
+• D-780 stage names shown raw, as the daemon reports them — calm, don't invent phases
+• D-781 no completion banner; row turns "moved" after refresh — calm
+• D-782 no progress sheet; row detail line shows the stage — no new surface
+• D-783 refusal as NSAlert plus row-error trace — Mac-native
+Needs you — reply "B-0xx: <answer>"
+• B-393 running tasks show as finished: root cause is the leo daemon (bridgefeed.go turnCompleteLocked ignores pending tasks for supervised agents). Send the leo agent the pending.tasks hold contract (D-777)? I'd pick yes. Shelved on autopilot-shelved/B-393.
+• Inbox line I couldn't apply: the CI-flakes report (queued with a literal "/issue leoterm:" prefix). Re-send as "/issue leoterm: …".
+• Lanes left: B-058, B-143 held; B-233, B-332 unlanded with no run block; B-368 landed but dirty (finish skipped it).
+Self-filed
+• B-396 idea (from B-395) — iOS move progress shows the daemon's move stages
+• dropped (from B-395) — verify.md launch flag shows Configuration Errors — dup of B-370
+Ideas parked: 84 — "/feature B-0xx" to spec one
+Spend (estimated, lower bound · prices 2026-10-09): ≈$4.38 est. — B-393 ≈$0.67, B-395 ≈$3.71
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
