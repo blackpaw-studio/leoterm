@@ -105,6 +105,49 @@ import Testing
         #expect(model.rowErrors[row.id] == "alpha is already being moved")
     }
 
+    /// B-395: the row error a refusal left was one red line, cleared by the next list refresh.
+    @Test func aPreflightRefusalPublishesANoticeListingEveryReason() async {
+        let problems = #","error":{"code":"workspace_in_use","message":"x"},"problems":[{"code":"workspace_in_use","message":"/w is the workspace of beta"},{"code":"no_repo","message":"not a git repo"}]"#
+        let actions = makeActions(MoveDaemon(polls: [Self.job("failed", extra: problems)]))
+        actions.move(row, to: "nas")
+        await awaitCondition { await MainActor.run { actions.moveNotice != nil } }
+        #expect(actions.moveNotice == LeoMoveNotice(title: "Couldn\u{2019}t move alpha", message: "/w is the workspace of beta\nnot a git repo"))
+        actions.dismissMoveNotice()
+        #expect(actions.moveNotice == nil)
+    }
+
+    @Test func aRefusalAtStartPublishesANoticeToo() async {
+        let daemon = MoveDaemon(startError: .daemon(code: "agent_moving", message: "alpha is already being moved", matches: []))
+        let actions = makeActions(daemon)
+        actions.copy(row, to: "nas", name: nil)
+        await awaitCondition { await MainActor.run { actions.moveNotice != nil } }
+        #expect(actions.moveNotice == LeoMoveNotice(title: "Couldn\u{2019}t copy alpha", message: "alpha is already being moved"))
+    }
+
+    @Test func theMidTurnOfferIsNotAlsoANotice() async {
+        let actions = makeActions(MoveDaemon(polls: [Self.job("failed", extra: Self.busy)]))
+        actions.move(row, to: "nas")
+        await awaitCondition { await MainActor.run { actions.forceOffer != nil } }
+        #expect(actions.moveNotice == nil)
+    }
+
+    @Test func aRunningMoveShowsItsCurrentStageUntilItEnds() async {
+        func stage(_ names: String...) -> String {
+            #","stages":[\#(names.map { #"{"name":"\#($0)"}"# }.joined(separator: ","))]"#
+        }
+        let stall = Gate()
+        let daemon = MoveDaemon(
+            polls: [Self.job("running", extra: stage("validate", "rsync-workspace")), Self.job("done", extra: #","result":{"name":"alpha"}"#)],
+            stall: stall
+        )
+        let actions = makeActions(daemon)
+        actions.move(row, to: "nas")
+        await awaitCondition { await MainActor.run { actions.moveStages[row.id] == "rsync-workspace" } }
+        await stall.open()
+        await awaitCondition { await MainActor.run { actions.moveStages[row.id] == nil && !actions.pendingActions.contains(row.id) } }
+        #expect(actions.moveNotice == nil)
+    }
+
     @Test func anOlderDaemonsNotFoundReadsAsUnsupported() async {
         let model = LeoSidebarModel()
         let unsupported = LeoDaemonError.daemon(code: "not_found", message: LeoMoveWire.unsupportedMessage, matches: [])
@@ -205,11 +248,14 @@ private actor MoveDaemon: LeoDaemonClient {
     private var polls: [LeoMoveJob]
     private let startError: LeoDaemonError?
     private let gate: Gate?
+    /// Holds the last scripted poll, so a test can look at the move mid-job.
+    private let stall: Gate?
 
-    init(polls: [LeoMoveJob] = [], startError: LeoDaemonError? = nil, gate: Gate? = nil) {
+    init(polls: [LeoMoveJob] = [], startError: LeoDaemonError? = nil, gate: Gate? = nil, stall: Gate? = nil) {
         self.polls = polls
         self.startError = startError
         self.gate = gate
+        self.stall = stall
     }
 
     func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob {
@@ -222,6 +268,7 @@ private actor MoveDaemon: LeoDaemonClient {
     func moveJob(id: String) async throws -> LeoMoveJob {
         pollCount += 1
         await gate?.wait()
+        if polls.count == 1 { await stall?.wait() }
         return polls.removeFirst()
     }
 

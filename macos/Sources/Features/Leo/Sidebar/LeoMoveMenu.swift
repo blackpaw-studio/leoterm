@@ -73,6 +73,20 @@ enum LeoMoveMenu {
         return alert
     }
 
+    /// Why a move or copy was refused, in the daemon's words.
+    static func makeNoticeAlert(_ notice: LeoMoveNotice) -> NSAlert {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = notice.title
+        alert.informativeText = notice.message
+        alert.addButton(withTitle: "OK")
+        return alert
+    }
+
+    static func show(_ notice: LeoMoveNotice, in window: NSWindow?) async {
+        _ = await run(makeNoticeAlert(notice), in: window)
+    }
+
     static func confirmMove(agent: String, host: String, in window: NSWindow?) async -> Bool {
         await run(makeMoveAlert(agent: agent, host: host), in: window) == .alertFirstButtonReturn
     }
@@ -104,6 +118,14 @@ enum LeoMoveMenu {
             window.endSheet(sheet)
         }
         window.presentLeoSheet(NSHostingController(rootView: LeoCopyAgentSheet(row: row, destination: host, actions: actions, close: close)))
+    }
+
+    /// Tells the user why a move or copy was refused, as it is published. Wired by `LeoRuntime`.
+    static func show(_ notice: LeoMoveNotice, actions: LeoAgentActions, in window: NSWindow?) {
+        Task { @MainActor in
+            await LeoMoveConfirmation.show(notice, in: window)
+            actions.dismissMoveNotice()
+        }
     }
 
     /// Asks about a mid-turn refusal as it is published. Wired by `LeoRuntime`.

@@ -26,6 +26,20 @@ struct LeoAgentMoverTests {
         #expect(await sleeps.durations == [.seconds(1), .seconds(1)])
     }
 
+    @Test func reportsEachNewStageOnceAsTheJobAdvances() async throws {
+        func stages(_ names: String...) -> String {
+            #","stages":[\#(names.map { #"{"name":"\#($0)","at":"2026-11-14T19:00:00Z"}"# }.joined(separator: ","))]"#
+        }
+        let client = ScriptedMoveClient(start: .success(Self.job("running", extra: stages("validate"))), polls: [
+            .success(Self.job("running", extra: stages("validate", "preflight"))),
+            .success(Self.job("running", extra: stages("validate", "preflight"))),
+            .success(Self.job("done", extra: stages("validate", "preflight", "commit") + #","result":{"name":"a"}"#)),
+        ])
+        let seen = StageLog()
+        _ = try await mover(client).run("a", .move(to: "nas"), onStage: { seen.append($0) })
+        #expect(seen.values == ["validate", "preflight", "commit"])
+    }
+
     @Test func aBusyMoveIsRefusedWithForceOffered() async throws {
         let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
             .success(Self.job("failed", extra: #","error":{"code":"agent_busy","message":"pass --force"}"#)),
@@ -180,4 +194,11 @@ private actor ScriptedMoveClient: LeoDaemonClient {
     func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
     func deletePlan(_ name: String) async throws -> LeoDeletePlan { throw LeoDaemonError.timeout }
     func logs(_ name: String, lines: Int?) async throws -> String { "" }
+}
+
+private final class StageLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+    var values: [String] { lock.withLock { stored } }
+    func append(_ stage: String) { lock.withLock { stored.append(stage) } }
 }

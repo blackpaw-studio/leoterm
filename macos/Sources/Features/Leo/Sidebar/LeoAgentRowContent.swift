@@ -11,6 +11,8 @@ import LeoKit
 struct LeoAgentRowContent: View {
     let row: LeoAgentRow
     let error: String?
+    /// The stage the daemon reports for this row's running move or copy (B-395).
+    var moveStage: String?
     let isSelected: Bool
     let isPending: Bool
     /// Name characters the search query matched, drawn bold.
@@ -54,7 +56,7 @@ struct LeoAgentRowContent: View {
     }
 
     private func content(now: Date?) -> some View {
-        let presentation = LeoAgentRowPresentation(row: row, error: error, now: now, inWorkingSection: inWorkingSection)
+        let presentation = LeoAgentRowPresentation(row: row, error: error, moveStage: moveStage, now: now, inWorkingSection: inWorkingSection)
         return HStack(alignment: .top, spacing: LeoAgentRowMetrics.symbolSpacing) {
             stateSymbol(presentation)
             VStack(alignment: .leading, spacing: LeoAgentRowMetrics.lineSpacing) {
@@ -153,7 +155,7 @@ struct LeoAgentRowContent: View {
                 taskIndicator(indicator, tooltip: task.tooltip)
             } else if state.trailingWord == nil, row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
                 TimelineView(.everyMinute) { context in
-                    timeText(LeoAgentRowPresentation(row: row, error: error, now: context.date, inWorkingSection: inWorkingSection))
+                    timeText(LeoAgentRowPresentation(row: row, error: error, moveStage: moveStage, now: context.date, inWorkingSection: inWorkingSection))
                 }
             }
         }
