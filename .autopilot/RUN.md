@@ -27,5 +27,26 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-393
+  Branch: autopilot-lane/B-393
+  Base: 68bd2d14e7fd95bbed8998005bf9718f91e8f383
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-395
+  Branch: autopilot-lane/B-395
+  Base: 68bd2d14e7fd95bbed8998005bf9718f91e8f383
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: main merged; no open bump/leo-* PR; inbox applied: created B-393, B-395 (bugs), B-394 (idea); B-014/B-380 dropped per owner answers; B-051 dropped (owner, in session). Inbox entry 20261114T012321201831Z-fc7a345a (CI flakes, "/issue leoterm: …" prefix) unparseable, not applied.
+- Picks: B-393 light (sidebar attention state), B-395 light (move UI feedback). Independent footprints.
