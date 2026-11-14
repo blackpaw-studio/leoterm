@@ -2952,6 +2952,7 @@ Source: owner (/issue, 2026-11-14)
 Inbox: 20261114T191117906141Z-f0a8c025#1
 Done: 9c86be822
 Verified: not visually verified — only a screen capture (B-395-1.png); running-move stage text and multi-reason refusal covered by tests, not shown live (fixture daemon)
+Reviewed: accepted 2026-11-14 — 282c2c9d1318
 
 ## B-396 · iOS move progress shows the daemon's move stages   [idea]
 Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.
