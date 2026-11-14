@@ -2950,3 +2950,7 @@ Report: Agent move in Leo.app gives no feedback. (1) A refused move shows nothin
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261114T191117906141Z-f0a8c025#1
+
+## B-396 · iOS move progress shows the daemon's move stages   [idea]
+Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.
+Source: autopilot polish (B-395)

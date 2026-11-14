@@ -2,7 +2,9 @@ Status: running
 Started: 2026-11-14T19:26:16Z
 Budget: 20 items, until 2026-11-15T07:26:16Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-395 → B-396 idea — iOS move progress shows the daemon's move stages
+Self-filed: B-395 → dropped (dup of B-370) — verify.md -ApplePersistenceIgnoreState shows a Configuration Errors dialog
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -44,12 +46,17 @@ Lane: B-395
   Branch: autopilot-lane/B-395
   Base: 68bd2d14e7fd95bbed8998005bf9718f91e8f383
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 1ac9b0f24923f0538b9fa7a2b34424e5799b5fde
   Dispatched: 2026-11-14T19:29:03Z
+  Call: Mac only for now; iOS refusal already shows an alert, iOS stage display deferred (filed B-396) — repo Mac/iOS rule
+  Call: Stage names shown raw, as the daemon reports them — VISION 2 (calm, don't invent phases)
+  Call: No completion banner; the row turns "moved" after refresh — VISION 2
+  Call: No progress sheet; the row detail line shows the stage — avoids a new surface needing a design call
+  Call: Refusal shown as an NSAlert plus a row-error trace — VISION 1
 
 Finished 1: B-393 blocked
 
