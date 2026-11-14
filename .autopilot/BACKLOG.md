@@ -2929,6 +2929,7 @@ Note: Agents get WebKit's opaque "Completion handler for function call is no lon
 Source: autopilot polish (B-391)
 
 ## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [ready]
+Issue: #367
 Type: bug
 Report: an agent with running tasks shouldnt show as finished in the sidebar
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2941,6 +2942,7 @@ Source: owner (/idea, 2026-11-14)
 Inbox: 20261113T002100795664Z-1fda9ff0#1
 
 ## B-395 · Agent move in Leo.app gives no feedback. (1) A refused move shows…   [ready]
+Issue: #368
 Type: bug
 Report: Agent move in Leo.app gives no feedback. (1) A refused move shows nothing: moving autopilot-scratch laptop→dionysus failed with daemon error "move refused: workspace_in_use: /Users/evan/.leo/agents/autopilot-scratch is the workspace of rowheight-scratch on Dionysus.local" and the app showed no error at all. Surface the daemon's refusal reasons (preflight list) in an alert/sheet. (2) A working move shows no progress, so you can't tell if it's doing anything. The CLI already streams phases (validate, preflight, idle-check, stop, pre-send, rsync-workspace, rsync-sessions, rsync-staging, commit, mark) then a summary; the app should show the same phases as progress (e.g. sheet or row status) and a completion state. Mac; check iOS move UI for the same gap.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
