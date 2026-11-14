@@ -2,12 +2,15 @@
 # Gate for a signed Leo.app, run by sign-package.sh before notarization.
 # Usage: check-bundle.sh APP
 # Env: EXPECTED_TEAM_ID (default 52M9C6892K)
+#      PLUGIN_HOST_REQUIRED (default yes; "no" only for a source tree that
+#      predates LeoPluginHost, see plugin-host-expected.sh)
 #
 # Always: codesign --verify --deep --strict. For an app that carries the
 # bundled daemon (Info.plist LeoDaemonLabel), also requires:
 #   - Contents/Helpers/{leo,tmux}, each signed with the hardened runtime and
 #     by EXPECTED_TEAM_ID (skipped for an ad-hoc signature: local builds);
-#     any other file in Contents/Helpers (LeoPluginHost) gets the same check,
+#     any other file in Contents/Helpers (LeoPluginHost) gets the same check
+#     (LeoPluginHost itself is required unless PLUGIN_HOST_REQUIRED=no),
 #     and LeoPluginHost must still carry the app-sandbox entitlement (a
 #     re-sign without --entitlements silently strips it);
 #   - Contents/Resources/terminfo/74/tmux-256color (the bundled tmux's TERM);
@@ -31,9 +34,11 @@ if [[ -z "$label" ]]; then
   exit
 fi
 
-# check_helper PATH: signed, hardened runtime, and our team unless ad-hoc.
+# check_helper PATH: a regular file (never a symlink), signed, hardened
+# runtime, and our team unless ad-hoc.
 check_helper() {
   local bin="$1" info flags
+  [[ ! -L "$bin" ]] || { fail "$bin is a symlink"; return; }
   [[ -f "$bin" ]] || { fail "missing $bin"; return; }
   info="$(/usr/bin/codesign -d --verbose=4 "$bin" 2>&1)" || { fail "$bin is not signed: $info"; return; }
   flags="$(sed -nE 's/.*flags=0x[0-9a-f]+\(([^)]*)\).*/\1/p' <<<"$info" | head -1)"
@@ -57,6 +62,11 @@ done
 # The plugin host is sandboxed by its entitlements, which `codesign --force`
 # drops unless they are passed again.
 plugin_host="$app/Contents/Helpers/LeoPluginHost"
+# Required unless the caller says the source predates it (sign-package.sh asks
+# plugin-host-expected.sh about the source tree): fail closed by default.
+if [[ ! -e "$plugin_host" && "${PLUGIN_HOST_REQUIRED:-yes}" != no ]]; then
+  fail "missing $plugin_host"
+fi
 if [[ -e "$plugin_host" ]]; then
   /usr/bin/codesign -d --entitlements - --xml "$plugin_host" 2>/dev/null \
     | plutil -extract 'com\.apple\.security\.app-sandbox' raw -o - - 2>/dev/null | grep -qx true \

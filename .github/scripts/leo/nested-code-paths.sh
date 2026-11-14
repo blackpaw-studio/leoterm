@@ -23,9 +23,20 @@ printf '%s\n' \
   "$sparkle/Versions/B/Updater.app" \
   "$sparkle" \
   "$app/Contents/PlugIns/DockTilePlugin.plugin"
+# codesign follows symlinks, so a linked helper would have the signer rewrite
+# a file outside the bundle: every entry must be a regular file. Checked
+# before anything is printed, so a rejected bundle lists nothing.
+shopt -s dotglob nullglob
+helpers=("$app"/Contents/Helpers/*)
+for helper in ${helpers[@]+"${helpers[@]}"}; do
+  if [[ -L "$helper" || ! -f "$helper" ]]; then
+    echo "::error::nested-code-paths: $helper is a symlink or not a regular file" >&2
+    exit 1
+  fi
+done
 # The glob expands sorted, so the order is stable; helpers don't depend on
 # each other, only on being signed before the app.
-for helper in "$app"/Contents/Helpers/*; do
-  [[ -e "$helper" ]] && echo "$helper"
+for helper in ${helpers[@]+"${helpers[@]}"}; do
+  echo "$helper"
 done
 echo "$app"

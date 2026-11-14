@@ -154,8 +154,19 @@ app="$(fake_app hostmissing)"
 rm "$app/Contents/Helpers/LeoPluginHost"
 sign_inside_out "$app" --options runtime
 run "$app"
+[[ "$RC" -ne 0 && "$OUT" == *LeoPluginHost* ]] && ok=yes || ok=no
+result "$ok" "a missing LeoPluginHost fails by default (a current release must not ship without it)" "rc=$RC: $OUT"
+OUT="$(PLUGIN_HOST_REQUIRED=no bash "$check" "$app" 2>&1)" && RC=0 || RC=$?
 [[ "$RC" -eq 0 ]] && ok=yes || ok=no
-result "$ok" "an app from before LeoPluginHost still passes" "rc=$RC: $OUT"
+result "$ok" "a missing LeoPluginHost passes only on the explicit legacy path" "rc=$RC: $OUT"
+
+app="$(fake_app hostlink)"
+rm "$app/Contents/Helpers/LeoPluginHost"
+ln -s "$work/stubs/LeoPluginHost" "$app/Contents/Helpers/LeoPluginHost"
+sign_inside_out "$app" --options runtime
+run "$app"
+[[ "$RC" -ne 0 && "$OUT" == *symlink* ]] && ok=yes || ok=no
+result "$ok" "a symlinked helper fails the bundle gate" "rc=$RC: $OUT"
 
 app="$(fake_app legacy legacy)"
 adhoc --options runtime "$app"
@@ -186,6 +197,32 @@ paths="$(bash "$order" "$app" 2>&1)" || true
 n="$(line_of "$app/Contents/Helpers/SomeFutureHelper")"
 [[ -n "$n" && "$n" -lt "$(line_of "$app")" ]] && ok=yes || ok=no
 result "$ok" "any file in Contents/Helpers is listed, so a new helper cannot ship unsigned"
+
+app="$(fake_app orderlink)"
+ln -s "$work/stubs/tmux" "$app/Contents/Helpers/Linked"
+paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 && "$paths" == *Linked* && "$paths" != *"$app" ]] && ok=yes || ok=no
+result "$ok" "a symlinked helper is rejected before anything is listed (the signer would follow it out of the bundle)" "rc=$rc: $paths"
+
+app="$(fake_app orderdir)"
+mkdir "$app/Contents/Helpers/Nested"
+paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
+[[ "$rc" -ne 0 && "$paths" == *Nested* ]] && ok=yes || ok=no
+result "$ok" "a non-regular helper is rejected" "rc=$rc: $paths"
+
+# -- plugin-host-expected ------------------------------------------------------------
+
+expected="$PWD/../plugin-host-expected.sh"
+printf 'LeoPluginHost\n' > "$work/with.pbxproj"
+printf 'Ghostty\n' > "$work/without.pbxproj"
+[[ "$(bash "$expected" "$work/with.pbxproj")" == yes ]] && ok=yes || ok=no
+result "$ok" "a project that builds LeoPluginHost requires it"
+[[ "$(bash "$expected" "$work/without.pbxproj")" == no ]] && ok=yes || ok=no
+result "$ok" "a project from before LeoPluginHost is the legacy path"
+[[ "$(bash "$expected" "$work/missing.pbxproj")" == yes ]] && ok=yes || ok=no
+result "$ok" "an unreadable project fails closed (required)"
+[[ "$(bash "$expected" "$macos/Ghostty.xcodeproj/project.pbxproj")" == yes ]] && ok=yes || ok=no
+result "$ok" "this repo's Xcode project requires LeoPluginHost (guards a rename silently disabling the check)"
 
 app="$(fake_app orderlegacy legacy)"
 paths="$(bash "$order" "$app" 2>&1)" || true

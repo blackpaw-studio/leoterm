@@ -25,10 +25,13 @@ echo "::group::codesign"
 scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hosted-helpers.sh
 source "$scripts/hosted-helpers.sh"
+# Captured first, not read through process substitution: a rejected bundle
+# (symlinked helper) must stop the script, and a substitution hides the exit.
+listing="$("$scripts/nested-code-paths.sh" "$APP")"
 code_paths=()
 while IFS= read -r path; do
   code_paths+=("$path")
-done < <("$scripts/nested-code-paths.sh" "$APP")
+done <<<"$listing"
 [[ "${code_paths[${#code_paths[@]}-1]}" == "$APP" ]] || { echo "::error::nested-code-paths.sh must list the app last"; exit 1; }
 # Re-signing with --force replaces the entitlements Xcode embedded, so the
 # sandboxed plugin host must be handed its own again. It needs no JIT or other
@@ -43,6 +46,10 @@ for path in "${code_paths[@]:0:${#code_paths[@]}-1}"; do
   fi
 done
 sign --entitlements "$ENTITLEMENTS" "$APP"
+# Whether the bundle must carry LeoPluginHost comes from the source tree being
+# built (the Xcode project beside ENTITLEMENTS), not from the bundle itself.
+PLUGIN_HOST_REQUIRED="$("$scripts/plugin-host-expected.sh" "$(dirname "$ENTITLEMENTS")/Ghostty.xcodeproj/project.pbxproj")"
+export PLUGIN_HOST_REQUIRED
 "$scripts/check-bundle.sh" "$APP"
 echo "::endgroup::"
 
