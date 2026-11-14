@@ -37,6 +37,7 @@ Lane: B-393
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-14T19:29:03Z
+  Call: no app change; the app already mirrors the daemon attention state — VISION 2
 
 Lane: B-395
   Branch: autopilot-lane/B-395
