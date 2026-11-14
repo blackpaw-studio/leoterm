@@ -822,3 +822,24 @@ Chose: Added LeoOnce.swift as a shared first-wins helper for the gate and the pa
 Item: B-391 · Agent browser bridge hangs for good after an async browser_eval whose…
 Commit: d6a262e60 a63fc7305
 Veto: [ ]
+
+## D-776 · 2026-11-14 · Answer to B-014: All hosts at once as sidebar sections
+Context: B-014 (All hosts at once as sidebar sections) blocked question
+Chose: this is no longer relevant
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-777 · 2026-11-14 · Answer to B-051: Bug — working agents show "Finished" (suspected…
+Context: B-051 (Bug — working agents show "Finished" (suspected subagents)) blocked question
+Chose: accept your recommendation (hold `working` on non-empty `pending.tasks` (incl)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-778 · 2026-11-14 · Answer to B-380: did you change behavior so that only the selected…
+Context: B-380 (did you change behavior so that only the selected agent's status icon…) blocked question
+Chose: drop it
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
