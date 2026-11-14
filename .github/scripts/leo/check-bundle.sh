@@ -7,6 +7,9 @@
 # bundled daemon (Info.plist LeoDaemonLabel), also requires:
 #   - Contents/Helpers/{leo,tmux}, each signed with the hardened runtime and
 #     by EXPECTED_TEAM_ID (skipped for an ad-hoc signature: local builds);
+#     any other file in Contents/Helpers (LeoPluginHost) gets the same check,
+#     and LeoPluginHost must still carry the app-sandbox entitlement (a
+#     re-sign without --entitlements silently strips it);
 #   - Contents/Resources/terminfo/74/tmux-256color (the bundled tmux's TERM);
 #   - Contents/Library/LaunchAgents/<LeoDaemonLabel>.plist, whose
 #     BundleProgram is Contents/Helpers/leo.
@@ -44,6 +47,21 @@ check_helper() {
 }
 check_helper "$app/Contents/Helpers/leo"
 check_helper "$app/Contents/Helpers/tmux"
+# Anything else in Helpers (LeoPluginHost today) is held to the same bar, so
+# a helper that signing forgets cannot ship.
+for helper in "$app"/Contents/Helpers/*; do
+  case "${helper##*/}" in leo | tmux) continue ;; esac
+  [[ -e "$helper" ]] && check_helper "$helper"
+done
+
+# The plugin host is sandboxed by its entitlements, which `codesign --force`
+# drops unless they are passed again.
+plugin_host="$app/Contents/Helpers/LeoPluginHost"
+if [[ -e "$plugin_host" ]]; then
+  /usr/bin/codesign -d --entitlements - --xml "$plugin_host" 2>/dev/null \
+    | plutil -extract 'com\.apple\.security\.app-sandbox' raw -o - - 2>/dev/null | grep -qx true \
+    || fail "$plugin_host lost the com.apple.security.app-sandbox entitlement"
+fi
 
 terminfo="$app/Contents/Resources/terminfo/74/tmux-256color"
 [[ -f "$terminfo" ]] || fail "missing $terminfo"

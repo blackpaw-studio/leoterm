@@ -11,6 +11,7 @@ readonly check="$PWD/../check-bundle.sh"
 readonly order="$PWD/../nested-code-paths.sh"
 readonly macos="$PWD/../../../../macos"
 readonly label=studio.blackpaw.leo.daemon
+readonly host_entitlements="$macos/LeoPluginHost/LeoPluginHost.entitlements"
 pass=0
 fail=0
 
@@ -32,6 +33,7 @@ mkdir -p "$work/stubs"
 make_stub "$work/stubs/Leo" --never "never"
 make_stub "$work/stubs/leo" version "leo 0.56.0"
 make_stub "$work/stubs/tmux" -V "tmux 3.6b"
+make_stub "$work/stubs/LeoPluginHost" --never "never"
 
 adhoc() { codesign --force --sign - "$@" > /dev/null 2>&1; }
 
@@ -50,7 +52,7 @@ fake_app() {
   if [[ "${2:-}" != legacy ]]; then
     plutil -insert LeoDaemonLabel -string "$label" "$plist"
     mkdir -p "$app/Contents/Helpers"
-    install -m 0755 "$work/stubs/leo" "$work/stubs/tmux" "$app/Contents/Helpers/"
+    install -m 0755 "$work/stubs/leo" "$work/stubs/tmux" "$work/stubs/LeoPluginHost" "$app/Contents/Helpers/"
     bash "$macos/scripts/leo-terminfo.sh" "$macos/Bundled/terminfo/tmux-256color.terminfo" \
       "$app/Contents/Resources/terminfo"
     bash "$macos/scripts/leo-launch-agent-plist.sh" "$label" studio.blackpaw.leo.macos \
@@ -59,12 +61,18 @@ fake_app() {
   echo "$app"
 }
 # sign_inside_out APP [HELPER_FLAGS...]: ad-hoc, helpers first, then the app.
+# LeoPluginHost gets its real entitlements, as sign-package.sh passes them.
 sign_inside_out() {
   local app="$1"
   shift
   local helper
   for helper in "$app"/Contents/Helpers/*; do
-    [[ -e "$helper" ]] && adhoc "$@" "$helper"
+    [[ -e "$helper" ]] || continue
+    if [[ "${helper##*/}" == LeoPluginHost ]]; then
+      adhoc "$@" --entitlements "$host_entitlements" "$helper"
+    else
+      adhoc "$@" "$helper"
+    fi
   done
   adhoc --options runtime "$app"
 }
@@ -119,6 +127,36 @@ run "$app"
 [[ "$RC" -ne 0 && "$OUT" == *Helpers/leo* ]] && ok=yes || ok=no
 result "$ok" "a missing helper fails" "rc=$RC: $OUT"
 
+app="$(fake_app hostunsigned)"
+for helper in tmux leo; do adhoc --options runtime "$app/Contents/Helpers/$helper"; done
+# codesign itself refuses to seal an app over an unsigned helper (the CI error); the gate must too.
+adhoc --options runtime "$app" || true
+run "$app"
+[[ "$RC" -ne 0 && "$OUT" == *LeoPluginHost* ]] && ok=yes || ok=no
+result "$ok" "an unsigned LeoPluginHost fails, naming it" "rc=$RC: $OUT"
+
+app="$(fake_app hostnoruntime)"
+for helper in tmux leo; do adhoc --options runtime "$app/Contents/Helpers/$helper"; done
+adhoc --entitlements "$host_entitlements" "$app/Contents/Helpers/LeoPluginHost"
+adhoc --options runtime "$app"
+run "$app"
+[[ "$RC" -ne 0 && "$OUT" == *LeoPluginHost*runtime* ]] && ok=yes || ok=no
+result "$ok" "a LeoPluginHost signed without the hardened runtime fails" "rc=$RC: $OUT"
+
+app="$(fake_app hostnosandbox)"
+for helper in tmux leo LeoPluginHost; do adhoc --options runtime "$app/Contents/Helpers/$helper"; done
+adhoc --options runtime "$app"
+run "$app"
+[[ "$RC" -ne 0 && "$OUT" == *app-sandbox* ]] && ok=yes || ok=no
+result "$ok" "a LeoPluginHost re-signed without its sandbox entitlement fails" "rc=$RC: $OUT"
+
+app="$(fake_app hostmissing)"
+rm "$app/Contents/Helpers/LeoPluginHost"
+sign_inside_out "$app" --options runtime
+run "$app"
+[[ "$RC" -eq 0 ]] && ok=yes || ok=no
+result "$ok" "an app from before LeoPluginHost still passes" "rc=$RC: $OUT"
+
 app="$(fake_app legacy legacy)"
 adhoc --options runtime "$app"
 run "$app"
@@ -132,7 +170,7 @@ paths="$(bash "$order" "$app" 2>&1)" && rc=0 || rc=$?
 line_of() { grep -nxF "$1" <<<"$paths" | head -1 | cut -d: -f1 || true; }
 [[ "$rc" -eq 0 && "$(tail -1 <<<"$paths")" == "$app" ]] && ok=yes || ok=no
 result "$ok" "the app itself is signed last" "rc=$rc: $paths"
-for helper in tmux leo; do
+for helper in tmux leo LeoPluginHost; do
   n="$(line_of "$app/Contents/Helpers/$helper")"
   [[ -n "$n" && "$n" -lt "$(line_of "$app")" ]] && ok=yes || ok=no
   result "$ok" "Helpers/$helper is signed before the app"
@@ -141,6 +179,13 @@ sparkle="$app/Contents/Frameworks/Sparkle.framework"
 updater="$(line_of "$sparkle/Versions/B/Updater.app")"
 [[ -n "$updater" && "$updater" -lt "$(line_of "$sparkle")" ]] && ok=yes || ok=no
 result "$ok" "Sparkle's nested code is signed before the framework"
+
+app="$(fake_app orderextra)"
+install -m 0755 "$work/stubs/tmux" "$app/Contents/Helpers/SomeFutureHelper"
+paths="$(bash "$order" "$app" 2>&1)" || true
+n="$(line_of "$app/Contents/Helpers/SomeFutureHelper")"
+[[ -n "$n" && "$n" -lt "$(line_of "$app")" ]] && ok=yes || ok=no
+result "$ok" "any file in Contents/Helpers is listed, so a new helper cannot ship unsigned"
 
 app="$(fake_app orderlegacy legacy)"
 paths="$(bash "$order" "$app" 2>&1)" || true

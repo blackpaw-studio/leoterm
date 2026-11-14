@@ -4,9 +4,11 @@
 # Usage: nested-code-paths.sh APP
 #
 # Sparkle's and the Dock tile plugin's paths are fixed and always listed (a
-# missing one should fail signing loudly). The bundled helpers are listed
-# only when present, so refs from before them still sign; check-bundle.sh
-# requires them for any app that carries a LeoDaemonLabel.
+# missing one should fail signing loudly). Everything in Contents/Helpers is
+# listed, whatever it is called (leo, tmux, LeoPluginHost, ...), so a helper
+# the Xcode build adds later cannot ship unsigned; refs from before the
+# helpers simply list none. check-bundle.sh requires leo and tmux for any app
+# that carries a LeoDaemonLabel and checks every helper it finds.
 set -euo pipefail
 
 [[ $# -eq 1 ]] || { echo "usage: nested-code-paths.sh APP" >&2; exit 2; }
@@ -21,7 +23,9 @@ printf '%s\n' \
   "$sparkle/Versions/B/Updater.app" \
   "$sparkle" \
   "$app/Contents/PlugIns/DockTilePlugin.plugin"
-for helper in tmux leo; do
-  [[ -e "$app/Contents/Helpers/$helper" ]] && echo "$app/Contents/Helpers/$helper"
+# The glob expands sorted, so the order is stable; helpers don't depend on
+# each other, only on being signed before the app.
+for helper in "$app"/Contents/Helpers/*; do
+  [[ -e "$helper" ]] && echo "$helper"
 done
 echo "$app"

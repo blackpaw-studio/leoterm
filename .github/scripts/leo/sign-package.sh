@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Sign, package, notarize and staple Leo.app.
 # Env: APP (path to Leo.app), SIGN_IDENTITY, OUT_DIR, ENTITLEMENTS (path),
+#      PLUGIN_HOST_ENTITLEMENTS (optional; defaults to LeoPluginHost/ beside ENTITLEMENTS),
 #      DEVELOPER_DIR, LEO_KEYCHAIN (set by keychain.sh create),
 #      APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, APPLE_NOTARIZATION_ISSUER.
 # Produces $OUT_DIR/Leo.dmg and $OUT_DIR/Leo-macos-universal.zip.
@@ -18,9 +19,9 @@ zip="$OUT_DIR/Leo-macos-universal.zip"
 sign() { /usr/bin/codesign --force --timestamp --options runtime --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$@"; }
 
 echo "::group::codesign"
-# Inside-out: Sparkle's helpers before the framework, the bundled leo and
-# tmux (Contents/Helpers) before the app, and the app (the last path, with
-# its entitlements) after everything it contains.
+# Inside-out: Sparkle's helpers before the framework, every Contents/Helpers
+# binary (leo, tmux, LeoPluginHost) before the app, and the app (the last
+# path, with its entitlements) after everything it contains.
 scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hosted-helpers.sh
 source "$scripts/hosted-helpers.sh"
@@ -29,8 +30,17 @@ while IFS= read -r path; do
   code_paths+=("$path")
 done < <("$scripts/nested-code-paths.sh" "$APP")
 [[ "${code_paths[${#code_paths[@]}-1]}" == "$APP" ]] || { echo "::error::nested-code-paths.sh must list the app last"; exit 1; }
+# Re-signing with --force replaces the entitlements Xcode embedded, so the
+# sandboxed plugin host must be handed its own again. It needs no JIT or other
+# exception: JavaScriptCore runs interpreted under the hardened runtime.
+plugin_host_entitlements="${PLUGIN_HOST_ENTITLEMENTS:-$(dirname "$ENTITLEMENTS")/LeoPluginHost/LeoPluginHost.entitlements}"
 for path in "${code_paths[@]:0:${#code_paths[@]}-1}"; do
-  sign "$path"
+  if [[ "${path##*/}" == LeoPluginHost ]]; then
+    [[ -f "$plugin_host_entitlements" ]] || { echo "::error::missing $plugin_host_entitlements for LeoPluginHost"; exit 1; }
+    sign --entitlements "$plugin_host_entitlements" "$path"
+  else
+    sign "$path"
+  fi
 done
 sign --entitlements "$ENTITLEMENTS" "$APP"
 "$scripts/check-bundle.sh" "$APP"

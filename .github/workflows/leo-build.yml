@@ -166,6 +166,7 @@ jobs:
         env:
           APP: ${{ steps.app.outputs.path }}
           ENTITLEMENTS: ${{ github.workspace }}/src/macos/Ghostty.entitlements
+          PLUGIN_HOST_ENTITLEMENTS: ${{ github.workspace }}/src/macos/LeoPluginHost/LeoPluginHost.entitlements
           OUT_DIR: ${{ runner.temp }}/leo-dist
           APPLE_NOTARIZATION_KEY: ${{ secrets.APPLE_NOTARIZATION_KEY }}
           APPLE_NOTARIZATION_KEY_ID: ${{ secrets.APPLE_NOTARIZATION_KEY_ID }}
