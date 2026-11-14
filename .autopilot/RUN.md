@@ -46,12 +46,13 @@ Lane: B-395
   Branch: autopilot-lane/B-395
   Base: 68bd2d14e7fd95bbed8998005bf9718f91e8f383
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 1ac9b0f24923f0538b9fa7a2b34424e5799b5fde
   Dispatched: 2026-11-14T19:29:03Z
+  Tokens: 13.3M in (12.9M cache read), ≥52.3k out, 129 requests
   Call: Mac only for now; iOS refusal already shows an alert, iOS stage display deferred (filed B-396) — repo Mac/iOS rule
   Call: Stage names shown raw, as the daemon reports them — VISION 2 (calm, don't invent phases)
   Call: No completion banner; the row turns "moved" after refresh — VISION 2
@@ -59,9 +60,11 @@ Lane: B-395
   Call: Refusal shown as an NSAlert plus a row-error trace — VISION 1
 
 Finished 1: B-393 blocked
+Finished 2: B-395 landed 282c2c9d1 · screen capture, not attached
 
 Progress:
 - Preflight: main merged; no open bump/leo-* PR; inbox applied: created B-393, B-395 (bugs), B-394 (idea); B-014/B-380 dropped per owner answers; B-051 dropped (owner, in session). Inbox entry 20261114T012321201831Z-fc7a345a (CI flakes, "/issue leoterm: …" prefix) unparseable, not applied.
 - Picks: B-393 light (sidebar attention state), B-395 light (move UI feedback). Independent footprints.
 - Runners: B-393 d-dc298b94317b, B-395 d-9b747e361293 (leo implement role), parallel.
 - B-393 blocked: root cause daemon-side (bridgefeed.go turnCompleteLocked ignores ev.Pending for supervised agents); no app change. Did not message the leo agent: owner declined that action earlier this session and dropped B-051.
+- B-395 landed 282c2c9d1 (9c86be822): refused moves show every daemon reason in an NSAlert; running moves show the daemon stage on the row. Mac only; iOS stages filed as B-396. Decisions D-779..D-783. 4631 Mac tests pass.

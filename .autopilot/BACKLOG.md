@@ -2943,13 +2943,15 @@ Note: Agent toolbar Browser badge — count of tabs the agent opened since you l
 Source: owner (/idea, 2026-11-14)
 Inbox: 20261113T002100795664Z-1fda9ff0#1
 
-## B-395 · Agent move in Leo.app gives no feedback. (1) A refused move shows…   [ready]
+## B-395 · Agent move in Leo.app gives no feedback. (1) A refused move shows…   [done]
 Issue: #368
 Type: bug
 Report: Agent move in Leo.app gives no feedback. (1) A refused move shows nothing: moving autopilot-scratch laptop→dionysus failed with daemon error "move refused: workspace_in_use: /Users/evan/.leo/agents/autopilot-scratch is the workspace of rowheight-scratch on Dionysus.local" and the app showed no error at all. Surface the daemon's refusal reasons (preflight list) in an alert/sheet. (2) A working move shows no progress, so you can't tell if it's doing anything. The CLI already streams phases (validate, preflight, idle-check, stop, pre-send, rsync-workspace, rsync-sessions, rsync-staging, commit, mark) then a summary; the app should show the same phases as progress (e.g. sheet or row status) and a completion state. Mac; check iOS move UI for the same gap.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261114T191117906141Z-f0a8c025#1
+Done: 9c86be822
+Verified: not visually verified — only a screen capture (B-395-1.png); running-move stage text and multi-reason refusal covered by tests, not shown live (fixture daemon)
 
 ## B-396 · iOS move progress shows the daemon's move stages   [idea]
 Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.

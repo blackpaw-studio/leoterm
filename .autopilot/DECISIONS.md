@@ -843,3 +843,38 @@ Chose: drop it
 Why: the owner's answer
 Commit:
 Veto: n/a (owner)
+
+## D-779 · 2026-11-14 · B-395: Mac only for now; iOS refusal already shows an alert, iOS stage display deferred (B-396)
+Context: B-395 (agent move feedback)
+Chose: Mac only for now; iOS refusal already shows an alert, iOS stage display deferred (B-396)
+Why: repo Mac/iOS rule
+Commit: 9c86be822
+Veto: [ ]
+
+## D-780 · 2026-11-14 · B-395: Stage names shown raw, as the daemon reports them
+Context: B-395 (agent move feedback)
+Chose: Stage names shown raw, as the daemon reports them
+Why: VISION 2 (calm, don't invent phases)
+Commit: 9c86be822
+Veto: [ ]
+
+## D-781 · 2026-11-14 · B-395: No completion banner; the row turns "moved" after refresh
+Context: B-395 (agent move feedback)
+Chose: No completion banner; the row turns "moved" after refresh
+Why: VISION 2
+Commit: 9c86be822
+Veto: [ ]
+
+## D-782 · 2026-11-14 · B-395: No progress sheet; the row detail line shows the stage
+Context: B-395 (agent move feedback)
+Chose: No progress sheet; the row detail line shows the stage
+Why: avoids a new surface needing a design call
+Commit: 9c86be822
+Veto: [ ]
+
+## D-783 · 2026-11-14 · B-395: Refusal shown as an NSAlert plus a row-error trace
+Context: B-395 (agent move feedback)
+Chose: Refusal shown as an NSAlert plus a row-error trace
+Why: VISION 1
+Commit: 9c86be822
+Veto: [ ]
