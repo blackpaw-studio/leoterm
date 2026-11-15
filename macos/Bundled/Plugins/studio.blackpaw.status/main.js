@@ -167,22 +167,18 @@
   // src/summary.ts
   var SEPARATOR2 = " \xB7 ";
   var plain = (text) => ({ type: "Text", runs: [{ text, tone: "secondary" }] });
-  var modelNode = (model) => ({ type: "Text", runs: [{ text: formatModel(model), tone: "accent1", weight: "semibold" }] });
-  function meterNode(context) {
-    if (!(context.window > 0)) return void 0;
-    return {
-      type: "Meter",
-      segments: contextSegments(context),
-      max: context.window,
-      help: `${formatTokens(context.tokens)} / ${formatTokens(context.window)} tokens`
-    };
-  }
+  var modelNode = (model, effort) => ({
+    type: "Text",
+    runs: [
+      { text: formatModel(model), tone: "accent1", weight: "semibold" },
+      ...effort === void 0 ? [] : [{ text: `${SEPARATOR2}${effort}`, tone: "secondary" }]
+    ]
+  });
   function figuresNode(usage) {
     const fiveHour = usage.rateLimits?.find((l) => l.kind === "five_hour");
     const parts = [
       usage.context && formatPercent(usage.context.percent, 0),
-      fiveHour && `5h ${formatPercent(fiveHour.percentUsed, 0)}`,
-      usage.session && formatMoney(usage.session.costUsd)
+      fiveHour && `5h ${formatPercent(fiveHour.percentUsed, 0)}`
     ].filter((p) => typeof p === "string");
     return parts.length === 0 ? void 0 : { type: "Text", runs: [{ text: parts.join(SEPARATOR2), mono: true }] };
   }
@@ -190,8 +186,7 @@
     if (usage === null) return plain("\u2014");
     if (Object.keys(usage).length === 0) return plain("No usage data");
     const nodes = [
-      usage.model === void 0 ? void 0 : modelNode(usage.model),
-      usage.context && meterNode(usage.context),
+      usage.model === void 0 ? void 0 : modelNode(usage.model, usage.effort),
       figuresNode(usage)
     ].filter((n) => n !== void 0);
     return nodes.length === 0 ? plain("\u2014") : nodes;
