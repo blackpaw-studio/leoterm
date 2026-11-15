@@ -358,6 +358,33 @@ import Testing
         #expect(fixture.a.session.placeholderSurfaceIDs.isEmpty, "A keeps no stale one")
     }
 
+    /// An exited agent's pane dropped into B, and B closes in the same
+    /// turn, before its handle can follow it there: the handle is let go,
+    /// never moved into the closed window (where nothing would ever close
+    /// it), and B shows no placeholder for it. A's own placeholder entry is
+    /// left as any closed pane's is: ⌘Z on a pane's close relies on it.
+    @Test func aPaneDroppedIntoAWindowClosingThatTurnIsNotMovedThere() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let row = try newShell(fixture, in: fixture.a)
+        let agent = try openSplit(fixture, in: fixture.a, beside: row, command: Self.standIn)
+        let q = try newShell(fixture, in: fixture.b)
+        fixture.host.rebirthPlaceholder(for: agent)
+        try #require(fixture.a.session.placeholderSurfaceIDs == [agent.surfaceID])
+
+        try drop(agent, from: fixture.a, onto: q, in: fixture.b)
+        let undoManager = fixture.b.controller.undoManager
+        undoManager?.disableUndoRegistration()
+        fixture.b.controller.closeWindowImmediately()
+        undoManager?.enableUndoRegistration()
+
+        #expect(await turns { fixture.events.events.contains(.closed(agent)) }, "its handle is let go")
+        await settle()
+        #expect(!fixture.events.events.contains { if case .moved = $0 { true } else { false } }, "never moved into B")
+        #expect(!fixture.host.isOpen(fixture.b.handle(agent.surfaceID)))
+        #expect(fixture.b.session.placeholderSurfaceIDs.isEmpty)
+    }
+
     /// A's only pane dropped into B: A stays, showing its start screen, and
     /// nothing it keeps hidden dies (P2); upstream closed the emptied
     /// window, killing its hidden rows' shells without asking. ⌘Z refills
