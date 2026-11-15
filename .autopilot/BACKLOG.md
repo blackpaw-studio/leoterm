@@ -1610,11 +1610,12 @@ Question: architecture may be wrong — decode, incarnation-keyed badge, Surface
 Answer: yes — drop auto-open; surfaced files are badge-only, opened with ⌥⌘O / the row Surfaced Files menu; re-apply the rest from 30fe234bf..69b736464
 Done: 70a2b21e8 eed22646d 813d4f335 263040196 (1459 tests). Re-applied f3e8d36b3's revert minus all auto-open (D-088): badge only; opens via row ▸ Surfaced Files ▸ or Agents ▸ Open Surfaced File (⌥⌘O, needs a selected row). Pane re-checks the incarnation after the read and after the unsaved prompt; identity and seen ledger keyed by agent + started_at + id; live events ordered by `at` (D-091). Verified: shots B-013-1 (row badge 2), B-013-2-screen (Surfaced Files submenu, screen capture), B-013-3 (menu open → notes.md at line 3, badge 1), B-013-4 (⌥⌘O → plan.py, badge cleared), with a DEBUG `LEO_SURFACE_FIXTURE` on a temporary autopilot-scratch (deleted). Daemon side not released, so fixture only; remote not visually verified. 2 fix rounds (review.concurrency: open-queue identity HIGH, id-only identity, baseline ordering ×3); 2 round-3 P2s dismissed → B-046.
 
-## B-014 · All hosts at once as sidebar sections   [blocked]
+## B-014 · All hosts at once as sidebar sections   [dropped]
 Issue: #239
 Question: Blocked per D-008 until several remotes are in daily use. Tell me when that's true. I'd pick keeping it blocked.
 Note: Previous answer accepted keeping this out of the ready queue; Evan changed the status to blocked on 2026-10-05.
-Answer:
+Answer: this is no longer relevant
+Dropped: 2026-11-14 — owner answer: "this is no longer relevant"
 
 ## B-046 · Surfaced files: keep `at` order through a partial /state merge   [done]
 Issue: #51
@@ -1638,7 +1639,7 @@ Accept: in the isolated debug build, the agent palette's ⌘↩ opens a new tab 
 Source: B-047 implementer report (unverified in the GUI)
 Done: e13738b88 0604cc27f 5bd615a31 (1497 tests). Palette ⌘↩ was already correct: it opens a new tab, also when the agent has one, and never toggles full screen (shots B-048-2, -3). The sidebar ⌘-click was broken: it deselected the row and opened no tab, because the List toggled the selection and SwiftUI tap gestures don't fire in non-key windows. Fixed with a required selection and `LeoRowClickCatcher`; double-click and the Attach button now act exactly once; decisions D-094. Verified: the double-click attaches once (B-048-1), the row stays selected after a ⌘-click (checked in this run), and the palette ⌘↩ forces a new tab (B-048-3). The ⌘-click attach itself was not visually verified, because peekaboo's synthetic ⌘-clicks don't reliably reach the app; end-to-end tests post real mouse events to a non-key window instead. 2 review fix rounds.
 
-## B-051 · Bug — working agents show "Finished" (suspected subagents)   [blocked]
+## B-051 · Bug — working agents show "Finished" (suspected subagents)   [dropped]
 Issue: #54
 Why: The status badge has to be trustworthy or the attention model means nothing. Serves "Calm, attention-driven: never invent a state".
 Accept: Reproduce on autopilot-scratch with a scripted turn that starts a background subagent, then record the SSE attention events and the row's state over time; name the root cause (app mapping vs daemon hook semantics) with that trace as evidence; if it's app-side, fix it test-first with a failing test that replays the trace; if it's daemon-side, write the contract change (e.g. keep `working` until SubagentStop / background tasks finish) as a spec and block on Evan.
@@ -1646,7 +1647,8 @@ Out: Adding app-side heuristics that override daemon state; Codex/opencode subag
 Source: Evan (/feature, 2026-09-28)
 Inbox: 20260928T193703549149Z-2d2188b3#1
 Question: Approve this daemon contract change and send it to the `leo` agent? I'd pick: hold `working` on non-empty `pending.tasks` (incl. dev servers/watchers) — "A supervised claude `turn.complete` with non-empty `pending.tasks` holds `working` like the subagent/dispatch hold, with additive `outstanding.tasks = Σ pending.tasks`. The hold drops at the next `turn.start`, session.end, interrupt or stop; that turn's own completion decides again. `pending.wakeups` never hold. `pending` is per turn.complete, never carried over." Alternative: exclude never-ending task types (e.g. `monitor`). App needs no change (badge mirrors attention.state). Evidence (daemon 0.41.0, autopilot-scratch): background `sleep 90` → SSE finished at 17:37:47 while the process lived; working/finished only when it exited at 17:39:16 (~89 s wrong). Cause: daemon internal/observe/bridgefeed.go ~L294 calls AdvanceBridge(finished) without reading ev.Pending. Background *subagent* not reproduced live (native Agent gated on scratch); also say whether to unlock that live scenario. Spec + trace: .autopilot/bugs/B-051/. Work kept on autopilot-shelved/B-051.
-Answer:
+Answer: accept your recommendation (hold `working` on non-empty `pending.tasks` (incl)
+Dropped: 2026-11-14 — owner, in session: "drop B-051 too"
 
 ## B-052 · Attach tabs are titled with the agent's name   [done]
 Issue: #55
@@ -2823,15 +2825,17 @@ Inbox: 20261110T005836546016Z-6e140707#1
 Done: 2f6080e9d
 Verified: not visually verified — no UI change (test-only diff)
 
-## B-380 · did you change behavior so that only the selected agent's status icon…   [blocked]
+## B-380 · did you change behavior so that only the selected agent's status icon…   [dropped]
 Issue: #354
 Type: bug
 Report: did you change behavior so that only the selected agent's status icon spins? if so i dont think its working. i have one agent spinning but the others dont spin when selected, just the one that spins just keeps spinning
+Update (2026-11-14): drop it
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261110T012831517385Z-204ed034#1
 Question: couldn't reproduce — B-381 (landed 6aac92cfb) made every working agent's arrows turn regardless of selection or task, and its verifier saw the non-selected working rows keep turning (shots B-381-16 to B-381-19). A selected working row wasn't tested, because that would attach a real agent. I'd close this unless you still see it after merging autopilot. Reply "B-380: close" to close it, or "B-380: <more detail>" to retry.
-Answer:
+Answer: drop it
+Dropped: 2026-11-14 — owner answer: "drop it"
 
 ## B-381 · Working arrows always spin; static determinate pie; hide indeterminate…   [done]
 Issue: #355
@@ -2923,3 +2927,33 @@ Verified: not visually verified — queue/cancellation logic, no UI change
 ## B-392 · Clearer error than WebKit's "no longer reachable" for a hung browser_eval   [idea]
 Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).
 Source: autopilot polish (B-391)
+
+## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [blocked]
+Issue: #367
+Type: bug
+Report: an agent with running tasks shouldnt show as finished in the sidebar
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-14)
+Inbox: 20261113T000249679434Z-b97787b4#1
+Question: Root cause is in the leo daemon, not the app: a supervised agent's turn.complete (internal/observe/bridgefeed.go:307-335, turnCompleteLocked) always advances to finished and never reads ev.Pending; only dispatches honour pending (leo 4459788b, eddf39e8). Should I send the leo agent the pending.tasks hold contract (same as .autopilot/bugs/B-051/spec-pending-hold.md, approved as D-777: non-empty pending.tasks holds working with outstanding.tasks; drops at next turn.start/session.end/interrupt/stop; wakeups never hold)? I'd pick: yes, send it; the app needs no change (it mirrors attention.state). Work kept on autopilot-shelved/B-393.
+Answer:
+
+## B-394 · Agent toolbar Browser badge — count of tabs the agent opened since you…   [idea]
+Note: Agent toolbar Browser badge — count of tabs the agent opened since you last viewed its browser (needs tab origin field, popup origin inheritance, per-agent seen counter; NSItemBadge is macOS 26+)
+Source: owner (/idea, 2026-11-14)
+Inbox: 20261113T002100795664Z-1fda9ff0#1
+
+## B-395 · Agent move in Leo.app gives no feedback. (1) A refused move shows…   [done]
+Issue: #368
+Type: bug
+Report: Agent move in Leo.app gives no feedback. (1) A refused move shows nothing: moving autopilot-scratch laptop→dionysus failed with daemon error "move refused: workspace_in_use: /Users/evan/.leo/agents/autopilot-scratch is the workspace of rowheight-scratch on Dionysus.local" and the app showed no error at all. Surface the daemon's refusal reasons (preflight list) in an alert/sheet. (2) A working move shows no progress, so you can't tell if it's doing anything. The CLI already streams phases (validate, preflight, idle-check, stop, pre-send, rsync-workspace, rsync-sessions, rsync-staging, commit, mark) then a summary; the app should show the same phases as progress (e.g. sheet or row status) and a completion state. Mac; check iOS move UI for the same gap.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-14)
+Inbox: 20261114T191117906141Z-f0a8c025#1
+Done: 9c86be822
+Verified: not visually verified — only a screen capture (B-395-1.png); running-move stage text and multi-reason refusal covered by tests, not shown live (fixture daemon)
+Reviewed: accepted 2026-11-14 — 282c2c9d1318
+
+## B-396 · iOS move progress shows the daemon's move stages   [idea]
+Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.
+Source: autopilot polish (B-395)

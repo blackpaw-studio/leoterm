@@ -40,10 +40,18 @@ public struct LeoAgentMover: Sendable {
 
     /// A refusal at start (`agent_moving`, a transport failure) throws; so does
     /// cancellation, which stops polling and leaves the job running on the daemon.
-    public func run(_ name: String, _ request: LeoMoveRequest) async throws -> LeoAgentMoveOutcome {
+    /// `onStage` hears each stage the daemon reports, once, in order; nothing
+    /// the daemon didn't report is invented. It is awaited, so a caller on the
+    /// main actor sees stages in order and none after `run` returns.
+    public func run(
+        _ name: String, _ request: LeoMoveRequest, onStage: @Sendable (String) async -> Void = { _ in }
+    ) async throws -> LeoAgentMoveOutcome {
         var job = try await client.startMove(name, request)
         var failures = 0
+        var announced = 0
         while true {
+            for stage in job.stages.dropFirst(announced) { await onStage(stage.name) }
+            announced = max(announced, job.stages.count)
             if let outcome = Self.outcome(of: job, agent: name) { return outcome }
             try Task.checkCancellation()
             try await sleep(pollInterval * (1 << min(failures, Self.maxBackoffDoublings)))

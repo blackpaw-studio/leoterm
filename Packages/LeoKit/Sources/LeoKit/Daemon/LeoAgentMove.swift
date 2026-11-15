@@ -91,6 +91,11 @@ public struct LeoMoveProblem: Decodable, Equatable, Sendable {
     }
 }
 
+/// One stage the daemon's job reached (`validate`, `preflight`, `rsync-workspace`, ...).
+public struct LeoMoveStage: Decodable, Equatable, Sendable {
+    public let name: String
+}
+
 public struct LeoMoveResult: Decodable, Equatable, Sendable {
     public let name: String
     public let host: String?
@@ -113,6 +118,8 @@ public struct LeoMoveJob: Decodable, Equatable, Sendable {
     public let id: String
     public let request: LeoMoveRequest
     public let state: LeoMoveState
+    /// Every stage reached so far, oldest first; the last is the current one.
+    public let stages: [LeoMoveStage]
     public let error: LeoMoveProblem?
     public let problems: [LeoMoveProblem]
     public let result: LeoMoveResult?
@@ -120,7 +127,7 @@ public struct LeoMoveJob: Decodable, Equatable, Sendable {
     public let finishedAt: String?
 
     enum CodingKeys: String, CodingKey {
-        case id, request, state, error, problems, result
+        case id, request, state, stages, error, problems, result
         case startedAt = "started_at"
         case finishedAt = "finished_at"
     }
@@ -130,6 +137,7 @@ public struct LeoMoveJob: Decodable, Equatable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         request = try container.decode(LeoMoveRequest.self, forKey: .request)
         state = try container.decode(LeoMoveState.self, forKey: .state)
+        stages = try container.decodeIfPresent([LeoMoveStage].self, forKey: .stages) ?? []
         error = try container.decodeIfPresent(LeoMoveProblem.self, forKey: .error)
         problems = try container.decodeIfPresent([LeoMoveProblem].self, forKey: .problems) ?? []
         result = try container.decodeIfPresent(LeoMoveResult.self, forKey: .result)
