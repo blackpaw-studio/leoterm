@@ -42,6 +42,18 @@ enum ChatPresentation {
     }
 }
 
+extension ChatPresentation {
+    /// The viewer for an opened attachment (images take the gallery before this).
+    @MainActor static func viewer(for attachment: LeoChatAttachment, url: URL) -> UIViewController {
+        guard attachment.isMarkdown, let data = try? Data(contentsOf: url) else {
+            return ChatQuickLookController(url: url, title: attachment.filename)
+        }
+        // Lossy UTF-8 decoding: odd bytes become U+FFFD rather than failing.
+        let viewer = ChatMarkdownViewController(text: String(decoding: data, as: UTF8.self), fileURL: url, title: attachment.filename)
+        return UINavigationController(rootViewController: viewer)
+    }
+}
+
 /// QuickLook over one local file.
 final class ChatQuickLookController: QLPreviewController, QLPreviewControllerDataSource {
     private let item: Item

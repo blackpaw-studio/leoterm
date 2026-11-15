@@ -341,6 +341,7 @@ final class ChatMessageCell: UICollectionViewCell {
         configuration.titleLineBreakMode = .byTruncatingMiddle
         let button = UIButton(configuration: configuration, primaryAction: UIAction { [weak self] _ in self?.onEvent(.openAttachment(attachment)) })
         button.contentHorizontalAlignment = .leading
+        button.accessibilityIdentifier = "chat.file.\(attachment.id)"
         return button
     }
 

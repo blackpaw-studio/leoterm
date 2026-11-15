@@ -474,8 +474,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
             }
             return
         }
-        let preview = ChatQuickLookController(url: url, title: attachment.filename)
-        present(preview, animated: true)
+        present(ChatPresentation.viewer(for: attachment, url: url), animated: true)
     }
 
     // MARK: UICollectionViewDelegate
