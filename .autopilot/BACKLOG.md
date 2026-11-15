@@ -2932,7 +2932,7 @@ Verified: not visually verified — queue/cancellation logic, no UI change
 Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).
 Source: autopilot polish (B-391)
 
-## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [ready]
+## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [blocked]
 Issue: #367
 Type: bug
 Report: an agent with running tasks shouldnt show as finished in the sidebar
@@ -2940,8 +2940,8 @@ Update (2026-11-14): yes — contract sent to the leo agent 2026-11-14; close on
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261113T000249679434Z-b97787b4#1
-Question: Root cause is in the leo daemon, not the app: a supervised agent's turn.complete (internal/observe/bridgefeed.go:307-335, turnCompleteLocked) always advances to finished and never reads ev.Pending; only dispatches honour pending (leo 4459788b, eddf39e8). Should I send the leo agent the pending.tasks hold contract (same as .autopilot/bugs/B-051/spec-pending-hold.md, approved as D-777: non-empty pending.tasks holds working with outstanding.tasks; drops at next turn.start/session.end/interrupt/stop; wakeups never hold)? I'd pick: yes, send it; the app needs no change (it mirrors attention.state). Work kept on autopilot-shelved/B-393.
-Answer: yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
+Question: couldn't reproduce on bundled leo 0.82.4 — isolated daemon with autopilot-scratch: 0.82.3 reports finished after turn.complete with pending.tasks=1 (red); 0.82.4 holds working with outstanding.tasks=1 across polls, a later turn.start clears it, clean and wakeups-only turn.complete give finished. A LeoKit test replaying the 0.82.4 payloads badges Working through the hold (passed first run, not committed). Evidence: /private/tmp/claude-501/b393-evidence/. Reply "B-393: close" to close it, or "B-393: <more detail>" to retry. Work kept on autopilot-shelved/B-393-2.
+Answer:
 
 ## B-394 · Agent toolbar Browser badge — count of tabs the agent opened since you…   [idea]
 Note: Agent toolbar Browser badge — count of tabs the agent opened since you last viewed its browser (needs tab origin field, popup origin inheritance, per-agent seen counter; NSItemBadge is macOS 26+)
