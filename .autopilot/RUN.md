@@ -21,13 +21,12 @@ Lane: B-143
   Branch: autopilot-lane/B-143
   Base: e23c0aa4232d0c0a670565289661884195ffae3e
   Tier: full
-  State: held
+  State: building
   Fixes: 0
   Wip: a3fe1df0d
   Reverifies: 0
   Reviewed-tip: none
-  Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
-  Dispatched: 2026-10-06T23:01:21Z
+  Dispatched: 2026-11-15T04:23:50Z
 
 Lane: B-110
   Branch: autopilot-lane/B-110
@@ -154,3 +153,4 @@ Progress:
 - Pick: B-398 full (toolbar sidebar toggle). Built before B-143 (B-143 overlaps B-110 in TerminalController).
 - B-110 ready at 54aebb605 (concurrency review, 4659 tests; not visually verified). Integration stale (autopilot gained B-399 LEO_VERSION) → re-verify round 1. STOP-LIST NEAR-MISS (digest): first implementer's stale click in the debug app selected real stopped agent whatshoveringoverme's chat view; ⌘Z hit its empty field; nothing started or sent.
 - B-110 landed 19fef2940 (18 commits). Decisions D-796..D-803.
+- Pick: B-143 full (held lane, hard implementer per D-786); B-110 has landed, so the TerminalController overlap is gone.
