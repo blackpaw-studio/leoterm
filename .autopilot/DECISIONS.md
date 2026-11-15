@@ -878,3 +878,38 @@ Chose: Refusal shown as an NSAlert plus a row-error trace
 Why: VISION 1
 Commit: 9c86be822
 Veto: [ ]
+
+## D-784 · 2026-11-14 · Answer to B-110: Dragging a Leo surface between windows: rows, window…
+Context: B-110 (Dragging a Leo surface between windows: rows, window ownership and undo) blocked question
+Chose: accept your recommendation (retry next run from that branch with the hard implementer)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-785 · 2026-11-14 · Answer to B-219: Agents stuck in errored state in the sidebar while…
+Context: B-219 (Agents stuck in errored state in the sidebar while working fine) blocked question
+Chose: accept your recommendation (send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-786 · 2026-11-14 · Answer to B-143: Replaced launch window lingers in the window list
+Context: B-143 (Replaced launch window lingers in the window list) blocked question
+Chose: accept your recommendation (resume next run from this lane on the hard implementer)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-787 · 2026-11-14 · Answer to B-367: Sometimes when you message the agent in the chat, it…
+Context: B-367 (Sometimes when you message the agent in the chat, it doesn't respond…) blocked question
+Chose: accept your recommendation (merge it, then reply "B-367: done" so a run checks a chat reply end to end)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-788 · 2026-11-14 · Answer to B-393: an agent with running tasks shouldnt show as finished…
+Context: B-393 (an agent with running tasks shouldnt show as finished in the sidebar) blocked question
+Chose: yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)

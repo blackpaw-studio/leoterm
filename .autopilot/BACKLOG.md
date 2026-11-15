@@ -327,13 +327,13 @@ Question: couldn't reproduce — a test shows a closed pane's shell lives only f
 Answer: close
 Done: closed — not reproducible (Evan)
 
-## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [blocked]
+## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready]
 Issue: #114
 Why: B-083 (point 5, parked): the host keeps surface S under window A after splitDidDrop or drag-to-new-window; the Move Split undo halves misbehave after either window swaps, and ⌘Z can free S's shell without a confirm once the redo expires (P2: nothing dies without asking). Candidate fixes: (a) a swap-generation guard in upstream's cross-window branches, or (b) moving row ownership on drop
 Accept: failing tests reproduce the orphaned ownership and the unconfirmed shell free; after the fix a moved surface belongs to (and is reachable from) the window it's in, and no undo path frees a shell without asking
 Source: autopilot (B-083 dismissal)
 Question: runner timed out after 3h — last known step: build mode, fix round 2 of 3 in progress (review rounds 1–2 found races: pre-reconcile ordering and the focus a drop's undo resigns; both reproduced and mostly fixed); lane's last commit 1eee9b5b0 "test(B-110): the focus a drop's undo resigns, as a pure decision". Work kept on autopilot-shelved/B-110 (15 commits: handles follow surfaces across windows, the coordinator re-keys moved agents, a guarded Move Split undo). I'd pick: retry next run from that branch with the hard implementer.
-Answer:
+Answer: accept your recommendation (retry next run from that branch with the hard implementer)
 
 ## B-177 · Context menu on Terminals rows   [done]
 Issue: #180
@@ -486,15 +486,16 @@ Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); s
 Source: autopilot polish (B-115)
 Done: 342cba7a4 (2048 tests). The app menu reads About Leo (also in Debug) and the About window names Leo; LeoAboutMenuTests pins the menu title. Verified: shots B-130-1 (app menu, screen) and -2 (About window). Remaining Ghostty strings filed as a branding sweep. Decision D-343.
 
-## B-219 · Agents stuck in errored state in the sidebar while working fine   [blocked]
+## B-219 · Agents stuck in errored state in the sidebar while working fine   [ready]
 Issue: #223
 Type: bug
 Report: agents are stuck in errored state in the sidebar even though theyre working fine
+Update (2026-11-14): accept your recommendation (send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T000358126791Z-1ba543a9#1
 Question: Root cause is in the leo daemon, not the app: `isAgentHookSession` (leo internal/web/handlers_attention.go:80-105) drops every attention hook whose session_id differs from the stored record's, and /clear never updates the stored id (agentstore/store.go:119). After the 2026-10-03 11:39 tmux-server restart set everything to errored, the /cleared agents (leo, leoterm, blackpaw-games-site) have stayed running+errored for ~35 h; agents not /cleared recover normally. The app's reducer already supersedes errored on a newer revision. I'd pick: send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon. Reply "B-219: yes" to go. Work kept on autopilot-shelved/B-219 (no commits).
-Answer:
+Answer: accept your recommendation (send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon)
 
 ## B-220 · ssh fails in in-app terminals: missing ghostty binary in Leo.app   [done]
 Issue: #224
@@ -642,13 +643,13 @@ Accept: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears 
 Source: autopilot polish (B-093)
 Done: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
 
-## B-143 · Replaced launch window lingers in the window list   [blocked]
+## B-143 · Replaced launch window lingers in the window list   [ready]
 Issue: #147
 Why: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Accept: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Source: autopilot polish (B-093)
 Question: runner timed out after 3h — it was in fix round 2 (the lane's last commit is da8d504d4 "keep waking until the window-server window is gone too", plus wip a3fe1df0d). Root cause: a closed window's controller is freed only when the event loop next wakes, so it lingers while Leo is idle; the fixes so far wake the loop until it is freed and make New Tab's undo hold the window weakly. Work kept on autopilot-lane/B-143 (held: shelve refused over untracked generated files). I'd pick: resume next run from this lane on the hard implementer.
-Answer:
+Answer: accept your recommendation (resume next run from this lane on the hard implementer)
 
 ## B-257 · Agent stays Working while child dispatches run, plus a dispatch tree   [done]
 Issue: #256
@@ -2711,17 +2712,18 @@ Inbox: 20261108T012952605012Z-96d7a589#1
 Done: 3d87c55b0
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png (re-verify: AboutView unchanged since; full suite 4210 green)
 
-## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [blocked]
+## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [ready]
 Issue: #342
 Type: bug
 Report: Sometimes when you message the agent in the chat, it doesn't respond in the chat, which is fine on desktop, but on iOS that means I don't see it unless I peek into what the terminal looks like. When a message is sent in chat (desktop app or iOS), make sure it gets replied to in chat if necessary. I don't know if there are any situations where we'd want to break that rule. If this is a change that needs to go into the daemon, message the leo agent to make the change.
+Update (2026-11-14): accept your recommendation (merge it, then reply "B-367: done" so a run checks a chat reply end to end)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T173642828275Z-d4a6f986#1
 Attachments: .autopilot/bugs/B-367/Voice_note.m4a
 Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
 Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
-Answer:
+Answer: accept your recommendation (merge it, then reply "B-367: done" so a run checks a chat reply end to end)
 
 ## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [done]
 Issue: #349
@@ -2928,15 +2930,16 @@ Verified: not visually verified — queue/cancellation logic, no UI change
 Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).
 Source: autopilot polish (B-391)
 
-## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [blocked]
+## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [ready]
 Issue: #367
 Type: bug
 Report: an agent with running tasks shouldnt show as finished in the sidebar
+Update (2026-11-14): yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261113T000249679434Z-b97787b4#1
 Question: Root cause is in the leo daemon, not the app: a supervised agent's turn.complete (internal/observe/bridgefeed.go:307-335, turnCompleteLocked) always advances to finished and never reads ev.Pending; only dispatches honour pending (leo 4459788b, eddf39e8). Should I send the leo agent the pending.tasks hold contract (same as .autopilot/bugs/B-051/spec-pending-hold.md, approved as D-777: non-empty pending.tasks holds working with outstanding.tasks; drops at next turn.start/session.end/interrupt/stop; wakeups never hold)? I'd pick: yes, send it; the app needs no change (it mirrors attention.state). Work kept on autopilot-shelved/B-393.
-Answer:
+Answer: yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
 
 ## B-394 · Agent toolbar Browser badge — count of tabs the agent opened since you…   [idea]
 Note: Agent toolbar Browser badge — count of tabs the agent opened since you last viewed its browser (needs tab origin field, popup origin inheritance, per-agent seen counter; NSItemBadge is macOS 26+)
@@ -2957,3 +2960,24 @@ Reviewed: accepted 2026-11-14 — 282c2c9d1318
 ## B-396 · iOS move progress shows the daemon's move stages   [idea]
 Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.
 Source: autopilot polish (B-395)
+
+## B-397 · settings in Leo menu should open Leo settings window, not ghostty…   [ready]
+Type: bug
+Report: settings in Leo menu should open Leo settings window, not ghostty settings file (move that to a different menu item)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-14)
+Inbox: 20261115T013159207133Z-cd96f64b#1
+
+## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [ready]
+Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.82.4 carries the B-393 pending.tasks working-state hold.
+Accept: The lane merges PR #369's head commit 39bcb2fb8bcce17a235e60d6a85e4788b56a62ff (git fetch origin bump/leo-0.82.4) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.82.4; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.82.4.
+Out: Closing or merging PRs on GitHub; any code change beyond the bump.
+Source: owner (/feature, 2026-11-14)
+Inbox: 20261115T014752085869Z-2a6cfa2d#1
+
+## B-398 · Show/hide sidebar button in the top toolbar   [ready]
+Why: the agents sidebar can be shown or hidden with one click from the window toolbar, not only from the Agents menu or ⌘⇧L (P1 every action is discoverable; Mac only, since iOS has no sidebar)
+Accept: the toolbar has a standard sidebar toggle button (sidebar.left glyph) that sits at the leading edge next to the traffic lights and stays put when the sidebar collapses; clicking it hides and shows the sidebar using the same path as ⌘⇧L, keeping the remembered width and the existing no-squeeze guard (canToggleSidebar); the button's tooltip and accessibility label read "Hide Agents Sidebar" or "Show Agents Sidebar" to match the menu, and it is disabled whenever the menu item is; screenshots of both states in the default and hidden titlebar styles
+Out: changes to the sidebar's contents or width behavior; toolbar customization; iOS
+Source: owner (/feature, 2026-11-14)
+Inbox: 20261115T014420705040Z-2fa283e5#1
