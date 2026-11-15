@@ -890,7 +890,7 @@ Veto: n/a (owner)
 Context: B-219 (Agents stuck in errored state in the sidebar while working fine) blocked question
 Chose: accept your recommendation (send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon)
 Why: the owner's answer
-Commit:
+Commit: 3ed071fec f928cc679
 Veto: n/a (owner)
 
 ## D-786 · 2026-11-14 · Answer to B-143: Replaced launch window lingers in the window list
@@ -913,3 +913,27 @@ Chose: yes — contract sent to the leo agent 2026-11-14; close once the bundled
 Why: the owner's answer
 Commit:
 Veto: n/a (owner)
+
+## D-789 · 2026-11-14 · B-219: Pin tests in LeoKit (Mac + iOS); no UI or reducer change
+Chose: Pin tests in LeoKit (Mac + iOS); no UI or reducer change
+Why: P3; repo Mac/iOS rule
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-790 · 2026-11-14 · B-219: No app-side "hide errored while running" rule
+Chose: No app-side "hide errored while running" rule
+Why: P2, D-011, D-785
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-791 · 2026-11-14 · B-219: Third pin: working at the same or an older revision does not clear errored
+Chose: Third pin: working at the same or an older revision does not clear errored
+Why: P2, D-011
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-792 · 2026-11-14 · B-219: Leo agent still gets the Go test spec; leo PR #327 only partly covers it (sent by the orchestrator 2026-11-14)
+Chose: Leo agent still gets the Go test spec; leo PR #327 only partly covers it (sent by the orchestrator 2026-11-14)
+Why: AUTONOMY (messaging the leo agent)
+Commit: 3ed071fec f928cc679
+Veto: [ ]
