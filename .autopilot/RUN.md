@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-15T01:48:53Z
 Budget: 20 items, until 2026-11-15T13:48:53Z
-Digested-through: 0
+Digested-through: 5
 Filed: 0/3 bugs, 1/5 ideas
 Self-filed: B-397 → B-400 idea — Gear icon belongs on Settings…, not Open Ghostty Config
 Self-filed: B-399 → dropped (dup of B-303) — Incremental macOS builds can skip the "Leo tmux terminfo" phase
