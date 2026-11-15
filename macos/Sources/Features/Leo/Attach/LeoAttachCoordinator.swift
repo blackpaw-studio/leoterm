@@ -720,13 +720,16 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     }
 
     /// B-110: an agent's surface moved to another window; its bookkeeping
-    /// follows it -- the same tmux client, its place in the recency order,
-    /// exited or not, linked or viewed. A handle with no identity (a plain
-    /// shell) has none to move.
+    /// follows it -- the same tmux client, so the same attachment
+    /// generation (B-232) and placement debt (B-270), its place in the
+    /// recency order, exited or not, linked or viewed. A handle with no
+    /// identity (a plain shell) has none to move.
     private func rekey(_ old: AttachmentHandle, to new: AttachmentHandle) {
         guard let identity = identityByHandle.removeValue(forKey: old) else { return }
         identityByHandle[new] = identity
         handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == old ? new : $0 }
+        if let generation = generationByHandle.removeValue(forKey: old) { generationByHandle[new] = generation }
+        if unplaced.remove(old) != nil { unplaced.insert(new) }
         if inactive.remove(old) != nil { inactive.insert(new) }
         if linkedHandle == old { linkedHandle = new }
         if viewedHandle == old { viewedHandle = new }

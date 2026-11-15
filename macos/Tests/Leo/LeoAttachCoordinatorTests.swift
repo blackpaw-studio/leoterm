@@ -535,6 +535,24 @@ import Testing
         #expect(coordinator.inactiveHandleCount == 0, "its close finds it under its new handle")
     }
 
+    /// A move is not a new attachment: the same tmux client keeps its
+    /// generation (B-232), so a file drop begun before it still completes
+    /// into it where it went.
+    @Test func aMovedAgentKeepsItsAttachmentGeneration() async throws {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let generation = try #require(coordinator.generation(forSurface: before.surfaceID))
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        #expect(coordinator.generation(forSurface: after.surfaceID) == generation)
+    }
+
     /// A plain shell (no identity) moving changes nothing.
     @Test func aMovedPlainShellIsANoOp() async {
         let host = FakeAttachContentHost()

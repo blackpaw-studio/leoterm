@@ -127,6 +127,26 @@ import Testing
         #expect(host.releasedPooledSurfaces.isEmpty)
     }
 
+    /// B-110: dragged into another window before the hello lands, an
+    /// attach from before it is still re-attached with the flag, where it
+    /// is now.
+    @Test func anAttachMovedBeforeHelloIsReattachedWhereItWent() async throws {
+        let host = FakeAttachContentHost()
+        let features = FeatureBox()
+        let coordinator = makeCoordinator(host: host, features: features)
+        await coordinator.attach(identity: worker, from: LeoWindowID(), disposition: .content)
+        let before = try #require(host.handles.first)
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        features.byHost[.local] = Self.placement
+        coordinator.daemonFeaturesChanged()
+
+        #expect(host.reattachCalls.map(\.handle) == [after])
+    }
+
     @Test func failedReattachIsReportedOnceAndKeepsTheOldAttach() async throws {
         let host = FakeAttachContentHost()
         host.reattachError = FakeReattachError.failed
