@@ -962,3 +962,24 @@ Interim updates: 1 posted, through item 5
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-15T17:40:19Z
+
+🛠 leoterm autopilot — 1 shipped, 1 blocked
+Shipped
+• B-402 Status tab header shows only model, effort and usage — header now reads `Opus 5.5 · high  77% · 5h 43%`; context bar and cost removed, pane body unchanged (verified: screenshot) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-813 "usage" = the context % and 5h % figures; kept both — "calm by default"
+• D-814 effort shown inside the model text — "calm by default"
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• B-401 relaunch reverts finished agents to idle — daemon-side: leo keeps attention in memory only, so a daemon restart (e.g. after an app update) re-adopts agents as unknown. Send the leo agent the bug + restore contract, add pin tests here, close once bundled? I'd pick yes. Shelved on autopilot-shelved/B-401 (no commits).
+• Lanes left in place: B-233, B-332 (unlanded, no run record); B-368 landed but its worktree is dirty (1 change), so finish skipped it; B-058 still held.
+• calls in shelved work, not logged (B-401): daemon-only fix, restore at-rest states only, key by name + attention token.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058, B-180, B-181, B-182, B-184 +80 more
+Next up: none ready
+Spend (estimated, lower bound · prices 2026-10-09): ≈$4.23 est. — B-401 ≈$2.03, B-402 ≈$2.20
+Tokens (runner + its subagents): B-401 3.99M in (3.64M cache read), ≥50.4k out, 45 requests · B-402 6.68M in (6.42M cache read), ≥26k out, 79 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
