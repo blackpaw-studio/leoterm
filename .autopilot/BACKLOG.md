@@ -3011,10 +3011,12 @@ Inbox: 20261115T172307857844Z-207cea17#1
 Question: Can't be fixed in the app: the daemon keeps attention in memory only, so after a daemon restart (e.g. restartIfUpdated on first launch after an update) every agent re-adopts as `unknown` and shows idle; a plain app relaunch already keeps `finished`. Send the leo agent the bug + contract (persist at-rest attention across restart: finished/needs_input/errored restored on adopt, working → unknown, keyed by name + attention token), build only LeoKit/Mac/iOS pin tests here, and close once a bundled leo has it? I'd pick yes (same pattern as D-788). Work kept on autopilot-shelved/B-401.
 Answer:
 
-## B-402 · Status tab header shows only model, effort and usage   [ready]
+## B-402 · Status tab header shows only model, effort and usage   [done]
 Issue: #375
 Why: The status tab's header button gets less cluttered, so the useful numbers can be read at a glance (P1).
 Accept: The status plugin's tab header button no longer shows the context bar; it no longer shows cost; it still shows model, effort and usage; the status pane body is unchanged; screenshot of the debug build shows the new header
 Out: Changes to the pane body; iOS (the bottom pane is Mac only); daemon or telemetry changes
 Source: owner (/feature, 2026-11-15)
 Inbox: 20261115T173431210598Z-bd9ebf13#1
+Done: 9f9382c00 (merged in 6a730e9b2). Header reads `Opus 5.5 · high  77% · 5h 43%`: context bar and cost removed, body unchanged. Decisions D-813, D-814.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-402-1.png

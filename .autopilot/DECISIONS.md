@@ -1057,3 +1057,15 @@ Chose: Release the agent toolbar's tracking separator when its window closes, so
 Why: P1
 Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
 Veto: [ ]
+
+## D-813 · 2026-11-15 · B-402: Read "usage" as the context % and 5h % figures and kept both; only the context bar and cost were removed
+Chose: Read "usage" as the context % and 5h % figures and kept both; only the context bar and cost were removed
+Why: P2 Calm
+Commit: 9f9382c00
+Veto: [ ]
+
+## D-814 · 2026-11-15 · B-402: Effort sits inside the model text node, so the header stays at most two nodes
+Chose: Effort sits inside the model text node, so the header stays at most two nodes
+Why: P2 Calm
+Commit: 9f9382c00
+Veto: [ ]

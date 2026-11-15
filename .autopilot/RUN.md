@@ -35,7 +35,8 @@ Lane: B-402
   Branch: autopilot-lane/B-402
   Base: 6e36bc17a570c92535f5873bb4416bc82a605f0d
   Tier: light
-  State: verifying
+  Tokens: 6.68M in (6.42M cache read), ≥26k out, 79 requests
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -45,9 +46,11 @@ Lane: B-402
   Call: Effort sits inside the model text node, so the header stays at most two nodes — P2 Calm
 
 Finished 1: B-401 blocked
+Finished 2: B-402 landed 6a730e9b2 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-402-1.png
 
 Progress:
 - Preflight: main merged (ff to 23b935963: leo 0.83.0 bump, Markdown test fix); no open bump/leo-* PR to queue; inbox applied: B-401 bug, B-402 add. Lanes B-233, B-332 unlanded with no RUN.md block (left in place); B-368 landed lane awaits finish.
 - Picks: B-401 full (bug; report is about restoring sidebar state across relaunch = persistence), B-402 light (status tab header copy-level change). Independent footprints, parallel.
 - Runners: B-401 d-ef048aaa88f1, B-402 d-43c07bf975ed (leo implement role).
 - B-401 blocked (shelved autopilot-shelved/B-401, no commits): root cause is daemon-side — leo keeps attention in memory only, so a daemon restart (e.g. restartIfUpdated after an app update) re-adopts agents as `unknown`; a plain app relaunch already keeps `finished`. Needs a leo release + bundled bump. Plan at plans/B-401.md.
+- B-402 landed 6a730e9b2 (9f9382c00): header shows model · effort and usage %s only. D-813, D-814. Mac 4675 tests, plugin vitest 79/79.
