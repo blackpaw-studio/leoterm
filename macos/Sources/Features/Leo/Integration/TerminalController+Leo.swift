@@ -172,6 +172,11 @@ extension TerminalController {
             guard let self else { return }
             NSApp.sendAction(action, to: self, from: sender)
         }
+        // The sidebar toggle reads the same state as Agents ▸ Show/Hide Agents Sidebar.
+        window.leoToolbar.sidebarToggleState = { [weak self] in
+            self?.leoSidebarToggleState
+                ?? LeoMenuCommands.sidebarToggle(hasLeoSession: false, isSidebarVisible: false, showingSqueezesTerminal: false)
+        }
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
@@ -296,16 +301,18 @@ extension TerminalController {
         window?.presentLeoSheet(sheet)
     }
 
-    func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
-        let hasLeoSession = leoSession != nil
-        item.title = LeoMenuCommands.sidebarToggleTitle(
-            hasLeoSession: hasLeoSession,
-            isSidebarVisible: leoSession?.isSidebarVisible ?? false
-        )
-        return LeoMenuCommands.canToggleSidebar(
-            hasLeoSession: hasLeoSession,
+    /// What Agents ▸ Show/Hide Agents Sidebar and the toolbar's toggle read.
+    var leoSidebarToggleState: LeoMenuCommands.SidebarToggleState {
+        LeoMenuCommands.sidebarToggle(
+            hasLeoSession: leoSession != nil,
             isSidebarVisible: leoSession?.isSidebarVisible ?? false,
             showingSqueezesTerminal: leoSession?.showingSidebarSqueezesTerminal ?? false)
+    }
+
+    func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
+        let state = leoSidebarToggleState
+        item.title = state.title
+        return state.isEnabled
     }
 
     func validateFindLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {

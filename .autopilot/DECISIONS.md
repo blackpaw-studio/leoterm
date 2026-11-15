@@ -1003,3 +1003,33 @@ Chose: A handle follows its surface into whichever Leo window holds it (generali
 Why: AUTONOMY
 Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
 Veto: [ ]
+
+## D-804 · 2026-11-14 · B-398: Reuse .leoSidebarToggle (always present, first, immovable) instead of a new identifier
+Chose: Reuse .leoSidebarToggle (always present, first, immovable) instead of a new identifier
+Why: P1, no saved-layout breakage
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-805 · 2026-11-14 · B-398: Glyph sidebar.left; tooltip, label and accessibility "Hide/Show Agents Sidebar", disabled with the menu via one shared helper LeoMenuCommands.sidebarToggle
+Chose: Glyph sidebar.left; tooltip, label and accessibility "Hide/Show Agents Sidebar", disabled with the menu via one shared helper LeoMenuCommands.sidebarToggle
+Why: P1
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-806 · 2026-11-14 · B-398: Click goes through toggleLeoSidebar(_:), the same path as ⌘⇧L
+Chose: Click goes through toggleLeoSidebar(_:), the same path as ⌘⇧L
+Why: P1, P6
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-807 · 2026-11-14 · B-398: Mac only
+Chose: Mac only
+Why: repo Mac/iOS rule
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-808 · 2026-11-14 · B-398: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar"
+Chose: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar"
+Why: P1
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]

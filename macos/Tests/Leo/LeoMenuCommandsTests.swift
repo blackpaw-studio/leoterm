@@ -85,6 +85,19 @@ struct LeoMenuCommandsTests {
         #expect(!LeoMenuCommands.canToggleSidebar(hasLeoSession: false, isSidebarVisible: true, showingSqueezesTerminal: false))
     }
 
+    /// B-398: the toolbar button and the menu item read one state, so the
+    /// title and the enabled flag can't drift apart.
+    @Test func sidebarToggleStateMatchesTheMenu() {
+        let visible = LeoMenuCommands.sidebarToggle(hasLeoSession: true, isSidebarVisible: true, showingSqueezesTerminal: true)
+        #expect(visible.title == "Hide Agents Sidebar" && visible.isEnabled, "Hide is never gated")
+        let hidden = LeoMenuCommands.sidebarToggle(hasLeoSession: true, isSidebarVisible: false, showingSqueezesTerminal: false)
+        #expect(hidden.title == "Show Agents Sidebar" && hidden.isEnabled)
+        let squeezed = LeoMenuCommands.sidebarToggle(hasLeoSession: true, isSidebarVisible: false, showingSqueezesTerminal: true)
+        #expect(squeezed.title == "Show Agents Sidebar" && !squeezed.isEnabled)
+        let none = LeoMenuCommands.sidebarToggle(hasLeoSession: false, isSidebarVisible: true, showingSqueezesTerminal: false)
+        #expect(none.title == "Show Agents Sidebar" && !none.isEnabled)
+    }
+
     @Test func createAgentRequiresLeoSession() {
         #expect(LeoMenuCommands.canCreateAgent(hasLeoSession: true))
         #expect(!LeoMenuCommands.canCreateAgent(hasLeoSession: false))

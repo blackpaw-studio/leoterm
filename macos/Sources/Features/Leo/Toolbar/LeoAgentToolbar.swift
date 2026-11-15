@@ -12,8 +12,8 @@ extension NSToolbarItem.Identifier {
     static let leoMore = NSToolbarItem.Identifier("leo.toolbar.more")
 }
 
-/// The agent window's toolbar: the sidebar toggle (shown only while the
-/// sidebar is collapsed), a tracking separator that keeps the title and the
+/// The agent window's toolbar: the sidebar toggle (always there, first, at the
+/// leading edge beside the traffic lights), a tracking separator that keeps the title and the
 /// items over the detail column, the title item (title, subtitle and a ▾
 /// pull-down of the agent's actions, in place of the window's own title), the activity capsule centred, and the
 /// trailing groups: the tool toggles (Files, Browser, Agent Pane), the
@@ -25,7 +25,7 @@ extension NSToolbarItem.Identifier {
 /// only after SwiftUI's first layout, so the toolbar goes up at once (the
 /// sidebar's inset needs its height) and the separator joins when the split
 /// hands itself over (`attach(splitView:)`).
-final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
+final class LeoAgentToolbar: NSObject, NSToolbarDelegate, NSToolbarItemValidation {
     /// The items in order once the split has been handed over.
     static let itemOrder = LeoAgentToolbarItems.defaultOrder
     /// Toolbars with one identifier are a family: AppKit mirrors item
@@ -112,7 +112,15 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// What the reset-zoom button (a 28 pt bordered item) takes right of the
     /// capsule, with the toolbar's spacing.
     static let resetZoomReserve: CGFloat = 38
-    private var isSidebarToggleHidden = true
+    /// The sidebar is collapsed: the capsule then clears the toggle that sits
+    /// beside the traffic lights over the whole window width.
+    private var isSidebarCollapsed = true
+    /// What the sidebar toggle reads (title and enabled), polled on every
+    /// validation: `showingSidebarSqueezesTerminal` is computed, nothing
+    /// publishes it. Set by the window's controller (the menu item's state).
+    var sidebarToggleState: () -> LeoMenuCommands.SidebarToggleState = {
+        LeoMenuCommands.sidebarToggle(hasLeoSession: false, isSidebarVisible: false, showingSqueezesTerminal: false)
+    }
     private var sideBySideChatWidth: CGFloat = 0
 
     init(layoutStore: LeoToolbarLayoutStore? = nil) {
@@ -183,15 +191,14 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         closeObserver.map(NotificationCenter.default.removeObserver)
     }
 
-    /// Keeps the sidebar toggle visible exactly while the sidebar is
-    /// collapsed.
+    /// Keeps the capsule's leading room in step with the sidebar. The toggle
+    /// itself stays put in both states.
     @MainActor
     func bind(sidebarVisible: some Publisher<Bool, Never>) {
         sidebarVisible.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isVisible in
             guard let self else { return }
-            isSidebarToggleHidden = isVisible
+            isSidebarCollapsed = !isVisible
             updateActivityWidth()
-            if hidesItemsInPlace { setHidden(sidebarToggle, isVisible) } else { syncItemPresence() }
         }.store(in: &subscriptions)
     }
 
@@ -269,6 +276,25 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// Sends the toggles' clicks somewhere else (tests).
     @MainActor
     func setToggleSender(_ send: @escaping (Selector, Any?) -> Void) { toggles.send = send }
+
+    /// The sidebar toggle was clicked: the same action as Agents ▸ Show/Hide
+    /// Agents Sidebar (⌘⇧L), so the remembered width and the no-squeeze guard apply.
+    @MainActor @objc func sidebarToggleClicked(_ sender: Any?) {
+        toggles.send(#selector(TerminalController.toggleLeoSidebar(_:)), sender)
+    }
+
+    /// Applies the menu item's title and enabled state to the sidebar toggle.
+    /// AppKit validates every visible item on every event, so only values that
+    /// changed are assigned.
+    @MainActor
+    func validateToolbarItem(_ item: NSToolbarItem) -> Bool {
+        guard item.itemIdentifier == .leoSidebarToggle else { return item.isEnabled }
+        let state = sidebarToggleState()
+        if item.toolTip != state.title { item.toolTip = state.title }
+        if item.label != state.title { item.label = state.title }
+        if let image = item.image, image.accessibilityDescription != state.title { image.accessibilityDescription = state.title }
+        return state.isEnabled
+    }
 
     /// Keeps the reset-zoom button in the toolbar exactly while a split is
     /// zoomed (it used to be a titlebar accessory, which hangs under the
@@ -363,10 +389,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
 
     /// Below macOS 15 `NSToolbarItem.isHidden` does nothing, so the items
     /// that come and go are added to and removed from the toolbar instead.
+    /// (The sidebar toggle does not come and go.)
     private func isPresentByDefault(_ identifier: NSToolbarItem.Identifier) -> Bool {
         if hidesItemsInPlace { return true }
         switch identifier {
-        case .leoSidebarToggle: return !isSidebarToggleHidden
         case .leoResetZoom: return isSurfaceZoomed
         case .leoUpdate: return isUpdateShowing && showsUpdateItem
         case .leoBrowser: return toolState.browser.isPresent
@@ -374,11 +400,10 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         }
     }
 
-    /// Inserts or removes the sidebar toggle and the update pill to match the
+    /// Inserts or removes the update pill and reset-zoom button to match the
     /// bindings (macOS 14 and earlier).
     private func syncItemPresence() {
         guard let toolbar else { return }
-        setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
         let toggles: Set<NSToolbarItem.Identifier> = [.leoFiles, .leoBrowser, .leoAgentPane, .leoViewSwitch]
         setPresence(of: .leoUpdate, isUpdateShowing && showsUpdateItem, in: toolbar) { toolbar in
             toolbar.items.firstIndex { toggles.contains($0.itemIdentifier) } ?? toolbar.items.count
@@ -441,15 +466,15 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
 
     private func makeSidebarToggle() -> NSToolbarItem {
         let item = NSToolbarItem(itemIdentifier: .leoSidebarToggle)
-        item.image = NSImage(systemSymbolName: "sidebar.leading", accessibilityDescription: "Show Sidebar")
-        item.label = "Sidebar"
-        item.toolTip = "Show Sidebar"
-        item.target = nil
-        item.action = #selector(TerminalController.toggleLeoSidebar(_:))
+        let title = LeoAgentToolbarItems.tooltip(for: .leoSidebarToggle)
+        item.image = NSImage(systemSymbolName: "sidebar.left", accessibilityDescription: title)
+        item.label = title ?? "Sidebar"
+        item.toolTip = title
+        // The toolbar validates the title and enabled state (`validateToolbarItem`).
+        item.target = self
+        item.action = #selector(sidebarToggleClicked(_:))
         item.isBordered = true
         sidebarToggle = item
-        // Hidden unless the session reports the sidebar collapsed.
-        setHidden(item, isSidebarToggleHidden)
         return item
     }
 
@@ -500,7 +525,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private func updateActivityWidth() {
         guard let activityWidth, let activityContainerWidth, let window else { return }
         let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
-        let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
+        let leadingChrome = isSidebarCollapsed ? LeoActivityCapsuleSizing.collapsedSidebarChrome : 0
         let placement = LeoActivityCapsuleSizing.placement(
             windowWidth: window.frame.width, sidebarWidth: sidebar, chatLeadingEdge: chatLeadingEdge(in: window),
             leadingChrome: leadingChrome,
