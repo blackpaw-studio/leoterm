@@ -1069,3 +1069,10 @@ Chose: Effort sits inside the model text node, so the header stays at most two n
 Why: P2 Calm
 Commit: 9f9382c00
 Veto: [ ]
+
+## D-815 · 2026-11-15 · Answer to B-401: when you relaunch all the finished agents in the…
+Context: B-401 (when you relaunch all the finished agents in the sidebar revert back…) blocked question
+Chose: accept your recommendation (yes (same pattern as D-788))
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
