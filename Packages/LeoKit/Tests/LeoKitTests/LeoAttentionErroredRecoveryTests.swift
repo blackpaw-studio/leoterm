@@ -3,11 +3,15 @@ import Testing
 
 @testable import LeoKit
 
-/// B-219 pins: an agent shown as errored while it works fine. The cause was
-/// daemon-side (hooks after a /clear were dropped, so no newer revision ever
-/// arrived; fixed in leo PR #327). These pin the app's half of the contract:
-/// a newer daemon signal always supersedes a committed `errored`, and the
-/// app never hides a daemon-reported `errored` on its own (D-011, principle 2).
+/// B-219 pins: an agent shown as errored while it works fine. The sidebar
+/// mirrors the daemon, so the cause is daemon-side. The errored-specific fix
+/// is leo #318 (`clearErroredOnSessionStart`); leo #327 lets later hooks from
+/// a /clear session through the gate. Both depend on the SessionStart
+/// `/api/agent/context` call reaching the daemon; without it every hook from
+/// the new session is dropped and no newer revision ever arrives. These pin
+/// the app's half of the contract: a newer daemon revision always supersedes
+/// a committed `errored`, and the app never hides a daemon-reported `errored`
+/// on its own (D-011, principle 2).
 struct LeoAttentionErroredRecoveryTests {
     private static let host = LeoHostID.remote("mars")
 
@@ -46,14 +50,17 @@ struct LeoAttentionErroredRecoveryTests {
         #expect(reducer.badge(for: "x", legacyActivity: .idle) == .finished)
     }
 
-    @Test func erroredOnRunningRowStaysWithoutNewerSignal() {
+    @Test func erroredOnRunningRowStaysWithoutNewerRevision() {
         var reducer = live(["x": signal(.errored, 55)])
 
-        // Same-revision polls and ticks with the row visibly working change nothing.
-        reducer.applyBaseline(["x": signal(.errored, 55)])
+        // The row is visibly working, but the daemon has not moved past r55:
+        // a same-revision and an older `working` signal are both ignored.
+        reducer.receive(agent: "x", signal: signal(.working, 55), now: 0)
+        reducer.receive(agent: "x", signal: signal(.working, 54), now: 0)
         _ = reducer.tick(now: 60)
 
-        #expect(reducer.badge(for: "x", legacyActivity: .working) == .errored)
+        #expect(reducer.nextDeadline == nil)
         #expect(reducer.state(of: "x") == .errored)
+        #expect(reducer.badge(for: "x", legacyActivity: .working) == .errored)
     }
 }
