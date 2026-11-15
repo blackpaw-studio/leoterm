@@ -206,7 +206,14 @@ class TerminalWindow: NSWindow {
     override func close() {
         tabTitleEditor.finishEditing(commit: true)
         NotificationCenter.default.post(name: Self.terminalWillCloseNotification, object: self)
+        // MARK: Leo -- read before the close gives it up (B-143).
+        let leoWindowNumber = windowNumber
         super.close()
+
+        // MARK: Leo -- freed once its last owner lets go, even while Leo
+        // sits idle, rather than kept until the user's next key press or
+        // click (B-143).
+        LeoEventLoop.wakeUntilFreed(self, number: leoWindowNumber)
     }
 
     override func becomeKey() {
