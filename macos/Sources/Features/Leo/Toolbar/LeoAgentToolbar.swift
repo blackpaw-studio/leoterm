@@ -97,6 +97,9 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     private var didCustomize = false
     private var isSavePending = false
     private var sheetObserver: NSObjectProtocol?
+    private var closeObserver: NSObjectProtocol?
+    /// The window closed: no separator holds its split view any more (B-143).
+    private var isWindowClosed = false
     /// Whether `NSToolbarItem.isHidden` takes effect (macOS 15+). Below that
     /// the items that come and go are inserted and removed instead; tests
     /// turn this off (before `install`) to exercise that path here.
@@ -145,6 +148,24 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
         sheetObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didEndSheetNotification, object: window, queue: .main
         ) { [weak self] _ in MainActor.assumeIsolated { self?.saveLayoutIfCustomized() } }
+        // Posted on the main thread by `close()`; nil runs it there and then.
+        closeObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: window, queue: nil
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.releaseSplitView() } }
+    }
+
+    /// B-143: a closing window's tracking separator goes, letting go of the
+    /// split view it holds (strongly, as `NSTrackingSeparatorToolbarItem`
+    /// does). The split's panes hold the window through its controller, so
+    /// a separator left in place keeps a closed window, its controller and
+    /// its window-server window alive for good, after the controller has
+    /// emptied the window to break that hold. A closed agent window is not
+    /// shown again, so the separator doesn't come back.
+    @MainActor
+    private func releaseSplitView() {
+        isWindowClosed = true
+        guard let toolbar, let index = toolbar.items.firstIndex(where: { $0.itemIdentifier == .leoSplitSeparator }) else { return }
+        toolbar.removeItem(at: index)
     }
 
     /// The title item stands in for the window's own title while the toolbar
@@ -159,6 +180,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     deinit {
         layoutObservers.forEach(NotificationCenter.default.removeObserver)
         sheetObserver.map(NotificationCenter.default.removeObserver)
+        closeObserver.map(NotificationCenter.default.removeObserver)
     }
 
     /// Keeps the sidebar toggle visible exactly while the sidebar is
@@ -263,7 +285,7 @@ final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
     /// The split view is in the window: the tracking separator can join.
     @MainActor
     func attach(splitView: NSSplitView) {
-        guard self.splitView == nil, let toolbar else { return }
+        guard self.splitView == nil, !isWindowClosed, let toolbar else { return }
         self.splitView = splitView
         if let window { observeLayout(of: window, splitView: splitView) }
         updateActivityWidth()
