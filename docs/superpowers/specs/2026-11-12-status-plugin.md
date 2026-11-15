@@ -14,12 +14,11 @@ Replace the in-terminal `rich-statusline` Claude Code plugin with a first-party 
 
 ## Summary (collapsed strip)
 
-`Opus 5.5 ▬ 21% · 5h 3% · $35.36`
+`Opus 5.5 · high  21% · 5h 3%`
 
-- **Model:** tone `accent1`.
-- **Meter:** context share by category when the breakdown is known, otherwise a single segment for the total. The meter's `help` shows the token count.
+- **Model:** tone `accent1`, followed by the reasoning effort in `secondary` when known.
 - **Percentages:** the context % appears in the summary, and the 5h limit % appears only when present.
-- **Cost:** shown only when present.
+- **Not in the strip:** the context meter and the cost appear in the body only (B-402).
 - **Empty states:** before the first response the summary is `—`, and for a harness that reports no usage it is `No usage data`.
 
 ## Body (expanded)

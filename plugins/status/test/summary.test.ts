@@ -14,6 +14,7 @@ const meterOf = (n: ReturnType<typeof buildSummary>): Meter | undefined =>
 
 const full: UsageSnapshot = {
   model: "Opus 5.5",
+  effort: "high",
   context: {
     tokens: 42_000,
     window: 200_000,
@@ -28,78 +29,46 @@ const full: UsageSnapshot = {
 };
 
 describe("buildSummary", () => {
-  it("renders the full strip", () => {
+  it("renders model, effort and usage only", () => {
     const s = buildSummary(full);
-    expect(allText(s)).toBe("Opus 5.5|21% · 5h 3% · $35.36");
+    expect(allText(s)).toBe("Opus 5.5 · high|21% · 5h 3%");
     const model = nodes(s)[0] as Text;
     expect(model.runs[0].tone).toBe("accent1");
+    expect(model.runs[1].tone).toBe("secondary");
+  });
+
+  it("never renders a context meter", () => {
+    expect(meterOf(buildSummary(full))).toBeUndefined();
+    expect(nodes(buildSummary(full)).every((n) => n.type === "Text")).toBe(true);
+  });
+
+  it("never renders cost", () => {
+    expect(allText(buildSummary(full))).not.toContain("$");
+    expect(allText(buildSummary({ model: "Opus 5.5", session: { tokens: 1, costUsd: 1 } }))).toBe("Opus 5.5");
   });
 
   it("prettifies a model id", () => {
     expect(allText(buildSummary({ model: "claude-opus-5-5" }))).toBe("Opus 5.5");
   });
 
-  it("splits the meter by breakdown with the token count as help", () => {
-    const m = meterOf(buildSummary(full))!;
-    expect(m.max).toBe(200_000);
-    expect(m.segments).toEqual([
-      { value: 6000, tone: "accent1" },
-      { value: 8000, tone: "accent2" },
-      { value: 2000, tone: "accent3" },
-      { value: 1000, tone: "accent4" },
-      { value: 25_000, tone: "accent5" },
-    ]);
-    expect(m.help).toBe("42k / 200k tokens");
-  });
-
-  it("falls back to one total segment without a breakdown", () => {
-    const m = meterOf(buildSummary({ context: { tokens: 42_000, window: 200_000, percent: 21 } }))!;
-    expect(m.segments).toEqual([{ value: 42_000, tone: "accent1" }]);
-  });
-
-  it("skips absent breakdown categories", () => {
-    const m = meterOf(buildSummary({ context: { tokens: 10, window: 100, percent: 10, breakdown: { tools: 4, messages: 6 } } }))!;
-    expect(m.segments.map((s) => s.tone)).toEqual(["accent2", "accent5"]);
-  });
-
-  it("adds an other segment for tokens the breakdown does not account for", () => {
-    const m = meterOf(buildSummary({ context: { tokens: 100, window: 200, percent: 50, breakdown: { tools: 10, messages: 30 } } }))!;
-    expect(m.segments).toEqual([
-      { value: 10, tone: "accent2" },
-      { value: 30, tone: "accent5" },
-      { value: 60, tone: "secondary" },
-    ]);
-  });
-
-  it("adds no other segment when the breakdown covers every token", () => {
-    const m = meterOf(buildSummary({ context: { tokens: 10, window: 100, percent: 10, breakdown: { tools: 4, messages: 6 } } }))!;
-    expect(m.segments.some((s) => s.tone === "secondary")).toBe(false);
+  it("shows the model alone when effort is unknown", () => {
+    const { effort: _e, ...rest } = full;
+    expect(allText(buildSummary(rest))).toBe("Opus 5.5|21% · 5h 3%");
   });
 
   it("omits 5h when no five_hour limit is present", () => {
     const s = buildSummary({ ...full, rateLimits: [full.rateLimits![1]] });
-    expect(allText(s)).toBe("Opus 5.5|21% · $35.36");
+    expect(allText(s)).toBe("Opus 5.5 · high|21%");
   });
 
   it("shows 5h without a reset time", () => {
     const s = buildSummary({ ...full, rateLimits: [{ kind: "five_hour", percentUsed: 3.4 }] });
-    expect(allText(s)).toBe("Opus 5.5|21% · 5h 3% · $35.36");
-  });
-
-  it("omits cost when absent", () => {
-    const { session: _s, ...rest } = full;
-    expect(allText(buildSummary(rest))).toBe("Opus 5.5|21% · 5h 3%");
-  });
-
-  it("omits the meter and percent without context", () => {
-    const s = buildSummary({ model: "Opus 5.5", session: { tokens: 1, costUsd: 1 } });
-    expect(meterOf(s)).toBeUndefined();
-    expect(allText(s)).toBe("Opus 5.5|$1.00");
+    expect(allText(s)).toBe("Opus 5.5 · high|21% · 5h 3%");
   });
 
   it("omits the model when unknown", () => {
-    const { model: _m, ...rest } = full;
-    expect(allText(buildSummary(rest))).toBe("21% · 5h 3% · $35.36");
+    const { model: _m, effort: _e, ...rest } = full;
+    expect(allText(buildSummary(rest))).toBe("21% · 5h 3%");
   });
 
   it("shows a dash before the first response", () => {
@@ -112,9 +81,5 @@ describe("buildSummary", () => {
 
   it("shows a dash when only unsummarised fields exist", () => {
     expect(allText(buildSummary({ git: { added: 1, removed: 2 } }))).toBe("—");
-  });
-
-  it("skips a meter with a zero window", () => {
-    expect(meterOf(buildSummary({ context: { tokens: 0, window: 0, percent: 0 } }))).toBeUndefined();
   });
 });
