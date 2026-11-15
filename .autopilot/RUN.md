@@ -24,7 +24,9 @@ Lane: B-401
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Dispatched: 2026-11-15T23:50:54Z
 
 Progress:
 - Preflight: main already merged; no open bump/leo-* PR to queue; inbox applied: B-401 answered (accept pick: send leo agent the restore contract, pin tests here). Lanes B-233, B-332 unlanded with no RUN.md block (left in place); B-368 landed lane awaits finish.
 - Pick: B-401 full (shelved branch + existing plan). Owner accepted pick: send leo the restore contract, add pins here.
+- Runner: B-401 d-1493977acb3f (leo implement role).
