@@ -66,6 +66,17 @@ Lane: B-367
   Dispatched: 2026-11-15T02:18:48Z
   Tokens: 3.9M in (3.76M cache read), ≥17.1k out, 44 requests
 
+Lane: B-397
+  Branch: autopilot-lane/B-397
+  Base: 6b04e104d3b3b51065cb072a2b2660118c7c0ac2
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T02:25:25Z
+
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
 
@@ -76,3 +87,4 @@ Progress:
 - B-219 landed ba49266d9 (3ed071fec f928cc679): three LeoKit pin tests; Go test spec for the residual daemon gap sent to the leo agent by the orchestrator (the dispatch had no leo_send_message). Decisions D-789..D-792.
 - Pick: B-367 light (chat reply end-to-end check). Built before B-143 (B-143 touches TerminalController, which may overlap open lane B-110).
 - B-367 blocked: end-to-end check on an isolated leo 0.82.2 with autopilot-scratch: chat replies arrive before and after a simulated /clear; no app change. Waiting on owner close.
+- Pick: B-397 light (Settings menu). Built before B-143 (TerminalController overlap with B-110) and B-393 (needs B-399).
