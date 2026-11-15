@@ -122,12 +122,17 @@ Lane: B-398
   Branch: autopilot-lane/B-398
   Base: f4f7a2703662905c128bb881f45c88d0f052182b
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: ab4a37b14aaab93958e9239dfca7b2f91b87de2c
   Dispatched: 2026-11-15T04:00:44Z
+  Call: Reuse .leoSidebarToggle (always present, first, immovable) instead of a new identifier — P1, no saved-layout breakage
+  Call: Glyph sidebar.left; tooltip, label and accessibility "Hide/Show Agents Sidebar", disabled with the menu via one shared helper LeoMenuCommands.sidebarToggle — P1
+  Call: Click goes through toggleLeoSidebar(_:), the same path as ⌘⇧L — P1, P6
+  Call: Mac only — repo Mac/iOS rule
+  Call: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar" — P1
 
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
