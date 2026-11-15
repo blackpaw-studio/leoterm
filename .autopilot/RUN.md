@@ -21,24 +21,32 @@ Lane: B-143
   Branch: autopilot-lane/B-143
   Base: e23c0aa4232d0c0a670565289661884195ffae3e
   Tier: full
-  State: held
+  State: building
   Fixes: 0
   Wip: a3fe1df0d
   Reverifies: 0
   Reviewed-tip: none
-  Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
-  Dispatched: 2026-10-06T23:01:21Z
+  Dispatched: 2026-11-15T04:23:50Z
 
 Lane: B-110
   Branch: autopilot-lane/B-110
   Base: be2129990578913aa7929e6d8d253a33eb3c76a8
   Tier: full
-  State: building
+  State: landed
   Fixes: 0
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Dispatched: 2026-11-15T01:51:24Z
+  Reverifies: 1
+  Reviewed-tip: 7ee86845874c2163fa19aeb65a87a0c7886c6db5
+  Dispatched: 2026-11-15T04:09:40Z
+  Call: Ownership moves with the surface; the undo is one guarded "Move Split" action — P2, P6
+  Call: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked — P2
+  Call: A dropped plain shell becomes the window's row only when that window shows no row and no agent; the row it left is handed on at home (D-190/D-280) — P6
+  Call: Agents keep tracking through .moved instead of close-and-reattach; a moved dispatch still closes when it ends (B-266 kept) — P2/P6
+  Call: A moved agent keeps its attachment generation and placement entry (B-232/B-270) — P2
+  Call: Only two marked hooks in upstream files; no Zig changes — AUTONOMY (keep Zig minimal)
+  Call: Mac only; cross-window split drag is AppKit window management — Mac/iOS parity rule
+  Call: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only) — AUTONOMY
+  Tokens: 66.4M in (65M cache read), ≥257k out, 455 requests
 
 Lane: B-219
   Branch: autopilot-lane/B-219
@@ -110,11 +118,23 @@ Lane: B-393
   Call: Never-red LeoKit candidate test kept as evidence, not committed — Engineering Discipline
   Tokens: 9.48M in (9.07M cache read), ≥65.9k out, 98 requests
 
+Lane: B-398
+  Branch: autopilot-lane/B-398
+  Base: f4f7a2703662905c128bb881f45c88d0f052182b
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T04:00:44Z
+
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
 Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 Finished 4: B-399 landed 56857fc1f · not visually verified
 Finished 5: B-393 blocked
+Finished 6: B-110 landed 19fef2940 · not visually verified
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
@@ -129,3 +149,8 @@ Progress:
 - B-399 landed 56857fc1f (39bcb2fb8, PR #369 head unchanged): bundled leo 0.82.4. Note: shared xcframework is stale (lacks ghostty_config_key_is_binding_for_action after 3d2b0d723); lanes build their own until shared/ is rebuilt.
 - Pick: B-393 full (has shelved branch); end-to-end check of the pending.tasks hold on bundled leo 0.82.4. B-143 still waits on B-110 (TerminalController overlap).
 - B-393 blocked (shelved autopilot-shelved/B-393-2): leo 0.82.3 red, 0.82.4 green on isolated daemon (hold keeps working with outstanding.tasks; turn.start clears); app mirrors it, no change. Waiting on owner close.
+- Interim digest 1 posted (through Finished 5); notify off.
+- Pick: B-398 full (toolbar sidebar toggle). Built before B-143 (B-143 overlaps B-110 in TerminalController).
+- B-110 ready at 54aebb605 (concurrency review, 4659 tests; not visually verified). Integration stale (autopilot gained B-399 LEO_VERSION) → re-verify round 1. STOP-LIST NEAR-MISS (digest): first implementer's stale click in the debug app selected real stopped agent whatshoveringoverme's chat view; ⌘Z hit its empty field; nothing started or sent.
+- B-110 landed 19fef2940 (18 commits). Decisions D-796..D-803.
+- Pick: B-143 full (held lane, hard implementer per D-786); B-110 has landed, so the TerminalController overlap is gone.

@@ -272,6 +272,7 @@ struct FakeOpenCall {
 
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
+    func openHandle(ofSurface surfaceID: UUID) -> AttachmentHandle? { openHandles.first { $0.surfaceID == surfaceID } }
     func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }
     var dispatchMarks: [(handle: AttachmentHandle, readOnly: Bool)] = []
     func markDispatch(_ handle: AttachmentHandle, readOnly: Bool) { dispatchMarks.append((handle, readOnly)) }

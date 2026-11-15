@@ -819,6 +819,11 @@ class BaseTerminalController: NSWindowController,
         // it is already a single split.
         guard surfaceTree.isSplit else { return }
 
+        // MARK: Leo -- B-110: out of a Leo window, a Leo move (one guarded undo).
+        if let leo = self as? TerminalController, leo.leoMoveToNewWindow(
+            target, position: notification.userInfo?[Notification.Name.ghosttySurfaceDragEndedNoTargetPointKey] as? NSPoint
+        ) { return }
+
         // If we are removing our focused surface then we move it. We need to
         // keep track of our old one so undo sends focus back to the right place.
         let oldFocusedSurface = focusedSurface
@@ -1041,6 +1046,9 @@ class BaseTerminalController: NSWindowController,
             Ghostty.logger.warning("failed to insert surface during cross-window drop: \(error, privacy: .public)")
             return
         }
+
+        // MARK: Leo -- B-110: between Leo windows, a Leo move (one guarded undo).
+        if let leo = self as? TerminalController, leo.leoMoveSplit(source, from: sourceController, landingAs: newTree) { return }
 
         // Treat our undo below as a full group.
         undoManager?.beginUndoGrouping()

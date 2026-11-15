@@ -883,7 +883,7 @@ Veto: [ ]
 Context: B-110 (Dragging a Leo surface between windows: rows, window ownership and undo) blocked question
 Chose: accept your recommendation (retry next run from that branch with the hard implementer)
 Why: the owner's answer
-Commit:
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
 Veto: n/a (owner)
 
 ## D-785 · 2026-11-14 · Answer to B-219: Agents stuck in errored state in the sidebar while…
@@ -954,4 +954,52 @@ Veto: [ ]
 Chose: Mac only, since iOS has no app menu
 Why: P1; repo Mac/iOS rule
 Commit: 36cc25719
+Veto: [ ]
+
+## D-796 · 2026-11-14 · B-110: Ownership moves with the surface; the undo is one guarded "Move Split" action
+Chose: Ownership moves with the surface; the undo is one guarded "Move Split" action
+Why: P2, P6
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-797 · 2026-11-14 · B-110: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked
+Chose: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked
+Why: P2
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-798 · 2026-11-14 · B-110: A dropped plain shell becomes the window's row only when that window shows no row and no agent; the row it left is handed on at home (D-190/D-280)
+Chose: A dropped plain shell becomes the window's row only when that window shows no row and no agent; the row it left is handed on at home (D-190/D-280)
+Why: P6
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-799 · 2026-11-14 · B-110: Agents keep tracking through .moved instead of close-and-reattach; a moved dispatch still closes when it ends (B-266 kept)
+Chose: Agents keep tracking through .moved instead of close-and-reattach; a moved dispatch still closes when it ends (B-266 kept)
+Why: P2/P6
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-800 · 2026-11-14 · B-110: A moved agent keeps its attachment generation and placement entry (B-232/B-270)
+Chose: A moved agent keeps its attachment generation and placement entry (B-232/B-270)
+Why: P2
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-801 · 2026-11-14 · B-110: Only two marked hooks in upstream files; no Zig changes
+Chose: Only two marked hooks in upstream files; no Zig changes
+Why: AUTONOMY (keep Zig minimal)
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-802 · 2026-11-14 · B-110: Mac only; cross-window split drag is AppKit window management
+Chose: Mac only; cross-window split drag is AppKit window management
+Why: Mac/iOS parity rule
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-803 · 2026-11-14 · B-110: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only)
+Chose: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only)
+Why: AUTONOMY
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
 Veto: [ ]
