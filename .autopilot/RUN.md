@@ -110,6 +110,17 @@ Lane: B-393
   Call: Never-red LeoKit candidate test kept as evidence, not committed — Engineering Discipline
   Tokens: 9.48M in (9.07M cache read), ≥65.9k out, 98 requests
 
+Lane: B-398
+  Branch: autopilot-lane/B-398
+  Base: f4f7a2703662905c128bb881f45c88d0f052182b
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T04:00:44Z
+
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
 Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
@@ -129,3 +140,5 @@ Progress:
 - B-399 landed 56857fc1f (39bcb2fb8, PR #369 head unchanged): bundled leo 0.82.4. Note: shared xcframework is stale (lacks ghostty_config_key_is_binding_for_action after 3d2b0d723); lanes build their own until shared/ is rebuilt.
 - Pick: B-393 full (has shelved branch); end-to-end check of the pending.tasks hold on bundled leo 0.82.4. B-143 still waits on B-110 (TerminalController overlap).
 - B-393 blocked (shelved autopilot-shelved/B-393-2): leo 0.82.3 red, 0.82.4 green on isolated daemon (hold keeps working with outstanding.tasks; turn.start clears); app mirrors it, no change. Waiting on owner close.
+- Interim digest 1 posted (through Finished 5); notify off.
+- Pick: B-398 full (toolbar sidebar toggle). Built before B-143 (B-143 overlaps B-110 in TerminalController).
