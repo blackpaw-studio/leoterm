@@ -95,6 +95,17 @@ Lane: B-399
   Dispatched: 2026-11-15T03:07:22Z
   Tokens: 5.21M in (4.96M cache read), ≥20.8k out, 64 requests
 
+Lane: B-393
+  Branch: autopilot-lane/B-393
+  Base: 199cdae170d70dead6a3cb7a355742227c8796bb
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T03:43:45Z
+
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
 Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
@@ -111,3 +122,4 @@ Progress:
 - B-397 landed dde14dd4c (36cc25719): Settings… opens Leo settings; Open Ghostty Config split out. D-793..D-795. Polish filed B-400 idea.
 - Pick: B-399 light (leo 0.82.4 bump, PR #369). Built before B-143 (overlaps B-110) and B-393 (depends on this).
 - B-399 landed 56857fc1f (39bcb2fb8, PR #369 head unchanged): bundled leo 0.82.4. Note: shared xcframework is stale (lacks ghostty_config_key_is_binding_for_action after 3d2b0d723); lanes build their own until shared/ is rebuilt.
+- Pick: B-393 full (has shelved branch); end-to-end check of the pending.tasks hold on bundled leo 0.82.4. B-143 still waits on B-110 (TerminalController overlap).
