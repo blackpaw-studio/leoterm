@@ -22,6 +22,11 @@ extension LeoRuntime {
         settingsWindow.show(selecting: host)
     }
 
+    /// App menu ▸ Settings… (B-397): opens the Leo Settings window as it was.
+    func presentSettings() {
+        settingsWindow.show()
+    }
+
     /// Opens Leo Settings on the Appearance tab for `host`'s rules.
     func presentAppearanceRules(for host: LeoHostID) {
         settingsWindow.show(target: host, tab: LeoAppearanceSettingsView.tab)

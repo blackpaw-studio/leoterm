@@ -486,7 +486,7 @@ Accept: B-115 verify: the app menu still lists "About Ghostty" (pre-existing); s
 Source: autopilot polish (B-115)
 Done: 342cba7a4 (2048 tests). The app menu reads About Leo (also in Debug) and the About window names Leo; LeoAboutMenuTests pins the menu title. Verified: shots B-130-1 (app menu, screen) and -2 (About window). Remaining Ghostty strings filed as a branding sweep. Decision D-343.
 
-## B-219 · Agents stuck in errored state in the sidebar while working fine   [ready]
+## B-219 · Agents stuck in errored state in the sidebar while working fine   [done]
 Issue: #223
 Type: bug
 Report: agents are stuck in errored state in the sidebar even though theyre working fine
@@ -496,6 +496,8 @@ Source: Evan (/issue, 2026-10-04)
 Inbox: 20261004T000358126791Z-1ba543a9#1
 Question: Root cause is in the leo daemon, not the app: `isAgentHookSession` (leo internal/web/handlers_attention.go:80-105) drops every attention hook whose session_id differs from the stored record's, and /clear never updates the stored id (agentstore/store.go:119). After the 2026-10-03 11:39 tmux-server restart set everything to errored, the /cleared agents (leo, leoterm, blackpaw-games-site) have stayed running+errored for ~35 h; agents not /cleared recover normally. The app's reducer already supersedes errored on a newer revision. I'd pick: send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon. Reply "B-219: yes" to go. Work kept on autopilot-shelved/B-219 (no commits).
 Answer: accept your recommendation (send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon)
+Done: 3ed071fec f928cc679 (merged in ba49266d9). Three LeoKit pins: newer revision supersedes errored, never hidden, same/older-revision working doesn't clear it. Residual daemon gap (missed SessionStart) + Go test spec sent to the leo agent. Decisions D-785, D-789..D-792.
+Verified: not visually verified — tests-only LeoKit change, no UI
 
 ## B-220 · ssh fails in in-app terminals: missing ghostty binary in Leo.app   [done]
 Issue: #224
@@ -2712,7 +2714,7 @@ Inbox: 20261108T012952605012Z-96d7a589#1
 Done: 3d87c55b0
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png (re-verify: AboutView unchanged since; full suite 4210 green)
 
-## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [ready]
+## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [blocked]
 Issue: #342
 Type: bug
 Report: Sometimes when you message the agent in the chat, it doesn't respond in the chat, which is fine on desktop, but on iOS that means I don't see it unless I peek into what the terminal looks like. When a message is sent in chat (desktop app or iOS), make sure it gets replied to in chat if necessary. I don't know if there are any situations where we'd want to break that rule. If this is a change that needs to go into the daemon, message the leo agent to make the change.
@@ -2722,8 +2724,8 @@ Source: owner (/issue, 2026-11-08)
 Inbox: 20261108T173642828275Z-d4a6f986#1
 Attachments: .autopilot/bugs/B-367/Voice_note.m4a
 Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
-Question: Needs owner to do: merge blackpaw-studio/leo PR #327 and update the daemon. I'd pick: merge it, then reply "B-367: done" so a run checks a chat reply end to end.
-Answer: accept your recommendation (merge it, then reply "B-367: done" so a run checks a chat reply end to end)
+Question: couldn't reproduce — isolated leo 0.82.2 (includes #327) with an unbridged autopilot-scratch: chat message via POST /api/v1/chat/<agent>/messages, simulated /clear, second message; both replies reached chat history and the daemon logged "chat: capture … posted" twice; the app only reads the chat history route, so no app change. Hooks/transcript were simulated (no real Claude turn). Evidence: /private/tmp/claude-501/leoe2e367/. Reply "B-367: close" to close it, or "B-367: <more detail>" to retry. Work kept on autopilot-shelved/B-367.
+Answer:
 
 ## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [done]
 Issue: #349
@@ -2961,14 +2963,18 @@ Reviewed: accepted 2026-11-14 — 282c2c9d1318
 Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.
 Source: autopilot polish (B-395)
 
-## B-397 · settings in Leo menu should open Leo settings window, not ghostty…   [ready]
+## B-397 · settings in Leo menu should open Leo settings window, not ghostty…   [done]
+Issue: #370
 Type: bug
 Report: settings in Leo menu should open Leo settings window, not ghostty settings file (move that to a different menu item)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261115T013159207133Z-cd96f64b#1
+Done: 36cc25719 (merged in dde14dd4c; 4634 tests, lint clean). Leo ▸ Settings… (⌘,) opens the Leo settings window; Ghostty's config file moved to "Open Ghostty Config" (no shortcut). Decisions D-793..D-795.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 
 ## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [ready]
+Issue: #371
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.82.4 carries the B-393 pending.tasks working-state hold.
 Accept: The lane merges PR #369's head commit 39bcb2fb8bcce17a235e60d6a85e4788b56a62ff (git fetch origin bump/leo-0.82.4) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.82.4; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.82.4.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
@@ -2976,8 +2982,13 @@ Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014752085869Z-2a6cfa2d#1
 
 ## B-398 · Show/hide sidebar button in the top toolbar   [ready]
+Issue: #372
 Why: the agents sidebar can be shown or hidden with one click from the window toolbar, not only from the Agents menu or ⌘⇧L (P1 every action is discoverable; Mac only, since iOS has no sidebar)
 Accept: the toolbar has a standard sidebar toggle button (sidebar.left glyph) that sits at the leading edge next to the traffic lights and stays put when the sidebar collapses; clicking it hides and shows the sidebar using the same path as ⌘⇧L, keeping the remembered width and the existing no-squeeze guard (canToggleSidebar); the button's tooltip and accessibility label read "Hide Agents Sidebar" or "Show Agents Sidebar" to match the menu, and it is disabled whenever the menu item is; screenshots of both states in the default and hidden titlebar styles
 Out: changes to the sidebar's contents or width behavior; toolbar customization; iOS
 Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014420705040Z-2fa283e5#1
+
+## B-400 · Gear icon belongs on Settings…, not Open Ghostty Config   [idea]
+Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
+Source: autopilot polish (B-397)

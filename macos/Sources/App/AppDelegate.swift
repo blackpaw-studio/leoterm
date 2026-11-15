@@ -22,6 +22,7 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuServices: NSMenu?
     @IBOutlet private var menuCheckForUpdates: NSMenuItem?
     @IBOutlet private var menuOpenConfig: NSMenuItem?
+    @IBOutlet private var menuLeoSettings: NSMenuItem?
     @IBOutlet private var menuReloadConfig: NSMenuItem?
     @IBOutlet private var menuSecureInput: NSMenuItem?
     @IBOutlet private var menuQuit: NSMenuItem?
@@ -585,6 +586,12 @@ class AppDelegate: NSObject,
     /// Agents ▸ Set Up Claude…: install Claude Code and sign in, in a new window.
     @IBAction func setUpClaude(_ sender: Any?) {
         leoClaudeOnboarding.setUp()
+    }
+
+    /// App menu ▸ Settings… (⌘,): the Leo Settings window (B-397). Handled
+    /// here, not by a terminal window, so it works with none open.
+    @IBAction func showLeoSettings(_ sender: Any?) {
+        leoRuntime.presentSettings()
     }
 
     /// Agents ▸ Machines…: the Leo Settings window. Handled here, not by a
@@ -1451,7 +1458,8 @@ extension AppDelegate {
         menuShortcutManager.reset()
 
         syncMenuShortcut(config, action: "check_for_updates", menuItem: self.menuCheckForUpdates)
-        syncMenuShortcut(config, action: "open_config", menuItem: self.menuOpenConfig)
+        // Leo (B-397): not synced to open_config; Settings… owns ⌘, (see LeoSettingsMenuShortcut).
+        LeoSettingsMenuShortcut.sync(settings: self.menuLeoSettings, manager: menuShortcutManager)
         syncMenuShortcut(config, action: "reload_config", menuItem: self.menuReloadConfig)
         syncMenuShortcut(config, action: "quit", menuItem: self.menuQuit)
 
