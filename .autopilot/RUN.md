@@ -54,6 +54,17 @@ Lane: B-219
   Call: Third pin: working at same/older revision does not clear errored — P2, D-011
   Call: Leo agent still gets the Go test spec; leo PR #327 only partly covers it — AUTONOMY (messaging the leo agent)
 
+Lane: B-367
+  Branch: autopilot-lane/B-367
+  Base: 532d83b57db58ced22489f9ebbb2d1d9cfef31d6
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T02:18:48Z
+
 Finished 1: B-219 landed ba49266d9 · not visually verified
 
 Progress:
@@ -61,3 +72,4 @@ Progress:
 - Preflight: main merged (iOS Markdown viewer); queued bump PR #369 (leo 0.82.4) as B-399; inbox applied: B-397 bug, B-398 add, B-399 add; answered B-110, B-143, B-219, B-367 (leo PR #327 already merged), B-393 (fix ships in leo 0.82.4 → depends on B-399).
 - Runners: B-110 d-886703974903, B-219 d-c80c5b6db7f4 (leo implement role), parallel.
 - B-219 landed ba49266d9 (3ed071fec f928cc679): three LeoKit pin tests; Go test spec for the residual daemon gap sent to the leo agent by the orchestrator (the dispatch had no leo_send_message). Decisions D-789..D-792.
+- Pick: B-367 light (chat reply end-to-end check). Built before B-143 (B-143 touches TerminalController, which may overlap open lane B-110).
