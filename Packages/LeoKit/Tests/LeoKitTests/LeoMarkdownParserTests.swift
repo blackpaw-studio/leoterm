@@ -101,13 +101,21 @@ import Testing
         #expect(parse(deep) == [.paragraph([plain(deep)])])
     }
 
+    /// Compares growth, not an absolute budget, so a slow or loaded runner
+    /// can't fail it: 4× the blocks takes ~4× as long when linear, ~16× when
+    /// quadratic (the sibling-lookup bug this guards against).
     @Test func manySiblingBlocksParseInLinearTime() {
-        let doc = String(repeating: "p\n\n", count: 40_000)
         let clock = ContinuousClock()
-        var blocks: [LeoMarkdownBlock] = []
-        let elapsed = clock.measure { blocks = parse(doc) }
-        #expect(blocks.count == 40_000)
-        #expect(elapsed < .seconds(1.5))
+        func timeParse(_ count: Int) -> Duration {
+            let doc = String(repeating: "p\n\n", count: count)
+            var blocks: [LeoMarkdownBlock] = []
+            let elapsed = clock.measure { blocks = parse(doc) }
+            #expect(blocks.count == count)
+            return elapsed
+        }
+        let small = timeParse(5_000)
+        let large = timeParse(20_000)
+        #expect(large < small * 8)
     }
 
     @Test func costCountsNestedBlocksAndTableCells() {
