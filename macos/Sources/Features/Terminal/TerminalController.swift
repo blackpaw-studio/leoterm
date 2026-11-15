@@ -142,9 +142,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// sidebar and panes and shows the start screen, as a new one does --
     /// with nothing to undo back into it (B-071).
     func leoShowStartScreen() {
+        leoClearToStartScreen()
+        leoForgetContentUndo()
+    }
+
+    /// The start screen, keeping the window's undo: B-110's move of the
+    /// window's last pane to another window, whose own undo puts it back.
+    func leoClearToStartScreen() {
         leoIsUnfilledPlaceholder = true
         surfaceTree = .init()
-        leoForgetContentUndo()
         // As `TerminalView` would if it reported a nil focus: the closed
         // shell's title and proxy icon go with it, and the window reads as
         // a new one does (B-070).
