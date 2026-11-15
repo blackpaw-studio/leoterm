@@ -21,12 +21,16 @@ Lane: B-143
   Branch: autopilot-lane/B-143
   Base: e23c0aa4232d0c0a670565289661884195ffae3e
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: a3fe1df0d
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f94bf9cccbaebf6dbefb18b499356c8dfff71209
   Dispatched: 2026-11-15T04:23:50Z
+  Call: Keep the bounded wake (0.5 s, at most 10 s, stops once freed) for every closed terminal window — P1, within P5
+  Call: Redo of New Tab whose parent window is gone opens a new window (newTab(from: nil) fallback) — P1
+  Call: Windows AppKit holds past 10 s wait for the next event rather than a longer loop — P5 over P1 at the margin
+  Call: Release the agent toolbar's tracking separator when its window closes, so it stops holding the split view, controller and window — P1
 
 Lane: B-110
   Branch: autopilot-lane/B-110
