@@ -2985,13 +2985,15 @@ Inbox: 20261115T014752085869Z-2a6cfa2d#1
 Done: 39bcb2fb8 (PR #369 head, merged unchanged via 3773cd608; landed in 56857fc1f; 4634 tests). LEO_VERSION 0.82.4; v0.82.4 tarball sha256 matches and reports leo 0.82.4.
 Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
 
-## B-398 · Show/hide sidebar button in the top toolbar   [ready]
+## B-398 · Show/hide sidebar button in the top toolbar   [done]
 Issue: #372
 Why: the agents sidebar can be shown or hidden with one click from the window toolbar, not only from the Agents menu or ⌘⇧L (P1 every action is discoverable; Mac only, since iOS has no sidebar)
 Accept: the toolbar has a standard sidebar toggle button (sidebar.left glyph) that sits at the leading edge next to the traffic lights and stays put when the sidebar collapses; clicking it hides and shows the sidebar using the same path as ⌘⇧L, keeping the remembered width and the existing no-squeeze guard (canToggleSidebar); the button's tooltip and accessibility label read "Hide Agents Sidebar" or "Show Agents Sidebar" to match the menu, and it is disabled whenever the menu item is; screenshots of both states in the default and hidden titlebar styles
 Out: changes to the sidebar's contents or width behavior; toolbar customization; iOS
 Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014420705040Z-2fa283e5#1
+Done: 5dc991b4d 7109883b5 (merged in 99a818f53). The toolbar's leading sidebar.left toggle is always present, hides/shows the sidebar via the ⌘⇧L path, and its tooltip/label/enabled state follow the menu through one helper. Gaps: hidden-titlebar shots look identical (agent windows ignore macos-titlebar-style); the disabled toggle looks as bright as enabled by eye (AX reports disabled). Decisions D-804..D-808.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-398-1.png
 
 ## B-400 · Gear icon belongs on Settings…, not Open Ghostty Config   [idea]
 Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)

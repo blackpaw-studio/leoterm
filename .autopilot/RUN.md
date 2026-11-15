@@ -122,7 +122,7 @@ Lane: B-398
   Branch: autopilot-lane/B-398
   Base: f4f7a2703662905c128bb881f45c88d0f052182b
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -133,6 +133,7 @@ Lane: B-398
   Call: Click goes through toggleLeoSidebar(_:), the same path as ⌘⇧L — P1, P6
   Call: Mac only — repo Mac/iOS rule
   Call: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar" — P1
+  Tokens: 17.6M in (17M cache read), ≥84.9k out, 162 requests
 
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
@@ -140,6 +141,7 @@ Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 4: B-399 landed 56857fc1f · not visually verified
 Finished 5: B-393 blocked
 Finished 6: B-110 landed 19fef2940 · not visually verified
+Finished 7: B-398 landed 99a818f53 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-398-1.png
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
@@ -159,3 +161,4 @@ Progress:
 - B-110 ready at 54aebb605 (concurrency review, 4659 tests; not visually verified). Integration stale (autopilot gained B-399 LEO_VERSION) → re-verify round 1. STOP-LIST NEAR-MISS (digest): first implementer's stale click in the debug app selected real stopped agent whatshoveringoverme's chat view; ⌘Z hit its empty field; nothing started or sent.
 - B-110 landed 19fef2940 (18 commits). Decisions D-796..D-803.
 - Pick: B-143 full (held lane, hard implementer per D-786); B-110 has landed, so the TerminalController overlap is gone.
+- B-398 landed 99a818f53 (5dc991b4d 7109883b5). D-804..D-808. Verifier notes: disabled toggle not visibly dimmed; unidentified circled-square item in the right capsule after hiding; "Configuration Errors" item on a hidden-style launch (likely B-370).
