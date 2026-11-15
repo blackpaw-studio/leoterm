@@ -19,6 +19,9 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
     let identityFile: String?
     let remoteLeoPath: String
     let remoteSocketPath: String
+    /// A disabled machine stays configured but is never connected. Entries
+    /// stored before the flag existed decode as enabled.
+    let isEnabled: Bool
 
     init(
         id: UUID = UUID(),
@@ -26,7 +29,8 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
         sshTarget: String,
         identityFile: String? = nil,
         remoteLeoPath: String = "~/.local/bin/leo",
-        remoteSocketPath: String = "~/.leo/state/leo.sock"
+        remoteSocketPath: String = "~/.leo/state/leo.sock",
+        isEnabled: Bool = true
     ) {
         self.id = id
         self.name = name
@@ -34,6 +38,18 @@ struct LeoHostConfiguration: Codable, Hashable, Sendable, Identifiable {
         self.identityFile = identityFile
         self.remoteLeoPath = remoteLeoPath
         self.remoteSocketPath = remoteSocketPath
+        self.isEnabled = isEnabled
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        sshTarget = try container.decode(String.self, forKey: .sshTarget)
+        identityFile = try container.decodeIfPresent(String.self, forKey: .identityFile)
+        remoteLeoPath = try container.decode(String.self, forKey: .remoteLeoPath)
+        remoteSocketPath = try container.decode(String.self, forKey: .remoteSocketPath)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
     }
 
     var user: String? { parsedTarget.user }

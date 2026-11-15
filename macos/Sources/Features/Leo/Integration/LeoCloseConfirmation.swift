@@ -15,6 +15,10 @@ enum LeoCloseConfirmation {
     static let rowInformativeText = "The terminal still has a running process. "
         + "If you close the terminal the process will be killed."
 
+    /// B-333: Close on the menu of a row with splits: the whole layout goes.
+    static let rowLayoutInformativeText = "A terminal in this row still has a running process. "
+        + "Closing the row closes all of its splits, and the process will be killed."
+
     /// A pane's name: its title as the window shows it (an attach's agent
     /// name, unless the user set a title -- `LeoTitleSource`), tidied as
     /// its sidebar row reads it (`LeoTerminalRow.displayTitle`). The title

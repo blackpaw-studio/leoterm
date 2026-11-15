@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Fetches that answer for an older moment than they land in: a list or
 /// `/state` fetch still in flight across a daemon restart (a hello with a

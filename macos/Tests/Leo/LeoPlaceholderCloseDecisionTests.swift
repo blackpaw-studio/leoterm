@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Covers the flag's two transitions indirectly: `false` (a normal window,
 /// or a filled placeholder after `TerminalController.

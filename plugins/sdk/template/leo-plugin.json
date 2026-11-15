@@ -1,0 +1,15 @@
+{
+  "id": "com.example.hello",
+  "name": "Hello",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "main": "dist/main.js",
+  "permissions": {
+    "network": ["api.github.com"],
+    "secrets": false,
+    "agents": ["read"]
+  },
+  "contributes": {
+    "views": [{ "id": "hello", "title": "Hello", "sfSymbol": "hand.wave" }]
+  }
+}

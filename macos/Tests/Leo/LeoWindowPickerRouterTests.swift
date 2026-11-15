@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Regression coverage for a launch bug: `routeNewSurface` and
 /// `LeoNewSurfaceRouter.begin` both logged, but `LeoWindowPickerRouter`
@@ -36,10 +37,9 @@ import Testing
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
         )
+        window.isReleasedWhenClosed = false
         let sidebar = LeoSidebarModel()
-        let hostDefaults = LeoInMemoryDefaults()
-        let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
-        let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let router = LeoNewSurfaceRouter(
             attach: { _, _, _ in .success(()) },
             openPlainShell: { _ in .success(()) },
@@ -47,8 +47,7 @@ import Testing
         )
         let panel = FakePalettePanel()
         let presentation = LeoPickerPresentation(
-            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection,
-            actions: actions, panel: panel, spawnSheet: FakeSpawnSheet()
+            window: window, router: router, sidebar: sidebar, machines: .isolatedForTesting(), actions: actions, panel: panel, spawnSheet: FakeSpawnSheet()
         )
         let pickerRouter = LeoWindowPickerRouter()
         var missed: [LeoSurfaceRequest] = []
@@ -74,10 +73,9 @@ import Testing
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: false
         )
+        window.isReleasedWhenClosed = false
         let sidebar = LeoSidebarModel()
-        let hostDefaults = LeoInMemoryDefaults()
-        let hostSelection = LeoHostSelection.isolatedForTesting(defaults: hostDefaults)
-        let actions = LeoAgentActions(daemon: StubDaemonClient(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        let actions = LeoAgentActions(clients: FakeMachineClients(daemon: StubDaemonClient()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {})
         let router = LeoNewSurfaceRouter(
             attach: { _, _, _ in .success(()) },
             openPlainShell: { _ in .success(()) },
@@ -85,8 +83,7 @@ import Testing
         )
         let panel = FakePalettePanel()
         let presentation = LeoPickerPresentation(
-            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection,
-            actions: actions, panel: panel, spawnSheet: FakeSpawnSheet()
+            window: window, router: router, sidebar: sidebar, machines: .isolatedForTesting(), actions: actions, panel: panel, spawnSheet: FakeSpawnSheet()
         )
         let pickerRouter = LeoWindowPickerRouter()
         var missed: [LeoSurfaceRequest] = []
@@ -115,7 +112,7 @@ import Testing
 
     func present(
         parent: NSWindow, model: LeoAgentPaletteModel, onCommit: @escaping (LeoPickerChoice) -> Void,
-        onRetry: @escaping () -> Void, onResignKey: @escaping () -> Void
+        onRetry: @escaping (LeoHostID) -> Void, onResignKey: @escaping () -> Void
     ) {
         presentCallCount += 1
         isPresented = true

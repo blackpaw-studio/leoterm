@@ -1,0 +1,256 @@
+import Foundation
+import Testing
+
+@testable import LeoKit
+
+struct LeoWebDaemonClientTests {
+    @Test func pairsWithTheCodeAndDeviceName() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"device_id":"dev-1","token":"t0k"}}"#])
+        let grant = try await LeoWebDaemonClient.pair(code: "abc", deviceName: "Evan's iPhone", transport: transport)
+
+        #expect(grant == LeoPairingGrant(deviceID: "dev-1", token: "t0k"))
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "POST")
+        #expect(request.path == "/api/v1/pair")
+        let json = try Self.object(request)
+        #expect(json["pairing_code"] as? String == "abc")
+        #expect(json["device_name"] as? String == "Evan's iPhone")
+    }
+
+    @Test(arguments: [
+        (401, #"{"ok":false,"error":"invalid or expired pairing code"}"#, "unauthorized", "invalid or expired pairing code"),
+        (429, #"{"ok":false,"error":"too many pairing attempts; try again later"}"#, "rate_limited", "too many pairing attempts; try again later"),
+        (503, "", "unavailable", "HTTP 503"),
+    ])
+    func pairingFailuresCarryTheDaemonsReason(status: Int, body: String, code: String, message: String) async {
+        let transport = FakeWebTransport(responses: [status: body])
+        await #expect(throws: LeoDaemonError.daemon(code: code, message: message, matches: [])) {
+            _ = try await LeoWebDaemonClient.pair(code: "abc", deviceName: "d", transport: transport)
+        }
+    }
+
+    @Test func fetchesTheStateSnapshot() async throws {
+        let transport = FakeWebTransport(responses: [
+            200: #"{"ok":true,"data":{"agents":[{"name":"a","status":"running","activity":"idle","harness":"claude","template":"coding"}],"meta":{"seq":7}}}"#,
+        ])
+        let state = try await LeoWebDaemonClient(transport: transport).fetchState()
+
+        #expect(state.seq == 7)
+        #expect(state.agents.map(\.name) == ["a"])
+        #expect(state.agents.first?.harness == "claude")
+        #expect(state.agents.first?.template == "coding")
+        #expect(await transport.requests.map(\.path) == ["/api/v1/state"])
+    }
+
+    @Test func fetchesMachineStats() async throws {
+        let transport = FakeWebTransport(responses: [
+            200: #"{"ok":true,"data":{"sampled_at":"2026-10-21T12:00:00.5Z","cpu":{"percent":12.5,"cores":4},"memory":null,"disk":{"path":"/s","used_bytes":1,"total_bytes":4}}}"#,
+        ])
+        let stats = try await LeoWebDaemonClient(transport: transport).machineStats()
+
+        #expect(stats.cpu == .init(percent: 12.5, cores: 4))
+        #expect(stats.memory == nil)
+        #expect(stats.disk?.fraction == 0.25)
+        let request = try #require(await transport.requests.first)
+        #expect(request.method == "GET")
+        #expect(request.path == "/api/v1/machine")
+    }
+
+    @Test(arguments: [
+        (503, #"{"ok":false,"error":"no stats","code":"machine_stats_unavailable"}"#, "machine_stats_unavailable", "no stats"),
+        (401, "", "unauthorized", "HTTP 401"),
+        (403, "", "forbidden", "HTTP 403"),
+    ])
+    func machineStatsErrorsCarryTheirCode(status: Int, body: String, code: String, message: String) async {
+        let transport = FakeWebTransport(responses: [status: body])
+        await #expect(throws: LeoDaemonError.daemon(code: code, message: message, matches: [])) {
+            _ = try await LeoWebDaemonClient(transport: transport).machineStats()
+        }
+    }
+
+    @Test func constructsEveryControlRoute() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":[{"name":"work"},{"name":"aws"}]}"#])
+        let client = LeoWebDaemonClient(transport: transport)
+        try await client.stop("a/b")
+        try await client.start("a")
+        try await client.restart("a")
+        try await client.interrupt("a b")
+        let names = try await client.environmentNames()
+        try await client.setEnvironments("a", names: ["work"])
+
+        #expect(names == ["aws", "work"])
+        let requests = await transport.requests
+        #expect(requests.map(\.method) == ["POST", "POST", "POST", "POST", "POST", "GET", "POST"])
+        #expect(requests.map(\.path) == [
+            "/api/agent/stop", "/api/agent/start", "/api/agent/stop", "/api/agent/start",
+            "/api/v1/agents/a%20b/interrupt", "/api/v1/environments", "/api/v1/agents/a/environments",
+        ])
+        #expect(try Self.object(requests[0])["name"] as? String == "a/b")
+        #expect(try Self.object(requests[0])["wake_on_message"] as? Bool == false)
+        #expect(try Self.object(requests[1])["name"] as? String == "a")
+        #expect(try Self.object(requests[6])["environments"] as? [String] == ["work"])
+    }
+
+    @Test func controlFailuresUseTheDaemonsMessage() async {
+        let transport = FakeWebTransport(responses: [404: #"{"ok":false,"error":"no such agent \"a\""}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: "not_found", message: #"no such agent "a""#, matches: [])) {
+            try await LeoWebDaemonClient(transport: transport).interrupt("a")
+        }
+    }
+
+    @Test func restartStopsBeforeStartingAndSkipsStartWhenStopFails() async {
+        let transport = FakeWebTransport(responses: [500: #"{"ok":false,"error":"stop failed"}"#])
+        await #expect(throws: LeoDaemonError.self) { try await LeoWebDaemonClient(transport: transport).restart("a") }
+        #expect(await transport.requests.map(\.path) == ["/api/agent/stop"])
+    }
+
+    @Test func decodesTheEventStream() async throws {
+        let transport = FakeWebTransport(responses: [:], events: [
+            LeoSSEEvent(name: "hello", data: #"{"seq":3,"version":"0.36.0"}"#, id: nil),
+            LeoSSEEvent(name: "agent_stopped", data: #"{"seq":4,"agent":"a","wake_on_message":false}"#, id: nil),
+            LeoSSEEvent(name: "nonsense", data: "not json", id: nil),
+        ])
+        var events: [LeoObserveEvent] = []
+        for try await event in LeoWebDaemonClient(transport: transport).events() { events.append(event) }
+
+        #expect(events.map(\.sequence) == [3, 4])
+        #expect(events.last == .agentStopped(seq: 4, at: nil, agent: "a", wakeOnMessage: false))
+        #expect(await transport.streamedPaths == ["/api/v1/events"])
+    }
+
+    private static func object(_ request: LeoHTTPRequest) throws -> [String: Any] {
+        let body = try #require(request.body)
+        return try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+    }
+}
+
+/// Answers every request with the one configured status (the first key).
+actor FakeWebTransport: LeoWebTransport {
+    private let status: Int
+    private let body: String
+    private let streamed: [LeoSSEEvent]
+    private var queued: [(Int, String)] = []
+    private(set) var requests: [LeoHTTPRequest] = []
+    private(set) var streamedPaths: [String] = []
+
+    init(responses: [Int: String], events: [LeoSSEEvent] = []) {
+        status = responses.keys.first ?? 200
+        body = responses.values.first ?? #"{"ok":true}"#
+        streamed = events
+    }
+
+    /// Answers each request with the next of `sequence`, then with the last.
+    init(sequence: [(Int, String)]) {
+        status = sequence.last?.0 ?? 200
+        body = sequence.last?.1 ?? #"{"ok":true}"#
+        streamed = []
+        queued = sequence
+    }
+
+    func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse {
+        requests.append(request)
+        if !queued.isEmpty {
+            let next = queued.removeFirst()
+            return LeoHTTPResponse(status: next.0, body: Data(next.1.utf8))
+        }
+        return LeoHTTPResponse(status: status, body: Data(body.utf8))
+    }
+
+    nonisolated func events(path: String) -> AsyncThrowingStream<LeoSSEEvent, any Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                let events = await self.recordStream(path)
+                for event in events { continuation.yield(event) }
+                continuation.finish()
+            }
+        }
+    }
+
+    private func recordStream(_ path: String) -> [LeoSSEEvent] {
+        streamedPaths.append(path)
+        return streamed
+    }
+}
+
+struct LeoWebDaemonClientPushTests {
+    @Test func registersAndUnregistersThisDevicesPush() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true}"#])
+        let client = LeoWebDaemonClient(transport: transport)
+        let registration = LeoPushRegistration(grant: "g.h", key: "a2V5", relayURL: URL(string: "https://relay.example.dev")!)
+        try await client.registerPush(deviceID: "dev/1", registration)
+        try await client.unregisterPush(deviceID: "dev/1")
+
+        let requests = await transport.requests
+        #expect(requests.map(\.method) == ["PUT", "DELETE"])
+        #expect(requests.map(\.path) == ["/api/v1/devices/dev%2F1/push", "/api/v1/devices/dev%2F1/push"])
+        let body = try #require(requests[0].body.flatMap { try JSONSerialization.jsonObject(with: $0) as? [String: String] })
+        #expect(body == ["grant": "g.h", "key": "a2V5", "relay_url": "https://relay.example.dev"])
+        #expect(requests[1].body == nil)
+    }
+
+    @Test func anEmptySuccessBodyIsFine() async throws {
+        let transport = FakeWebTransport(responses: [204: ""])
+        try await LeoWebDaemonClient(transport: transport).unregisterPush(deviceID: "d")
+    }
+
+    @Test func pushRouteFailuresCarryTheDaemonsReason() async {
+        let transport = FakeWebTransport(responses: [403: #"{"ok":false,"error":"not your device"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: "forbidden", message: "not your device", matches: [])) {
+            try await LeoWebDaemonClient(transport: transport).unregisterPush(deviceID: "d")
+        }
+    }
+}
+
+struct LeoWebDaemonClientMoveTests {
+    @Test func startMovePostsTheRequestAndDecodesTheEnvelopeData() async throws {
+        let body = #"{"ok":true,"data":{"id":"mv-1","request":{"mode":"copy"},"state":"running"}}"#
+        let transport = FakeWebTransport(responses: [202: body])
+        let job = try await LeoWebDaemonClient(transport: transport).startMove("a b", .duplicate(name: "twin"))
+
+        #expect(job.id == "mv-1")
+        #expect(job.state == .running)
+        let sent = try #require(await transport.requests.first)
+        #expect(sent.method == "POST")
+        #expect(sent.path == "/api/agent/a%20b/move")
+        let json = try #require(sent.body.flatMap { try JSONSerialization.jsonObject(with: $0) as? NSDictionary })
+        #expect(json == ["mode": "copy", "name": "twin"] as NSDictionary)
+    }
+
+    @Test func aSynchronousRefusalKeepsTheDaemonsText() async {
+        let transport = FakeWebTransport(responses: [409: #"{"ok":false,"error":"a is already being moved","code":"agent_moving"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: "agent_moving", message: "a is already being moved", matches: [])) {
+            _ = try await LeoWebDaemonClient(transport: transport).startMove("a", .move(to: "nas"))
+        }
+    }
+
+    @Test func moveJobPollsTheJobRouteAndDecodesTheEnvelopeData() async throws {
+        let body = #"{"ok":true,"data":{"id":"mv 1","request":{"mode":"move"},"state":"done","result":{"name":"a","to":"nas"}}}"#
+        let transport = FakeWebTransport(responses: [200: body])
+        let job = try await LeoWebDaemonClient(transport: transport).moveJob(id: "mv 1")
+
+        #expect(job.state == .done)
+        let sent = try #require(await transport.requests.first)
+        #expect(sent.method == "GET")
+        #expect(sent.path == "/api/agent/moves/mv%201")
+    }
+
+    @Test func anUnknownOrPrunedJobIsNotFound() async {
+        let transport = FakeWebTransport(responses: [404: #"{"ok":false,"error":"no such move job"}"#])
+        await #expect(throws: LeoDaemonError.daemon(code: LeoMoveWire.notFoundCode, message: "no such move job", matches: [])) {
+            _ = try await LeoWebDaemonClient(transport: transport).moveJob(id: "gone")
+        }
+    }
+
+    @Test func aWebPollLetsTheMoverFollowTheJobToItsOutcome() async throws {
+        let running = #"{"ok":true,"data":{"id":"mv-1","request":{"mode":"move"},"state":"running"}}"#
+        let accepted = (202, running)
+        let done = #"{"ok":true,"data":{"id":"mv-1","request":{"mode":"move"},"state":"done","result":{"name":"a","to":"nas"}}}"#
+        let transport = FakeWebTransport(sequence: [accepted, (200, running), (200, done)])
+        let mover = LeoAgentMover(client: LeoWebDaemonClient(transport: transport), pollInterval: .zero, sleep: { _ in })
+
+        let outcome = try await mover.run("a", .move(to: "nas"))
+        #expect(outcome == .done(LeoMoveResult(name: "a", to: "nas")))
+        let paths = await transport.requests.map(\.path)
+        #expect(paths == ["/api/agent/a/move", "/api/agent/moves/mv-1", "/api/agent/moves/mv-1"])
+    }
+}

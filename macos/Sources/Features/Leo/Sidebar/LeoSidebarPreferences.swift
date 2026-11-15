@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Agents ▸ Sort By (B-010).
 enum LeoSidebarSortOrder: String, Codable, CaseIterable, Sendable {
@@ -7,18 +8,48 @@ enum LeoSidebarSortOrder: String, Codable, CaseIterable, Sendable {
     case name
 }
 
-/// The sidebar's remembered arrangement: sort order, pinned agents (keyed
-/// by host + name, kept even while the agent is absent) and each host's
-/// collapsed sections.
+/// Agents ▸ Group By: the default status sections, or the opt-in
+/// attention sections (Needs You / Working / Finished / Idle & Stopped).
+enum LeoSidebarGroupBy: String, Codable, CaseIterable, Sendable {
+    case status
+    case attention
+}
+
+/// The sidebar's remembered arrangement: sort order, grouping, pinned
+/// agents (keyed by host + name, kept even while the agent is absent),
+/// each host's collapsed sections and the machines folded to their header. A section that starts collapsed
+/// (`LeoSidebarLayout.defaultCollapsedSectionIDs`) is remembered open in
+/// `expanded` instead. Agents' dispatch rows (B-331) follow `hidesSubagents`
+/// (View ▸ Hide Subagents), except for the agents in `toggledSubagents`,
+/// which the user flipped from it with their own chevron.
 struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     var sortOrder: LeoSidebarSortOrder
+    var groupBy: LeoSidebarGroupBy
     var pinned: Set<LeoAgentRow.ID>
     var collapsed: [LeoHostID: Set<String>]
+    var expanded: [LeoHostID: Set<String>]
+    var collapsedMachines: Set<LeoHostID>
+    var hidesSubagents: Bool
+    var toggledSubagents: Set<LeoAgentRow.ID>
+    /// Plugin sidebar sections the user opened (`pluginSectionKey`); they all start collapsed.
+    var expandedPluginSections: Set<String>
 
-    init(sortOrder: LeoSidebarSortOrder = .lastActivity, pinned: Set<LeoAgentRow.ID> = [], collapsed: [LeoHostID: Set<String>] = [:]) {
+    init(
+        sortOrder: LeoSidebarSortOrder = .lastActivity, groupBy: LeoSidebarGroupBy = .status,
+        pinned: Set<LeoAgentRow.ID> = [], collapsed: [LeoHostID: Set<String>] = [:],
+        expanded: [LeoHostID: Set<String>] = [:], collapsedMachines: Set<LeoHostID> = [],
+        hidesSubagents: Bool = false, toggledSubagents: Set<LeoAgentRow.ID> = [],
+        expandedPluginSections: Set<String> = []
+    ) {
         self.sortOrder = sortOrder
+        self.groupBy = groupBy
         self.pinned = pinned
         self.collapsed = collapsed
+        self.expanded = expanded
+        self.collapsedMachines = collapsedMachines
+        self.hidesSubagents = hidesSubagents
+        self.toggledSubagents = toggledSubagents
+        self.expandedPluginSections = expandedPluginSections
     }
 
     /// Lenient: a field that's missing or unreadable falls back to its
@@ -27,8 +58,14 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let defaults = LeoSidebarPreferences()
         sortOrder = (try? container.decodeIfPresent(LeoSidebarSortOrder.self, forKey: .sortOrder)) ?? defaults.sortOrder
+        groupBy = (try? container.decodeIfPresent(LeoSidebarGroupBy.self, forKey: .groupBy)) ?? defaults.groupBy
         pinned = (try? container.decodeIfPresent(Set<LeoAgentRow.ID>.self, forKey: .pinned)) ?? defaults.pinned
         collapsed = (try? container.decodeIfPresent([LeoHostID: Set<String>].self, forKey: .collapsed)) ?? defaults.collapsed
+        expanded = (try? container.decodeIfPresent([LeoHostID: Set<String>].self, forKey: .expanded)) ?? defaults.expanded
+        collapsedMachines = (try? container.decodeIfPresent(Set<LeoHostID>.self, forKey: .collapsedMachines)) ?? defaults.collapsedMachines
+        hidesSubagents = (try? container.decodeIfPresent(Bool.self, forKey: .hidesSubagents)) ?? defaults.hidesSubagents
+        toggledSubagents = (try? container.decodeIfPresent(Set<LeoAgentRow.ID>.self, forKey: .toggledSubagents)) ?? defaults.toggledSubagents
+        expandedPluginSections = (try? container.decodeIfPresent(Set<String>.self, forKey: .expandedPluginSections)) ?? defaults.expandedPluginSections
     }
 
     static func decode(_ data: Data?) -> LeoSidebarPreferences {
@@ -39,23 +76,84 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     func encoded() -> Data? { try? JSONEncoder().encode(self) }
 
     func isCollapsed(_ sectionID: String, host: LeoHostID) -> Bool {
-        collapsed[host]?.contains(sectionID) ?? false
+        if collapsed[host]?.contains(sectionID) == true { return true }
+        guard LeoSidebarLayout.defaultCollapsedSectionIDs.contains(sectionID) else { return false }
+        return expanded[host]?.contains(sectionID) != true
+    }
+
+    static func pluginSectionKey(plugin: String, section: String) -> String { "\(plugin)\u{1F}\(section)" }
+
+    func isPluginSectionCollapsed(_ key: String) -> Bool { !expandedPluginSections.contains(key) }
+
+    func setting(pluginSection key: String, collapsed isCollapsed: Bool) -> LeoSidebarPreferences {
+        var updated = self
+        if isCollapsed { updated.expandedPluginSections.remove(key) } else { updated.expandedPluginSections.insert(key) }
+        return updated
+    }
+
+    /// Whether `id`'s dispatch rows are collapsed: the global setting,
+    /// flipped for the agents the user toggled on their own.
+    func isSubagentsCollapsed(_ id: LeoAgentRow.ID) -> Bool {
+        hidesSubagents != toggledSubagents.contains(id)
+    }
+
+    func togglingSubagents(of id: LeoAgentRow.ID) -> LeoSidebarPreferences {
+        var updated = self
+        updated.toggledSubagents = toggledSubagents.symmetricDifference([id])
+        return updated
+    }
+
+    /// Hides or shows every agent's dispatch rows at once, dropping the
+    /// per-agent exceptions.
+    func settingHidesSubagents(_ hides: Bool) -> LeoSidebarPreferences {
+        var updated = self
+        updated.hidesSubagents = hides
+        updated.toggledSubagents = []
+        return updated
     }
 
     func with(sortOrder: LeoSidebarSortOrder) -> LeoSidebarPreferences {
-        LeoSidebarPreferences(sortOrder: sortOrder, pinned: pinned, collapsed: collapsed)
+        var updated = self
+        updated.sortOrder = sortOrder
+        return updated
+    }
+
+    func with(groupBy: LeoSidebarGroupBy) -> LeoSidebarPreferences {
+        var updated = self
+        updated.groupBy = groupBy
+        return updated
     }
 
     func togglingPin(_ id: LeoAgentRow.ID) -> LeoSidebarPreferences {
-        LeoSidebarPreferences(sortOrder: sortOrder, pinned: pinned.symmetricDifference([id]), collapsed: collapsed)
+        var updated = self
+        updated.pinned = pinned.symmetricDifference([id])
+        return updated
     }
 
     func setting(_ sectionID: String, collapsed isCollapsed: Bool, host: LeoHostID) -> LeoSidebarPreferences {
-        let current = collapsed[host] ?? []
-        let updated = isCollapsed ? current.union([sectionID]) : current.subtracting([sectionID])
-        var hosts = collapsed
-        hosts[host] = updated.isEmpty ? nil : updated
-        return LeoSidebarPreferences(sortOrder: sortOrder, pinned: pinned, collapsed: hosts)
+        var updated = self
+        if LeoSidebarLayout.defaultCollapsedSectionIDs.contains(sectionID) {
+            updated.expanded = Self.updating(expanded, host: host, sectionID, contains: !isCollapsed)
+        } else {
+            updated.collapsed = Self.updating(collapsed, host: host, sectionID, contains: isCollapsed)
+        }
+        return updated
+    }
+
+    func setting(machine host: LeoHostID, collapsed isCollapsed: Bool) -> LeoSidebarPreferences {
+        var updated = self
+        if isCollapsed { updated.collapsedMachines.insert(host) } else { updated.collapsedMachines.remove(host) }
+        return updated
+    }
+
+    private static func updating(
+        _ hosts: [LeoHostID: Set<String>], host: LeoHostID, _ sectionID: String, contains: Bool
+    ) -> [LeoHostID: Set<String>] {
+        let current = hosts[host] ?? []
+        let updated = contains ? current.union([sectionID]) : current.subtracting([sectionID])
+        var result = hosts
+        result[host] = updated.isEmpty ? nil : updated
+        return result
     }
 }
 

@@ -1,0 +1,12 @@
+{
+  "status": 304,
+  "headers": {
+    "etag": "\"6947bbb6a74cab5bb6e0b4be9ca007dcc0af2b7f0f4026e434065a4fcd196d4d\"",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-reset": "1794423177",
+    "x-ratelimit-resource": "core",
+    "x-ratelimit-remaining": "4359",
+    "x-ratelimit-used": "641"
+  },
+  "body": ""
+}

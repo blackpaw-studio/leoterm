@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The "Leo can’t start" alert (D-069): the offending path shortened to
 /// `…/<last folder>/<name>` so it doesn't wrap mid-word, a default Quit

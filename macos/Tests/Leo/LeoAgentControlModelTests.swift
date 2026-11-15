@@ -1,0 +1,253 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+@testable import LeoKit
+
+/// B-262: in-flight, inline feedback and per-host denial behind the
+/// control verbs, against a stub transport (never a real agent).
+@MainActor @Suite(.timeLimit(.minutes(1)))
+struct LeoAgentControlModelTests {
+    private static let row = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
+    private static let ok = #"{"ok":true,"data":{"transport":"bridge"}}"#
+
+    private func make(
+        _ transport: ControlModelTransport, confirm: @escaping (LeoAgentRow) async -> Bool = { _ in true }
+    ) -> LeoAgentControlModel {
+        LeoAgentControlModel(
+            clients: FakeMachineClients(daemon: LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)),
+            confirmClear: { row, _ in await confirm(row) }
+        )
+    }
+
+    @Test func unauthorizedAlsoDenies() async {
+        let model = make(ControlModelTransport(status: 401, body: #"{"ok":false,"error":"nope"}"#))
+        await model.interrupt(Self.row)
+        #expect(model.deniedHosts == [.local])
+    }
+
+    @Test func deniedHostSendsNothingUntilRetry() async {
+        let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#)
+        let model = make(transport)
+        await model.interrupt(Self.row)
+        await model.compact(Self.row)
+        #expect(await transport.paths.count == 1)
+        model.retryAfterDenial(host: .local)
+        #expect(model.deniedHosts.isEmpty)
+        #expect(model.feedback[Self.row.id] == nil)
+        await model.compact(Self.row)
+        #expect(await transport.paths.count == 2)
+    }
+
+    @Test func aVerbOnBsRowReachesBsDaemonWhileAIsDisconnected() async {
+        let work = LeoHostID.remote("work")
+        let transportA = ControlModelTransport(status: 200, body: Self.ok)
+        let transportB = ControlModelTransport(status: 200, body: Self.ok)
+        let clients = FakeMachineClients(daemons: [
+            .local: LeoSocketDaemonClient(socketPath: "/tmp/a.sock", transport: transportA),
+            work: LeoSocketDaemonClient(socketPath: "/tmp/b.sock", transport: transportB),
+        ])
+        clients.disconnect(.local)
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
+        let rowB = LeoAgentRow(host: work, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil)
+
+        await model.interrupt(rowB)
+        await model.interrupt(Self.row)
+
+        #expect(await transportB.paths == ["/agents/alpha/interrupt"])
+        #expect(await transportA.paths.isEmpty)
+        #expect(model.feedback[rowB.id] == nil)
+        #expect(model.feedback[Self.row.id] == .error("localhost isn't connected."))
+    }
+
+    @Test func aMachineComingBackLetsItsRowsAct() async {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let clients = FakeMachineClients()
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
+        await model.interrupt(Self.row)
+        #expect(model.feedback[Self.row.id] == .error("localhost isn't connected."))
+
+        clients.connect(.local, LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport))
+        await model.interrupt(Self.row)
+
+        #expect(await transport.paths == ["/agents/alpha/interrupt"])
+        #expect(model.feedback[Self.row.id] == nil)
+    }
+
+    @Test func secondActionWhileInFlightIsIgnored() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
+        let model = make(transport)
+        let first = Task { await model.interrupt(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        #expect(model.inFlight[Self.row.id] == .interrupt)
+        await model.compact(Self.row)
+        await model.interrupt(Self.row)
+        #expect(await transport.paths.count == 1)
+        await transport.release()
+        await first.value
+        #expect(model.inFlight[Self.row.id] == nil)
+    }
+
+    @Test func clearRequiresConfirmation() async {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let declined = make(transport, confirm: { _ in false })
+        await declined.clear(Self.row)
+        #expect(await transport.paths.isEmpty)
+        let accepted = make(transport, confirm: { _ in true })
+        await accepted.clear(Self.row)
+        #expect(await transport.paths == ["/agents/alpha/clear"])
+    }
+
+    @Test func dismissingFeedbackClearsIt() async {
+        let model = make(ControlModelTransport(status: 503, body: #"{"ok":false,"error":"down"}"#))
+        await model.interrupt(Self.row)
+        #expect(model.feedback[Self.row.id] != nil)
+        model.dismissFeedback(for: Self.row.id)
+        #expect(model.feedback[Self.row.id] == nil)
+    }
+
+    @Test func clearTwiceWhileTheSheetIsOpenAsksOnceAndPostsOnce() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let gate = ConfirmGate()
+        let model = make(transport, confirm: { _ in await gate.wait() })
+        let first = Task { await model.clear(Self.row) }
+        try await until { await gate.calls == 1 }
+        await model.clear(Self.row)
+        #expect(await gate.calls == 1)
+        await gate.release(true)
+        await first.value
+        #expect(await transport.paths == ["/agents/alpha/clear"])
+    }
+
+    @Test func confirmedClearAfterAnotherVerbStartedShowsAnErrorAndDoesNotPost() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
+        let gate = ConfirmGate()
+        let model = make(transport, confirm: { _ in await gate.wait() })
+        let clear = Task { await model.clear(Self.row) }
+        try await until { await gate.calls == 1 }
+        let interrupt = Task { await model.interrupt(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        await gate.release(true)
+        await clear.value
+        guard case .error? = model.feedback[Self.row.id] else {
+            Issue.record("expected an inline error")
+            return
+        }
+        #expect(await transport.paths == ["/agents/alpha/interrupt"])
+        await transport.release()
+        await interrupt.value
+    }
+
+    @Test func confirmedClearAfterDenialShowsAnErrorAndDoesNotPost() async throws {
+        let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#)
+        let gate = ConfirmGate()
+        let model = make(transport, confirm: { _ in await gate.wait() })
+        let clear = Task { await model.clear(Self.row) }
+        try await until { await gate.calls == 1 }
+        await model.interrupt(Self.row)
+        await gate.release(true)
+        await clear.value
+        #expect(model.feedback[Self.row.id] == .error(LeoAgentControlAvailability.deniedMessage))
+        #expect(await transport.paths == ["/agents/alpha/interrupt"])
+    }
+
+    @Test func aReconnectDoesNotAllowADuplicatePost() async throws {
+        let transport = ControlModelTransport(status: 200, body: Self.ok, isGated: true)
+        let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        let clients = FakeMachineClients(daemon: local)
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
+        let first = Task { await model.interrupt(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        clients.connect(.local, local)
+        await model.interrupt(Self.row)
+        #expect(await transport.paths.count == 1)
+        await transport.release()
+        await first.value
+        #expect(model.inFlight[Self.row.id] == nil)
+    }
+
+    @Test func lateFailureAfterAReconnectStillDeniesAndShowsTheError() async throws {
+        let transport = ControlModelTransport(status: 403, body: #"{"ok":false,"error":"operator token required"}"#, isGated: true)
+        let local = LeoSocketDaemonClient(socketPath: "/tmp/leo.sock", transport: transport)
+        let clients = FakeMachineClients(daemon: local)
+        let model = LeoAgentControlModel(clients: clients, confirmClear: { _, _ in true })
+        let first = Task { await model.interrupt(Self.row) }
+        try await until { await transport.paths.count == 1 }
+        clients.connect(.local, local)
+        await transport.release()
+        await first.value
+        #expect(model.deniedHosts == [.local])
+        #expect(model.feedback[Self.row.id] == .error("operator token required"))
+    }
+
+    @Test func clearAsksAgainAfterACancelledConfirmation() async {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let counter = ConfirmCounter()
+        let model = make(transport, confirm: { _ in await counter.decline() })
+        await model.clear(Self.row)
+        await model.clear(Self.row)
+        #expect(await counter.calls == 2)
+        #expect(await transport.paths.isEmpty)
+    }
+
+    @Test func interruptAndCompactHitTheirRoutesImmediately() async {
+        let transport = ControlModelTransport(status: 200, body: Self.ok)
+        let model = make(transport, confirm: { _ in false })
+        await model.interrupt(Self.row)
+        await model.compact(Self.row)
+        #expect(await transport.paths == ["/agents/alpha/interrupt", "/agents/alpha/compact"])
+    }
+}
+
+private actor ConfirmCounter {
+    private(set) var calls = 0
+
+    func decline() -> Bool {
+        calls += 1
+        return false
+    }
+}
+
+private actor ConfirmGate {
+    private(set) var calls = 0
+    private var continuation: CheckedContinuation<Bool, Never>?
+
+    func wait() async -> Bool {
+        calls += 1
+        return await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release(_ answer: Bool) {
+        continuation?.resume(returning: answer)
+        continuation = nil
+    }
+}
+
+private actor ControlModelTransport: LeoDaemonTransport {
+    private(set) var paths: [String] = []
+    private(set) var bodies: [String] = []
+    private let status: Int
+    private let body: Data
+    private let isGated: Bool
+    private var gate: CheckedContinuation<Void, Never>?
+    private var isReleased = false
+
+    init(status: Int, body: String, isGated: Bool = false) {
+        self.status = status
+        self.body = Data(body.utf8)
+        self.isGated = isGated
+    }
+
+    func release() {
+        isReleased = true
+        gate?.resume()
+        gate = nil
+    }
+
+    func send(_ request: LeoHTTPRequest, socketPath _: String, timeout _: TimeInterval) async throws -> LeoHTTPResponse {
+        paths.append(request.path)
+        if let data = request.body { bodies.append(String(bytes: data, encoding: .utf8) ?? "") }
+        if isGated, !isReleased { await withCheckedContinuation { gate = $0 } }
+        return LeoHTTPResponse(status: status, body: body)
+    }
+}

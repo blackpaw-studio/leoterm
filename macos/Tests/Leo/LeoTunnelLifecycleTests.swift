@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @Suite(.serialized)
 struct LeoTunnelLifecycleTests {
@@ -13,7 +14,8 @@ struct LeoTunnelLifecycleTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         tunnel.onExit = { exit in exits.append(exit, wasMainThread: Thread.isMainThread) }
         defer { tunnel.terminateAndWait() }
@@ -36,7 +38,8 @@ struct LeoTunnelLifecycleTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         tunnel.onExit = { exit in exits.append(exit, wasMainThread: Thread.isMainThread) }
         defer { tunnel.terminateAndWait() }
@@ -56,7 +59,8 @@ struct LeoTunnelLifecycleTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         defer { tunnel.terminateAndWait() }
         try await tunnel.start()
@@ -74,7 +78,8 @@ struct LeoTunnelLifecycleTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         defer { tunnel.terminateAndWait() }
         let done = LeoTestFlag()
@@ -95,7 +100,8 @@ struct LeoTunnelLifecycleTests {
             executable: URL(fileURLWithPath: "/usr/bin/python3"),
             arguments: try LeoTunnelTestSupport.arguments(socketPath: path),
             localSocketPath: path,
-            healthProbe: LeoTunnelTestSupport.healthProbe
+            healthProbe: LeoTunnelTestSupport.healthProbe,
+            readinessTimeout: LeoTunnelTestSupport.readinessTimeout
         )
         defer { tunnel.terminateAndWait() }
         try await tunnel.start()

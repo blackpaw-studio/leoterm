@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Owns the one SFTP connection an accessor uses, opening it lazily. After
 /// the connection ends (tunnel dropped, server exited), the next operation

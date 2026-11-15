@@ -1,0 +1,276 @@
+import Foundation
+
+public enum LeoAgentStatus: Codable, Equatable, Sendable {
+    case starting
+    case running
+    case stopped
+    /// The daemon is still restoring agents at startup (leo 0.59). `/api/v1`
+    /// never sends it; it folds into `stopped` there.
+    case restoring
+    case unknown(String)
+
+    public init(from decoder: Decoder) throws {
+        let value = try decoder.singleValueContainer().decode(String.self)
+        switch value {
+        case "starting": self = .starting
+        case "running": self = .running
+        case "stopped": self = .stopped
+        case "restoring": self = .restoring
+        default: self = .unknown(value)
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        let value: String
+        switch self {
+        case .starting: value = "starting"
+        case .running: value = "running"
+        case .stopped: value = "stopped"
+        case .restoring: value = "restoring"
+        case .unknown(let raw): value = raw
+        }
+        var container = encoder.singleValueContainer()
+        try container.encode(value)
+    }
+}
+
+/// The daemon's additive `display_name` (leo >= 0.66.0) shown in place of the
+/// raw `name`; a missing, blank, or malformed value falls back to `name`.
+/// `name` remains the identifier for API calls, persistence, and matching.
+public enum LeoAgentDisplayName {
+    public static func resolve(displayName: String?, name: String) -> String {
+        guard let displayName, !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return name }
+        return displayName
+    }
+}
+
+public struct LeoAgent: Codable, Equatable, Identifiable, Sendable {
+    public let name: String
+    public let template: String?
+    public let repo: String?
+    public let workspace: String?
+    public let branch: String?
+    public let canonicalPath: String?
+    public let status: LeoAgentStatus?
+    public let startedAt: String?
+    public let restarts: Int?
+    public let stoppedReason: String?
+    public let wakeOnMessage: Bool?
+    /// The host this agent was moved to (`agent_move`); nil unless moved.
+    /// A moved agent stays here as a stopped, dormant record.
+    public let movedTo: String?
+    public let movedAt: String?
+    /// The daemon's `display_name`, nil from older daemons; read `displayName`.
+    public let daemonDisplayName: String?
+    /// The configured model (`model`); nil from daemons that omit it.
+    public let model: String?
+
+    public var id: String { name }
+    /// What the user sees: `display_name` when set, else `name`.
+    public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
+
+    public init(
+        name: String, template: String? = nil, repo: String? = nil, workspace: String? = nil, branch: String? = nil,
+        canonicalPath: String? = nil, status: LeoAgentStatus? = nil, startedAt: String? = nil, restarts: Int? = nil,
+        stoppedReason: String? = nil, wakeOnMessage: Bool? = nil,
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, model: String? = nil
+    ) {
+        self.model = model
+        self.name = name
+        self.daemonDisplayName = displayName
+        self.template = template
+        self.repo = repo
+        self.workspace = workspace
+        self.branch = branch
+        self.canonicalPath = canonicalPath
+        self.status = status
+        self.startedAt = startedAt
+        self.restarts = restarts
+        self.stoppedReason = stoppedReason
+        self.wakeOnMessage = wakeOnMessage
+        self.movedTo = movedTo
+        self.movedAt = movedAt
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case name, template, repo, workspace, branch, status, restarts, model
+        case canonicalPath = "canonical_path"
+        case startedAt = "started_at"
+        case stoppedReason = "stopped_reason"
+        case wakeOnMessage = "wake_on_message"
+        case movedTo = "moved_to"
+        case movedAt = "moved_at"
+        case daemonDisplayName = "display_name"
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        template = try c.decodeIfPresent(String.self, forKey: .template)
+        repo = try c.decodeIfPresent(String.self, forKey: .repo)
+        workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
+        branch = try c.decodeIfPresent(String.self, forKey: .branch)
+        canonicalPath = try c.decodeIfPresent(String.self, forKey: .canonicalPath)
+        status = try c.decodeIfPresent(LeoAgentStatus.self, forKey: .status)
+        startedAt = try c.decodeIfPresent(String.self, forKey: .startedAt)
+        restarts = try c.decodeIfPresent(Int.self, forKey: .restarts)
+        stoppedReason = try c.decodeIfPresent(String.self, forKey: .stoppedReason)
+        wakeOnMessage = try c.decodeIfPresent(Bool.self, forKey: .wakeOnMessage)
+        movedTo = try c.decodeIfPresent(String.self, forKey: .movedTo)
+        movedAt = try c.decodeIfPresent(String.self, forKey: .movedAt)
+        daemonDisplayName = (try? c.decodeIfPresent(String.self, forKey: .daemonDisplayName)) ?? nil
+        model = LeoUsageText.clean((try? c.decodeIfPresent(String.self, forKey: .model)) ?? nil)
+    }
+}
+
+public struct LeoTemplate: Codable, Equatable, Identifiable, Sendable {
+    public let name: String
+    public let model: String?
+    public let agent: String?
+    public let workspace: String?
+    public var id: String { name }
+
+    public init(name: String, model: String? = nil, agent: String? = nil, workspace: String? = nil) {
+        self.name = name
+        self.model = model
+        self.agent = agent
+        self.workspace = workspace
+    }
+}
+
+public struct LeoForwardInfo: Codable, Equatable, Sendable {
+    public let socket: String
+    public let host: String
+    public let pid: Int
+}
+
+public struct LeoDeletePlan: Codable, Equatable, Sendable {
+    public let name: String
+    public let hasWorktree: Bool
+    public let branch: String?
+    public let worktreePath: String?
+
+    enum CodingKeys: String, CodingKey {
+        case name, branch
+        case hasWorktree = "has_worktree"
+        case worktreePath = "worktree_path"
+    }
+}
+
+public struct LeoDaemonEnvelope<T: Decodable>: Decodable, Sendable where T: Sendable {
+    public let ok: Bool
+    public let data: T?
+    public let error: String?
+    public let code: String?
+    public let matches: [String]?
+
+    public static func decode(_ data: Data) throws -> Self {
+        do {
+            return try JSONDecoder().decode(Self.self, from: data)
+        } catch {
+            throw LeoDaemonError.decoding(String(describing: error))
+        }
+    }
+
+    public func value() throws -> T {
+        guard ok else {
+            throw LeoDaemonError.daemon(
+                code: code,
+                message: error ?? "Unknown daemon error",
+                matches: matches ?? []
+            )
+        }
+        guard let data else { throw LeoDaemonError.decoding("Successful response has no data") }
+        return data
+    }
+
+    public func expectOK() throws {
+        guard ok else {
+            throw LeoDaemonError.daemon(
+                code: code,
+                message: error ?? "Unknown daemon error",
+                matches: matches ?? []
+            )
+        }
+    }
+}
+
+public enum LeoDaemonError: Error, Equatable, Sendable {
+    case daemon(code: String?, message: String, matches: [String])
+    case transport(String)
+    case timeout
+    case decoding(String)
+    case socketMissing(path: String)
+    case hostUnavailable(String)
+    case hostUnknown(String)
+    /// The daemon redirected to another origin; refused so the device token
+    /// and Access credentials never leave the paired origin.
+    case crossOriginRedirect(String)
+}
+
+extension LeoDaemonError: LocalizedError {
+    /// The 503 code a mutation gets while the daemon restores agents at startup.
+    static let restoringCode: String? = "daemon_restoring"
+    /// Move refusals whose daemon text names CLI commands; the app words them itself.
+    static let busyCode: String? = "agent_busy"
+    static let movedCode: String? = "agent_moved"
+    /// The move preflight found no transcript for the agent's resume session;
+    /// the daemon's text carries a filesystem path the app leaves out.
+    static let sessionMissingCode: String? = "session_missing"
+
+    public var errorDescription: String? {
+        switch self {
+        case .daemon(Self.restoringCode, _, _): return "leo is still restoring agents — try again in a moment"
+        case .daemon(Self.busyCode, _, _): return "This agent is in the middle of a turn."
+        case .daemon(Self.movedCode, _, _): return "This agent was moved to another machine."
+        case .daemon(Self.sessionMissingCode, _, _): return "This agent's previous session is no longer on disk, so there is nothing to resume. Nothing was moved."
+        case .daemon(_, let message, _): return message
+        case .transport(let message): return "Connection to the Leo daemon failed: \(message)"
+        case .timeout: return "The Leo daemon did not respond in time"
+        case .decoding(let message): return "Could not understand the Leo daemon's response: \(message)"
+        case .socketMissing(let path): return "The Leo daemon socket is missing at \(path)"
+        case .hostUnavailable(let message): return "The remote host is unavailable: \(message)"
+        case .hostUnknown(let message): return "The remote host is unknown: \(message)"
+        case .crossOriginRedirect(let target): return "The Leo daemon redirected to \(target), a different origin. Leo doesn't follow it, so your credentials stay with the paired daemon."
+        }
+    }
+}
+
+public struct LeoSpawnRequest: Codable, Equatable, Sendable {
+    public let template: String?
+    public let fromAgent: String?
+    public let repo: String?
+    public let name: String?
+    public let branch: String?
+    public let base: String?
+    public let prompt: String?
+    public let environment: [String: String]?
+    public let idleSuspend: Bool?
+    /// B-283: the ordered named environments; nil sends none. Left out of
+    /// `CodingKeys`: `LeoEnvironmentsWire.spawnBody` adds it (a `var` only
+    /// so decoding can default it).
+    public private(set) var environments: [String]?
+
+    public init(template: String? = nil, fromAgent: String? = nil, repo: String? = nil,
+                name: String? = nil, branch: String? = nil, base: String? = nil,
+                prompt: String? = nil, environment: [String: String]? = nil,
+                idleSuspend: Bool? = nil, environments: [String]? = nil) {
+        self.template = template
+        self.fromAgent = fromAgent
+        self.repo = repo
+        self.name = name
+        self.branch = branch
+        self.base = base
+        self.prompt = prompt
+        self.environment = environment
+        self.idleSuspend = idleSuspend
+        self.environments = environments
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case template, repo, name, branch, base, prompt
+        case fromAgent = "from_agent"
+        case environment = "env"
+        case idleSuspend = "idle_suspend"
+    }
+}

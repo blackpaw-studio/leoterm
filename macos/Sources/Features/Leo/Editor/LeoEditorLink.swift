@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// An absolute path on the agent's host, plus where to put the caret.
 struct LeoEditorLocation: Equatable, Sendable {

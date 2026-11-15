@@ -1,90 +1,181 @@
 import Foundation
-
-enum LeoHostID: Hashable, Sendable, Codable {
-    case local
-    case remote(String)
-
-    var displayName: String {
-        switch self {
-        case .local: "localhost"
-        case .remote(let name): name
-        }
-    }
-}
+import LeoKit
 
 struct LeoAgentRow: Identifiable, Equatable, Sendable {
-    enum Activity: String, Equatable, Sendable { case working, idle, unknown }
-
-    struct ID: Hashable, Sendable, Codable {
-        let host: LeoHostID
-        let name: String
-    }
+    typealias Activity = LeoActivity
+    typealias ID = LeoAgentID
 
     let host: LeoHostID
     let name: String
+    /// What the user reads: the daemon's `display_name`, else `name`.
+    /// `name` stays the identifier for API calls, keys and matching.
+    let displayName: String
     let template: String?
     let status: LeoAgentStatus
     let activity: Activity
     let actionDetail: String?
     let workspace: String?
     let repo: String?
+    /// The worktree branch, when the agent has one (plugins read it as `branch`).
+    let branch: String?
     /// The attention badge, overlaid by `LeoSidebarFeed` at emission time
     /// from `LeoAttentionReducer` (never stored on the feed's own rows).
     let attention: LeoAttentionBadge?
+    /// Why the agent needs input, overlaid with `attention` (B-258). Nil
+    /// unless the badge is needs_input and the daemon gave a reason.
+    let attentionReason: LeoAttentionReason?
     /// The list's `started_at`: which incarnation this row is (D-074).
     let startedAt: String?
     /// Last-active time and task from a `/state` snapshot of this very
     /// incarnation, overlaid by `LeoSidebarFeed` at emission time.
     let metadata: LeoAgentMetadata?
-    /// Files this very incarnation surfaced (B-013), newest last, overlaid
-    /// by `LeoSidebarFeed` at emission time. Seen or not is the model's.
-    let surfacedFiles: [LeoSurfacedFile]
+    /// The agent's last turn, overlaid by `LeoSidebarFeed` at emission time
+    /// (B-259); nil unless the daemon advertised `bridge_turns`.
+    let lastTurn: LeoTurnPreview?
+    /// A compaction in progress, overlaid at emission time from the
+    /// `agent_compaction` events (B-261); nil otherwise.
+    let compaction: LeoRowCompaction?
+    /// From the list: whether a message wakes this agent while it is
+    /// stopped (B-262 allows Send for such a row).
+    let wakeOnMessage: Bool?
+    /// The effective named environments (B-283), overlaid at emission time;
+    /// nil unless the daemon advertised `agent_environments`.
+    let environments: LeoAgentEnvironments?
+    /// The resolved emoji and color, overlaid at emission time; nil unless
+    /// the daemon advertised `agent_appearance` and something is set.
+    let appearance: LeoAgentAppearance?
+    /// The host this agent was moved to (B-324); the row is its dormant
+    /// record here. `movedAt` is the list's RFC 3339 time, if it sent one.
+    let movedTo: String?
+    let movedAt: String?
+    /// The agent's advertised tasks with their ETAs, overlaid at emission
+    /// time; empty unless the daemon advertised `agent_progress`.
+    let tasks: LeoRowTasks
+    /// The harness running the agent (claude, codex, …), overlaid at
+    /// emission time from `/state`; nil when it reported none.
+    let harness: String?
+    /// The agent's configured model (`/agents/list`); nil from daemons that omit it.
+    let model: String?
 
     init(
-        host: LeoHostID, name: String, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
-        workspace: String? = nil, repo: String? = nil, attention: LeoAttentionBadge? = nil, startedAt: String? = nil,
-        metadata: LeoAgentMetadata? = nil, surfacedFiles: [LeoSurfacedFile] = []
+        host: LeoHostID, name: String, displayName: String? = nil, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
+        workspace: String? = nil, repo: String? = nil, branch: String? = nil, attention: LeoAttentionBadge? = nil, attentionReason: LeoAttentionReason? = nil,
+        startedAt: String? = nil, metadata: LeoAgentMetadata? = nil,
+        lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil,
+        environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil,
+        movedTo: String? = nil, movedAt: String? = nil, tasks: LeoRowTasks = .none,
+        harness: String? = nil, model: String? = nil
     ) {
         self.host = host
         self.name = name
+        self.displayName = LeoAgentDisplayName.resolve(displayName: displayName, name: name)
         self.template = template
         self.status = status
         self.activity = activity
         self.actionDetail = actionDetail
         self.workspace = workspace
         self.repo = repo
+        self.branch = branch
         self.attention = attention
+        self.attentionReason = attentionReason
         self.startedAt = startedAt
         self.metadata = metadata
-        self.surfacedFiles = surfacedFiles
+        self.lastTurn = lastTurn
+        self.compaction = compaction
+        self.wakeOnMessage = wakeOnMessage
+        self.environments = environments
+        self.appearance = appearance
+        self.movedTo = movedTo
+        self.movedAt = movedAt
+        self.tasks = tasks
+        self.harness = harness
+        self.model = model
     }
 
-    func withAttention(_ attention: LeoAttentionBadge?) -> LeoAgentRow {
+    func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil) -> LeoAgentRow {
         LeoAgentRow(
-            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, startedAt: startedAt, metadata: metadata,
-            surfacedFiles: surfacedFiles
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: reason, startedAt: startedAt,
+            metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
         )
     }
 
     func withMetadata(_ metadata: LeoAgentMetadata?) -> LeoAgentRow {
         LeoAgentRow(
-            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, startedAt: startedAt, metadata: metadata,
-            surfacedFiles: surfacedFiles
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
         )
     }
 
-    func withSurfacedFiles(_ files: [LeoSurfacedFile]) -> LeoAgentRow {
+    func withLastTurn(_ lastTurn: LeoTurnPreview?) -> LeoAgentRow {
         LeoAgentRow(
-            host: host, name: name, template: template, status: status, activity: activity, actionDetail: actionDetail,
-            workspace: workspace, repo: repo, attention: attention, startedAt: startedAt, metadata: metadata,
-            surfacedFiles: files
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
+        )
+    }
+
+    func withCompaction(_ compaction: LeoRowCompaction?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
+        )
+    }
+
+    func withEnvironments(_ environments: LeoAgentEnvironments?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
+        )
+    }
+
+    func withAppearance(_ appearance: LeoAgentAppearance?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
+        )
+    }
+
+    func withTasks(_ tasks: LeoRowTasks) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
+        )
+    }
+
+    func withHarness(_ harness: String?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks,
+            harness: harness, model: model
+        )
+    }
+
+    func withDisplayName(_ displayName: String?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model
         )
     }
 
     var id: ID { ID(host: host, name: name) }
-    var identity: LeoAgentIdentity { LeoAgentIdentity(host: host, name: name, workspace: workspace, repo: repo) }
+    var identity: LeoAgentIdentity { LeoAgentIdentity(host: host, name: name, workspace: workspace, repo: repo, displayName: displayName) }
 }
 
 enum LeoConnectivity: Equatable, Sendable {
@@ -100,6 +191,16 @@ enum LeoConnectivity: Equatable, Sendable {
     var isDisconnected: Bool {
         if case .disconnected = self { true } else { false }
     }
+
+    /// The machine can't be reached (failed, or a live connection
+    /// dropped): its section folds to a card, so its rows aren't there
+    /// to see or act on.
+    var isOffline: Bool {
+        switch self {
+        case .failed, .disconnected: true
+        case .loading, .connected: false
+        }
+    }
 }
 
 struct LeoSidebarSnapshot: Equatable, Sendable {
@@ -110,13 +211,36 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// Agents on this host needing attention that focus hasn't acknowledged
     /// -- the Dock badge count. Overlaid at emission time, like row badges.
     let attentionCount: Int
+    /// Live dispatches nested under each agent row, by agent name (B-257).
+    /// Overlaid at emission time from `LeoDispatchTree`; empty unless the
+    /// daemon advertised `dispatch_tree` and the connection is live.
+    let dispatchChildren: [String: [LeoDispatchNode]]
+    /// What the connected daemon advertised on its hello (B-262 reads
+    /// `agent_control`); `.none` while disconnected. Set last, at emission
+    /// time, by `advertising(_:)`.
+    let advertised: LeoHostFeatures
+    var features: LeoDaemonFeatures { advertised.features }
 
-    init(rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0) {
+    init(
+        rows: [LeoAgentRow], connectivity: LeoConnectivity, generation: Int, listRefreshSucceeded: Bool = false, attentionCount: Int = 0,
+        dispatchChildren: [String: [LeoDispatchNode]] = [:], features: LeoDaemonFeatures = .none, featuresHost: LeoHostID? = nil
+    ) {
+        advertised = LeoHostFeatures(host: featuresHost, features: features)
         self.rows = rows
         self.connectivity = connectivity
         self.generation = generation
         self.listRefreshSucceeded = listRefreshSucceeded
         self.attentionCount = attentionCount
+        self.dispatchChildren = dispatchChildren
+    }
+
+    /// A copy carrying what the connected daemon advertised (none while disconnected).
+    func advertising(_ advertised: LeoHostFeatures) -> LeoSidebarSnapshot {
+        let shown = connectivity.isDisconnected ? LeoHostFeatures.none : advertised
+        return LeoSidebarSnapshot(
+            rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
+            attentionCount: attentionCount, dispatchChildren: dispatchChildren, features: shown.features, featuresHost: shown.host
+        )
     }
 
     /// Returns a copy with `rows` replaced and `connectivity`/`generation`
@@ -128,7 +252,10 @@ struct LeoSidebarSnapshot: Equatable, Sendable {
     /// `true` to be lost by a later same-refresh reconstruction. Forcing
     /// callers to state it keeps that from recurring.
     func replacingRows(_ rows: [LeoAgentRow], listRefreshSucceeded: Bool) -> LeoSidebarSnapshot {
-        LeoSidebarSnapshot(rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded)
+        LeoSidebarSnapshot(
+            rows: rows, connectivity: connectivity, generation: generation, listRefreshSucceeded: listRefreshSucceeded,
+            dispatchChildren: dispatchChildren
+        )
     }
 }
 

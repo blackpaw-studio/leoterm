@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The selected host's template list as `LeoAgentActions` publishes it for
 /// every reader (New Agent sheet, a row's Set Template submenu). Only ever

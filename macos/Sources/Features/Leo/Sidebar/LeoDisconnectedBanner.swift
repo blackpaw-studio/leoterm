@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The words of the sidebar's disconnected banner (D-061), shared with
 /// the agent palette. The reason may be a remote ssh's stderr, so it goes

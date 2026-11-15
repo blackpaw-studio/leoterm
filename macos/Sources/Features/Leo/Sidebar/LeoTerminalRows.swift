@@ -2,10 +2,12 @@ import Combine
 import Foundation
 
 /// B-057 (D-099, D-111): one plain shell in its window's "Terminals"
-/// sidebar section. The row owns its one surface for its whole life:
-/// switching away hides it, and only closing it (⌘W, `exit`) ends it --
-/// unless its pane closes beside a split, when a plain shell left there
-/// carries it on in its sidebar slot (B-082).
+/// sidebar section. The row owns its surface -- and, B-333, the layout of
+/// shells split beside it -- for its whole life: switching away hides the
+/// layout whole, and only closing the row (⌘W, `exit`) ends its surface --
+/// unless its pane closes beside a split, shown or hidden, when a plain
+/// shell left there carries it on in its sidebar slot (B-082). Split
+/// panes are panes of the row's layout, never rows of their own.
 struct LeoTerminalRow: Identifiable, Equatable, Sendable {
     /// The shell's surface (the one carrying the row on, after B-082).
     let id: UUID
@@ -36,6 +38,9 @@ struct LeoTerminalList: Equatable, Sendable {
     init(rows: [LeoTerminalRow] = []) { self.rows = rows }
 
     func contains(_ id: UUID) -> Bool { rows.contains { $0.id == id } }
+
+    /// The rows' surfaces, in order: what a retitle leaves alone.
+    var ids: [UUID] { rows.map(\.id) }
 
     /// `row` last; a row already listed stays as it is.
     func adding(_ row: LeoTerminalRow) -> Self {
@@ -78,10 +83,22 @@ struct LeoTerminalList: Equatable, Sendable {
 /// window's `LeoWindowSession`; the attach host adds, retitles and removes
 /// rows as their surfaces come and go.
 @MainActor final class LeoWindowTerminals: ObservableObject {
-    @Published private(set) var list = LeoTerminalList()
+    /// The rows, oldest first. The window's rows change (`objectWillChange`)
+    /// only when a row comes, goes or carries on as another shell; a
+    /// retitle reaches `titles` alone. So what observes the rows for what
+    /// is listed and selected (the sidebar, the content area) doesn't
+    /// redraw as a terminal retitles itself, ~10 times a second for a
+    /// spinner in its title.
+    private(set) var list = LeoTerminalList()
+    /// The rows' labels, as their terminals retitle: what the Terminals
+    /// section draws.
+    let titles = LeoTerminalTitles()
     /// The terminal row this window's sidebar selects; `nil` when an agent
     /// row (or nothing) is selected there.
-    @Published private(set) var selection: UUID?
+    @Published private(set) var selection: UUID? { didSet { changed() } }
+    /// B-332: the rows, a title or the selection changed -- what the
+    /// window saves for restoring at launch (wired by `LeoRuntime`).
+    var changed: () -> Void = {}
     /// Shows the row in the window's content area (wired by `LeoRuntime`).
     var showRequested: (UUID) -> Void = { _ in }
     /// Closes the shown row: its neighbour shows instead, or the start
@@ -101,6 +118,10 @@ struct LeoTerminalList: Equatable, Sendable {
     /// The terminal's own title under any name given to the row (what
     /// Rename… restores when left blank).
     var liveTitle: (UUID) -> String? = { _ in nil }
+    /// B-274: a row went (its shell closed), or carried on as another
+    /// shell (B-082); its editor and browser pane go, or go along.
+    var rowRemoved: (UUID) -> Void = { _ in }
+    var rowReplaced: (_ old: UUID, _ new: UUID) -> Void = { _, _ in }
 
     var rows: [LeoTerminalRow] { list.rows }
 
@@ -120,12 +141,15 @@ struct LeoTerminalList: Equatable, Sendable {
         guard contains(id) else { return }
         update(list.replacing(id, with: LeoTerminalRow(id: newID, title: title)))
         if selection == id { selection = newID }
+        rowReplaced(id, newID)
     }
 
     /// The row is gone (its shell closed); so is its selection.
     func remove(_ id: UUID) {
+        guard contains(id) else { return }
         update(list.removing(id))
         if selection == id { selection = nil }
+        rowRemoved(id)
     }
 
     /// Selects a row this window holds, or none.
@@ -161,9 +185,47 @@ struct LeoTerminalList: Equatable, Sendable {
     }
 
     /// Publishes only real changes: a title the terminal sets again
-    /// redraws nothing.
+    /// redraws nothing, and a new title only its row's label.
     private func update(_ updated: LeoTerminalList) {
         guard updated != list else { return }
+        if updated.ids != list.ids { objectWillChange.send() }
         list = updated
+        titles.show(updated.labels)
+        changed()
+    }
+}
+
+/// A window's Terminals rows as they read (`LeoTerminalList.labels`):
+/// what the Terminals section draws. The section observes `rows`, which
+/// changes only when a terminal comes, goes or moves; each row observes
+/// its own `LeoTerminalTitle`. A List reconfigures every visible row
+/// whenever what it lists changes, so a retitle stays within its row.
+@MainActor final class LeoTerminalTitles: ObservableObject {
+    @Published private(set) var rows: [LeoTerminalTitle] = []
+
+    var labels: [LeoTerminalRowLabel] { rows.map(\.label) }
+
+    fileprivate func show(_ labels: [LeoTerminalRowLabel]) {
+        if labels.map(\.id) != rows.map(\.id) {
+            let shown = Dictionary(rows.map { ($0.id, $0) }) { first, _ in first }
+            rows = labels.map { shown[$0.id] ?? LeoTerminalTitle($0) }
+        }
+        zip(rows, labels).forEach { $0.show($1) }
+    }
+}
+
+/// One Terminals row's label, observed by that row alone.
+@MainActor final class LeoTerminalTitle: ObservableObject, Identifiable {
+    let id: UUID
+    @Published private(set) var label: LeoTerminalRowLabel
+
+    init(_ label: LeoTerminalRowLabel) {
+        id = label.id
+        self.label = label
+    }
+
+    fileprivate func show(_ label: LeoTerminalRowLabel) {
+        guard label != self.label else { return }
+        self.label = label
     }
 }

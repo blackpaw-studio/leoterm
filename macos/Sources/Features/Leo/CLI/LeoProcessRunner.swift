@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import LeoKit
 
 struct LeoProcessResult: Equatable, Sendable {
     let stdout: Data

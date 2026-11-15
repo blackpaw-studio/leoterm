@@ -1,0 +1,100 @@
+import Foundation
+import Testing
+
+@testable import LeoKit
+
+struct LeoBrowserToolsTests {
+    @Test func declaresEveryToolInTheSpecTable() {
+        #expect(LeoBrowserTools.definitions.map(\.name) == [
+            "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
+            "browser_type", "browser_press", "browser_screenshot", "browser_wait", "browser_eval", "browser_console",
+            "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_handoff",
+        ])
+    }
+
+    @Test func handoffHasNoTimeoutAndEveryOtherToolThirtySeconds() {
+        for tool in LeoBrowserTools.definitions {
+            #expect(tool.timeoutSeconds == (tool.name == "browser_handoff" ? 0 : 30), "\(tool.name)")
+        }
+    }
+
+    @Test func theGroupAndNamesSatisfyTheDaemonRules() throws {
+        #expect(LeoBrowserTools.group == "browser")
+        let pattern = try Regex("^[a-z][a-z0-9_]{0,63}$")
+        for tool in LeoBrowserTools.definitions {
+            #expect(tool.name.wholeMatch(of: pattern) != nil, "\(tool.name)")
+            #expect(tool.inputSchema.objectValue?["type"] == .string("object"), "\(tool.name)")
+            #expect(!tool.description.isEmpty, "\(tool.name)")
+        }
+        #expect(LeoBrowserTools.definitions.count <= 64)
+    }
+
+    @Test func tabsHandoffSelectAndCloseDeclareNoOptionalTabProperty() {
+        func properties(_ name: String) -> [String: LeoJSONValue] {
+            LeoBrowserTools.definitions.first { $0.name == name }?.inputSchema.objectValue?["properties"]?.objectValue ?? [:]
+        }
+        #expect(properties("browser_click")["tab"] != nil)
+        for name in ["browser_tabs", "browser_handoff", "browser_tab_new"] { #expect(properties(name)["tab"] == nil, "\(name)") }
+        func required(_ name: String) -> [LeoJSONValue] {
+            guard case .array(let list) = LeoBrowserTools.definitions.first(where: { $0.name == name })?.inputSchema.objectValue?["required"] else { return [] }
+            return list
+        }
+        for name in ["browser_tab_select", "browser_tab_close"] { #expect(required(name) == [.string("tab")], "\(name)") }
+    }
+
+    @Test func userAgentParametersSayWhatTheyDo() throws {
+        func definition(_ name: String) throws -> LeoClientToolDefinition { try #require(LeoBrowserTools.definitions.first { $0.name == name }) }
+        func property(_ name: String) throws -> String? {
+            try definition(name).inputSchema.objectValue?["properties"]?.objectValue?["user_agent"]?.objectValue?["description"]?.stringValue
+        }
+        for name in ["browser_tab_new", "browser_user_agent"] {
+            let text = try #require(try property(name), "\(name)")
+            #expect(text.contains("navigator.userAgent"), "\(name)")
+            #expect(text.contains("tab is closed"), "\(name)")
+        }
+        #expect(try property("browser_user_agent")?.contains("Pass an empty string to clear") == true)
+        #expect(try definition("browser_user_agent").inputSchema.objectValue?["required"] == .array([.string("user_agent")]))
+        let tool = try definition("browser_user_agent")
+        #expect(tool.description.contains("next navigation"))
+        #expect(tool.description.contains("default"))
+    }
+
+    @Test func everyDefinitionDecodesFromItsOwnSampleArgs() throws {
+        for tool in LeoBrowserTools.definitions {
+            _ = try LeoBrowserCommand(tool: tool.name, args: .object(LeoBrowserCommandTests.sampleArgs[tool.name] ?? [:]))
+        }
+    }
+
+    @Test func everyDescriptionNamesTheLeoAppBrowserSoItIsNotMistakenForPlaywright() {
+        for tool in LeoBrowserTools.definitions {
+            #expect(tool.description.hasPrefix("Leo app browser: "), "\(tool.name)")
+        }
+    }
+
+    @Test func entryPointsExplainWhoSeesTheBrowserWhereItsCookiesLiveAndHowLocalhostWorks() {
+        for name in ["browser_navigate", "browser_tab_new"] {
+            let description = LeoBrowserTools.definitions.first { $0.name == name }?.description ?? ""
+            #expect(description.contains("browser pane in the user's Leo app"), "\(name)")
+            #expect(description.contains("not a headless or Playwright browser"), "\(name)")
+            #expect(description.contains("user can watch"), "\(name)")
+            #expect(description.contains("cookies"), "\(name)")
+            #expect(description.contains("localhost"), "\(name)")
+        }
+    }
+
+    @Test func registrationMatchesTheGoldenFixture() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Fixtures/agent-browser/browser-tools.json")
+        let golden = try Data(contentsOf: url)
+        try LeoClientToolsWireTests.expectSameJSON(LeoBrowserTools.definitions, as: golden)
+    }
+
+    @Test func errorsMapToClientToolErrorsWithTheirCode() {
+        let error = LeoBrowserError.userHasControl
+        #expect(error.clientToolError == LeoClientToolError(code: "user_has_control", message: error.message))
+        #expect(error.message.contains("browser_handoff"))
+        #expect(LeoBrowserError.Code.allCases.map(\.rawValue).sorted() == [
+            "invalid_args", "js_error", "navigation_failed", "no_such_tab", "scheme_not_allowed", "stale_ref",
+            "tab_limit", "timeout", "user_has_control",
+        ])
+    }
+}

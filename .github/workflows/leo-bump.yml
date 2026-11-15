@@ -1,0 +1,147 @@
+name: Leo Bump
+
+# A stable leo release (leo repo, vX.Y.Z tag) dispatches `leo-release` here
+# with {version, sha256}. This verifies the release and opens a PR that moves
+# macos/Bundled/LEO_VERSION to it. Merging that PR tags a Leo release
+# (leo-bump-release.yml). workflow_dispatch takes the same inputs for manual
+# testing. repository_dispatch only runs the workflow on the default branch.
+# Once the PR is open, close-superseded-bumps.sh closes the lower-versioned
+# bump/leo-* PRs it replaces.
+#
+# The PR and its branch are created with LEO_BUMP_TOKEN, a fine-grained PAT:
+# anything created with GITHUB_TOKEN triggers no workflows, so leo-ci would
+# never run on the bump PR. The payload is untrusted: it only ever reaches
+# scripts through env, and bump-leo.sh validates it and re-verifies it against
+# that release's checksums.txt.
+#
+# Two jobs, so the PAT is never near code from a download. `verify` downloads
+# the tarball and runs the leo binary in it (fetch-leo.sh / check-helper.sh)
+# with no PAT and no persisted credential, and outputs the validated version
+# and sha256. `write` holds the PAT, never runs the downloaded binary, and
+# authenticates its push explicitly instead of persisting a credential.
+
+on:
+  repository_dispatch:
+    types: [leo-release]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: leo version, bare X.Y.Z (no "v")
+        required: true
+        type: string
+      sha256:
+        description: sha256 of leo_<version>_darwin_universal.tar.gz (64 lowercase hex)
+        required: true
+        type: string
+
+concurrency:
+  group: leo-bump
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-26
+    timeout-minutes: 20
+    outputs:
+      bump: ${{ steps.bump.outputs.bump }}
+      version: ${{ steps.bump.outputs.version }}
+      sha256: ${{ steps.bump.outputs.sha256 }}
+    steps:
+      # Always main, even for a manual dispatch from another ref: the bump PR
+      # must be main plus the pin change and nothing else.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Verify the release
+        id: bump
+        env:
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
+          SHA256: ${{ github.event.client_payload.sha256 || inputs.sha256 }}
+        run: .github/scripts/leo/bump-leo.sh "$VERSION" "$SHA256"
+
+      # bump-leo.sh checked the checksum; this downloads the tarball, runs the
+      # leo in it and checks it is universal and reports the pinned version.
+      - name: Confirm the pinned download
+        if: steps.bump.outputs.bump == 'true'
+        run: .github/scripts/leo/fetch-leo.sh "$RUNNER_TEMP/leo-bump"
+
+  write:
+    needs: verify
+    if: needs.verify.outputs.bump == 'true'
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+
+      # Re-validates what verify passed on and rewrites the pin; it fetches
+      # only checksums.txt and never runs the downloaded binary.
+      - name: Rewrite the pin
+        id: pin
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          SHA256: ${{ needs.verify.outputs.sha256 }}
+        run: .github/scripts/leo/bump-leo.sh "$VERSION" "$SHA256"
+
+      - name: Open or update the bump PR
+        if: steps.pin.outputs.bump == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.LEO_BUMP_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BUMP_VERSION: ${{ steps.pin.outputs.version }}
+        run: |
+          set -euo pipefail
+          branch="bump/leo-$BUMP_VERSION"
+          title="chore: bump bundled leo to $BUMP_VERSION"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add macos/Bundled/LEO_VERSION
+          git commit -q -m "$title"
+
+          # Authenticate the push for this one command, through git's env
+          # config: nothing is written to .git/config or the command line.
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          echo "::add-mask::$auth"
+          # The branch is owned by this workflow; a re-dispatch rebuilds it on main.
+          GIT_CONFIG_COUNT=1 \
+            GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
+            GIT_CONFIG_VALUE_0="Authorization: basic $auth" \
+            git push --force origin "refs/heads/$branch"
+
+          body="$RUNNER_TEMP/bump-pr-body.md"
+          cat > "$body" <<BODY
+          Bumps the leo binary bundled in Leo.app (\`Contents/Helpers/leo\`) to
+          **$BUMP_VERSION**, from the \`leo-release\` dispatch for leo v$BUMP_VERSION.
+
+          - \`macos/Bundled/LEO_VERSION\` now pins leo $BUMP_VERSION.
+          - The release's \`checksums.txt\` lists the pinned sha256 for
+            \`leo_${BUMP_VERSION}_darwin_universal.tar.gz\`, and the tarball was
+            downloaded and verified (universal, reports leo $BUMP_VERSION).
+          - CI runs on this PR.
+
+          Merging this PR tags the next patch Leo release (\`leo-bump-release.yml\`).
+          Close it to skip the bump.
+          BODY
+
+          existing="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh pr edit "$existing" --title "$title" --body-file "$body"
+            echo "Updated PR #$existing"
+          else
+            gh pr create --base main --head "$branch" --title "$title" --body-file "$body"
+          fi
+
+          # A newer bump makes every lower open bump PR pointless: close them.
+          new_pr="$(gh pr list --head "$branch" --base main --state open --json number --jq '.[0].number')"
+          .github/scripts/leo/close-superseded-bumps.sh "$new_pr" "$BUMP_VERSION"

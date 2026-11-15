@@ -1,0 +1,38 @@
+{
+  "status": 200,
+  "headers": {},
+  "body": {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "reviewDecision": "CHANGES_REQUESTED",
+          "reviewThreads": {
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "T4",
+                "isResolved": false,
+                "isOutdated": false,
+                "path": "src/a.ts",
+                "line": 3,
+                "originalLine": 3,
+                "comments": {
+                  "nodes": [
+                    {
+                      "author": null,
+                      "body": "Missing null check.\nSecond line.",
+                      "url": "https://github.com/o/r/pull/12#discussion_rT4"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

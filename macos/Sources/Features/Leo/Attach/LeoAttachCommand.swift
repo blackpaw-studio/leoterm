@@ -1,38 +1,94 @@
 import Foundation
+import LeoKit
 
 struct LeoAgentIdentity: Hashable, Sendable {
     let host: LeoHostID
     let name: String
     let workspace: String?
     let repo: String?
+    /// Set for a dispatch subagent (B-266): part of its identity, so no
+    /// agent equals it however it is named. `name` is then `dispatch.<id>`
+    /// (for display paths that only know names), and `title` is what its
+    /// tab shows.
+    let dispatchID: String?
+    let title: String?
+    /// What the user reads for an agent (the daemon's `display_name`). Not
+    /// part of identity: equality and hashing ignore it.
+    let displayName: String?
 
-    init(host: LeoHostID, name: String, workspace: String? = nil, repo: String? = nil) {
+    init(
+        host: LeoHostID, name: String, workspace: String? = nil, repo: String? = nil,
+        dispatchID: String? = nil, title: String? = nil, displayName: String? = nil
+    ) {
         self.host = host
         self.name = name
         self.workspace = workspace
         self.repo = repo
+        self.dispatchID = dispatchID
+        self.title = title
+        self.displayName = displayName
     }
 
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.host == rhs.host && lhs.name == rhs.name }
-    func hash(into hasher: inout Hasher) { hasher.combine(host); hasher.combine(name) }
+    /// A dispatch subagent on `host`, shown under `title`.
+    static func dispatch(host: LeoHostID, id: String, title: String?) -> LeoAgentIdentity {
+        LeoAgentIdentity(host: host, name: "dispatch.\(id)", dispatchID: id, title: title)
+    }
+
+    /// A dispatch is never an agent, whatever either is named.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.host == rhs.host && lhs.name == rhs.name && lhs.dispatchID == rhs.dispatchID
+    }
+    func hash(into hasher: inout Hasher) { hasher.combine(host); hasher.combine(name); hasher.combine(dispatchID) }
 }
 
 enum LeoAttachCommandError: Error, Equatable, Sendable {
     case invalidAgentName
+    case invalidDispatchID
 }
 
 enum LeoAttachCommand {
-    static func build(executable: String, identity: LeoAgentIdentity) throws -> String {
+    static func build(
+        executable: String, identity: LeoAgentIdentity, features: LeoDaemonFeatures = .none,
+        dispatchAccess: LeoDispatchAccess = .readOnly
+    ) throws -> String {
+        if let dispatchID = identity.dispatchID {
+            return try buildDispatch(executable: executable, host: identity.host, dispatchID: dispatchID, access: dispatchAccess)
+        }
         guard !identity.name.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
             throw LeoAttachCommandError.invalidAgentName
         }
         var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", try leoShellQuote(executable)]
         parts += ["agent", "attach"]
-        if case .remote(let host) = identity.host {
-            parts += ["--host", try leoShellQuote(host)]
-        }
+        parts += try hostArguments(identity.host)
+        parts += features.attachPlacementArguments
         parts += ["--", try leoShellQuote(identity.name)]
         return parts.joined(separator: " ")
+    }
+
+    /// `leo --host H dispatch attach [--rw] <id>`: attaches the TTY to the
+    /// dispatch's pane and exits when the dispatch closes (B-266). `--rw`
+    /// (B-288) only for a leo that has it. An id that could read as a flag,
+    /// or break the line, is refused.
+    static func buildDispatch(
+        executable: String, host: LeoHostID, dispatchID: String, access: LeoDispatchAccess = .readOnly
+    ) throws -> String {
+        guard !dispatchID.isEmpty, !dispatchID.hasPrefix("-"),
+              !dispatchID.contains(where: { $0 == "\0" || $0 == "\n" || $0 == "\r" }) else {
+            throw LeoAttachCommandError.invalidDispatchID
+        }
+        var parts = ["env", "-u", "TMUX", "-u", "TMUX_PANE", try leoShellQuote(executable)]
+        parts += try hostArguments(host)
+        parts += ["dispatch", "attach"] + access.attachArguments + [try leoShellQuote(dispatchID)]
+        return parts.joined(separator: " ")
+    }
+
+    /// Always explicit: without `--host`, leo falls back to the user's
+    /// `client.default_host`, so a local agent would be looked up remotely.
+    private static func hostArguments(_ host: LeoHostID) throws -> [String] {
+        switch host {
+        case .local: return ["--host", "localhost"]
+        case .remote(let name): return ["--host", try leoShellQuote(name)]
+        }
     }
 
     static func workingDirectory(

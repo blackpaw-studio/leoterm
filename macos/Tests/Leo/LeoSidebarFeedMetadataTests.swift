@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Row metadata comes only from whole `/state` snapshots, and an entry
 /// paints a row only when its `started_at` matches that row's (D-074).
@@ -66,6 +67,51 @@ struct LeoSidebarFeedMetadataTests {
         let betaTasks = await harness.recorder.values.flatMap(\.rows).filter { $0.name == "beta" }.compactMap(\.metadata?.task)
         #expect(!betaTasks.contains("ghost"))
         #expect(await harness.recorder.last?.rows.first?.metadata?.task == "alpha task")
+        await harness.stop()
+    }
+
+    /// `/agents/list` never carries `display_name`; the rows get it from
+    /// `/state` and `agent.spawned`.
+    @Test func aStateAgentsDisplayNamePaintsItsListRow() async throws {
+        let harness = MetadataHarness(
+            agents: [("leo-alfred", "s1"), ("beta", "s2")],
+            state: [observed("leo-alfred", "s1", task: nil, displayName: "Alfred"), observed("beta", "s2", task: nil)]
+        )
+        await harness.start()
+        try await harness.pump { $0.rows.first?.displayName == "Alfred" }
+        let rows = try #require(await harness.recorder.last?.rows)
+        #expect(rows.map(\.name) == ["leo-alfred", "beta"])
+        #expect(rows.map(\.displayName) == ["Alfred", "beta"], "no display_name falls back to the name")
+        await harness.stop()
+    }
+
+    @Test func aSpawnedEventsNewDisplayNameUpdatesTheRow() async throws {
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: nil, displayName: "Old")])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.displayName == "Old" }
+        await harness.settle()
+
+        // The refetch the spawn triggers is held back, so only the event's own field can paint.
+        await harness.activity.holdNext()
+        await harness.activity.send(.agentSpawned(seq: 2, at: nil, agent: agent("alpha", "s1", displayName: "New")))
+        try await harness.pump { $0.rows.first?.displayName == "New" }
+        await harness.activity.releaseHeld()
+        await harness.stop()
+    }
+
+    @Test func aRecreatedNamesakeWithoutADisplayNameDoesNotInheritTheOldOne() async throws {
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [observed("alpha", "s1", task: nil, displayName: "Old")])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.displayName == "Old" }
+        await harness.settle()
+
+        await harness.daemon.setAgents([("alpha", "s2")])
+        await harness.activity.setState([observed("alpha", "s2", task: nil)])
+        await harness.activity.send(.agentStopped(seq: 3, at: nil, agent: "alpha", wakeOnMessage: nil))
+        await harness.activity.send(.agentSpawned(seq: 4, at: nil, agent: agent("alpha", "s2")))
+        try await harness.pump { $0.rows.first?.startedAt == "s2" }
+        await harness.settle()
+        #expect(await harness.recorder.last?.rows.first?.displayName == "alpha")
         await harness.stop()
     }
 
@@ -178,6 +224,27 @@ struct LeoSidebarFeedMetadataTests {
         await harness.stop()
     }
 
+    /// B-260: a tool shows as its name, and the row clears when a later
+    /// snapshot (triggered by the trailing activity event) drops the action.
+    @Test func toolClearsWhenSnapshotDropsAction() async throws {
+        let running = LeoObservedAgent(
+            name: "alpha", status: .running, activity: .working, currentAction: .init(kind: "tool", detail: "Bash make test"),
+            lastActivityAt: "2026-09-24T15:00:00Z", startedAt: "s1"
+        )
+        let harness = MetadataHarness(agents: [("alpha", "s1")], state: [running])
+        await harness.start()
+        try await harness.pump { $0.rows.first?.metadata?.tool == "Bash" }
+        #expect(await harness.recorder.last?.rows.first?.metadata?.task == nil)
+        await harness.settle()
+
+        await harness.activity.setState([observed("alpha", "s1", task: nil)])
+        await harness.activity.send(.agentActivity(seq: 2, at: nil, agent: "alpha", activity: .idle, currentAction: nil))
+        try await harness.pump { $0.rows.first?.metadata != nil && $0.rows.first?.metadata?.tool == nil }
+        let row = await harness.recorder.last?.rows.first
+        #expect(row?.metadata?.task == nil)
+        await harness.stop()
+    }
+
     /// An event coalesced while the baseline `/state` is in flight, drained
     /// by that baseline before its flush timer fires: the baseline may
     /// predate it, so a trailing snapshot must follow -- without any poll
@@ -280,10 +347,12 @@ struct LeoSidebarFeedMetadataTests {
     }
 }
 
-private func observed(_ name: String, _ startedAt: String, task: String?, at lastActivityAt: String = "2026-09-24T15:00:00Z") -> LeoObservedAgent {
+private func observed(
+    _ name: String, _ startedAt: String, task: String?, at lastActivityAt: String = "2026-09-24T15:00:00Z", displayName: String? = nil
+) -> LeoObservedAgent {
     LeoObservedAgent(
         name: name, status: .running, activity: .idle, currentAction: task.map { .init(kind: "pane", detail: $0) },
-        lastActivityAt: lastActivityAt, startedAt: startedAt
+        lastActivityAt: lastActivityAt, startedAt: startedAt, displayName: displayName
     )
 }
 
@@ -291,15 +360,15 @@ private func observed(_ name: String, _ startedAt: String, task: String?, at las
 private func order(_ harness: MetadataHarness, _ model: LeoSidebarModel) async -> [String] {
     guard let snapshot = await harness.recorder.last else { return [] }
     return await MainActor.run {
-        model.receive(snapshot)
+        model.receive(snapshot, for: .local)
         return model.visibleRows.map(\.name)
     }
 }
 
-private func agent(_ name: String, _ startedAt: String) -> LeoAgent {
+private func agent(_ name: String, _ startedAt: String, displayName: String? = nil) -> LeoAgent {
     LeoAgent(
         name: name, template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running,
-        startedAt: startedAt, restarts: nil, stoppedReason: nil, wakeOnMessage: nil
+        startedAt: startedAt, restarts: nil, stoppedReason: nil, wakeOnMessage: nil, displayName: displayName
     )
 }
 

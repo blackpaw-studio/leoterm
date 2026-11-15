@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Where a surfaced `path:line:column` puts the caret.
 struct LeoEditorTextViewTests {

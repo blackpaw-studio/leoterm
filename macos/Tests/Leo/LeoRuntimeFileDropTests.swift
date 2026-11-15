@@ -1,0 +1,857 @@
+import AppKit
+import Foundation
+import Testing
+
+@testable import Ghostty
+@testable import LeoKit
+
+@MainActor @Suite
+struct LeoRuntimeFileDropTests {
+    @MainActor private final class State {
+        var context: LeoTerminalFileDropContext?
+        var requestedHosts: [LeoHostID] = []
+        var accesses: [any LeoFileAccess] = []
+        var inserted: [String] = []
+        var accessError: LeoFileAccessError?
+        var now = Date()
+        /// A pasted image's temp directory lives under here, never the shared system temp dir.
+        let temp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("leo-file-drop-tests-\(UUID().uuidString)", isDirectory: true)
+
+        init() { try? FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true) }
+        deinit { try? FileManager.default.removeItem(at: temp) }
+
+        /// Every file still under the temp base, relative to it.
+        var leftoverFiles: [String] {
+            let walker = FileManager.default.enumerator(at: temp, includingPropertiesForKeys: [.isRegularFileKey])
+            return (walker?.compactMap { $0 as? URL } ?? [])
+                .filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }
+                .map { String($0.path.dropFirst(temp.path.count)) }
+        }
+    }
+
+    private func makeSurface() throws -> Ghostty.SurfaceView {
+        let app = try #require((NSApp.delegate as? AppDelegate)?.ghostty.app)
+        return Ghostty.SurfaceView(app, baseConfig: nil)
+    }
+
+    private func makeRuntime(_ state: State) -> LeoRuntime {
+        LeoRuntime(
+            daemon: FileDropUnusedDaemon(), cli: .recordingForTests(),
+            activitySource: LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
+            defaults: LeoInMemoryDefaults(), templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
+            terminalFileDropDependencies: LeoTerminalFileDropDependencies(
+                context: { _ in state.context },
+                makeAccess: { host in
+                    state.requestedHosts.append(host)
+                    if let error = state.accessError { throw error }
+                    // An empty queue is a failed test, not a trap that kills the host.
+                    guard !state.accesses.isEmpty else { throw LeoFileAccessError.unavailable(reason: "no access queued for the test") }
+                    return state.accesses.removeFirst()
+                },
+                insertText: { _, text in state.inserted.append(text) },
+                now: { state.now },
+                temporaryDirectory: { state.temp }
+            ),
+            chatClient: FakeChatClient()
+        )
+    }
+
+    private func pasteboard(_ urls: [URL]) -> NSPasteboard {
+        let pasteboard = NSPasteboard(name: NSPasteboard.Name("leo-file-drop-\(UUID().uuidString)"))
+        pasteboard.clearContents()
+        pasteboard.writeObjects(urls as [NSURL])
+        return pasteboard
+    }
+
+    private func context(host: LeoHostID = .local, workspace: String, generation: UInt64 = 1) -> LeoTerminalFileDropContext {
+        LeoTerminalFileDropContext(
+            identity: LeoAgentIdentity(host: host, name: "scratch"), workspace: workspace,
+            attachmentGeneration: generation
+        )
+    }
+
+    @Test func imagePasteSurfaceKindSeparatesRemoteLocalAndPlainSurfaces() throws {
+        let state = State()
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        state.context = context(host: .remote("work"), workspace: "/work")
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .remoteAgent)
+        state.context = context(host: .local, workspace: "/work")
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .localAgent)
+        state.context = nil
+        #expect(runtime.imagePasteSurfaceKind(for: surface) == .plain)
+        runtime.shutdown()
+    }
+
+    // MARK: Image paste
+
+    private func imageBoard(text: String? = nil) throws -> NSPasteboard {
+        let board = NSPasteboard(name: NSPasteboard.Name("leo-image-paste-\(UUID().uuidString)"))
+        board.clearContents()
+        let rep = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 4, pixelsHigh: 4, bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ))
+        board.setData(try #require(rep.tiffRepresentation), forType: .tiff)
+        if let text { board.setString(text, forType: .string) }
+        return board
+    }
+
+    private func fixedNow() throws -> Date {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        return try #require(utc.date(from: DateComponents(
+            year: 2026, month: 11, day: 1, hour: 0, minute: 7, second: 48, nanosecond: 500_000_000
+        )))
+    }
+
+    private let pasteName = "leo-paste-20261101-000748-500.png"
+
+    @Test func remoteAgentImagePasteUploadsToTheScratchDirNotTheWorkspaceAndLeavesNoTempFile() async throws {
+        let workspace = try LeoFileSandbox()
+        let home = try LeoFileSandbox()
+        defer {
+            workspace.cleanUp()
+            home.cleanUp()
+        }
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(host: .remote("work"), workspace: workspace.root)
+        state.accesses = [FileDropHomeAccess(
+            base: LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher()), home: home.root
+        )]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let scratchPath = home.path(".cache/leo/paste/" + pasteName)
+        #expect(!exists(home.path(".cache")))
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        await awaitCondition(timeout: 10) { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(state.requestedHosts == [.remote("work")])
+        #expect(state.inserted == [Ghostty.Shell.escape(scratchPath) + " "])
+        let uploaded = try Data(contentsOf: URL(fileURLWithPath: scratchPath))
+        #expect(uploaded.prefix(4) == Data([0x89, 0x50, 0x4E, 0x47]))
+        #expect(try workspace.names().isEmpty, "nothing may land in the workspace")
+        #expect(state.leftoverFiles.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aSecondPasteReusesTheExistingScratchDirectory() async throws {
+        let home = try LeoFileSandbox()
+        defer { home.cleanUp() }
+        try home.directory(".cache/leo/paste")
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(workspace: "/workspace")
+        state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        // `.local` is not remote, so drive the queue the way a paste does.
+        let file = state.temp.appendingPathComponent(pasteName)
+        try Data("png".utf8).write(to: file)
+        let queue = LeoTerminalFileDropQueue(runtime: runtime, surface: surface)
+        runtime.terminalFileDropQueues[surface.id] = queue
+        var job = LeoTerminalFileDropQueue.Job(sources: [file], context: try #require(state.context), ownedFiles: [file])
+        job.destination = .pasteScratch
+        queue.enqueue(job)
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(try home.contents(".cache/leo/paste/" + pasteName) == "png")
+        runtime.shutdown()
+    }
+
+    @Test func twoPastesInTheSameInstantEachKeepTheirOwnTempFile() async throws {
+        // Separate homes: the scratch name is the same, and must not collide on the host.
+        let homes = try (0..<2).map { _ in try LeoFileSandbox() }
+        defer { homes.forEach { $0.cleanUp() } }
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accesses = homes.map { FileDropHomeAccess(base: LeoFileAccessor.local(), home: $0.root) }
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        // Both pastes land before the first upload runs, so a shared temp
+        // path would be overwritten, then deleted under the second job.
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        await awaitCondition { await MainActor.run { state.inserted.count == 2 } }
+
+        #expect(state.inserted.count == 2)
+        #expect(surface.leoFileDropStatus == nil)
+        for home in homes { #expect(exists(home.path(".cache/leo/paste/" + pasteName)), "each paste must upload its own file") }
+        await awaitCondition { await MainActor.run { state.leftoverFiles.isEmpty } }
+        #expect(state.leftoverFiles.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aBlockedScratchDirectoryShowsAnErrorInsertsNothingAndRemovesTheTempFile() async throws {
+        let home = try LeoFileSandbox()
+        defer { home.cleanUp() }
+        try home.file(".cache", "i am a file")
+        let state = State()
+        state.now = try fixedNow()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        await awaitCondition { await MainActor.run { state.requestedHosts.count == 1 && state.leftoverFiles.isEmpty && surface.leoFileDropStatus != nil } }
+
+        guard case .failed = surface.leoFileDropStatus else {
+            Issue.record("expected a failure status")
+            runtime.shutdown()
+            return
+        }
+        #expect(state.inserted.isEmpty)
+        #expect(try home.contents(".cache") == "i am a file")
+        runtime.shutdown()
+    }
+
+    @Test func aFinderDropStaysInTheWorkspaceAndNeverTouchesTheScratchDirectory() async throws {
+        let source = try LeoFileSandbox()
+        let workspace = try LeoFileSandbox()
+        let home = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            workspace.cleanUp()
+            home.cleanUp()
+        }
+        let path = try source.file("drop.txt", "dropped")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: workspace.root)
+        state.accesses = [FileDropHomeAccess(base: LeoFileAccessor.local(), home: home.root)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(state.inserted == [workspace.path("drop.txt") + " "])
+        #expect(try workspace.contents("drop.txt") == "dropped")
+        #expect(try home.names().isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func commandVWithTextOnTheClipboardLeavesTheTextPasteAlone() throws {
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(!runtime.performImagePaste(.commandV, pasteboard: try imageBoard(text: "hello"), from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func localAndPlainSurfacesNeverClaimAnImagePaste() throws {
+        let state = State()
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        state.context = context(host: .local, workspace: "/workspace")
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        state.context = nil
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func autorepeatOfAnImagePasteIsSwallowedWithoutUploading() throws {
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = try #require(TimeZone(secondsFromGMT: 0))
+        let state = State()
+        state.now = try #require(utc.date(from: DateComponents(year: 2026, month: 11, day: 1, hour: 0, minute: 9, second: 1)))
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "must not be reached")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performImagePaste(.controlV, pasteboard: try imageBoard(), isRepeat: true, from: surface))
+        #expect(state.leftoverFiles.isEmpty)
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aRepeatThatIsNotAnImagePasteStaysUnclaimed() throws {
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = NSPasteboard(name: NSPasteboard.Name("leo-image-paste-\(UUID().uuidString)"))
+        board.clearContents()
+        board.setString("hello", forType: .string)
+
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: board, isRepeat: true, from: surface))
+        runtime.shutdown()
+    }
+
+    @Test func aFinderCopiedFileIsNotAnImagePaste() throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let file = try source.file("report.txt", "x")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = try imageBoard(text: "report.txt")
+        board.addTypes([.fileURL], owner: nil)
+        board.setString(URL(fileURLWithPath: file).absoluteString, forType: .fileURL)
+
+        #expect(!runtime.performImagePaste(.controlV, pasteboard: board, from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    // MARK: Temp-file ownership
+
+    private func enqueueOwned(
+        _ file: String, context: LeoTerminalFileDropContext, runtime: LeoRuntime, surface: Ghostty.SurfaceView
+    ) {
+        let queue = runtime.terminalFileDropQueues[surface.id] ?? LeoTerminalFileDropQueue(runtime: runtime, surface: surface)
+        runtime.terminalFileDropQueues[surface.id] = queue
+        let url = URL(fileURLWithPath: file)
+        queue.enqueue(.init(sources: [url], context: context, ownedFiles: [url]))
+    }
+
+    private nonisolated func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
+
+    @Test func ownedFileIsRemovedAfterASuccessfulUpload() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("paste.png", "pixels")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(try destination.contents("paste.png") == "pixels")
+        #expect(!exists(path))
+        runtime.shutdown()
+    }
+
+    @Test func ownedFileIsRemovedAfterAFailedUpload() async throws {
+        let source = try LeoFileSandbox()
+        defer { source.cleanUp() }
+        let path = try source.file("paste.png", "pixels")
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "SFTP unavailable")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await awaitCondition { !exists(path) }
+
+        #expect(!exists(path))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func ownedFilesAreRemovedWhenTheContextChangesUnderActiveAndQueuedJobs() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let active = try source.file("active.png", "a")
+        let queued = try source.file("queued.png", "b")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(active, context: try #require(state.context), runtime: runtime, surface: surface)
+        await gate.waitUntilEntered()
+        enqueueOwned(queued, context: try #require(state.context), runtime: runtime, surface: surface)
+        state.context = context(workspace: destination.root, generation: 2)
+        runtime.terminalFileDropContextDidChange()
+
+        #expect(!exists(active))
+        #expect(!exists(queued))
+        runtime.shutdown()
+    }
+
+    @Test func ownedFileIsRemovedWhenTheContextChangedBeforeTheUploadFinished() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("paste.png", "pixels")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        enqueueOwned(path, context: try #require(state.context), runtime: runtime, surface: surface)
+        await gate.waitUntilEntered()
+        state.context = context(workspace: destination.root, generation: 2)
+        await gate.release()
+        await awaitCondition { !exists(path) }
+
+        #expect(!exists(path))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func aDroppedFinderFileIsNeverDeleted() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("keep.txt", "mine")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(exists(path))
+        runtime.shutdown()
+    }
+
+    @Test func localAndRemoteAttachedRoutesUploadAndInsertOnlyWorkspacePaths() async throws {
+        for host in [LeoHostID.local, .remote("work")] {
+            let source = try LeoFileSandbox()
+            let destination = try LeoFileSandbox()
+            defer {
+                source.cleanUp()
+                destination.cleanUp()
+            }
+            let localPath = try source.file("two words.txt", "payload")
+            let state = State()
+            state.context = context(host: host, workspace: destination.root)
+            // A remote host gets real SFTP (macOS's sftp-server over pipes).
+            state.accesses = [host == .local ? LeoFileAccessor.local() : LeoFileAccessor.sftp(launcher: LeoSFTPTestServer.launcher())]
+            let runtime = makeRuntime(state)
+            let surface = try makeSurface()
+            let board = pasteboard([URL(fileURLWithPath: localPath)])
+
+            #expect(runtime.acceptsFileDrop(board, from: surface))
+            #expect(runtime.performFileDrop(board, from: surface))
+            await awaitCondition(timeout: 10) { await MainActor.run { !state.inserted.isEmpty } }
+
+            #expect(state.requestedHosts == [host])
+            #expect(state.inserted == [Ghostty.Shell.escape(destination.path("two words.txt")) + " "])
+            #expect(!(try #require(state.inserted.first)).contains(source.root))
+            #expect(try destination.contents("two words.txt") == "payload")
+            runtime.shutdown()
+        }
+    }
+
+    /// A dispatch pane is a read-only watch (B-266): a drop there keeps
+    /// Ghostty's own behavior instead of typing paths into it.
+    @Test func dispatchWatchAttachmentsNeverResolveAFileDropContext() {
+        let agent = LeoAgentIdentity(host: .remote("work"), name: "scratch")
+        let dispatch = LeoAgentIdentity(host: .remote("work"), name: "dispatch.d-1", workspace: "/work", dispatchID: "d-1", title: "watch")
+
+        #expect(LeoTerminalFileDropContext.resolve(identity: dispatch, workspace: "/work", generation: 1) == nil)
+        for workspace in [nil, "", "work", "/wo\0rk", "/wo\nrk", "/wo\u{7}rk"] {
+            #expect(LeoTerminalFileDropContext.resolve(identity: agent, workspace: workspace, generation: 1) == nil, "\(String(reflecting: workspace))")
+        }
+        #expect(
+            LeoTerminalFileDropContext.resolve(identity: agent, workspace: "/work", generation: 3)
+                == LeoTerminalFileDropContext(identity: agent, workspace: "/work", attachmentGeneration: 3)
+        )
+    }
+
+    @Test func partialFailureInsertsOnlySuccessAndKeepsTheErrorVisible() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let clash = try source.file("clash.txt", "replacement")
+        let good = try source.file("good.txt", "good")
+        try destination.file("clash.txt", "keep")
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: clash), URL(fileURLWithPath: good)]), from: surface))
+        await awaitCondition { await MainActor.run { surface.leoFileDropStatus != .uploading(2) } }
+
+        #expect(state.inserted == [destination.path("good.txt") + " "])
+        guard case .failed(let message) = surface.leoFileDropStatus else {
+            Issue.record("expected persistent failure status")
+            runtime.shutdown()
+            return
+        }
+        #expect(message.contains("clash.txt"))
+        #expect(try destination.contents("clash.txt") == "keep")
+        runtime.shutdown()
+    }
+
+    @Test func plainShellLeavesTheDropForGhostty() throws {
+        let state = State()
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        let board = pasteboard([URL(fileURLWithPath: "/tmp/a.txt")])
+
+        #expect(!runtime.acceptsFileDrop(board, from: surface))
+        #expect(!runtime.performFileDrop(board, from: surface))
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func accessorFactoryFailureIsShownAndInsertsNothing() async throws {
+        let state = State()
+        state.context = context(host: .remote("work"), workspace: "/workspace")
+        state.accessError = .unavailable(reason: "SFTP unavailable")
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: "/tmp/a.txt")]), from: surface))
+        await awaitCondition {
+            await MainActor.run {
+                if case .failed = surface.leoFileDropStatus { return true }
+                return false
+            }
+        }
+
+        guard case .failed(let message) = surface.leoFileDropStatus else {
+            Issue.record("expected an accessor failure")
+            runtime.shutdown()
+            return
+        }
+        #expect(message.contains("SFTP unavailable"))
+        #expect(state.inserted.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func sameAgentReattachedDuringUploadClosesAccessAndNeverGetsTheOldCompletion() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let path = try source.file("old.txt", "old")
+        let gate = FileDropAccessGate()
+        let access = FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate)
+        let state = State()
+        state.context = context(workspace: destination.root, generation: 1)
+        state.accesses = [access]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: path)]), from: surface))
+        await gate.waitUntilEntered()
+
+        state.context = context(workspace: destination.root, generation: 2)
+        runtime.terminalFileDropContextDidChange()
+        await awaitCondition { await gate.isClosed }
+
+        #expect(state.inserted.isEmpty)
+        #expect(await gate.isClosed)
+        runtime.shutdown()
+    }
+
+    @Test func overlappingDropsStayOrderedAndRetainEveryFailure() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let first = try source.file("first.txt", "first")
+        let second = try source.file("second.txt", "second")
+        let firstClash = try source.file("first-clash.txt", "replacement")
+        let secondClash = try source.file("second-clash.txt", "replacement")
+        try destination.file("first-clash.txt", "keep first")
+        try destination.file("second-clash.txt", "keep second")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate), LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(
+            pasteboard([URL(fileURLWithPath: first), URL(fileURLWithPath: firstClash)]), from: surface
+        ))
+        await gate.waitUntilEntered()
+        #expect(runtime.performFileDrop(
+            pasteboard([URL(fileURLWithPath: second), URL(fileURLWithPath: secondClash)]), from: surface
+        ))
+
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(state.requestedHosts.count == 1, "the second drop must remain queued")
+        #expect(state.inserted.isEmpty)
+        await gate.release()
+        await awaitCondition { await MainActor.run { state.inserted.count == 2 } }
+
+        #expect(state.inserted.joined() == destination.path("first.txt") + " " + destination.path("second.txt") + " ")
+        guard case .failed(let message) = surface.leoFileDropStatus else {
+            Issue.record("expected both queued failures to remain visible")
+            runtime.shutdown()
+            return
+        }
+        #expect(message.contains("first-clash.txt"))
+        #expect(message.contains("second-clash.txt"))
+        runtime.dismissTerminalFileDropError(from: surface)
+        #expect(surface.leoFileDropStatus == nil)
+        runtime.shutdown()
+    }
+
+    /// What the terminal receives across two queued drops must parse as
+    /// separate shell words, like the paths inside one multi-file drop.
+    @Test func queuedDropsReachTheTerminalAsSeparateShellWords() async throws {
+        let source = try LeoFileSandbox()
+        let destination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            destination.cleanUp()
+        }
+        let first = try source.file("first one.txt", "first")
+        let second = try source.file("second.txt", "second")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: destination.root)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate), LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: first)]), from: surface))
+        await gate.waitUntilEntered()
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: second)]), from: surface))
+        await gate.release()
+        await awaitCondition { await MainActor.run { state.inserted.count == 2 } }
+
+        #expect(state.inserted.joined() == Ghostty.Shell.escape(destination.path("first one.txt")) + " " + destination.path("second.txt") + " ")
+        runtime.shutdown()
+    }
+
+    @Test func cancelBeforeTheOperationStartsNeverCreatesAnAccessor() throws {
+        let state = State()
+        state.context = context(workspace: "/old", generation: 1)
+        state.accesses = [LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: "/tmp/old.txt")]), from: surface))
+        state.context = context(workspace: "/new", generation: 2)
+        runtime.terminalFileDropContextDidChange()
+
+        #expect(state.requestedHosts.isEmpty)
+        runtime.shutdown()
+    }
+
+    @Test func canceledOldOperationCannotClearTheNewOperationsAccessor() async throws {
+        let source = try LeoFileSandbox()
+        let oldDestination = try LeoFileSandbox()
+        let newDestination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            oldDestination.cleanUp()
+            newDestination.cleanUp()
+        }
+        let oldPath = try source.file("old.txt", "old")
+        let newPath = try source.file("new.txt", "new")
+        let oldGate = FileDropAccessGate()
+        let newGate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: oldDestination.root, generation: 1)
+        state.accesses = [
+            FileDropGatedAccess(base: LeoFileAccessor.local(), gate: oldGate),
+            FileDropGatedAccess(base: LeoFileAccessor.local(), gate: newGate),
+        ]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: oldPath)]), from: surface))
+        await oldGate.waitUntilEntered()
+        state.context = context(workspace: newDestination.root, generation: 2)
+        runtime.terminalFileDropContextDidChange()
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: newPath)]), from: surface))
+        await newGate.waitUntilEntered()
+        await newGate.release()
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(state.inserted == [newDestination.path("new.txt") + " "])
+        #expect(try newDestination.contents("new.txt") == "new")
+        runtime.shutdown()
+    }
+
+    @Test func completionUnderAChangedContextResetsAndDoesNotWedgeTheQueue() async throws {
+        let source = try LeoFileSandbox()
+        let oldDestination = try LeoFileSandbox()
+        let newDestination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            oldDestination.cleanUp()
+            newDestination.cleanUp()
+        }
+        let oldPath = try source.file("old.txt", "old")
+        let newPath = try source.file("new.txt", "new")
+        let gate = FileDropAccessGate()
+        let state = State()
+        state.context = context(workspace: oldDestination.root, generation: 1)
+        state.accesses = [FileDropGatedAccess(base: LeoFileAccessor.local(), gate: gate), LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: oldPath)]), from: surface))
+        await gate.waitUntilEntered()
+        state.context = context(workspace: newDestination.root, generation: 2)
+        await gate.release()
+        await awaitCondition { await MainActor.run { surface.leoFileDropStatus != .uploading(1) } }
+        #expect(surface.leoFileDropStatus == nil)
+        #expect(state.inserted.isEmpty)
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: newPath)]), from: surface))
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+        #expect(state.inserted == [newDestination.path("new.txt") + " "])
+        runtime.shutdown()
+    }
+
+    @Test func errorsFromAnOldContextDoNotLeakIntoTheNextAttachment() async throws {
+        let source = try LeoFileSandbox()
+        let oldDestination = try LeoFileSandbox()
+        let newDestination = try LeoFileSandbox()
+        defer {
+            source.cleanUp()
+            oldDestination.cleanUp()
+            newDestination.cleanUp()
+        }
+        let clash = try source.file("clash.txt", "replacement")
+        let good = try source.file("good.txt", "good")
+        try oldDestination.file("clash.txt", "keep")
+        let state = State()
+        state.context = context(workspace: oldDestination.root, generation: 1)
+        state.accesses = [LeoFileAccessor.local(), LeoFileAccessor.local()]
+        let runtime = makeRuntime(state)
+        let surface = try makeSurface()
+
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: clash)]), from: surface))
+        await awaitCondition {
+            await MainActor.run {
+                if case .failed = surface.leoFileDropStatus { return true }
+                return false
+            }
+        }
+        state.context = context(workspace: newDestination.root, generation: 2)
+        #expect(runtime.performFileDrop(pasteboard([URL(fileURLWithPath: good)]), from: surface))
+        await awaitCondition { await MainActor.run { !state.inserted.isEmpty } }
+
+        #expect(surface.leoFileDropStatus == nil)
+        #expect(state.inserted == [newDestination.path("good.txt") + " "])
+        runtime.shutdown()
+    }
+}
+
+private actor FileDropAccessGate {
+    private var entered = false
+    private var callCount = 0
+    private var waiter: CheckedContinuation<Void, Error>?
+    private var enteredWaiters: [CheckedContinuation<Void, Never>] = []
+    private(set) var isClosed = false
+
+    func enter() async throws {
+        callCount += 1
+        guard callCount == 1 else { return }
+        entered = true
+        enteredWaiters.forEach { $0.resume() }
+        enteredWaiters = []
+        try await withCheckedThrowingContinuation { waiter = $0 }
+    }
+
+    func waitUntilEntered() async {
+        if entered { return }
+        await withCheckedContinuation { enteredWaiters.append($0) }
+    }
+
+    func release() {
+        waiter?.resume()
+        waiter = nil
+    }
+
+    func close() {
+        isClosed = true
+        waiter?.resume(throwing: LeoFileAccessError.closed)
+        waiter = nil
+    }
+}
+
+private struct FileDropGatedAccess: LeoFileAccess {
+    let base: any LeoFileAccess
+    let gate: FileDropAccessGate
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { try await base.homeDirectory() }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        try await gate.enter()
+        return try await base.create(at: path, from: source)
+    }
+    func close() async {
+        await gate.close()
+        await base.close()
+    }
+}
+
+/// Reports a sandbox as the host's home, so a paste's scratch directory never
+/// lands in the real `~/.cache` during tests.
+private struct FileDropHomeAccess: LeoFileAccess {
+    let base: any LeoFileAccess
+    let home: String
+
+    func list(_ path: String) async throws -> [LeoFileEntry] { try await base.list(path) }
+    func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
+    func homeDirectory() async throws -> String { home }
+    func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+    func write(_ data: Data, to path: String, expecting expected: LeoFileVersion?) async throws -> LeoFileStat {
+        try await base.write(data, to: path, expecting: expected)
+    }
+    func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        try await base.create(at: path, from: source)
+    }
+    func ensureDirectory(_ path: String) async throws { try await base.ensureDirectory(path) }
+    func close() async { await base.close() }
+}
+
+private struct FileDropUnusedDaemon: LeoDaemonClient {
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
+    func start(_ name: String) async throws { fatalError() }
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }
+    func restart(_ name: String) async throws -> LeoAgent { fatalError() }
+    func reset(_ name: String) async throws { fatalError() }
+    func setTemplate(_ name: String, template: String) async throws { fatalError() }
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { fatalError() }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws { fatalError() }
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { fatalError() }
+    func logs(_ name: String, lines: Int?) async throws -> String { fatalError() }
+}

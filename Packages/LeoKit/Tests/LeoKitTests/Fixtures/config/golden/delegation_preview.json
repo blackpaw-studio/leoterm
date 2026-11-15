@@ -1,0 +1,23 @@
+{
+  "data": {
+    "changes": [
+      {
+        "after": {
+          "effort": "",
+          "model": "",
+          "template": "coder"
+        },
+        "before": {
+          "effort": "",
+          "model": "",
+          "template": "reviewer"
+        },
+        "kind": "changed",
+        "role": "coder"
+      }
+    ],
+    "missing": [],
+    "profile": "deep"
+  },
+  "ok": true
+}

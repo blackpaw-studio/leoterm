@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-121: `LeoTestProcess.gone()` hands out a reaped pid, and a reaped pid
 /// can be reused by a live process before the test uses it. The pid is

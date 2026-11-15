@@ -3,6 +3,7 @@ import Combine
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-080: the start screen's shortcut hints are read off the live menu
 /// items, which AppDelegate syncs from the Ghostty config's keybinds, so a
@@ -20,11 +21,13 @@ import Testing
         return item
     }
 
-    /// A File menu holding New Terminal and Choose Agent…, as in MainMenu.xib.
-    private func menu(newTerminal: NSMenuItem, chooseAgent: NSMenuItem) -> NSMenu {
+    /// A File menu holding New Terminal, Choose Agent… and, when given,
+    /// Reconnect, as in MainMenu.xib.
+    private func menu(newTerminal: NSMenuItem, chooseAgent: NSMenuItem, reconnect: NSMenuItem? = nil) -> NSMenu {
         let file = NSMenu(title: "File")
         file.addItem(newTerminal)
         file.addItem(chooseAgent)
+        if let reconnect { file.addItem(reconnect) }
         let main = NSMenu(title: "Main")
         let fileItem = NSMenuItem(title: "File", action: nil, keyEquivalent: "")
         fileItem.submenu = file
@@ -189,7 +192,11 @@ import Testing
     /// Reconnect's shortcut off its menu item too (⇧⌘R in the xib).
     @Test func theReconnectHintFollowsItsMenuItem() {
         let reconnect = item("R", .command, action: Self.reconnect)
-        let main = menu(newTerminal: item("t", .command, action: Self.newTab), chooseAgent: reconnect)
+        let main = menu(
+            newTerminal: item("t", .command, action: Self.newTab),
+            chooseAgent: item("o", .command, action: Self.chooseAgent),
+            reconnect: reconnect
+        )
         let hints = LeoShortcutHints()
 
         hints.sync(menu: main)

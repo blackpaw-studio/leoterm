@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import OSLog
+import LeoKit
 
 /// One SFTP session over a `LeoSFTPChannel`: frames requests onto the
 /// server's stdin and matches replies from its stdout back to the waiting
@@ -194,6 +195,7 @@ final class LeoSFTPTransport: @unchecked Sendable {
         case .isADirectory: "is-a-directory"
         case .invalidPath: "invalid-path"
         case .disconnected: "disconnected"
+        case .indeterminate: "indeterminate"
         case .closed: "closed"
         case .protocolError: "protocol-error"
         case .failed: "failed"

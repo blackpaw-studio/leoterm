@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Records what the single-instance gate asked the app to do instead of
 /// doing it.

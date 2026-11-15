@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-072: libghostty builds each new surface's environment from its own
 /// copy of the process environment, never from libc's live `environ`.

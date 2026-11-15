@@ -1,0 +1,40 @@
+{
+ "agent": "e2e-opencode",
+ "capabilities": {
+  "tools": {
+   "listChanged": true
+  }
+ },
+ "count": 28,
+ "browser_or_app": [],
+ "all": [
+  "leo_skill",
+  "leo_clear",
+  "leo_compact",
+  "leo_interrupt",
+  "leo_list_tasks",
+  "leo_run_task",
+  "leo_toggle_task",
+  "leo_list_templates",
+  "leo_spawn_agent",
+  "leo_set_agent_environments",
+  "leo_list_agents",
+  "leo_stop_agent",
+  "leo_send_message",
+  "leo_consult",
+  "leo_dispatch",
+  "leo_chat_post",
+  "leo_chat_ask",
+  "leo_chat_ask_withdraw",
+  "leo_chat_history",
+  "leo_chat_schedule",
+  "leo_chat_schedule_list",
+  "leo_chat_schedule_cancel",
+  "leo_delegation",
+  "leo_send_dispatch",
+  "leo_wait",
+  "leo_dispatch_output",
+  "leo_cancel",
+  "leo_release"
+ ]
+}

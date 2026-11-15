@@ -1,27 +1,79 @@
 import AppKit
+import Combine
 import Foundation
 import GhosttyKit
 import OSLog
+import LeoKit
 
 @MainActor final class LeoRuntime {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let model: LeoSidebarModel
+    /// The plugin platform; built by `start()`, so a runtime that is never
+    /// started (tests) touches no plugin files.
+    private(set) var plugins: LeoPluginSystem?
+    /// What the sidebar, the menus and the row panes read the plugin system
+    /// through; exists from launch and attaches once `plugins` starts.
+    let pluginSurfaces: LeoPluginSurfaces
+    /// The agent pane's built-in tabs' switches, shared by every window's pane and Settings.
+    let builtInPanes: LeoBuiltInPaneSettings
+    private var drawerSwitchSubscription: AnyCancellable?
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
-    let hostSelection: LeoHostSelection
+    /// The prompt box and Interrupt / Compact / Clear (B-262), each call
+    /// on the row's own machine's daemon, like `actions`.
+    let control: LeoAgentControlModel
+    /// Leo Chat for the selected agent, on the agent's own machine: each
+    /// machine's chat client binds when it connects and unbinds when it
+    /// drops (`LeoRuntime+Machines`). Fed every machine's `chat.*` events,
+    /// in that machine's stream order, by `chatRelay`.
+    let chat: LeoChatPaneModel
+    /// Unread agent messages per agent on every connected machine, behind the
+    /// sidebar and Chat-switch badges; fed by `chatRelay` before `chat` sees
+    /// a delivery, so agents that aren't shown count too.
+    let unread: LeoChatUnreadStore
+    /// This Mac's chat client; a remote machine's arrives with its connection.
+    let localChatClient: any LeoChatClient
+    let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
+    /// Windows open Chat for a selected agent with unread messages: on a
+    /// selection change, and when a seed lands after one.
+    private var unreadOpenSubscriptions: Set<AnyCancellable> = []
+    private var moveForceOffers: AnyCancellable?
+    private var moveNotices: AnyCancellable?
+    #if DEBUG
+    private var moveFixture: LeoMoveFixture?
+    #endif
+    /// Every configured machine, connected at once (This Mac first).
+    let machines: LeoMachineRegistry
+    /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
+    private(set) lazy var settingsWindow = LeoSettingsWindowController(
+        registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
+        agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] },
+        plugins: { [weak self] in self?.plugins }, builtInPanes: builtInPanes
+    )
+    /// Each machine's daemon client, handed to actions and control per row.
+    let clients: LeoRegistryMachineClients
     /// Agents ▸ Agent Notifications… policy for background transitions.
     let attentionNotifications: LeoAttentionController
-    let feed: LeoSidebarFeed
+    /// Notifications for agent tasks that finish; same opt-in.
+    let progressNotifier: LeoProgressNotifier
+    /// Agents' browsers, and each machine's client tools that drive them.
+    let agentBrowsers: LeoAgentBrowserRuntime
+    /// One sidebar feed per shown machine.
+    let feeds: LeoMachineFeeds
+    /// Whether remote machines are fed (and so shown): every one, unless a
+    /// caller keeps them off.
+    nonisolated static let feedsRemoteMachinesByDefault = true
+    let feedsRemoteMachines: Bool
+    private var machinesSubscription: AnyCancellable?
+    private var machineStatusesSubscription: AnyCancellable?
     /// Every close of a tab, window or the app with unsaved editor edits
     /// asks through this first (B-004).
     let unsavedEditors = LeoUnsavedEditorsGate()
     /// The start screen's shortcut tooltips, read off the live menu each
     /// time AppDelegate syncs its shortcuts from the config (B-080).
     let shortcutHints = LeoShortcutHints()
-    /// Checks surfaced-file opens the user asks for (B-013).
-    private(set) var surfacedFileOpener: LeoSurfacedFileOpener!
-    /// Focus identity into `feed`, delivered in order (see
+    /// Focus identity into `feeds`, delivered in order (see
     /// `focusedAgentChanged`).
     let focusedAgentRelay: LeoOrderedRelay<LeoAgentRow.ID?>
     private let cli: LeoCLI
@@ -34,128 +86,212 @@ import OSLog
     private let picker: LeoWindowPickerRouter
     private let requestConfigStore: LeoRequestConfigStore
     private let orphanStore: LeoTunnelOrphanStore
-    private let localDaemon: any LeoDaemonClient
-    private let localActivitySource: LeoSidebarActivitySource
-    private let hostConnectionTransport: any LeoDaemonTransport
-    /// Bumped on EVERY `connectionTarget` transition (connecting/connected/
-    /// failed) AND on `shutdown()` -- never just when `generation` changes.
-    /// `LeoHostSelection.generation` alone is not enough to guard
+    let localDaemon: any LeoDaemonClient
+    let localActivitySource: LeoSidebarActivitySource
+    /// Builds a remote machine's client once its tunnel is up.
+    let remoteDaemon: LeoRemoteDaemonFactory
+    /// Test boundary for direct file-drop routing tests. Production resolves
+    /// attachment context and host access from the runtime itself.
+    let terminalFileDropDependencies: LeoTerminalFileDropDependencies?
+    var terminalFileDropQueues: [UUID: LeoTerminalFileDropQueue] = [:]
+    /// Per machine, bumped on EVERY `connectionTarget` transition
+    /// (connecting/connected/failed) -- never just when its generation
+    /// changes. A machine's generation alone is not enough to guard
     /// `applyConnected`'s async resource build: a `.failed` published for
     /// the SAME generation as a `.connecting` that's still mid-flavor-
     /// detection would otherwise leave the stale `.connected` build free to
-    /// install over it once its `await` finally resolves.
-    private var connectionSequence = 0
+    /// install over it once its `await` finally resolves. Never reset, not
+    /// even when the machine leaves: a machine added back must not restart
+    /// the count and let an older build of the same name through.
+    var connectionSequences: [LeoHostID: Int] = [:]
+    /// Each machine's feed, read for a daemon that dropped behind a
+    /// connection the registry still holds up.
+    var daemonLoss = LeoDaemonLossDetector()
+    private(set) var isShutDown = false
     /// Runs the one liveness check per wake (D-061); removed with `self`.
     private var wakeObservation: LeoNotificationObservation?
+    /// Polls every connected machine's load for the sidebar headers (S9).
+    let statsPoller: LeoMachineStatsPoller
+    /// App activation and defaults changes, each re-evaluating `statsPoller`.
+    private var statsObservations: [LeoNotificationObservation] = []
+    /// B5: the managed daemon's launch step, set by the app before `start()`.
+    var managedStartup: (@MainActor () async -> Void)?
     #if DEBUG
     private let openFileFixture = LeoOpenFileFixture()
-    private let surfaceFixture = LeoSurfaceFixtureInjector()
-    private var forcedDisconnect: AnyObject?
+    private var machinesFixture: AnyObject?
+    private var agentPaneFixture: AnyObject?
     #endif
 
     /// Pure composition helper: builds a socket daemon client bound to one
     /// socket path. Kept free of runtime/async state so it can be constructed
     /// and tested without spinning up detection.
     nonisolated static func makeClient(
-        socketPath: String = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath,
+        socketPath: String = LeoLocalDaemon.socketPath,
         transport: any LeoDaemonTransport = LeoUnixSocketTransport()
     ) -> LeoSocketDaemonClient {
         LeoSocketDaemonClient(socketPath: socketPath, transport: transport)
     }
 
     convenience init(defaults: UserDefaults = .ghostty) {
-        let socketPath = NSString(string: "~/.leo/state/leo.sock").expandingTildeInPath
+        let socketPath = LeoLocalDaemon.socketPath
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
+        var transport: any LeoDaemonTransport = LeoUnixSocketTransport()
         #if DEBUG
-        if let overlay = LeoAttentionFixture.load() { activity = LeoAttentionFixture.wrap(activity, overlay: overlay) }
+        if let fixture = LeoAttentionFixture.loadFile() {
+            activity = LeoAttentionFixture.wrap(activity, overlay: fixture.attention, dispatches: fixture.dispatches, usage: fixture.usage, turns: fixture.turns, actions: fixture.actions, compactions: fixture.compactions, control: fixture.control, dispatchMoves: fixture.dispatchMoves, environments: fixture.environments, appearance: fixture.appearance)
+            if let mode = fixture.control { transport = LeoControlFixtureTransport(base: transport, mode: mode) }
+            if let environments = fixture.environments { transport = LeoEnvironmentsFixtureTransport(base: transport, fixture: environments) }
+        }
+        // LEO_PROGRESS_FIXTURE: scripted agent tasks (see LeoProgressFixture).
+        if let progress = LeoProgressFixture.loadFile() { activity = LeoProgressFixture.wrap(activity, file: progress) }
         #endif
-        let daemon = LeoRuntime.makeClient(socketPath: socketPath)
+        let daemon = LeoRuntime.makeClient(socketPath: socketPath, transport: transport)
         self.init(
             daemon: daemon, cli: LeoCLI(runner: LeoProcessRunner()), activitySource: activity, defaults: defaults,
-            templateFetchRunner: LeoProcessRunner()
+            templateFetchRunner: LeoProcessRunner(), machineRunner: LeoProcessRunner()
         )
     }
 
     convenience init(
         daemon: any LeoDaemonClient, cli: LeoCLI, activity: LeoActivityClient, defaults: UserDefaults = .standard,
-        templateFetchRunner: any LeoProcessRunning
+        templateFetchRunner: any LeoProcessRunning, machineRunner: any LeoProcessRunning
     ) {
         self.init(
             daemon: daemon, cli: cli, activitySource: LeoSidebarActivitySource(client: activity), defaults: defaults,
-            templateFetchRunner: templateFetchRunner
+            templateFetchRunner: templateFetchRunner, machineRunner: machineRunner
         )
     }
 
     /// `templateFetchRunner` runs a remote host's one-off
-    /// `ssh … leo template list --json` (B-061). Deliberately no default:
-    /// every caller but the app's own `init(defaults:)` is a test, and a
-    /// test that forgot it would ssh into a real host on selecting it.
+    /// `ssh … leo template list --json` (B-061); `machineRunner` runs the
+    /// ssh home resolution, dispatch-access probe and pane focus (B-194).
+    /// Deliberately no defaults: every caller but the app's own
+    /// `init(defaults:)` is a test, and a test that forgot either would ssh
+    /// into a real host.
     init(
         daemon: any LeoDaemonClient, cli: LeoCLI, activitySource: LeoSidebarActivitySource, defaults: UserDefaults = .standard,
         templateFetchRunner: any LeoProcessRunning,
         hostConnectionTransport: any LeoDaemonTransport = LeoUnixSocketTransport(),
-        hostSelectionRunner: any LeoProcessRunning = LeoProcessRunner(),
-        hostSelectionSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
-        hostSelectionLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
-        hostSelectionControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
+        machineRunner: any LeoProcessRunning,
+        machineSSHExecutable: URL = URL(fileURLWithPath: "/usr/bin/ssh"),
+        machineLegacySocketDirectory: URL = LeoTunnelOrphanStore.defaultLegacySocketDirectory,
+        machineControlSocketDirectory: URL? = LeoControlSocketDirectory.default,
+        makeTunnel: @escaping LeoTunnelFactory = LeoMachineConnectionEnvironment.realTunnel,
+        remoteDaemon: LeoRemoteDaemonFactory? = nil,
+        machineRetrySleep: @escaping @Sendable (Duration) async throws -> Void = { try await Task.sleep(for: $0) },
+        feedsRemoteMachines: Bool = LeoRuntime.feedsRemoteMachinesByDefault,
         notificationCenter: any LeoNotificationPosting = LeoUserNotificationCenter(),
         focusedAgentSink: (@Sendable (LeoAgentRow.ID?) async -> Void)? = nil,
-        wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter
+        wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        appActivationNotifications: NotificationCenter = .default,
+        terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil,
+        chatClient: (any LeoChatClient)? = nil
     ) {
+        // First, before anything that connects a machine reads its defaults.
+        LeoMachineDefaultsMigration(defaults: defaults).run()
         self.cli = cli
         self.defaults = defaults
         localDaemon = daemon
         localActivitySource = activitySource
-        self.hostConnectionTransport = hostConnectionTransport
-        let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: hostSelectionLegacySocketDirectory)
+        self.remoteDaemon = remoteDaemon ?? LeoRuntime.tunnelledDaemon(probe: hostConnectionTransport)
+        self.feedsRemoteMachines = feedsRemoteMachines
+        self.terminalFileDropDependencies = terminalFileDropDependencies
+        let orphanStore = LeoTunnelOrphanStore(defaults: defaults, legacySocketDirectory: machineLegacySocketDirectory)
         self.orphanStore = orphanStore
         let model = LeoSidebarModel(
-            preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults),
-            surfacedSeenStore: LeoUserDefaultsSurfacedFileSeenStore(defaults: defaults)
+            preferencesStore: LeoUserDefaultsSidebarPreferencesStore(defaults: defaults)
         )
         let registry = LeoWindowSessionRegistry()
         self.model = model
+        pluginSurfaces = LeoPluginSurfaces(agents: { [weak model] in
+            // Top-level agents only (dispatches have no plugin slots); a moved agent's dormant row isn't one.
+            model?.rows.filter { $0.movedTo == nil }.map { LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) } ?? []
+        })
+        builtInPanes = LeoBuiltInPaneSettings(defaults: defaults)
         self.registry = registry
+        drawerSwitchSubscription = LeoDrawerTerminalSwitch.closeShellsWhenTurnedOff(settings: builtInPanes) { [weak registry] in
+            registry?.sessions.forEach { $0.drawerEnvironment?.pool.closeAll() }
+        }
         weak var weakSelf: LeoRuntime?
         attentionNotifications = LeoAttentionController(
-            center: notificationCenter, defaults: defaults, currentHost: { weakSelf?.hostSelection.selected },
+            center: notificationCenter, defaults: defaults, isLive: { weakSelf?.feeds.contains($0) ?? false },
             showDeniedInstructions: LeoRuntime.presentNotificationsDeniedInstructions
+        )
+        progressNotifier = LeoProgressNotifier(
+            center: notificationCenter,
+            isEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false },
+            isWatching: { id in
+                // The chat host's own rule: a terminal tab covering the agent
+                // in the key window means it isn't on screen.
+                let session = (NSApp.keyWindow?.windowController as? TerminalController)?.leoSession
+                return LeoProgressWatching.isWatching(
+                    id, isAppActive: NSApp.isActive && session != nil, showsTerminalTab: session?.terminals.selection != nil,
+                    selected: weakSelf?.model.actionableSelection?.id
+                )
+            },
+            isLive: { weakSelf?.feeds.contains($0) ?? false },
+            displayName: { id in weakSelf?.model.rows.first { $0.id == id }?.displayName }
         )
         let requestConfigStore = LeoRequestConfigStore()
         self.requestConfigStore = requestConfigStore
         let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: requestConfigStore)
         attachHost = host
-        let hostSelection = LeoHostSelection(
+        let machines = LeoMachineRegistry(
             store: LeoHostStore(defaults: defaults),
-            defaults: defaults,
-            runner: hostSelectionRunner,
-            sshExecutable: hostSelectionSSHExecutable,
-            transport: hostConnectionTransport,
-            orphanStore: orphanStore,
-            legacySocketDirectory: hostSelectionLegacySocketDirectory,
-            controlSocketDirectory: hostSelectionControlSocketDirectory,
+            environment: LeoMachineConnectionEnvironment(
+                orphanStore: orphanStore,
+                runner: machineRunner,
+                sshExecutable: machineSSHExecutable,
+                transport: hostConnectionTransport,
+                legacySocketDirectory: machineLegacySocketDirectory,
+                controlSocketDirectory: machineControlSocketDirectory,
+                makeTunnel: makeTunnel
+            ),
+            sleep: machineRetrySleep,
             connectionTarget: { host, generation, state in
                 weakSelf?.applyConnection(host: host, generation: generation, state: state)
             }
         )
-        self.hostSelection = hostSelection
+        self.machines = machines
+        agentBrowsers = Self.makeAgentBrowsers(
+            machines: machines, defaults: defaults, poster: notificationCenter,
+            notificationsEnabled: { weakSelf?.attentionNotifications.isEnabled ?? false },
+            displayName: { id in weakSelf?.model.rows.first { $0.id == id }?.displayName }
+        )
+        let resolveExecutable = {
+            let override = defaults.string(forKey: "leo.executablePath")
+            return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
+        }
+        let dispatchAccessProbe = LeoDispatchAccessProbe(
+            runner: machineRunner,
+            executable: resolveExecutable,
+            sshExecutable: machineSSHExecutable.path,
+            hosts: { [weak machines] in machines?.configurations ?? [] }
+        )
         attachCoordinator = LeoAttachCoordinator(
             host: host,
-            executable: {
-                let override = defaults.string(forKey: "leo.executablePath")
-                return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
-            },
-            remoteCommandBuilder: { [weak hostSelection] identity in
-                guard case .remote(let name) = identity.host,
-                      let configuration = hostSelection?.hosts.first(where: { $0.name == name }) else {
+            executable: resolveExecutable,
+            remoteCommandBuilder: { [weak machines, weak model] identity, access in
+                guard let configuration = machines?.configuration(for: identity.host) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
                 }
-                return try LeoSSHCommand(configuration: configuration).attachShellCommand(agent: identity.name)
+                let command = LeoSSHCommand(configuration: configuration)
+                if let dispatchID = identity.dispatchID { return try command.attachShellCommand(dispatchID: dispatchID, access: access) }
+                return try command.attachShellCommand(agent: identity.name, features: model?.features(for: identity.host) ?? .none)
             },
+            dispatchAccess: { host in await dispatchAccessProbe.access(for: host) },
+            daemonFeatures: { [weak model] host in model?.features(for: host) ?? .none },
             report: { [weak model] error in
+                // A dispatch has no row of its own to carry the error.
+                if error.identity.dispatchID != nil {
+                    model?.setPanelError(error.message)
+                    return
+                }
                 let id = LeoAgentRow.ID(host: error.identity.host, name: error.identity.name)
                 model?.setRowError(error.message, for: id)
             },
+            lifecycleEventHandled: { _ in weakSelf?.terminalFileDropContextDidChange() },
+            attachmentChanged: { weakSelf?.terminalFileDropContextDidChange() },
             focusedIdentityChanged: { identity in weakSelf?.focusedAgentChanged(identity) },
             linkStateChanged: { [weak model] links in model?.receiveAttachLinks(links) }
         )
@@ -216,42 +352,144 @@ import OSLog
         // Both call `router.invalidate`/`pickerRouter.unregister`/
         // `attachCoordinator.windowClosed`, which are idempotent, so running
         // it twice for the same window is harmless.
-        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator] windowID in
+        registry.onUnregistered = { [weak router, weak pickerRouter, weak attachCoordinator, weak requestConfigStore] windowID in
+            requestConfigStore?.releaseStartScreen(windowID)
             router?.invalidate(origin: windowID)
             pickerRouter?.unregister(origin: windowID)
             attachCoordinator?.windowClosed(windowID)
         }
 
-        // `actions` doesn't exist yet at the point `feed` is constructed
-        // (its `refresh` closure below needs `feed`), so `feed`'s
+        // `actions` doesn't exist yet at the point `feeds` is constructed
+        // (its `refresh` closure below needs `feeds`), so the feeds'
         // manual-refresh callback is wired through this box instead of
         // capturing `actions` directly -- filled in immediately after
         // `actions` is created.
-        // Captured strongly by `feed`'s closure below (kept alive exactly as
-        // long as `feed` is), while the box itself only holds `actions`
-        // weakly -- so this cannot create a `feed` <-> `actions` retain
+        // Captured strongly by the feeds' closure below (kept alive exactly
+        // as long as `feeds` is), while the box itself only holds `actions`
+        // weakly -- so this cannot create a `feeds` <-> `actions` retain
         // cycle even though `actions`' own `refresh` closure also captures
-        // `feed` (weakly, see below).
+        // `feeds` (weakly, see below).
         let actionsBox = LeoAgentActionsBox()
-        feed = LeoSidebarFeed(
-            daemon: daemon, activity: activitySource,
+        let localChatClient = chatClient ?? LeoChatPaneModel.makeClient(
+            socketPath: LeoLocalDaemon.socketPath, transport: LeoUnixSocketTransport()
+        )
+        self.localChatClient = localChatClient
+        // Nothing is bound until a machine connects (`LeoRuntime+Machines`).
+        let unread = LeoChatUnreadStore()
+        self.unread = unread
+        let chat = LeoChatPaneModel(
+            clients: [:], recorder: LeoChatVoiceRecorder(),
+            attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory,
+            onRead: { [weak unread] in unread?.clear($0) }
+        )
+        self.chat = chat
+        let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat, weak unread, weak registry] delivery in
+            // Count first (a shown, read agent doesn't count), then let a
+            // window showing the sending agent's terminal open Chat, then the
+            // pane merges the message and marks it read.
+            await MainActor.run {
+                unread?.receive(delivery, isOnScreen: { chat?.marksRead($0) ?? false })
+                if unread?.isBound(delivery.host) == true, let agent = LeoChatAutoOpen.agent(sending: delivery) {
+                    registry?.sessions.forEach { $0.openChatIfSent(by: agent) }
+                }
+            }
+            await chat?.handle(delivery)
+        }
+        self.chatRelay = chatRelay
+        // `@Published` sends before it stores; hop a turn so the session's
+        // selection and the store's counts read the new values.
+        model.$selection.removeDuplicates().receive(on: DispatchQueue.main)
+            .sink { [weak registry, weak unread] _ in
+                MainActor.assumeIsolated {
+                    guard let unread else { return }
+                    registry?.sessions.forEach { $0.selectionChanged(unreadCount: unread.count(for:)) }
+                }
+            }
+            .store(in: &unreadOpenSubscriptions)
+        unread.$counts.receive(on: DispatchQueue.main)
+            .sink { [weak registry, weak unread] _ in
+                MainActor.assumeIsolated {
+                    guard let unread else { return }
+                    registry?.sessions.forEach { $0.unreadChanged(unreadCount: unread.count(for:)) }
+                }
+            }
+            .store(in: &unreadOpenSubscriptions)
+        let feeds = LeoMachineFeeds(dependencies: .init(
+            localDaemon: daemon, localActivity: activitySource,
             onManualRefresh: { [actionsBox] in actionsBox.actions?.invalidateTemplateCache() },
             onAttentionTransitions: { transitions in weakSelf?.attentionTransitionsCommitted(transitions) },
-            sink: { [weak model] snapshot in
-                model?.receive(snapshot)
+            onTaskFinishes: { host, finishes in
+                guard let notifier = weakSelf?.progressNotifier else { return }
+                Task { await notifier.handle(host: host, finishes: finishes) }
+            },
+            onChat: { host, signal in chatRelay.send(LeoChatFeedDelivery(host: host, signal: signal)) },
+            onSnapshot: { [weak model] host, snapshot in
+                model?.receive(snapshot, for: host)
+                // B-270: a hello advertising dispatch placement re-attaches
+                // what attached before it.
+                weakSelf?.attachCoordinator.daemonFeaturesChanged()
                 weakSelf?.snapshotLanded(snapshot)
+                weakSelf?.feedSnapshotLanded(snapshot, for: host)
+                weakSelf?.agentBrowsers.snapshotLanded(snapshot, for: host)
+                weakSelf?.plugins?.agentsDidChange()
+                weakSelf?.pluginSurfaces.reconcileAccessories()
+                // A hello may have added or dropped `machine_stats`.
+                weakSelf?.statsPoller.reconcile()
             }
-        )
-        focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feed] id in await feed?.setFocusedAgent(id) })
-        actions = LeoAgentActions(
-            daemon: daemon, cli: cli, model: model, hostSelection: hostSelection, processRunner: templateFetchRunner
-        ) { [weak feed] in
-            Task { await feed?.refresh() }
+        ))
+        self.feeds = feeds
+        focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feeds] id in await feeds?.setFocusedAgent(id) })
+        let clients = LeoRegistryMachineClients(registry: machines)
+        self.clients = clients
+        let statsPoller = Self.makeStatsPoller(clients: clients, model: model, defaults: defaults)
+        self.statsPoller = statsPoller
+        var actionClients: any LeoMachineClientResolving = clients
+        var refreshActions: @MainActor () -> Void = { [weak feeds] in feeds?.refresh() }
+        #if DEBUG
+        let moveFixture = LeoMoveFixture.isEnabled() ? LeoMoveFixture(model: model) : nil
+        if let fixture = moveFixture {
+            actionClients = fixture.clients
+            refreshActions = { fixture.refresh() }
+        }
+        #endif
+        actions = LeoAgentActions(clients: actionClients, cli: cli, model: model, processRunner: templateFetchRunner) {
+            Task { @MainActor in refreshActions() }
         }
         actionsBox.actions = actions
+        // A mid-turn move refusal asks the user in whichever window is key.
+        moveForceOffers = actions.$forceOffer.compactMap { $0 }.sink { [weak actions] offer in
+            guard let actions else { return }
+            LeoMoveFlow.offerForce(offer, actions: actions, in: NSApp.keyWindow)
+        }
+        // A refused move or copy says why, whichever window is key (B-395).
+        moveNotices = actions.$moveNotice.compactMap { $0 }.sink { [weak actions] notice in
+            guard let actions else { return }
+            LeoMoveFlow.show(notice, actions: actions, in: NSApp.keyWindow)
+        }
+        LeoAgentsMenuController.shared.installMoveShortcuts()
+        control = LeoAgentControlModel(clients: clients, confirmClear: { row, window in
+            await LeoClearConfirmation.confirm(agent: row.displayName, in: window)
+        })
         model.startRequested = { [weak actions] row, completion in actions?.start(row, completion: completion) }
-        model.retryRequested = { [hostSelection] in hostSelection.retry() }
-        registry.pollabilityChanged = { [feed] pollable in Task { await feed.setPolling(pollable) } }
+        // Agents ▸ Reconnect (Q7): every machine that isn't connected,
+        // including one still connecting.
+        model.retryRequested = { [weak machines] in machines?.reconnectUnavailable() }
+        model.reconnectRequested = { [weak machines] host in machines?.reconnect(host) }
+        model.editMachineRequested = { [weak self] host in self?.presentMachinesSettings(selecting: host) }
+        model.disableMachineRequested = { [weak machines, weak model] host in
+            do { try machines?.setEnabled(host, false) } catch {
+                model?.setPanelError("Couldn't disable \(host.displayName): \(error.localizedDescription)")
+            }
+        }
+        model.connectionFailureHint = { [weak machines] host in
+            guard let hint = machines?.connectionState(for: host)?.failureHint,
+                  let target = machines?.configuration(for: host)?.sshTarget else { return nil }
+            return LeoConnectionFailureHint(hint: hint, sshTarget: target)
+        }
+        registry.pollabilityChanged = { [weak feeds, weak statsPoller] pollable in
+            feeds?.setPolling(pollable)
+            statsPoller?.setSidebarPollable(pollable)
+        }
         model.startDaemonRequested = { [weak self] in
             guard let controller = NSApp.keyWindow?.windowController as? TerminalController else { return }
             self?.startDaemon(in: controller)
@@ -266,50 +504,103 @@ import OSLog
             } catch { self.model.setPanelError(error.localizedDescription) }
         }
         model.attachRequested = { [weak attachCoordinator, weak model] row, origin, disposition in
-            model?.selection = row.id
+            model?.selectAgentRow(row.id)
             Task { await attachCoordinator?.attach(identity: row.identity, from: origin, disposition: disposition) }
+        }
+        model.chatRequested = { [weak registry, weak model] row, origin in
+            guard let model else { return }
+            registry?.showChat(of: row, in: origin, model: model)
+        }
+        model.dispatchAttachRequested = { [weak attachCoordinator] identity, origin, disposition in
+            Task { await attachCoordinator?.attach(identity: identity, from: origin, disposition: disposition) }
         }
         model.focusExistingRequested = { [weak attachCoordinator] row, origin in
             attachCoordinator?.focusExisting(row.identity, from: origin)
         }
-        model.surfacedFileOpenRequested = { file, row, stillWanted in weakSelf?.openSurfacedFile(file, for: row, stillWanted: stillWanted) }
+        let paneFocuser = LeoDispatchPaneFocuser(runner: machineRunner)
+        model.dispatchPaneFocusRequested = { [weak machines, weak model] host, pane, rowID in
+            let hosts = machines?.configurations ?? []
+            Task { @MainActor in
+                do {
+                    let command = try LeoDispatchPaneFocus.command(
+                        host: host, pane: pane, hosts: hosts, sshExecutable: machineSSHExecutable.path
+                    )
+                    try await paneFocuser.focus(command)
+                } catch {
+                    model?.setRowError(LeoDispatchPaneFocusError.message(for: error), for: rowID)
+                }
+            }
+        }
         model.latestFocusReport = { [weak attachCoordinator] in attachCoordinator?.latestFocusReport ?? 0 }
 
-        // `hostSelection`'s `connectionTarget` (wired above) closes over
+        // `machines`' `connectionTarget` (wired above) closes over
         // `weakSelf`, which can only be set once `self` is fully
-        // initialized -- every LeoHostSelection state transition
+        // initialized -- every machine's state transition
         // (connecting/connected/failed), tagged with the generation it
-        // belongs to, drives which connection the feed and agent actions
-        // are bound to.
+        // belongs to, drives that machine's feed and client.
         weakSelf = self
-        surfacedFileOpener = LeoSurfacedFileOpener { [weak model] file, host in model?.markSurfacedFileSeen(file, host: host) }
-
+        // Fires at once with today's machines, so the model and feeds know
+        // them before any feed delivers (no phantom This Mac section).
+        machinesSubscription = machines.$machines.sink { [weak self] in self?.machinesChanged($0) }
+        machineStatusesSubscription = machines.machineStatuses.sink { [weak self] in self?.machineStatusesChanged($0) }
+        // B-274: a window's editor and browser follow the row it shows.
+        attachCoordinator.onRowShown = { [weak registry] windowID, key in
+            registry?.session(for: windowID)?.panes.activate(key)
+        }
+        actions.closePanes = { [weak registry] row in
+            for session in registry?.sessions ?? [] {
+                guard await session.panes.close(.agent(row.identity)) else { return false }
+            }
+            return true
+        }
         // One immediate liveness check per wake, never repeated: a tunnel
         // or socket that died in sleep shows as disconnected (D-061).
-        wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feed] in
-            Task { await feed?.checkLiveness() }
+        wakeObservation = LeoNotificationObservation(center: wakeNotifications, name: NSWorkspace.didWakeNotification) { [weak feeds] in
+            Task { @MainActor in feeds?.checkLiveness() }
         }
+        statsObservations = Self.observeStatsInputs(poller: statsPoller, defaults: defaults, activation: appActivationNotifications)
         #if DEBUG
+        if LeoMachinesFixture.isEnabled() { machinesFixture = LeoMachinesFixture.arm(model: model) }
+        if LeoAgentPaneFixture.isEnabled() { agentPaneFixture = LeoAgentPaneFixture.arm(model: model) }
+        if let moveFixture {
+            moveFixture.arm()
+            moveFixture.seedDestinations(into: actions)
+            self.moveFixture = moveFixture
+        }
         if let reason = LeoForcedDisconnectFixture.reason() {
-            forcedDisconnect = LeoForcedDisconnectFixture.arm(model: model, reason: reason) { [weak feed] reason in
-                Task { await feed?.disconnect(reason: reason) }
-            }
+            LeoForcedDisconnectFixture.arm(feeds: feeds, reason: reason)
         }
         #endif
     }
 
-    /// Every snapshot the model receives; DEBUG fixtures hook in here.
+    /// Every snapshot the model receives.
     private func snapshotLanded(_ snapshot: LeoSidebarSnapshot) {
-        #if DEBUG
-        surfaceFixture.snapshotLanded(snapshot) { [feed] files in
-            Task { for file in files { await feed.receive(.fileSurfaced(seq: nil, file: file)) } }
+        prunePanes(for: snapshot)
+    }
+
+    /// B-274: agents (and dispatches) a connected host no longer lists lose
+    /// their panes. Only a list fetched while connected counts -- a failed
+    /// fetch or a dropped connection says nothing about who's gone -- and
+    /// dispatches only once the host advertises its dispatch tree.
+    private func prunePanes(for snapshot: LeoSidebarSnapshot) {
+        guard snapshot.connectivity == .connected, snapshot.listRefreshSucceeded, let host = snapshot.advertised.host else { return }
+        let names = Set(snapshot.rows.map(\.name))
+        let dispatches = Set(snapshot.dispatchChildren.values.flatMap { $0.map(\.id) })
+        let knowsDispatches = snapshot.features.contains(.dispatchTree)
+        let rows = Dictionary(snapshot.rows.map { ($0.name, $0) }, uniquingKeysWith: { first, _ in first })
+        for session in registry.sessions {
+            // A drawer shell goes with its row, even the one on screen: it is not an editor
+            // pane's unsaved work, and the row it served is gone or lives on another machine now.
+            session.drawerEnvironment?.pool.retain(on: host) { LeoDrawerShellRetention.keep(row: rows[$0]) }
+            session.panes.pruneAgents(on: host) { name, dispatchID in
+                guard let dispatchID else { return names.contains(name) }
+                return !knowsDispatches || dispatches.contains(dispatchID)
+            }
         }
-        #endif
     }
 
     func start() {
         Self.logger.log("start() called")
-        let pollable = registry.hasPollableSidebar
         let orphanStore = orphanStore
         Task {
             // Must run before any tunnel this launch might start, so a
@@ -317,49 +608,110 @@ import OSLog
             await Task.detached {
                 orphanStore.reapAtLaunch(inspector: leoTunnelRealInspector, signaller: leoTunnelRealSignaller)
             }.value
-            let flavor = await LeoSocketDaemonClient.detectFlavor()
-            Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public) connectionSequence=\(self.connectionSequence)")
-            await feed.start()
-            await feed.setInitialPolling(pollable)
-            await hostSelection.start(flavor: flavor)
-            Self.logger.log("hostSelection.start(flavor:) returned")
+            // B5: set up or adopt the local daemon before anything asks it
+            // for its flavor or connects to it.
+            await managedStartup?()
+            let flavor = await LeoSocketDaemonClient.detectFlavor(socketPath: LeoLocalDaemon.socketPath)
+            Self.logger.log("detected flavor=\(String(describing: flavor), privacy: .public)")
+            feeds.start(pollable: registry.hasPollableSidebar)
+            statsPoller.setSidebarPollable(registry.hasPollableSidebar)
+            statsPoller.setAppActive(NSApp?.isActive ?? false)
+            machines.start(flavor: flavor)
+            startPlugins()
         }
     }
-    func shutdown() {
-        connectionSequence += 1
-        hostSelection.shutdown()
-        Task { await feed.stop() }
+
+    private func startPlugins() {
+        guard !isShutDown, plugins == nil else { return }
+        let system = LeoPluginSystem(
+            sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults,
+            surfaces: pluginSurfaces)
+        plugins = system
+        model.pluginSections = system.sections
+        pluginSurfaces.attach(system.manager)
+        system.start()
     }
+
+    /// The app restarted or switched its own daemon: reconnect This Mac.
+    /// Every remote machine keeps its tunnel and feed.
+    func localDaemonChanged() {
+        machines.reconnect(.local)
+    }
+
+    /// The quit hook: tears every tunnel down at once under one bound.
+    func shutdown() {
+        isShutDown = true
+        cancelTerminalFileDrops()
+        machines.shutdown(alsoAwaiting: [agentBrowsers.shutdown()])
+        feeds.stop()
+        statsPoller.stop()
+        plugins?.shutDown()
+    }
+    /// How an agent's drawer Terminal starts, from the machine's connection and advertised features now.
+    private func drawerShellLaunch(for identity: LeoAgentIdentity) -> LeoDrawerShellLaunch {
+        LeoDrawerShellLauncher.choose(
+            identity: identity,
+            features: model.features(for: identity.host),
+            isConnected: model.snapshot(for: identity.host).map { !$0.connectivity.isOffline } ?? false,
+            home: NSHomeDirectory(),
+            remoteCommand: { [weak machines] identity in
+                guard let configuration = machines?.configuration(for: identity.host) else {
+                    throw LeoDaemonError.hostUnavailable("Remote host \(identity.host.displayName) is not configured")
+                }
+                return try LeoSSHCommand(configuration: configuration).shellCommand(agent: identity.name)
+            })
+    }
+
     func makeWindowSession(for controller: TerminalController) -> LeoWindowSession {
         let session = registry.makeSession(
             window: controller.window, controller: controller, defaults: defaults,
-            makeFileAccess: { [weak hostSelection] host in
-                guard let hostSelection else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
-                let access = try hostSelection.makeFileAccess(for: host)
+            makeFileAccess: { [weak machines] host in
+                guard let machines else { throw LeoFileAccessError.unavailable(reason: "Leo is shutting down") }
+                let access = try machines.makeFileAccess(for: host)
                 #if DEBUG
                 return LeoSlowSaveFixture.wrapIfSet(access)
                 #else
                 return access
                 #endif
-            }
+            },
+            agentBrowsers: agentBrowsers.browsers
         )
         // Captures `sessionID` (a value), not `session` itself -- `session`
         // owns this closure, so capturing `session` here would be a
         // reference cycle (session -> closure -> session) that keeps the
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
+        session.builtInPanes = builtInPanes
+        session.pluginSurfaces = pluginSurfaces
+        session.drawerEnvironment = LeoDrawerEnvironment(
+            shells: LeoDrawerShells(app: { [weak controller] in controller?.ghostty.app }),
+            launch: { [weak self] identity in
+                self?.drawerShellLaunch(for: identity) ?? .unavailable("Leo is shutting down.")
+            },
+            focusMain: { [weak controller] in
+                if let surface = controller?.focusedSurface { Ghostty.moveFocus(to: surface) }
+            })
         session.openPicker = { [weak self] surfaceID in
             guard let self else { return }
             self.openPicker(windowID: sessionID, surfaceID: surfaceID)
         }
         session.onWindowWillClose = { [weak self] in self?.teardownWindow(sessionID) }
+        session.splitsIntoShell = { [weak attachHost] in attachHost?.splitsIntoShell(in: sessionID) ?? false }
+        session.registerSplitShell = { [weak attachHost] in attachHost?.registerSplitShell($0, in: sessionID) }
+        session.savedTerminals = { [weak attachHost] in attachHost?.savedTerminals(in: sessionID) }
+        session.terminals.changed = { [weak controller] in controller?.leoTerminalsDidChange() }
+        session.selectedAgent = { [weak self] in self?.model.actionableSelection?.id }
+        session.unreadCount = { [weak unread] in unread?.count(for: $0) ?? 0 }
+        session.latestAgentMessageKind = { [weak unread] in unread?.latestAgentKind(for: $0) }
+        // A new window comes up on the shared selection without moving it.
+        session.selectionChanged(unreadCount: session.unreadCount)
         wireTerminals(session.terminals, window: sessionID)
         if let window = controller.window {
             let presentation = LeoPickerPresentation(
                 window: window,
                 router: newSurfaceRouter,
                 sidebar: model,
-                hostSelection: hostSelection,
+                machines: machines,
                 actions: actions,
                 setPickerPresented: { [weak session] presented in session?.setPickerPresented(presented) }
             )
@@ -377,6 +729,16 @@ import OSLog
         return session
     }
 
+    /// B-332: `controller`, a window AppKit restores at launch, gets its
+    /// saved Terminals rows back (`LeoTerminalWindowRestoration`). Its
+    /// editor and browser follow the row it shows, as after any switch
+    /// (B-274). `false` when no row could be restored.
+    func restoreTerminalRows(_ state: LeoTerminalsRestorableState, in controller: TerminalController) -> Bool {
+        guard let shown = attachHost.restoreTerminalRows(state.rows, selecting: state.selectedRow, in: controller) else { return false }
+        controller.leoSession?.panes.activate(.terminal(shown))
+        return true
+    }
+
     /// B-057: a window's terminal rows show, close and count their hidden
     /// shells through the coordinator and host.
     private func wireTerminals(_ terminals: LeoWindowTerminals, window: LeoWindowID) {
@@ -390,10 +752,10 @@ import OSLog
         wireTerminalMenu(terminals, window: window)
     }
 
-    /// B-177: a terminal row's context menu. Split shows the row, then asks
-    /// for the split ⌘D would make beside its shell (inheriting its
-    /// working directory); Rename… and Close act on the shell, shown or
-    /// hidden.
+    /// B-177: a terminal row's context menu. Split shows the row, then
+    /// makes the split ⌘D would make beside its shell, straight into a
+    /// shell inheriting its working directory (B-333); Rename… and Close
+    /// act on the shell, shown or hidden.
     private func wireTerminalMenu(_ terminals: LeoWindowTerminals, window: LeoWindowID) {
         let handle: (UUID) -> AttachmentHandle = { AttachmentHandle(surfaceID: $0, windowID: window) }
         terminals.renameRequested = { [weak attachHost] in attachHost?.renameTerminal(handle($0), to: $1) }
@@ -401,13 +763,8 @@ import OSLog
         terminals.closeFromMenuRequested = { [weak attachHost] id in
             Task { await attachHost?.closeTerminalFromMenu(handle(id)) }
         }
-        terminals.splitRequested = { [weak self] id, direction in
-            Task { [weak self] in
-                guard let self else { return }
-                await attachCoordinator.splitTerminal(handle(id), direction: direction) { request in
-                    route(request, inheritedConfig: attachHost.splitConfiguration(for: handle(id)))
-                }
-            }
+        terminals.splitRequested = { [weak attachCoordinator] id, direction in
+            Task { await attachCoordinator?.splitTerminal(handle(id), direction: direction) }
         }
     }
 
@@ -444,9 +801,17 @@ import OSLog
     /// `registry.onUnregistered` (fallback reconciliation), which may both
     /// fire for the same window.
     private func teardownWindow(_ windowID: LeoWindowID) {
+        requestConfigStore.releaseStartScreen(windowID)
         newSurfaceRouter.invalidate(origin: windowID)
         picker.unregister(origin: windowID)
         attachCoordinator.windowClosed(windowID)
+    }
+
+    /// B-145: `window` opened as a bare start screen, with no palette to
+    /// carry `config` (whatever ⌘N inherited) to the first surface that
+    /// fills it -- see `LeoRequestConfigStore.hold(_:forStartScreen:)`.
+    func holdStartScreenConfig(_ config: Ghostty.SurfaceConfiguration?, for window: LeoWindowID) {
+        requestConfigStore.hold(config, forStartScreen: window)
     }
 
     /// Begins a new-surface gesture (Cmd+T, Cmd+D, Cmd+N, launch, or the
@@ -468,7 +833,7 @@ import OSLog
         route(LeoSurfaceRequest(origin: origin, disposition: disposition, splitSourceSurface: sourceSurface), inheritedConfig: inheritedConfig)
     }
 
-    /// `routeNewSurface` for a request already made (B-177's row-menu split).
+    /// `routeNewSurface` for a request already made.
     private func route(_ request: LeoSurfaceRequest, inheritedConfig: Ghostty.SurfaceConfiguration?) {
         Self.logger.log("routeNewSurface disposition=\(String(describing: request.disposition), privacy: .public) origin=\(request.origin.rawValue.uuidString, privacy: .public)")
         requestConfigStore.set(inheritedConfig, for: request.id)
@@ -485,55 +850,6 @@ import OSLog
         return try LeoCLI(executableOverride: override, runner: cli.runner).resolveExecutable()
     }
 
-    /// Applies a `LeoHostSelection` connection-state transition to the feed
-    /// (and, once connected, to agent actions). `.connecting`/`.failed`
-    /// carry no async work of their own and are forwarded immediately;
-    /// `.connected` needs to build the per-connection daemon/activity
-    /// resources first (see `applyConnected`).
-    private func applyConnection(host: LeoHostID, generation: Int, state: LeoHostConnectionState) {
-        connectionSequence += 1
-        let mySequence = connectionSequence
-        switch state {
-        case .connecting:
-            Task { [weak feed] in await feed?.updateConnection(host: host, generation: generation, phase: .connecting) }
-        case .failed(let message, _):
-            Task { [weak feed] in await feed?.updateConnection(host: host, generation: generation, phase: .failed(message: message)) }
-        case .connected(let socketPath):
-            Task { [weak self] in await self?.applyConnected(host: host, generation: generation, socketPath: socketPath, sequence: mySequence) }
-        }
-    }
-
-    /// Builds the daemon client + activity source for `(host, socketPath)`
-    /// -- reusing the precomputed local ones for `.local`, or a fresh
-    /// per-socket client (with its own flavor detection) for a remote host
-    /// -- and only then wires them into the feed and agent actions. Guarded
-    /// against `connectionSequence`, captured as `sequence` BEFORE the only
-    /// `await` in this path (flavor detection): if ANY newer transition
-    /// (connecting, connected, or failed -- not just a generation change)
-    /// has since been observed, this stale result is discarded rather than
-    /// installed over whatever's current now.
-    private func applyConnected(host: LeoHostID, generation: Int, socketPath: String, sequence: Int) async {
-        let daemon: any LeoDaemonClient
-        let activitySource: LeoSidebarActivitySource
-        if host == .local {
-            daemon = localDaemon
-            activitySource = localActivitySource
-        } else {
-            let tunnelTransport = LeoTunnelSocketTransport(base: LeoUnixSocketTransport())
-            daemon = LeoSocketDaemonClient(socketPath: socketPath, transport: tunnelTransport)
-            let remoteFlavor = await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath, transport: hostConnectionTransport)
-            activitySource = remoteFlavor == .socketEvents
-                ? LeoSidebarActivitySource(
-                    events: { await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).events() },
-                    fetchState: { try await LeoSocketActivityClient(socketPath: socketPath, transport: tunnelTransport).fetchState() }
-                  )
-                : LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        }
-        guard sequence == connectionSequence else { return }
-        actions.updateDaemon(daemon, host: host)
-        await feed.updateConnection(host: host, generation: generation, phase: .connected(daemon: daemon, activitySource: activitySource))
-    }
-
     private func startDaemon(in controller: TerminalController) {
         do {
             let command = try LeoCommandLauncher.startDaemonCommand(executablePath: resolveExecutablePath())
@@ -546,7 +862,10 @@ import OSLog
         }
     }
 
-    private nonisolated static func makeSocketOrLegacyActivitySource(socketPath: String) -> LeoSidebarActivitySource {
+    nonisolated static func makeSocketOrLegacyActivitySource(
+        socketPath: String,
+        observeConfig: @escaping @Sendable () -> LeoObserveConfig? = LeoLocalDaemon.observeConfig
+    ) -> LeoSidebarActivitySource {
         LeoSidebarActivitySource(
             events: {
                 AsyncStream { continuation in
@@ -557,7 +876,7 @@ import OSLog
                             continuation.finish()
                             return
                         }
-                        let config = await Task.detached { LeoObserveConfigLoader.load() }.value
+                        let config = await Task.detached { observeConfig() }.value
                         guard let config else { continuation.finish(); return }
                         let client = LeoActivityClient(config: config)
                         for await event in await client.events() {
@@ -569,22 +888,22 @@ import OSLog
                     continuation.onTermination = { _ in task.cancel() }
                 }
             },
-            fetchState: {
+            observedState: {
                 if await LeoSocketDaemonClient.detectFlavor(socketPath: socketPath) == .socketEvents {
                     return try await LeoSocketActivityClient(socketPath: socketPath).fetchState()
                 }
-                let config = await Task.detached { LeoObserveConfigLoader.load() }.value
-                guard let config else { return [] }
+                let config = await Task.detached { observeConfig() }.value
+                guard let config else { return LeoObservedState(agents: []) }
                 return try await LeoActivityClient(config: config).fetchState()
             }
         )
     }
 }
 
-/// Breaks the `feed` <-> `actions` construction cycle in `LeoRuntime.init`:
-/// `feed`'s list-refresh callback needs to reach `actions`, but `actions`
-/// isn't constructed until after `feed` (its own `refresh` closure needs
-/// `feed`). Held weakly by the callback and filled in once, immediately
+/// Breaks the `feeds` <-> `actions` construction cycle in `LeoRuntime.init`:
+/// the feeds' list-refresh callback needs to reach `actions`, but `actions`
+/// isn't constructed until after `feeds` (its own `refresh` closure needs
+/// `feeds`). Held weakly by the callback and filled in once, immediately
 /// after `actions` exists.
 @MainActor private final class LeoAgentActionsBox: @unchecked Sendable {
     weak var actions: LeoAgentActions?

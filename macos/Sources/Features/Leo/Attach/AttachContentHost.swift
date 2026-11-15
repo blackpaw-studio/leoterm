@@ -14,6 +14,10 @@ struct AttachmentHandle: Hashable, Sendable {
 enum AttachLifecycleEvent: Equatable, Sendable {
     case closed(AttachmentHandle)
     case processExited(AttachmentHandle)
+    /// B-110: the attachment's surface moved to another window -- dragged
+    /// between Leo windows, or an undo or redo of that -- where `to` is
+    /// its handle now. Nothing closed: an agent's tmux client is the same.
+    case moved(from: AttachmentHandle, to: AttachmentHandle)
     /// The attachment (if any) that now has keyboard focus: the focused
     /// surface of the key window, while it is that window's first
     /// responder. `nil` when keyboard focus left every attachment (the
@@ -42,6 +46,53 @@ extension Notification.Name {
     /// in no window -- hidden in a live pool (B-056) -- so Ghostty shows no
     /// exit message for it (object: the surface).
     static let leoWindowlessChildExited = Notification.Name("studio.blackpaw.leo.windowlessChildExited")
+}
+
+/// The `userInfo` of `.leoWindowlessChildExited`.
+enum LeoWindowlessChildExit {
+    /// The process's exit code (`Int`).
+    static let exitCodeKey = "exit_code"
+}
+
+/// How an attach surface's process ended, for a dispatch attach (B-266):
+/// the exit code, and the last line it left on screen (a failed `leo
+/// dispatch attach` prints its reason there).
+struct AttachExitReport: Equatable, Sendable {
+    /// The longest `detail` kept.
+    static let maxDetailLength = 160
+
+    /// `leo dispatch attach` exits 128+N when its client was killed by
+    /// signal N. Only a termination request (SIGHUP, SIGINT, SIGPIPE,
+    /// SIGTERM: the window closed under it, ^C) ends the watching without
+    /// failing; any other signal (SIGSEGV, SIGABRT, SIGKILL, ...) is a
+    /// crash and is reported.
+    private static let terminationRequestCodes: Set<Int> = [129, 130, 141, 143]
+
+    let code: Int
+    let detail: String?
+
+    /// Whether the process ended in error: not a clean exit, and not a
+    /// client told to terminate.
+    var isFailure: Bool { code != 0 && !Self.terminationRequestCodes.contains(code) }
+
+    init(code: Int, detail: String?) {
+        self.code = code
+        self.detail = detail
+    }
+
+    /// `screenText`'s last non-blank line, with control characters dropped
+    /// and long lines cut, as `detail`.
+    init(code: Int, screenText: String) {
+        let line = screenText.split(whereSeparator: \.isNewline)
+            .map { Self.clean($0) }
+            .last { !$0.isEmpty }
+        self.init(code: code, detail: line.map { String($0.prefix(Self.maxDetailLength)) })
+    }
+
+    private static func clean<S: StringProtocol>(_ line: S) -> String {
+        String(String.UnicodeScalarView(line.unicodeScalars.filter { $0.properties.generalCategory != .control }))
+            .trimmingCharacters(in: .whitespaces)
+    }
 }
 
 @MainActor protocol AttachContentHost: AnyObject {
@@ -85,6 +136,13 @@ extension Notification.Name {
     /// Replaces the origin window's empty placeholder surface tree with the
     /// attach surface. Always creates -- there is nothing to reuse.
     func fillPlaceholder(command: String, workingDirectory: String?, origin: LeoWindowID, surfaceID: UUID?, requestID: UUID) throws -> AttachmentHandle
+    /// B-270: attaches a new surface running `command` in the slot of the
+    /// shown `handle` -- the rest of a split stays as it is -- and lets the
+    /// old surface go, so its tmux client ends and `handle` closes. Keyboard
+    /// focus moves to the new surface only if the old one had it. No undo
+    /// is registered: nothing brings the old client back. Throws, changing
+    /// nothing, when `handle` isn't shown or the surface can't be made.
+    func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle
     func rebirthPlaceholder(for handle: AttachmentHandle)
     /// Closes `origin`'s window when it is still an untouched start screen
     /// (`LeoStartScreenState.isUntouched`): its request went to an agent
@@ -94,6 +152,9 @@ extension Notification.Name {
     func focus(_ handle: AttachmentHandle)
     /// Attached: shown, or hidden in its window's live pool (B-056).
     func isOpen(_ handle: AttachmentHandle) -> Bool
+    /// B-110: the open handle of surface `surfaceID`, in whichever window
+    /// holds it now -- moved there before its `.moved` is received.
+    func openHandle(ofSurface surfaceID: UUID) -> AttachmentHandle?
     /// On screen: in its window's content area (not hidden in its pool).
     func isShown(_ handle: AttachmentHandle) -> Bool
     /// B-056: shows the hidden content holding `handle` in its window's
@@ -105,20 +166,45 @@ extension Notification.Name {
     /// clients detach and its handles close. Content on screen is left
     /// alone.
     func release(_ handle: AttachmentHandle)
+    /// Lets go of `handle`'s surface alone when it is hidden in a pooled
+    /// split: the surfaces beside it stay attached (an agent or a shell
+    /// there is not its to end). A pooled tree left with no live attach
+    /// goes with it, as when any pooled surface ends.
+    func releasePooledSurface(_ handle: AttachmentHandle)
     /// B-057: closes the terminal row `handle` (its shell went: ⌘W, or
     /// `exit`), shown or hidden. Shown alone, its window shows the
     /// neighbouring terminal row instead -- the same hidden surface -- or,
     /// with none, the start screen; the window stays. Shown with a split
-    /// beside it, only its own pane closes. Hidden, its shell is let go and
+    /// beside it, only its own pane closes. Hidden, its whole kept layout
+    /// -- its shell and the shells split beside it (B-333) -- is let go and
     /// what the window shows is untouched. Already closed, nothing happens.
     func closeTerminal(_ handle: AttachmentHandle)
+    /// B-333: Split Right / Split Down on a shown terminal row's menu: the
+    /// split ⌘D makes beside its shell, straight into a new shell of the
+    /// row's layout. Not shown (or gone), nothing splits.
+    func splitTerminal(_ handle: AttachmentHandle, direction: LeoSplitDirection)
     /// B-057: `window`'s sidebar selects the terminal row its content area
     /// shows -- or, showing an agent or the start screen, none, so the
     /// agent's selection shows. A row selected to be shown that wasn't
     /// (its confirm cancelled, its shell let go) gives its selection back.
+    /// Pending tree changes settle first (B-172).
     func selectShownTerminal(in window: LeoWindowID)
+    /// B-274: what `window`'s content area shows, as a row: the terminal
+    /// row's shell there, else the first attachment; `nil` for the start
+    /// screen.
+    func shownHandle(in window: LeoWindowID) -> AttachmentHandle?
     /// Titles `handle`'s surface -- and so its window, while focused --
     /// after the agent attached in it (B-052), in place of whatever title
     /// the terminal sets.
     func setAgentName(_ handle: AttachmentHandle, name: String)
+    /// B-266: `handle`'s surface shows a dispatch subagent, not an agent.
+    /// B-288: `readOnly` when the leo that attached it only knows the
+    /// read-only attach (an older leo): its surface then carries a small
+    /// "watching · read-only" indicator; a writable one carries none.
+    func markDispatch(_ handle: AttachmentHandle, readOnly: Bool)
+    /// B-266: how `handle`'s process ended, once its exit was reported.
+    /// `nil` when the host never saw an exit status for it. A hidden
+    /// surface's exit (no window, so no Ghostty exit message) is taken
+    /// from the host's record of it, which this read clears.
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport?
 }

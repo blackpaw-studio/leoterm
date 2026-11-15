@@ -4,6 +4,7 @@ import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoSidebarChromeTests {
     @Test func attachActivationMapsOptionModifierAndInvokesSinkOnce() {
@@ -32,8 +33,8 @@ struct LeoSidebarChromeTests {
     }
 
     @Test func logsCommandQuotesExecutableAndAgentName() throws {
-        #expect(try LeoLogsCommand.build(executablePath: "/leo", agentName: "-n") == "'/leo' agent logs -f -- '-n'")
-        #expect(try LeoLogsCommand.build(executablePath: "/leo's", agentName: "a'b") == "'/leo'\\''s' agent logs -f -- 'a'\\''b'")
+        #expect(try LeoLogsCommand.build(executablePath: "/leo", agentName: "-n") == "'/leo' agent logs --host localhost -f -- '-n'")
+        #expect(try LeoLogsCommand.build(executablePath: "/leo's", agentName: "a'b") == "'/leo'\\''s' agent logs --host localhost -f -- 'a'\\''b'")
     }
 
     @Test(arguments: [

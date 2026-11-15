@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "headers": { "etag": "W/\"s1\"" },
+  "body": {
+    "state": "pending",
+    "total_count": 2,
+    "statuses": [
+      { "id": 71, "context": "ci/legacy", "state": "pending", "target_url": "https://ci.example.com/71" },
+      { "id": 72, "context": "ci/other", "state": "success", "target_url": "https://ci.example.com/72" }
+    ]
+  }
+}

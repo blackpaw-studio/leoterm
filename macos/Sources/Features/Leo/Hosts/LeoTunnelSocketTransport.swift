@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The transport for a remote host's daemon, reached through the tunnel's
 /// forwarded socket. That socket can vanish under a running tunnel (the OS

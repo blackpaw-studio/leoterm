@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The binary / large-file guard: what opens editable, what opens
 /// read-only (with the notice's reason), and what doesn't open at all.

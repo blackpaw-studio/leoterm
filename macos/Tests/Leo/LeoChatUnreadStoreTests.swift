@@ -1,0 +1,273 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+@testable import LeoKit
+
+/// Unread counts on the Mac: seeded from the daemon on every resync, bumped
+/// by live agent messages, cleared by a read, and kept per machine: each
+/// bound machine seeds from its own daemon and unbinding drops its counts.
+@MainActor @Suite(.timeLimit(.minutes(1)))
+struct LeoChatUnreadStoreTests {
+    private static let alpha = LeoAgentID(host: .local, name: "alpha")
+    private static let beta = LeoAgentID(host: .local, name: "beta")
+    private static let remote = LeoHostID.remote("box")
+    private static let remoteAlpha = LeoAgentID(host: remote, name: "alpha")
+
+    private let client = FakeChatClient()
+
+    private func make() -> LeoChatUnreadStore {
+        let store = LeoChatUnreadStore()
+        store.bind(client, host: .local)
+        return store
+    }
+
+    private func resync(_ store: LeoChatUnreadStore, host: LeoHostID = .local) async {
+        store.receive(LeoChatFeedDelivery(host: host, signal: .resync), isOnScreen: { _ in false })
+        await store.settled()
+    }
+
+    private func event(
+        _ store: LeoChatUnreadStore, _ message: LeoChatMessage, host: LeoHostID = .local, isOnScreen: Bool = false
+    ) {
+        store.receive(LeoChatFeedDelivery(host: host, signal: .event(.message(message))), isOnScreen: { _ in isOnScreen })
+    }
+
+    @Test func aResyncFetchesThreadsAndSeedsTheCounts() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3), LeoChatThread(agent: "beta", unread: 1)])
+        let store = make()
+        await resync(store)
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.count(for: Self.beta) == 1)
+    }
+
+    @Test func aLiveAgentMessageAddsToAnyAgentOnTheHost() async {
+        let store = make()
+        event(store, chatMessage("a", agent: "alpha", at: 1))
+        event(store, chatMessage("b", agent: "beta", at: 2))
+        event(store, chatMessage("c", agent: "beta", direction: .inbound, at: 3))
+        #expect(store.count(for: Self.alpha) == 1)
+        #expect(store.count(for: Self.beta) == 1)
+    }
+
+    @Test func aLiveAgentMessageRecordsItsKindAsTheLatest() {
+        let store = make()
+        event(store, chatMessage("a", kind: .permission, at: 1))
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+        event(store, chatMessage("b", kind: .ask, at: 2))
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func yourOwnMessageDoesNotReplaceTheLatestAgentKind() {
+        let store = make()
+        event(store, chatMessage("a", kind: .permission, at: 1))
+        event(store, chatMessage("b", direction: .inbound, at: 2))
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+    }
+
+    @Test func aResyncSeedsTheLatestKindFromTheThreadsLastAgentMessage() async {
+        await client.setThreads([
+            LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .permission, at: 1), unread: 1),
+            LeoChatThread(agent: "beta", lastMessage: chatMessage("b", agent: "beta", direction: .inbound, at: 2), unread: 1),
+        ])
+        let store = make()
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+        #expect(store.latestAgentKind(for: Self.beta) == nil)
+    }
+
+    @Test func aResyncReplacesALiveKindWithTheDaemonsLatest() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 5), unread: 1)])
+        let store = make()
+        event(store, chatMessage("old", kind: .permission, at: 1))
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func anOnScreenAgentMessageDoesNotCount() {
+        let store = make()
+        store.receive(
+            LeoChatFeedDelivery(host: .local, signal: .event(.message(chatMessage("a", agent: "alpha", at: 1)))),
+            isOnScreen: { $0 == Self.alpha }
+        )
+        #expect(store.count(for: Self.alpha) == 0)
+    }
+
+    @Test func clearingZeroesTheAgent() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        let store = make()
+        await resync(store)
+        store.clear(Self.alpha)
+        #expect(store.count(for: Self.alpha) == 0)
+    }
+
+    @Test func aResyncReplacesLiveCounts() async {
+        let store = make()
+        event(store, chatMessage("a", agent: "alpha", at: 1))
+        event(store, chatMessage("b", agent: "alpha", at: 2))
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 1)])
+        await resync(store)
+        #expect(store.count(for: Self.alpha) == 1)
+    }
+
+    @Test func anUnboundMachinesSignalsAreIgnored() async {
+        let store = make()
+        event(store, chatMessage("a", agent: "alpha", at: 1), host: Self.remote)
+        await resync(store, host: Self.remote)
+        #expect(store.count(for: Self.alpha) == 0)
+        #expect(await client.threadRequestCount == 0)
+    }
+
+    @Test func aSeedThatLandsAfterItsMachineUnboundIsDropped() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await client.holdThreads()
+        let store = make()
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        store.unbind(.local)
+        await client.releaseThreads()
+        await store.settled()
+        #expect(store.count(for: Self.alpha) == 0)
+    }
+
+    @Test func eachMachineSeedsFromItsOwnDaemonAndKeepsTheOthersCounts() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 5)])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        await resync(store)
+        await resync(store, host: Self.remote)
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.count(for: Self.remoteAlpha) == 5)
+        #expect(await client.threadRequestCount == 1, "the remote resync asked This Mac's daemon")
+        #expect(await remoteClient.threadRequestCount == 1)
+
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 1)])
+        await resync(store, host: Self.remote)
+        #expect(store.count(for: Self.alpha) == 3, "a remote seed replaced This Mac's counts")
+        #expect(store.count(for: Self.remoteAlpha) == 1)
+    }
+
+    @Test func unbindingAMachineDropsItsCountsAndLatestKinds() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 1), unread: 3)])
+        await remoteClient.setThreads([
+            LeoChatThread(agent: "alpha", lastMessage: chatMessage("b", kind: .permission, at: 1), unread: 5)
+        ])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        await resync(store)
+        await resync(store, host: Self.remote)
+
+        store.unbind(Self.remote)
+
+        #expect(!store.isBound(Self.remote))
+        #expect(store.isBound(.local))
+        #expect(store.count(for: Self.remoteAlpha) == 0)
+        #expect(store.latestAgentKind(for: Self.remoteAlpha) == nil)
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func aSeedOnOneMachineDoesNotDropAnotherMachinesSeedInFlight() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await client.holdThreads()
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 5)])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+
+        store.receive(LeoChatFeedDelivery(host: Self.remote, signal: .resync), isOnScreen: { _ in false })
+        await remoteClient.waitForThreadRequests(1)
+        await client.releaseThreads()
+        await store.settled()
+
+        #expect(store.count(for: Self.alpha) == 3)
+        #expect(store.count(for: Self.remoteAlpha) == 5)
+    }
+
+    @Test func aReadDuringOneMachinesSeedDoesNotSuppressAnotherMachinesSeed() async {
+        let remoteClient = FakeChatClient()
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        await client.holdThreads()
+        await remoteClient.setThreads([LeoChatThread(agent: "alpha", unread: 5)])
+        let store = make()
+        store.bind(remoteClient, host: Self.remote)
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        store.clear(Self.alpha)
+
+        store.receive(LeoChatFeedDelivery(host: Self.remote, signal: .resync), isOnScreen: { _ in false })
+        await remoteClient.waitForThreadRequests(1)
+        await client.releaseThreads()
+        await store.settled()
+
+        #expect(store.count(for: Self.alpha) == 0, "the remote seed forgot This Mac's read")
+        #expect(store.count(for: Self.remoteAlpha) == 5, "This Mac's read suppressed the remote seed")
+    }
+
+    @Test func aFailedSeedKeepsTheCurrentCounts() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        let store = make()
+        await resync(store)
+        await client.failThreads("offline")
+        await resync(store)
+        #expect(store.count(for: Self.alpha) == 3)
+    }
+
+    @Test func aReadWhileASeedIsInFlightStaysClearedWhenTheSeedLands() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3), LeoChatThread(agent: "beta", unread: 2)])
+        await client.holdThreads()
+        let store = make()
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        store.clear(Self.alpha)
+        await client.releaseThreads()
+        await store.settled()
+        #expect(store.count(for: Self.alpha) == 0)
+        #expect(store.count(for: Self.beta) == 2)
+    }
+
+    @Test func aLiveKindDuringAnInFlightSeedSurvivesTheSeedLanding() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 1), unread: 1)])
+        await client.holdThreads()
+        let store = make()
+        store.receive(LeoChatFeedDelivery(host: .local, signal: .resync), isOnScreen: { _ in false })
+        await client.waitForThreadRequests(1)
+        event(store, chatMessage("p", kind: .permission, at: 2))
+        await client.releaseThreads()
+        await store.settled()
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+    }
+
+    @Test func aSeedStillReplacesAKindThatArrivedBeforeItBegan() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", lastMessage: chatMessage("a", kind: .ask, at: 5), unread: 1)])
+        let store = make()
+        event(store, chatMessage("p", kind: .permission, at: 1))
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .ask)
+    }
+
+    @Test func aResyncWhoseLastMessageIsYoursKeepsTheKnownAgentKind() async {
+        let store = make()
+        event(store, chatMessage("p", kind: .permission, at: 1))
+        await client.setThreads([
+            LeoChatThread(agent: "alpha", lastMessage: chatMessage("u", direction: .inbound, at: 2), unread: 1)
+        ])
+        await resync(store)
+        #expect(store.latestAgentKind(for: Self.alpha) == .permission)
+    }
+
+    @Test func aReadBeforeTheNextSeedDoesNotSuppressIt() async {
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 3)])
+        let store = make()
+        await resync(store)
+        store.clear(Self.alpha)
+        await client.setThreads([LeoChatThread(agent: "alpha", unread: 1)])
+        await resync(store)
+        #expect(store.count(for: Self.alpha) == 1)
+    }
+}

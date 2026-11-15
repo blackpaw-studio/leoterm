@@ -1,0 +1,172 @@
+#if DEBUG
+import Combine
+import Foundation
+import LeoKit
+
+/// DEBUG builds only: `LEO_MOVE_FIXTURE=1` replaces the machines with a
+/// scripted pair (This Mac and `nas`) and their daemons with a fake, so the
+/// move, copy and duplicate flows can be screenshotted without a real
+/// daemon or real agents: a moved agent's dormant row, a move refused
+/// mid-turn (`busy-agent`, until Force), and a duplicate that appears as a
+/// new row once the "daemon" reports it. `stale-agent` is a stopped agent
+/// whose resume transcript is gone: its move or copy fails at once with
+/// `session_missing`.
+@MainActor final class LeoMoveFixture {
+    static let environmentKey = "LEO_MOVE_FIXTURE"
+    private static let nas = LeoHostID.remote("nas")
+    private static let movedAt = "2026-10-28T14:00:00Z"
+    private static let firstGeneration = Int.max / 2
+
+    static func isEnabled(environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        environment[environmentKey] == "1"
+    }
+
+    /// `LEO_MOVE_FIXTURE_FEATURES=none` plays a daemon that predates `agent_move`.
+    static let featuresKey = "LEO_MOVE_FIXTURE_FEATURES"
+
+    private let model: LeoSidebarModel
+    private let features: LeoDaemonFeatures
+    private var movedAway: [String: String] = ["old-agent": "nas"]
+    private var onNAS: [String] = []
+    private var copies: [String] = []
+    private var generation = firstGeneration
+    private var subscription: AnyCancellable?
+    private(set) lazy var clients = LeoMoveFixtureClients(daemon: LeoMoveFixtureDaemon(world: self))
+
+    init(model: LeoSidebarModel, environment: [String: String] = ProcessInfo.processInfo.environment) {
+        self.model = model
+        features = environment[Self.featuresKey] == "none" ? LeoDaemonFeatures([]) : LeoDaemonFeatures(["agent_move"])
+    }
+
+    /// Fills the sidebar once This Mac's first snapshot has landed, as the
+    /// machines fixture does, and again on every `refresh()`.
+    func arm() {
+        subscription = Publishers.CombineLatest(model.$machineOrder, model.$snapshots)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self, self.model.snapshot(for: .local) != nil, !self.model.machineOrder.contains(Self.nas) else { return }
+                self.refresh()
+            }
+    }
+
+    /// The destinations a real daemon's `client.hosts` would give.
+    func seedDestinations(into actions: LeoAgentActions) {
+        actions.seedMoveDestinations(.hosts(["nas"]), for: .local)
+        actions.seedMoveDestinations(.hosts([]), for: Self.nas)
+    }
+
+    func refresh() {
+        generation += 1
+        model.setMachines([.local, Self.nas])
+        model.receive(snapshot(local, .local), for: .local)
+        model.receive(snapshot(remote, Self.nas), for: Self.nas)
+    }
+
+    /// What the fake daemon did to `name`, as the next list will show it.
+    func apply(_ request: LeoMoveRequest, to name: String) {
+        switch (request.mode, request.to) {
+        case (.move, let host?):
+            movedAway[name] = host
+            onNAS.append(name)
+        case (.copy, let host?):
+            if host == "nas" { onNAS.append(request.name ?? "\(name)-copy") }
+        case (.copy, nil), (.move, nil):
+            copies.append(request.name ?? "\(name)-copy")
+        }
+    }
+
+    private var local: [LeoAgentRow] {
+        let live = ["alpha", "busy-agent"].filter { movedAway[$0] == nil }
+            .map { row($0, activity: $0 == "busy-agent" ? .working : .idle, action: $0 == "busy-agent" ? "Editing LeoSidebarView.swift" : nil) }
+        let copied = copies.map { row($0) }
+        let stale = [row("stale-agent", status: .stopped)]
+        let moved = movedAway.sorted { $0.key < $1.key }.map { name, host in
+            row(name, status: .stopped, movedTo: host, movedAt: name == "old-agent" ? Self.movedAt : "2026-10-28T15:55:00Z")
+        }
+        return live + copied + stale + moved
+    }
+
+    private var remote: [LeoAgentRow] { onNAS.map { row($0, host: Self.nas) } }
+
+    private func snapshot(_ rows: [LeoAgentRow], _ host: LeoHostID) -> LeoSidebarSnapshot {
+        LeoSidebarSnapshot(
+            rows: rows, connectivity: .connected, generation: generation, listRefreshSucceeded: true,
+            features: features, featuresHost: host
+        )
+    }
+
+    private func row(
+        _ name: String, host: LeoHostID = .local, status: LeoAgentStatus = .running, activity: LeoActivity = .idle,
+        action: String? = nil, movedTo: String? = nil, movedAt: String? = nil
+    ) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, template: "claude", status: status, activity: activity, actionDetail: action,
+            startedAt: "s", movedTo: movedTo, movedAt: movedAt
+        )
+    }
+}
+
+/// Both machines resolve to the one scripted daemon.
+@MainActor final class LeoMoveFixtureClients: LeoMachineClientResolving {
+    private let daemon: any LeoDaemonClient
+
+    init(daemon: any LeoDaemonClient) { self.daemon = daemon }
+
+    func daemon(for host: LeoHostID) -> (any LeoDaemonClient)? { daemon }
+    func generation(for host: LeoHostID) -> Int { 1 }
+    func configuration(for host: LeoHostID) -> LeoHostConfiguration? { nil }
+}
+
+/// A daemon whose moves finish at once, except `busy-agent`'s, which the
+/// mid-turn check refuses until it is forced.
+actor LeoMoveFixtureDaemon: LeoDaemonClient {
+    private weak var world: LeoMoveFixture?
+    private var jobs: [String: String] = [:]
+
+    init(world: LeoMoveFixture) { self.world = world }
+
+    func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob {
+        let isBusy = name == "busy-agent" && request.mode == .move && !request.force
+        let isStale = name == "stale-agent"
+        let id = "mv-\(jobs.count + 1)"
+        let mode = request.mode.rawValue
+        let to = request.to.map { #","to":"\#($0)""# } ?? ""
+        let failure = isStale ? Self.sessionMissingFailure(name) : #","error":{"code":"agent_busy","message":"agent is mid-turn; pass --force"}"#
+        let fails = isBusy || isStale
+        jobs[id] = #"{"id":"\#(id)","request":{"mode":"\#(mode)"\#(to)},"state":"\#(fails ? "failed" : "done")"\#(fails ? failure : "")}"#
+        if !fails, let world { await MainActor.run { world.apply(request, to: name) } }
+        return try Self.decode(#"{"id":"\#(id)","request":{"mode":"\#(mode)"\#(to)},"state":"running"}"#)
+    }
+
+    func moveJob(id: String) async throws -> LeoMoveJob {
+        guard let json = jobs[id] else { throw LeoDaemonError.daemon(code: "not_found", message: "no such move job", matches: []) }
+        return try Self.decode(json)
+    }
+
+    /// The daemon's own shape: the error message is code-prefixed, and the
+    /// problem carries the bare text, path and session id included.
+    private static func sessionMissingFailure(_ name: String) -> String {
+        let text = "\(name)'s session 8513c333-e795-45a7-bc3f-596b9a1fc19f has no transcript (looked for /Users/evan/.claude/projects/-Users-evan--leo-agents-\(name)/8513c333-e795-45a7-bc3f-596b9a1fc19f.jsonl); there is nothing to resume, so it was not moved"
+        return #","error":{"code":"session_missing","message":"session_missing: \#(text)"},"problems":[{"code":"session_missing","message":"\#(text)"}]"#
+    }
+
+    private static func decode(_ json: String) throws -> LeoMoveJob {
+        try JSONDecoder().decode(LeoMoveJob.self, from: Data(json.utf8))
+    }
+
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func start(_ name: String) async throws {}
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws {}
+    func restart(_ name: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func reset(_ name: String) async throws {}
+    func setTemplate(_ name: String, template: String) async throws {}
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan {
+        let json = #"{"name":"\#(name)","has_worktree":true,"branch":"agent/\#(name)","worktree_path":"/work/\#(name)"}"#
+        return try JSONDecoder().decode(LeoDeletePlan.self, from: Data(json.utf8))
+    }
+    func logs(_ name: String, lines: Int?) async throws -> String { "" }
+}
+#endif

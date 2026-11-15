@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The highlighter runs on the main thread over up to 2M characters, so no
 /// input may make a rule re-scan the text it just scanned (a backtracking

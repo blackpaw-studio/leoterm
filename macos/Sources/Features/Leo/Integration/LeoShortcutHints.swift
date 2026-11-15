@@ -7,8 +7,6 @@ import SwiftUI
 /// stale; a hint built from a constant would lie after a rebind.
 @MainActor enum LeoMenuShortcutHint {
     private static let shortcutModifiers: NSEvent.ModifierFlags = [.shift, .control, .option, .command]
-    /// AppKit's F1…F35 key equivalents: consecutive private-use characters.
-    private static let functionKeys = NSF1FunctionKey...NSF35FunctionKey
 
     /// The item's shortcut in menu notation, or nil when it has none or its
     /// key can't be spelled (a private-use key with no Mac key cap such as
@@ -20,19 +18,9 @@ import SwiftUI
         // AppKit reads an upper-case key equivalent as ⇧ + the key.
         if character.isUppercase { modifiers.insert(.shift) }
         let shortcut = KeyboardShortcut(KeyEquivalent(key), modifiers: EventModifiers(nsFlags: modifiers))
-        if let functionKey = functionKeyName(key) {
-            // B-104: spelled as the menu bar does ("⌘F1"), modifiers first.
-            return (shortcut.keyList.dropLast() + [functionKey]).joined()
-        }
+        // B-104: F-keys are spelled as the menu bar does ("⌘F1"), by `keyList`.
         let text = shortcut.description
         return text.unicodeScalars.allSatisfy(isSpellable) ? text : nil
-    }
-
-    /// "F1"…"F35" for AppKit's function-key characters, else nil.
-    private static func functionKeyName(_ key: Character) -> String? {
-        guard key.unicodeScalars.count == 1, let scalar = key.unicodeScalars.first,
-              functionKeys.contains(Int(scalar.value)) else { return nil }
-        return "F\(Int(scalar.value) - NSF1FunctionKey + 1)"
     }
 
     /// The first item in `menu` (submenus included) whose action is

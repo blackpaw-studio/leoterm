@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Each window's browser opens files in that window's editor pane, through
 /// the pane's unsaved-edits prompt, and lets go of its file access when the
@@ -15,6 +16,7 @@ struct LeoWorkspaceBrowserSessionTests {
         _ body: (LeoWindowSession, NSWindow) async throws -> Void
     ) async throws {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
         let defaults = LeoInMemoryDefaults()
         let session = LeoWindowSession(window: window, defaults: defaults, makeFileAccess: { _ in access ?? kind.makeAccess() })
         try await body(session, window)
@@ -39,7 +41,7 @@ struct LeoWorkspaceBrowserSessionTests {
     }
 
     @Test
-    func unsavedEditsAreAskedAboutFirstAndCancelKeepsThem() async throws {
+    func aSecondFileOpensInItsOwnTabKeepingTheFirstsEdits() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let first = try sandbox.file("a.txt", "a")
             let second = try sandbox.file("b.txt", "b")
@@ -55,10 +57,11 @@ struct LeoWorkspaceBrowserSessionTests {
 
                 await session.browser.openFile(second)
 
-                #expect(asked == ["a.txt"])
-                #expect(session.editor.document?.fileID.path == first)
-                #expect(session.editor.document?.text == "a, edited")
-                #expect(session.browser.openError == nil, "cancelling isn't an error")
+                #expect(asked.isEmpty, "B-273: nothing is replaced, so nothing asks")
+                #expect(session.editor.document?.fileID.path == second)
+                #expect(session.editor.tabs.first?.document?.text == "a, edited")
+                #expect(session.browser.openError == nil)
+                session.editor.tabs.first?.document?.edit("a")
             }
         }
     }

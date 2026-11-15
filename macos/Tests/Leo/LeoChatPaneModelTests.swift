@@ -1,0 +1,877 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+@testable import LeoKit
+
+/// Leo Chat on the Mac: the selected agent's thread (paging, live events,
+/// resync, read marks), answering prompts, and the guarded composer.
+@MainActor @Suite(.timeLimit(.minutes(1)))
+struct LeoChatPaneModelTests {
+    private static let alpha = LeoAgentID(host: .local, name: "alpha")
+    private static let beta = LeoAgentID(host: .local, name: "beta")
+    private static let box = LeoHostID.remote("box")
+    private static let boxAlpha = LeoAgentID(host: box, name: "alpha")
+
+    private let client = FakeChatClient()
+    private let boxClient = FakeChatClient()
+    private let recorder = FakeVoiceRecorder()
+    private let directory = FileManager.default.temporaryDirectory.appending(path: "leo-chat-tests-\(UUID().uuidString)")
+
+    private func make(
+        maximumUploadBytes: Int = LeoChatUpload.maximumBytes, onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }
+    ) -> LeoChatPaneModel {
+        LeoChatPaneModel(
+            clients: [.local: client], recorder: recorder, attachmentDirectory: directory, maximumUploadBytes: maximumUploadBytes,
+            onRead: onRead
+        )
+    }
+
+    /// A pane with This Mac and the machine `box` both connected.
+    private func makeWithBox(onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }) -> LeoChatPaneModel {
+        let model = make(onRead: onRead)
+        model.bind(boxClient, host: Self.box)
+        return model
+    }
+
+    private func file(_ name: String, bytes: Int = 4) throws -> URL {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appending(path: name)
+        try Data(repeating: 7, count: bytes).write(to: url)
+        return url
+    }
+
+    // MARK: Thread
+
+    @Test func showLoadsNewestPageOldestFirst() async {
+        await client.enqueuePage([chatMessage("b", task: "digest", at: 2), chatMessage("a", at: 1)], hasMore: true)
+        let model = make()
+        await model.show(Self.alpha)
+        #expect(model.timeline.messages.map(\.id) == ["a", "b"])
+        #expect(model.timeline.hasMore)
+        #expect(model.timeline.knownTasks == ["digest"])
+        #expect(await client.pageRequests.map(\.query) == [LeoChatPageQuery(limit: LeoChatPaneModel.pageSize)])
+    }
+
+    @Test func aPageForAPreviouslySelectedAgentIsDropped() async {
+        await client.holdPages()
+        await client.enqueuePage([chatMessage("a1", at: 1)])
+        await client.enqueuePage([chatMessage("b1", agent: "beta", at: 1)])
+        let model = make()
+        let first = Task { await model.show(Self.alpha) }
+        await client.waitForPageRequests(1)
+        let second = Task { await model.show(Self.beta) }
+        await client.waitForPageRequests(2)
+        await client.releasePage()
+        await first.value
+        await client.releasePage()
+        await second.value
+        #expect(model.agent == Self.beta)
+        #expect(model.timeline.messages.map(\.id) == ["b1"])
+    }
+
+    @Test func liveEventsMergeOnlyForTheShownThread() async {
+        let model = make()
+        await model.show(Self.alpha)
+        await model.receive(.message(chatMessage("x", at: 5)), host: .local)
+        await model.receive(.message(chatMessage("y", agent: "beta", at: 6)), host: .local)
+        await model.receive(.message(chatMessage("z", at: 7)), host: .remote("far"))
+        await model.receive(.updated(chatMessage("unknown", at: 8)), host: .local)
+        #expect(model.timeline.messages.map(\.id) == ["x"])
+    }
+
+    @Test func aLiveUpdateDuringAFetchBeatsThePagesOlderCopy() async {
+        await client.holdPages()
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "open", at: 1)])
+        let model = make()
+        let load = Task { await model.show(Self.alpha) }
+        await client.waitForPageRequests(1)
+        await model.receive(.message(chatMessage("q", kind: .ask, state: "answered", at: 1)), host: .local)
+        await client.releasePage()
+        await load.value
+        #expect(model.timeline.messages.map(\.state) == ["answered"])
+    }
+
+    @Test func loadOlderPagesBeforeTheOldestMessage() async {
+        await client.enqueuePage([chatMessage("c", at: 3)], hasMore: true)
+        await client.enqueuePage([chatMessage("b", at: 2), chatMessage("a", at: 1)], hasMore: false)
+        let model = make()
+        await model.show(Self.alpha)
+        await model.loadOlder()
+        #expect(model.timeline.messages.map(\.id) == ["a", "b", "c"])
+        #expect(!model.timeline.hasMore)
+        #expect(await client.pageRequests.last?.query == LeoChatPageQuery(before: "c", limit: LeoChatPaneModel.pageSize))
+        await model.loadOlder()
+        #expect(await client.pageRequests.count == 2)
+    }
+
+    @Test func taskFilterReloadsAndKeepsOtherTasksOut() async {
+        await client.enqueuePage([chatMessage("t1", kind: .task, task: "digest", at: 1), chatMessage("m", at: 2)])
+        await client.enqueuePage([chatMessage("t1", kind: .task, task: "digest", at: 1)])
+        let model = make()
+        await model.show(Self.alpha)
+        await model.setTaskFilter("digest")
+        #expect(await client.pageRequests.last?.query == LeoChatPageQuery(limit: LeoChatPaneModel.pageSize, task: "digest"))
+        #expect(model.timeline.messages.map(\.id) == ["t1"])
+        await model.receive(.message(chatMessage("t2", kind: .task, task: "other", at: 3)), host: .local)
+        await model.receive(.message(chatMessage("t3", kind: .task, task: "digest", at: 4)), host: .local)
+        #expect(model.timeline.messages.map(\.id) == ["t1", "t3"])
+        #expect(model.timeline.knownTasks == ["digest"])
+    }
+
+    @Test func resyncReloadsTheNewestPageAndMergesById() async {
+        await client.enqueuePage([chatMessage("b", at: 2)], hasMore: true)
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        await client.enqueuePage([chatMessage("c", at: 3), chatMessage("b", text: "edited", at: 2)], hasMore: true)
+        let model = make()
+        await model.show(Self.alpha)
+        await model.loadOlder()
+        await model.resync(host: .local)
+        #expect(model.timeline.messages.map(\.id) == ["a", "b", "c"])
+        #expect(model.timeline.messages[1].text == "edited")
+        await model.resync(host: .remote("far"))
+        #expect(await client.pageRequests.count == 3)
+    }
+
+    @Test func aFailedLoadSaysWhy() async {
+        await client.enqueuePageFailure("daemon is down")
+        let model = make()
+        await model.show(Self.alpha)
+        #expect(model.loadError == "daemon is down")
+        #expect(!model.isLoading)
+    }
+
+    // MARK: Machines
+
+    @Test func anAgentOnABoundRemoteMachineLoadsFromThatMachinesClient() async {
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        #expect(model.timeline.messages.map(\.id) == ["r1"])
+        #expect(model.loadError == nil)
+        #expect(await boxClient.pageRequests.count == 1)
+        #expect(await client.pageRequests.isEmpty)
+    }
+
+    @Test func switchingAgentsAcrossMachinesUsesEachMachinesClient() async {
+        await client.enqueuePage([chatMessage("l1", at: 1)])
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        let model = makeWithBox()
+        await model.setOnScreen(true)
+        await model.show(Self.alpha)
+        await model.show(Self.boxAlpha)
+        model.setText("hi")
+        await model.send()
+        #expect(await client.reads.map(\.id) == ["l1"])
+        #expect(await boxClient.reads.map(\.id) == ["r1"])
+        #expect(await client.sent.isEmpty)
+        #expect(await boxClient.sent.map(\.draft.text) == ["hi"])
+        #expect(await client.pageRequests.count == 1)
+        #expect(await boxClient.pageRequests.count == 1)
+    }
+
+    @Test func anAgentOnAnUnboundMachineShowsNotConnected() async {
+        let model = make()
+        await model.show(Self.boxAlpha)
+        #expect(model.loadError == "box isn't connected.")
+        #expect(await boxClient.pageRequests.isEmpty)
+        #expect(await client.pageRequests.isEmpty)
+    }
+
+    @Test func unbindingTheShownAgentsMachineShowsNotConnectedAndDropsItsInFlightPage() async {
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        await boxClient.enqueuePage([chatMessage("r2", at: 2)])
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        await boxClient.holdPages()
+        let reload = Task { await model.resync(host: Self.box) }
+        await boxClient.waitForPageRequests(2)
+
+        model.unbind(Self.box)
+        #expect(model.timeline.messages.isEmpty)
+        #expect(!model.isLoading)
+        #expect(model.loadError == "box isn't connected.")
+
+        await boxClient.releasePage()
+        await reload.value
+        #expect(model.timeline.messages.isEmpty, "the page from the gone connection landed")
+        #expect(model.loadError == "box isn't connected.")
+        #expect(!model.isLoading)
+    }
+
+    @Test func unbindingAnotherMachineLeavesTheShownThreadAlone() async {
+        await client.enqueuePage([chatMessage("l1", at: 1)])
+        let model = makeWithBox()
+        await model.show(Self.alpha)
+        model.unbind(Self.box)
+        #expect(model.timeline.messages.map(\.id) == ["l1"])
+        #expect(model.loadError == nil)
+    }
+
+    @Test func aResyncAfterBindingReloadsTheShownThread() async {
+        await boxClient.enqueuePage([chatMessage("r1", at: 1)])
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        model.unbind(Self.box)
+        model.bind(boxClient, host: Self.box)
+        await boxClient.enqueuePage([chatMessage("r2", at: 2), chatMessage("r1", at: 1)])
+        await model.resync(host: Self.box)
+        #expect(model.timeline.messages.map(\.id) == ["r1", "r2"])
+        #expect(model.loadError == nil)
+    }
+
+    @Test func aLiveEventFromTheShownAgentsRemoteMachineMerges() async {
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        await model.receive(.message(chatMessage("x", at: 5)), host: Self.box)
+        await model.receive(.message(chatMessage("y", at: 6)), host: .local)
+        #expect(model.timeline.messages.map(\.id) == ["x"])
+    }
+
+    @Test func anEventFromAnUnboundMachineIsIgnored() async {
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        model.unbind(Self.box)
+        await model.receive(.message(chatMessage("x", at: 5)), host: Self.box)
+        await model.resync(host: Self.box)
+        #expect(model.timeline.messages.isEmpty)
+        #expect(await boxClient.pageRequests.count == 1)
+    }
+
+    @Test func anAttachmentDownloadsFromTheShownAgentsMachine() async {
+        await boxClient.setDownload("f1", .success(Data("r".utf8)))
+        let model = makeWithBox()
+        await model.show(Self.boxAlpha)
+        await model.loadAttachment(LeoChatAttachment(id: "f1", filename: "a.txt", mime: "text/plain", bytes: 1))
+        #expect(await boxClient.downloadCount == 1)
+        #expect(await client.downloadCount == 0)
+        guard case .loaded = model.attachmentFiles["f1"] else {
+            Issue.record("expected a loaded file")
+            return
+        }
+    }
+
+    @Test func anAttachmentDownloadsFromTheMachineItIsRequestedFor() async {
+        await boxClient.setDownload("f1", .success(Data("r".utf8)))
+        let model = makeWithBox()
+        await model.show(Self.alpha)
+        let url = await model.downloadedFile(LeoChatAttachment(id: "f1", filename: "a.txt", mime: "text/plain", bytes: 1), from: Self.box)
+        #expect(url?.lastPathComponent == "a.txt")
+        #expect(await boxClient.downloadCount == 1)
+        #expect(await client.downloadCount == 0)
+    }
+
+    // MARK: Read marks
+
+    @Test func marksReadOnlyWhileOnScreenAndUnfiltered() async {
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make()
+        await model.show(Self.alpha)
+        #expect(await client.reads.isEmpty)
+        await model.setOnScreen(true)
+        #expect(await client.reads.map(\.id) == ["a"])
+        await model.receive(.message(chatMessage("b", at: 2)), host: .local)
+        #expect(await client.reads.map(\.id) == ["a", "b"])
+        await model.receive(.updated(chatMessage("b", text: "x", at: 2)), host: .local)
+        #expect(await client.reads.count == 2)
+        await model.setOnScreen(false)
+        await model.receive(.message(chatMessage("c", at: 3)), host: .local)
+        #expect(await client.reads.count == 2)
+    }
+
+    @Test func aSuccessfulReadReportsTheAgent() async {
+        var read: [LeoAgentID] = []
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make { read.append($0) }
+        await model.show(Self.alpha)
+        await model.setOnScreen(true)
+        #expect(read == [Self.alpha])
+    }
+
+    @Test func aFailedReadReportsNothing() async {
+        var read: [LeoAgentID] = []
+        await client.failReads("offline")
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make { read.append($0) }
+        await model.show(Self.alpha)
+        await model.setOnScreen(true)
+        #expect(await client.reads.count == 1)
+        #expect(read.isEmpty)
+    }
+
+    @Test func aFilteredThreadNeitherReadsNorReports() async {
+        var read: [LeoAgentID] = []
+        await client.enqueuePage([chatMessage("a", task: "t", at: 1)])
+        let model = make { read.append($0) }
+        await model.show(Self.alpha)
+        await model.setTaskFilter("t")
+        await model.setOnScreen(true)
+        #expect(await client.reads.isEmpty)
+        #expect(read.isEmpty)
+    }
+
+    @Test func marksReadIsTrueOnlyOnScreenForTheShownAgentWithNoFilter() async {
+        await client.enqueuePage([chatMessage("a", at: 1)])
+        let model = make()
+        await model.show(Self.alpha)
+        #expect(!model.marksRead(Self.alpha))
+        await model.setOnScreen(true)
+        #expect(model.marksRead(Self.alpha))
+        #expect(!model.marksRead(Self.beta))
+        await model.setTaskFilter("t")
+        #expect(!model.marksRead(Self.alpha))
+        await model.setTaskFilter(nil)
+        await model.setOnScreen(false)
+        #expect(!model.marksRead(Self.alpha))
+    }
+
+    // MARK: Answers
+
+    private static func choices(_ values: String...) -> [LeoChatOption] {
+        values.map { LeoChatOption(value: $0, label: $0.uppercased()) }
+    }
+
+    /// An open ask for `input`, shown in alpha's thread.
+    private func showAsk(_ input: LeoChatInput, id: String = "q") async -> LeoChatPaneModel {
+        await client.enqueuePage([chatMessage(id, kind: .ask, state: "open", at: 1, input: input)])
+        let model = make()
+        await model.show(Self.alpha)
+        return model
+    }
+
+    @Test func answeringMergesTheDaemonsCopyOrMarksItLocally() async throws {
+        let ask = chatMessage("q", kind: .ask, state: "open", at: 1, input: try LeoChatInput(kind: .buttons, options: [LeoChatOption(value: "y", label: "Yes")]))
+        await client.enqueuePage([ask, chatMessage("p", kind: .permission, state: "open", at: 0)])
+        await client.setAnswerResult(.success(chatMessage("q", kind: .ask, state: "answered", at: 1)))
+        let model = make()
+        await model.show(Self.alpha)
+        await model.choose(messageID: "q", value: "y")
+        await client.setAnswerResult(.success(nil))
+        await model.choose(messageID: "p", value: "allow")
+        #expect(model.timeline.messages.map(\.state) == ["answered", "answered"])
+        #expect(model.timeline.messages.first?.answer == .choice("allow"))
+        #expect(model.answering.isEmpty)
+        #expect(await client.answers.map(\.answer) == [.choice("y"), .choice("allow")])
+    }
+
+    @Test func aButtonsTapSendsItsValueAtOnce() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .buttons, options: Self.choices("a", "b")))
+        await model.choose(messageID: "q", value: "b")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["b"])])
+        #expect(model.askDrafts.isEmpty)
+    }
+
+    @Test func checkboxTogglesWaitForSubmitWhichSendsInOptionOrder() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .checkboxes, options: Self.choices("a", "b", "c")))
+        await model.choose(messageID: "q", value: "c")
+        await model.choose(messageID: "q", value: "b")
+        await model.choose(messageID: "q", value: "a")
+        await model.choose(messageID: "q", value: "b")
+        #expect(await client.answers.isEmpty)
+        #expect(model.askDraft(for: "q").selected == ["a", "c"])
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["a", "c"])])
+    }
+
+    @Test func aRadioChoiceReplacesTheSelectionUntilSubmit() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .radio, options: Self.choices("a", "b")))
+        await model.choose(messageID: "q", value: "a")
+        await model.choose(messageID: "q", value: "b")
+        #expect(await client.answers.isEmpty)
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: ["b"])])
+    }
+
+    @Test func aClearedRadioChoiceSubmitsTextOnly() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .radio, options: Self.choices("a", "b"), allowsText: true))
+        await model.choose(messageID: "q", value: "a")
+        await model.choose(messageID: "q", value: "a")
+        model.setAskText(messageID: "q", "neither")
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(values: [], text: "neither")])
+    }
+
+    @Test func submitDoesNothingWhileTheDraftIsInvalid() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .checkboxes, options: Self.choices("a", "b", "c"), min: 2))
+        await model.choose(messageID: "q", value: "a")
+        #expect(model.askAnswer(for: "q") == nil)
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.isEmpty)
+        #expect(model.askDraft(for: "q").selected == ["a"])
+    }
+
+    @Test func textIsTrimmedOnSubmit() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .text))
+        model.setAskText(messageID: "q", "  ship it \n")
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.map(\.answer) == [LeoChatAnswer(text: "ship it")])
+    }
+
+    @Test func aSettledAnswerResyncsWithoutANotice() async throws {
+        let input = try LeoChatInput(kind: .radio, options: Self.choices("a", "b"))
+        let model = await showAsk(input)
+        await client.setAnswerResult(.failure(LeoChatAnswerError.settled))
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "answered", at: 1, input: input)])
+        await model.choose(messageID: "q", value: "a")
+        await model.submitAsk(messageID: "q")
+        #expect(model.notice == nil)
+        #expect(await client.pageRequests.count == 2)
+        #expect(model.timeline.messages.map(\.state) == ["answered"])
+        #expect(model.askDrafts.isEmpty)
+        #expect(model.answering.isEmpty)
+    }
+
+    /// The newest page no longer reaches a settled ask loaded further back:
+    /// the page just above it brings its settled copy, so it can't 409 again.
+    @Test func aSettledAskOlderThanTheNewestPageIsRefreshedItself() async throws {
+        let input = try LeoChatInput(kind: .radio, options: Self.choices("a", "b"))
+        await client.enqueuePage([chatMessage("n", at: 2), chatMessage("q", kind: .ask, state: "open", at: 1, input: input)])
+        let model = make()
+        await model.show(Self.alpha)
+        await client.setAnswerResult(.failure(LeoChatAnswerError.settled))
+        await client.enqueuePage([chatMessage("n", at: 2)])
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "expired", at: 1, input: input)])
+        await model.choose(messageID: "q", value: "a")
+        await model.submitAsk(messageID: "q")
+        #expect(model.timeline.message(id: "q")?.state == "expired")
+        #expect(await client.pageRequests.last?.query == LeoChatPageQuery(before: "n", limit: 1))
+        await model.submitAsk(messageID: "q")
+        #expect(await client.answers.count == 1)
+        #expect(model.notice == nil)
+    }
+
+    @Test func anInvalidAnswerSaysWhyAndKeepsTheDraft() async throws {
+        let model = await showAsk(try LeoChatInput(kind: .radio, options: Self.choices("a", "b")))
+        await client.setAnswerResult(.failure(LeoChatAnswerError.invalid("answer does not fit")))
+        await model.choose(messageID: "q", value: "a")
+        await model.submitAsk(messageID: "q")
+        #expect(model.notice == "Couldn't answer: answer does not fit")
+        #expect(model.askDraft(for: "q").selected == ["a"])
+        #expect(model.timeline.messages.first?.isOpen == true)
+    }
+
+    @Test func anAnsweredUpdateClearsTheDraft() async throws {
+        let input = try LeoChatInput(kind: .radio, options: Self.choices("a", "b"))
+        let model = await showAsk(input)
+        await model.choose(messageID: "q", value: "a")
+        await model.receive(.updated(chatMessage("q", kind: .ask, state: "answered", at: 1, input: input)), host: .local)
+        #expect(model.askDrafts.isEmpty)
+    }
+
+    @Test func aFailedAnswerKeepsThePromptOpenAndSaysWhy() async {
+        await client.enqueuePage([chatMessage("q", kind: .ask, state: "open", at: 1, input: .permission)])
+        await client.setAnswerResult(.failure(FakeChatClient.Failure(message: "offline")))
+        let model = make()
+        await model.show(Self.alpha)
+        await model.choose(messageID: "q", value: "allow")
+        #expect(model.timeline.messages.first?.isOpen == true)
+        #expect(model.notice == "Couldn't answer: offline")
+    }
+
+    // MARK: Questions card
+
+    private static let questions = [
+        LeoChatQuestion(id: "q1", header: "Library", question: "Which library?", options: choices("swift", "go")),
+        LeoChatQuestion(id: "q2", header: "Scope", question: "What scope?", multi: true, options: choices("a", "b")),
+    ]
+
+    private func questionsCard(state: String, answer: LeoChatAnswer? = nil, closedReason: String? = nil) throws -> LeoChatMessage {
+        LeoChatMessage(
+            id: "01", agent: "alpha", direction: .outbound, kind: .ask, text: "Questions", state: state, answer: answer,
+            ts: Date(timeIntervalSince1970: 1), input: try LeoChatInput(questions: Self.questions), closedReason: closedReason
+        )
+    }
+
+    private func showQuestions() async throws -> LeoChatPaneModel {
+        await client.enqueuePage([try questionsCard(state: "open")])
+        let model = make()
+        await model.show(Self.alpha)
+        return model
+    }
+
+    private func fill(_ model: LeoChatPaneModel) {
+        model.chooseQuestion(messageID: "01", questionID: "q1", value: "swift")
+        model.chooseQuestion(messageID: "01", questionID: "q2", value: "b")
+        model.setQuestionText(messageID: "01", questionID: "q2", "docs too")
+    }
+
+    @Test func submittingQuestionsPostsTheDraftAndMergesTheAnsweredCard() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        let echo = LeoChatAnswer(answers: model.questionsDraft(for: "01")?.answersPayload)
+        await client.setQuestionsResult(.success(try questionsCard(state: "answered", answer: echo)))
+        await model.submitQuestions(messageID: "01")
+        let posted = await client.questionAnswers
+        #expect(posted.map(\.id) == ["01"])
+        #expect(posted.first?.answers == ["q1": .choice("swift"), "q2": LeoChatAnswer(values: ["b"], text: "docs too")])
+        #expect(model.timeline.message(id: "01")?.questionsCard == .answered(["Library: SWIFT", "Scope: B, \"docs too\""]))
+        #expect(model.questionsDrafts.isEmpty)
+        #expect(model.questionsErrors.isEmpty)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func submitDoesNothingWhileTheDraftIsIncomplete() async throws {
+        let model = try await showQuestions()
+        model.chooseQuestion(messageID: "01", questionID: "q1", value: "go")
+        await model.submitQuestions(messageID: "01")
+        #expect(await client.questionAnswers.isEmpty)
+        #expect(model.questionsDraft(for: "01")?.values(for: "q1") == ["go"])
+    }
+
+    @Test func aSettledQuestionsCardRefetchesWithoutANotice() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await client.setQuestionsResult(.failure(LeoChatAnswerError.settled))
+        await client.enqueuePage([try questionsCard(state: "expired", closedReason: "timeout")])
+        await model.submitQuestions(messageID: "01")
+        #expect(model.notice == nil)
+        #expect(model.questionsErrors.isEmpty)
+        #expect(model.questionsDrafts.isEmpty)
+        #expect(await client.pageRequests.count == 2)
+        #expect(model.timeline.message(id: "01")?.questionsCard == .timedOut)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aRefusedQuestionsAnswerShowsInlineAndKeepsTheDraft() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await client.setQuestionsResult(.failure(LeoChatAnswerError.invalid("answer does not fit")))
+        await model.submitQuestions(messageID: "01")
+        #expect(model.questionsErrors["01"] != nil)
+        #expect(model.notice == nil)
+        #expect(model.answering.isEmpty)
+        #expect(model.questionsDraft(for: "01")?.isComplete == true)
+        #expect(model.timeline.message(id: "01")?.isOpen == true)
+        model.chooseQuestion(messageID: "01", questionID: "q1", value: "go")
+        #expect(model.questionsErrors["01"] == nil)
+    }
+
+    @Test func dismissPostsDismissAndMergesTheExpiredCard() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await client.setDismissResult(.success(try questionsCard(state: "expired", closedReason: "dismissed")))
+        await model.dismissQuestions(messageID: "01")
+        #expect(await client.dismissals.map(\.id) == ["01"])
+        #expect(model.timeline.message(id: "01")?.questionsCard == .inTerminal)
+        #expect(model.questionsDrafts.isEmpty)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aDismissWithoutAReturnedCardRefetchesTheSettledOne() async throws {
+        let model = try await showQuestions()
+        await client.enqueuePage([try questionsCard(state: "expired", closedReason: "dismissed")])
+        await model.dismissQuestions(messageID: "01")
+        #expect(await client.pageRequests.count == 2)
+        #expect(model.timeline.message(id: "01")?.questionsCard == .inTerminal)
+        #expect(model.notice == nil)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aSettledPushArrivingDuringADismissStays() async throws {
+        let model = try await showQuestions()
+        await client.holdDismissals()
+        let dismissal = Task { await model.dismissQuestions(messageID: "01") }
+        await client.waitForDismissals(1)
+        await model.receive(.updated(try questionsCard(state: "expired", closedReason: "timeout")), host: .local)
+        await client.releaseDismissals()
+        await dismissal.value
+        #expect(model.timeline.message(id: "01")?.questionsCard == .timedOut)
+        #expect(model.answering.isEmpty)
+    }
+
+    @Test func aFailedDismissShowsInlineAndKeepsTheCardOpen() async throws {
+        let model = try await showQuestions()
+        await client.setDismissResult(.failure(FakeChatClient.Failure(message: "offline")))
+        await model.dismissQuestions(messageID: "01")
+        #expect(model.questionsErrors["01"]?.contains("offline") == true)
+        #expect(model.timeline.message(id: "01")?.isOpen == true)
+    }
+
+    @Test func aSettledUpdateDropsTheQuestionsDraft() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await model.receive(.updated(try questionsCard(state: "expired", closedReason: "timeout")), host: .local)
+        #expect(model.questionsDrafts.isEmpty)
+    }
+
+    @Test func aQuestionsDraftSurvivesSwitchingThreadsAndBack() async throws {
+        let model = try await showQuestions()
+        fill(model)
+        await model.show(Self.beta)
+        await client.enqueuePage([try questionsCard(state: "open")])
+        await model.show(Self.alpha)
+        let draft = try #require(model.questionsDraft(for: "01"))
+        #expect(draft.values(for: "q1") == ["swift"])
+        #expect(draft.text(for: "q2") == "docs too")
+        #expect(draft.isComplete)
+    }
+
+    // MARK: Composer
+
+    @Test func sendUploadsFilesThenSendsAndClearsOnlyWhatWasSent() async throws {
+        await client.holdSends()
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("  hello  ")
+        try model.addFiles([try file("notes.txt")], to: Self.alpha)
+        let sending = Task { await model.send() }
+        while await client.sent.isEmpty { await Task.yield() }
+        model.setText("hello and more")
+        try model.addFiles([try file("later.txt")], to: Self.alpha)
+        await client.releaseSend()
+        await sending.value
+        let sent = try #require(await client.sent.first)
+        #expect(sent.draft == LeoChatDraft(text: "hello", attachmentIDs: ["att-1"]))
+        #expect(await client.uploads.map(\.filename) == ["notes.txt"])
+        #expect(model.draft(for: Self.alpha).text == "hello and more")
+        #expect(model.draft(for: Self.alpha).files.map(\.filename) == ["later.txt"])
+        #expect(model.timeline.messages.map(\.id) == ["sent-1"])
+        #expect(!model.isSending(Self.alpha))
+    }
+
+    @Test func aFailedSendKeepsTheDraftAndSaysWhy() async throws {
+        await client.failUploads("too big")
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("hello")
+        try model.addFiles([try file("a.txt")], to: Self.alpha)
+        await model.send()
+        #expect(model.draft(for: Self.alpha).text == "hello")
+        #expect(model.draft(for: Self.alpha).files.count == 1)
+        #expect(model.notice == "Couldn't send: too big")
+        #expect(await client.sent.isEmpty)
+    }
+
+    @Test func aSecondSendWhileOneIsInFlightIsIgnored() async {
+        await client.holdSends()
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("one")
+        let first = Task { await model.send() }
+        while await client.sent.isEmpty { await Task.yield() }
+        #expect(!model.canSend)
+        await model.send()
+        await client.releaseSend()
+        await first.value
+        #expect(await client.sent.count == 1)
+    }
+
+    @Test func blankDraftsDontSend() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText(" \n ")
+        #expect(!model.canSend)
+        await model.send()
+        #expect(await client.sent.isEmpty)
+    }
+
+    @Test func replyingToATaskCardRidesOnTheSendThenClears() async {
+        await client.enqueuePage([chatMessage("t", kind: .task, task: "digest", at: 1)])
+        let model = make()
+        await model.show(Self.alpha)
+        model.setReply(to: "t")
+        model.setText("why?")
+        await model.send()
+        #expect(await client.sent.first?.draft.replyTo == "t")
+        #expect(model.draft(for: Self.alpha).replyTo == nil)
+    }
+
+    @Test func draftsAreKeptPerAgent() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("for alpha")
+        await model.show(Self.beta)
+        #expect(model.draft(for: Self.beta).text == "")
+        await model.show(Self.alpha)
+        #expect(model.draft(for: Self.alpha).text == "for alpha")
+    }
+
+    @Test func directoriesAndOversizedFilesAreRefused() async throws {
+        let model = make(maximumUploadBytes: 8)
+        await model.show(Self.alpha)
+        try FileManager.default.createDirectory(at: directory.appending(path: "folder"), withIntermediateDirectories: true)
+        #expect(throws: LeoChatFileError.self) { try model.addFiles([directory.appending(path: "folder")], to: Self.alpha) }
+        #expect(throws: LeoChatFileError.self) { try model.addFiles([try file("big.bin", bytes: 9)], to: Self.alpha) }
+        try model.addFiles([try file("small.bin", bytes: 8)], to: Self.alpha)
+        #expect(model.draft(for: Self.alpha).files.map(\.filename) == ["small.bin"])
+    }
+
+    // MARK: Voice notes
+
+    @Test func aFinishedVoiceNoteJoinsTheDraftAndSends() async throws {
+        let model = make()
+        await model.show(Self.alpha)
+        await model.toggleRecording()
+        let started = try #require(recorder.started.first)
+        #expect(started.limit == LeoChatPaneModel.maximumRecording)
+        #expect(model.isRecording)
+        await model.toggleRecording()
+        #expect(!model.isRecording)
+        let upload = try #require(await client.uploads.first)
+        #expect(upload.mime == "audio/mp4")
+        #expect(upload.filename.hasSuffix(".m4a"))
+        #expect(await client.sent.count == 1)
+    }
+
+    @Test func aVoiceNoteReachingTheCapFinishesOnItsOwn() async throws {
+        let model = make()
+        await model.show(Self.alpha)
+        await model.toggleRecording()
+        recorder.reachLimit()
+        while model.isRecording { await Task.yield() }
+        #expect(recorder.stopCount == 1)
+    }
+
+    @Test func aTapIsNotARecording() async {
+        recorder.duration = 0.2
+        let model = make()
+        await model.show(Self.alpha)
+        await model.toggleRecording()
+        await model.toggleRecording()
+        #expect(model.draft(for: Self.alpha).files.isEmpty)
+        #expect(await client.uploads.isEmpty)
+    }
+
+    @Test func deniedMicrophoneSaysSo() async {
+        recorder.isPermitted = false
+        let model = make()
+        await model.show(Self.alpha)
+        await model.toggleRecording()
+        #expect(!model.isRecording)
+        #expect(model.notice == LeoChatPaneModel.microphoneDeniedMessage)
+    }
+
+    @Test func cancellingDiscardsTheRecording() async {
+        let model = make()
+        await model.show(Self.alpha)
+        await model.toggleRecording()
+        model.cancelRecording()
+        #expect(!model.isRecording)
+        #expect(recorder.cancelCount == 1)
+        #expect(model.draft(for: Self.alpha).files.isEmpty)
+    }
+
+    // MARK: Attachments
+
+    @Test func attachmentsDownloadOnceToASanitizedFile() async throws {
+        await client.setDownload("f1", .success(Data("pdf".utf8)))
+        let model = make()
+        await model.show(Self.alpha)
+        let attachment = LeoChatAttachment(id: "f1", filename: "../../etc/passwd", mime: "application/pdf", bytes: 3)
+        await model.loadAttachment(attachment)
+        await model.loadAttachment(attachment)
+        guard case .loaded(let url) = model.attachmentFiles["f1"] else {
+            Issue.record("expected a loaded file")
+            return
+        }
+        #expect(url.lastPathComponent == "passwd")
+        #expect(url.path.hasPrefix(directory.path))
+        #expect(try Data(contentsOf: url) == Data("pdf".utf8))
+        #expect(await client.downloadCount == 1)
+    }
+
+    @Test func aHostileIdAndADotOnlyNameStillLandInsideTheFolder() async throws {
+        await client.setDownload("../../victim", .success(Data("x".utf8)))
+        let model = make()
+        await model.show(Self.alpha)
+        await model.loadAttachment(LeoChatAttachment(id: "../../victim", filename: "..", mime: "text/plain", bytes: 1))
+        guard case .loaded(let url) = model.attachmentFiles["../../victim"] else {
+            Issue.record("expected a loaded file")
+            return
+        }
+        #expect(url.standardizedFileURL.path.hasPrefix(directory.standardizedFileURL.path + "/"))
+        #expect(url.lastPathComponent == "victim")
+    }
+
+    @Test func filesDroppedForOneAgentStayWithItAfterTheSelectionMoves() async throws {
+        let model = make()
+        await model.show(Self.alpha)
+        let dropped = try file("dropped.txt")
+        await model.show(Self.beta)
+        model.attach([dropped], to: Self.alpha)
+        #expect(model.draft(for: Self.alpha).files.map(\.filename) == ["dropped.txt"])
+        #expect(model.draft(for: Self.beta).files.isEmpty)
+    }
+
+    @Test func aFailedDownloadCanBeRetried() async {
+        await client.setDownload("f1", .failure(.init(message: "gone")))
+        let model = make()
+        await model.show(Self.alpha)
+        let attachment = LeoChatAttachment(id: "f1", filename: "a.png", mime: "image/png", bytes: 3)
+        await model.loadAttachment(attachment)
+        #expect(model.attachmentFiles["f1"] == .failed("gone"))
+        await model.loadAttachment(attachment)
+        #expect(await client.downloadCount == 2)
+    }
+}
+
+@MainActor @Suite(.timeLimit(.minutes(1)))
+struct LeoChatAttachmentClickTests {
+    private let client = FakeChatClient()
+    private let directory = FileManager.default.temporaryDirectory.appending(path: "leo-chat-click-\(UUID().uuidString)")
+    private let attachment = LeoChatAttachment(id: "f1", filename: "notes.md", mime: "text/markdown", bytes: 3)
+    private static let alpha = LeoAgentID(host: .local, name: "alpha")
+
+    private func make() -> LeoChatPaneModel {
+        LeoChatPaneModel(
+            clients: [.local: client], recorder: FakeVoiceRecorder(), attachmentDirectory: directory,
+            maximumUploadBytes: LeoChatUpload.maximumBytes, onRead: { _ in }
+        )
+    }
+
+    @Test func aSecondRequestDuringADownloadWaitsForIt() async {
+        await client.setDownload("f1", .success(Data("# hi".utf8)))
+        await client.holdDownloads()
+        let model = make()
+        await model.show(Self.alpha)
+        let first = Task { await model.downloadedFile(attachment) }
+        await client.waitForDownloads(1)
+        let second = Task { await model.downloadedFile(attachment) }
+        await Task.yield()
+        await client.releaseDownloads()
+        let urls = await [first.value, second.value]
+        #expect(urls[0] != nil)
+        #expect(urls[0] == urls[1])
+        #expect(await client.downloadCount == 1)
+    }
+
+    @Test func clickingTwiceWhileDownloadingOpensOnceWithTheSecondRequest() async {
+        await client.setDownload("f1", .success(Data("# hi".utf8)))
+        await client.holdDownloads()
+        let model = make()
+        await model.show(Self.alpha)
+        var externalOpens = 0
+        let viewer = LeoChatViewerModel(openExternally: { _ in externalOpens += 1 })
+        let attachment = attachment
+        let first = Task { await viewer.open(attachment, for: Self.alpha, download: { await model.downloadedFile(attachment) }) }
+        await client.waitForDownloads(1)
+        let second = Task { await viewer.open(attachment, for: Self.alpha, download: { await model.downloadedFile(attachment) }) }
+        await Task.yield()
+        await client.releaseDownloads()
+        await first.value
+        await second.value
+        #expect(viewer.document(for: Self.alpha)?.attachmentID == "f1")
+        #expect(externalOpens == 0)
+    }
+}
+
+@Suite struct LeoChatPresentationTests {
+    @Test func attachmentNamesStayInsideTheirFolder() {
+        #expect(LeoChatPresentation.safeFilename("../../etc/passwd", fallback: "f") == "passwd")
+        #expect(LeoChatPresentation.safeFilename(".hidden", fallback: "f") == "hidden")
+        #expect(LeoChatPresentation.safeFilename("", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename("..", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename(" .. ", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename(" . /. ", fallback: "f1") == "f1")
+        #expect(LeoChatPresentation.safeFilename("..", fallback: "../../victim") == "victim")
+        #expect(LeoChatPresentation.safeFilename("..", fallback: "..") == "file")
+    }
+
+    @Test func onlyPathsInsideTheFolderAreAccepted() {
+        let folder = URL(filePath: "/tmp/leo-chat")
+        #expect(LeoChatPresentation.contained(folder.appending(path: "a/b.txt"), in: folder) != nil)
+        #expect(LeoChatPresentation.contained(folder.appending(path: "../x"), in: folder) == nil)
+        #expect(LeoChatPresentation.contained(URL(filePath: "/tmp/leo-chat-other/x"), in: folder) == nil)
+        #expect(LeoChatPresentation.contained(folder, in: folder) == nil)
+    }
+}

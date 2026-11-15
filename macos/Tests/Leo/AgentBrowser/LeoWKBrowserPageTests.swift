@@ -1,0 +1,419 @@
+import AppKit
+import ImageIO
+import Testing
+import WebKit
+
+@testable import Ghostty
+@testable import LeoKit
+
+/// C3: the WebKit page adapter in a real `WKWebView`, over in-memory
+/// fixtures. The view sits in an off-screen window, as a parked tab does.
+@MainActor
+@Suite(.serialized)
+struct LeoWKBrowserPageTests {
+    private static let form = """
+    <title>Form</title>
+    <h1>Sign in</h1>
+    <form action="done">
+      <label>Email <input id="email" value="ann@example.com"></label>
+      <input type="checkbox" aria-label="Remember me" checked>
+      <button>Go</button>
+    </form>
+    <a href="/next">Next page</a>
+    <div style="display:none"><button>Hidden</button></div>
+    """
+
+    private static let pages = [
+        "form": form,
+        "other": "<title>Other</title><p>Elsewhere</p>",
+        "long": (0..<3_000).map { "<p>Paragraph \($0) with some filler text in it</p>" }.joined(),
+        "tall": #"<body style="margin:0"><div style="height:3000px;background:#3366cc"></div></body>"#,
+        "console": """
+        <script>
+        console.log('hello', {a: 1});
+        console.error('bad');
+        Promise.reject(new Error('nope'));
+        </script>
+        """,
+        "csp": #"<meta http-equiv="Content-Security-Policy" content="script-src 'self'"><title>Locked</title>"#,
+        // What Kasada's bot check (hyatt.com) logs to spot an open console:
+        // an Error with a `stack` getter and a null-prototype object with a
+        // getter. Reading either from the hook counts as the console being
+        // inspected. (WebKit's own console calls `toString`, so that is not
+        // trapped here.)
+        "trap": """
+        <script>
+        window.reads = 0;
+        const err = new Error('trap');
+        Object.defineProperty(err, 'stack', { get() { window.reads++; return 'stack'; } });
+        const bare = Object.create(null);
+        Object.defineProperty(bare, 'id', { enumerable: true, get() { window.reads++; return 1; } });
+        console.log(err);
+        console.debug(bare);
+        console.log('plain', {ok: [1, 'two', null]});
+        </script>
+        """,
+        "types": """
+        <script>
+        console.log(undefined, NaN, null, 7, true, function () {});
+        console.error(new TypeError('nope'));
+        </script>
+        """,
+        "later": "<script>setTimeout(() => document.body.append('Ready now'), 50)</script>",
+    ]
+
+    @available(macOS 14, *)
+    @Test func navigateReturnsTheFinalURLAndTitle() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        let location = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+
+        #expect(location == .init(url: LeoWKFixtureServer.url("form"), title: "Form"))
+        #expect(await page.failureCode { try await $0.navigate(to: URL(string: "file:///etc/hosts")!) } == "scheme_not_allowed")
+    }
+
+    @available(macOS 14, *)
+    @Test func snapshotListsRolesNamesValuesAndRefs() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+
+        let snapshot = try await page.snapshot()
+
+        #expect(snapshot.contains(#"- heading "Sign in" [level=1]"#))
+        #expect(snapshot.contains(#"textbox "Email" [ref=s"#))
+        #expect(snapshot.contains(#": "ann@example.com""#))
+        #expect(snapshot.contains(#"checkbox "Remember me" [ref=s"#))
+        #expect(snapshot.contains("[checked]"))
+        #expect(leoSnapshotRef(snapshot, #"button "Go""#) != nil)
+        #expect(leoSnapshotRef(snapshot, #"link "Next page""#) != nil)
+        #expect(!snapshot.contains("Hidden"))
+    }
+
+    @available(macOS 14, *)
+    @Test func snapshotLeavesThePageDOMUntouched() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        let before = try await page.eval("return document.documentElement.outerHTML")
+
+        _ = try await page.snapshot()
+
+        #expect(try await page.eval("return document.documentElement.outerHTML") == before)
+    }
+
+    @available(macOS 14, *)
+    @Test func snapshotTruncatesAtTheLimitWithANote() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("long"))
+
+        let snapshot = try await page.snapshot()
+
+        let note = try #require(snapshot.range(of: "\n[snapshot truncated at 50000 characters"))
+        #expect(snapshot[..<note.lowerBound].count <= 50_000)
+        #expect(snapshot[..<note.lowerBound].count > 49_000)
+    }
+
+    @available(macOS 14, *)
+    @Test func refGoesStaleAfterAnotherSnapshotOrANavigation() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        let first = try #require(leoSnapshotRef(try await page.snapshot(), #"button "Go""#))
+        _ = try await page.locate(ref: first)
+
+        let second = try #require(leoSnapshotRef(try await page.snapshot(), #"button "Go""#))
+
+        #expect(await page.failureCode { try await $0.locate(ref: first) } == "stale_ref")
+        _ = try await page.locate(ref: second)
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("other"))
+        #expect(await page.failureCode { try await $0.locate(ref: second) } == "stale_ref")
+    }
+
+    @available(macOS 14, *)
+    @Test func evalReturnsTheResultAsJSON() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+
+        #expect(try await page.eval("return {title: document.title, n: 2}") == #"{"title":"Form","n":2}"#)
+    }
+
+    @available(macOS 14, *)
+    @Test func evalReturnsABareExpression() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+
+        #expect(try await page.eval("1+1") == "2")
+        #expect(try await page.eval("document.title") == #""Form""#)
+        #expect(try await page.eval("{a: 1}") == #"{"a":1}"#)
+        #expect(try await page.eval("Promise.resolve(3)") == "3")
+        #expect(try await page.eval("const x = 4; x * 2") == "null")  // statements still need `return`
+        #expect(try await page.eval("const x = 4; return x * 2") == "8")
+    }
+
+    /// A page whose CSP forbids string-eval (no `'unsafe-eval'`, as on GitHub)
+    /// can't compile the expression probe, but still evaluates expressions.
+    @available(macOS 14, *)
+    @Test func evalReturnsABareExpressionOnAPageThatForbidsStringEval() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("csp"))
+
+        #expect(try await page.eval("1+1") == "2")
+        #expect(try await page.eval("document.title") == #""Locked""#)
+        #expect(try await page.eval("const x = 4; return x * 2") == "8")
+        #expect(await page.failureCode { try await $0.eval("throw new Error('boom')") } == "js_error")
+        #expect(await page.failureCode { try await $0.eval("JSON.parse('{')") } == "js_error")
+    }
+
+    @available(macOS 14, *)
+    @Test func evalOfAnExpressionThatThrowsRunsOnce() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        _ = try await page.eval("window.runs = 0")
+
+        #expect(await page.failureCode { try await $0.eval("(window.runs++, JSON.parse('{'))") } == "js_error")
+        #expect(try await page.eval("return window.runs") == "1")
+    }
+
+    @available(macOS 14, *)
+    @Test func evalOfAThrownErrorIsAJSError() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+
+        #expect(await page.failureCode { try await $0.eval("throw new Error('boom')") } == "js_error")
+    }
+
+    @available(macOS 14, *)
+    @Test func consoleCapturesLogsErrorsAndUnhandledRejections() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("console"))
+        var entries: [LeoWKBrowserPage.ConsoleEntry] = []
+        for _ in 0..<50 where entries.count < 3 {
+            _ = try await page.eval("return 0")
+            entries += page.console()
+        }
+
+        #expect(entries.map(\.level) == ["log", "error", "error"])
+        #expect(entries.first?.text == #"hello {"a":1}"#)
+        #expect(entries.last?.text.contains("nope") == true)
+        #expect(page.console().isEmpty)
+        #expect(page.console(since: 0).count == 3)
+    }
+
+    /// The hook prints what the console would: bare primitives, and an
+    /// error under its own type name.
+    @available(macOS 14, *)
+    @Test func consoleKeepsErrorTypeNamesAndPrintsPrimitivesBare() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("types"))
+        var entries: [LeoWKBrowserPage.ConsoleEntry] = []
+        for _ in 0..<50 where entries.count < 2 {
+            _ = try await page.eval("return 0")
+            entries += page.console()
+        }
+
+        #expect(entries.first?.text == "undefined NaN null 7 true [function]")
+        #expect(entries.last?.text.hasPrefix("TypeError: nope") == true)
+    }
+
+    /// A bot check that logs objects with trapped getters (hyatt.com's
+    /// Kasada) must not see the hook read them: the page stayed blank.
+    @available(macOS 14, *)
+    @Test func consoleHookNeverRunsAPagesGetters() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("trap"))
+        var entries: [LeoWKBrowserPage.ConsoleEntry] = []
+        for _ in 0..<50 where entries.count < 3 {
+            _ = try await page.eval("return 0")
+            entries += page.console()
+        }
+
+        #expect(try await page.eval("return window.reads") == "0")
+        #expect(entries.count == 3)
+        #expect(entries.last?.text == #"plain {"ok":[1,"two",null]}"#)
+    }
+
+    /// A page can post to the console handler directly, past the hook's own
+    /// limits.
+    @available(macOS 14, *)
+    @Test func consoleCapsEachMessageAndTheBufferSize() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("other"))
+        let post = "const post = (level, text) => webkit.messageHandlers.leoConsole.postMessage({level, text});\n"
+
+        _ = try await page.eval(post + "post('log', 'x'.repeat(100000)); post('z'.repeat(100000), 'odd level')")
+        _ = try await page.eval("return 0")
+        let huge = page.console()
+
+        #expect(huge.count == 2)
+        #expect(huge.first.map { $0.text.utf8.count <= 8 * 1_024 + 64 && $0.text.contains("[truncated") } == true)
+        #expect(huge.last.map { $0.level == "log" && $0.text == "odd level" } == true)
+
+        _ = try await page.eval(post + "for (let i = 0; i < 200; i++) post('log', i + ':' + 'y'.repeat(8000)); post('log', 'last')")
+        _ = try await page.eval("return 0")
+        let buffered = page.console(since: 0)
+
+        #expect(buffered.reduce(0) { $0 + $1.level.utf8.count + $1.text.utf8.count } <= 1_024 * 1_024)
+        #expect(!buffered.contains { $0.text.hasPrefix("0:") })
+        #expect(buffered.contains { $0.text.hasPrefix("199:") })
+        #expect(buffered.last?.text == "last")
+    }
+
+    /// Allowed navigations never open another app through a universal
+    /// link, and `file:` is refused in every frame. (A stub
+    /// `WKNavigationAction` or `WKFrameInfo` crashes WebKit, so this asks
+    /// the policy the delegate answers with.)
+    @available(macOS 14, *)
+    @Test func navigationPolicySkipsAppLinksAndRefusesFileURLsInEveryFrame() {
+        let page = LeoWKBrowserPage.fixture([:])
+        let web = URL(string: "https://example.com/")!
+        let file = URL(string: "file:///etc/hosts")!
+        let allowWithoutAppLink = WKNavigationActionPolicy.allow.rawValue + 2
+
+        for isSubframe in [false, true] {
+            #expect(page.navigationPolicy(for: web, isSubframe: isSubframe).rawValue == allowWithoutAppLink, "subframe: \(isSubframe)")
+            #expect(page.navigationPolicy(for: file, isSubframe: isSubframe) == .cancel, "subframe: \(isSubframe)")
+        }
+    }
+
+    @available(macOS 14, *)
+    @Test func fullPageScreenshotIsTallerThanTheViewportAndAtMost1600PixelsWide() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        fixture.window.setContentSize(CGSize(width: 2_000, height: 600))
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("tall"))
+
+        let png = try await page.screenshot(fullPage: true)
+
+        let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        #expect(CGImageSourceGetType(source) as String? == "public.png")
+        #expect(image.width <= 1_600)
+        #expect(Double(image.height) / Double(image.width) > 600.0 / 2_000.0 * 4)
+    }
+
+    @available(macOS 14, *)
+    @Test func waitForTextReturnsOnceThePageShowsIt() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("later"))
+
+        try await page.wait(for: "Ready now", ms: 5_000)
+
+        #expect(await page.failureCode { try await $0.wait(for: "Never shown", ms: 200) } == "timeout")
+    }
+
+    // MARK: Cancellation (B-391)
+
+    /// An eval whose promise never settles must end as soon as its task is
+    /// cancelled (the daemon's tool timeout); the tab still answers.
+    @available(macOS 14, *)
+    @Test func cancellingAnEvalThatNeverSettlesEndsItAndTheTabStillAnswers() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        var outcome: Result<String, any Error>?
+        let hung = Task { outcome = await Self.outcome { try await page.eval("await new Promise(r => window.leoRelease = r)") } }
+        try await pollUntil(#""function""#, page: page, js: "typeof window.leoRelease")
+
+        hung.cancel()
+        await settle { outcome != nil }
+
+        #expect(outcome?.isCancellation == true, "got \(String(describing: outcome))")
+        #expect(try await page.eval("1+1") == "2")
+        _ = try await page.eval("window.leoRelease()")
+        _ = await hung.value
+    }
+
+    /// The report literally: the eval sends the page elsewhere, then waits on
+    /// a promise that never settles. Cancelling it must end it, and the tab
+    /// still answers on the new page.
+    @available(macOS 14, *)
+    @Test func anEvalWhosePageNavigatesAwayCanBeCancelled() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("form"))
+        var outcome: Result<String, any Error>?
+        let hung = Task { outcome = await Self.outcome { try await page.eval("location.href = 'other'; await new Promise(() => {})") } }
+        // Poll the web view, not the page: a script call made mid-navigation
+        // can be dropped and never answer.
+        try await waitForWebView { page.webView.title == "Other" && !page.webView.isLoading }
+
+        hung.cancel()
+        await settle { outcome != nil }
+
+        // Any outcome but a hang (WebKit never answers this call itself).
+        // Never await `hung`: if it is stuck, nothing is left to release it.
+        #expect(outcome != nil, "the eval was still running after its task was cancelled")
+        #expect(try await page.eval("document.title") == #""Other""#)
+    }
+
+    /// Evaluates `js` until it returns `expected` (JSON), a bounded number of
+    /// times; each round trip goes through the web content process.
+    @available(macOS 14, *)
+    private func pollUntil(_ expected: String, page: LeoWKBrowserPage, js: String) async throws {
+        for _ in 0..<500 {
+            if (try? await page.eval(js)) == expected { return }
+            await Task.yield()
+        }
+        Issue.record("\(js) never returned \(expected)")
+    }
+
+    /// Waits until `condition` holds, checking the web view every 10 ms for
+    /// at most 5 s (only a failing test waits that long).
+    private func waitForWebView(_ condition: @MainActor () -> Bool) async throws {
+        for _ in 0..<500 {
+            if condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("the web view never got there")
+    }
+
+    private static func outcome(_ body: () async throws -> String) async -> Result<String, any Error> {
+        do { return .success(try await body()) } catch { return .failure(error) }
+    }
+
+    /// Spins the main actor until `condition` holds (bounded, no wall-clock sleep).
+    private func settle(_ condition: @MainActor () -> Bool) async {
+        for _ in 0..<1000 {
+            if condition() { return }
+            await Task.yield()
+        }
+        Issue.record("condition never held")
+    }
+}
+
+private extension Result where Failure == any Error {
+    var isCancellation: Bool {
+        if case .failure(let error) = self { return error is CancellationError }
+        return false
+    }
+}

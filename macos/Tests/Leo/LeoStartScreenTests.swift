@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-050 in a window with one content area (B-055): the first row shown in
 /// a start-screen window fills it (the host fills an empty content area),

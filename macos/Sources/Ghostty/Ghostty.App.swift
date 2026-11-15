@@ -625,6 +625,8 @@ extension Ghostty {
                 return moveTabToNewWindow(app, target: target)
 
             case GHOSTTY_ACTION_GOTO_TAB:
+                // Leo: with no window tabs (D-098), goto_tab switches editor tabs, then sidebar rows.
+                if leoGotoTab(target: target, action.action.goto_tab) { return true }
                 return gotoTab(app, target: target, tab: action.action.goto_tab)
 
             case GHOSTTY_ACTION_GOTO_SPLIT:
@@ -1866,7 +1868,11 @@ extension Ghostty {
                 // MARK: Leo -- a surface hidden in a live pool (B-056) has no
                 // window to show this in, and gets no close either: tell its pool.
                 guard surfaceView.window != nil else {
-                    NotificationCenter.default.post(name: .leoWindowlessChildExited, object: surfaceView)
+                    NotificationCenter.default.post(
+                        name: .leoWindowlessChildExited,
+                        object: surfaceView,
+                        userInfo: [LeoWindowlessChildExit.exitCodeKey: Int(v.exit_code)]
+                    )
                     return false
                 }
                 // We handle this when the window is visible and timetime_ms is greater than 0,

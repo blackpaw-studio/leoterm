@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Sign, package, notarize and staple Leo.app.
 # Env: APP (path to Leo.app), SIGN_IDENTITY, OUT_DIR, ENTITLEMENTS (path),
+#      PLUGIN_HOST_ENTITLEMENTS (optional; defaults to LeoPluginHost/ beside ENTITLEMENTS),
 #      DEVELOPER_DIR, LEO_KEYCHAIN (set by keychain.sh create),
 #      APPLE_NOTARIZATION_KEY, APPLE_NOTARIZATION_KEY_ID, APPLE_NOTARIZATION_ISSUER.
 # Produces $OUT_DIR/Leo.dmg and $OUT_DIR/Leo-macos-universal.zip.
@@ -18,17 +19,38 @@ zip="$OUT_DIR/Leo-macos-universal.zip"
 sign() { /usr/bin/codesign --force --timestamp --options runtime --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$@"; }
 
 echo "::group::codesign"
-# Sparkle's helpers must be signed inside-out before the framework itself.
-# The XPC services are unused (Leo is not sandboxed) but still shipped.
-sparkle="$APP/Contents/Frameworks/Sparkle.framework"
-sign "$sparkle/Versions/B/XPCServices/Downloader.xpc"
-sign "$sparkle/Versions/B/XPCServices/Installer.xpc"
-sign "$sparkle/Versions/B/Autoupdate"
-sign "$sparkle/Versions/B/Updater.app"
-sign "$sparkle"
-sign "$APP/Contents/PlugIns/DockTilePlugin.plugin"
+# Inside-out: Sparkle's helpers before the framework, every Contents/Helpers
+# binary (leo, tmux, LeoPluginHost) before the app, and the app (the last
+# path, with its entitlements) after everything it contains.
+scripts="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hosted-helpers.sh
+source "$scripts/hosted-helpers.sh"
+# Captured first, not read through process substitution: a rejected bundle
+# (symlinked helper) must stop the script, and a substitution hides the exit.
+listing="$("$scripts/nested-code-paths.sh" "$APP")"
+code_paths=()
+while IFS= read -r path; do
+  code_paths+=("$path")
+done <<<"$listing"
+[[ "${code_paths[${#code_paths[@]}-1]}" == "$APP" ]] || { echo "::error::nested-code-paths.sh must list the app last"; exit 1; }
+# Re-signing with --force replaces the entitlements Xcode embedded, so the
+# sandboxed plugin host must be handed its own again. It needs no JIT or other
+# exception: JavaScriptCore runs interpreted under the hardened runtime.
+plugin_host_entitlements="${PLUGIN_HOST_ENTITLEMENTS:-$(dirname "$ENTITLEMENTS")/LeoPluginHost/LeoPluginHost.entitlements}"
+for path in "${code_paths[@]:0:${#code_paths[@]}-1}"; do
+  if [[ "${path##*/}" == LeoPluginHost ]]; then
+    [[ -f "$plugin_host_entitlements" ]] || { echo "::error::missing $plugin_host_entitlements for LeoPluginHost"; exit 1; }
+    sign --entitlements "$plugin_host_entitlements" "$path"
+  else
+    sign "$path"
+  fi
+done
 sign --entitlements "$ENTITLEMENTS" "$APP"
-/usr/bin/codesign --verify --deep --strict --verbose=2 "$APP"
+# Whether the bundle must carry LeoPluginHost comes from the source tree being
+# built (the Xcode project beside ENTITLEMENTS), not from the bundle itself.
+PLUGIN_HOST_REQUIRED="$("$scripts/plugin-host-expected.sh" "$(dirname "$ENTITLEMENTS")/Ghostty.xcodeproj/project.pbxproj")"
+export PLUGIN_HOST_REQUIRED
+"$scripts/check-bundle.sh" "$APP"
 echo "::endgroup::"
 
 # notarytool submit/staple share a key file and a status check; --keychain
@@ -74,7 +96,7 @@ staging="$(mktemp -d "${RUNNER_TEMP:-/tmp}/leo-dmg.XXXXXX")"
 ditto "$APP" "$staging/Leo.app"
 ln -s /Applications "$staging/Applications"
 rm -f "$dmg"
-hdiutil create -volname Leo -srcfolder "$staging" -fs HFS+ -format UDZO -ov "$dmg"
+retry 3 hdiutil create -volname Leo -srcfolder "$staging" -fs HFS+ -format UDZO -ov "$dmg"
 rm -rf "$staging"
 /usr/bin/codesign --force --timestamp --keychain "$LEO_KEYCHAIN" --sign "$SIGN_IDENTITY" "$dmg"
 /usr/bin/codesign --verify --verbose=2 "$dmg"
@@ -88,6 +110,7 @@ echo "::endgroup::"
 echo "::group::verify"
 xcrun stapler validate "$dmg"
 xcrun stapler validate "$APP"
+ensure_assessments_enabled
 spctl --assess --type open --context context:primary-signature -vv "$dmg"
 spctl --assess --type execute -vv "$APP"
 echo "::endgroup::"

@@ -64,23 +64,21 @@ import SwiftUI
     /// animation.
     static func scrollToTop(_ scrollView: NSScrollView) {
         let clip = scrollView.contentView
-        let documentHeight = scrollView.documentView?.frame.height ?? 0
-        let topY = clip.isFlipped ? -clip.contentInsets.top : documentHeight + clip.contentInsets.top - clip.bounds.height
-        let top = clip.constrainBoundsRect(NSRect(origin: NSPoint(x: clip.bounds.minX, y: topY), size: clip.bounds.size))
+        let top = clip.constrainBoundsRect(NSRect(origin: NSPoint(x: clip.bounds.minX, y: -clip.contentInsets.top), size: clip.bounds.size))
         clip.scroll(to: top.origin)
         scrollView.reflectScrolledClipView(clip)
     }
 
     /// The clip view's bounds less its content insets: what a bar over the
-    /// list (a titlebar, a footer) covers isn't on screen.
+    /// list (a titlebar, a footer) covers isn't on screen. The clip view is
+    /// flipped (its document is an `NSTableView`): the top inset is at minY.
     static func unobscuredBounds(of clip: NSClipView) -> NSRect {
         let insets = clip.contentInsets
-        let (minYInset, maxYInset) = clip.isFlipped ? (insets.top, insets.bottom) : (insets.bottom, insets.top)
         let bounds = clip.bounds
         return NSRect(
-            x: bounds.minX + insets.left, y: bounds.minY + minYInset,
+            x: bounds.minX + insets.left, y: bounds.minY + insets.top,
             width: max(0, bounds.width - insets.left - insets.right),
-            height: max(0, bounds.height - minYInset - maxYInset)
+            height: max(0, bounds.height - insets.top - insets.bottom)
         )
     }
 }

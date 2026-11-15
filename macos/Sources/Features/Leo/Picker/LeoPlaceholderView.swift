@@ -5,7 +5,6 @@ import SwiftUI
 /// placeholder window closed).
 struct LeoPlaceholderView: View {
     @ObservedObject var model: LeoSidebarModel
-    @ObservedObject var hostSelection: LeoHostSelection
     /// The buttons' tooltips: the menu items' live shortcuts (B-080).
     @ObservedObject var shortcutHints: LeoShortcutHints
     let openPicker: () -> Void
@@ -20,7 +19,7 @@ struct LeoPlaceholderView: View {
     static let menuButtons = LeoSidebarButton.allCases
 
     private var chooseAgent: LeoPlaceholderChooseAgent {
-        LeoPlaceholderChooseAgent(host: hostSelection.selected, connectivity: model.snapshot.connectivity, shortcut: shortcutHints.chooseAgent, reconnectShortcut: shortcutHints.reconnect)
+        LeoPlaceholderChooseAgent(machines: model.machineConnectivity, shortcut: shortcutHints.chooseAgent, reconnectShortcut: shortcutHints.reconnect)
     }
 
     var body: some View {

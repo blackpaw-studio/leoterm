@@ -55,7 +55,7 @@ extension NSPasteboard {
     }
 
     /// The file URLs on the pasteboard, e.g. files copied in Finder.
-    private var ghosttyFileURLs: [URL] {
+    var ghosttyFileURLs: [URL] {
         (pasteboardItems ?? []).compactMap { item in
             guard let plist = item.propertyList(forType: .fileURL),
                   let url = NSURL(pasteboardPropertyList: plist, ofType: .fileURL) as URL?,

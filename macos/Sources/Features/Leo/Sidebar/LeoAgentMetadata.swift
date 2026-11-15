@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// What a `/state` snapshot reported about one agent incarnation, beyond
 /// its status (B-011, D-074). Every field is only what the daemon said:
@@ -17,12 +18,44 @@ struct LeoAgentMetadata: Equatable, Sendable {
     /// when it isn't. The Last Activity sort ranks by it, so busy agents
     /// hold their places instead of leapfrogging on every snapshot.
     let activeSince: Date?
+    /// B-259: `usage` from the snapshot (leo >= 0.35). The feed hides it
+    /// unless the daemon advertised `agent_usage`.
+    let usage: LeoAgentUsage?
+    /// B-260: the tool the agent is running right now (`current_action`
+    /// kind "tool", leo >= 0.35): its name only, never the arguments the
+    /// daemon appends. Replaces `task`, which stays nil while it is set.
+    let tool: String?
 
-    init(lastActiveAt: Date?, isWorking: Bool, task: String?, activeSince: Date? = nil) {
+    init(
+        lastActiveAt: Date?, isWorking: Bool, task: String?, activeSince: Date? = nil,
+        usage: LeoAgentUsage? = nil, tool: String? = nil
+    ) {
         self.lastActiveAt = lastActiveAt
         self.isWorking = isWorking
         self.task = task
         self.activeSince = activeSince
+        self.usage = usage
+        self.tool = tool
+    }
+
+    func withUsage(_ usage: LeoAgentUsage?) -> LeoAgentMetadata {
+        LeoAgentMetadata(
+            lastActiveAt: lastActiveAt, isWorking: isWorking, task: task, activeSince: activeSince, usage: usage, tool: tool
+        )
+    }
+
+    /// The `current_action.kind` that names a running tool.
+    static let toolKind = "tool"
+
+    /// ANSI CSI (`ESC [ ... final`) and OSC (`ESC ] ... BEL | ESC \`)
+    /// sequences; the text sanitizer drops only the ESC byte itself.
+    private static let ansiEscape = "\u{1B}\\[[0-?]*[ -/]*[@-~]|\u{1B}\\][^\u{07}\u{1B}]*(\u{07}|\u{1B}\\\\)"
+
+    /// The first whitespace-delimited token of a sanitized tool detail
+    /// ("Read ~/a.go" -> "Read"); nil when nothing is left.
+    static func toolName(fromDetail detail: String) -> String? {
+        LeoSFTPServerText.sanitized(detail.replacingOccurrences(of: Self.ansiEscape, with: "", options: .regularExpression))
+            .split(whereSeparator: \.isWhitespace).first.map(String.init)
     }
 }
 
@@ -82,7 +115,7 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
             let isActive = Self.isActive(time, newest: newest)
             let metadata = LeoAgentMetadata(
                 lastActiveAt: time, isWorking: report.metadata.isWorking, task: report.metadata.task,
-                activeSince: isActive ? streakStart : nil
+                activeSince: isActive ? streakStart : nil, usage: report.metadata.usage, tool: report.metadata.tool
             )
             return (report.name, Entry(startedAt: report.startedAt, metadata: metadata, streakStart: streakStart))
         }
@@ -117,9 +150,13 @@ struct LeoAgentMetadataIndex: Equatable, Sendable {
 
     private static func metadata(_ agent: LeoObservedAgent) -> LeoAgentMetadata? {
         let lastActiveAt = agent.lastActivityAt.flatMap(LeoTimestamp.parse)
-        let task = agent.currentAction?.detail.map(LeoSFTPServerText.sanitized).flatMap { $0.isEmpty ? nil : $0 }
-        guard lastActiveAt != nil || task != nil else { return nil }
-        return LeoAgentMetadata(lastActiveAt: lastActiveAt, isWorking: agent.activity == .working, task: task)
+        let isTool = agent.currentAction?.kind == LeoAgentMetadata.toolKind
+        let tool = isTool ? agent.currentAction?.detail.flatMap(LeoAgentMetadata.toolName(fromDetail:)) : nil
+        let task = isTool ? nil : agent.currentAction?.detail.map(LeoSFTPServerText.sanitized).flatMap { $0.isEmpty ? nil : $0 }
+        guard lastActiveAt != nil || task != nil || tool != nil || agent.usage != nil else { return nil }
+        return LeoAgentMetadata(
+            lastActiveAt: lastActiveAt, isWorking: agent.activity == .working, task: task, usage: agent.usage, tool: tool
+        )
     }
 }
 

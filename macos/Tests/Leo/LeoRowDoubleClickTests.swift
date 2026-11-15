@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-048: a sidebar row's double-click is decided in `rowClicked` alone,
 /// from the second click (`clickCount` 2), and goes to the agent exactly

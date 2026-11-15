@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-085: the launch hop, activation and reopen all go through one
 /// `LeoInitialWindowOpener`, and so one gate: every launch opens exactly

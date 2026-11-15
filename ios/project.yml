@@ -1,0 +1,137 @@
+# Source of truth for Leo.xcodeproj. Regenerate after editing:
+#   cd ios && xcodegen generate
+# The generated project is committed so a plain `xcodebuild` works without
+# XcodeGen installed.
+name: Leo
+options:
+  bundleIdPrefix: studio.blackpaw.leo
+  deploymentTarget:
+    iOS: "26.0"
+  developmentLanguage: en
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+settings:
+  base:
+    DEVELOPMENT_TEAM: 52M9C6892K
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
+packages:
+  LeoFeatures:
+    path: LeoFeatures
+  LeoKit:
+    path: ../Packages/LeoKit
+  SwiftTerm:
+    url: https://github.com/migueldeicaza/SwiftTerm
+    exactVersion: 1.19.0
+targets:
+  Leo:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Leo
+      - path: ../images/Ghostty.icon
+        group: Leo/Resources
+        buildPhase: resources
+    dependencies:
+      - package: LeoFeatures
+        product: LeoFeatures
+      - package: SwiftTerm
+        product: SwiftTerm
+      - target: LeoNotificationService
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios
+        PRODUCT_NAME: Leo
+        CODE_SIGN_ENTITLEMENTS: Leo/Support/Leo.entitlements
+        # The push relay (relay/, Cloudflare Worker) this build registers
+        # with. Replace the placeholder with the deployed Worker's URL; until
+        # then the app skips push registration.
+        LEO_PUSH_RELAY_URL: "https://leo-relay.e-c0f.workers.dev"
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: Ghostty
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        INFOPLIST_FILE: Leo/Support/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD: NO
+      configs:
+        # Which APNs gateway the relay uses for this build's tokens.
+        Debug:
+          LEO_APNS_ENVIRONMENT: sandbox
+        # Release signs manually with the fastlane match App Store profiles
+        # (see README); Debug stays on automatic signing for local work.
+        Release:
+          LEO_APNS_ENVIRONMENT: production
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios
+  LeoNotificationService:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoNotificationService
+    dependencies:
+      - package: LeoKit
+        product: LeoKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.notification-service
+        PRODUCT_NAME: LeoNotificationService
+        INFOPLIST_FILE: LeoNotificationService/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: LeoNotificationService/LeoNotificationService.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios.notification-service
+  LeoUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoUITests
+    dependencies:
+      - target: Leo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Leo
+  # Hosted in the app so cells and view controllers run as they do on a device.
+  LeoTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoTests
+    dependencies:
+      - target: Leo
+      - package: LeoKit
+        product: LeoKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Leo.app/Leo
+        BUNDLE_LOADER: $(TEST_HOST)
+schemes:
+  Leo:
+    build:
+      targets:
+        Leo: all
+        LeoTests: [test]
+        LeoUITests: [test]
+    test:
+      targets:
+        - LeoTests
+        - LeoUITests

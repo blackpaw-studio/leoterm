@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Wiring of `LeoAttentionReducer` into `LeoSidebarFeed`: every decoded
 /// event/baseline/focus change goes through the reducer, a single deadline
@@ -9,10 +10,10 @@ extension LeoSidebarFeed {
         switch event {
         case .agentActivity(_, _, let agent, _, _, let signal?):
             attention.receive(agent: agent, signal: signal, now: now())
-        case .agentSpawned(_, _, let agent, let signal):
+        case .agentSpawned(_, _, let agent, let signal, _):
             attention.resetAgent(agent.name)
             if let signal { attention.receive(agent: agent.name, signal: signal, now: now()) }
-        case .hello(_, _, _, _, let bootID):
+        case .hello(_, _, _, _, let bootID, _):
             guard attention.observeBoot(bootID) else { return }
             daemonRestarted(event)
         default:
@@ -100,11 +101,17 @@ extension LeoSidebarSnapshot {
     func overlayingAttention(_ reducer: LeoAttentionReducer) -> LeoSidebarSnapshot {
         let isLive = !connectivity.isDisconnected
         return LeoSidebarSnapshot(
-            rows: rows.map { $0.withAttention(isLive ? reducer.badge(for: $0.name, legacyActivity: $0.activity) : nil) },
+            rows: rows.map { row in
+                row.withAttention(
+                    isLive ? reducer.badge(for: row.name, legacyActivity: row.activity) : nil,
+                    reason: isLive ? reducer.reason(for: row.name) : nil
+                )
+            },
             connectivity: connectivity,
             generation: generation,
             listRefreshSucceeded: listRefreshSucceeded,
-            attentionCount: isLive ? reducer.dockCount(among: Set(rows.map(\.name))) : 0
+            attentionCount: isLive ? reducer.dockCount(among: Set(rows.map(\.name))) : 0,
+            dispatchChildren: dispatchChildren
         )
     }
 }

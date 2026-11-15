@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-006: attach surfaces linked to sidebar rows -- focus -> highlight, live attach
 /// counts, and click routing (focus the existing attach vs attach new).
@@ -177,13 +178,15 @@ import Testing
         #expect(focusRequests.isEmpty)
     }
 
-    @Test func switchingHostsBackReselectsTheFocusedRow() {
+    /// The focused row leaves its machine's list (a reconnect's empty
+    /// list) and comes back: it is selected again.
+    @Test func aFocusedRowThatComesBackIsReselected() {
         let model = makeModel()
         model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), attachCounts: [id(local): 1]))
-        model.receive(LeoSidebarSnapshot(rows: [row(remote)], connectivity: .connected, generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [], connectivity: .connected, generation: 2), for: .local)
         #expect(model.selection == nil)
 
-        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 3))
+        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 3), for: .local)
 
         #expect(model.selection == id(local))
     }
@@ -193,7 +196,7 @@ import Testing
         model.receiveAttachLinks(LeoAttachLinkState(focused: id(local), attachCounts: [id(local): 1]))
         model.selection = id(other)
 
-        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 2))
+        model.receive(LeoSidebarSnapshot(rows: [row(local), row(other)], connectivity: .connected, generation: 2), for: .local)
 
         #expect(model.selection == id(other))
     }
@@ -255,7 +258,7 @@ import Testing
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
-            remoteCommandBuilder: { "ssh box leo attach \($0.name)" },
+            remoteCommandBuilder: { identity, _ in "ssh box leo attach \(identity.name)" },
             report: { _ in },
             lifecycleEventHandled: { host.acknowledge($0) },
             linkStateChanged: linkStateChanged

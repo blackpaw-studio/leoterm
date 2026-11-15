@@ -3,6 +3,7 @@ import Foundation
 import XCTest
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The test bundle's principal class (`INFOPLIST_KEY_NSPrincipalClass`):
 /// XCTest creates it before any test runs. It lists the app's real socket
@@ -40,7 +41,7 @@ final class LeoRealCacheDirectoryGuard: NSObject, XCTestObservation {
 
     func testBundleDidFinish(_: Bundle) {
         // Only the directory this process reserved, if it reserved one.
-        LeoHostSelectionTestSupport.socketDirectoryReservation.removeIfReserved()
+        LeoMachineTunnelTestSupport.socketDirectoryReservation.removeIfReserved()
         let added = LeoRealDirectoryListing.paths(in: directories).subtracting(before)
         let addedPreferences = Result { try LeoTestPreferencesListing.names() }
             .flatMap { after in preferencesBefore.map { after.subtracting($0) } }

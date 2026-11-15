@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoNewSurfaceRouterTests {
     private let identity = LeoAgentIdentity(host: .local, name: "worker")

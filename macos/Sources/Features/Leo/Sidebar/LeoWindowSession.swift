@@ -1,6 +1,7 @@
 import Combine
 import AppKit
 import Foundation
+import LeoKit
 
 struct LeoWindowVisibilityState: Equatable {
     enum Event {
@@ -24,6 +25,9 @@ struct LeoWindowVisibilityState: Equatable {
 @MainActor final class LeoWindowSession: ObservableObject {
     /// The sidebar's width, one value shared by every window (D-144).
     static let sidebarWidthKey = "leo.sidebarWidth"
+    /// The side-by-side chat's dragged width, shared by every window the
+    /// same way; absent means the default formula.
+    static let chatWidthKey = "leo.chatWidth"
     let id: LeoWindowID
     @Published var isSidebarVisible: Bool { didSet { changed() } }
     /// True while this window's agent palette is on screen. The sidebar can
@@ -32,16 +36,60 @@ struct LeoWindowVisibilityState: Equatable {
     /// `LeoPickerPresentation` via `setPickerPresented(_:)`.
     @Published private(set) var isPickerPresented = false { didSet { changed() } }
     @Published private(set) var preferredWidth: CGFloat
+    /// The chat width the user dragged to, or nil for the default. Stored as
+    /// chosen; `chatWidth(for:contentWidth:)` re-clamps it for display.
+    @Published private(set) var preferredChatWidth: CGFloat?
     /// Bumped by Agents ▸ Find Agent… (B-009); the sidebar's search field
     /// takes focus whenever it changes.
     @Published private(set) var searchFocusRequest = 0
-    @Published var windowIsOccluded = false { didSet { changed() } }
-    @Published var windowIsMiniaturized = false { didSet { changed() } }
+    /// The attachment open in this window's chat pane. Closes whenever the
+    /// switch goes to Terminal: the chat's ✕, the toggle, or the segment.
+    let chatViewer = LeoChatViewerModel()
+    /// Each agent's Terminal | Chat switch in this window.
+    /// The window's toolbar height, which the glass sidebar and the side
+    /// panes' headers clear (`LeoToolbarInset`).
+    let toolbarInset = LeoToolbarInset()
+    /// The window's `NSSplitView` is in the window: the toolbar's tracking
+    /// separator can bind to it.
+    var onSplitViewReady: (NSSplitView) -> Void = { _ in }
+    @Published private(set) var viewChoices = LeoAgentViewChoices()
+    /// Bumped when the switch asks for the chat composer to take focus; the
+    /// pending flag covers a composer that only appears with the request.
+    @Published private(set) var chatFocusRequest = 0
+    private var isChatFocusPending = false
+    /// A selection's unread check hasn't been settled by a view choice yet.
+    private var isAwaitingUnreadCheck = false
+    /// The content area's width as last rendered; the chat layout host
+    /// keeps it current. Not published: it is read, never observed.
+    private(set) var observedContentWidth: CGFloat = 0
+    /// The chat pane's width while it sits beside the terminal, else 0: the
+    /// toolbar keeps its activity capsule over the terminal column. Follows
+    /// the divider while it is dragged.
+    @Published private(set) var sideBySideChatWidth: CGFloat = 0
+    /// The agent the sidebar has selected right now (nil for a terminal
+    /// row, or none). Wired by the runtime, which owns the selection.
+    var selectedAgent: () -> LeoAgentID? = { nil }
+    /// Unread chat messages per agent, wired by the runtime from its store.
+    var unreadCount: (LeoAgentID) -> Int = { _ in 0 }
+    /// The kind of the agent's most recent agent-sent message, if known.
+    var latestAgentMessageKind: (LeoAgentID) -> LeoChatMessage.Kind? = { _ in nil }
+    @Published var windowIsOccluded = false { didSet { changed(); markShownIfVisible() } }
+    @Published var windowIsMiniaturized = false { didSet { changed(); markShownIfVisible() } }
     var displayedWidth: CGFloat { min(max(preferredWidth, 200), 420) }
     /// Opens the agent picker for this window's placeholder. Wired by
     /// `LeoRuntime.makeWindowSession(for:)`; a no-op until then (e.g. in
     /// tests that construct a session directly).
     var openPicker: (UUID?) -> Void = { _ in }
+    /// B-333: whether a split here (⌘D, ⇧⌘D) goes straight to a new shell
+    /// -- the content area shows a terminal row's layout -- and the hook
+    /// that makes the new shell part of that layout (both wired by
+    /// `LeoRuntime` to the attach host).
+    var splitsIntoShell: () -> Bool = { false }
+    var registerSplitShell: (Ghostty.SurfaceView) -> Void = { _ in }
+    /// B-332: what the window saves for restoring at launch -- its
+    /// Terminals rows and their layouts (wired by `LeoRuntime` to the
+    /// attach host); `nil` until wired.
+    var savedTerminals: () -> LeoTerminalsRestorableState? = { nil }
     @Published private(set) var placeholderSurfaceIDs: Set<UUID> = []
     /// Fired once, synchronously, from `NSWindow.willCloseNotification` --
     /// lets `LeoRuntime` tear down this window's router state and palette
@@ -49,16 +97,64 @@ struct LeoWindowVisibilityState: Equatable {
     /// opportunistic reconciliation (`report()`, only triggered by some
     /// *other* session's state change or a new `makeSession` call).
     var onWindowWillClose: () -> Void = {}
-    /// The window's editor pane (B-004): one per window, beside the terminal.
-    let editor: LeoEditorPaneModel
+    /// Each row's editor and browser in this window (B-274); the one on
+    /// screen belongs to the row the window shows.
+    let panes: LeoRowPanes
+    /// The editor pane on screen (B-004), beside the terminal: its tabs (B-273).
+    var editor: LeoEditorTabs { panes.active.tabs }
     /// Its view, once the window's split view has built it (focus moves).
-    weak var editorPane: LeoEditorPaneViewController?
-    /// The window's workspace browser (B-005), on the editor's leading
-    /// edge; it opens files in `editor`.
-    let browser: LeoWorkspaceBrowserModel
-    weak var browserPane: LeoWorkspaceBrowserViewController?
+    var editorPane: LeoEditorTabsViewController? { editorContainer?.activeChild as? LeoEditorTabsViewController }
+    /// The workspace browser on screen (B-005), on the editor's leading
+    /// edge; it opens files in its own row's editor.
+    var browser: LeoWorkspaceBrowserModel { panes.active.browser }
+    var browserPane: LeoWorkspaceBrowserViewController? { browserContainer?.activeChild as? LeoWorkspaceBrowserViewController }
+    /// The split items holding them, once the window's split view is built.
+    weak var editorContainer: LeoRowPaneContainerViewController?
+    weak var browserContainer: LeoRowPaneContainerViewController?
+
+    func adopt(_ container: LeoRowPaneContainerViewController) {
+        switch container.role {
+        case .editor: editorContainer = container
+        case .browser: browserContainer = container
+        }
+    }
     /// The window's plain shells, its sidebar's Terminals section (B-057).
     let terminals = LeoWindowTerminals()
+    /// The sidebar rows' globes; nil when the app runs no agent browsers.
+    let agentBrowserBadges: LeoAgentBrowserBadges?
+    /// The plugin system's views and row accessories; nil in tests and for a runtime without one.
+    var pluginSurfaces: LeoPluginSurfaces? {
+        didSet {
+            panes.pluginHost = pluginSurfaces
+            agentPane = makeAgentPane()
+        }
+    }
+    /// The built-in pane tabs' switches, shared app-wide (wired by the runtime;
+    /// a session without them reads its own defaults).
+    var builtInPanes: LeoBuiltInPaneSettings? { didSet { agentPane = makeAgentPane() } }
+    /// The pane under the agent's terminal or chat: the built-in Terminal and
+    /// the plugins' summaries and bodies. Always there; empty of plugins
+    /// without a plugin system.
+    @Published private(set) var agentPane: LeoAgentPaneModel?
+
+    /// What the pane's Terminal tab runs on (its shells, launch rule and focus
+    /// hand-back); wired by the runtime once the window has a controller.
+    var drawerEnvironment: LeoDrawerEnvironment? { didSet { agentPane?.drawer = drawerEnvironment } }
+
+    /// Whether a drawer shell is running something that closing the window would
+    /// kill: the same per-surface check the window's own surfaces get. Drawer
+    /// surfaces are in no `surfaceTree`, so the controller's checks add this.
+    var hasBusyDrawerShell: Bool {
+        drawerEnvironment?.pool.runningSurfaces.contains { $0.needsConfirmQuit } ?? false
+    }
+
+    private func makeAgentPane() -> LeoAgentPaneModel {
+        let model = LeoAgentPaneModel(
+            surfaces: pluginSurfaces, settings: builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults),
+            store: LeoAgentPaneStateStore(defaults: defaults))
+        model.drawer = drawerEnvironment
+        return model
+    }
 
     /// Whether showing the sidebar now would take the terminal under its
     /// floor beside a side pane (D-058, D-059).
@@ -75,37 +171,95 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// The window's split, found through the panes it built.
     private var split: LeoSplitViewController? {
-        (browserPane?.parent ?? editorPane?.parent) as? LeoSplitViewController
+        (browserContainer?.parent ?? editorContainer?.parent) as? LeoSplitViewController
     }
 
     private let defaults: UserDefaults
     private let onPollabilityChanged: () -> Void
     private(set) weak var window: NSWindow?
+
+    /// Whether a terminal surface holds the keyboard right now. Replaced in tests.
+    /// The agent's own terminal holds the keyboard; the drawer's shell is not it.
+    lazy var isTerminalFocused: () -> Bool = { [weak self] in
+        guard let self, let surface = self.window?.firstResponder as? Ghostty.SurfaceView else { return false }
+        return !(self.drawerEnvironment?.owns(surface) ?? false)
+    }
     private var observers: [NSObjectProtocol] = []
+    /// Keeps `preferredChatWidth` in step with writes from other windows.
+    private var defaultsObserver: NSObjectProtocol?
     private var visibility = LeoWindowVisibilityState()
+    private var activePaneSubscription: AnyCancellable?
+    private var terminalSelectionSubscription: AnyCancellable?
 
     init(
         id: LeoWindowID = LeoWindowID(),
         window: NSWindow? = nil,
         defaults: UserDefaults = .standard,
         makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess,
+        agentBrowsers: (any LeoAgentBrowserPresence)? = nil,
         onPollabilityChanged: @escaping () -> Void = {}
     ) {
         self.id = id
         self.defaults = defaults
-        let editor = LeoEditorPaneModel(makeAccess: makeFileAccess)
-        self.editor = editor
-        browser = LeoWorkspaceBrowserModel(makeAccess: makeFileAccess, openFile: { try await editor.open($0) })
+        let windowBox = LeoWeakWindow(window)
+        panes = LeoRowPanes(
+            makeAccess: makeFileAccess,
+            confirm: { document, row in
+                guard let window = windowBox.window else { return .cancel }
+                return await LeoEditorAlerts.confirmUnsavedChanges(to: document.displayName, in: row, on: window)
+            },
+            presence: agentBrowsers
+        )
+        agentBrowserBadges = agentBrowsers.map(LeoAgentBrowserBadges.init)
         self.onPollabilityChanged = onPollabilityChanged
         self.window = window
         // Fresh installs start with the sidebar hidden -- a persisted user
         // choice (the key is present, either true or false) always wins.
         isSidebarVisible = defaults.object(forKey: "leo.sidebarVisible") as? Bool ?? false
         preferredWidth = (defaults.object(forKey: Self.sidebarWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) } ?? 260
+        preferredChatWidth = Self.storedChatWidth(in: defaults)
+        // `queue: nil`: the notification is posted synchronously on whichever
+        // thread wrote the default, and a `queue: .main` observer makes that
+        // writer wait for the main thread -- a deadlock when main is itself
+        // waiting on the writer (quit did exactly that). Hop to main without
+        // waiting; the reload is a no-op unless the chat width actually moved.
+        defaultsObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: defaults, queue: nil
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.reloadPreferredChatWidth() }
+        }
+        terminals.rowRemoved = { [weak panes] id in panes?.rowRemoved(.terminal(id)) }
+        terminals.rowReplaced = { [weak panes] old, new in panes?.rekey(.terminal(old), to: .terminal(new)) }
+        panes.rowName = { [weak terminals] key in
+            switch key {
+            case .agent(_, let name, _): name
+            case .terminal(let id): terminals?.rows.first { $0.id == id }?.displayTitle
+            case .startScreen: nil
+            }
+        }
+        agentPane = makeAgentPane()
         observeWindow()
+        // Leaving a shell row for the agent row is a selection too. A turn
+        // later, so the row's selection reads the new value.
+        terminalSelectionSubscription = terminals.$selection.dropFirst().removeDuplicates().sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                selectionChanged(unreadCount: unreadCount)
+            }
+        }
+        // `@Published` sends before it stores: the pane is the new value.
+        activePaneSubscription = panes.$active.sink { [weak self] pane in
+            MainActor.assumeIsolated {
+                guard let self, self.isWindowVisible else { return }
+                pane.tabs.markShown()
+            }
+        }
     }
 
-    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+    deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
+        defaultsObserver.map(NotificationCenter.default.removeObserver)
+    }
 
     /// Until the runtime wires the selected host's file access in.
     static func noFileAccess(_ host: LeoHostID) throws -> any LeoFileAccess {
@@ -121,8 +275,177 @@ struct LeoWindowVisibilityState: Equatable {
 
     /// Agents ▸ Find Agent…: show the sidebar if hidden and focus its filter.
     func requestSearchFocus() {
+        chatViewer.exitFullWindow()
         if !isSidebarVisible { setSidebarVisible(true) }
         searchFocusRequest += 1
+    }
+
+    /// How the selected agent's terminal and chat share `contentWidth`.
+    func chatLayout(for row: LeoAgentRow?, contentWidth: CGFloat) -> LeoChatLayout {
+        LeoChatLayout(contentWidth: contentWidth, choice: row.map { viewChoices[$0.id] } ?? .terminal)
+    }
+
+    /// The chat's width for `layout` in `contentWidth`, honouring the dragged width.
+    func chatWidth(for layout: LeoChatLayout, contentWidth: CGFloat) -> CGFloat {
+        layout.chatWidth(in: contentWidth, preferred: preferredChatWidth)
+    }
+
+    /// The divider drag ended at `width`: remember it for every window.
+    func setPreferredChatWidth(_ width: CGFloat) {
+        preferredChatWidth = width
+        defaults.set(Double(width), forKey: Self.chatWidthKey)
+    }
+
+    /// Back to the default width.
+    func resetPreferredChatWidth() {
+        preferredChatWidth = nil
+        defaults.removeObject(forKey: Self.chatWidthKey)
+    }
+
+    private func reloadPreferredChatWidth() {
+        let stored = Self.storedChatWidth(in: defaults)
+        if stored != preferredChatWidth { preferredChatWidth = stored }
+    }
+
+    private static func storedChatWidth(in defaults: UserDefaults) -> CGFloat? {
+        (defaults.object(forKey: chatWidthKey) as? NSNumber).map { CGFloat($0.doubleValue) }.flatMap { $0.isFinite ? $0 : nil }
+    }
+
+    /// A switch segment was clicked: Chat toggles off while chat shows. Reads
+    /// the layout live, so the click sees what is on screen right now.
+    func select(_ clicked: LeoAgentViewChoice, for agent: LeoAgentID) {
+        choose(currentChatLayout.choice(afterClicking: clicked), for: agent)
+    }
+
+    /// The switch was clicked: show `choice` and move focus to it.
+    func choose(_ choice: LeoAgentViewChoice, for agent: LeoAgentID) {
+        isAwaitingUnreadCheck = false
+        viewChoices = viewChoices.setting(choice, for: agent)
+        switch choice {
+        case .chat: requestChatFocus()
+        case .terminal:
+            chatViewer.close()
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                routeTerminalFocus { Self.focusTerminal(in: self.window, isAllowed: $0) }
+            }
+        }
+    }
+
+    /// "Show Messages" was picked: applies the task filter, which only means
+    /// something with Chat on screen, so a window showing just the terminal
+    /// switches to Chat.
+    func showMessages(of agent: LeoAgentID, applyingFilter applyFilter: () -> Void) {
+        applyFilter()
+        guard !currentChatLayout.showsChat else { return }
+        choose(.chat, for: agent)
+    }
+
+    func setObservedContentWidth(_ width: CGFloat) { observedContentWidth = width }
+
+    func setSideBySideChatWidth(_ width: CGFloat) {
+        if width != sideBySideChatWidth { sideBySideChatWidth = width }
+    }
+
+    /// The layout the selected agent's remembered mode gives right now. The
+    /// selection and the switch are read live, not from the last render, so
+    /// a request made while the selection is moving sees where it landed.
+    var currentChatLayout: LeoChatLayout {
+        guard let agent = shownAgent else { return .terminal }
+        return LeoChatLayout(contentWidth: observedContentWidth, choice: viewChoices[agent])
+    }
+
+    /// The agent this window's content area shows: the selected one, unless
+    /// a terminal row of this window is selected instead.
+    var shownAgent: LeoAgentID? { terminals.selection == nil ? selectedAgent() : nil }
+
+    /// `agent` sent a message: show its chat here if this window shows
+    /// its terminal. Never selects the agent or activates the app; keyboard
+    /// focus follows `autoOpenChat`.
+    func openChatIfSent(by agent: LeoAgentID) {
+        guard LeoChatAutoOpen.shouldOpen(agent, shown: shownAgent, layout: currentChatLayout) else { return }
+        autoOpenChat(for: agent)
+    }
+
+    /// Shows `agent`'s chat without the user asking: the keyboard moves only
+    /// when chat covers a terminal that held it (`LeoChatAutoOpen`).
+    private func autoOpenChat(for agent: LeoAgentID) {
+        let terminalHadFocus = isTerminalFocused()
+        isAwaitingUnreadCheck = false
+        viewChoices = viewChoices.setting(.chat, for: agent)
+        guard LeoChatAutoOpen.shouldFocusChat(layout: currentChatLayout, terminalHadFocus: terminalHadFocus) else { return }
+        requestChatFocus()
+    }
+
+    /// The selection moved (or this window just came up on it): if the
+    /// agent it shows has unread messages and its choice is Terminal, show
+    /// its chat. Stays armed until the user picks a view, so a seed that
+    /// lands after the selection (launch, new window) still counts.
+    func selectionChanged(unreadCount: (LeoAgentID) -> Int) {
+        isAwaitingUnreadCheck = true
+        openChatIfUnread(unreadCount: unreadCount)
+    }
+
+    /// Unread counts changed: finish a selection check still waiting on them.
+    func unreadChanged(unreadCount: (LeoAgentID) -> Int) {
+        guard isAwaitingUnreadCheck else { return }
+        openChatIfUnread(unreadCount: unreadCount)
+    }
+
+    private func openChatIfUnread(unreadCount: (LeoAgentID) -> Int) {
+        guard let agent = shownAgent,
+              LeoChatAutoOpen.shouldOpenOnSelect(
+                  unread: unreadCount(agent), layout: currentChatLayout, latestAgentKind: latestAgentMessageKind(agent)
+              ) else { return }
+        autoOpenChat(for: agent)
+    }
+
+    /// Hands `move` a gate to ask when the focus move actually runs, on
+    /// every retry. While chat covers the terminal the gate refuses, and
+    /// the composer takes the request instead.
+    func routeTerminalFocus(_ move: (_ isAllowed: @escaping () -> Bool) -> Void) {
+        move { [weak self] in self?.allowsTerminalFocus() ?? false }
+    }
+
+    private func allowsTerminalFocus() -> Bool {
+        switch LeoFocusTarget(for: currentChatLayout) {
+        case .terminal: return true
+        case .chatComposer:
+            requestChatFocus()
+            return false
+        }
+    }
+
+    /// Leaves the full-window viewer for where it was opened from. Back at
+    /// the thread (opened from an attachment's menu), the composer gets the
+    /// keys; back at the pane viewer, its file view focuses itself.
+    func exitChatFullWindow() {
+        guard chatViewer.isFullWindow else { return }
+        if !chatViewer.exitFullWindow() { requestChatFocus() }
+    }
+
+    /// Closes the open file, in the pane or full window, back to the thread.
+    func closeChatViewer() {
+        chatViewer.close()
+        requestChatFocus()
+    }
+
+    func requestChatFocus() {
+        isChatFocusPending = true
+        chatFocusRequest += 1
+    }
+
+    /// The composer takes a pending focus request once.
+    func takeChatFocusRequest() -> Bool {
+        defer { isChatFocusPending = false }
+        return isChatFocusPending
+    }
+
+    /// Hands focus back to the window's focused terminal surface.
+    static func focusTerminal(in window: NSWindow?, isAllowed: (() -> Bool)? = nil) {
+        guard let controller = window?.windowController as? BaseTerminalController,
+              let surface = controller.focusedSurface else { return }
+        Ghostty.moveFocus(to: surface, isAllowed: isAllowed)
     }
 
     /// Called by `LeoPickerPresentation` when its panel is shown/dismissed.
@@ -166,10 +489,10 @@ struct LeoWindowVisibilityState: Equatable {
 
     private func windowWillClose() {
         onWindowWillClose()
-        let editor = editor
-        let browser = browser
-        Task { await editor.release() }
-        Task { await browser.close() }
+        // The window's drawer shells end with it: their pty's go, and so do the shells.
+        drawerEnvironment?.pool.seal()
+        let panes = panes
+        Task { await panes.releaseAll() }
     }
 
     private func apply(_ event: LeoWindowVisibilityState.Event) {
@@ -179,6 +502,23 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     private func changed() { onPollabilityChanged() }
+
+    /// The window is on screen: neither miniaturized nor fully covered.
+    var isWindowVisible: Bool { !windowIsOccluded && !windowIsMiniaturized }
+
+    /// B-273: the row on screen, in a visible window, is viewed -- what
+    /// its pane waits on (`LeoEditorTabs.whenShown`) runs, e.g. marking a
+    /// background-opened surfaced file seen.
+    func markShownIfVisible() {
+        guard isWindowVisible else { return }
+        panes.active.tabs.markShown()
+    }
+}
+
+/// The session's window, held weakly for the panes' prompts.
+@MainActor private final class LeoWeakWindow {
+    weak var window: NSWindow?
+    init(_ window: NSWindow?) { self.window = window }
 }
 
 @MainActor final class LeoWindowSessionRegistry {
@@ -200,9 +540,12 @@ struct LeoWindowVisibilityState: Equatable {
         window: NSWindow? = nil,
         controller: TerminalController? = nil,
         defaults: UserDefaults = .standard,
-        makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess
+        makeFileAccess: @escaping @MainActor (LeoHostID) throws -> any LeoFileAccess = LeoWindowSession.noFileAccess,
+        agentBrowsers: (any LeoAgentBrowserPresence)? = nil
     ) -> LeoWindowSession {
-        let session = LeoWindowSession(window: window, defaults: defaults, makeFileAccess: makeFileAccess) { [weak self] in self?.report() }
+        let session = LeoWindowSession(
+            window: window, defaults: defaults, makeFileAccess: makeFileAccess, agentBrowsers: agentBrowsers
+        ) { [weak self] in self?.report() }
         entries[session.id] = Entry(session, controller: controller)
         report()
         return session
@@ -213,6 +556,19 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     func controller(for id: LeoWindowID) -> TerminalController? { entries[id]?.controller }
+
+    func session(for id: LeoWindowID) -> LeoWindowSession? { entries[id]?.session }
+
+    /// B-369: shows `row`'s chat in `window` (a stopped agent has no
+    /// terminal to attach but its history is readable). A selected shell tab
+    /// is deselected: the chat shows for an agent row only when no terminal
+    /// is selected, and keyboard paths (search Return) don't clear it.
+    func showChat(of row: LeoAgentRow, in window: LeoWindowID, model: LeoSidebarModel) {
+        model.selectAgentRow(row.id)
+        let session = session(for: window)
+        session?.terminals.select(nil)
+        session?.choose(.chat, for: row.id)
+    }
 
     var sessions: [LeoWindowSession] { entries.values.compactMap(\.session) }
 

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-019: `LeoRuntime.focusedAgentChanged` reaches the feed only through
 /// `focusedAgentRelay` (B-016), so a burst of focus changes lands in order.
@@ -15,8 +16,9 @@ import Testing
         let delivered = Delivered()
         let runtime = LeoRuntime(
             daemon: EmptyDaemon(), cli: .recordingForTests(), activitySource: activitySource, defaults: defaults,
-            templateFetchRunner: LeoRecordingTemplateRunner(),
-            focusedAgentSink: { await delivered.append($0) }
+            templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
+            focusedAgentSink: { await delivered.append($0) },
+            chatClient: FakeChatClient()
         )
         defer { runtime.shutdown() }
         let alpha = LeoAgentIdentity(host: .local, name: "alpha")
@@ -36,7 +38,7 @@ private actor Delivered {
     func append(_ value: LeoAgentRow.ID?) { values.append(value) }
 }
 
-private struct EmptyDaemon: LeoDaemonClient {
+struct EmptyDaemon: LeoDaemonClient {
     func listAgents() async throws -> [LeoAgent] { [] }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.transport("unused") }
     func start(_ name: String) async throws { throw LeoDaemonError.transport("unused") }

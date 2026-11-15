@@ -1,0 +1,47 @@
+{
+  "status": 200,
+  "headers": {
+    "content-type": "application/json; charset=utf-8",
+    "x-ratelimit-limit": "5000",
+    "x-ratelimit-remaining": "4920",
+    "x-ratelimit-reset": "1794423430",
+    "x-ratelimit-resource": "graphql",
+    "x-ratelimit-used": "80"
+  },
+  "body": {
+    "data": {
+      "repository": {
+        "pullRequest": {
+          "reviewDecision": null,
+          "reviewThreads": {
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": "cursor-1"
+            },
+            "nodes": [
+              {
+                "id": "PRRT_scratch1",
+                "isResolved": false,
+                "isOutdated": false,
+                "path": "sample.txt",
+                "line": 2,
+                "originalLine": 2,
+                "comments": {
+                  "nodes": [
+                    {
+                      "author": {
+                        "login": "scratch-user"
+                      },
+                      "body": "Please rename this to something clearer (scratch review comment).",
+                      "url": "https://github.com/blackpaw-studio/leo-github-plugin-scratch/pull/1#discussion_r4541022940"
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

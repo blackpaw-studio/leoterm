@@ -2,13 +2,14 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The editor's document model against every file-access backend: dirty
 /// tracking, save, and the external-change state machine (clean reload,
 /// dirty banner, Keep Mine, deleted). Every external change alters the
 /// file's size, since SFTP v3 mtimes are whole seconds.
 @MainActor
-@Suite(LeoSSHEndToEnd.trait)
+@Suite(.hostOnly, LeoSSHEndToEnd.trait)
 struct LeoEditorDocumentTests {
     private func open(
         _ path: String,
@@ -120,12 +121,16 @@ struct LeoEditorDocumentTests {
     }
 
     @Test(arguments: LeoFileBackendKind.allCases)
-    func binaryFilesOpenReadOnly(_ kind: LeoFileBackendKind) async throws {
+    func binaryFilesOpenAsCantPreview(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in
             let path = sandbox.path("blob.bin")
             try Data([0x7F, 0x45, 0x00, 0x01]).write(to: URL(fileURLWithPath: path))
 
-            #expect(try await open(path, access).readOnlyReason == .binary)
+            // B-278: never shown as garbled text.
+            let document = try await open(path, access)
+            #expect(document.readOnlyReason == .binary)
+            #expect(document.text.isEmpty)
+            #expect(document.isPreview)
         }
     }
 

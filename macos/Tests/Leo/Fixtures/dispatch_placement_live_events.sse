@@ -1,0 +1,33 @@
+: B-272 scripted trace of a leo 0.42 dispatch viewer moving between the
+: background (`leo-dispatch`, attachable) and the caller's session (not
+: attachable, pane still reported). The wire carries the move as
+: `attachable` flipping on a `dispatch_changed` for the same id; the pane id
+: never changes. Each "step N" comment opens one gate in
+: LeoDispatchPlacementLiveIntegrationTests.
+
+: step 1
+event: hello
+data: {"seq":1,"at":"2026-10-09T12:00:00Z","version":1,"server_time":"2026-10-09T12:00:00Z","boot_id":"boot-live","features":["bridge_turns","attention_reason","dispatch_tree","agent_usage","agent_control","dispatch_attach","dispatch_removed","state_seq","attach_dispatch_placement","dispatch_placement_live"]}
+
+event: agent_activity
+data: {"seq":2,"at":"2026-10-09T12:00:01Z","agent":"alpha","activity":"working","current_action":{"kind":"tool","detail":"leo_dispatch"},"attention":{"state":"working","revision":1}}
+
+: step 2
+: d1 starts in the background (no client attached to alpha)
+event: dispatch_changed
+data: {"seq":3,"at":"2026-10-09T12:00:02Z","dispatch":{"id":"d1","name":"fixer","role":"implement","status":"running","stalled":false,"caller_agent":"alpha","started_at":"2026-10-09T12:00:02Z","attachable":true,"tmux_target":"%41","tokens_in":0,"tokens_out":0,"cost_usd":0}}
+
+: step 3
+: a client attaches to alpha; d1's viewer moves into alpha's session
+event: dispatch_changed
+data: {"seq":4,"at":"2026-10-09T12:00:04Z","dispatch":{"id":"d1","name":"fixer","role":"implement","status":"running","stalled":false,"caller_agent":"alpha","started_at":"2026-10-09T12:00:02Z","attachable":false,"tmux_target":"%41","tokens_in":0,"tokens_out":0,"cost_usd":0}}
+
+: step 4
+: a later hello re-fetches /state, whose older answer still says background
+event: hello
+data: {"seq":6,"at":"2026-10-09T12:00:05Z","version":1,"server_time":"2026-10-09T12:00:05Z","boot_id":"boot-live","features":["bridge_turns","attention_reason","dispatch_tree","agent_usage","agent_control","dispatch_attach","dispatch_removed","state_seq","attach_dispatch_placement","dispatch_placement_live"]}
+
+: step 5
+: the client detaches; d1's viewer moves back to the background
+event: dispatch_changed
+data: {"seq":7,"at":"2026-10-09T12:00:06Z","dispatch":{"id":"d1","name":"fixer","role":"implement","status":"running","stalled":false,"caller_agent":"alpha","started_at":"2026-10-09T12:00:02Z","attachable":true,"tmux_target":"%41","tokens_in":0,"tokens_out":0,"cost_usd":0}}

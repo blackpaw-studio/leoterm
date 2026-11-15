@@ -22,6 +22,7 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuServices: NSMenu?
     @IBOutlet private var menuCheckForUpdates: NSMenuItem?
     @IBOutlet private var menuOpenConfig: NSMenuItem?
+    @IBOutlet private var menuLeoSettings: NSMenuItem?
     @IBOutlet private var menuReloadConfig: NSMenuItem?
     @IBOutlet private var menuSecureInput: NSMenuItem?
     @IBOutlet private var menuQuit: NSMenuItem?
@@ -61,6 +62,9 @@ class AppDelegate: NSObject,
     @IBOutlet private var menuSelectSplitBelow: NSMenuItem?
     @IBOutlet private var menuSelectSplitLeft: NSMenuItem?
     @IBOutlet private var menuSelectSplitRight: NSMenuItem?
+    @IBOutlet private var menuSelectNextRow: NSMenuItem?
+    @IBOutlet private var menuSelectPreviousRow: NSMenuItem?
+    @IBOutlet private var menuSelectRow: NSMenuItem?
     @IBOutlet private var menuReturnToDefaultSize: NSMenuItem?
     @IBOutlet private var menuFloatOnTop: NSMenuItem?
     @IBOutlet private var menuUseAsDefault: NSMenuItem?
@@ -90,7 +94,9 @@ class AppDelegate: NSObject,
     /// holds reopen off until launch has been handled.
     @MainActor private lazy var initialWindowOpener = LeoInitialWindowOpener(
         windowCount: { TerminalController.all.count },
-        initialWindow: { [unowned self] in self.derivedConfig.initialWindow },
+        initialWindow: { [unowned self] in
+            LeoServerMode.opensInitialWindow(config: self.derivedConfig.initialWindow, serverOnly: self.leoServerMode.isServerOnly)
+        },
         openWindow: { [unowned self] in
             self.undoManager.disableUndoRegistration()
             self.leoOpenLaunchWindow()
@@ -112,8 +118,9 @@ class AppDelegate: NSObject,
     }
 
     /// A new window showing the start screen alone, with no agent palette
-    /// (B-095): the launch window, Dock reopen and the fallback New Window.
-    /// The palette those last two presented closed again the moment the
+    /// (B-095, B-145): the launch window, Dock reopen, and every New Window
+    /// -- File ▸ New Window from any window, ⌘N (`new_window`) and the Dock
+    /// menu's. The palette those presented closed again the moment the
     /// window showed and took key status from it.
     @discardableResult
     @MainActor func leoOpenStartScreenWindow() -> TerminalController {
@@ -147,6 +154,81 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// "Run as server only" (A10): Dock-less, windowless, set before the
+    /// config reload below can restore the Dock icon.
+    @MainActor private(set) lazy var leoServerMode = LeoServerMode(
+        defaults: .ghostty,
+        macosHidden: { [unowned self] in self.ghostty.config.macosHidden },
+        windowCount: { TerminalController.all.count },
+        applyPolicy: { NSApp.setActivationPolicy($0) },
+        openWindow: { [unowned self] in self.leoOpenStartScreenWindow() },
+        activate: { NSApp.activate(ignoringOtherApps: true) }
+    )
+    /// The menu bar extra (A11).
+    @MainActor private lazy var leoMenuBar = LeoMenuBarCoordinator(
+        model: leoRuntime.model,
+        serverMode: leoServerMode,
+        restarter: LeoDaemonRestarter(
+            cli: LeoCLI(executableOverride: UserDefaults.ghostty.string(forKey: "leo.executablePath"), runner: LeoProcessRunner()),
+            bundledExecutable: LeoMenuBarCoordinator.bundledExecutable()
+        ),
+        defaults: .ghostty,
+        windowID: { [unowned self] in
+            // An agent picked from the menu opens in a window, making one if none is open.
+            let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
+            NSApp.activate(ignoringOtherApps: true)
+            return controller.leoSession?.id
+        },
+        openLeo: { [unowned self] in
+            NSApp.activate(ignoringOtherApps: true)
+            if let controller = TerminalController.preferredParent {
+                controller.window?.makeKeyAndOrderFront(nil)
+            } else {
+                self.leoOpenStartScreenWindow()
+            }
+        },
+        managed: { [unowned self] in
+            let summary = self.leoManaged?.summary
+            return (summary?.isManaged ?? false, summary?.isOutsideDaemon ?? false, summary?.version)
+        },
+        releaseToCLI: { [unowned self] in
+            Task { @MainActor in await self.leoManaged?.releaseToCLI() }
+        },
+        daemonChanged: { [unowned self] in self.leoRuntime.localDaemonChanged() },
+        restartFoundNoJob: { [unowned self] in
+            Task { @MainActor in await self.leoManaged?.restartFoundNoJob() }
+        },
+        stopOutsideDaemon: { [unowned self] in
+            Task { @MainActor in await self.leoManaged?.perform(.stopOutsideDaemon) }
+        }
+    )
+    /// The app-managed daemon (B5); nil when the bundle names no daemon label.
+    @MainActor private lazy var leoManaged: LeoManagedStartup? = makeLeoManaged()
+    /// First-run Claude setup (A13), and Agents ▸ Set Up Claude…
+    @MainActor private lazy var leoClaudeOnboarding = LeoClaudeOnboardingController(
+        locator: LeoClaudeLocator(
+            home: NSHomeDirectory(),
+            isExecutable: { FileManager.default.isExecutableFile(atPath: $0) },
+            // A GUI app's own PATH is short; ask the login shell.
+            loginPath: { await LeoLoginPathProbe.live(runner: LeoProcessRunner()).loginPath() }
+        ),
+        // leo ≥ 0.56.2 reports it on /health; an older daemon leaves it to the locator.
+        health: {
+            let socket = LeoInstallPaths.live().stateDirectory.appendingPathComponent("leo.sock").path
+            return await LeoDaemonProbe(socketPath: socket, transport: LeoUnixSocketTransport()).claudeHealth()
+        },
+        store: LeoClaudeOnboardingStore(defaults: .ghostty),
+        openWindow: { [unowned self] command in
+            let controller = TerminalController.preferredParent ?? self.leoOpenStartScreenWindow()
+            return LeoCommandLauncher.openWindow(in: controller, command: command)
+        }
+    )
+    /// Agents ▸ Install ‘leo’ Command… (A14): links `~/.local/bin/leo` at the app's stable helper link.
+    @MainActor private lazy var leoCommandInstaller = LeoCommandInstallerController(
+        installer: LeoCommandInstaller(paths: .live(), fileSystem: LeoDiskFileSystem())
+    )
+    /// The /Applications check (A9); a test host is a Debug build, so exempt.
+    @MainActor private lazy var leoAppLocation = LeoAppLocationController(instanceClaim: leoInstanceClaim)
     /// Set once badge authorization has allowed the upstream bell badge.
     private var bellDockBadgeAuthorized = false
 
@@ -154,10 +236,10 @@ class AppDelegate: NSObject,
     /// mirrors the upstream `newWindow(_:withBaseConfig:withParent:)`'s
     /// fullscreen/opacity/cascade handling for an empty tree -- see its
     /// doc) and routes a `.placeholder` request to the agent picker for it.
-    /// Shared by the "no existing window to attach a tab/split into" paths
-    /// that still ask for an agent: `new_window` and Choose Agent… with no
-    /// window (launch, reopen and the fallback New Window open the bare
-    /// start screen instead: `leoOpenStartScreenWindow`). `baseConfig` is
+    /// Used by the "no existing window to attach a tab/split into" path that
+    /// still asks for an agent: Choose Agent… with no window (launch,
+    /// reopen, every New Window and `new_window` open the bare start
+    /// screen instead: `leoOpenStartScreenWindow`). `baseConfig` is
     /// the inherited `SurfaceConfiguration` (if any) from whatever
     /// triggered this -- see `LeoRuntime.routeNewSurface`.
     @MainActor private func leoRouteNewWindow(baseConfig: Ghostty.SurfaceConfiguration? = nil) {
@@ -304,7 +386,16 @@ class AppDelegate: NSObject,
         LeoLaunchTiming.markOnFirst(NSWindow.didBecomeKeyNotification, as: "firstWindowKey")
         #endif
         // MARK: Leo
+        #if DEBUG
+        LeoUpdateFixture.apply(to: updateViewModel)
+        #endif
         leoRuntime.model.attentionCountChanged = { [weak self] _ in self?.writeDockBadge() }
+        if let leoManaged {
+            leoRuntime.managedStartup = {
+                await leoManaged.run()
+                Task { @MainActor in await leoManaged.runPostLaunchSteps() }
+            }
+        }
         leoRuntime.start()
 
         // System settings overrides
@@ -464,6 +555,54 @@ class AppDelegate: NSObject,
         // so AppKit's launch open-file events have made their windows first;
         // a script, intent or Service window arriving later replaces it.
         initialWindowOpener.didFinishLaunching()
+        leoAppLocation.start(model: leoRuntime.model)
+        // A test host must not leave a status item in the real menu bar.
+        if !LeoSingleInstance.isRunningAsTestHost() {
+            leoMenuBar.syncVisibility()
+            leoClaudeOnboarding.start(model: leoRuntime.model)
+            leoRuntime.actions.claudeNotFound = { [unowned self] in self.leoClaudeOnboarding.claudeNotFound() }
+        }
+    }
+
+    @MainActor private func makeLeoManaged() -> LeoManagedStartup? {
+        // A test host must never touch the real LaunchAgent or ~/.leo.
+        guard !LeoSingleInstance.isRunningAsTestHost(), let dependencies = LeoManagedDependencies.live() else { return nil }
+        let model = leoRuntime.model
+        let startup = LeoManagedStartup(
+            dependencies: dependencies,
+            takeoverStore: LeoTakeoverStore(defaults: .ghostty),
+            location: { [unowned self] in await self.leoAppLocation.resolvedLocation() },
+            presenter: LeoManagedAlerts()
+        )
+        startup.onChange = { model.managedPresentationChanged($0) }
+        startup.moveToApplicationsRequested = { model.moveToApplicationsRequested() }
+        startup.startCLIDaemonRequested = { model.startDaemonRequested() }
+        startup.daemonChanged = { [unowned self] in self.leoRuntime.localDaemonChanged() }
+        model.managedBannerActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
+        model.daemonStartActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
+        return startup
+    }
+
+    /// Agents ▸ Set Up Claude…: install Claude Code and sign in, in a new window.
+    @IBAction func setUpClaude(_ sender: Any?) {
+        leoClaudeOnboarding.setUp()
+    }
+
+    /// App menu ▸ Settings… (⌘,): the Leo Settings window (B-397). Handled
+    /// here, not by a terminal window, so it works with none open.
+    @IBAction func showLeoSettings(_ sender: Any?) {
+        leoRuntime.presentSettings()
+    }
+
+    /// Agents ▸ Machines…: the Leo Settings window. Handled here, not by a
+    /// terminal window, so it works with none open.
+    @IBAction func showLeoMachinesSettings(_ sender: Any?) {
+        leoRuntime.presentMachinesSettings()
+    }
+
+    /// Agents ▸ Install ‘leo’ Command…
+    @IBAction func installLeoCommand(_ sender: Any?) {
+        leoCommandInstaller.install()
     }
 
     func applicationDidHide(_ notification: Notification) {
@@ -478,10 +617,20 @@ class AppDelegate: NSObject,
         // First launch stuff
         // MARK: Leo -- activation may come before the launch hop (B-085).
         initialWindowOpener.didBecomeActive()
+        leoClaudeOnboarding.applicationDidBecomeActive()
+        // Back from Login Items: pick up the user's approval (B5).
+        if let leoManaged {
+            Task { @MainActor in await leoManaged.applicationDidBecomeActive() }
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        return derivedConfig.shouldQuitAfterLastWindowClosed
+        // MARK: Leo -- server-only mode never quits when the windows go.
+        return MainActor.assumeIsolated {
+            LeoServerMode.quitsAfterLastWindowClosed(
+                config: derivedConfig.shouldQuitAfterLastWindowClosed, serverOnly: leoServerMode.isServerOnly
+            )
+        }
     }
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -489,7 +638,9 @@ class AppDelegate: NSObject,
         // An approved quit is final: mark the instance lock now, not ~50 ms
         // later in `applicationWillTerminate`, so a copy launched meanwhile
         // waits for this one instead of yielding to it (B-092).
-        leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
+        // A pending move-to-Applications handoff survives only the first attempt (A9).
+        leoAppLocation.handoff.terminationAttemptBegan()
+        return leoInstanceClaim.markingExiting(ifApproved: ghosttyShouldTerminate(sender))
     }
 
     @MainActor private func ghosttyShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -540,6 +691,8 @@ class AppDelegate: NSObject,
         // Already marked where the quit was approved; this covers any
         // approval that didn't pass through there (B-092).
         leoInstanceClaim.markExiting()
+        // The quit is certain: launch the copy moved into Applications, if any (A9).
+        leoAppLocation.handoff.willTerminate()
         leoRuntime.shutdown()
 
         // We have no notifications we want to persist after death,
@@ -849,9 +1002,12 @@ class AppDelegate: NSObject,
     }
 
     @MainActor @objc private func ghosttyNewWindow(_ notification: Notification) {
-        // MARK: Leo
-        let configAny = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey]
-        leoRouteNewWindow(baseConfig: configAny as? Ghostty.SurfaceConfiguration)
+        // MARK: Leo -- the start screen alone, no palette (B-145); what it
+        // inherited (a changed font size) waits for the first surface chosen.
+        let controller = leoOpenStartScreenWindow()
+        guard let leoSession = controller.leoSession else { return }
+        let config = notification.userInfo?[Ghostty.Notification.NewSurfaceConfigKey] as? Ghostty.SurfaceConfiguration
+        leoRuntime.holdStartScreenConfig(config, for: leoSession.id)
     }
 
     @MainActor @objc private func ghosttyNewTab(_ notification: Notification) {
@@ -875,8 +1031,8 @@ class AppDelegate: NSObject,
     }
 
     // MARK: Leo
-    /// The one Dock badge writer: the selected Leo host's attention count
-    /// takes precedence over the bell count (see `LeoDockBadge`). The
+    /// The one Dock badge writer: Leo's attention count, summed across
+    /// every machine (inventory row 6), takes precedence over the bell count (see `LeoDockBadge`). The
     /// attention path writes directly -- `NSDockTile` needs no notification
     /// authorization, so an agent needing input never triggers a prompt.
     private func writeDockBadge() {
@@ -884,7 +1040,7 @@ class AppDelegate: NSObject,
             .compactMap { $0.windowController as? BaseTerminalController }
             .reduce(0) { $0 + ($1.bell ? 1 : 0) }
         let label = LeoDockBadge.label(
-            attentionCount: MainActor.assumeIsolated { leoRuntime.model.snapshot.attentionCount },
+            attentionCount: MainActor.assumeIsolated { leoRuntime.model.attentionCount },
             bellCount: bellCount,
             bellBadgeEnabled: bellDockBadgeAuthorized && ghostty.config.bellFeatures.contains(.attention)
         )
@@ -937,13 +1093,10 @@ class AppDelegate: NSObject,
         DispatchQueue.main.async { self.syncAppearance(config: config) }
 
         // Decide whether to hide/unhide app from dock and app switcher
-        switch config.macosHidden {
-        case .never:
-            NSApp.setActivationPolicy(.regular)
-
-        case .always:
-            NSApp.setActivationPolicy(.accessory)
-        }
+        // MARK: Leo -- server-only mode keeps it hidden whatever the config says.
+        NSApp.setActivationPolicy(MainActor.assumeIsolated {
+            LeoServerMode.activationPolicy(macosHidden: config.macosHidden, serverOnly: leoServerMode.isServerOnly)
+        })
 
         // If we have configuration errors, we need to show them.
         let c = ConfigurationErrorsController.sharedInstance
@@ -983,7 +1136,8 @@ class AppDelegate: NSObject,
 
     private func updateAppIcon(from config: Ghostty.Config) {
         Task.detached {
-            await self.appIconUpdater.update(icon: AppIcon(config: config))
+            // Leo: one icon; macos-icon* ignored
+            await self.appIconUpdater.update(icon: nil)
         }
     }
 
@@ -1095,8 +1249,12 @@ class AppDelegate: NSObject,
         // UpdateSimulator.happyPath.simulate(with: updateViewModel)
     }
 
+    /// File ▸ New Window with no terminal window to ask, and the Dock menu's
+    /// New Window (right-click the Dock icon): the start screen alone, as
+    /// launch opens it (B-095, B-145). With a terminal window key the
+    /// responder chain reaches `TerminalController.newWindow` first.
     @IBAction func newWindow(_ sender: Any?) {
-        // MARK: Leo -- the start screen alone, as launch opens (B-095).
+        // MARK: Leo
         leoOpenStartScreenWindow()
     }
 
@@ -1300,7 +1458,8 @@ extension AppDelegate {
         menuShortcutManager.reset()
 
         syncMenuShortcut(config, action: "check_for_updates", menuItem: self.menuCheckForUpdates)
-        syncMenuShortcut(config, action: "open_config", menuItem: self.menuOpenConfig)
+        // Leo (B-397): not synced to open_config; Settings… owns ⌘, (see LeoSettingsMenuShortcut).
+        LeoSettingsMenuShortcut.sync(settings: self.menuLeoSettings, manager: menuShortcutManager)
         syncMenuShortcut(config, action: "reload_config", menuItem: self.menuReloadConfig)
         syncMenuShortcut(config, action: "quit", menuItem: self.menuQuit)
 
@@ -1354,6 +1513,12 @@ extension AppDelegate {
         syncMenuShortcut(config, action: "toggle_command_palette", menuItem: self.menuCommandPalette)
 
         syncMenuShortcut(config, action: "toggle_secure_input", menuItem: self.menuSecureInput)
+
+        // Leo: the old tab shortcuts go to sidebar rows (B-059).
+        LeoRowMenuShortcuts.sync(
+            config, selectRow: self.menuSelectRow, next: self.menuSelectNextRow, previous: self.menuSelectPreviousRow,
+            manager: menuShortcutManager
+        )
 
         // This menu item is NOT synced with the configuration because it disables macOS
         // global fullscreen keyboard shortcut. The shortcut in the Ghostty config will continue

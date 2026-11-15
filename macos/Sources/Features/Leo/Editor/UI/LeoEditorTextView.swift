@@ -3,7 +3,7 @@ import AppKit
 /// The editor's text view: plain monospaced text with the built-in
 /// highlighter, and its own undo stack (the window's undo manager is the
 /// app's, which undoes closing tabs, not typing).
-final class LeoEditorTextView: NSTextView {
+final class LeoEditorTextView: LeoFindableTextView {
     /// Highlight the whole document on every edit up to this size (UTF-16
     /// units); beyond it, only the edited lines (a construct opened above
     /// them, like a block comment, may then be coloured stale).

@@ -1,0 +1,14 @@
+# The tmux Leo.app bundles as Contents/Helpers/tmux, built statically from
+# these source tarballs by .github/scripts/leo/build-tmux.sh (universal,
+# MACOSX_DEPLOYMENT_TARGET=13.0; ncurses comes from the macOS SDK).
+# sha256: each source tarball's hash.
+#
+# tmux stays on 3.6: 3.7c+ turn on macOS-only grid assertions (abort) and
+# need jemalloc to dodge a calloc bug (tmux issue 5385), a fourth static
+# dependency this build doesn't carry yet. leo needs tmux >= 3.2.
+tmux_version=3.6b
+tmux_sha256=390759d25fdba016887ec982b808927e637070fd7d03a8021f8ef3102b9ae3c7
+libevent_version=2.1.13-stable
+libevent_sha256=f7e9383b8c0baa81b687e5b5eecc01beefaf1b19b64151d95ed61647fe7a315c
+utf8proc_version=2.12.0
+utf8proc_sha256=a393fbef160835fb315bc3e91ba8d86f7a73a7cec9e6198b6c60b848b498bfeb

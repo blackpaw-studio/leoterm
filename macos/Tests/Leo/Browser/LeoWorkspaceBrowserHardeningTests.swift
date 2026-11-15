@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The browser under overlapping calls and untrusted servers: the last
 /// open or close wins and every other file access is released, nested

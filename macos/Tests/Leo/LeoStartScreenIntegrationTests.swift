@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-050 against a real start-screen `TerminalController`: when
 /// `GhosttyAttachContentHost` closes an untouched start window. Needs the app's real `Ghostty.App`, so these bail out

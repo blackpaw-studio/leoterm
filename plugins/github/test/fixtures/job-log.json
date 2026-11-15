@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": { "content-type": "text/plain" },
+  "body": "﻿2026-11-10T12:00:00.0000000Z \u001b[36;1mstep 1\u001b[0m\r\n2026-11-10T12:00:01.0000000Z Error: boom\r\n2026-11-10T12:00:02.0000000Z process exited 1\r\n"
+}

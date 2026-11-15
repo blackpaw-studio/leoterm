@@ -1,0 +1,38 @@
+: B-257 scripted trace, modelled on leo internal/observe/b051_fixture_test.go.
+: Alpha's turn ends while dispatch d1 (and d1's own dispatch d2) still run;
+: the daemon holds alpha at working (outstanding) until the last child ends.
+: Each "step N" comment opens one gate in LeoDispatchHoldIntegrationTests.
+
+: step 1
+event: hello
+data: {"seq":1,"at":"2026-10-06T12:00:00Z","version":1,"server_time":"2026-10-06T12:00:00Z","boot_id":"boot-hold","features":["bridge_turns","attention_reason","dispatch_tree","agent_usage","agent_control"]}
+
+event: agent_activity
+data: {"seq":2,"at":"2026-10-06T12:00:01Z","agent":"alpha","activity":"working","current_action":{"kind":"tool","detail":"leo_dispatch"},"attention":{"state":"working","revision":1}}
+
+: step 2
+event: dispatch_changed
+data: {"seq":3,"at":"2026-10-06T12:00:02Z","dispatch":{"id":"d1","name":"fixer","role":"implement","status":"running","stalled":false,"caller_agent":"alpha","started_at":"2026-10-06T12:00:02Z","tokens_in":0,"tokens_out":0,"cost_usd":0}}
+
+: step 3
+event: dispatch_changed
+data: {"seq":4,"at":"2026-10-06T12:00:03Z","dispatch":{"id":"d2","name":"scout","role":"explore","status":"running","stalled":false,"caller_agent":"fixer","parent_dispatch_id":"d1","started_at":"2026-10-06T12:00:03Z","tokens_in":0,"tokens_out":0,"cost_usd":0}}
+
+: step 4
+event: agent_turn_completed
+data: {"seq":5,"at":"2026-10-06T12:00:04Z","agent":"alpha","session_id":"s1","outcome":"completed","preview":"Dispatched fixer; waiting on it.","tokens":{"input":10,"output":20,"cache_read":0,"cache_creation":0}}
+
+event: agent_activity
+data: {"seq":6,"at":"2026-10-06T12:00:04Z","agent":"alpha","activity":"idle","current_action":null,"attention":{"state":"working","revision":2,"outstanding":{"dispatches":2,"subagents":0}}}
+
+: step 5
+event: dispatch_changed
+data: {"seq":7,"at":"2026-10-06T12:00:05Z","dispatch":{"id":"d2","name":"scout","role":"explore","status":"done","stalled":false,"caller_agent":"fixer","parent_dispatch_id":"d1","started_at":"2026-10-06T12:00:03Z","ended_at":"2026-10-06T12:00:05Z","tokens_in":5,"tokens_out":9,"cost_usd":0.01}}
+
+: step 6
+event: dispatch_changed
+data: {"seq":8,"at":"2026-10-06T12:00:06Z","dispatch":{"id":"d1","name":"fixer","role":"implement","status":"done","stalled":false,"caller_agent":"alpha","started_at":"2026-10-06T12:00:02Z","ended_at":"2026-10-06T12:00:06Z","tokens_in":50,"tokens_out":90,"cost_usd":0.1}}
+
+event: agent_activity
+data: {"seq":9,"at":"2026-10-06T12:00:06Z","agent":"alpha","activity":"idle","current_action":null,"attention":{"state":"finished","revision":3}}
+

@@ -3,6 +3,7 @@ import GhosttyKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-177 against a real `TerminalController`: a terminal row's context
 /// menu renames its shell (the one title the row, the window and a close
@@ -180,6 +181,25 @@ import Testing
         fixture.terminals.rename(shell.surfaceID, to: "")
 
         #expect(await eventually { fixture.label(shell) == "~/x" })
+    }
+
+    /// A title the terminal sets inside the 75 ms coalescing window is newer
+    /// than the one held under the name, so clearing must not drop it (B-183).
+    @Test func clearingANameKeepsATitleThatJustArrived() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let shell = try newShell(fixture, running: Self.standIn)
+        let view = try #require(fixture.view(shell))
+        try await titled(view, "~/old", in: fixture, shell)
+        fixture.terminals.rename(shell.surfaceID, to: "build")
+        try #require(await eventually { fixture.label(shell) == "build" })
+
+        view.setTitle("~/new")
+        fixture.terminals.rename(shell.surfaceID, to: "")
+
+        #expect(await eventually { fixture.label(shell) == "~/new" }, "\(fixture.label(shell) ?? "nil")")
+        await settle()
+        #expect(fixture.label(shell) == "~/new", "and it stays")
     }
 
     /// Blank on a row never renamed leaves the terminal's own title be.
@@ -373,7 +393,8 @@ import Testing
 
     /// A hidden shell at its prompt closes without asking; what the window
     /// shows stays.
-    @Test(.timeLimit(.minutes(1)))
+    /// `.hostOnly`: on hosted macos-26 the shell never reports idle (needsConfirmQuit stays true), so the "at its prompt" wait cannot pass
+    @Test(.hostOnly, .timeLimit(.minutes(1)))
     func closeFromMenuOnAnIdleHiddenRowClosesWithoutAsking() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
@@ -394,49 +415,6 @@ import Testing
         #expect(!fixture.host.isOpen(idle))
         #expect(fixture.shown().count == 1 && fixture.shown().first === shownView)
         #expect(!sheets.sawSheet)
-    }
-
-    /// Fix round 1: no hidden row can hold a busy split for Close to kill
-    /// unasked. Switching away from a row with a busy shell split beside it
-    /// asks first (cancelled: it all stays shown); once confirmed, the
-    /// switch closes the split and the row together -- nothing is kept, so
-    /// there is no hidden row left for its menu to close.
-    @Test(.timeLimit(.minutes(1)))
-    func aRowWithABusySplitBesideItIsNeverKeptForCloseToKill() async throws {
-        let fixture = try makeFixture()
-        defer { close(fixture) }
-        let window = try #require(fixture.controller.window)
-        let row = try newShell(fixture)
-        let busyConfig = UUID()
-        var config = Ghostty.SurfaceConfiguration()
-        config.command = Self.standIn
-        fixture.configs.set(config, for: busyConfig)
-        let split = try fixture.host.openSplit(
-            command: "", workingDirectory: nil, origin: fixture.origin,
-            sourceSurface: row.surfaceID, direction: .right, requestID: busyConfig
-        )
-        let splitView = try #require(fixture.view(split))
-        try #require(await eventually { splitView.needsConfirmQuit }, "the split's process is running")
-        window.orderFront(nil)
-        let sheets = SheetWatch()
-        let watcher = Task { await sheets.cancelAny(on: window) }
-        defer { watcher.cancel() }
-
-        let mayReplace = await fixture.host.confirmReplacingContent(origin: fixture.origin)
-
-        #expect(sheets.sawSheet, "switching away asks first")
-        #expect(sheets.texts.contains(LeoContentReplacement.informativeText), "the switch's own confirm")
-        #expect(!mayReplace)
-        #expect(fixture.host.isShown(row) && fixture.host.isShown(split), "cancelled: both stay shown")
-
-        // Confirmed: the switch closes them together.
-        _ = try attachAgent(fixture)
-
-        #expect(fixture.host.hiddenSurfaces(in: fixture.windowID).isEmpty, "nothing is kept")
-        #expect(!fixture.host.isOpen(row) && !fixture.host.isOpen(split))
-        #expect(!fixture.terminals.contains(row.surfaceID), "no hidden row is left to close")
-        await fixture.host.closeTerminalFromMenu(row)
-        #expect(!fixture.host.isOpen(split))
     }
 
     // MARK: Split

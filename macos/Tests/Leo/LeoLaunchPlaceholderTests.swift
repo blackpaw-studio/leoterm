@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-085: the empty window a launch opens on its own gives way to the first
 /// window a script, App Intent, Service or opened file asks for -- as an

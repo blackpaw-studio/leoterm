@@ -1,0 +1,11 @@
+{
+  "id": "studio.blackpaw.fixture.pane-demo",
+  "name": "Pane Demo",
+  "version": "1.0.0",
+  "apiVersion": 1,
+  "main": "pane-demo.js",
+  "permissions": { "network": [], "secrets": false, "agents": ["read", "usage"] },
+  "contributes": {
+    "panes": [{ "id": "demo", "title": "Pane Demo", "sfSymbol": "gauge" }]
+  }
+}

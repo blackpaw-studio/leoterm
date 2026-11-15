@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Byte-level fixtures for the SFTP v3 codec (draft-ietf-secsh-filexfer-02).
 /// Every expected packet below is written out by hand from the draft, not
@@ -34,6 +35,11 @@ struct LeoSFTPCodecTests {
     @Test func encodesWriteWithLengthPrefixedData() {
         let packet = LeoSFTPCodec.encode(.write(handle: Data("h".utf8), offset: 5, data: Data("xyz".utf8)), id: 2)
         #expect(packet == leoHex("00000019 06 00000002 00000001 68 0000000000000005 00000003 78797a"))
+    }
+
+    @Test func encodesMkdirWithPermissions() {
+        let packet = LeoSFTPCodec.encode(.mkdir(path: "/a", attributes: .init(permissions: 0o700)), id: 3)
+        #expect(packet == leoHex("00000013 0e 00000003 00000002 2f61 00000004 000001c0"))
     }
 
     @Test func encodesFsetstatPermissions() {

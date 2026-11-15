@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoAttachCoordinatorTests {
     private let identity = LeoAgentIdentity(host: .local, name: "worker")
@@ -163,11 +164,24 @@ import Testing
         #expect(model.rowErrors[.init(host: second.host, name: second.name)] == nil)
     }
 
+    @Test func localAttachReadsAdvertisedFeaturesWhenTheCommandIsBuilt() async throws {
+        let host = FakeAttachContentHost()
+        var features = LeoDaemonFeatures.none
+        let coordinator = makeCoordinator(host: host, daemonFeatures: { _ in features })
+
+        await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "worker"), from: origin, disposition: .content)
+        features = LeoDaemonFeatures(["attach_dispatch_placement"])
+        await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "other"), from: origin, disposition: .content)
+
+        #expect(host.contentCalls.first?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost -- 'worker'")
+        #expect(host.contentCalls.last?.command == "env -u TMUX -u TMUX_PANE '/leo' agent attach --host localhost --dispatch-placement background -- 'other'")
+    }
+
     @Test func remoteIdentityUsesTheRemoteCommandBuilderNotTheLocalExecutable() async throws {
         let host = FakeAttachContentHost()
         let remoteIdentity = LeoAgentIdentity(host: .remote("work"), name: "worker")
         var builtFor: LeoAgentIdentity?
-        let coordinator = makeCoordinator(host: host, remoteCommandBuilder: { identity in
+        let coordinator = makeCoordinator(host: host, remoteCommandBuilder: { identity, _ in
             builtFor = identity
             return "env -u TMUX -u TMUX_PANE ssh -t 'work' 'leo agent attach -- worker'"
         })
@@ -185,7 +199,7 @@ import Testing
         let coordinator = makeCoordinator(
             host: host,
             report: { reported = $0 },
-            remoteCommandBuilder: { _ in throw LeoDaemonError.hostUnavailable("Remote host work is not configured") }
+            remoteCommandBuilder: { _, _ in throw LeoDaemonError.hostUnavailable("Remote host work is not configured") }
         )
 
         await coordinator.attach(identity: remoteIdentity, from: origin, disposition: .content)
@@ -432,6 +446,125 @@ import Testing
         #expect(coordinator.focusedIdentity == identity)
     }
 
+    // MARK: A surface moved between windows (B-110)
+
+    /// An agent's surface dragged into another window: its tracking follows
+    /// it, so asking for the agent from there brings that surface forward
+    /// -- no new attach, no second tmux client -- and it is still the
+    /// agent's, live and focused.
+    @Test func aMovedAgentIsBroughtForwardFromItsNewWindow() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let other = LeoWindowID()
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: other)
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+        await host.emitAndWait(.focusChanged(before))
+
+        await host.emitAndWait(.moved(from: before, to: after))
+        await coordinator.attach(identity: identity, from: other, disposition: .content)
+
+        #expect(host.contentCalls.count == 1, "nothing attached anew")
+        #expect(host.focused == [after])
+        #expect(coordinator.identity(forSurface: before.surfaceID) == identity)
+        #expect(coordinator.reusableHandleCount == 1)
+        #expect(coordinator.linkState.focused == LeoAgentRow.ID(host: identity.host, name: identity.name), "the link follows the moved handle")
+    }
+
+    /// The host moves an agent's handle at once; `.moved` reaches the
+    /// coordinator later. Asked for in between, the agent is found where it
+    /// went -- not forgotten as closed, so the next attach would start a
+    /// second tmux client.
+    @Test func anAgentAskedForBeforeItsMoveArrivesIsFoundWhereItWent() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+
+        #expect(coordinator.focusExisting(identity), "brought forward where it went")
+        #expect(host.focused == [after])
+        await host.emitAndWait(.moved(from: before, to: after))
+        await coordinator.attach(identity: identity, from: after.windowID, disposition: .content)
+
+        #expect(host.contentCalls.count == 1, "nothing attached anew")
+        #expect(coordinator.identity(forSurface: before.surfaceID) == identity)
+        #expect(coordinator.reusableHandleCount == 1)
+    }
+
+    /// The agent's process exited as it moved: `.processExited` names its
+    /// old handle. Whether or not the coordinator re-keyed it first (asked
+    /// for meanwhile), it is exited where it went, its placeholder there.
+    @Test(arguments: [false, true])
+    func anAgentThatExitedAsItMovedIsExitedWhereItWent(_ askedForMeanwhile: Bool) async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+        if askedForMeanwhile { coordinator.focusExisting(identity) }
+
+        await host.emitAndWait(.processExited(before))
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        #expect(coordinator.inactiveHandleCount == 1, "exited")
+        #expect(coordinator.identity(forSurface: before.surfaceID) == nil)
+        #expect(host.reborn == [after], "its placeholder where it went")
+    }
+
+    /// A moved handle that exited before it moved stays exited there.
+    @Test func aMovedExitedAgentStaysExited() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        await host.emitAndWait(.processExited(before))
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        #expect(coordinator.inactiveHandleCount == 1)
+        #expect(coordinator.identity(forSurface: before.surfaceID) == nil, "still exited")
+        await host.emitAndWait(.closed(after))
+        #expect(coordinator.inactiveHandleCount == 0, "its close finds it under its new handle")
+    }
+
+    /// A move is not a new attachment: the same tmux client keeps its
+    /// generation (B-232), so a file drop begun before it still completes
+    /// into it where it went.
+    @Test func aMovedAgentKeepsItsAttachmentGeneration() async throws {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let generation = try #require(coordinator.generation(forSurface: before.surfaceID))
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        #expect(coordinator.generation(forSurface: after.surfaceID) == generation)
+    }
+
+    /// A plain shell (no identity) moving changes nothing.
+    @Test func aMovedPlainShellIsANoOp() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        let before = AttachmentHandle(surfaceID: UUID(), windowID: origin)
+
+        await host.emitAndWait(.moved(from: before, to: AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())))
+
+        #expect(coordinator.reusableHandleCount == 0)
+        #expect(coordinator.inactiveHandleCount == 0)
+    }
+
     // MARK: A closed window's content version (B-062)
 
     @Test func closingAWindowForgetsItsContentVersion() async {
@@ -470,6 +603,59 @@ import Testing
         #expect(host.contentCalls.count == 2, "not dropped as superseded")
     }
 
+    /// B-274: every navigation reports the row its window now shows, so
+    /// the window's editor and browser follow it. A split shows no new row.
+    @Test func navigationReportsTheShownRow() async throws {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        var shown: [(LeoWindowID, LeoRowKey)] = []
+        coordinator.onRowShown = { shown.append(($0, $1)) }
+        let other = LeoAgentIdentity(host: .local, name: "other")
+
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let agent = try #require(host.handles.last)
+        let shell = try #require(try? await coordinator.openPlainShell(request: LeoSurfaceRequest(origin: origin, disposition: .content)).get())
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        await coordinator.showTerminal(shell)
+        await coordinator.attach(identity: other, from: origin, disposition: .content)
+        await coordinator.showTerminal(shell)
+        coordinator.closeTerminal(shell)
+        _ = await coordinator.attach(
+            identity: other, request: LeoSurfaceRequest(origin: origin, disposition: .split(.right), splitSourceSurface: agent.surfaceID))
+
+        #expect(shown.map(\.0).allSatisfy { $0 == origin })
+        #expect(shown.map(\.1) == [
+            .agent(identity), .terminal(shell.surfaceID), .agent(identity), .agent(identity),
+            .terminal(shell.surfaceID), .agent(other), .terminal(shell.surfaceID), .startScreen,
+        ])
+    }
+
+    /// B-274: the live pool letting an agent's surface go leaves its pane:
+    /// the pane is the row's, not the surface's.
+    @Test func poolEvictionLeavesThePaneIntact() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let host = FakeAttachContentHost()
+            let coordinator = makeCoordinator(host: host)
+            let panes = LeoRowPanes(makeAccess: { _ in LeoFileAccessor.local() }, confirm: { _, _ in .cancel })
+            coordinator.onRowShown = { _, key in panes.activate(key) }
+            await coordinator.attach(identity: identity, from: origin, disposition: .content)
+            let first = try #require(host.handles.last)
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+            let document = try #require(panes.active.tabs.document)
+
+            for index in 0 ..< LeoLivePoolCapacity.perWindow + 1 {
+                await coordinator.attach(identity: LeoAgentIdentity(host: .local, name: "agent\(index)"), from: origin, disposition: .content)
+            }
+            #expect(host.letGo.contains(first))
+            await coordinator.attach(identity: identity, from: origin, disposition: .content)
+
+            #expect(panes.activeKey == .agent(identity))
+            #expect(panes.active.tabs.document === document)
+            await panes.releaseAll()
+        }
+    }
+
     private func waitUntil(_ condition: () -> Bool) async {
         let deadline = ContinuousClock.now + .seconds(2)
         while !condition(), ContinuousClock.now < deadline { await Task.yield() }
@@ -478,15 +664,17 @@ import Testing
     private func makeCoordinator(
         host: FakeAttachContentHost,
         report: @escaping (LeoAttachError) -> Void = { _ in },
-        remoteCommandBuilder: @escaping (LeoAgentIdentity) throws -> String = { _ in
+        remoteCommandBuilder: @escaping (LeoAgentIdentity, LeoDispatchAccess) throws -> String = { _, _ in
             throw LeoDaemonError.hostUnavailable("Remote attach is not configured")
         },
-        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in }
+        focusedIdentityChanged: @escaping (LeoAgentIdentity?) -> Void = { _ in },
+        daemonFeatures: @escaping (LeoHostID) -> LeoDaemonFeatures = { _ in .none }
     ) -> LeoAttachCoordinator {
         LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
             remoteCommandBuilder: remoteCommandBuilder,
+            daemonFeatures: daemonFeatures,
             report: report,
             lifecycleEventHandled: { host.acknowledge($0) },
             focusedIdentityChanged: focusedIdentityChanged

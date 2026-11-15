@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-068: same-titled Terminals rows tell apart by a quiet ordinal suffix;
 /// unique titles read unchanged.

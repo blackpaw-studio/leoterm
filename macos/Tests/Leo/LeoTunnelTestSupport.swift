@@ -1,12 +1,17 @@
 import Foundation
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Shared helpers for `LeoTunnel`/`LeoTunnelOrphanStore` tests. Fixture lookup
 /// mirrors `LeoModelsTests`/`LeoObserveTests`: fixtures under `Tests/Leo/Fixtures`
 /// are read directly from the source tree via `#filePath`, not bundled as test
 /// resources, since tests run in-host with the source available on disk.
 enum LeoTunnelTestSupport {
+    /// Real-clock tunnels get room for a cold runner's first `python3` (the
+    /// CLT shim can take several seconds); manual-clock tests keep the default.
+    static let readinessTimeout: Duration = .seconds(30)
+
     static func fixtureURL() -> URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()

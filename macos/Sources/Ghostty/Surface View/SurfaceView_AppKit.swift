@@ -179,6 +179,10 @@ extension Ghostty {
         /// Note: eventually, all surface access will be through this, but presently its in a transition
         /// state so we're mixing this with direct surface access.
         private(set) var surfaceModel: Ghostty.Surface?
+        /// Agent-workspace Finder drops. Plain shells leave both unset and
+        /// retain Ghostty's normal local-path drop behavior.
+        @Published var leoFileDropStatus: LeoTerminalFileDropStatus?
+        @Published var leoFileDropTargeted = false
 
         /// Returns the underlying C value for the surface. See "note" on surfaceModel.
         override var surface: ghostty_surface_t? {
@@ -223,10 +227,20 @@ extension Ghostty {
         /// The Leo agent attached in this surface, shown as its window title in
         /// place of the terminal's own (B-052, `LeoTitleSource`).
         @Published var leoAgentName: String?
+        /// Leo (B-266): this surface shows a dispatch subagent, whose failed
+        /// attach is reported by `GhosttyAttachContentHost`.
+        var leoWatchingDispatch = false
+        /// Leo (B-288): the dispatch was attached read-only (an older leo),
+        /// so the "watching · read-only" indicator says why typing does
+        /// nothing. A writable attach shows none.
+        @Published var leoDispatchReadOnly = false
         /// Whether `title` was set by the user (Change Terminal Title…).
         var leoTitleIsUserSet: Bool { titleFromTerminal != nil }
         /// The terminal's own title, under a title the user set (B-177).
         var leoLiveTitle: String { titleFromTerminal ?? title }
+        /// B-332: the directory its process was asked to start in (its
+        /// configuration's), if any -- where a restored shell starts.
+        private(set) var leoStartWorkingDirectory: String?
 
         // The cached contents of the screen.
         private(set) var cachedScreenContents: CachedValue<String>
@@ -258,6 +272,8 @@ extension Ghostty {
             // is non-zero so that our layer bounds are non-zero so that our renderer
             // can do SOMETHING.
             super.init(id: uuid, frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+            // MARK: Leo
+            leoStartWorkingDirectory = baseConfig?.workingDirectory
 
             // Our cache of screen data
             cachedScreenContents = .init(duration: .milliseconds(500)) { [weak self] in
@@ -635,6 +651,10 @@ extension Ghostty {
                 // (already so when they never set one).
                 guard let prevTitle = titleFromTerminal else { return }
                 titleFromTerminal = nil
+                // A title the terminal sent in the last 75 ms is still
+                // pending and newer than prevTitle; it lands on its own
+                // now the name is gone (B-183), so don't replace it.
+                guard titleChangeTimer?.isValid != true else { return }
                 setTitle(prevTitle)
                 return
             }
@@ -1126,6 +1146,10 @@ extension Ghostty {
                 return
             }
 
+            // Ctrl+V with an image on the clipboard on a remote agent. Backstop
+            // for the same hook in performKeyEquivalent.
+            if leoPerformImagePaste(for: event) { return }
+
             // On any keyDown event we unset our bell state
             bell = false
 
@@ -1338,6 +1362,11 @@ extension Ghostty {
             if !focused {
                 return false
             }
+
+            // Remote agents can't read the Mac's clipboard, so an image paste is
+            // uploaded instead. Key equivalents reach this view before the main
+            // menu, so this catches both the menu's paste route and a binding.
+            if leoPerformImagePaste(for: event) { return true }
 
             // Get information about if this is a binding.
             let bindingFlags = surfaceModel.flatMap { surface in
@@ -1665,6 +1694,8 @@ extension Ghostty {
         }
 
         @IBAction func paste(_ sender: Any?) {
+            // Edit > Paste with an image-only clipboard on a remote agent.
+            if leoPerformImagePaste(key: .commandV) { return }
             guard let surface = self.surface else { return }
             let action = "paste_from_clipboard"
             if !ghostty_surface_binding_action(surface, action, UInt(action.lengthOfBytes(using: .utf8))) {
@@ -1900,7 +1931,8 @@ extension Ghostty {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             let uuid = UUID(uuidString: try container.decode(String.self, forKey: .uuid))
             var config = Ghostty.SurfaceConfiguration()
-            config.workingDirectory = try container.decode(String?.self, forKey: .pwd)
+            // MARK: Leo -- where it was, or home once that is gone (B-332).
+            config.workingDirectory = LeoRestoredWorkingDirectory.resolve(pwd: try container.decode(String?.self, forKey: .pwd))
             let savedTitle = try container.decodeIfPresent(String.self, forKey: .title)
             let isUserSetTitle = try container.decodeIfPresent(Bool.self, forKey: .isUserSetTitle) ?? false
 
@@ -2303,6 +2335,7 @@ extension Ghostty.SurfaceView {
     ]
 
     override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        leoFileDropTargeted = false
         guard let types = sender.draggingPasteboard.types else { return [] }
 
         // If the dragging object contains none of our types then we return none.
@@ -2312,14 +2345,42 @@ extension Ghostty.SurfaceView {
             return []
         }
 
+        if types.contains(.fileURL),
+           let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime,
+           runtime.acceptsFileDrop(sender.draggingPasteboard, from: self) {
+            leoFileDropTargeted = true
+            return .copy
+        }
+
         // We use copy to get the proper icon
         return .copy
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard sender.draggingPasteboard.types?.contains(.fileURL) == true,
+              let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
+            leoFileDropTargeted = false
+            return .copy
+        }
+        leoFileDropTargeted = runtime.acceptsFileDrop(sender.draggingPasteboard, from: self)
+        return .copy
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        leoFileDropTargeted = false
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
         let pb = sender.draggingPasteboard
 
+        if let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime,
+           runtime.performFileDrop(pb, from: self) {
+            leoFileDropTargeted = false
+            return true
+        }
+
         let content = pb.getOpinionatedStringContents()
+        leoFileDropTargeted = false
 
         if let content {
             DispatchQueue.main.async {
@@ -2526,5 +2587,29 @@ struct TrailSurrogate {
         } else {
             return nil
         }
+    }
+}
+
+// MARK: - Leo remote image paste
+
+extension Ghostty.SurfaceView {
+    /// The image-paste key this event is: exactly Ctrl+V or ⌘V.
+    fileprivate func leoImagePasteKey(for event: NSEvent) -> LeoImagePaste.Key? {
+        guard event.charactersIgnoringModifiers == "v" else { return nil }
+        switch event.modifierFlags.intersection([.shift, .control, .option, .command]) {
+        case [.control]: return .controlV
+        case [.command]: return .commandV
+        default: return nil
+        }
+    }
+
+    fileprivate func leoPerformImagePaste(for event: NSEvent) -> Bool {
+        guard let key = leoImagePasteKey(for: event) else { return false }
+        return leoPerformImagePaste(key: key, isRepeat: event.isARepeat)
+    }
+
+    fileprivate func leoPerformImagePaste(key: LeoImagePaste.Key, isRepeat: Bool = false) -> Bool {
+        guard let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return false }
+        return runtime.performImagePaste(key, pasteboard: .general, isRepeat: isRepeat, from: self)
     }
 }

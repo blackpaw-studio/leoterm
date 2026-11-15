@@ -1,0 +1,245 @@
+import Foundation
+
+/// A daemon's Leo Chat API: threads, pages, sending, uploads, answers and
+/// read marks.
+public protocol LeoChatClient: Sendable {
+    func threads() async throws -> [LeoChatThread]
+    func messages(agent: String, query: LeoChatPageQuery) async throws -> LeoChatPage
+    func send(agent: String, _ draft: LeoChatDraft) async throws -> LeoChatMessage
+    func upload(_ upload: LeoChatUpload) async throws -> LeoChatAttachment
+    func download(attachmentID: String) async throws -> Data
+    /// Answers an `ask` or `permission`; the updated message when the
+    /// daemon returned it. Throws `LeoChatAnswerError` when the daemon
+    /// refuses the answer (400) or the prompt is already settled (409).
+    func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage?
+    /// Answers a questions card: one `{values, text}` per question id. The
+    /// same errors as `answer`.
+    func answerQuestions(agent: String, messageID: String, answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage?
+    /// Hands a questions card back to the terminal's own dialog; the
+    /// message, now expired, when the daemon returned it. Same errors as `answer`.
+    func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage?
+    func markRead(agent: String, upTo messageID: String) async throws
+}
+
+/// One request/response round trip; a status is a response, only failing
+/// to get one throws.
+public protocol LeoChatTransport: Sendable {
+    func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse
+}
+
+/// The Mac flavor: the daemon's unix socket.
+public struct LeoSocketChatTransport: LeoChatTransport {
+    public let socketPath: String
+    private let transport: any LeoDaemonTransport
+
+    public init(socketPath: String, transport: any LeoDaemonTransport) {
+        self.socketPath = socketPath
+        self.transport = transport
+    }
+
+    public func send(_ request: LeoHTTPRequest, timeout: TimeInterval) async throws -> LeoHTTPResponse {
+        try await transport.send(request, socketPath: socketPath, timeout: timeout)
+    }
+}
+
+/// Which page of a thread to read. `limit` is clamped to the daemon's 1...200.
+public struct LeoChatPageQuery: Equatable, Sendable {
+    public static let maximumLimit = 200
+
+    public let before: String?
+    public let limit: Int?
+    public let task: String?
+
+    public init(before: String? = nil, limit: Int? = nil, task: String? = nil) {
+        self.before = before
+        self.limit = limit.map { min(max($0, 1), Self.maximumLimit) }
+        self.task = task
+    }
+}
+
+/// An outgoing message.
+public struct LeoChatDraft: Equatable, Sendable {
+    public let text: String
+    public let replyTo: String?
+    public let attachmentIDs: [String]
+
+    public init(text: String, replyTo: String? = nil, attachmentIDs: [String] = []) {
+        self.text = text
+        self.replyTo = replyTo
+        self.attachmentIDs = attachmentIDs
+    }
+}
+
+/// `LeoChatClient` over HTTP: HTTPS on iOS (`LeoHTTPSTransport`), the unix
+/// socket on the Mac (`LeoSocketChatTransport`). Same routes either way.
+public struct LeoChatHTTPClient: LeoChatClient {
+    static let root = "/api/v1/chat"
+
+    public let defaultTimeout: TimeInterval
+    public let mutationTimeout: TimeInterval
+    /// Uploads and downloads move up to 50 MB.
+    public let transferTimeout: TimeInterval
+    private let transport: any LeoChatTransport
+    private let boundary: String
+
+    public init(
+        transport: any LeoChatTransport, defaultTimeout: TimeInterval = 10, mutationTimeout: TimeInterval = 30,
+        transferTimeout: TimeInterval = 300, boundary: String = "leo-\(UUID().uuidString)"
+    ) {
+        self.transport = transport
+        self.defaultTimeout = defaultTimeout
+        self.mutationTimeout = mutationTimeout
+        self.transferTimeout = transferTimeout
+        self.boundary = boundary
+    }
+
+    public func threads() async throws -> [LeoChatThread] {
+        let list: LeoChatThreadList = try value(try await request("GET", "\(Self.root)/threads"))
+        return list.threads
+    }
+
+    public func messages(agent: String, query: LeoChatPageQuery) async throws -> LeoChatPage {
+        try value(try await request("GET", try Self.messagesPath(agent, query)))
+    }
+
+    public func send(agent: String, _ draft: LeoChatDraft) async throws -> LeoChatMessage {
+        struct Body: Encodable {
+            let text: String
+            let reply_to: String?
+            let attachment_ids: [String]?
+        }
+        let body = Body(text: draft.text, reply_to: draft.replyTo, attachment_ids: draft.attachmentIDs.isEmpty ? nil : draft.attachmentIDs)
+        return try value(try await request("POST", try Self.agentPath(agent, "messages"), body: try JSONEncoder().encode(body)))
+    }
+
+    public func upload(_ upload: LeoChatUpload) async throws -> LeoChatAttachment {
+        try upload.validated().get()
+        let request = Self.uploadRequest(upload, boundary: boundary)
+        return try value(try Self.checked(try await transport.send(request, timeout: transferTimeout)))
+    }
+
+    public func download(attachmentID: String) async throws -> Data {
+        let path = try Self.attachmentPath(attachmentID)
+        return try Self.checked(try await transport.send(LeoHTTPRequest(method: "GET", path: path), timeout: transferTimeout)).body
+    }
+
+    public func answer(agent: String, messageID: String, answer: LeoChatAnswer) async throws -> LeoChatMessage? {
+        try await settle(agent: agent, messageID: messageID, route: "answer", body: try Self.sortedJSON(answer))
+    }
+
+    public func answerQuestions(agent: String, messageID: String, answers: [String: LeoChatAnswer]) async throws -> LeoChatMessage? {
+        try await settle(agent: agent, messageID: messageID, route: "answer", body: try Self.sortedJSON(["answers": answers]))
+    }
+
+    public func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage? {
+        try await settle(agent: agent, messageID: messageID, route: "dismiss", body: nil)
+    }
+
+    public func markRead(agent: String, upTo messageID: String) async throws {
+        let response = try await request("POST", try Self.agentPath(agent, "read"), body: try JSONEncoder().encode(["up_to": messageID]))
+        try LeoDaemonEnvelope<LeoChatIgnored>.decode(response.body).expectOK()
+    }
+
+    // MARK: Routes
+
+    static func agentPath(_ agent: String, _ suffix: String) throws -> String {
+        "\(root)/\(try LeoSocketDaemonClient.pathSegment(agent))/\(suffix)"
+    }
+
+    static func attachmentPath(_ id: String) throws -> String {
+        "\(root)/attachments/\(try LeoSocketDaemonClient.pathSegment(id))"
+    }
+
+    static func messagesPath(_ agent: String, _ query: LeoChatPageQuery) throws -> String {
+        let items = [
+            query.before.map { ("before", $0) },
+            query.limit.map { ("limit", String($0)) },
+            query.task.map { ("task", $0) },
+        ].compactMap { $0 }
+        let base = try agentPath(agent, "messages")
+        guard !items.isEmpty else { return base }
+        let encoded = try items.map { name, value in "\(name)=\(try LeoSocketDaemonClient.pathSegment(value))" }
+        return base + "?" + encoded.joined(separator: "&")
+    }
+
+    /// The `POST /api/v1/chat/uploads` request for `upload`.
+    public static func uploadRequest(_ upload: LeoChatUpload, boundary: String) -> LeoHTTPRequest {
+        LeoHTTPRequest(
+            method: "POST", path: "\(root)/uploads", body: upload.multipartBody(boundary: boundary),
+            contentType: LeoChatUpload.contentType(boundary: boundary)
+        )
+    }
+
+    // MARK: Plumbing
+
+    /// A POST that settles an ask (answer or dismiss): 409 is `settled`, 400
+    /// `invalid`, and the updated message comes back when the daemon sent it.
+    private func settle(agent: String, messageID: String, route: String, body: Data?) async throws -> LeoChatMessage? {
+        let path = try Self.agentPath(agent, "messages/\(try LeoSocketDaemonClient.pathSegment(messageID))/\(route)")
+        let raw = try await transport.send(LeoHTTPRequest(method: "POST", path: path, body: body), timeout: mutationTimeout)
+        // Before `checked`: these bodies may lack the envelope's `ok`.
+        switch raw.status {
+        case 409: throw LeoChatAnswerError.settled
+        case 400: throw LeoChatAnswerError.invalid(LeoChatErrorBody.message(in: raw.body) ?? "HTTP 400")
+        default: break
+        }
+        let envelope = try LeoDaemonEnvelope<LeoChatMessage>.decode(try Self.checked(raw).body)
+        try envelope.expectOK()
+        return envelope.data
+    }
+
+    private static func sortedJSON(_ value: some Encodable) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        return try encoder.encode(value)
+    }
+
+    private func request(_ method: String, _ path: String, body: Data? = nil) async throws -> LeoHTTPResponse {
+        let timeout = method == "GET" ? defaultTimeout : mutationTimeout
+        return try Self.checked(try await transport.send(LeoHTTPRequest(method: method, path: path, body: body), timeout: timeout))
+    }
+
+    private func value<T: Decodable & Sendable>(_ response: LeoHTTPResponse) throws -> T {
+        try LeoDaemonEnvelope<T>.decode(response.body).value()
+    }
+
+    /// A non-2xx is named by its envelope `code`, else its HTTP status; the
+    /// daemon's own message is kept when it sent one.
+    public static func checked(_ response: LeoHTTPResponse) throws -> LeoHTTPResponse {
+        guard !(200..<300).contains(response.status) else { return response }
+        let envelope = try? LeoDaemonEnvelope<LeoChatIgnored>.decode(response.body)
+        throw LeoDaemonError.daemon(
+            code: envelope?.code ?? LeoSocketDaemonClient.controlCode(forStatus: response.status),
+            message: envelope?.error ?? "HTTP \(response.status)",
+            matches: envelope?.matches ?? []
+        )
+    }
+}
+
+struct LeoChatIgnored: Decodable, Sendable {
+    init(from decoder: any Decoder) throws {}
+}
+
+/// Why the daemon refused an answer.
+public enum LeoChatAnswerError: Error, Equatable, LocalizedError, Sendable {
+    /// Already answered or expired (409): refetch, there's nothing to say.
+    case settled
+    /// The answer doesn't fit the prompt's input (400), in the daemon's words.
+    case invalid(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .settled: String(localized: "This question was already answered or has expired.")
+        case .invalid(let message): message
+        }
+    }
+}
+
+/// `{error}` from a body that may or may not be a full envelope.
+private struct LeoChatErrorBody: Decodable {
+    let error: String?
+
+    static func message(in body: Data) -> String? {
+        (try? JSONDecoder().decode(Self.self, from: body))?.error.flatMap { $0.isEmpty ? nil : $0 }
+    }
+}

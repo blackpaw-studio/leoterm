@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import LeoKit
 
 /// A running SFTP server's stdio: its stdout (`fromServer`) and stdin
 /// (`toServer`), plus a way to stop it. The transport owns both handles.
@@ -113,8 +114,7 @@ struct LeoSFTPProcessLauncher: LeoSFTPLaunching {
                 if !beforeHandshake, observation.status == 0, observation.detail.isEmpty {
                     return .disconnected
                 }
-                if beforeHandshake, observation.status == 127,
-                   observation.detail.contains(LeoSSHCommand.missingSFTPServerMarker) {
+                if beforeHandshake, observation.status == 127, observation.isMissingServer {
                     return .unavailable(
                         reason: "no supported SFTP server was found on the host (status 127). Install the host’s OpenSSH server package, then try again"
                     )
@@ -143,6 +143,7 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
         let reason: Process.TerminationReason
         let detail: String
         let isSubsystemRejection: Bool
+        let isMissingServer: Bool
     }
 
     private let handle: FileHandle
@@ -194,41 +195,25 @@ private final class LeoSFTPProcessMonitor: @unchecked Sendable {
             return (outcome, data, isTruncated)
         }
         guard let result else { return nil }
-        let rawText = String(data: result.data, encoding: .utf8)
-        let text = rawText ?? "<\(result.data.count) bytes>"
+        let text = String(data: result.data, encoding: .utf8) ?? "<\(result.data.count) bytes>"
         let detail = LeoSFTPServerText.sanitized(text)
         if !detail.isEmpty {
             Self.logger.log("sftp stderr: \(detail, privacy: .private)")
         }
+        // A mux client never receives the rejection line: the ControlMaster
+        // logs it and closes the session, so the client exits 255 with no
+        // stderr at all. Every other mux failure (master gone, refused
+        // session) explains itself on stderr.
         let isSubsystemRejection = result.outcome.reason == .exit
             && result.outcome.status == 255
-            && rawText.map {
-                Self.containsCanonicalSubsystemRejection($0, isTruncated: result.isTruncated)
-            } == true
+            && (result.data.isEmpty
+                || LeoSFTPSubsystemRejection.isCanonical(in: result.data, isTruncated: result.isTruncated))
         return Observation(
             status: result.outcome.status,
             reason: result.outcome.reason,
             detail: detail,
-            isSubsystemRejection: isSubsystemRejection
+            isSubsystemRejection: isSubsystemRejection,
+            isMissingServer: LeoSFTPMissingServer.isMarked(in: result.data, isTruncated: result.isTruncated)
         )
-    }
-
-    /// OpenSSH emits this exact line when sshd rejects `-s ... sftp`.
-    /// Match raw bounded stderr before display sanitization joins lines; a
-    /// subsystem's own longer message must never authorize shell bootstrap.
-    private static func containsCanonicalSubsystemRejection(_ text: String, isTruncated: Bool) -> Bool {
-        let prefix = "subsystem request failed on channel "
-        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
-        return lines.enumerated().contains { index, rawLine in
-            // The captured suffix may only look complete because bytes past
-            // the limit were discarded. A preceding newline proves a line
-            // ended even when later stderr was truncated.
-            if isTruncated, index == lines.count - 1 { return false }
-            var line = rawLine
-            if line.last == "\r" { line = line.dropLast() }
-            guard line.hasPrefix(prefix) else { return false }
-            let channel = line.dropFirst(prefix.count)
-            return !channel.isEmpty && channel.utf8.allSatisfy { $0 >= 48 && $0 <= 57 }
-        }
     }
 }

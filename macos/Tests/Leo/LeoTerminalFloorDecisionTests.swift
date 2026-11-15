@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The terminal floor (D-036, D-058) as a pure decision: beside a side
 /// pane, a narrowing window collapses the sidebar before the terminal goes

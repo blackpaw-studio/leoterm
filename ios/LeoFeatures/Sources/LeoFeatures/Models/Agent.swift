@@ -1,0 +1,131 @@
+import Foundation
+import LeoKit
+
+/// Names one agent across every paired daemon.
+public struct AgentRef: Hashable, Sendable {
+    public let daemonID: String
+    public let name: String
+
+    public init(daemonID: String, name: String) {
+        self.daemonID = daemonID
+        self.name = name
+    }
+}
+
+/// One agent as the app shows it, merged from `/state` and the event stream.
+public struct Agent: Equatable, Identifiable, Sendable {
+    public var name: String
+    public var status: LeoAgentStatus?
+    public var activity: LeoActivity?
+    public var currentAction: LeoCurrentAction?
+    public var attention: LeoAttentionSignal?
+    public var template: String?
+    public var harness: String?
+    public var environments: LeoAgentEnvironments?
+    /// The resolved emoji and color (`agent_appearance`); nil when none is set.
+    public var appearance: LeoAgentAppearance?
+    public var startedAt: String?
+    /// The host this agent moved to (B-324), and when; nil while it lives here.
+    /// A moved agent's record on this daemon is dormant: stopped, and refusing control.
+    public var movedTo: String?
+    public var movedAt: String?
+    /// The daemon's `display_name`; nil from older daemons. Read `displayName`.
+    public var daemonDisplayName: String?
+    /// Tasks the agent advertised (`agent_progress`), oldest first; empty from
+    /// older daemons. Kept by `Fleet` from `/state` and `agent_task_changed`.
+    public var tasks: [LeoAgentTask] = []
+    /// The ETA for each running task by id, from the task or derived from its
+    /// progress samples (`LeoTaskETA`); a task with none has no entry.
+    public var taskETAs: [String: Date] = [:]
+
+    /// What the user sees: `display_name` when set, else `name`. `name` stays
+    /// the identifier for API calls, refs, and persistence.
+    public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
+
+    public var id: String { name }
+
+    public init(
+        name: String, status: LeoAgentStatus? = nil, activity: LeoActivity? = nil, currentAction: LeoCurrentAction? = nil,
+        attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
+        environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil,
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, tasks: [LeoAgentTask] = []
+    ) {
+        self.name = name
+        self.status = status
+        self.activity = activity
+        self.currentAction = currentAction
+        self.attention = attention
+        self.template = template
+        self.harness = harness
+        self.environments = environments
+        self.appearance = appearance
+        self.startedAt = startedAt
+        self.movedTo = movedTo
+        self.movedAt = movedAt
+        daemonDisplayName = displayName
+        self.tasks = tasks
+    }
+
+    public init(_ observed: LeoObservedAgent) {
+        self.init(
+            name: observed.name, status: observed.status, activity: observed.activity, currentAction: observed.currentAction,
+            attention: observed.attention, template: observed.template, harness: observed.harness,
+            environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt,
+            movedTo: observed.movedTo, movedAt: observed.movedAt,
+            displayName: observed.daemonDisplayName, tasks: observed.tasks
+        )
+    }
+
+    /// Only Claude agents hand their conversation to the Claude app.
+    public var opensInClaude: Bool { harness?.lowercased() == "claude" }
+
+    public var isStopped: Bool { status == .stopped }
+
+    public var isMoved: Bool { movedTo != nil }
+
+    /// "Moved to nas · 5 minutes ago"; nil while the agent lives here.
+    public func movedText(now: Date = Date(), locale: Locale = .current) -> String? {
+        movedTo.map { LeoMovedAgentWording.movedText(host: $0, at: movedAt, now: now, locale: locale) }
+    }
+
+    /// The control actions the detail screen offers. A moved agent lives on
+    /// another host, so none apply to this dormant record.
+    public var availableCommands: [AgentCommand] {
+        if isMoved { return [] }
+        return isStopped ? [.start] : [.interrupt, .restart, .stop]
+    }
+
+    /// Its tmux session is on this daemon only while the agent is.
+    public var canOpenTerminal: Bool { !isStopped && !isMoved }
+
+    /// Move, Copy and Duplicate need an agent that lives here.
+    public var canMove: Bool { !isMoved }
+
+    public var priority: AgentPriority {
+        if isStopped { return .stopped }
+        switch attention?.state {
+        case .needsInput: return .needsInput
+        case .errored: return .errored
+        case .finished: return .finished
+        case .working: return .working
+        case .unknown, nil: return activity == .working ? .working : .idle
+        }
+    }
+
+    /// Adopts `signal` unless it is a duplicate or reorder: revisions only
+    /// move forward per agent.
+    mutating func adopt(_ signal: LeoAttentionSignal?) {
+        guard let signal else { return }
+        if let current = attention, current.revision >= signal.revision { return }
+        attention = signal
+    }
+}
+
+/// Sort order of agents: whatever needs the user first, stopped last.
+public enum AgentPriority: Int, Comparable, Sendable {
+    case needsInput, errored, finished, working, idle, stopped
+
+    public var needsAttention: Bool { self < .working }
+
+    public static func < (lhs: Self, rhs: Self) -> Bool { lhs.rawValue < rhs.rawValue }
+}

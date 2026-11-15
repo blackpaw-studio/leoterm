@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import LeoKit
 
 enum LeoAttachActivation {
     static func disposition(for modifierFlags: NSEvent.ModifierFlags) -> AttachDisposition {
@@ -27,18 +28,29 @@ struct LeoRowActionAvailability {
     /// B-176: a worktree branch needs the agent's GitHub owner/repo; the
     /// agent's own status doesn't matter.
     let newWorktree: Bool
+    /// B-324: the agent moved to another host; this row is its dormant record.
+    let isMoved: Bool
+    let move: Bool
+    let copy: Bool
+    let duplicate: Bool
 
-    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil) {
+    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil, movedTo: String? = nil) {
         newWorktree = SpawnValidation.ownerRepo(repo) != nil
+        isMoved = movedTo != nil
         let editable = !isPending && (status == .stopped || status == .running)
-        start = !isPending && status == .stopped
+        // A moved agent lives on its new host: only Delete and View Logs stay.
+        let live = editable && movedTo == nil
+        start = !isPending && status == .stopped && movedTo == nil
         stop = !isPending && status == .running
         restart = !isPending && status == .running
-        setTemplate = editable
-        rename = editable
+        setTemplate = live
+        rename = live
         delete = editable
-        attach = !isPending
+        attach = !isPending && movedTo == nil
         logs = !isPending
+        move = live
+        copy = live
+        duplicate = live
     }
 }
 
@@ -73,236 +85,74 @@ struct LeoAgentRowView: View {
     /// Whether the row is in the Pinned section, and the toggle (B-010).
     var isPinned = false
     var togglePin: () -> Void = {}
-    /// This row's unseen surfaced files, newest last, and the open (B-013).
-    var pendingSurfacedFiles: [LeoSurfacedFile] = []
-    var openSurfacedFile: (LeoSurfacedFile) -> Void = { _ in }
     /// Opens the New Agent sheet in worktree mode for this row (B-176). The
     /// sheet lives on the sidebar, so it outlives this row re-sorting or
     /// being filtered out.
     var newWorktreeAgent: () -> Void = {}
+    /// B-283: the row's host advertised `agent_environments`.
+    var environmentsSupported = false
+    /// The row's host advertised `agent_appearance`.
+    var appearanceSupported = false
+    /// B-324: the row's host advertised `agent_move`.
+    var movesSupported = false
+    /// Whether the row sits in the Working section (grouped by attention).
+    var inWorkingSection = false
+    /// Unread chat messages from the agent.
+    var unreadCount = 0
+    /// B-331: the dispatch rows' collapse, for a row that has any.
+    var subagents: LeoAgentRowContent.Subagents?
+    @Environment(\.leoPluginSurfaces) private var pluginSurfaces
+    @State private var showingTasks = false
     @State private var showingRename = false
     @State private var showingDelete = false
-    /// The room the subtitle text has, once measured (B-043).
-    @State private var subtitleWidth: CGFloat?
+    @State private var showingAppearance = false
 
     private var availability: LeoRowActionAvailability {
-        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo)
+        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo, movedTo: row.movedTo)
     }
 
+    /// The row's task summary, for the VoiceOver value and action.
+    private var task: LeoTaskRowSummary? { LeoAgentRowPresentation(row: row, error: error).task }
+
     var body: some View {
-        HStack(spacing: 8) {
-            activityDot
-            rowDetails
-                .contentShape(Rectangle())
-                // The whole row is the target, like Finder or Mail (B-049);
-                // there's no per-row button to aim for. Not tap gestures:
-                // those miss clicks in a window that isn't key (a ⌘-click on
-                // a background window), and the catcher reads the click's
-                // own modifiers and count, so a double-click is the second
-                // click (B-048). It never takes the click from the list's
-                // own selection.
-                .background(LeoRowClickCatcher(identity: row.id, onClick: click).accessibilityHidden(true))
-        }
+        LeoAgentRowContent(
+            row: row, error: error, moveStage: actions.moveStages[row.id], isSelected: isSelected, isPending: actions.pendingActions.contains(row.id),
+            nameHighlights: nameHighlights, inWorkingSection: inWorkingSection, unreadCount: unreadCount,
+            subagents: subagents, dismissTask: { actions.dismissTask(host: row.host, agent: row.name, id: $0.id) },
+            showingTasks: $showingTasks
+        )
         .contentShape(Rectangle())
+        // The whole row is the target, like Finder or Mail (B-049);
+        // there's no per-row button to aim for. Not tap gestures:
+        // those miss clicks in a window that isn't key (a ⌘-click on
+        // a background window), and the catcher reads the click's
+        // own modifiers and count, so a double-click is the second
+        // click (B-048). It never takes the click from the list's
+        // own selection.
+        .background(LeoRowClickCatcher(
+            identity: row.id, onClick: click,
+            trailingExclusion: subagents == nil ? 0 : LeoAgentRowMetrics.disclosureTrailingEdge,
+            trailingExclusionHeight: LeoAgentRowMetrics.disclosureTrailingHeight
+        ).accessibilityHidden(true))
         // One element per row: the name's label (name, state), then the
-        // subtitle, task and error. There's no button in the row to press,
-        // so the row itself is the press.
+        // detail and time. There's no button in the row to press, so the
+        // row itself is the press.
         .accessibilityElement(children: .combine)
         .accessibilityAction { LeoRowAccessibility.press(click) }
         .accessibilityAction(named: LeoRowAccessibility.pressName) { LeoRowAccessibility.press(click) }
+        .modifier(SubagentsAccessibilityAction(subagents: subagents))
+        .modifier(TaskAccessibility(task: task, showTasks: { showingTasks = true }))
+        // The popover lists the agent's tasks: with none to list (all gone, or
+        // hidden while it needs input) it closes, and stays closed when the
+        // next task starts.
+        .onChange(of: task == nil) { if $0 { showingTasks = false } }
         .contextMenu { menu }
         .sheet(isPresented: $showingRename) { LeoRenameAgentSheet(row: row, actions: actions) }
+        .popover(isPresented: $showingAppearance, arrowEdge: .trailing) {
+            LeoAgentAppearancePopover(row: row, client: actions.appearanceClient(for: row.host)) { editAppearanceRules() }
+        }
         .sheet(isPresented: $showingDelete) {
             LeoDeleteAgentSheet(row: row, actions: actions, error: error, errorCode: errorCode)
-        }
-    }
-
-    private var nameText: Text {
-        LeoFuzzyMatcher.highlightRuns(name: row.name, offsets: nameHighlights).reduce(Text("")) { text, run in
-            text + Text(run.text).fontWeight(run.isMatched ? .bold : nil)
-        }
-    }
-
-    private var rowDetails: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack {
-                nameText
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .accessibilityLabel(LeoStatusPresentation.rowAccessibilityLabel(row))
-                Spacer(minLength: 4)
-                attentionBadge
-                statusBadge
-            }
-            subtitleLine
-            // The current task as the daemon's last snapshot reported it
-            // (already sanitized); the tooltip holds what the line cuts.
-            if let task = presentation().task {
-                Text(task).font(.caption).foregroundStyle(.secondary)
-                    .lineLimit(1).truncationMode(.tail)
-                    .help(task)
-            }
-            if let error, !error.isEmpty {
-                Text(error).font(.caption).foregroundStyle(Color(nsColor: .systemRed)).lineLimit(2)
-            }
-            if actions.pendingActions.contains(row.id) { ProgressView().controlSize(.small) }
-        }
-    }
-
-    @ViewBuilder private var activityDot: some View {
-        if row.attention == nil, row.activity != .unknown {
-            let presentation = LeoStatusPresentation.activity(row.activity)
-            Image(systemName: presentation.symbolName)
-                .resizable()
-                .frame(width: 7, height: 7)
-                .foregroundStyle(presentation.color)
-                .accessibilityHidden(true)
-        } else {
-            // No activity data yet (not an error), or the attention badge
-            // already says it: no glyph.
-            Color.clear.frame(width: 7, height: 7).accessibilityHidden(true)
-        }
-    }
-
-    private func presentation(now: Date? = nil) -> LeoAgentRowPresentation {
-        LeoAgentRowPresentation(row: row, isSelected: isSelected, now: now)
-    }
-
-    /// Only a row with a "last active" time re-renders, once a minute --
-    /// never per event.
-    @ViewBuilder private var subtitleLine: some View {
-        if row.metadata?.lastActiveAt != nil || row.metadata?.isWorking == true {
-            TimelineView(.everyMinute) { context in subtitleLine(presentation(now: context.date)) }
-        } else {
-            subtitleLine(presentation())
-        }
-    }
-
-    /// The surfaced-files glyph lives on the subtitle line, never the name
-    /// line, so it costs the name no width.
-    @ViewBuilder private func subtitleLine(_ presentation: LeoAgentRowPresentation) -> some View {
-        if presentation.subtitle != nil || !pendingSurfacedFiles.isEmpty {
-            HStack(spacing: 4) {
-                if let subtitle = presentation.subtitle {
-                    // VoiceOver already hears the state on the name's label, so
-                    // the subtitle reads only the template and the time -- the
-                    // full ones, like the tooltip, even when the line drops the
-                    // template for width.
-                    subtitleText(fitted(subtitle)).font(.caption)
-                        .help(subtitle.text)
-                        .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(subtitle.accessibilityLabel)
-                        .accessibilityHidden(subtitle.accessibilityLabel.isEmpty)
-                        // Fills the line so its width is the room the text
-                        // has, whatever the text currently shows.
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { subtitleWidth = $0 }
-                } else {
-                    Spacer(minLength: 4)
-                }
-                surfacedFilesGlyph
-            }
-        }
-    }
-
-    /// The line as it fits the measured room; whole until the first measure.
-    private func fitted(_ subtitle: LeoAgentRowPresentation.Subtitle) -> LeoAgentRowPresentation.Subtitle {
-        guard let subtitleWidth else { return subtitle }
-        return subtitle.fitting(width: subtitleWidth, measure: LeoAgentRowPresentation.Subtitle.captionWidth)
-    }
-
-    /// "claude · Needs Input · 5m": the template and the last-active time
-    /// in secondary, the attention state word in its state color. One line;
-    /// when it's too narrow the template truncates first (dropping outright
-    /// below a few legible characters, see `fitted`), then the state,
-    /// and the time never does (each part is its own text with its own
-    /// layout priority; the time is fixed-size).
-    private func subtitleText(_ subtitle: LeoAgentRowPresentation.Subtitle) -> some View {
-        HStack(spacing: 0) {
-            ForEach(Array(subtitle.segments.enumerated()), id: \.offset) { _, segment in
-                subtitleSegment(segment)
-            }
-        }
-    }
-
-    @ViewBuilder private func subtitleSegment(_ segment: LeoAgentRowPresentation.Subtitle.Segment) -> some View {
-        let separator = Text(segment.hasSeparator ? LeoAgentRowPresentation.Subtitle.separator : "").foregroundColor(.secondary)
-        let body = switch segment.tint {
-        case .secondary: Text(segment.text).foregroundColor(.secondary)
-        case .state(let tint): Text(segment.text).foregroundColor(tint)
-        }
-        let text = (separator + body).lineLimit(1).truncationMode(.tail).layoutPriority(segment.truncation.layoutPriority)
-        if segment.truncation == .never {
-            text.fixedSize()
-        } else {
-            text
-        }
-    }
-
-    /// Static (no animation), fixed-width, icon-only attention badge so it
-    /// never takes width from the name; the state word is on the subtitle
-    /// line. The symbol's shape carries the state for color-blind users and
-    /// is hidden from VoiceOver, which reads the state from the name's label.
-    @ViewBuilder private var attentionBadge: some View {
-        if let badge = presentation().badge {
-            Image(systemName: badge.symbolName)
-                .font(.caption)
-                .frame(width: 14, height: 14)
-                .padding(.horizontal, 3)
-                .padding(.vertical, 1)
-                .background(badge.tint.opacity(0.15), in: Capsule())
-                .foregroundStyle(badge.tint)
-                .fixedSize()
-                .layoutPriority(1)
-                .accessibilityHidden(true)
-        }
-    }
-
-    /// Static, secondary-colored: files the agent
-    /// surfaced that haven't been opened. Calm on purpose -- no tint, no
-    /// motion; it isn't "needs input". The tooltip lists them.
-    @ViewBuilder private var surfacedFilesGlyph: some View {
-        if let indicator = LeoSurfacedFilesIndicator(pending: pendingSurfacedFiles) {
-            HStack(spacing: 2) {
-                Image(systemName: LeoSurfacedFilesIndicator.symbolName)
-                Text(indicator.countText).monospacedDigit()
-            }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .fixedSize()
-            .help(indicator.tooltip)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(indicator.accessibilityLabel)
-        }
-    }
-
-    @ViewBuilder private var statusBadge: some View {
-        // A running agent is the expected state (already conveyed by the
-        // activity dot), so the badge only surfaces exceptions: stopped,
-        // starting, failed, unknown. That both reduces list noise and frees
-        // width for the name. VoiceOver still gets the status on every row
-        // via the accessibility label on the name text above.
-        if row.status != .running {
-            let presentation = LeoStatusPresentation.agentStatus(row.status)
-            Text(statusText)
-                .font(.caption2)
-                .lineLimit(1)
-                .fixedSize()
-                .layoutPriority(1)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(presentation.color.opacity(0.18), in: Capsule())
-                .foregroundStyle(presentation.color)
-                .accessibilityHidden(true)
-        }
-    }
-
-    private var statusText: String {
-        switch row.status {
-        case .running: "running"
-        case .starting: "starting"
-        case .stopped: "stopped"
-        case .unknown: "unknown"
         }
     }
 
@@ -321,23 +171,70 @@ struct LeoAgentRowView: View {
         // land after the menu was already built, so the first open was empty.
         Menu("Set Template") { templateItems }
             .disabled(!availability.setTemplate)
+        if environmentsSupported {
+            Menu(LeoEnvironmentMenu.title) { environmentItems }
+                .disabled(!availability.setTemplate)
+            Menu(LeoEnvironmentSwitchMenu.title) { switchItems }
+                .disabled(!availability.setTemplate)
+        }
+        if movesSupported {
+            Menu(LeoMoveMenu.moveTitle) { destinationItems { host in LeoMoveFlow.move(row, to: host, actions: actions, in: NSApp.keyWindow) } }
+                .disabled(!availability.move)
+            Menu(LeoMoveMenu.copyTitle) { destinationItems { host in LeoMoveFlow.copy(row, to: host, actions: actions, in: NSApp.keyWindow) } }
+                .disabled(!availability.copy)
+            Button(LeoMoveMenu.duplicateTitle) { LeoMoveFlow.copy(row, to: nil, actions: actions, in: NSApp.keyWindow) }
+                .disabled(!availability.duplicate)
+        }
+        if appearanceSupported {
+            Button("Appearance…") { showingAppearance = true }
+        }
         Button("Rename…") { showingRename = true }.disabled(!availability.rename)
         Button("View Logs") { viewLogs() }.disabled(!availability.logs)
         Button("Browse Files") { browseFiles() }
-        if !row.surfacedFiles.isEmpty {
-            Menu("Surfaced Files") {
-                ForEach(row.surfacedFiles.reversed()) { file in
-                    Button(file.menuTitle) { openSurfacedFile(file) }
-                }
-            }
-        }
+        Button("Reveal Workspace in Finder") { LeoWorkspaceActions.live.reveal(host: row.host, workspace: row.workspace) }
+            .disabled(!LeoAgentTitleMenuItems.canRevealWorkspace(
+                host: row.host, workspace: row.workspace, fileExists: LeoWorkspaceActions.live.fileExists))
+        Button("Copy Workspace Path") { LeoWorkspaceActions.live.copyPath(workspace: row.workspace) }
+            .disabled(row.workspace?.isEmpty ?? true)
+        Button("Open Browser") { openBrowser() }
+        pluginViewItems
         Button(LeoMenuCommands.pinToggleTitle(isPinned: isPinned), action: togglePin)
         Divider()
         Button("Delete…", role: .destructive) { showingDelete = true }.disabled(!availability.delete)
     }
 
+    /// Plugin views, next to Browse Files and Open Browser: one per view of every plugin that is on.
+    @ViewBuilder private var pluginViewItems: some View {
+        if row.movedTo == nil, let surfaces = pluginSurfaces {
+            ForEach(surfaces.viewEntries()) { entry in
+                Button { openPluginView(entry) } label: { Label(entry.title, systemImage: entry.sfSymbol) }
+                    .help(entry.pluginName)
+            }
+        }
+    }
+
+    private func openPluginView(_ entry: LeoPluginViewEntry) {
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController else {
+            actions.setRowError("No terminal window available", for: row)
+            return
+        }
+        controller.openLeoPluginView(entry, forRow: row)
+    }
+
+    /// B-324: the host's move destinations, read from the list `actions`
+    /// prefetched on connect, like the templates.
+    @ViewBuilder private func destinationItems(_ choose: @escaping (String) -> Void) -> some View {
+        let entries = LeoMoveMenu.entries(actions.moveDestinations(for: row.host))
+        ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            switch entry {
+            case .placeholder(let title): Text(title)
+            case .host(let host): Button(host) { choose(host) }
+            }
+        }
+    }
+
     @ViewBuilder private var templateItems: some View {
-        switch actions.templateList {
+        switch actions.templateList(for: row.host) {
         case .loading:
             Text("Loading Templates…")
         case .failed(let message):
@@ -356,6 +253,53 @@ struct LeoAgentRowView: View {
         }
     }
 
+    /// B-283: built from the same entries as the Agent menu's submenu.
+    @ViewBuilder private var environmentItems: some View {
+        let entries = LeoEnvironmentMenu.entries(catalog: actions.environmentCatalog(for: row.host), current: row.environments)
+        ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            switch entry {
+            case .placeholder(let title):
+                Text(title)
+            case .toggle(let name, let isOn):
+                Toggle(name, isOn: Binding(get: { isOn }, set: { _ in LeoEnvironmentChange.perform(entry, row: row, actions: actions) }))
+            case .switchTo:
+                EmptyView()
+            case .separator:
+                Divider()
+            case .editOrder(let isEnabled):
+                Button(LeoEnvironmentMenu.editOrderTitle) { LeoEnvironmentChange.perform(entry, row: row, actions: actions) }
+                    .disabled(!isEnabled)
+            case .reset(let isEnabled):
+                Button(LeoEnvironmentMenu.resetTitle) { LeoEnvironmentChange.perform(entry, row: row, actions: actions) }
+                    .disabled(!isEnabled)
+            }
+        }
+    }
+
+    /// Switch to ▸: replaces the whole list with one environment, through
+    /// the same confirm as the toggles. The agent's sole environment is
+    /// checked and can't be picked again.
+    @ViewBuilder private var switchItems: some View {
+        let entries = LeoEnvironmentSwitchMenu.entries(catalog: actions.environmentCatalog(for: row.host), current: row.environments)
+        ForEach(Array(entries.enumerated()), id: \.offset) { _, entry in
+            switch entry {
+            case .placeholder(let title):
+                Text(title)
+            case .switchTo(let name, let isCurrent):
+                Toggle(name, isOn: Binding(get: { isCurrent }, set: { _ in LeoEnvironmentChange.perform(entry, row: row, actions: actions) }))
+                    .disabled(isCurrent)
+            case .toggle, .separator, .editOrder, .reset:
+                EmptyView()
+            }
+        }
+    }
+
+    /// Leo Settings' Appearance tab on this agent's machine.
+    private func editAppearanceRules() {
+        showingAppearance = false
+        (NSApp.delegate as? AppDelegate)?.leoRuntime.presentAppearanceRules(for: row.host)
+    }
+
     /// Opens the workspace browser (B-005) on this agent in the window
     /// whose sidebar was clicked.
     private func browseFiles() {
@@ -363,7 +307,17 @@ struct LeoAgentRowView: View {
             actions.setRowError("No terminal window available", for: row)
             return
         }
-        controller.browseLeoFiles(for: LeoEditorAgentContext(host: row.host, name: row.name, workspace: row.workspace))
+        controller.browseLeoFiles(forRow: row)
+    }
+
+    /// Shows this agent's browser -- on a blank page if it has none -- in
+    /// the window whose sidebar was clicked.
+    private func openBrowser() {
+        guard let controller = NSApp.keyWindow?.windowController as? TerminalController else {
+            actions.setRowError("No terminal window available", for: row)
+            return
+        }
+        controller.openLeoAgentBrowser(forRow: row)
     }
 
     private func viewLogs() {
@@ -377,7 +331,7 @@ struct LeoAgentRowView: View {
             }
             let command: String
             if case .remote(let name) = row.host {
-                guard let configuration = runtime.hostSelection.hosts.first(where: { $0.name == name }) else {
+                guard let configuration = runtime.machines.configuration(for: row.host) else {
                     throw LeoDaemonError.hostUnavailable("Remote host \(name) is not configured")
                 }
                 command = try LeoSSHCommand(configuration: configuration).logsShellCommand(agent: row.name)
@@ -393,4 +347,38 @@ struct LeoAgentRowView: View {
         }
     }
 
+}
+
+/// B-331: the chevron can't be reached inside the row's single accessibility
+/// element, so a row with dispatches offers its toggle as a named action.
+private struct SubagentsAccessibilityAction: ViewModifier {
+    let subagents: LeoAgentRowContent.Subagents?
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if let subagents {
+            content.accessibilityAction(named: Text(subagents.actionName), subagents.toggle)
+        } else {
+            content
+        }
+    }
+}
+
+/// The task indicator is hidden from VoiceOver; the row's one element says
+/// its value ("Build Leo.app, 62 percent") and offers the task popover. The
+/// action is offered for any task still listed, indicator or not.
+private struct TaskAccessibility: ViewModifier {
+    static let actionName = "Show Tasks"
+
+    let task: LeoTaskRowSummary?
+    let showTasks: () -> Void
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if let task {
+            content
+                .accessibilityValue(task.spokenValue ?? "")
+                .accessibilityAction(named: Text(Self.actionName), showTasks)
+        } else {
+            content
+        }
+    }
 }

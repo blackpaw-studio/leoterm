@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 import SwiftUI
 
 enum LeoSidebarSplitMetrics {
@@ -27,6 +28,14 @@ enum LeoSidebarSplitMetrics {
     /// does (D-036) -- down to its own minimum.
     static func sidebarMaximumWidth(splitWidth: CGFloat, dividerThickness: CGFloat) -> CGFloat {
         min(maximumWidth, max(minimumWidth, splitWidth - dividerThickness - contentMinimumWidth))
+    }
+
+    /// The thickness to give the sidebar's split view item so its pane comes
+    /// out `paneWidth` wide. `NSSplitViewItem` thickness limits clamp the
+    /// item's view, and on macOS 26 that view sits `inset` pt inside its
+    /// pane (0 elsewhere), so a limit meant for the pane is `inset` smaller.
+    static func itemThickness(forPaneWidth paneWidth: CGFloat, inset: CGFloat) -> CGFloat {
+        max(0, paneWidth - max(0, inset))
     }
 
     /// What's left for the terminal in a split `splitWidth` wide beside
@@ -176,9 +185,10 @@ struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var session: LeoWindowSession
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
+    @ObservedObject var unread: LeoChatUnreadStore
     private let terminal: Terminal
-    /// The top safe-area edges the split and the sidebar extend into (the
-    /// hidden titlebar style, B-074). See `LeoTitlebarInsets`.
+    /// The top safe-area edges the split and the sidebar extend into (an
+    /// agent window's toolbar region). See `LeoTitlebarInsets`.
     private let titlebarIgnoredEdges: Edge.Set
     /// The sidebar footer's buttons (B-065): see `LeoSidebarView`.
     private let shortcutHints: LeoShortcutHints
@@ -186,7 +196,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
     private let buttonActions: LeoSidebarButtonActions
 
     init(
-        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions,
+        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, unread: LeoChatUnreadStore,
         titlebarIgnoredEdges: Edge.Set = [],
         shortcutHints: LeoShortcutHints,
         buttonActions: LeoSidebarButtonActions,
@@ -195,6 +205,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
         self.session = session
         self.model = model
         self.actions = actions
+        self.unread = unread
         self.titlebarIgnoredEdges = titlebarIgnoredEdges
         self.shortcutHints = shortcutHints
         self.buttonActions = buttonActions
@@ -216,16 +227,25 @@ struct LeoSidebarSplit<Terminal: View>: View {
             // inset plus the system sidebar's, so ignoring it on the split
             // alone isn't enough.
             sidebar: LeoSidebarView(
-                model: model, windowID: session.id, actions: actions, terminals: session.terminals,
+                model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread,
                 searchFocusRequest: session.searchFocusRequest,
-                shortcutHints: shortcutHints, buttonActions: buttonActions
-            ).ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
+                shortcutHints: shortcutHints, buttonActions: buttonActions,
+                toolbarInset: session.toolbarInset
+            )
+            .environment(\.leoAgentBrowserBadges, session.agentBrowserBadges)
+            .environment(\.leoPluginSurfaces, session.pluginSurfaces)
+            .ignoresSafeArea(.container, edges: titlebarIgnoredEdges),
             detail: terminal,
-            editor: session.editor,
-            browser: session.browser,
-            sidePaneHeaderTopInset: LeoTitlebarInsets.sidePaneHeaderTopInset(splitIgnoring: titlebarIgnoredEdges),
-            onEditorPane: { session.editorPane = $0 },
-            onBrowserPane: { session.browserPane = $0 },
+            sidePaneHeaderTopInset: session.toolbarInset,
+            panes: session.panes,
+            onPaneContainer: { session.adopt($0) },
+            agentPane: session.agentPane,
+            agentPaneAgent: model.selectedRow.flatMap {
+                $0.movedTo == nil
+                    ? LeoAgentPaneAgent(ref: LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name), identity: $0.identity)
+                    : nil
+            },
+            onSplitViewReady: { [weak session] in session?.onSplitViewReady($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.
             onSidebarAutoCollapse: { session.isSidebarVisible = false },

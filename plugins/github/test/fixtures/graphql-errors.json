@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "headers": {},
+  "body": {
+    "errors": [
+      {
+        "type": "NOT_FOUND",
+        "message": "Could not resolve to a PullRequest"
+      }
+    ]
+  }
+}

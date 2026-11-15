@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import LeoKit
 
 /// What `LeoPickerPresentation` needs from a floating palette surface.
 /// Abstracted so `LeoPickerPresentationTests` can inject a fake instead of a
@@ -10,7 +11,7 @@ import SwiftUI
         parent: NSWindow,
         model: LeoAgentPaletteModel,
         onCommit: @escaping (LeoPickerChoice) -> Void,
-        onRetry: @escaping () -> Void,
+        onRetry: @escaping (LeoHostID) -> Void,
         onResignKey: @escaping () -> Void
     )
     func focusSearchField()
@@ -72,7 +73,7 @@ enum LeoAgentPalettePanelLayout {
         parent: NSWindow,
         model: LeoAgentPaletteModel,
         onCommit: @escaping (LeoPickerChoice) -> Void,
-        onRetry: @escaping () -> Void,
+        onRetry: @escaping (LeoHostID) -> Void,
         onResignKey: @escaping () -> Void
     ) {
         currentModel = model

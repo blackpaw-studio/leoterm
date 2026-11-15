@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import GhosttyKit
 import SwiftUI
 
@@ -25,10 +26,12 @@ extension TerminalController {
         let availability = row.map { row in
             LeoRowActionAvailability(
                 status: row.status,
-                isPending: leoRuntime?.actions.pendingActions.contains(row.id) ?? false
+                isPending: leoRuntime?.actions.pendingActions.contains(row.id) ?? false,
+                movedTo: row.movedTo
             )
         }
-        return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability)
+        let movesSupported = row.flatMap { row in leoRuntime?.model.features(for: row.host).contains(.agentMove) } ?? true
+        return LeoMenuCommands.AgentContext(hasLeoSession: leoSession != nil, availability: availability, movesSupported: movesSupported)
     }
 
     /// B-055: the window's one content area shows `tree` in place of what
@@ -51,7 +54,13 @@ extension TerminalController {
         surfaceTree = tree
         leoForgetContentUndo()
         focusedSurface = view
-        Ghostty.moveFocus(to: view)
+        // Whether the terminal may take focus is asked when the move runs:
+        // the row just selected may remember Chat, covering it.
+        if let leoSession {
+            leoSession.routeTerminalFocus { Ghostty.moveFocus(to: view, isAllowed: $0) }
+        } else {
+            Ghostty.moveFocus(to: view)
+        }
         return displaced
     }
 
@@ -65,18 +74,32 @@ extension TerminalController {
     /// the swap was confirmed at ⌘W and would expire after `undo-timeout`
     /// anyway. Other windows' undo is untouched.
     ///
-    /// Known limit: all windows share one undo manager, and a cross-window
-    /// Move Split is one undo group holding one action per window it
-    /// touched -- `splitDidDrop`'s "Close Terminal" on the source and
-    /// replace on the destination, or `ghosttySurfaceDragEndedNoTarget`'s
-    /// replace on the source and "New Window" for the window it opens.
-    /// This drops only the swapped controller's half; the other window's
-    /// half stays (D-141), and that is not harmless: ⌘Z then replays a
-    /// half-move, and once the redo expires it can free the moved
-    /// surface's shell without asking (P2). That risk, and the moved
-    /// surface's row and window ownership, are B-110's to fix.
+    /// All windows share one undo manager. A pane moved between Leo windows
+    /// (`splitDidDrop` / `ghosttySurfaceDragEndedNoTarget`, B-110) has one
+    /// guarded "Move Split" action for both windows, not upstream's one
+    /// half per window; this ends it too (`LeoCrossWindowMove`), whichever
+    /// of its two windows swapped. Left to upstream, the other window's
+    /// half would replay alone: taking the pane out of every tree (its
+    /// shell freed, unasked, once the redo expired) or pulling it back into
+    /// a window that moved on. Moves to or from a window with no Leo
+    /// session (the quick terminal) keep upstream's halves.
     func leoForgetContentUndo() {
         undoManager?.removeAllActions(withTarget: self)
+        LeoCrossWindowMove.end(involving: self)
+    }
+
+    /// B-332: whether the window lists a Terminals row, so it saves its
+    /// rows for restoring at launch. One listing none saves nothing.
+    var leoHasRestorableTerminals: Bool { leoSession?.terminals.rows.isEmpty == false }
+
+    /// B-332: the window's rows, a title or its selection changed. It is
+    /// restorable while it lists a row (never in a test host), and what
+    /// it saved is stale: AppKit saves it again later.
+    func leoTerminalsDidChange() {
+        guard let window else { return }
+        let isRestorable = LeoTerminalWindowRestoration.isEnabled && leoHasRestorableTerminals
+        if window.isRestorable != isRestorable { window.isRestorable = isRestorable }
+        window.invalidateRestorableState()
     }
 
     /// File ▸ Choose Agent… (⌘O): the agent palette, whose choice shows
@@ -89,6 +112,144 @@ extension TerminalController {
             Ghostty.SurfaceConfiguration(from: ghostty_surface_inherited_config($0, GHOSTTY_SURFACE_CONTEXT_TAB))
         }
         leoRuntime.routeNewSurface(surfaceTree.isEmpty ? .placeholder : .content, origin: leoSession.id, inheritedConfig: inherited)
+    }
+
+    /// Puts the agent toolbar on an agent window and keeps its subtitle on
+    /// the selected agent's `<cwd> · <harness>`. A window without decorations
+    /// is a plain `TerminalWindow` and gets neither.
+    func leoInstallAgentToolbar() {
+        guard let window = window as? LeoAgentTerminalWindow, let leoSession, let leoRuntime else { return }
+        window.leoToolbar.makeActivityView = { [model = leoRuntime.model, terminals = leoSession.terminals, actions = leoRuntime.actions] in
+            let host = NSHostingView(rootView: LeoActivityCapsule(model: model, terminals: terminals, actions: actions))
+            host.sizingOptions = []
+            return host
+        }
+        let updateModel = (NSApp.delegate as? AppDelegate)?.updateViewModel
+        window.leoToolbar.makeUpdateView = {
+            guard let updateModel else { return NSView() }
+            return NonDraggableHostingView(rootView: UpdatePill(model: updateModel))
+        }
+        let chat = leoRuntime.chat
+        let toolbarMenu = LeoAgentToolbarMenu(
+            mainMenu: { NSApp.mainMenu },
+            messages: .init(
+                knownTasks: { chat.timeline.knownTasks }, filter: { chat.timeline.taskFilter },
+                hasAgent: { [weak self] in self?.selectedLeoRow != nil },
+                select: { [weak self] in self?.leoShowMessages(forTask: $0) }),
+            pluginViews: .init(
+                entries: { [surfaces = leoRuntime.pluginSurfaces] in surfaces.viewEntries() },
+                open: { [weak self] entry in
+                    guard let row = self?.selectedLeoRow else { return }
+                    self?.openLeoPluginView(entry, forRow: row)
+                }))
+        window.leoToolbar.moreMenu = toolbarMenu.menu
+        window.leoToolbar.retainedMenu = toolbarMenu
+        let titleMenu = LeoAgentTitleMenu(
+            target: { [weak self] in self },
+            context: { [weak self] in
+                self?.leoTitleMenuContext ?? .init(agent: nil, movesSupported: true, appearanceSupported: true)
+            },
+            fileExists: LeoWorkspaceActions.live.fileExists)
+        window.leoToolbar.titleMenu = titleMenu.menu
+        window.leoToolbar.retainedTitleMenu = titleMenu
+        window.installToolbar(inset: leoSession.toolbarInset)
+        window.leoToolbar.bind(sidebarVisible: leoSession.$isSidebarVisible)
+        window.leoToolbar.bind(sideBySideChatWidth: leoSession.$sideBySideChatWidth)
+        window.leoToolbar.bind(surfaceZoomed: window.surfaceZoomedPublisher)
+        if let updateModel {
+            window.leoToolbar.bind(updateVisible: updateModel.$state.map { !$0.isHidden })
+        }
+        window.leoToolbar.mainMenu = { NSApp.mainMenu }
+        window.leoToolbar.bind(
+            viewSwitch: leoViewSwitchPresentations,
+            select: { [weak leoSession] choice in
+                if let leoSession { LeoViewMenuActions.show(choice, in: leoSession) }
+            })
+        window.leoToolbar.bind(interruptEnabled: leoInterruptAvailability)
+        window.leoToolbar.bind(tools: leoToolStates)
+        // This window's controller, not whichever responder happens to be first.
+        window.leoToolbar.setToggleSender { [weak self] action, sender in
+            guard let self else { return }
+            NSApp.sendAction(action, to: self, from: sender)
+        }
+        window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
+        leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
+        // `objectWillChange` fires before the change lands: read next turn.
+        leoSelectionChanges
+            .sink { [weak self] in self?.leoRefreshSubtitle() }
+            .store(in: &window.chromeSubscriptions)
+        // The title item follows `window.title`.
+        window.publisher(for: \.title)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.leoRefreshSubtitle() }
+            .store(in: &window.chromeSubscriptions)
+        leoRefreshSubtitle()
+    }
+
+    /// "Show Messages ▸" in the toolbar: filters the chat to `task` (nil: all
+    /// messages) and brings Chat up when only the terminal shows, since the
+    /// filter has no effect out of sight.
+    func leoShowMessages(forTask task: String?) {
+        guard let leoRuntime, let leoSession, let row = selectedLeoRow else { return }
+        let chat = leoRuntime.chat
+        leoSession.showMessages(of: row.id) { Task { await chat.setTaskFilter(task) } }
+    }
+
+    /// Fires (next turn, after the change landed) whenever the shown row or
+    /// the rows' data change.
+    var leoSelectionChanges: AnyPublisher<Void, Never> {
+        guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
+        return leoRuntime.model.objectWillChange.map { _ in () }
+            .merge(with: leoSession.terminals.objectWillChange.map { _ in () })
+            .receive(on: DispatchQueue.main)
+            .eraseToAnyPublisher()
+    }
+
+    /// What the toolbar's Terminal | Chat switch shows: the shown agent's
+    /// layout and unread count, re-read (next turn) whenever any of them can change.
+    private var leoViewSwitchPresentations: AnyPublisher<LeoViewSwitchPresentation, Never> {
+        guard let leoRuntime, let leoSession else { return Empty().eraseToAnyPublisher() }
+        let unread = leoRuntime.unread
+        return Publishers.MergeMany(
+            leoSelectionChanges,
+            leoSession.$viewChoices.map { _ in () }.eraseToAnyPublisher(),
+            leoSession.$sideBySideChatWidth.map { _ in () }.eraseToAnyPublisher(),
+            unread.objectWillChange.map { _ in () }.eraseToAnyPublisher()
+        )
+        .receive(on: DispatchQueue.main)
+        .prepend(())
+        .map { [weak leoSession] in
+            leoSession.map { LeoViewMenuActions.switchPresentation(in: $0) { unread.count(for: $0) } }
+                ?? LeoViewSwitchPresentation(layout: nil, unreadCount: 0)
+        }
+        .eraseToAnyPublisher()
+    }
+
+    /// Whether Interrupt may act on the shown agent: the rule behind Agents ▸
+    /// Interrupt, re-read whenever the row's status or activity, the daemon's
+    /// features, the machines' connections, the selection or an in-flight verb change.
+    private var leoInterruptAvailability: AnyPublisher<Bool, Never> {
+        guard let leoRuntime else { return Empty().eraseToAnyPublisher() }
+        return leoSelectionChanges
+            .merge(with: leoRuntime.control.objectWillChange.map { _ in () }.receive(on: DispatchQueue.main))
+            // A host connecting or dropping swaps the clients and features behind the rule.
+            .merge(with: leoRuntime.machines.objectWillChange.map { _ in () }.receive(on: DispatchQueue.main))
+            .prepend(())
+            .map { [weak self] in self?.validateLeoControlMenuItem(\.canInterrupt) ?? false }
+            .eraseToAnyPublisher()
+    }
+
+    /// The toolbar's title item: the window title, and under it the selected
+    /// agent's `<cwd> · <harness>` (empty for a terminal row, the start
+    /// screen, or while disconnected, and while the subtitle has no room).
+    func leoRefreshSubtitle() {
+        guard let window = window as? LeoAgentTerminalWindow, let leoRuntime else { return }
+        let subtitle = selectedLeoRow.map { row in
+            LeoAgentWindowSubtitle.text(
+                workspace: row.workspace, harness: row.harness, host: row.host,
+                localHome: NSHomeDirectory(), remoteUser: leoRuntime.machines.configuration(for: row.host)?.user)
+        }.flatMap { window.leoToolbar.showsSubtitle ? $0 : nil } ?? ""
+        window.leoToolbar.setTitle(.init(title: window.title, subtitle: subtitle, isEnabled: selectedLeoRow != nil))
     }
 
     @IBAction func toggleLeoSidebar(_ sender: Any?) {
@@ -127,11 +288,12 @@ extension TerminalController {
 
     @IBAction func newLeoAgent(_ sender: Any?) {
         guard leoSession != nil, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime else { return }
-        let sheet = NSHostingController(rootView: SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
+        let sheetView = SpawnAgentSheet(model: runtime.model, actions: runtime.actions) { row, disposition in
             guard let id = self.leoSession?.id else { return }
             runtime.model.attachRequested(row, id, disposition)
-        })
-        window?.contentViewController?.presentAsSheet(sheet)
+        }
+        let sheet = NSHostingController(rootView: sheetView.leoSheetClose(in: window))
+        window?.presentLeoSheet(sheet)
     }
 
     func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {

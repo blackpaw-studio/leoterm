@@ -1,4 +1,5 @@
 import SwiftUI
+import LeoKit
 
 /// Rename sheet shared by the sidebar row's context menu and the menu-bar
 /// "Agents" menu -- both act on the same `LeoAgentActions.rename`, so a
@@ -6,7 +7,7 @@ import SwiftUI
 struct LeoRenameAgentSheet: View {
     let row: LeoAgentRow
     @ObservedObject var actions: LeoAgentActions
-    @Environment(\.dismiss) private var dismiss
+    private let dismiss = LeoSheetDismiss()
     @State private var name: String
 
     init(row: LeoAgentRow, actions: LeoAgentActions) {
@@ -34,6 +35,44 @@ struct LeoRenameAgentSheet: View {
     }
 }
 
+/// Copy and Duplicate: asks for the copy's optional name, then starts the
+/// copy on `destination`, or on the agent's own host when it is nil.
+struct LeoCopyAgentSheet: View {
+    let row: LeoAgentRow
+    let destination: String?
+    @ObservedObject var actions: LeoAgentActions
+    /// Closes the sheet where SwiftUI's `dismiss` can't: a sheet presented
+    /// by `NSWindow.presentLeoSheet` has no presenting controller to ask.
+    var close: () -> Void = {}
+    @State private var name = ""
+
+    private var validation: String? { SpawnValidation.name(name, current: row.name) }
+    private var title: String { destination.map { "Copy \(row.displayName) to \($0)" } ?? "Duplicate \(row.displayName)" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title).font(.headline)
+            TextField("Name", text: $name, prompt: Text("\(row.name)-copy"))
+            if let validation {
+                Text(validation).foregroundStyle(Color(nsColor: .systemRed))
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { close() }.keyboardShortcut(.cancelAction)
+                Button("Copy") {
+                    let chosen = name.isEmpty ? nil : name
+                    if let destination {
+                        actions.copy(row, to: destination, name: chosen)
+                    } else {
+                        actions.duplicate(row, name: chosen)
+                    }
+                    close()
+                }.keyboardShortcut(.defaultAction).disabled(validation != nil)
+            }
+        }.padding().frame(width: 360)
+    }
+}
+
 /// Delete sheet shared the same way. `error`/`errorCode` are passed in
 /// rather than read from a model directly, so this view stays agnostic
 /// about where they come from: a caller embedded in a reactive SwiftUI tree
@@ -46,7 +85,7 @@ struct LeoDeleteAgentSheet: View {
     @ObservedObject var actions: LeoAgentActions
     let error: String?
     let errorCode: String?
-    @Environment(\.dismiss) private var dismiss
+    private let dismiss = LeoSheetDismiss()
     @State private var deletePlan: LeoDeletePlan?
     @State private var forceDelete = false
     @State private var deleteBranch = false
@@ -55,13 +94,19 @@ struct LeoDeleteAgentSheet: View {
         LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id))
     }
 
+    /// A moved agent's dormant record is a leftover copy, not the agent (B-324).
+    private var title: String {
+        guard let movedTo = row.movedTo else { return "Delete \(row.displayName)?" }
+        return LeoMovedAgentWording.removeLeftoverTitle(on: SpawnMachineOption.title(for: row.host), movedTo: movedTo)
+    }
+
     private var deleteSheetAvailability: LeoDeleteSheetActionAvailability {
         LeoDeleteSheetActionAvailability(row: availability, errorCode: errorCode)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Delete \(row.name)?").font(.headline)
+            Text(title).font(.headline)
             if let deletePlan {
                 if let path = deletePlan.worktreePath { Text("Worktree: \(path)") }
                 if let branch = deletePlan.branch { Text("Branch: \(branch)") }
@@ -77,7 +122,7 @@ struct LeoDeleteAgentSheet: View {
             HStack {
                 Spacer()
                 Button("Cancel") { dismiss() }
-                Button("Delete", role: .destructive) {
+                Button(row.movedTo == nil ? "Delete" : LeoMovedAgentWording.removeLeftoverButton, role: .destructive) {
                     actions.delete(row, force: forceDelete, deleteBranch: deleteBranch) { dismiss() }
                 }.disabled(!deleteSheetAvailability.delete)
             }
@@ -110,16 +155,20 @@ struct LeoStartAgentSheet: View {
         model.startPrompt(in: prompt.origin).flatMap { $0.id == prompt.id ? $0 : nil } ?? prompt
     }
 
+    private var agentLabel: String {
+        model.rows.first { $0.id == prompt.agent }?.displayName ?? prompt.agent.name
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             switch current.phase {
             case .confirm:
-                Text("Start \(prompt.agent.name)?").font(.headline)
+                Text("Start \(agentLabel)?").font(.headline)
                 Text("It opens here once it\u{2019}s running.").foregroundStyle(.secondary)
             case .waiting:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Starting \(prompt.agent.name)\u{2026}").font(.headline)
+                    Text("Starting \(agentLabel)\u{2026}").font(.headline)
                 }
                 Text("It opens here once it\u{2019}s running.").foregroundStyle(.secondary)
             }

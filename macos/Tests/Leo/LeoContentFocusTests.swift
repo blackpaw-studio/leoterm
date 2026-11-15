@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-087: once a row switch or the agent palette is done, the terminal
 /// the window shows is its first responder, and its cursor is drawn
@@ -17,7 +18,7 @@ import Testing
 ///
 /// Needs the test host's `Ghostty.App`; without it the test fails rather
 /// than passing silently.
-@MainActor @Suite(.serialized)
+@MainActor @Suite(.serialized, .hostOnly)
 struct LeoContentFocusTests {
     /// Covers the host step only: `showInContent` / `reveal` called
     /// directly, with a view in the window standing in for the sidebar
@@ -41,7 +42,7 @@ struct LeoContentFocusTests {
     /// Escape closes the palette: the panel's Escape key reaches
     /// `LeoPickerPresentation.commit(.cancel)`, which dismisses it; the
     /// window becomes key again.
-    @Test func dismissingThePaletteGivesFocusBackToTheTerminal() async throws {
+    @Test(.requiresActiveHost) func dismissingThePaletteGivesFocusBackToTheTerminal() async throws {
         let fixture = try await FocusFixture.make()
         defer { fixture.close() }
         let shown = try fixture.fill().surface
@@ -58,7 +59,7 @@ struct LeoContentFocusTests {
     /// the key window, and the palette closes a turn later (`requestEnded`).
     /// The new split keeps the focus it was given: the window becoming key
     /// again must not hand it back to the pane the split was made from.
-    @Test func aSplitChosenInThePaletteKeepsFocusOnceThePaletteCloses() async throws {
+    @Test(.requiresActiveHost) func aSplitChosenInThePaletteKeepsFocusOnceThePaletteCloses() async throws {
         let fixture = try await FocusFixture.make()
         defer { fixture.close() }
         let source = try fixture.fill().surface
@@ -73,6 +74,38 @@ struct LeoContentFocusTests {
     }
 }
 
+extension LeoContentFocusTests {
+    /// The toolbar's Terminal segment, clicked while chat covers the terminal:
+    /// the terminal surface ends as first responder, and the switch (which
+    /// refuses focus) never is.
+    @Test func clickingTheToolbarsTerminalSegmentFocusesTheShownTerminal() async throws {
+        let fixture = try await FocusFixture.make()
+        defer { fixture.close() }
+        let surface = try fixture.fill().surface
+        try await fixture.expectSettled(on: surface)
+        let session = try #require(fixture.controller.leoSession)
+        // SwiftUI reports the focused surface in the app; the fixture has no such view.
+        fixture.controller.focusedSurface = surface
+        let agent = LeoAgentID(host: .local, name: "alpha")
+        session.selectedAgent = { agent }
+        session.setObservedContentWidth(800)
+        session.choose(.chat, for: agent)
+        let control = LeoToolbarViewSwitch()
+        fixture.window.contentView?.addSubview(control)
+        // The fixture's window has a terminal row selected, so no agent counts as
+        // shown (`LeoViewMenuActions.show` would do nothing): drive `choose` as `select` does.
+        control.onSelect = { session.choose($0, for: agent) }
+        control.apply(LeoViewSwitchPresentation(layout: .chatReplacingTerminal, unreadCount: 0))
+        fixture.focusSidebar()
+
+        control.setSelected(true, forSegment: 0)
+        _ = control.sendAction(control.action, to: control.target)
+
+        try await fixture.expectSettled(on: surface, "the terminal after the switch showed it")
+        #expect(fixture.window.firstResponder !== control)
+    }
+}
+
 /// A key start-screen window with an attach host of its own; the
 /// surfaces are plain shells (`command: ""`), never an agent.
 @MainActor
@@ -83,10 +116,15 @@ private struct FocusFixture {
     let origin: LeoWindowID
     let sidebar: NSView
 
-    /// Past the longest `Ghostty.moveFocus` retry chain (50 + 100 + 200 +
-    /// 400 ms): a focus move still pending by then never lands.
-    private static let pendingFocusMovesLand: Duration = .seconds(1)
     private static let timeout: Duration = .seconds(5)
+
+    /// Just past the longest `Ghostty.moveFocus` retry chain for a move
+    /// queued with no initial delay: retries at 50, 100, 200 and 400 ms
+    /// (SurfaceView.swift) end 750 ms after it; the fifth, 800 ms, is
+    /// refused by `maxDelay` (0.5 s). The one caller with an initial delay
+    /// (BaseTerminalController.swift:808, 0.1 s) finishes by 700 ms. A
+    /// future caller with an initial delay under 50 ms would run past this.
+    private static let focusRetryChain: TimeInterval = 0.8
 
     static func make() async throws -> FocusFixture {
         let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "the test host has no Ghostty.App")
@@ -137,8 +175,8 @@ private struct FocusFixture {
     /// The real palette over this window, once it has taken key status.
     func presentPalette() async throws -> LeoAgentPalettePanel {
         let panel = LeoAgentPalettePanel()
-        panel.present(parent: window, model: LeoAgentPaletteModel(), onCommit: { _ in }, onRetry: {}, onResignKey: {})
-        try #require(await eventually { panel.isKeyWindow }, "the palette never became key")
+        panel.present(parent: window, model: LeoAgentPaletteModel(), onCommit: { _ in }, onRetry: { _ in }, onResignKey: {})
+        try #require(await eventually { panel.isKeyWindow }, "the palette never became key \(LeoTestHostActivation.focusDiagnostic())")
         return panel
     }
 
@@ -146,10 +184,8 @@ private struct FocusFixture {
     /// this window driving the real panel, for a request it has begun.
     func presentPaletteForRequest() async throws -> PresentedPalette {
         let sidebar = LeoSidebarModel()
-        let hostSelection = LeoHostSelection.isolatedForTesting()
         let actions = LeoAgentActions(
-            daemon: UnusedDaemon(), cli: .recordingForTests(), model: sidebar, hostSelection: hostSelection,
-            processRunner: LeoRecordingTemplateRunner(), refresh: {}
+            clients: FakeMachineClients(daemon: UnusedDaemon()), cli: .recordingForTests(), model: sidebar, processRunner: LeoRecordingTemplateRunner(), refresh: {}
         )
         let router = LeoNewSurfaceRouter(
             attach: { _, _, _ in .success(()) },
@@ -158,12 +194,12 @@ private struct FocusFixture {
         )
         let panel = LeoAgentPalettePanel()
         let presentation = LeoPickerPresentation(
-            window: window, router: router, sidebar: sidebar, hostSelection: hostSelection, actions: actions, panel: panel
+            window: window, router: router, sidebar: sidebar, machines: .isolatedForTesting(), actions: actions, panel: panel
         )
         let request = LeoSurfaceRequest(origin: origin, disposition: .content)
         router.begin(request)
         presentation.present(request: request)
-        try #require(await eventually { panel.isKeyWindow }, "the palette never became key")
+        try #require(await eventually { panel.isKeyWindow }, "the palette never became key \(LeoTestHostActivation.focusDiagnostic())")
         return PresentedPalette(presentation: presentation, panel: panel)
     }
 
@@ -174,22 +210,47 @@ private struct FocusFixture {
         try #require(await eventually { window.isKeyWindow }, "never key again: \(describe()) \(comment)", sourceLocation: sourceLocation)
     }
 
-    /// `expected` becomes the first responder and stays it once every
-    /// focus move still pending has landed; then it alone draws focused
-    /// (as long as the window is key).
+    /// `expected` becomes the first responder, the window's focused surface
+    /// and (as long as the window is key) the only pane drawing focused, and
+    /// it stays so.
+    /// `Ghostty.moveFocus` lands on `asyncAfter` timers, so the state is
+    /// polled for rather than read after a fixed wait. A poll cannot show
+    /// that focus stays put: a stale `moveFocus` to another pane, queued
+    /// before the settle, may still be pending and would steal it back. So
+    /// once settled, a main-queue timer past the whole retry chain is
+    /// awaited. Without a main-thread stall every retry has fired before it
+    /// resumes: the chain's last deadline (750 ms) precedes the drain's
+    /// (800 ms) and GCD never fires early. Each retry computes its next
+    /// deadline when it fires, so a stall mid-chain can push a later retry
+    /// past the drain (accepted risk, B-173). A wall-clock sleep gives even
+    /// weaker ordering than a timer on the queue the retries run on.
     func expectSettled(
         on expected: Ghostty.SurfaceView,
         _ comment: Comment? = nil,
         sourceLocation: SourceLocation = #_sourceLocation
     ) async throws {
-        let isFirstResponder = { window.firstResponder === expected }
-        try #require(await eventually(isFirstResponder), "never first responder: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
-        try? await Task.sleep(for: Self.pendingFocusMovesLand)
-        #expect(isFirstResponder(), "focus moved on: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+        let isSettled = {
+            window.firstResponder === expected
+                && controller.focusedSurface === expected
+                && expected.focused == window.isKeyWindow
+                && !controller.surfaceTree.contains { $0 !== expected && $0.focused }
+        }
+        try #require(await eventually { window.firstResponder === expected }, "never first responder: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+        // The result is deliberately dropped: the #expects below report
+        // which part of the state is wrong, which a bare timeout would not.
+        _ = await eventually(isSettled)
+        await drainFocusRetries()
+        #expect(window.firstResponder === expected, "focus moved on: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
         #expect(controller.focusedSurface === expected, "the window's focused surface \(comment ?? "")", sourceLocation: sourceLocation)
         #expect(expected.focused == window.isKeyWindow, "its cursor: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
         let others = controller.surfaceTree.filter { $0 !== expected && $0.focused }
         #expect(others.isEmpty, "another pane draws focused: \(describe()) \(comment ?? "")", sourceLocation: sourceLocation)
+    }
+
+    private func drainFocusRetries() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.asyncAfter(deadline: .now() + Self.focusRetryChain) { continuation.resume() }
+        }
     }
 
     private func row(_ handle: AttachmentHandle) throws -> Row {
@@ -199,6 +260,7 @@ private struct FocusFixture {
     private func eventually(_ condition: () -> Bool) async -> Bool {
         let deadline = ContinuousClock.now + Self.timeout
         while !condition(), ContinuousClock.now < deadline {
+            LeoTestHostActivation.requestForeground()
             try? await Task.sleep(for: .milliseconds(20))
         }
         return condition()
@@ -207,7 +269,7 @@ private struct FocusFixture {
     private func describe() -> String {
         let responder = window.firstResponder.map { "\(type(of: $0))" } ?? "nil"
         let panes = controller.surfaceTree.map { "\($0.id.uuidString.prefix(4)) focused=\($0.focused)" }
-        return "key=\(window.isKeyWindow) firstResponder=\(responder) panes=\(panes)"
+        return "key=\(window.isKeyWindow) firstResponder=\(responder) panes=\(panes) \(LeoTestHostActivation.focusDiagnostic())"
     }
 
     enum FixtureError: Error {

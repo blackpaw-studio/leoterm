@@ -1,13 +1,19 @@
 import Foundation
 import OSLog
+import LeoKit
 
 struct LeoSidebarActivitySource: Sendable {
     let events: @Sendable () async -> AsyncStream<LeoObserveEvent>
-    let fetchState: @Sendable () async throws -> [LeoObservedAgent]
+    let fetchState: @Sendable () async throws -> LeoObservedState
 
-    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, fetchState: @escaping @Sendable () async throws -> [LeoObservedAgent]) {
+    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, observedState: @escaping @Sendable () async throws -> LeoObservedState) {
         self.events = events
-        self.fetchState = fetchState
+        fetchState = observedState
+    }
+
+    /// For a source that only knows agents (no dispatches).
+    init(events: @escaping @Sendable () async -> AsyncStream<LeoObserveEvent>, fetchState: @escaping @Sendable () async throws -> [LeoObservedAgent]) {
+        self.init(events: events, observedState: { LeoObservedState(agents: try await fetchState()) })
     }
 
     init(client: LeoActivityClient) {
@@ -18,8 +24,8 @@ struct LeoSidebarActivitySource: Sendable {
 
 /// Reads agent activity/list data for exactly one connection at a time --
 /// `daemon`/`activitySource` are swapped via `updateConnection(host:generation:phase:)`
-/// (see `LeoSidebarFeedTarget.swift`) whenever `LeoHostSelection` reports a
-/// new `(host, generation)`. Every async chokepoint (refresh, activity-state
+/// (see `LeoSidebarFeedTarget.swift`) whenever `LeoMachineRegistry` reports a
+/// new `(host, generation)` for its machine. Every async chokepoint (refresh, activity-state
 /// fetch, SSE consumption) is guarded by `snapshot.generation` and/or
 /// `connectionGeneration` so a stale emission from a superseded connection
 /// can never reach a newer one.
@@ -91,8 +97,33 @@ actor LeoSidebarFeed {
     /// Monotonic seconds; only the attention reducer's stability window reads it.
     let now: @Sendable () -> TimeInterval
     let onAttentionTransitions: @MainActor @Sendable ([LeoAttentionTransition]) -> Void
-    /// Files surfaced on the selected host (B-013), by incarnation.
-    var surfacedFiles = LeoSurfacedFileIndex.empty
+    /// Leo Chat: `chat.*` events and resyncs for the selected host, in
+    /// stream order (the receiver must keep that order, e.g. a relay).
+    let onChat: @Sendable (LeoHostID, LeoChatFeedSignal) -> Void
+    /// The selected host's live dispatches (B-257) -- see `LeoSidebarFeed+Dispatches.swift`.
+    var dispatchTree = LeoDispatchTree()
+    /// What the selected host's daemon advertised on its latest hello, and
+    /// the last-turn previews it gated (B-259) -- see `LeoSidebarFeed+Turns.swift`.
+    var hostFeatures = LeoHostFeatures.none
+    var daemonFeatures: LeoDaemonFeatures { hostFeatures.features }
+    var turnPreviews = LeoTurnPreviews.empty
+    /// Agents compacting now (B-261) -- see `LeoSidebarFeed+Compaction.swift`.
+    var compactions = LeoCompactions.empty
+    /// Effective environment names (B-283) -- see `LeoSidebarFeed+Environments.swift`.
+    var environments = LeoAgentEnvironmentsIndex.empty
+    /// Resolved emoji and colors -- see `LeoSidebarFeed+Appearance.swift`.
+    var appearance = LeoAgentAppearanceIndex.empty
+    var displayNames = LeoAgentDisplayNameIndex.empty
+    var harnesses = LeoAgentHarnessIndex.empty
+    /// Agent tasks and their derived ETAs -- see `LeoSidebarFeed+Progress.swift`.
+    var taskReducer = LeoTaskReducer()
+    var taskETA = LeoTaskETA()
+    /// Counts task events, so a `/state` fetched before one can be told from one fetched after.
+    var taskEventCount = 0
+    /// `taskEventCount` at each agent's latest task event: a `/state` skips the agents with one after it started.
+    var lastTaskEventMark: [String: Int] = [:]
+    let onTaskFinishes: @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void
+    let wallClock: @Sendable () -> Date
     var running = false
     var needsState = true
     var recovering = false
@@ -113,9 +144,17 @@ actor LeoSidebarFeed {
     /// connect failure. Survives a same-host Retry.
     var wasLive = false
     var pollingRequested = false
+    /// Quick retries while no list has ever landed -- see `LeoSidebarFeed+BaselineRetry.swift`.
+    var baselineRetryTask: Task<Void, Never>?
+    var baselineRetryAttempts = 0
     /// Bumped each time a refresh starts; lets a stale refresh whose
     /// cancellation lost a race recognize it no longer owns bookkeeping.
     private var currentRefreshToken = 0
+    #if DEBUG
+    /// The armed `LEO_FORCE_DISCONNECTED` drop's reason, until it fires --
+    /// see `LeoSidebarFeed+Disconnect.swift`.
+    var forcedDisconnectReason: String?
+    #endif
 
     init(
         daemon: any LeoDaemonClient, activity: LeoSidebarActivitySource,
@@ -123,6 +162,9 @@ actor LeoSidebarFeed {
         now: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onManualRefresh: @escaping @MainActor @Sendable () -> Void = {},
         onAttentionTransitions: @escaping @MainActor @Sendable ([LeoAttentionTransition]) -> Void = { _ in },
+        onChat: @escaping @Sendable (LeoHostID, LeoChatFeedSignal) -> Void = { _, _ in },
+        onTaskFinishes: @escaping @MainActor @Sendable (LeoHostID, [LeoTaskFinish]) -> Void = { _, _ in },
+        wallClock: @escaping @Sendable () -> Date = { Date() },
         sink: @escaping Sink
     ) {
         self.daemon = daemon
@@ -130,6 +172,9 @@ actor LeoSidebarFeed {
         sleeper = sleep
         self.now = now
         self.onAttentionTransitions = onAttentionTransitions
+        self.onChat = onChat
+        self.onTaskFinishes = onTaskFinishes
+        self.wallClock = wallClock
         self.onManualRefresh = onManualRefresh
         self.sink = sink
     }
@@ -142,6 +187,7 @@ actor LeoSidebarFeed {
 
     func stop() {
         running = false
+        cancelBaselineRetry()
         eventTask?.cancel()
         refreshTask?.cancel()
         activityTask?.cancel()
@@ -152,6 +198,10 @@ actor LeoSidebarFeed {
         attentionTask?.cancel()
         cancelLivenessCheck()
         resetMetadata()
+        resetDispatches()
+        resetTurns()
+        resetCompactions()
+        resetTasks()
         attentionTask = nil
         eventTask = nil
         refreshTask = nil
@@ -204,6 +254,7 @@ actor LeoSidebarFeed {
     func setPolling(_ pollable: Bool) {
         guard running else { return }
         pollingRequested = pollable
+        if !pollable { cancelBaselineRetry() }
         // Connecting, failed or disconnected: only recorded. `.connected`
         // (see `updateConnection`) starts polling from it; no timer may run
         // against an unavailable host.
@@ -224,6 +275,41 @@ actor LeoSidebarFeed {
 
     func receive(_ event: LeoObserveEvent) {
         guard running else { return }
+        if let signal = LeoChatFeedSignal(event) { onChat(selectedHost, signal) }
+        // Sequence-only and dispatch events never touch the activity
+        // coalescer or the attention reducer: a turn event or a dispatch
+        // tick must not flush the window early.
+        switch event {
+        case .other, .chat: return
+        case .dispatchChanged(let seq, let dispatch):
+            receiveDispatch(dispatch, seq: seq)
+            return
+        case .dispatchRemoved(_, let id):
+            receiveDispatchRemoved(id)
+            return
+        case .agentTurnCompleted(_, let turn):
+            // A finished turn means the compaction (if any) is over.
+            endCompaction(turn.agent)
+            receiveTurn(turn)
+            return
+        case .agentCompaction(_, let compaction):
+            receiveCompaction(compaction)
+            return
+        case .agentUsage:
+            receiveUsageEvent()
+            return
+        case .agentAppearanceChanged(_, _, let agent, let appearance):
+            receiveAppearance(agent, appearance)
+            return
+        case .agentTaskChanged:
+            receiveTask(event)
+            return
+        case .hello(_, _, _, _, let bootID, let features):
+            receiveFeatures(bootID: bootID, features: features)
+            observeCompactionBoot(bootID)
+            receiveDispatchHello(bootID: bootID, features: features)
+        default: break
+        }
         // Every non-activity event either emits directly (`.disconnected`)
         // or triggers a refresh that will (lifecycle/recovery events, via
         // `performRefresh`/`applyActivityState`) -- flush whatever's
@@ -242,10 +328,11 @@ actor LeoSidebarFeed {
             sseRefreshTask?.cancel()
             sseRefreshTask = nil
             process(scheduler.reduce(.sseEvent(event)))
-        case .hello(let seq, _, let version, _, _):
+        case .hello(let seq, _, let version, _, _, _):
             Self.logger.log("receive: .hello seq=\(seq) version=\(version ?? "nil", privacy: .public) awaitingHello=\(self.awaitingHello)")
             if awaitingHello {
                 awaitingHello = false
+                refetchStateAfterHello(seq: seq)
                 return
             }
             guard !recovering else { return }
@@ -256,6 +343,10 @@ actor LeoSidebarFeed {
             prepareRecovery()
             process(scheduler.reduce(.sseEvent(event)))
         case .agentSpawned, .agentStateChanged, .agentStopped:
+            if case .agentSpawned(_, _, let agent, _, _) = event { forgetTurn(agent.name); endCompaction(agent.name) }
+            if case .agentStopped(_, _, let name, _) = event { forgetTurn(name); endCompaction(name); receiveTask(event) }
+            receiveEnvironments(event)
+            receiveDisplayName(event)
             process(scheduler.reduce(.sseEvent(event)))
             requestMetadataRefresh()
         case .agentActivity:
@@ -264,11 +355,12 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .fileSurfaced(_, let file):
-            receiveSurfacedFile(file)
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .agentTaskChanged, .chat:
+            return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
-            // The stream is gone and nothing reconnects it but Retry (D-061).
+            // The stream is gone; only a Retry reconnects it (D-061): the
+            // user's, or the registry's backoff once the runtime sees this drop.
             disconnect(reason: reason)
         }
     }
@@ -277,6 +369,7 @@ actor LeoSidebarFeed {
         snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: snapshot.connectivity, generation: snapshot.generation + 1)
         activityByName = [:]
         resetMetadata()
+        resetCompactions()
         recovering = true
         needsState = true
         attention.beginRecovery()
@@ -315,6 +408,7 @@ actor LeoSidebarFeed {
             guard running, generation == snapshot.generation, token == currentRefreshToken else { return }
             snapshot = LeoSidebarReducers.applyListResult(snapshot, result: LeoSidebarReducers.mergeActivity(rows, activityByName: activityByName), generation: generation)
             wasLive = true
+            cancelBaselineRetry()
             retainAttention(for: rows, listedSince: membershipMark)
             recovering = false
             drainCoalescedActivity()
@@ -326,6 +420,10 @@ actor LeoSidebarFeed {
             // reset `listRefreshSucceeded` back to its `false` default.
             snapshot = snapshot.replacingRows(LeoSidebarReducers.mergeActivity(snapshot.rows, activityByName: activityByName), listRefreshSucceeded: true)
             emit()
+            #if DEBUG
+            // The drop stops everything this list would start next.
+            if forceDisconnectIfDue() { return }
+            #endif
             if isManual { await onManualRefresh() }
             if fetchState {
                 stateFetchStarted = true
@@ -344,6 +442,7 @@ actor LeoSidebarFeed {
             }
             snapshot = LeoSidebarSnapshot(rows: snapshot.rows, connectivity: .failed(message: error.localizedDescription), generation: generation)
             emit()
+            scheduleBaselineRetry()
         }
     }
 
@@ -354,13 +453,20 @@ actor LeoSidebarFeed {
     }
 
     func emit() {
-        let value = displayedSnapshot.overlayingAttention(attention)
+        let value = displayedSnapshot.overlayingAttention(attention).overlayingDispatches(dispatchTree)
+            .overlayingTurns(turnPreviews, features: daemonFeatures).overlayingCompactions(compactions)
+            .advertising(hostFeatures)
         let previous = emissionTask
         emissionTask = Task { [weak self, sink] in
             await previous?.value
             guard !Task.isCancelled, self != nil else { return }
             await sink(value)
         }
+    }
+
+    /// Returns once every snapshot emitted so far has been handed to the sink.
+    func drainEmissions() async {
+        await emissionTask?.value
     }
 
     func process(_ outputs: [LeoPollScheduler.Output]) {
@@ -411,8 +517,11 @@ actor LeoSidebarFeed {
     }
 
     private static func row(_ agent: LeoAgent, host: LeoHostID) -> LeoAgentRow {
-        LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil, workspace: agent.workspace, repo: agent.repo,
-                    startedAt: agent.startedAt)
+        LeoAgentRow(host: host, name: agent.name, displayName: agent.displayName, template: agent.template,
+                    status: agent.status ?? .unknown("missing"), activity: .unknown, actionDetail: nil,
+                    workspace: agent.workspace, repo: agent.repo, branch: agent.branch,
+                    startedAt: agent.startedAt, wakeOnMessage: agent.wakeOnMessage,
+                    movedTo: agent.movedTo, movedAt: agent.movedAt, model: agent.model)
     }
 }
 

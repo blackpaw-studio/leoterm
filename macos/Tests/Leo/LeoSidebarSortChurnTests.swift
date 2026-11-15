@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-063: "The order of the running agents in the sidebar keeps switching
 /// around." Every activity burst brings a fresh `/state` snapshot, and

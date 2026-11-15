@@ -3,6 +3,11 @@ import UserNotifications
 import GhosttyKit
 import System
 
+enum LeoTerminalFileDropStatus: Equatable {
+    case uploading(Int)
+    case failed(String)
+}
+
 extension Ghostty {
     struct SurfaceWrapper: View {
         // The surface to create a view for. This must be created upstream. As long as this
@@ -97,6 +102,31 @@ extension Ghostty {
                 )
                 .zIndex(1)
 
+                if surfaceView.leoFileDropTargeted {
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.accentColor, lineWidth: 3)
+                        .padding(5)
+                        .allowsHitTesting(false)
+                        .overlay(alignment: .topTrailing) {
+                            Text("Upload to agent workspace")
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(.regularMaterial, in: Capsule())
+                                .padding(10)
+                        }
+                }
+
+                if let status = surfaceView.leoFileDropStatus {
+                    LeoTerminalFileDropOverlay(status: status) {
+                        if let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
+                            runtime.dismissTerminalFileDropError(from: surfaceView)
+                        } else {
+                            surfaceView.leoFileDropStatus = nil
+                        }
+                    }
+                }
+
                 VStack(spacing: 0) {
                     // If we have a URL from hovering a link, we show that.
                     if let url = surfaceView.hoverUrl {
@@ -110,6 +140,13 @@ extension Ghostty {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+
+                // MARK: Leo -- a dispatch the user can only watch (B-266, B-288).
+                if surfaceView.leoDispatchReadOnly {
+                    LeoDispatchWatchBadge()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .allowsHitTesting(false)
+                }
 
                 // If we have secure input enabled and we're the focused surface and window
                 // then we want to show the secure input overlay.
@@ -190,6 +227,36 @@ extension Ghostty {
                 }
             }
             .padding()
+        }
+    }
+
+    private struct LeoTerminalFileDropOverlay: View {
+        let status: LeoTerminalFileDropStatus
+        let dismiss: () -> Void
+
+        var body: some View {
+            HStack(alignment: .top, spacing: 8) {
+                switch status {
+                case .uploading(let count):
+                    ProgressView().controlSize(.small)
+                    Text(count == 1 ? "Uploading file…" : "Uploading \(count) files…")
+                        .font(.callout)
+                case .failed(let message):
+                    Image(systemName: "exclamationmark.triangle")
+                    Text(message)
+                        .font(.callout)
+                        .lineLimit(4)
+                    Button(action: dismiss) { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss upload error")
+                }
+            }
+            .padding(10)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .shadow(radius: 3, y: 1)
+            .frame(maxWidth: 420)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(10)
         }
     }
 
@@ -632,7 +699,9 @@ extension Ghostty {
             config.platform = ghostty_platform_u(macos: ghostty_platform_macos_s(
                 nsview: Unmanaged.passUnretained(view).toOpaque()
             ))
-            config.scale_factor = NSScreen.main!.backingScaleFactor
+            // NSScreen.main is nil on headless hosts (e.g. CI); fall back to any screen, then 2x.
+            let screen = NSScreen.main ?? NSScreen.screens.first
+            config.scale_factor = Double(screen?.backingScaleFactor ?? 2.0)
 
             // Zero is our default value that means to inherit the font size.
             config.font_size = fontSize ?? 0
@@ -1070,7 +1139,8 @@ extension Ghostty {
     static func moveFocus(
         to: SurfaceView,
         from: SurfaceView? = nil,
-        delay: TimeInterval? = nil
+        delay: TimeInterval? = nil,
+        isAllowed: (() -> Bool)? = nil
     ) {
         // The whole delay machinery is a bit of a hack to work around a
         // situation where the window is destroyed and the surface view
@@ -1090,11 +1160,19 @@ extension Ghostty {
             0.05
         }
 
-        let work: DispatchWorkItem = .init {
+        // Weak: a surface that never gets a window (a hidden shell whose
+        // window closed) must not be kept alive by the retries (B-378).
+        let work: DispatchWorkItem = .init { [weak to, weak from] in
+            guard let to else { return }
+
+            // Asked when the move runs, retries included, not when it was
+            // queued: what should hold focus can change in between.
+            if let isAllowed, !isAllowed() { return }
+
             // If the callback runs before the surface is attached to a view
             // then the window will be nil. We just reschedule in that case.
             guard let window = to.window else {
-                moveFocus(to: to, from: from, delay: nextDelay)
+                moveFocus(to: to, from: from, delay: nextDelay, isAllowed: isAllowed)
                 return
             }
 

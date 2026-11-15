@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The ControlMaster socket needs a path ssh can bind (86 bytes, see
 /// `LeoSSHCommand.isValidControlPath`) whatever the home directory is,
@@ -15,14 +16,14 @@ struct LeoControlSocketDirectoryTests {
     /// path past the AF_UNIX budget and cost the host its file access.
     @MainActor @Test func aLongHomeDirectoryStillYieldsAUsableControlPath() throws {
         let home = "/Users/" + String(repeating: "h", count: 80)
-        let defaults = LeoInMemoryDefaults()
-        let selection = LeoHostSelection(
-            store: LeoHostStore(defaults: defaults),
-            defaults: defaults,
-            legacySocketDirectory: URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
+        let legacy = URL(fileURLWithPath: home + "/.leo/state/leoterm", isDirectory: true)
+        let environment = LeoMachineConnectionEnvironment(
+            orphanStore: LeoTunnelOrphanStore(defaults: LeoInMemoryDefaults(), legacySocketDirectory: legacy),
+            runner: LeoFakeHomeRunner(stdout: "/home/evan"),
+            legacySocketDirectory: legacy
         )
 
-        let path = selection.controlPath(for: configuration)
+        let path = environment.controlPath(for: configuration)
 
         #expect(LeoSSHCommand.isValidControlPath(path), "\(path) (\(path.utf8.count) bytes)")
         #expect(!path.hasPrefix(home))

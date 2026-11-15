@@ -25,11 +25,22 @@ extension Ghostty {
             guard let menu = menuItem else { return }
 
             if !updateMenuShortcut(config, action: action, menuItem: menu) {
+                // Leo: an Edit item whose default binding is performable keeps its standard shortcut (B-318).
+                if LeoStandardEditShortcut.apply(config, action: action, to: menu) { return }
                 menu.keyEquivalent = ""
                 menu.keyEquivalentModifierMask = []
                 menu.allowsAutomaticKeyEquivalentLocalization = true
                 menu.allowsAutomaticKeyEquivalentMirroring = true
             }
+        }
+
+        /// Leo (B-059): indexes `item` by its own key equivalent on the physical key
+        /// `physicalKeyCode`, so a Ghostty binding on that key (⌃Tab's `next_tab`) goes
+        /// to the menu item before it becomes an action. Like the synced shortcuts it
+        /// is dropped by `reset()`, so it must be registered again after every sync.
+        func registerFixedShortcut(_ item: NSMenuItem, physicalKeyCode: UInt16) {
+            let key = MenuShortcutKey(physicalKeyCode: physicalKeyCode, modifiers: item.keyEquivalentModifierMask)
+            menuItemsByShortcut[key] = .init(item)
         }
 
         /// Attempts to perform a menu key equivalent only for menu items that represent

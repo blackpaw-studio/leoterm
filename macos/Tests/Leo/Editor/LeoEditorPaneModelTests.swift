@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// One editor pane per window: opening another file replaces the
 /// document, asking first (Save / Don't Save / Cancel) when it has unsaved

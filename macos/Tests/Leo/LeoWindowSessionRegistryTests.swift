@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoWindowSessionRegistryTests {
     private func makeDefaults() -> UserDefaults {
@@ -67,6 +68,7 @@ import Testing
             backing: .buffered,
             defer: false
         )
+        window.isReleasedWhenClosed = false
         let session = LeoWindowSession(window: window, defaults: makeDefaults())
         var closeCount = 0
         session.onWindowWillClose = { closeCount += 1 }

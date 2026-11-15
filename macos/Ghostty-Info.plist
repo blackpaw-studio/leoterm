@@ -2,6 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSPrincipalClass</key>
+	<string>LeoApplication</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
+	</dict>
 	<key>NSAutoFillRequiresTextContentTypeForOneTimeCodeOnMac</key>
 	<true/>
 	<key>NSDockTilePlugIn</key>
@@ -106,6 +113,8 @@
 	</array>
 	<key>SUAllowsAutomaticUpdates</key>
 	<string>$(LEO_ALLOWS_AUTOMATIC_UPDATES)</string>
+	<key>LeoDaemonLabel</key>
+	<string>$(LEO_DAEMON_LABEL)</string>
 	<key>SUPublicEDKey</key>
 	<string>yQcDYO8rnAKiOrSW0D5dJNNXk/SWj09TmVLjScZb/d4=</string>
 	<key>UTExportedTypeDeclarations</key>

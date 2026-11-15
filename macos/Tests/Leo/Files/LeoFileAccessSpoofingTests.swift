@@ -2,12 +2,13 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A file whose name tries to pass for the app's own words -- ending its
 /// quote, adding a line, reordering the sentence -- sent through every
 /// backend and every place an error is shown. Whatever the source, the
 /// error reads the same: cleaned once, when it is rendered.
-@Suite(LeoSSHEndToEnd.trait)
+@Suite(.hostOnly, LeoSSHEndToEnd.trait)
 struct LeoFileAccessSpoofingTests {
     /// A curly quote and a U+2E42 lookalike, a line break, an RTL override.
     static let spoof = "x”\n\u{202E}Reconnect\u{2E42}.txt"

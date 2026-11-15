@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 enum LeoSidebarConnectionPhase: Sendable {
     case connecting
@@ -17,8 +18,8 @@ enum LeoSidebarConnectionPhase: Sendable {
 }
 
 extension LeoSidebarFeed {
-    /// Applies a connection-state update for `(host, generation)` from
-    /// `LeoHostSelection`. A `(host, generation)` different from the one
+    /// Applies a connection-state update for `(host, generation)` from the
+    /// machine's connection in `LeoMachineRegistry`. A `(host, generation)` different from the one
     /// currently tracked is a *switch*: every in-flight SSE/list/state task
     /// for the old connection is cancelled and the snapshot resets before
     /// the new phase is applied, so a stale emission from the old connection
@@ -50,6 +51,7 @@ extension LeoSidebarFeed {
             connectionHost = host
             connectionGeneration = generation
             selectedHost = host
+            cancelBaselineRetry()
             eventTask?.cancel()
             refreshTask?.cancel()
             activityTask?.cancel()
@@ -79,7 +81,10 @@ extension LeoSidebarFeed {
                 snapshot = .init(rows: snapshot.rows, connectivity: .disconnected(reason: reason, isRetrying: true), generation: snapshot.generation + 1)
             } else {
                 attention.switchHost(host)
-                surfacedFiles = .empty
+                resetDispatches()
+                resetTurns()
+                resetCompactions()
+                resetTasks()
                 wasLive = false
                 snapshot = .init(rows: [], connectivity: .loading, generation: snapshot.generation + 1)
             }

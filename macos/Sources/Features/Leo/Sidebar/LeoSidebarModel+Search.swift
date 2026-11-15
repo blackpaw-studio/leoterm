@@ -21,10 +21,10 @@ extension LeoSidebarModel {
         return .cleared
     }
 
-    /// Return: the same as clicking the top-ranked row. Inert while
-    /// disconnected, like the rows themselves (D-061).
+    /// Return: the same as clicking the top-ranked row. Inert while its
+    /// machine is disconnected, like the row itself (D-061).
     func searchSubmit(from origin: LeoWindowID) {
-        guard !isDisconnected, let top = visibleRows.first else { return }
+        guard let top = visibleRows.first, !isDisconnected(top.host) else { return }
         rowClicked(top, from: origin)
     }
 }

@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A file's name and folder come from terminal output or the remote host,
 /// so the header shows them only sanitized: no bidi overrides, control

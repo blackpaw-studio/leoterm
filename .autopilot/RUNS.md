@@ -378,3 +378,551 @@ Completed B-238 (Left/Right duplicate-name close confirmations) and B-239 (wide 
 ## 2026-10-06T19:14:26Z — Corrected Next Run verification accepted
 
 B-238 now genuinely complete: actual Right dialog window333046 and Left dialog333081 captured as B-238-3/4; fresh verifier and root directly inspected both readable 260x170 PNGs. Earlier B-238-1/2 parent-only images were invalid and remain audit evidence. B-239 wide/narrow captures also inspected by root and accepted. Existing source unchanged, independent serial 2,072/223 suite and strict lint passes remain valid. Both items done without code changes; fresh review clear. Only own debug instances terminated and verify locks released. Proceeding with explicitly authorized merge/push main and leo-v0.7.3 release.
+
+## 2026-10-07T02:10Z — leoterm autopilot: 4 shipped, 1 blocked (budget 5)
+Shipped: B-139 per-step clamp check + 1 pt tolerance (91b448d74) · light; B-140 Reset/Return To Default Size restores the stored sidebar width (01b5b5bc0, 8a96bd527) · full; B-141 leoAppIsHidden injection seam for isLeoWindowShown (8016b94b4) · light; B-142 folder-open stray-window guard — the 500x500 window is macOS's TUINSWindow, kept (16f07b692, ff8302d49, be6f60ff7) · full.
+Blocked: B-143 runner timed out at 3h mid fix round 2; held on autopilot-lane/B-143 (shelve refused: untracked profraw + zig-out symlink).
+Escalated: none (B-142 planned hard from the start).
+Calls: D-361–D-372. Polish filed for next run: B-240–B-250.
+Board sync re-enabled mid-run at Evan's request. autopilot-lane finish skipped 77 landed lanes as dirty (untracked default.profraw / zig-out symlinks), incl. B-139–B-142.
+
+## Run 2026-10-07 (focus: leo PR #226 bridge features) — paused by Evan
+6 shipped, 0 blocked. B-257 8a28dfb7b (dispatch tree, full), B-258 1af002341 (attention reason, full), B-259 ed7558b97 (turn preview + usage, full), B-260 928f15569 (current tool, full), B-261 bf8e5b9f4 (compaction indicator, full), B-262 2a1ccd4e5 (control bar + prompt box, full). Calls D-374–D-421. Self-filed: B-268 bug; ideas B-263–B-267; 8 polish dropped over cap. B-051 paused mid-reproduction, lane left unlanded for next run. B-261 lane history carries a 2.2 MB default.profraw blob (removed before landing). Landed lanes B-260–B-262 not removed by finish (dirty: profraw/zig-out).
+
+## Run 2026-10-08T21:26:35Z
+🛠 leoterm autopilot — 3 shipped, 1 blocked (ended early by Evan after B-204)
+Shipped
+• B-235 SFTP subsystem-rejection line matched on raw stderr bytes, so invalid UTF-8 later in the output no longer hides the fallback (not visually verified: needs a remote host) · full
+• B-144 Launch-placeholder test cleanup closes windows awaiting presentation; restore folded into one helper (not visually verified: test-only) · light
+• B-204 Rows-focus flakes fixed in the tests: waits follow moveFocus's 50 ms retry and use turns instead of wall-clock deadlines; 21/110 → 0/400 failures (not visually verified: test-only) · full
+• B-204 built before B-145 (D-426: the flake hit both earlier verifies)
+Calls I made — reply "veto D-0xx" to undo
+• D-422–D-425 B-235: per-line byte-level match, exact ASCII, one trailing CR stripped; detail and status-127 paths untouched
+• D-426 B-204 pulled ahead of the polish queue
+• D-427–D-429 B-204: flakes are test infra, app unchanged; B-171/B-172 not causes; `eventually` vs `turns` doc comment
+Needs you — reply "B-0xx: <answer>"
+• B-051 shelved on autopilot-shelved/B-051 — daemon-side: turn.complete ignores pending.tasks (~89 s "Finished" while a background Bash ran). Approve sending the contract change to leo? I'd pick: hold `working` on non-empty pending.tasks, including dev servers and watchers. Also: unlock a live background-subagent repro on autopilot-scratch? Spec + trace in .autopilot/bugs/B-051/
+• B-204 integrate was refused by the auto-mode classifier; the orchestrator ran it (Evan approved)
+• 53 landed lanes not removed: untracked scratchpad/ (54), default.profraw (7), .build/ (1). Delete them, or gitignore scratchpad/ and *.profraw so finish can clean up
+• Unlanded lanes left: B-233 (item done, no lane block), B-058 and B-143 held
+• Calls in shelved work, not logged (B-051): don't decode `outstanding`; no app commits on the daemon-side branch; used autopilot-scratch
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 Terminals row context menu shows key equivalents · B-181 Rename Terminal sheet hangs from the title bar · B-182 Clearing a custom name after restore restores the live title · B-184 Drive row-menu Split in GUI verification · +28 more
+Self-filed
+• B-269 bug (from B-235) — invalid UTF-8 SFTP stderr hides the missing-server message
+Queued for next run: dispatch placement not applied to rows attached before hello; dispatch rows unclickable when the viewer sits in the parent's session; live dispatch placement (leo v0.42.0 `dispatch_placement_live`)
+Next up: B-145, B-146, B-148
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: see .autopilot/BOARD.md
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-10T01:32Z (stopped by Evan)
+🛠 leoterm autopilot — 0 shipped, 0 blocked
+Stopped by Evan right after dispatching B-270; nothing built.
+Preflight: merged main (2d6dd35f4, LeoSFTPLauncher conflict resolved favouring main's mux fallback); inbox applied → B-270–B-274; B-269 promoted.
+Left for next run: lane autopilot-lane/B-270 (empty, first pick); stale unlanded lane autopilot-lane/B-233 (no block).
+
+## Run 2026-10-10T01:59Z
+🛠 leoterm autopilot: 8 shipped, 0 blocked (12h budget, 9:59pm–9:59am EDT)
+Shipped
+• B-270 Dispatch placement re-applied to rows attached before hello · full
+• B-271 Dispatch rows clickable when the viewer sits in the caller's session (not visually verified) · full
+• B-275 24pt dispatch rows, fixed-width role-chip column · full
+• B-274 Editor/browser panes per sidebar row · full
+• B-273 Surfaced files auto-open as background tabs (supersedes D-088) · full
+• B-272 Live dispatch placement (`dispatch_placement_live`) · full
+• B-145 ⌘N / New Window open the bare start screen, no palette flash · light
+• B-146 environ comment wording (not visually verified: comments only) · light
+Calls I made (reply "veto D-0xx")
+• D-430–D-473. Worth a look: D-432 (Ghostty scrollback lost on the one-time re-attach), D-469 (a background dispatch that isn't attachable is display-only; narrows D-438)
+Needs you
+• leo /api/v1 doesn't send `viewer_kind` yet. Ask the leo agent to ship it?
+• GUI verifiers twice clicked real stopped agents. A "Start whatshoveringoverme?" prompt was cancelled and widgeon was selected. B-271 may have typed stray text into another app. Briefs are tightened.
+• The B-275 runner idle-closed at 1h. Recovered; briefs now force blocking waits.
+• Unlanded lanes: B-233 (no block); B-058 and B-143 held
+• B-270 follow-up: a daemon restart unregisters clients again
+Flakes: row-menu rename tests, anEmptyNameRestoresTheLiveTitle
+Self-filed: ideas B-276 and B-277
+Next up: B-148, B-149, B-150
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-10 (16:31Z–21:45Z) — 3 shipped, 0 blocked
+- B-232 Drop files into an agent's workspace (local + SSH) — finished from the shelved branch; NUL rejection, streamed bounded buffering, lost-RENAME transport test. Merge e2fd6c40a. Full/hard, 1 fix round. Verified: screenshot (SFTP by tests).
+- B-279 Drag files out of the workspace browser to Finder — file promises on both backends, keep-both name clashes. Merge 15f779df4. Full/hard, 1 fix round. Screen captures only.
+- B-283 Named environments (Evan, in-session) — spawn picker, Set Environments submenu, quiet row override/env-error; fixture-built against leo PR #251 (unmerged). Merge b82e17565. Full/hard, 2 fix rounds. Verified: screenshot.
+- Calls D-475–D-500. Runner dismissed one round-3 blocking finding on B-283 (Edit Order session left live on programmatic parent close) as accepted risk.
+- Self-filed: B-280, B-281, B-282, B-286 ideas; B-284, B-285 bugs (ready next run).
+- Ended early at Evan's 18:30 EDT deadline; merge to main approved, no release.
+
+## Run 2026-10-11T00:41:25Z
+
+🛠 leoterm autopilot — 1 fixed, 1 shipped, 1 blocked
+Fixed
+• B-287 Ctrl+C doesn't stop the process in terminals — the sidebar's hidden Return shortcut matched ⌃C (same char as keypad Enter); now matched by key code (verified: screenshot) · full
+Shipped
+• B-278 File pane previews — images/GIF/HEIC/WebP/SVG, AVKit video, native Markdown with Rendered/Raw, PDF Quick Look, Can't Preview + Reveal/Download; local + SFTP (verified: screenshot; SFTP by tests) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-501–503 (B-287) key-code Return matching; hermetic first-attach tests
+• D-504–517 (B-278) native Markdown, no WKWebView; extension allowlist; ⌥⌘U / ⌥⌘0 / ⌥⇧⌘R; no autoplay; 2 GB cap; >5 MB Markdown Raw only
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• B-288 shelved on autopilot-shelved/B-288 — subagent read-only is in the daemon (`leo dispatch attach` → `tmux attach -r`). Make it writable via a leo `--rw` flag + feature flag (two writers on one TUI)? I'd pick yes.
+• B-278 runner ran 3h07m, past the 3h hung limit; kept alive because it was visibly active (deviation, noted in RUN.md)
+• B-287 runner's first implementer lost its turn; one retry finished — treated as recovered, not a failed dispatch
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 (+38 more)
+Self-filed
+• B-289–B-292 ideas (from B-278) — header crowding at ~800 px, Markdown table/list spacing, remote Download untested live, hard line breaks
+Next up: B-148, B-149
+Spend (estimated, lower bound · prices 2026-10-09): ≈$40.20 est. — B-287 ≈$14.24, B-288 ≈$0.61, B-278 ≈$25.35
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-11T15:41:34Z
+
+🛠 leoterm autopilot — 6 fixed, 5 tightened, 1 shelved (stopped by Evan at 21:18 EDT)
+Fixed
+• B-284 Agents ▸ New Agent… opened no sheet on terminal windows (verified: screenshot) · full
+• B-285 Rename / Delete / Manage Hosts no-ops on terminal windows (verified: screenshot) · full
+• B-288 Subagent panes now take keyboard and mouse input via leo `--rw` (≥0.47.0), read-only fallback (verified: tests) · full
+• B-268 Same-state needs_input with a newer revision re-notifies (verified: screenshot) · light
+• B-269 Invalid UTF-8 SFTP stderr no longer hides the missing-server message (verified: tests) · light
+• B-149 Selected row cut off when the sidebar list shrinks; reveal now runs after AppKit layout (verified: test + screenshot) · light→full
+Tightened (tests / layout polish)
+• B-148 Sidebar list stays mounted with terminals in every state (tests) · light
+• B-150 Sidebar scroll tests: real geometry, turn-counted first population (tests) · light
+• B-151 Side-pane test measures from the window top (tests) · light
+• B-152 Sidebar header row pinned to headerRowHeight (tests) · light
+• B-153 Hidden style: + and both close glyphs on one centre line within 0.5 pt (test + screenshot) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-518 Evan's B-288 answer; D-519–524 (B-288) `--help` probe for `--rw`, read-only on any doubt, per-host probe cache, file drop off for dispatches
+• D-525–527 (B-268, B-269); D-528–531 (B-149) reveal after layout, scheduler test seam; D-532–533 (B-150); D-534–535 (B-152) .frame(height:); D-536 (B-153) hidden-style close button gets header-row height (browser header 21→26 pt)
+Needs you
+• B-154 shelved on autopilot-shelved/B-154 (stopped mid-build; one unreviewed commit) — next run starts it fresh
+• Deviation: B-284 got a re-verify round after the stale SecurityAgent prompt (killed with your OK) instead of being shelved
+• Held lanes B-058, B-143 still on autopilot-lane/*; B-233 lane has no RUN block
+Self-filed
+• B-293–B-296 ideas (B-148/B-149/B-150 polish)
+Next up: B-154, B-155
+Spend (estimated, lower bound · prices 2026-10-09): ≈$35.40 est. (B-154 not counted)
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-25T16:54:31Z
+
+🛠 leoterm autopilot — 1 fixed, 5 shipped, 0 blocked
+Stopped at your request (2026-10-26T00:08:00Z)
+Fixed
+• B-297 Mac CI focus suites fail when the runner can't become key — focus tests probe a plain window and skip with a ::warning:: instead of failing (not visually verified) · full
+Shipped
+• B-298 iOS ChatList uses LeoKit's LeoChatUnreadCounts — logic swap, badges unchanged (not visually verified) · light
+• B-154 Titled-style side-pane close glyph — centred on the sidebar header line in all 4 styles (verified: screenshot) · light
+• B-155 LeoLaunchFocusTests #require message reworded (not visually verified) · light
+• B-156 waitForSearchField counts run-loop turns, no sleeps (not visually verified) · light
+• B-157 Key view loop rebuilt when a row's pane is first shown (not visually verified: debug window never became key) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-537–D-541 CI focus tests skip+annotate; runner setup left to you; Mac only
+• D-542–D-545 side-pane glyph alignment; D-543 also moves the editor pane header (beyond the item)
+• D-546 200-turn limit in waitForSearchField
+• D-547 rebuild the key loop only when a pane view is first built, not on every toggle
+Needs you
+• Flaky Mac tests under load slow every item: renameSetsTheRowTitleAndSticks, anEmptyNameRestoresTheLiveTitle, nonAttachSurfaceKeepsGhosttysTitle, chatShowsNotConnected… — worth a /issue
+• B-297 acceptance (3 green CI runs on main) checkable only after merge; the CI runner needs an unlocked console or the 5 focus tests always skip
+• Lanes left unlanded: B-058, B-143 (held), B-233. Untracked-left: default.profraw, scratchpad/
+• Debug bundle: a sidebar pin may be left set (B-154 verify)
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area
+• B-180 Terminals row context menu shows key equivalents
+• B-181 Rename Terminal sheet hangs from the title bar
+• B-182 Clearing a custom name after restore restores the live title
+• B-184 Drive row-menu Split in GUI verification
+• +48 more
+Self-filed
+• B-303 idea (from B-157) — Incremental builds can drop the bundled tmux-256color terminfo
+Next up: B-158, B-159, B-160 (and your iOS Machines bug, queued for next preflight)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$20.55 est. — B-297 ≈$4.90, B-298 ≈$2.09, B-154 ≈$4.18, B-155 ≈$2.16, B-156 ≈$1.76, B-157 ≈$5.46
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-27 (started 2026-10-27T01:43:03Z, finished 2026-10-27T12:01:11Z)
+🛠 leoterm autopilot — 5 fixed, 13 shipped, 1 blocked
+Fixed
+• B-304 iOS Machines: taps open the machine, gauges animate in place (not visually verified) · full
+• B-306 browser_navigate with no tab opens one (not visually verified) · light
+• B-307 browser_* tool descriptions name the Leo browser (not visually verified) · light
+• B-308 Machines detail form scrolls instead of clipping (not visually verified) · light
+• B-309 Rings stats spaced and unclipped; B-310 fixed by it (not visually verified) · light
+Shipped
+• B-158–B-163, B-165, B-168, B-170 test/helper tidy-ups, no user-visible change · light
+• B-164 F1–F25 config binds show on menus and hints (not visually verified) · light
+• B-166 LEO_FORCE_DISCONNECTED arms on first launch (debug only) · full
+• B-167 Terminals section can't be collapsed (macOS 13 only) · light
+• B-171 late focus report no longer reselects another agent; real bug, test-first · light
+Calls I made — reply "veto D-0xx" to undo
+• D-548–D-589 (42 calls; highlights in interim updates). New since: D-582 disable macOS 13 hover Hide; D-584 drop dead branches; D-586–589 B-171 fence on selection→nil
+Needs you
+• B-311 shelved on autopilot-shelved/B-311 — ⌃C key-window test can't run while Dionysus system prompts hold focus; filed B-317
+• Screenshots: Peekaboo.app (4.9.7) bridge down/unpermissioned; CLI 4.3.4 needs Xcode 27 CLT to upgrade
+• Lanes unlanded: B-058, B-143 (held), B-233. Untracked-left: default.profraw, scratchpad/
+• Local main is stale vs origin/main (merged origin/main into autopilot mid-run)
+• Ideas cap 5/5 hit; one polish dropped
+Self-filed: B-312–B-316 ideas, B-317 bug; dropped (from B-167) — macOS 13 duplicate fold controls — over cap
+Next up: B-172, B-173, B-174, B-175
+Spend (estimated, lower bound · prices 2026-10-09): ≈$53.83 est. — largest B-166 ≈$9.24, B-304 ≈$7.02, B-311 ≈$6.15
+Interim updates: 3 posted, through item 16
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+
+## Run 2026-10-28T01:47:16Z
+🛠 leoterm autopilot — 3 fixed, 7 shipped, 3 blocked (2 closed with no code change)
+Fixed
+• B-318 ⌘C copies from the chat (the Edit ▸ Copy menu item gets ⌘C; works app-wide) (not visually verified) · light→full
+• B-320 iOS settings form no longer collapses when its banner stack is empty (not visually verified) · light
+• B-322 Mac test host gets an unreachable socket instead of the production daemon (verified: screenshot) · full
+Shipped
+• B-172 Pending reconciles finish before a sidebar click selects (not visually verified) · full
+• B-173 Focus test polls instead of sleeping 1 s (not visually verified) · light→full
+• B-174 Close Terminal undo window is 30 s by default (not visually verified) · light
+• B-059 Switch rows with ⌃⇥, ⌘1–9 and the Window menu (verified: screenshot) · full
+• B-183 Clearing a row name keeps a terminal title that arrives right after (not visually verified) · full
+• B-194 App setup no longer falls back to the real ssh runner (not visually verified) · light
+• B-227 Release workflow runs the full CI first (not visually verified; not yet run on GitHub) · light
+Done, no code change: B-188 (already satisfied), B-199 (dismissed: the re-open was caused by the screenshot tool, D-619)
+Calls I made — reply "veto D-0xx" to undo
+• D-590–D-622: highlights D-592 ⌘C fix is app-wide, D-595 unreachable socket, D-603 30 s undo, D-607 ⌃⇥ overrides user binding, D-611 Window-menu row items, D-619 B-199 dismissed, D-620 release gate in leo-release.yml
+Needs you — reply "B-0xx: <answer>"
+• B-321 can't reproduce the stale Package.resolved: "B-321: close" or give the exact command
+• B-175 can't reproduce grey traffic lights after Undo New Split: "B-175: close" or give the exact steps
+• B-317 can't reproduce on Dionysus (3873/3873 passed): "B-317: close", paste CI log lines, or "B-317: decouple"
+• Shelved: autopilot-shelved/B-321, B-175, B-188, B-199, B-317. Lanes left in place: B-233 (unlanded), B-058 and B-143 (held). Untracked-left: default.profraw scratchpad/
+Self-filed
+• B-325 bug (from B-318) — Edit ▸ Paste may lack ⌘V
+• B-326 idea (from B-059) — iPad hardware-keyboard row switching
+• B-327 idea (from B-188) — Remove stale LeoHostSelection comment and dead spawn overload
+Next up: B-325
+Spend (estimated, lower bound · prices 2026-10-09): ≈$64.85 est. — largest B-318 ≈$18.97, B-059 ≈$7.83, B-173 ≈$6.20
+Interim updates: 2 posted, through item 10
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-29T02:17:35Z
+
+🛠 leoterm autopilot — 4 fixed, 3 shipped, 0 blocked
+Fixed
+• B-325 Edit ▸ Paste shows ⌘V (verified: screenshot) · light
+• B-328 Rename/Delete/New Agent sheets close (verified: screen capture, not attached) · light
+• B-329 Set Template disabled with no row selected (verified: screen capture, not attached) · light
+• B-330 Mac stats spacing 3→10 pt (verified: screenshot) · light
+Shipped
+• B-333 Ghostty-style splits in terminal rows; ⌘D/⇧⌘D to a shell, layout kept on switch (verified: screenshot) · full
+• B-332 Terminals rows, splits and titles restored on relaunch — only via "Quit and Keep Windows" when macOS closes windows on quit (verified: screenshot; cwd/rename by tests) · full
+• B-331 Collapsible dispatch rows + View ▸ Hide Subagents ⌥⌘S, persisted (verified: screenshot) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-623..638 (see interim update)
+• D-639 B-332 restores via AppKit window restoration
+• D-640 only windows with a Terminals row are saved; agent panes dropped
+• D-643 restored window replaces the start window
+• D-647 global Hide Subagents flag with per-agent exceptions
+• D-648 ⌥⌘S shortcut
+• D-649 chevron on the name line; running count only when collapsed
+Needs you
+• verify.md: add -ApplePersistenceIgnoreState YES to debug launches (B-332 runner)
+• Lane B-332 left (untracked .shots/); held B-058/B-143 and unlanded B-233 from earlier runs
+• Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058, B-180, B-181, B-182, B-184 +60 more
+Self-filed
+• B-334 bug (from B-325) — Paste/Copy get ⌘V/⌘C whenever the key is bound
+• B-335 idea (from B-329) — Set Environments/Switch enabled for a pending row
+• B-336 idea (from B-333) — focused split pane hard to spot
+• B-337 idea (from B-331) — clip the chevron's click area to the name line
+Next up: B-334
+Spend (estimated, lower bound · prices 2026-10-09): ≈$53.63 est. — B-325 $2.15, B-328 $3.44, B-329 $2.42, B-330 $2.09, B-333 $17.39, B-332 $18.63, B-331 $7.52
+Interim updates: 1 posted, through item 5
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-10-29T23:36:23Z — paused by owner
+🛠 leoterm autopilot — 0 fixed, 0 shipped, 0 blocked
+Stopped at your request (2026-10-29T23:42:01Z) — paused mid-item.
+B-334 (Paste/Copy ⌘V/⌘C conflict) was in its first build; partial test work saved as wip 8b05121bb on autopilot-lane/B-334; the next run resumes it first.
+Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332 (finish judged unlanded), B-334 (wip).
+
+## Run 2026-10-30T00:56Z — stopped by owner
+🛠 leoterm autopilot — 0 fixed, 0 shipped, 0 blocked
+Stopped at your request (2026-10-30T01:06:08Z) — halted mid-item.
+B-334 was in its build (planner done; implementer mid-change touching LeoStandardEditShortcut.swift, include/ghostty.h, src/apprt/embedded.zig); saved as wip 3d2b0d723 on autopilot-lane/B-334; next run resumes it first.
+Lanes left in place: B-058, B-143 (held), B-233 (no block), B-332, B-334 (wip).
+
+## Run 2026-10-31T19:11Z (early stop)
+🛠 leoterm autopilot — 0 shipped, 0 blocked
+Early stop: B-334 runner's nested implementer stuck on a permission prompt (`rm zig-out`) that a leo_dispatch subagent can't answer; runner cancelled it. Nothing built.
+B-334 left building on autopilot-lane/B-334 (3d2b0d723, plan saved) for next run's recovery. B-338 (iOS Duplicate UI test) not started.
+Spend: B-334 ≈$1.99 est. (lower bound).
+
+## Run 2026-11-05T23:52:44Z
+
+🛠 leoterm autopilot — 7 fixed, 2 shipped, 6 blocked
+Fixed
+• B-334 Edit ▸ Copy/Paste show ⌘C/⌘V only when bound to copy/paste (verified: screenshot) · full
+• B-339 Managed installs turn on the loopback web API via `leo web enable` (not visually verified) · full
+• B-340 Missing-transcript move shows a plain error, no spinner (verified: screenshot) · full
+• B-341 Managed installs default dispatch viewers to windows (not visually verified) · full
+• B-343 Tall chat images no longer squeeze bubbles; Mac+iOS (sim screen capture) · light
+• B-345 Sidebar row switches on the first click; root cause was B-337's chevron strip (verified: screenshot) · light
+• B-347 iOS: the chat you're viewing never badges (not visually verified) · light
+Shipped
+• B-346 Drag chat attachments to Finder + "Download to…" (verified: screenshot) · full
+• B-342 iOS full-screen image viewer pages a message's images (sim screen capture) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-653–655 B-334 · D-656–660 B-339 · D-661–663 B-340 · D-664–670 B-341 (D-664: Swift-side leo.yaml insert, exception to D-656) · D-671–673 B-343 · D-674–675 B-345 · D-676–677 B-347 · D-678–684 B-346 · D-685–691 B-342
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• Sync main: local main is 88 behind origin/main (toolbar/capsule). Fast-forward it, then "B-349/B-353/B-354: retry". Merging will conflict with B-345 in LeoAgentRow/LeoRowClickCatcher.
+• B-348 shelved on autopilot-shelved/B-348 — fix done; land despite the pre-existing full-suite abort (B-355)? I'd pick yes.
+• B-338 couldn't reproduce (environmental timeout) — "B-338: close".
+• B-344 couldn't reproduce — "close" or more detail.
+• drop B-337 (fixed by B-345). Calls in shelved work, not logged: B-344 Mac only; B-348 flag-per-fixture + guard.
+• Follow-ups to /feature: Mac/iOS "Move with a fresh session" (leo v0.75.0 contract ready); Mac image viewer paging.
+• Left on Dionysus: Gatekeeper + "Leo[DEBUG] quit unexpectedly" dialogs, a scratch Finder window. Shared GhosttyKit.xcframework needs a rebuild.
+Self-filed
+• B-355 bug (from B-348) — LeoRuntimeFileDropTests aborts the Mac test host
+• B-350 (B-334), B-351, B-352 (B-340), B-356 (B-346), B-357 (B-342) ideas
+• dropped: iOS sim recipe (dup of B-312); 2 B-342 polish (over cap)
+Ideas parked — "/feature B-0xx": 70 incl. B-058, B-180, B-181, B-182, B-184
+Next up: B-355 (next run); blocked items above
+Spend (est., lower bound · prices 2026-10-09): ≈$54.97 — B-341 $11.87, B-346 $6.12, B-339 $6.10 highest
+Interim updates: 2 posted, through item 10
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-06 (17:46Z)
+
+🛠 leoterm autopilot — 5 fixed, 0 shipped, 0 blocked
+Fixed
+• B-349 Update badge with the sidebar — pill is now a native toolbar item left of "⋯" (verified: screenshot, dark only) · full
+• B-353 Elapsed time ticks every second while it shows seconds (verified: screenshot; 1 Hz watched on the sidebar row) · light
+• B-354 Done task bar green muted to 55% opacity (verified: screenshot, dark + light) · light
+• B-348 Test windows opt out of release-on-close + guard test (not visually verified: test-only) · full
+• B-355 Each image paste gets its own temp dir; file-drop tests can't trap the host (not visually verified: no non-live remote host) · full
+B-349, B-353, B-354 built before B-348 (owner asked to retry those three)
+Calls I made — reply "veto D-0xx" to undo
+• D-696–D-700 update pill in toolbar; give-way order subtitle → pill → title → "⋯"; DEBUG-only LEO_UPDATE_FIXTURE seam
+• D-701–D-703 LeoTask tick: 1 s grid under a minute, else 15 s; popover + sidebar share it; Mac only
+• D-704–D-706 only the done bar's fill softened (0.55); glyph/popover/sidebar keep full green
+• D-707–D-711 flag-line isReleasedWhenClosed idiom; per-paste leo-paste-<uuid>/ dir; paste-suite hardening
+Needs you
+• theProbeSurvivesTheSidebarResizingAfterItReported flakes on every full run; B-348's A/B points to pre-existing, its verifier saw 3/6 on lane vs 0/6 on base — unproven either way
+• B-355's real crash was never reproduced; fix removes both trap sites and the temp-dir collision
+• B-338 / B-344 still await "close" or more detail
+Self-filed
+• B-358 bug (from B-349) — Reset-zoom titlebar accessory likely sits low in the toolbar
+• B-359 idea (from B-349) — Update pill in the » overflow menu at narrow widths
+• B-360 idea (from B-349) — Blank "Version:" in the update popover
+• B-361 idea (from B-353) — Activity capsule title truncates, hiding elapsed time
+• B-362 idea (from B-354) — Done bar faint in light mode
+Next up: B-358 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$19.55 est. — B-349 ≈$7.19, B-353 ≈$2.52, B-354 ≈$2.10, B-348 ≈$2.45, B-355 ≈$5.28
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-09T00:06:13Z
+
+🛠 leoterm autopilot — 6 fixed, 0 shipped, 0 blocked
+Fixed
+• B-358 Reset-zoom button sits low — now a native toolbar item in agent windows (verified: screenshot) · light
+• B-363 iOS tasks leaked into other agents' chats — task panel scoped to the open thread (not visually verified) · light
+• B-364 Removed the Swift viewer-placement launch migration; leo 0.76.0 defaults it (not visually verified) · full
+• B-365 App/Help menu items say Leo, not Ghostty (verified: screen capture, not attached) · light
+• B-369 Stopped agent's chat opens on click; slim "isn't running" bar with Start (verified: screenshot) · light
+• B-366 About links → leoterm repo, README, leo-v release (verified: screenshot) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-712–714 reset-zoom: Mac only; native toolbar item; never gives way
+• D-715–716 iOS task panel scoped to the open thread (also on iPad regular width); iOS only
+• D-717–719 no PUT /config/defaults fallback; post-launch steps extracted for tests
+• D-720–722 "Leo Help" renamed too; xcframework built in-lane (shared/ is stale)
+• D-723–726 plain click/Return shows stopped chat, nothing auto-starts; Start bar above composer; ⌘-click/⌥-double-click keep the Start sheet
+• D-727–730 Docs → leoterm README (no docs URL exists); version → leo-v tag; commit → leoterm commits
+Needs you — reply "B-0xx: <answer>"
+• B-367 chat reply loss: merge leo PR #327 and update the daemon, then "B-367: done" to verify end to end.
+• Shared xcframework is stale (missing ghostty_config_key_is_binding_for_action); lanes built their own — rebuild shared/.
+• Flake: theProbeSurvivesTheSidebarResizingAfterItReported (filed B-368, next run); also seen once: allThreeWindowButtonsAreVisible, aSlowFetchForOneMachineNeverLandsInAnotherMachinesList.
+• Lanes left unlanded from older runs: B-058, B-143 (held), B-233, B-332. Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 · +72 more
+Self-filed
+• B-368 bug (from B-358) — theProbeSurvives… flaky
+• B-370 idea (from B-365) — verify.md launch flag shows Configuration Errors dialog
+• B-371 idea (from B-369) — composer enabled for a stopped agent
+• B-372 idea (from B-369) — toolbar pill reads "Idle" for a stopped agent
+• dropped (from B-365, B-366) — 4 remaining Ghostty strings — dup of B-218
+Next up: B-368 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$22.84 est. — B-358 ≈$3.13, B-363 ≈$2.08, B-364 ≈$3.31, B-365 ≈$4.25, B-369 ≈$6.88, B-366 ≈$3.19
+Tokens: B-358 10.8M in, ≥47k out · B-363 5.8M, ≥24k · B-364 8.2M, ≥38k · B-365 18.2M, ≥51k · B-369 30.6M, ≥78k · B-366 7.8M, ≥34k
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-09T14:10:19Z
+🛠 leoterm autopilot — 0 shipped, 2 blocked
+Nothing landed: neither bug reproduced without the GUI.
+Needs you — reply "B-0xx: <answer>"
+• B-373 update button overflow: the reproducing test (.leoUpdate in toolbar.visibleItems, 800–1700 pt widths, Chat beside the terminal and not) passed 92/92. Lead: the Chat-beside-terminal reserve (56 pt) may be too small. Send width, pill text, and whether Chat was beside the terminal, or "B-373: close".
+• B-374 stopped-agent auto-switch: no code path moves the selection back. Suspect a late focus report from the previous terminal (LeoSidebarModel+AttachLinks.swift:109). Send width, whether the previous terminal was showing, click or ⌃⇥, or "B-374: trace" to allow a debug focus trace, or "B-374: close".
+• B-058, B-143 still held; B-233, B-332 lanes unlanded with no RUN.md block (left in place).
+Next up: B-368
+Spend (estimated, lower bound · prices 2026-10-09): ≈$3.14 est. — B-374 ≈$1.25 est., B-373 ≈$1.88 est.
+Tokens (runner + its subagents): B-374 3.91M in (3.75M cache read), ≥21.2k out, 40 requests · B-373 7.89M in (7.69M cache read), ≥30.7k out, 75 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+
+## Run 2026-11-09T22:07:11Z
+🛠 leoterm autopilot — 2 fixed, 0 shipped, 0 blocked
+Fixed
+• B-376 Agent browser blank on hyatt.com — the console hook read getters on Kasada's Error and null-prototype objects and tripped its bot check. It now describes only own data properties; browser_console still works. (not visually verified: offscreen WKWebView probe, hyatt loads with the fix and stays blank without it) · light
+• B-377 browser_eval `1+1` → null — a bare expression now returns its value, including on pages whose CSP forbids string-eval (not visually verified: tool result only) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-732 keep and fix the page-world console hook instead of moving it — P4
+• D-733 left the user agent alone (tested irrelevant)
+• D-734 auto-return the expression rather than reword the tool description — P4
+• D-731, D-735 Mac only
+Needs you
+• Flake theProbeSurvivesTheSidebarResizingAfterItReported failed in both lanes' full suites (B-368, next up).
+• B-373, B-374 still await answers; B-058, B-143 held; B-233, B-332 lanes left in place. Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 · B-180 · B-181 · B-182 · B-184 · +72 more
+Next up: B-368, B-375
+Spend (estimated, lower bound · prices 2026-10-09): ≈$9.64 est. — B-376 ≈$4.98 est., B-377 ≈$4.65 est.
+Tokens (runner + its subagents): B-376 18.8M in (18.3M cache read), ≥72.3k out, 179 requests · B-377 17.3M in (16.9M cache read), ≥58.8k out, 166 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-10T01:47:19Z
+
+🛠 leoterm autopilot — 3 fixed, 1 shipped, 2 blocked
+Fixed
+• B-368 Sidebar-resize probe test flake — test helper waits through main-thread stalls; 5/6 fails → 20/20 passes (verified: not visually verified) · light
+• B-378 closingTheWindowFreesItsHiddenShells flake — real bug: Ghostty.moveFocus retries kept a closed window's surface alive ~0.8 s; now weak captures (not visually verified) · light
+• B-379 cancellationClosesConnection flake — test read a leftover request byte as "no close"; now drains to EOF; 0/300 stress fails (not visually verified) · light
+Shipped
+• B-381 Working arrows always spin; static determinate pie; no indeterminate row indicator; line-2 task title opens Tasks (verified: screenshot) · full
+• B-381 built before B-380 (B-381 redefines the spin B-380 reports)
+Calls I made — reply "veto D-0xx" to undo
+• D-738 B-378 fixed in product code (moveFocus retain), not just the test wait
+• D-744 indeterminate task falls back to the row's trailing time — "never invent a state"
+• D-745 line-2 task title opens Tasks (text hit area only)
+• D-746 removed the dead indeterminate spinner code
+• D-748 toolbar capsule spinner left alone (outside the accept)
+Needs you — reply "B-0xx: <answer>"
+• B-375 Tasks-popover Dismiss: couldn't reproduce (stub-daemon test passes). Suspects: popover first click swallowed; daemon 409 on auto tasks silently swallowed. Which tasks, does a 2nd click work? Or "B-375: close".
+• B-380 symptom gone after B-381 (non-selected working rows turn). Reply "B-380: close" or detail.
+• B-381 accepted risks: line-2 tooltip may be swallowed by the click target (move .help after .overlay, LeoAgentRowContent.swift:179-183); Reduce Motion not toggled in verify.
+• Possible new flakes under load (not filed): LeoSettingsWindowCloseTests/discardingBothClosesTheWindowAndDropsThePaneEdits; host crash rc=5 in aHungMachineDoesNotDelayAnother.
+• Lane B-368 kept (untracked default.profraw); B-058/B-143 held, B-233/B-332 unlanded lanes from earlier runs untouched.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 +75 more
+Self-filed
+• B-382 idea (from B-381) — Show Tasks item in the agent row's context menu
+• B-383 idea (from B-381) — iOS tasks-row parity: static pie, no indeterminate spinner
+• B-384 idea (from B-381) — Toolbar task capsule still spins beside Stalled… and for indeterminate tasks
+Next up: none ready
+Spend (estimated, lower bound · prices 2026-10-09): ≈$20.56 est. — B-375 ≈$2.04, B-368 ≈$3.39, B-378 ≈$3.75, B-379 ≈$3.42, B-381 ≈$7.95
+Tokens (runner + its subagents): B-375 9.34M in, B-368 12.1M, B-378 14M, B-379 11.2M, B-381 28.2M in (≥294k out total)
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Board sync: 1 failure (see RUN.md)
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-10 (14:52Z)
+
+🛠 leoterm autopilot — 1 fixed, 3 shipped, 0 blocked
+Fixed
+• B-385 Chase "unsupported browser" — agent browser UA now ends "Version/<installed Safari> Safari/605.1.15" (not visually verified; standalone WKWebView loads hyatt.com + chase.com/travel; Chase sign-in not reproduced end to end) · light
+Shipped
+• B-387 Bundled leo 0.81.0 — PR #356 head merged unchanged; shipping marks it merged (not visually verified; tarball sha + `leo 0.81.0` checked) · light
+• B-389 Bump workflow closes superseded bump/leo-* PRs, "Superseded by #N", no deletes (not visually verified; stubbed-gh dry run) · light
+• B-386 Per-tab UA override — new browser_user_agent tool + user_agent on browser_tab_new; empty clears (not visually verified; tool-call only) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-749..750 bump merged --no-ff, Mac only
+• D-751..755 bump closer: forks/non-strict versions skipped, never deletes
+• D-756..758 UA claims installed Safari version, not contradicting D-733
+• D-759..765 browser_user_agent tool, ASCII ≤1024, popups inherit, no UI indicator
+Needs you
+• B-385 verify hit "Open Browser" daemon-connection error in the debug app (didn't recur for B-386) — unexplained
+• Lane B-368 worktree has 1 uncommitted change, left in place
+• I ran lane finish mid-run once (only removed landed B-387)
+Self-filed
+• B-388 idea (from B-387) — LeoTemplateListTests manualRefresh flaky under load
+Next up: no ready items
+Spend (estimated, lower bound · prices 2026-10-09): ≈$14.31 est. — B-387 $1.55, B-389 $1.88, B-385 $3.64, B-386 $7.24
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-10 (18:17Z)
+
+🛠 leoterm autopilot — 2 fixed, 0 shipped, 0 blocked
+Fixed
+• B-390 Row status text no longer opens Tasks — the leading state icon does; line-2 click selects the row (verified: screenshot) · light
+• B-391 Browser bridge no longer wedges on a hung eval — the daemon's 30 s cancel frees the queue and ends the page script (not visually verified; local-page repro, later calls ≤55 ms) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-766 Tasks click moves to the activity icon (supersedes D-745, your report)
+• D-767..771 "spinning icon" = leading state symbol; opens for any row with a task; Mac only
+• D-772..775 free the queue on the daemon's cancel, no app-side timer; LeoOnce helper; Mac only
+Needs you
+• B-390: "spinning icon" read as the leading state symbol (the trailing indicator already opened Tasks). Hover tooltip and Show Tasks menu path not GUI-checked.
+• B-391 relies on the daemon sending a cancel at 30 s (leo calls.go:161); not re-checked live.
+• Lane B-368 worktree still has 1 uncommitted change (left in place)
+Self-filed
+• B-392 idea (from B-391) — Clearer error than WebKit's "no longer reachable" for a hung browser_eval
+Next up: no ready items
+Spend (estimated, lower bound · prices 2026-10-09): ≈$15.20 est. — B-390 $2.62, B-391 $12.58
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-14
+
+🛠 leoterm autopilot — 1 fixed, 0 shipped, 1 blocked
+Fixed
+• B-395 Agent move feedback — refused moves show every daemon reason in an alert; running moves show the daemon's stage on the row (Mac) (verified: not visually verified — screen capture only; stages and multi-reason refusal covered by tests) · light
+Nothing shipped: the only ready items were two bugs.
+Calls I made — reply "veto D-0xx" to undo
+• D-779 Mac only; iOS stage display deferred (B-396) — Mac/iOS rule
+• D-780 stage names shown raw, as the daemon reports them — calm, don't invent phases
+• D-781 no completion banner; row turns "moved" after refresh — calm
+• D-782 no progress sheet; row detail line shows the stage — no new surface
+• D-783 refusal as NSAlert plus row-error trace — Mac-native
+Needs you — reply "B-0xx: <answer>"
+• B-393 running tasks show as finished: root cause is the leo daemon (bridgefeed.go turnCompleteLocked ignores pending tasks for supervised agents). Send the leo agent the pending.tasks hold contract (D-777)? I'd pick yes. Shelved on autopilot-shelved/B-393.
+• Inbox line I couldn't apply: the CI-flakes report (queued with a literal "/issue leoterm:" prefix). Re-send as "/issue leoterm: …".
+• Lanes left: B-058, B-143 held; B-233, B-332 unlanded with no run block; B-368 landed but dirty (finish skipped it).
+Self-filed
+• B-396 idea (from B-395) — iOS move progress shows the daemon's move stages
+• dropped (from B-395) — verify.md launch flag shows Configuration Errors — dup of B-370
+Ideas parked: 84 — "/feature B-0xx" to spec one
+Spend (estimated, lower bound · prices 2026-10-09): ≈$4.38 est. — B-393 ≈$0.67, B-395 ≈$3.71
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

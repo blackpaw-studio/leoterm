@@ -1,0 +1,349 @@
+import Foundation
+import Testing
+
+@testable import Ghostty
+@testable import LeoKit
+
+/// What the chat pane's viewer shows, and when it goes away: it follows
+/// one agent's thread in one window and never outlives it.
+@MainActor
+struct LeoChatViewerModelTests {
+    private static let a = LeoAgentID(host: .local, name: "a")
+    private static let b = LeoAgentID(host: .local, name: "b")
+
+    /// Downloads that only finish when the test says so.
+    @MainActor final class Downloads {
+        private var held: [CheckedContinuation<URL?, Never>] = []
+        var heldCount: Int { held.count }
+
+        func wait() async -> URL? { await withCheckedContinuation { held.append($0) } }
+
+        func finish(_ index: Int, with url: URL?) { held[index].resume(returning: url) }
+
+        func waitUntilHeld(_ count: Int) async {
+            while held.count < count { await Task.yield() }
+        }
+    }
+
+    private final class Opened {
+        var urls: [URL] = []
+    }
+
+    private let directory = FileManager.default.temporaryDirectory.appendingPathComponent("viewer-model-\(UUID().uuidString)", isDirectory: true)
+    private let opened = Opened()
+
+    private func makeModel() -> LeoChatViewerModel {
+        let opened = opened
+        return LeoChatViewerModel(openExternally: { opened.urls.append($0) })
+    }
+
+    private func file(_ name: String, _ bytes: Data) throws -> URL {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent(name)
+        try bytes.write(to: url)
+        return url
+    }
+
+    private func attachment(_ id: String, _ filename: String) -> LeoChatAttachment {
+        LeoChatAttachment(id: id, filename: filename, mime: "application/octet-stream", bytes: 1)
+    }
+
+    private func openMarkdown(
+        _ model: LeoChatViewerModel, for agent: LeoAgentID = a, id: String = "m1", fullWindow: Bool = false
+    ) async throws {
+        let url = try file("\(id).md", Data("# \(id)".utf8))
+        await model.open(attachment(id, "\(id).md"), for: agent, fullWindow: fullWindow, download: { url })
+    }
+
+    @Test func aMarkdownAttachmentOpensTheViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        #expect(model.document(for: Self.a)?.filename == "m1.md")
+        #expect(model.document(for: Self.a)?.content == .markdown)
+        #expect(opened.urls.isEmpty)
+    }
+
+    @Test func aBinaryAttachmentOpensInTheDefaultAppInstead() async throws {
+        let model = makeModel()
+        let url = try file("blob.bin", Data([0, 1, 2]))
+        await model.open(attachment("b1", "blob.bin"), for: Self.a, download: { url })
+        #expect(model.shown == nil)
+        #expect(opened.urls == [url])
+    }
+
+    @Test func aFailedDownloadDoesNothing() async {
+        let model = makeModel()
+        await model.open(attachment("m1", "m1.md"), for: Self.a, download: { nil })
+        #expect(model.shown == nil)
+        #expect(opened.urls.isEmpty)
+    }
+
+    @Test func closeClearsTheViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        model.close()
+        #expect(model.shown == nil)
+    }
+
+    @Test func anotherAgentsSelectionClosesItAndComingBackShowsTheThread() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        model.agentChanged(to: Self.b)
+        #expect(model.shown == nil)
+        model.agentChanged(to: Self.a)
+        #expect(model.document(for: Self.a) == nil)
+    }
+
+    @Test func reselectingTheShownAgentKeepsTheViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        model.agentChanged(to: Self.a)
+        #expect(model.document(for: Self.a) != nil)
+    }
+
+    @Test func theViewerBelongsToItsAgentOnly() async throws {
+        let model = makeModel()
+        try await openMarkdown(model, for: Self.a)
+        #expect(model.document(for: Self.b) == nil)
+        #expect(model.document(for: nil) == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func closingOrSwitchingDuringADownloadOpensNothing(switchesAgent: Bool) async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task { await model.open(attachment("m1", "m1.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(1)
+        if switchesAgent { model.agentChanged(to: Self.b) } else { model.close() }
+        downloads.finish(0, with: url)
+        await open.value
+        #expect(model.shown == nil)
+        #expect(opened.urls.isEmpty)
+    }
+
+    @Test func leavingForAStandaloneTerminalDuringADownloadOpensNothingOnReturn() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task { await model.open(attachment("m1", "m1.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(1)
+        model.agentChanged(to: nil)
+        downloads.finish(0, with: url)
+        await open.value
+        model.agentChanged(to: Self.a)
+        #expect(model.shown == nil)
+    }
+
+    @Test func reselectingTheAgentDuringADownloadStillOpens() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task { await model.open(attachment("m1", "m1.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(1)
+        model.agentChanged(to: Self.a)
+        downloads.finish(0, with: url)
+        await open.value
+        #expect(model.document(for: Self.a) != nil)
+    }
+
+    @Test func theLaterClickWinsWhenDownloadsFinishOutOfOrder() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let first = try file("first.md", Data("# first".utf8))
+        let second = try file("second.md", Data("# second".utf8))
+        let one = Task { await model.open(attachment("1", "first.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(1)
+        let two = Task { await model.open(attachment("2", "second.md"), for: Self.a, download: { await downloads.wait() }) }
+        await downloads.waitUntilHeld(2)
+        downloads.finish(1, with: second)
+        await two.value
+        downloads.finish(0, with: first)
+        await one.value
+        #expect(model.shown?.document.attachmentID == "2")
+    }
+
+    // MARK: Full window
+
+    @Test func expandingShowsTheSameDocumentFullWindowAndKeepsThePaneViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        let document = model.document(for: Self.a)
+        model.enterFullWindow()
+        #expect(model.isFullWindow)
+        #expect(model.fullWindowDocument == document)
+        #expect(model.document(for: Self.a) == document)
+    }
+
+    @Test func exitingAnExpandedViewerReturnsToThePane() async throws {
+        let model = makeModel()
+        try await openMarkdown(model)
+        let document = model.document(for: Self.a)
+        model.enterFullWindow()
+        #expect(model.exitFullWindow())
+        #expect(!model.isFullWindow)
+        #expect(model.fullWindowDocument == nil)
+        #expect(model.document(for: Self.a) == document)
+    }
+
+    @Test func aContextMenuOpenGoesStraightToFullWindowWithoutThePaneViewer() async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: true)
+        #expect(model.isFullWindow)
+        #expect(model.fullWindowDocument?.filename == "m1.md")
+        #expect(model.document(for: Self.a) == nil)
+    }
+
+    @Test func exitingAContextMenuOpenReturnsToTheThread() async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: true)
+        #expect(!model.exitFullWindow())
+        #expect(model.shown == nil)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func closingOrSwitchingWhileFullWindowClearsBoth(fromContextMenu: Bool, switchesAgent: Bool) async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: fromContextMenu)
+        if !fromContextMenu { model.enterFullWindow() }
+        if switchesAgent { model.agentChanged(to: Self.b) } else { model.close() }
+        #expect(model.shown == nil)
+        #expect(!model.isFullWindow)
+        #expect(model.fullWindowDocument == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func aStaleContextMenuOpenIsDropped(switchesAgent: Bool) async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("m1.md", Data("# hi".utf8))
+        let open = Task {
+            await model.open(attachment("m1", "m1.md"), for: Self.a, fullWindow: true, download: { await downloads.wait() })
+        }
+        await downloads.waitUntilHeld(1)
+        if switchesAgent { model.agentChanged(to: Self.b) } else { model.close() }
+        downloads.finish(0, with: url)
+        await open.value
+        #expect(model.shown == nil)
+        #expect(opened.urls.isEmpty)
+    }
+
+    @Test func aBinaryFileFromTheContextMenuOpensInTheDefaultAppAndNotFullWindow() async throws {
+        let model = makeModel()
+        let url = try file("blob.bin", Data([0, 1, 2]))
+        await model.open(attachment("b1", "blob.bin"), for: Self.a, fullWindow: true, download: { url })
+        #expect(model.shown == nil)
+        #expect(opened.urls == [url])
+    }
+
+    @Test func enteringFullWindowWithNothingShownAndExitingInThePaneDoNothing() async throws {
+        let model = makeModel()
+        model.enterFullWindow()
+        #expect(model.shown == nil)
+        #expect(!model.exitFullWindow())
+        try await openMarkdown(model)
+        let before = model.shown
+        #expect(!model.exitFullWindow())
+        #expect(model.shown == before)
+    }
+
+    // MARK: Through the window session
+
+    private func makeSession(contentWidth: CGFloat = 800) -> LeoWindowSession {
+        let session = LeoWindowSession(defaults: LeoInMemoryDefaults())
+        session.selectedAgent = { Self.a }
+        session.setObservedContentWidth(contentWidth)
+        return session
+    }
+
+    @Test func switchingToTerminalClosesTheViewer() async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer)
+        session.choose(.terminal, for: Self.a)
+        #expect(session.chatViewer.shown == nil)
+    }
+
+    @Test func clickingTheChatSegmentWhileChatShowsClosesTheViewer() async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer)
+        session.select(.chat, for: Self.a)
+        #expect(session.chatViewer.shown == nil)
+    }
+
+    @Test func choosingChatKeepsTheViewer() async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer)
+        session.choose(.chat, for: Self.a)
+        #expect(session.chatViewer.document(for: Self.a) != nil)
+    }
+
+    @Test(arguments: [false, true])
+    func theSessionDropsAFullWindowFileOnLeavingChat(fromContextMenu: Bool) async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer, fullWindow: fromContextMenu)
+        session.choose(.terminal, for: Self.a)
+        #expect(session.chatViewer.shown == nil)
+        session.choose(.chat, for: Self.a)
+        try await openMarkdown(session.chatViewer, fullWindow: fromContextMenu)
+        session.select(.chat, for: Self.a)
+        #expect(session.chatViewer.shown == nil)
+    }
+
+    // MARK: Leaving full window
+
+    /// A session in chat with `a`'s markdown open full window, the chat focus
+    /// request from choosing chat already taken.
+    private func fullWindowSession(fromContextMenu: Bool) async throws -> LeoWindowSession {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        _ = session.takeChatFocusRequest()
+        try await openMarkdown(session.chatViewer, fullWindow: fromContextMenu)
+        if !fromContextMenu { session.chatViewer.enterFullWindow() }
+        return session
+    }
+
+    @Test func exitingAContextMenuOpenFocusesTheComposer() async throws {
+        let session = try await fullWindowSession(fromContextMenu: true)
+        session.exitChatFullWindow()
+        #expect(session.chatViewer.shown == nil)
+        #expect(session.takeChatFocusRequest())
+    }
+
+    @Test func exitingAnExpandedViewerGoesBackToThePaneViewerWithoutFocusingTheComposer() async throws {
+        let session = try await fullWindowSession(fromContextMenu: false)
+        session.exitChatFullWindow()
+        #expect(session.chatViewer.document(for: Self.a) != nil)
+        #expect(!session.takeChatFocusRequest())
+    }
+
+    @Test func exitingWhenNotFullWindowDoesNothing() async throws {
+        let session = makeSession()
+        session.choose(.chat, for: Self.a)
+        _ = session.takeChatFocusRequest()
+        try await openMarkdown(session.chatViewer)
+        session.exitChatFullWindow()
+        #expect(session.chatViewer.document(for: Self.a) != nil)
+        #expect(!session.takeChatFocusRequest())
+    }
+
+    @Test(arguments: [false, true])
+    func closingTheViewerFromFullWindowReturnsToTheThreadWithTheComposerFocused(fromContextMenu: Bool) async throws {
+        let session = try await fullWindowSession(fromContextMenu: fromContextMenu)
+        session.closeChatViewer()
+        #expect(session.chatViewer.shown == nil)
+        #expect(session.takeChatFocusRequest())
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func findAndMessageAgentLeaveFullWindowInsteadOfFocusingCoveredChrome(fromContextMenu: Bool, isFind: Bool) async throws {
+        let session = try await fullWindowSession(fromContextMenu: fromContextMenu)
+        if isFind { session.requestSearchFocus() } else { LeoViewMenuActions.messageAgent(in: session) }
+        #expect(!session.chatViewer.isFullWindow)
+        // Find has nothing to focus in the chat; Message Agent focuses the composer it just uncovered.
+        #expect(session.takeChatFocusRequest() == !isFind)
+    }
+}

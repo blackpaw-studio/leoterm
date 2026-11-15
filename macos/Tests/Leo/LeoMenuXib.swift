@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// The main menu's key equivalents, read from the xib source
 /// (instantiating MainMenu would also build its AppDelegate) or from a
@@ -11,7 +12,7 @@ enum LeoMenuXib {
     }
 
     /// MainMenu.xib's source, next to the test sources.
-    private static var xibURL: URL {
+    static var xibURL: URL {
         URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources/App/MainMenu.xib")
@@ -28,6 +29,14 @@ enum LeoMenuXib {
         try XMLDocument(contentsOf: xibURL)
             .nodes(forXPath: "//menuItem[connections/action/@selector='\(selector)']")
             .compactMap { ($0 as? XMLElement)?.attribute(forName: "title")?.stringValue }
+    }
+
+    /// The `identifier`s of the items in the menu holding the item with
+    /// `identifier`, in order ("" for an item without one).
+    static func siblingIdentifiers(of identifier: String) throws -> [String] {
+        try XMLDocument(contentsOf: xibURL)
+            .nodes(forXPath: "//items[menuItem/@identifier='\(identifier)']/menuItem")
+            .map { ($0 as? XMLElement)?.attribute(forName: "identifier")?.stringValue ?? "" }
     }
 
     /// Every menu item in `document` with a key equivalent, as "⌃⌥⇧⌘key"
@@ -61,6 +70,10 @@ enum LeoMenuXib {
         }
     }
 
+    /// Encodes only ⌃⌥⇧⌘. `.function`, `.numericPad` and `.capsLock` are
+    /// ignored on purpose, so a mask carrying them still matches by its
+    /// four real modifiers; this is a mask-based match, not an exact
+    /// `== .command` comparison.
     private static func shortcut(_ key: String, _ flags: NSEvent.ModifierFlags) -> String {
         let shift = flags.contains(.shift) || key != key.lowercased()
         return (flags.contains(.control) ? "⌃" : "") + (flags.contains(.option) ? "⌥" : "")

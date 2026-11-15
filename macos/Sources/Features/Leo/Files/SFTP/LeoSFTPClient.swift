@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Typed SFTP v3 operations over a handshaken `LeoSFTPTransport`. Each call
 /// is one request/reply; a failure status becomes a `LeoFileAccessError`
@@ -68,6 +69,10 @@ struct LeoSFTPClient: Sendable {
 
     func remove(_ path: String) async throws {
         try expectOK(try await transport.send(.remove(path: path)), path: path)
+    }
+
+    func makeDirectory(_ path: String, permissions: UInt32?) async throws {
+        try expectOK(try await transport.send(.mkdir(path: path, attributes: .init(permissions: permissions))), path: path)
     }
 
     /// Plain v3 RENAME: OpenSSH refuses to replace an existing `destination`.

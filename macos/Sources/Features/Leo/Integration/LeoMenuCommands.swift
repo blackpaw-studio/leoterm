@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Pure decision logic backing the top-level "Agents" menu (and the two
 /// Leo entries that remain in "View"): whether each command should be
@@ -14,11 +15,9 @@ enum LeoMenuCommands {
     struct AgentContext {
         let hasLeoSession: Bool
         let availability: LeoRowActionAvailability?
-
-        init(hasLeoSession: Bool, availability: LeoRowActionAvailability?) {
-            self.hasLeoSession = hasLeoSession
-            self.availability = availability
-        }
+        /// B-324: the selected agent's daemon has `agent_move`. True with no
+        /// selection (nothing to blame); false hides Move To, Copy To and Duplicate….
+        var movesSupported = true
     }
 
     /// HIG: a Show/Hide title pair, not a checkmark, is the convention for
@@ -49,9 +48,17 @@ enum LeoMenuCommands {
     static func canRename(_ context: AgentContext) -> Bool { enabled(context) { $0.rename } }
     static func canViewLogs(_ context: AgentContext) -> Bool { enabled(context) { $0.logs } }
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
+    static func canMove(_ context: AgentContext) -> Bool { context.movesSupported && enabled(context) { $0.move } }
+    static func canCopy(_ context: AgentContext) -> Bool { context.movesSupported && enabled(context) { $0.copy } }
+    static func canDuplicate(_ context: AgentContext) -> Bool { context.movesSupported && enabled(context) { $0.duplicate } }
+    static func showsMoveItems(_ context: AgentContext) -> Bool { context.movesSupported }
 
     /// Agents ▸ Pin Agent / Unpin Agent (⌥⌘P) on the selected row (B-010).
     static func pinToggleTitle(isPinned: Bool) -> String { isPinned ? "Unpin Agent" : "Pin Agent" }
+
+    /// View ▸ Hide Subagents / Show Subagents (⌥⌘S, B-331): a Show/Hide
+    /// title pair, like the sidebar's.
+    static func hideSubagentsTitle(isHidden: Bool) -> String { isHidden ? "Show Subagents" : "Hide Subagents" }
 
     static func canTogglePin(_ context: AgentContext) -> Bool { context.hasLeoSession && context.availability != nil }
 
@@ -66,6 +73,21 @@ enum LeoMenuCommands {
         case .failed: return true
         case .loading, .connected: return false
         }
+    }
+
+    /// Q7: ⇧⌘R with several machines, offered while any of them would be
+    /// reconnected.
+    static func canReconnect(hasLeoSession: Bool, machines: [(host: LeoHostID, connectivity: LeoConnectivity)]) -> Bool {
+        hasLeoSession && !machinesToReconnect(machines).isEmpty
+    }
+
+    /// The machines ⇧⌘R reconnects: every one that isn't connected, in
+    /// order, including one still connecting -- but not one whose Retry is
+    /// already in flight.
+    static func machinesToReconnect(_ machines: [(host: LeoHostID, connectivity: LeoConnectivity)]) -> [LeoHostID] {
+        machines.filter { machine in
+            machine.connectivity == .loading || canReconnect(hasLeoSession: true, connectivity: machine.connectivity)
+        }.map(\.host)
     }
 
     private static func enabled(_ context: AgentContext, _ pick: (LeoRowActionAvailability) -> Bool) -> Bool {

@@ -2,12 +2,13 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-052 against a real `TerminalController`: an attach surface's window
 /// title is its agent's name, following the focused split; Change Tab
 /// Title… still wins; other surfaces keep Ghostty's own title. Needs the
 /// app's real `Ghostty.App`, so these bail out (rather than fail) without it.
-@MainActor struct LeoTitleIntegrationTests {
+@MainActor @Suite struct LeoTitleIntegrationTests {
     private struct Fixture {
         let host: GhosttyAttachContentHost
         let controller: TerminalController

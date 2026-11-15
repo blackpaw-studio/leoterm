@@ -2,13 +2,14 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Background-agent notifications: opt-in via Agents ▸ Agent Notifications…,
 /// `.alert` requested only on explicit enable, one notification per
 /// (host, agent, revision), and only for transitions the reducer marked.
 @MainActor struct LeoAttentionControllerTests {
     private static let alpha = LeoAgentRow.ID(host: .remote("mars"), name: "alpha")
-    private let host = CurrentHost()
+    private let machines = LiveMachines()
 
     @Test func notificationContentNamesAgentAndHostWithoutTerminalText() throws {
         let finished = try #require(LeoAttentionNotification(transition(.finished, revision: 3)))
@@ -22,6 +23,24 @@ import Testing
         let input = try #require(LeoAttentionNotification(transition(.needsInput, revision: 1, id: local)))
         #expect(input.title == "beta · localhost")
         #expect(input.body == "Needs your input")
+    }
+
+    @Test func titleShowsTheDisplayNameWhileIdentityStaysOnTheRawName() throws {
+        let notification = try #require(LeoAttentionNotification(transition(.finished, revision: 3), displayName: "Alpha Prime"))
+        #expect(notification.title == "Alpha Prime · mars")
+        #expect(notification.identifier == "studio.blackpaw.leo.attention.remote.mars.alpha.-.3")
+        #expect(LeoAttentionNotification.agent(fromUserInfo: notification.userInfo) == Self.alpha)
+
+        let handoff = LeoAttentionNotification(handoffFrom: Self.alpha, displayName: "Alpha Prime", requestID: "r1", message: "help")
+        #expect(handoff.title == "Alpha Prime · mars")
+        #expect(handoff.identifier.contains(".alpha.r1"))
+    }
+
+    @Test func controllerPostsTheDisplayNameItWasGiven() async throws {
+        let (controller, center, _) = makeController()
+        await controller.enable()
+        await controller.handle([transition(.finished, revision: 1)], displayNames: [Self.alpha: "Alpha Prime"])
+        #expect(center.posted.map(\.title) == ["Alpha Prime · mars"])
     }
 
     @Test func onlyTransitionsMarkedShouldNotifyBecomeNotifications() {
@@ -70,22 +89,42 @@ import Testing
         #expect(center.posted.count == 2)
     }
 
-    @Test func remembersOnlyTheLatestPostPerAgentOnTheCurrentHost() async {
+    @Test func remembersTheLatestPostPerAgentOnEveryLiveMachine() async {
         let (controller, _, _) = makeController()
         await controller.enable()
 
         for revision in 1...50 { await controller.handle([transition(.finished, revision: revision)]) }
         #expect(controller.rememberedPostCount == 1)
 
-        host.current = .local
+        machines.live.insert(.local)
         await controller.handle([transition(.finished, revision: 1, id: .init(host: .local, name: "beta"))])
-        #expect(controller.rememberedPostCount == 1, "a host switch prunes the old host's entries")
+        #expect(controller.rememberedPostCount == 2, "each live machine keeps its own entries")
+
+        machines.live.remove(.remote("mars"))
+        await controller.handle([transition(.finished, revision: 2, id: .init(host: .local, name: "beta"))])
+        #expect(controller.rememberedPostCount == 1, "a machine that left prunes its entries")
     }
 
-    @Test func aLateBatchFromThePreviousHostIsDropped() async {
+    /// Inventory row 3: two machines posting in turn must not make either
+    /// forget what it already posted.
+    @Test func eachMachinePostsATransitionOnceWhenTheirBatchesInterleave() async {
         let (controller, center, _) = makeController()
         await controller.enable()
-        host.current = .local
+        machines.live.insert(.local)
+        let beta = LeoAgentRow.ID(host: .local, name: "beta")
+
+        await controller.handle([transition(.finished, revision: 1)])
+        await controller.handle([transition(.finished, revision: 1, id: beta)])
+        await controller.handle([transition(.finished, revision: 1)])
+        await controller.handle([transition(.finished, revision: 1, id: beta)])
+
+        #expect(center.posted.map(\.title) == ["alpha · mars", "beta · localhost"])
+    }
+
+    @Test func aLateBatchFromAMachineThatIsNoLongerLiveIsDropped() async {
+        let (controller, center, _) = makeController()
+        await controller.enable()
+        machines.live = [.local]
         let beta = LeoAgentRow.ID(host: .local, name: "beta")
         await controller.handle([transition(.finished, revision: 3, id: beta)])
 
@@ -122,12 +161,24 @@ import Testing
         #expect(!controller.isEnabled, "reads through to defaults")
     }
 
+    @Test func notificationBodyNamesTheReasonKindAndToolButNeverDetail() throws {
+        let permission = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm -rf /secret")
+        let body = try #require(LeoAttentionNotification(transition(.needsInput, revision: 1, reason: permission))).body
+        #expect(body == "Needs permission to use Bash")
+        let question = LeoAttentionReason(kind: .question)
+        #expect(LeoAttentionNotification(transition(.needsInput, revision: 2, reason: question))?.body == "Has a question for you")
+        let elicitation = LeoAttentionReason(kind: .elicitation)
+        #expect(LeoAttentionNotification(transition(.needsInput, revision: 3, reason: elicitation))?.body == "Requesting input")
+        #expect(LeoAttentionNotification(transition(.needsInput, revision: 4))?.body == "Needs your input")
+        #expect(LeoAttentionNotification(transition(.finished, revision: 5, reason: permission))?.body == "Finished")
+    }
+
     private func transition(
         _ state: LeoAttentionState, revision: Int, notify: Bool = true, id: LeoAgentRow.ID = alpha,
-        bootID: String? = nil
+        bootID: String? = nil, reason: LeoAttentionReason? = nil
     ) -> LeoAttentionTransition {
         LeoAttentionTransition(
-            id: id, from: .working, to: state, revision: revision, shouldNotify: notify, bootID: bootID
+            id: id, from: .working, to: state, revision: revision, shouldNotify: notify, bootID: bootID, reason: reason
         )
     }
 
@@ -141,7 +192,7 @@ import Testing
         let center = FakeNotificationCenter(granted: granted)
         let instructions = InstructionsRecorder()
         let controller = LeoAttentionController(
-            center: center, defaults: defaults ?? freshDefaults(), currentHost: { [host] in host.current },
+            center: center, defaults: defaults ?? freshDefaults(), isLive: { [machines] in machines.live.contains($0) },
             showDeniedInstructions: { instructions.count += 1 }
         )
         return (controller, center, instructions)
@@ -160,8 +211,8 @@ import Testing
     func post(_ notification: LeoAttentionNotification) async { posted.append(notification) }
 }
 
-@MainActor private final class CurrentHost {
-    var current: LeoHostID? = .remote("mars")
+@MainActor private final class LiveMachines {
+    var live: Set<LeoHostID> = [.remote("mars")]
 }
 
 @MainActor private final class InstructionsRecorder {

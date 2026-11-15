@@ -1,5 +1,6 @@
 #if DEBUG
 import Foundation
+import LeoKit
 
 /// DEBUG builds only: holds every editor save for the seconds named by
 /// `LEO_SLOW_SAVE_SECONDS`, so a close or quit waiting on a save that
@@ -43,6 +44,7 @@ enum LeoSlowSaveFixture {
         func stat(_ path: String) async throws -> LeoFileStat { try await base.stat(path) }
         func homeDirectory() async throws -> String { try await base.homeDirectory() }
         func read(_ path: String, maxBytes: UInt64) async throws -> LeoFileContents { try await base.read(path, maxBytes: maxBytes) }
+        func read(_ path: String, into sink: any LeoFileByteSink) async throws -> LeoFileStat { try await base.read(path, into: sink) }
 
         /// Holds for `delay` (or until closed), then writes unless closed
         /// meanwhile: a save left anyway never lands.
@@ -65,6 +67,10 @@ enum LeoSlowSaveFixture {
             // Left anyway once the write is under way, it may still land: as
             // for any real save in flight under Quit Anyway (B-022).
             return try await base.write(data, to: path, expecting: expected)
+        }
+
+        func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+            try await base.create(at: path, from: source)
         }
 
         func close() async {

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// `LeoSocketDaemonClient` is bound to a single socket path and every route
 /// is unprefixed -- there is no more per-host prefixed routing. A

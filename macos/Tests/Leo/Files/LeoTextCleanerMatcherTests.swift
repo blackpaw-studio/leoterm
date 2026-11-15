@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-029: the cleaner keeps RGI sequences whole with work linear in the
 /// text, finds exactly what the old one-sequence-at-a-time matcher found,

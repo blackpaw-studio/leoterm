@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-065: the sidebar's footer buttons are menu items, not copies. Each
 /// sends its menu item's own action, names the item's live shortcut in its

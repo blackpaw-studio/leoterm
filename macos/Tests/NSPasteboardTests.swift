@@ -9,6 +9,7 @@
 import Testing
 import AppKit
 @testable import Ghostty
+@testable import LeoKit
 
 struct NSPasteboardTypeExtensionTests {
     /// Test text/plain MIME type converts to .string

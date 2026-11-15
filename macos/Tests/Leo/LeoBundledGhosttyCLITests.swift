@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import LeoKit
 
 /// B-220: Ghostty's shell integration (zsh, bash, fish, elvish, nushell) wraps
 /// `ssh` as `"$GHOSTTY_BIN_DIR/ghostty" +ssh …`, and `src/termio/Exec.zig` sets

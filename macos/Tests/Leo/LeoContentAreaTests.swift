@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-055: one content area per window; the sidebar selects what's shown.
 /// A row click, Return or a palette choice shows the agent in the window's
@@ -349,7 +350,7 @@ import Testing
         let coordinator = LeoAttachCoordinator(
             host: host,
             executable: { "/leo" },
-            remoteCommandBuilder: { "ssh box leo attach \($0.name)" },
+            remoteCommandBuilder: { identity, _ in "ssh box leo attach \(identity.name)" },
             report: { reported.errors.append($0) },
             lifecycleEventHandled: { host.acknowledge($0) }
         )

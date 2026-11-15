@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Drives sidebar list refreshes. While the SSE `/events` stream is
 /// connected, list refreshes are pushed by SSE state events (coalesced
@@ -148,7 +149,8 @@ struct LeoPollScheduler {
             guard !pendingSSERefresh else { return [] }
             pendingSSERefresh = true
             return [.scheduleSSERefresh(after: Self.sseCoalesceInterval)]
-        case .agentActivity, .fileSurfaced:
+        case .agentActivity, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction,
+             .agentAppearanceChanged, .agentTaskChanged, .chat, .other:
             return []
         }
     }

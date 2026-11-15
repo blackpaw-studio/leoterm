@@ -2,12 +2,13 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The shared behavioural contract for `LeoFileAccess`: listing, stat,
 /// reading and error mapping. Every test runs once per backend
 /// (`LeoFileBackendKind`), so local and remote are held to the same bar.
 /// Writes live in `LeoFileAccessWriteContractTests`.
-@Suite(LeoSSHEndToEnd.trait)
+@Suite(.hostOnly, LeoSSHEndToEnd.trait)
 struct LeoFileAccessContractTests {
     /// Closing is final, locally as over SFTP: every later call fails as
     /// closed.

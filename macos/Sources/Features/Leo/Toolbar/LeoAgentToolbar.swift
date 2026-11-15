@@ -1,0 +1,670 @@
+import AppKit
+import Combine
+
+extension NSToolbarItem.Identifier {
+    static let leoSidebarToggle = NSToolbarItem.Identifier("leo.toolbar.sidebarToggle")
+    static let leoSplitSeparator = NSToolbarItem.Identifier("leo.toolbar.splitSeparator")
+    static let leoActivity = NSToolbarItem.Identifier("leo.toolbar.activity")
+    static let leoResetZoom = NSToolbarItem.Identifier("leo.toolbar.resetZoom")
+    static let leoUpdate = NSToolbarItem.Identifier("leo.toolbar.update")
+    static let leoViewSwitch = NSToolbarItem.Identifier("leo.toolbar.viewSwitch")
+    static let leoInterrupt = NSToolbarItem.Identifier("leo.toolbar.interrupt")
+    static let leoMore = NSToolbarItem.Identifier("leo.toolbar.more")
+}
+
+/// The agent window's toolbar: the sidebar toggle (shown only while the
+/// sidebar is collapsed), a tracking separator that keeps the title and the
+/// items over the detail column, the title item (title, subtitle and a ▾
+/// pull-down of the agent's actions, in place of the window's own title), the activity capsule centred, and the
+/// trailing groups: the tool toggles (Files, Browser, Agent Pane), the
+/// Terminal | Chat switch, then Interrupt and a "⋯" menu (one glass group).
+/// The switch, Interrupt and "⋯" are always present, at every width
+/// (`LeoActivityCapsuleSizing.trailingGroupsReserve`).
+///
+/// The tracking separator needs the window's `NSSplitView`, which exists
+/// only after SwiftUI's first layout, so the toolbar goes up at once (the
+/// sidebar's inset needs its height) and the separator joins when the split
+/// hands itself over (`attach(splitView:)`).
+final class LeoAgentToolbar: NSObject, NSToolbarDelegate {
+    /// The items in order once the split has been handed over.
+    static let itemOrder = LeoAgentToolbarItems.defaultOrder
+    /// Toolbars with one identifier are a family: AppKit mirrors item
+    /// inserts across them. Each window's separator binds to its own split
+    /// view, so every window gets an identifier of its own.
+    private static func makeToolbarIdentifier() -> NSToolbar.Identifier {
+        NSToolbar.Identifier("leo.agent.toolbar.\(UUID().uuidString)")
+    }
+
+    /// Builds the capsule's view when the toolbar asks for the item (set
+    /// before `install`).
+    var makeActivityView: () -> NSView = { NSView() }
+    /// Builds the update pill's view when the toolbar asks for the item (set
+    /// before `install`).
+    var makeUpdateView: () -> NSView = { NSView() }
+    /// The live main menu, where Interrupt's tooltip reads its shortcut (set
+    /// before `install`).
+    var mainMenu: () -> NSMenu? = { nil }
+    /// The title item's pull-down (set before `install`).
+    var titleMenu = NSMenu()
+    /// The "⋯" item's menu (set before `install`).
+    var moreMenu = NSMenu()
+    /// Keeps the menu's controller alive: an `NSMenu` holds its delegate weakly.
+    var retainedMenu: AnyObject?
+    var retainedTitleMenu: AnyObject?
+    private weak var titleView: LeoToolbarTitleView?
+    private var titlePresentation = LeoToolbarTitlePresentation()
+    /// The title item's view: the anchor for what the title menu presents (the Appearance popover).
+    /// Nil while the title is not on screen in this window (the toolbar hidden,
+    /// or the title folded into the overflow), where a popover can't anchor to it.
+    var titleAnchorView: NSView? {
+        guard let titleView, let window, titleView.window === window, !titleView.isHidden, toolbar?.isVisible == true else { return nil }
+        return titleView
+    }
+    private var toolbarVisibilityObservation: NSKeyValueObservation?
+    private weak var toolbar: NSToolbar?
+    private weak var window: NSWindow?
+    private weak var splitView: NSSplitView?
+    private var subscriptions: Set<AnyCancellable> = []
+    private(set) weak var sidebarToggle: NSToolbarItem?
+    private weak var activityItem: NSToolbarItem?
+    /// What the bindings last said, so an item AppKit builds later starts right.
+    /// Whether the window subtitle has room beside the capsule; the owner
+    /// of the subtitle reads it (`onSubtitleVisibilityChange` says when it flips).
+    private(set) var showsSubtitle = true
+    var onSubtitleVisibilityChange: () -> Void = {}
+    private weak var updateItem: NSToolbarItem?
+    private weak var viewSwitchControl: LeoToolbarViewSwitch?
+    private weak var interruptItem: NSToolbarItem?
+    private var interruptIsEnabled = false
+    /// There is no room for Interrupt beside the capsule (macOS 15 and later).
+    private var interruptIsFolded = false
+    /// What the switch binding last said, so a switch AppKit builds later starts right.
+    private var viewSwitchPresentation = LeoViewSwitchPresentation(layout: nil, unreadCount: 0)
+    private var selectView: (LeoAgentViewChoice) -> Void = { _ in }
+    private weak var resetZoomItem: NSToolbarItem?
+    private var isSurfaceZoomed = false
+    private var isUpdateShowing = false
+    private lazy var toggles: LeoToolbarToggleItems = MainActor.assumeIsolated { LeoToolbarToggleItems() }
+    private var toolState: LeoToolbarToolState { MainActor.assumeIsolated { toggles.state } }
+    /// The Browser toggle left the toolbar because the Agent browser setting
+    /// went off (macOS 14 and earlier), so it may come back with the setting.
+    /// A toggle the user removed stays removed.
+    private var didRemoveBrowserForSetting = false
+    private var showsUpdateItem = true
+    /// Where the user's arrangement is kept; nil keeps the default layout and
+    /// saves nothing (tests, and windows before the owner sets it up).
+    let layoutStore: LeoToolbarLayoutStore?
+    private var didCustomize = false
+    private var isSavePending = false
+    private var sheetObserver: NSObjectProtocol?
+    /// Whether `NSToolbarItem.isHidden` takes effect (macOS 15+). Below that
+    /// the items that come and go are inserted and removed instead; tests
+    /// turn this off (before `install`) to exercise that path here.
+    var hidesItemsInPlace: Bool = {
+        if #available(macOS 15.0, *) { return true }
+        return false
+    }()
+    /// The gap the toolbar keeps around the update pill.
+    static let updateItemSpacing: CGFloat = 10
+    /// What the reset-zoom button (a 28 pt bordered item) takes right of the
+    /// capsule, with the toolbar's spacing.
+    static let resetZoomReserve: CGFloat = 38
+    private var isSidebarToggleHidden = true
+    private var sideBySideChatWidth: CGFloat = 0
+
+    init(layoutStore: LeoToolbarLayoutStore? = nil) {
+        self.layoutStore = layoutStore
+        super.init()
+    }
+
+    @MainActor
+    func install(on window: NSWindow) {
+        let toolbar = NSToolbar(identifier: Self.makeToolbarIdentifier())
+        toolbar.delegate = self
+        toolbar.allowsUserCustomization = true
+        // The layout is saved by `layoutStore`, once for every window: AppKit's
+        // autosave is keyed by this toolbar's per-window identifier.
+        toolbar.autosavesConfiguration = false
+        toolbar.displayMode = .iconOnly
+        toolbar.centeredItemIdentifiers = [.leoActivity]
+        window.toolbarStyle = .unified
+        // The title item stands in for the window's own title; `window.title`
+        // stays set, for the Window menu and Mission Control.
+        window.titleVisibility = .hidden
+        window.toolbar = toolbar
+        if #available(macOS 15.0, *), let saved = savedItemIdentifiers() { toolbar.itemIdentifiers = saved }
+        // With the toolbar hidden the title item goes with it: show the window's own.
+        // `isVisible` is not always observable (View ▸ Hide Toolbar also calls
+        // `syncTitleVisibility` from the window).
+        toolbarVisibilityObservation = toolbar.observe(\.isVisible, options: [.initial, .new]) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.syncTitleVisibility() }
+        }
+        self.toolbar = toolbar
+        self.window = window
+        observeLayout(of: window, splitView: nil)
+        sheetObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didEndSheetNotification, object: window, queue: .main
+        ) { [weak self] _ in MainActor.assumeIsolated { self?.saveLayoutIfCustomized() } }
+    }
+
+    /// The title item stands in for the window's own title while the toolbar
+    /// shows; with the toolbar hidden the window's title shows instead.
+    @MainActor
+    func syncTitleVisibility() {
+        guard let toolbar, let window else { return }
+        let wanted: NSWindow.TitleVisibility = toolbar.isVisible ? .hidden : .visible
+        if window.titleVisibility != wanted { window.titleVisibility = wanted }
+    }
+
+    deinit {
+        layoutObservers.forEach(NotificationCenter.default.removeObserver)
+        sheetObserver.map(NotificationCenter.default.removeObserver)
+    }
+
+    /// Keeps the sidebar toggle visible exactly while the sidebar is
+    /// collapsed.
+    @MainActor
+    func bind(sidebarVisible: some Publisher<Bool, Never>) {
+        sidebarVisible.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isVisible in
+            guard let self else { return }
+            isSidebarToggleHidden = isVisible
+            updateActivityWidth()
+            if hidesItemsInPlace { setHidden(sidebarToggle, isVisible) } else { syncItemPresence() }
+        }.store(in: &subscriptions)
+    }
+
+    /// Keeps the capsule over the terminal column while Chat is beside the
+    /// terminal (0 when it is not), live as the divider moves.
+    @MainActor
+    func bind(sideBySideChatWidth: some Publisher<CGFloat, Never>) {
+        sideBySideChatWidth.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] width in
+            guard let self else { return }
+            self.sideBySideChatWidth = width
+            updateActivityWidth()
+        }.store(in: &subscriptions)
+    }
+
+    /// Keeps the update pill's item in the toolbar exactly while an update
+    /// state is showing and has room, and the capsule clear of it. Every
+    /// state change is sent, not only visibility flips: the pill's text, so
+    /// its width, changes with the state, and the capsule is sized from it.
+    @MainActor
+    func bind(updateVisible: some Publisher<Bool, Never>) {
+        updateVisible.receive(on: DispatchQueue.main).sink { [weak self] isVisible in
+            guard let self else { return }
+            isUpdateShowing = isVisible
+            updateActivityWidth()
+            // SwiftUI lays the pill out for its new text after this turn.
+            DispatchQueue.main.async { [weak self] in self?.updateActivityWidth() }
+        }.store(in: &subscriptions)
+    }
+
+    /// Keeps the switch showing `presentation` and sends clicks to `select`.
+    @MainActor
+    func bind(viewSwitch: some Publisher<LeoViewSwitchPresentation, Never>, select: @escaping (LeoAgentViewChoice) -> Void) {
+        selectView = select
+        viewSwitchControl?.onSelect = select
+        viewSwitch.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] presentation in
+            guard let self else { return }
+            viewSwitchPresentation = presentation
+            viewSwitchControl?.apply(presentation)
+        }.store(in: &subscriptions)
+    }
+
+    /// Keeps Interrupt enabled exactly while `isEnabled` says so. Pushed, not
+    /// autovalidated: AppKit validates toolbar items on window events only,
+    /// and an agent going idle is a model change. The caller feeds it the
+    /// same availability rule as Agents ▸ Interrupt.
+    @MainActor
+    func bind(interruptEnabled isEnabled: some Publisher<Bool, Never>) {
+        isEnabled.receive(on: DispatchQueue.main).sink { [weak self] isEnabled in
+            guard let self else { return }
+            interruptIsEnabled = isEnabled
+            refreshInterruptTooltip()
+            if interruptItem?.isEnabled != isEnabled { interruptItem?.isEnabled = isEnabled }
+        }.store(in: &subscriptions)
+    }
+
+    /// Shows `presentation` in the title item.
+    @MainActor
+    func setTitle(_ presentation: LeoToolbarTitlePresentation) {
+        titlePresentation = presentation
+        titleView?.apply(presentation)
+    }
+
+    /// Keeps the three tool toggles lit and enabled as `state` says, and the
+    /// Browser toggle in the toolbar exactly while the Agent browser setting
+    /// is on. Pushed, not autovalidated, like Interrupt.
+    @MainActor
+    func bind(tools: some Publisher<LeoToolbarToolState, Never>) {
+        tools.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] state in
+            guard let self else { return }
+            toggles.apply(state)
+            if hidesItemsInPlace { toggles.syncVisibility() } else { syncBrowserPresence() }
+        }.store(in: &subscriptions)
+    }
+
+    /// Sends the toggles' clicks somewhere else (tests).
+    @MainActor
+    func setToggleSender(_ send: @escaping (Selector, Any?) -> Void) { toggles.send = send }
+
+    /// Keeps the reset-zoom button in the toolbar exactly while a split is
+    /// zoomed (it used to be a titlebar accessory, which hangs under the
+    /// unified toolbar, off its row), and the capsule clear of it.
+    @MainActor
+    func bind(surfaceZoomed: some Publisher<Bool, Never>) {
+        surfaceZoomed.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] isZoomed in
+            guard let self else { return }
+            isSurfaceZoomed = isZoomed
+            updateActivityWidth()
+        }.store(in: &subscriptions)
+    }
+
+    /// The split view is in the window: the tracking separator can join.
+    @MainActor
+    func attach(splitView: NSSplitView) {
+        guard self.splitView == nil, let toolbar else { return }
+        self.splitView = splitView
+        if let window { observeLayout(of: window, splitView: splitView) }
+        updateActivityWidth()
+        let toggleCount = toolbar.items.contains { $0.itemIdentifier == .leoSidebarToggle } ? 1 : 0
+        toolbar.insertItem(withItemIdentifier: .leoSplitSeparator, at: min(toggleCount, toolbar.items.count))
+    }
+
+    // MARK: NSToolbarDelegate
+
+    /// The toolbar's default set, which the palette's "drag the default set"
+    /// row offers as the one-drag reset. With item hiding (macOS 15 and later)
+    /// that is always the shipped order, and the user's saved arrangement is
+    /// applied on top through `itemIdentifiers` (`install`). Before that the
+    /// first item list is the only way to restore a layout, so the saved one
+    /// stands in as the default there. The tracking separator joins when the
+    /// split view arrives.
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        let order = hidesItemsInPlace ? Self.itemOrder : (layoutStore?.restoredOrder() ?? Self.itemOrder)
+        return order.filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
+    }
+
+    /// The saved arrangement to put on the toolbar after it is created
+    /// (nil: none saved, or the layout comes through the default set).
+    private func savedItemIdentifiers() -> [NSToolbarItem.Identifier]? {
+        guard hidesItemsInPlace, let layoutStore, layoutStore.hasSavedLayout else { return nil }
+        return layoutStore.restoredOrder().filter { $0 != .leoSplitSeparator && isPresentByDefault($0) }
+    }
+
+    func toolbarImmovableItemIdentifiers(_ toolbar: NSToolbar) -> Set<NSToolbarItem.Identifier> {
+        LeoAgentToolbarItems.immovable
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemIdentifier: NSToolbarItem.Identifier, canBeInsertedAt index: Int) -> Bool {
+        LeoAgentToolbarItems.canInsert(itemIdentifier, at: index, in: toolbar.items.map(\.itemIdentifier))
+    }
+
+    // MARK: Saving the arrangement
+
+    func toolbarWillAddItem(_ notification: Notification) { arrangementChanged() }
+    func toolbarDidRemoveItem(_ notification: Notification) { arrangementChanged() }
+
+    /// Only a change made in the customization palette counts: the app adds
+    /// and removes items itself as window state changes, and that must not
+    /// freeze today's default layout as the user's choice.
+    private func arrangementChanged() {
+        guard layoutStore != nil, toolbar?.customizationPaletteIsRunning == true else { return }
+        didCustomize = true
+        guard !isSavePending else { return }
+        isSavePending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            isSavePending = false
+            saveLayout()
+        }
+    }
+
+    /// The palette's sheet ended: whatever it changed is saved.
+    private func saveLayoutIfCustomized() {
+        guard didCustomize else { return }
+        didCustomize = false
+        saveLayout()
+    }
+
+    private func saveLayout() {
+        guard let layoutStore, let toolbar else { return }
+        var identifiers = toolbar.items.map(\.itemIdentifier)
+        // A Browser toggle the setting took away (macOS 14 and earlier) is not
+        // one the user removed: keep it in the saved arrangement.
+        if didRemoveBrowserForSetting, !identifiers.contains(.leoBrowser) {
+            let next = identifiers.firstIndex { [.leoAgentPane, .leoViewSwitch].contains($0) } ?? identifiers.count
+            identifiers.insert(.leoBrowser, at: next)
+        }
+        layoutStore.save(identifiers)
+    }
+
+    /// Below macOS 15 `NSToolbarItem.isHidden` does nothing, so the items
+    /// that come and go are added to and removed from the toolbar instead.
+    private func isPresentByDefault(_ identifier: NSToolbarItem.Identifier) -> Bool {
+        if hidesItemsInPlace { return true }
+        switch identifier {
+        case .leoSidebarToggle: return !isSidebarToggleHidden
+        case .leoResetZoom: return isSurfaceZoomed
+        case .leoUpdate: return isUpdateShowing && showsUpdateItem
+        case .leoBrowser: return toolState.browser.isPresent
+        default: return true
+        }
+    }
+
+    /// Inserts or removes the sidebar toggle and the update pill to match the
+    /// bindings (macOS 14 and earlier).
+    private func syncItemPresence() {
+        guard let toolbar else { return }
+        setPresence(of: .leoSidebarToggle, !isSidebarToggleHidden, in: toolbar) { _ in 0 }
+        let toggles: Set<NSToolbarItem.Identifier> = [.leoFiles, .leoBrowser, .leoAgentPane, .leoViewSwitch]
+        setPresence(of: .leoUpdate, isUpdateShowing && showsUpdateItem, in: toolbar) { toolbar in
+            toolbar.items.firstIndex { toggles.contains($0.itemIdentifier) } ?? toolbar.items.count
+        }
+        setPresence(of: .leoResetZoom, isSurfaceZoomed, in: toolbar) { toolbar in
+            toolbar.items.firstIndex { toggles.union([.leoUpdate]).contains($0.itemIdentifier) } ?? toolbar.items.count
+        }
+    }
+
+    /// Inserts or removes the Browser toggle to match the setting (macOS 14
+    /// and earlier). Only a toggle the setting removed comes back.
+    private func syncBrowserPresence() {
+        guard let toolbar else { return }
+        let isPresent = toolState.browser.isPresent
+        let current = toolbar.items.firstIndex { $0.itemIdentifier == .leoBrowser }
+        switch (isPresent, current) {
+        case (true, nil) where didRemoveBrowserForSetting:
+            didRemoveBrowserForSetting = false
+            let next = toolbar.items.firstIndex { [.leoAgentPane, .leoViewSwitch].contains($0.itemIdentifier) } ?? toolbar.items.count
+            toolbar.insertItem(withItemIdentifier: .leoBrowser, at: next)
+        case (false, let position?):
+            didRemoveBrowserForSetting = true
+            toolbar.removeItem(at: position)
+        default: break
+        }
+    }
+
+    private func setPresence(
+        of identifier: NSToolbarItem.Identifier, _ isPresent: Bool, in toolbar: NSToolbar, at index: (NSToolbar) -> Int
+    ) {
+        let current = toolbar.items.firstIndex { $0.itemIdentifier == identifier }
+        switch (isPresent, current) {
+        case (true, nil): toolbar.insertItem(withItemIdentifier: identifier, at: index(toolbar))
+        case (false, let position?): toolbar.removeItem(at: position)
+        default: break
+        }
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        LeoAgentToolbarItems.allowed(browserSettingOn: toolState.browser.isPresent)
+    }
+
+    func toolbar(
+        _ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool
+    ) -> NSToolbarItem? {
+        switch identifier {
+        case .leoSidebarToggle: makeSidebarToggle()
+        case .leoTitleMenu: makeTitleItem()
+        case .leoSplitSeparator: splitView.map { NSTrackingSeparatorToolbarItem(identifier: identifier, splitView: $0, dividerIndex: 0) }
+        case .leoActivity: makeActivityItem()
+        case .leoResetZoom: makeResetZoomItem()
+        case .leoUpdate: makeUpdateItem()
+        case .leoViewSwitch: makeViewSwitchItem()
+        case .leoFiles, .leoBrowser, .leoAgentPane: makeToggleItem(identifier)
+        case .leoInterrupt: makeInterruptItem()
+        case .leoMore: makeMoreItem()
+        default: nil
+        }
+    }
+
+    private func makeSidebarToggle() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoSidebarToggle)
+        item.image = NSImage(systemSymbolName: "sidebar.leading", accessibilityDescription: "Show Sidebar")
+        item.label = "Sidebar"
+        item.toolTip = "Show Sidebar"
+        item.target = nil
+        item.action = #selector(TerminalController.toggleLeoSidebar(_:))
+        item.isBordered = true
+        sidebarToggle = item
+        // Hidden unless the session reports the sidebar collapsed.
+        setHidden(item, isSidebarToggleHidden)
+        return item
+    }
+
+    private var activityWidth: NSLayoutConstraint?
+    private var activityContainerWidth: NSLayoutConstraint?
+    private var layoutObservers: [NSObjectProtocol] = []
+
+    private func makeActivityItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoActivity)
+        let host = makeActivityView()
+        host.translatesAutoresizingMaskIntoConstraints = false
+        // AppKit centres the item's view in the region right of the sidebar.
+        // The capsule leads a container that is wider by the offset (see
+        // `LeoActivityCapsuleSizing.placement`), which moves the capsule's
+        // centre left, over the terminal column, while Chat is beside it.
+        let container = LeoActivityCapsuleContainer()
+        container.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(host)
+        let width = host.widthAnchor.constraint(equalToConstant: LeoActivityCapsulePresentation.maxWidth)
+        let containerWidth = container.widthAnchor.constraint(equalToConstant: LeoActivityCapsulePresentation.maxWidth)
+        activityWidth = width
+        activityContainerWidth = containerWidth
+        NSLayoutConstraint.activate([
+            width, containerWidth,
+            host.heightAnchor.constraint(equalToConstant: LeoActivityCapsule.height),
+            container.heightAnchor.constraint(equalToConstant: LeoActivityCapsule.height),
+            host.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            host.topAnchor.constraint(equalTo: container.topAnchor),
+        ])
+        item.view = container
+        // The capsule draws its own 32 pt glass: AppKit's platter is a fixed 36 pt.
+        item.isBordered = false
+        item.visibilityPriority = .high
+        item.label = "Activity"
+        activityItem = item
+        updateActivityWidth()
+        return item
+    }
+
+    /// Sizes the capsule from the room right of the sidebar
+    /// (`LeoActivityCapsuleSizing`); on every window or split resize.
+    /// The trailing items never fold into the overflow chevron: `.user` is the
+    /// toolbar's last-to-go priority. (`.high` makes the toolbar re-lay out
+    /// against the capsule's width constraint as the sidebar resizes, which
+    /// stalls the sidebar's own re-layout: `LeoSidebarTitlebarStyleTests`.)
+    private static let trailingPriority = NSToolbarItem.VisibilityPriority.user
+
+    private func updateActivityWidth() {
+        guard let activityWidth, let activityContainerWidth, let window else { return }
+        let sidebar = splitView?.arrangedSubviews.first.map { $0.isHidden ? 0 : $0.frame.maxX } ?? 0
+        let leadingChrome = isSidebarToggleHidden ? 0 : LeoActivityCapsuleSizing.collapsedSidebarChrome
+        let placement = LeoActivityCapsuleSizing.placement(
+            windowWidth: window.frame.width, sidebarWidth: sidebar, chatLeadingEdge: chatLeadingEdge(in: window),
+            leadingChrome: leadingChrome,
+            trailingReserve: isUpdateShowing ? updateReserve() : 0,
+            fixedReserve: isSurfaceZoomed ? Self.resetZoomReserve : 0)
+        let layout = placement.layout
+        let width = layout.width
+        let containerWidth = width + placement.trailingPad
+        if activityWidth.constant != width { activityWidth.constant = width }
+        if activityContainerWidth.constant != containerWidth { activityContainerWidth.constant = containerWidth }
+        showsUpdateItem = layout.showsUpdateItem
+        // With no room to centre the capsule beside the trailing groups it
+        // flows left of them instead; a centred item that doesn't fit would
+        // fold into the overflow chevron.
+        let centered: Set<NSToolbarItem.Identifier> = layout.isCentered ? [.leoActivity] : []
+        if let toolbar, toolbar.centeredItemIdentifiers != centered { toolbar.centeredItemIdentifiers = centered }
+        if hidesItemsInPlace {
+            // The toggles and Interrupt are hidden while the capsule's room has none for them.
+            MainActor.assumeIsolated { toggles.setFolded(!layout.showsToggles) }
+            interruptIsFolded = !layout.showsInterrupt
+            setHidden(interruptItem, interruptIsFolded)
+            setHidden(updateItem, !(isUpdateShowing && showsUpdateItem))
+            setHidden(resetZoomItem, !isSurfaceZoomed)
+        } else {
+            syncItemPresence()
+        }
+        MainActor.assumeIsolated { titleView?.setWidth(layout.titleWidth) }
+        if showsSubtitle != layout.showsSubtitle {
+            showsSubtitle = layout.showsSubtitle
+            onSubtitleVisibilityChange()
+        }
+    }
+
+    /// What the pill takes right of the capsule: its measured width (it
+    /// changes with the update state's text) and the toolbar's spacing.
+    private func updateReserve() -> CGFloat {
+        let measured = updateItem?.view?.fittingSize.width ?? 0
+        return (measured > 0 ? measured : LeoActivityCapsuleSizing.updateFallbackReserve) + Self.updateItemSpacing
+    }
+
+    /// `isHidden` where it takes effect; the callers insert and remove otherwise.
+    private func setHidden(_ item: NSToolbarItem?, _ isHidden: Bool) {
+        guard hidesItemsInPlace, let item else { return }
+        if #available(macOS 15.0, *) { item.isHidden = isHidden }
+    }
+
+    /// Where the chat pane starts while it is beside the terminal: its width
+    /// back from the detail column's trailing edge.
+    private func chatLeadingEdge(in window: NSWindow) -> CGFloat? {
+        guard sideBySideChatWidth > 0 else { return nil }
+        let detailMaxX = splitView.flatMap { $0.arrangedSubviews.dropFirst().first?.frame.maxX } ?? window.frame.width
+        return detailMaxX - sideBySideChatWidth
+    }
+
+    private func observeLayout(of window: NSWindow, splitView: NSSplitView?) {
+        layoutObservers.forEach(NotificationCenter.default.removeObserver)
+        let center = NotificationCenter.default
+        let update: (Notification) -> Void = { [weak self] _ in MainActor.assumeIsolated { self?.updateActivityWidth() } }
+        layoutObservers = [center.addObserver(forName: NSWindow.didResizeNotification, object: window, queue: .main, using: update)]
+        if let splitView {
+            layoutObservers.append(
+                center.addObserver(forName: NSSplitView.didResizeSubviewsNotification, object: splitView, queue: .main, using: update))
+        }
+    }
+
+    /// The reset-zoom button, left of the update pill: shown only while a
+    /// split is zoomed. Sent down the responder chain to the window's
+    /// controller, like the sidebar toggle.
+    private func makeResetZoomItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoResetZoom)
+        item.image = NSImage(named: "ResetZoom")
+            ?? NSImage(systemSymbolName: "arrow.down.right.and.arrow.up.left", accessibilityDescription: "Reset Split Zoom")
+        item.label = "Reset Zoom"
+        item.toolTip = "Reset Split Zoom"
+        item.target = nil
+        item.action = #selector(TerminalController.splitZoom(_:))
+        item.isBordered = true
+        item.visibilityPriority = .high
+        setHidden(item, !isSurfaceZoomed)
+        resetZoomItem = item
+        return item
+    }
+
+    /// The update pill, left of "⋯". It sizes itself (the pill's text is
+    /// fixed-width per state) and is hidden while no update state shows.
+    private func makeUpdateItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoUpdate)
+        item.view = makeUpdateView()
+        // The pill draws its own capsule.
+        item.isBordered = false
+        item.visibilityPriority = .high
+        item.label = "Update"
+        setHidden(item, !(isUpdateShowing && showsUpdateItem))
+        updateItem = item
+        return item
+    }
+
+    /// The title, subtitle and ▾, left of the capsule. Its width follows the
+    /// room (`LeoActivityCapsuleSizing.Layout.titleWidth`).
+    private func makeTitleItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoTitleMenu)
+        let view = MainActor.assumeIsolated {
+            let view = LeoToolbarTitleView()
+            view.pullDown = titleMenu
+            view.apply(titlePresentation)
+            return view
+        }
+        item.view = view
+        item.isBordered = false
+        item.label = LeoAgentToolbarItems.paletteLabel(for: .leoTitleMenu) ?? "Agent"
+        item.paletteLabel = item.label
+        item.visibilityPriority = LeoAgentToolbarItems.visibilityPriority(for: .leoTitleMenu)
+        titleView = view
+        updateActivityWidth()
+        return item
+    }
+
+    private func makeToggleItem(_ identifier: NSToolbarItem.Identifier) -> NSToolbarItem? {
+        MainActor.assumeIsolated { toggles.makeItem(identifier) }
+    }
+
+    /// The Terminal | Chat switch, in its own glass group. Never hidden.
+    private func makeViewSwitchItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoViewSwitch)
+        let control = MainActor.assumeIsolated {
+            let control = LeoToolbarViewSwitch()
+            control.onSelect = selectView
+            control.apply(viewSwitchPresentation)
+            return control
+        }
+        item.view = control
+        item.label = LeoViewSwitchPresentation.groupLabel
+        item.visibilityPriority = Self.trailingPriority
+        viewSwitchControl = control
+        return item
+    }
+
+    /// Interrupt, sharing one glass group with "⋯" (bordered items side by
+    /// side). Always present, never hidden; `bind(interruptEnabled:)` enables
+    /// it. The click goes down the responder chain like the menu item's.
+    private func makeInterruptItem() -> NSToolbarItem {
+        let item = NSToolbarItem(itemIdentifier: .leoInterrupt)
+        item.image = NSImage(systemSymbolName: "stop.circle", accessibilityDescription: Self.interruptTitle)
+        item.label = Self.interruptTitle
+        item.target = nil
+        item.action = #selector(TerminalController.interruptSelectedLeoAgent(_:))
+        item.isBordered = true
+        item.visibilityPriority = LeoAgentToolbarItems.visibilityPriority(for: .leoInterrupt)
+        setHidden(item, interruptIsFolded)
+        // Nothing to interrupt until the binding says so.
+        item.autovalidates = false
+        item.isEnabled = interruptIsEnabled
+        interruptItem = item
+        refreshInterruptTooltip()
+        return item
+    }
+
+    private static let interruptTitle = "Interrupt"
+
+    /// "Interrupt (⌃⌘.)": the shortcut is read from the live Agents menu, so
+    /// a rebind never leaves the tooltip lying.
+    private func refreshInterruptTooltip() {
+        let shortcut = MainActor.assumeIsolated {
+            LeoMenuShortcutHint.text(
+                for: LeoMenuShortcutHint.menuItem(action: #selector(TerminalController.interruptSelectedLeoAgent(_:)), in: mainMenu()))
+        }
+        let tooltip = shortcut.map { "\(Self.interruptTitle) (\($0))" } ?? Self.interruptTitle
+        if interruptItem?.toolTip != tooltip { interruptItem?.toolTip = tooltip }
+    }
+
+    private func makeMoreItem() -> NSToolbarItem {
+        let item = NSMenuToolbarItem(itemIdentifier: .leoMore)
+        item.image = NSImage(systemSymbolName: "ellipsis", accessibilityDescription: "More")
+        item.label = "More"
+        item.menu = moreMenu
+        item.showsIndicator = false
+        item.visibilityPriority = Self.trailingPriority
+        return item
+    }
+}
+
+/// The capsule's container: only the capsule takes clicks, and the empty
+/// room beside it drags the window like the rest of the toolbar.
+private final class LeoActivityCapsuleContainer: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let hit = super.hitTest(point)
+        return hit === self ? nil : hit
+    }
+}

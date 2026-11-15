@@ -1,7 +1,9 @@
+import Combine
 import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-057: a window's Terminals rows -- the list, its neighbour pick on
 /// close, and how its selection composes with the app-wide agent list.
@@ -190,6 +192,50 @@ import Testing
         #expect(terminals.rows.map(\.title) == ["~/src"])
     }
 
+    /// A terminal retitling itself (a spinner in its title, ~10/s) reaches
+    /// only its row's label: views that observe the window's rows for what
+    /// is listed and selected -- the whole sidebar, the content area --
+    /// don't redraw for it, and neither does the Terminals section, whose
+    /// List reconfigures every visible row when what it lists changes.
+    @Test func retitlingPublishesOnlyItsRowsLabel() {
+        let terminals = LeoWindowTerminals()
+        terminals.add(a, title: "zsh")
+        terminals.add(b, title: "vim")
+        var rowChanges = 0
+        var sectionChanges = 0
+        var titleChanges: [UUID: Int] = [:]
+        let rowsSubscription = terminals.objectWillChange.sink { rowChanges += 1 }
+        let sectionSubscription = terminals.titles.objectWillChange.sink { sectionChanges += 1 }
+        let titleSubscriptions = terminals.titles.rows.map { title in
+            title.objectWillChange.sink { titleChanges[title.id, default: 0] += 1 }
+        }
+
+        terminals.retitle(a, to: "~/src")
+
+        #expect(rowChanges == 0)
+        #expect(sectionChanges == 0)
+        #expect(titleChanges == [a: 1])
+        #expect(terminals.titles.labels.map(\.text) == ["~/src", "vim"])
+        _ = (rowsSubscription, sectionSubscription, titleSubscriptions)
+    }
+
+    @Test func addingRemovingAndReplacingRowsPublishTheRows() {
+        let terminals = LeoWindowTerminals()
+        var rowChanges = 0
+        var sectionChanges = 0
+        let rowsSubscription = terminals.objectWillChange.sink { rowChanges += 1 }
+        let sectionSubscription = terminals.titles.objectWillChange.sink { sectionChanges += 1 }
+
+        terminals.add(a, title: "zsh")
+        terminals.replace(a, with: b, title: "zsh")
+        terminals.remove(b)
+
+        #expect(rowChanges == 3)
+        #expect(sectionChanges == 3)
+        #expect(terminals.titles.labels.isEmpty)
+        _ = (rowsSubscription, sectionSubscription)
+    }
+
     @Test func activatingSelectsAndShows() {
         let terminals = LeoWindowTerminals()
         var shown: [UUID] = []
@@ -281,9 +327,8 @@ import Testing
 
     @Test(arguments: [
         ([LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: true)], LeoContentReplacement.Fate.keep),
-        // A shell split beside a row has no row of its own: the whole
-        // content closes (asking first when busy), as beside an agent.
-        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], .close),
+        // B-333: shells split beside a row are its layout, kept with it.
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], .keep),
         ([.init(isAgent: true, needsConfirmQuit: true)], .pool),
         ([.init(isAgent: true, needsConfirmQuit: true), .init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)], .close),
         ([.init(isAgent: false, needsConfirmQuit: false)], .close),
@@ -301,15 +346,31 @@ import Testing
         #expect(!LeoContentReplacement.needsConfirmation(shown))
     }
 
-    /// Fix round 2: a busy shell split beside a row would close with it,
-    /// so switching away asks first.
-    @Test func aBusyShellSplitBesideATerminalRowAsks() {
-        let shown = [
-            LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false),
-            .init(isAgent: false, needsConfirmQuit: true),
-        ]
+    /// B-333: a row owns its split layout, as a Ghostty tab does: shells
+    /// split beside it are hidden with it, busy or not, so switching away
+    /// never asks.
+    @Test func aRowWithShellSplitsIsKeptWhole() {
+        let row = LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)
+        let busy = LeoContentReplacement.Shown(isAgent: false, needsConfirmQuit: true)
+        let shown = [row, busy, busy]
 
-        #expect(LeoContentReplacement.needsConfirmation(shown))
+        #expect(LeoContentReplacement.fate(shown) == .keep)
+        #expect(!LeoContentReplacement.needsConfirmation(shown))
+    }
+
+    /// B-333: ⌘D splits straight into a shell only where the split joins a
+    /// row's layout: a row and the shells beside it. Agents, and shells
+    /// with no row, keep the picker (D-212).
+    @Test(arguments: [
+        ([LeoContentReplacement.Shown(isAgent: false, isTerminalRow: true, needsConfirmQuit: false)], true),
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: false, needsConfirmQuit: true)], true),
+        ([.init(isAgent: true, needsConfirmQuit: false)], false),
+        ([.init(isAgent: false, isTerminalRow: true, needsConfirmQuit: false), .init(isAgent: true, needsConfirmQuit: false)], false),
+        ([.init(isAgent: false, needsConfirmQuit: false)], false),
+        ([], false),
+    ])
+    func splitsIntoShellOnlyOnRowOnlyLayouts(_ shown: [LeoContentReplacement.Shown], _ splitsIntoShell: Bool) {
+        #expect(LeoContentReplacement.splitsIntoShell(shown) == splitsIntoShell)
     }
 
     /// B-058 territory keeps today's safe behaviour: a shell beside an

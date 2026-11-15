@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-009: Agents ▸ Find Agent… and the sidebar filter's Escape/Return,
 /// at the model/session level.
@@ -85,12 +86,15 @@ import Testing
         #expect(attached.first?.2 == .content)
     }
 
-    @Test func returnOnAStoppedTopRowAsksToStartIt() {
+    @Test func returnOnAStoppedTopRowShowsItsChatWithoutAsking() {
         let model = makeModel([row("apple", status: .stopped)])
         let window = LeoWindowID()
+        var chats: [LeoAgentRow.ID] = []
+        model.chatRequested = { row, _ in chats.append(row.id) }
         model.query = "app"
         model.searchSubmit(from: window)
-        #expect(model.startPrompt(in: window)?.agent == row("apple", status: .stopped).id)
+        #expect(chats == [row("apple", status: .stopped).id])
+        #expect(model.startPrompt(in: window) == nil)
     }
 
     @Test func returnWithNoMatchesDoesNothing() {

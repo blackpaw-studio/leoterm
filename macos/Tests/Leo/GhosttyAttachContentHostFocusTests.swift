@@ -2,13 +2,15 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-016: the host's focused attachment is the surface that really has
 /// keyboard focus (the key window's first responder), not merely the
 /// controller's remembered `focusedSurface`; the viewed attachment is the
 /// latter. Drives a real `TerminalController`, so it is skipped -- visibly
 /// -- without the app's real `Ghostty.App`.
-@MainActor struct GhosttyAttachContentHostFocusTests {
+@MainActor @Suite(.hostOnly)
+struct GhosttyAttachContentHostFocusTests {
     @Test(.enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } })
     func focusFollowsTheFirstResponderNotJustTheFocusedSurface() async throws {
         let ghostty = try #require(Self.ghostty)
@@ -49,6 +51,7 @@ import Testing
     /// clears focus -- the tab beside it is still viewed.
     @Test(
         .enabled("needs the test host app's Ghostty.App") { await MainActor.run { Self.ghostty != nil } },
+        .requiresActiveHost,
         .timeLimit(.minutes(1))
     )
     func focusReportsArriveViewingFirstAndTheSidebarOnlyClearsFocus() async throws {
@@ -95,6 +98,7 @@ import Testing
     @Test func anInactiveAppOrNoKeyWindowSuspendsFocusRatherThanClearingIt() {
         let host = GhosttyAttachContentHost(registry: LeoWindowSessionRegistry(), requestConfigStore: LeoRequestConfigStore())
         let window = NSWindow()
+        window.isReleasedWhenClosed = false
         #expect(host.focusEvent(isActive: false, keyWindow: window) == .focusSuspended)
         #expect(host.focusEvent(isActive: true, keyWindow: nil) == .focusSuspended)
         #expect(host.focusEvent(isActive: true, keyWindow: window) == .focusChanged(nil), "a non-terminal key window")

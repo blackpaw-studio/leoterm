@@ -2,6 +2,7 @@ import Combine
 import Foundation
 import Testing
 @testable import Ghostty
+@testable import LeoKit
 
 struct SpawnValidationTests {
     @Test(arguments: [
@@ -12,11 +13,37 @@ struct SpawnValidationTests {
         #expect(SpawnValidation.name(value) == expected)
     }
 
-    @Test func templateIsRequiredAndRepositoryIsOptional() {
-        #expect(SpawnValidation.spawn(template: "", repo: "/repo", name: nil, pathExists: { _ in true }) == "Template is required")
-        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, pathExists: { _ in false }) == nil)
-        #expect(SpawnValidation.spawn(template: "swift", repo: "/missing", name: nil, pathExists: { _ in false }) == "Choose an existing repository")
-        #expect(SpawnValidation.spawn(template: "swift", repo: "/repo", name: "ok", pathExists: { _ in true }) == nil)
+    @Test func templateIsRequired() {
+        #expect(SpawnValidation.spawn(template: "", repo: "o/r", name: nil) == "Template is required")
+        #expect(SpawnValidation.spawn(template: nil, repo: "", name: nil) == "Template is required")
+    }
+
+    @Test(arguments: ["", "  ", "ancestry", "owner/repo", " owner/repo ", "o/r.js"])
+    func repositoryAcceptsBlankBareNameOrOwnerRepo(repo: String) {
+        #expect(SpawnValidation.spawn(template: "swift", repo: repo, name: nil) == nil)
+    }
+
+    @Test(arguments: ["/srv/app", "~/x", "a/b/c", "owner/", "/repo", "a b/c", "a/b c", "http://example.com/a/b", ".", "..", "owner/..", "./repo"])
+    func repositoryRejectsEverythingElse(repo: String) {
+        #expect(SpawnValidation.spawn(template: "swift", repo: repo, name: nil) == "Repository must be owner/repo (or a bare name)")
+    }
+
+    @Test(arguments: [
+        ("https://github.com/owner/repo", "owner/repo"), ("https://github.com/owner/repo.git", "owner/repo"),
+        ("https://github.com/owner/repo/", "owner/repo"), ("  https://github.com/owner/repo.git/ ", "owner/repo"),
+        ("  owner/repo  ", "owner/repo"), ("", ""), ("a/b/c", "a/b/c")
+    ]) func repositoryNormalization(raw: String, expected: String) {
+        #expect(SpawnValidation.normalizedRepo(raw) == expected)
+    }
+
+    @Test func aPastedGitHubURLIsValid() {
+        #expect(SpawnValidation.spawn(template: "swift", repo: "https://github.com/o/r.git", name: nil) == nil)
+    }
+
+    @Test func branchNeedsARepository() {
+        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, branch: "feat/x") == "Branch needs a repository")
+        #expect(SpawnValidation.spawn(template: "swift", repo: "o/r", name: nil, branch: "feat/x") == nil)
+        #expect(SpawnValidation.spawn(template: "swift", repo: "", name: nil, branch: "") == nil)
     }
 
     @Test @MainActor func selectedTemplateMustBeFetched() {

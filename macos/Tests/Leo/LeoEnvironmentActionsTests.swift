@@ -1,0 +1,230 @@
+import AppKit
+import Combine
+import Foundation
+import Testing
+@testable import Ghostty
+@testable import LeoKit
+
+/// B-283: the catalog comes from the bound daemon (so it is the same over
+/// the SSH tunnel); a set goes through the row's action path, so its error
+/// shows on the row like any other.
+@MainActor struct LeoEnvironmentActionsTests {
+    private static let catalog = LeoEnvironmentCatalog(names: ["aws", "prod", "dev"], templateDefaults: ["claude": ["aws", "prod"]])
+
+    private func actions(_ daemon: EnvironmentDaemon, model: LeoSidebarModel? = nil) -> LeoAgentActions {
+        LeoAgentActions(
+            clients: FakeMachineClients(daemon: daemon), cli: .recordingForTests(templates: []), model: model ?? LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {}
+        )
+    }
+
+    private let row = LeoAgentRow(host: .local, name: "alpha", template: "claude", status: .running, activity: .unknown, actionDetail: nil)
+
+    @Test func setEnvironmentsPostsTheList() async {
+        let daemon = EnvironmentDaemon()
+        let actions = actions(daemon)
+        actions.setEnvironments(row, names: ["prod", "aws"])
+        await awaitCondition { await daemon.calls == ["set:alpha:prod,aws"] }
+    }
+
+    @Test func setEnvironmentsErrorShowsOnRow() async {
+        let daemon = EnvironmentDaemon(error: .daemon(code: "persistent_task", message: "alpha runs a persistent task", matches: []))
+        let model = LeoSidebarModel()
+        let actions = actions(daemon, model: model)
+        actions.setEnvironments(row, names: [])
+        await awaitCondition { await MainActor.run { model.rowErrors[row.id] == "alpha runs a persistent task" } }
+    }
+
+    @Test func eachMachinesCatalogLoadsFromItsOwnDaemonAndFailsQuietly() async {
+        let work = LeoHostID.remote("work")
+        let clients = FakeMachineClients(daemons: [
+            .local: EnvironmentDaemon(catalog: Self.catalog),
+            work: EnvironmentDaemon(error: .daemon(code: "http_404", message: "HTTP 404", matches: [])),
+        ])
+        let model = LeoSidebarModel()
+        let actions = LeoAgentActions(
+            clients: clients, cli: .recordingForTests(templates: []), model: model, processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        #expect(actions.environmentCatalog(for: .local) == .loading)
+
+        actions.reloadEnvironmentCatalog(for: .local)
+        actions.reloadEnvironmentCatalog(for: work)
+
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: .local) == .loaded(Self.catalog) } }
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: work) == .failed("HTTP 404") } }
+        #expect(actions.environmentCatalog(for: .local) == .loaded(Self.catalog), "B's failure leaves A's catalog alone")
+        #expect(model.rowErrors.isEmpty)
+    }
+
+    @Test func aReconnectedMachineReloadsOnlyItsOwnCatalog() async {
+        let work = LeoHostID.remote("work")
+        let clients = FakeMachineClients(daemons: [.local: EnvironmentDaemon(catalog: Self.catalog), work: EnvironmentDaemon()])
+        let actions = LeoAgentActions(
+            clients: clients, cli: .recordingForTests(templates: []), model: LeoSidebarModel(), processRunner: LeoRecordingTemplateRunner(), refresh: {})
+        actions.reloadEnvironmentCatalog(for: .local)
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: .local) == .loaded(Self.catalog) } }
+
+        clients.connect(work, EnvironmentDaemon(catalog: LeoEnvironmentCatalog(names: ["w"], templateDefaults: [:])))
+        actions.reloadEnvironmentCatalog(for: work)
+
+        await awaitCondition { await MainActor.run { actions.environmentCatalog(for: work).catalog?.names == ["w"] } }
+        #expect(actions.environmentCatalog(for: .local) == .loaded(Self.catalog))
+    }
+
+    // MARK: Edit Order sheet (fix round 2): the presenter owns the sheet
+
+    private func overrideRow() -> LeoAgentRow {
+        row.withEnvironments(LeoAgentEnvironments(names: ["aws", "prod"], source: .override, error: nil))
+    }
+
+    private func present(_ daemon: EnvironmentDaemon, _ recorder: RecordingSheetPresenter, on window: NSWindow) -> LeoEnvironmentsSheetSession? {
+        LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window, presenter: recorder.presenter)
+    }
+
+    @Test func editOrderCancelClosesTheSheetWithoutPosting() async throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        let session = try #require(present(daemon, recorder, on: window))
+        #expect(recorder.presentedSheets == [session.sheetWindow])
+        session.cancel()
+        #expect(recorder.dismissedSheets == [session.sheetWindow])
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func editOrderConfirmPostsAndClosesTheSheet() async throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        let session = try #require(present(daemon, recorder, on: window))
+        session.confirm(["prod", "aws"])
+        #expect(recorder.dismissedSheets == [session.sheetWindow])
+        await awaitCondition { await daemon.calls == ["set:alpha:prod,aws"] }
+    }
+
+    @Test func escapeClosesTheEditOrderSheet() async throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        let session = try #require(present(daemon, recorder, on: window))
+        session.sheetWindow.cancelOperation(nil)
+        #expect(recorder.presentedSheets.count == 1)
+        #expect(recorder.dismissedSheets == [session.sheetWindow])
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func aSecondEditOrderSheetIsRefusedWhileOneIsUp() throws {
+        let window = RecordingSheetPresenter.plainWindow()
+        let recorder = RecordingSheetPresenter()
+        let daemon = EnvironmentDaemon()
+        _ = try #require(present(daemon, recorder, on: window))
+        #expect(present(daemon, recorder, on: window) == nil)
+        #expect(recorder.presentedSheets.count == 1)
+    }
+
+    /// The one case whose subject is AppKit itself: a real `beginSheet` on a
+    /// terminal-like window (no content view controller), ended by Escape.
+    @Test func escapeEndsARealSheetOnATerminalLikeWindow() async throws {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 320), styleMask: [.titled], backing: .buffered, defer: false)
+        window.contentView = NSView() // like TerminalController: no content view controller
+        window.isReleasedWhenClosed = false // close() must not over-release (autorelease-pool crash)
+        window.makeKeyAndOrderFront(nil)
+        defer { window.close() }
+        #expect(window.contentViewController == nil)
+        let daemon = EnvironmentDaemon()
+        let session = try #require(LeoEnvironmentsSheetSession.present(overrideRow(), actions: actions(daemon), on: window))
+        #expect(window.attachedSheet === session.sheetWindow)
+        session.sheetWindow.cancelOperation(nil)
+        await awaitCondition { await MainActor.run { window.attachedSheet == nil } }
+        #expect(await daemon.calls.isEmpty)
+    }
+
+    @Test func editsSurviveDefaultsThatMatchThenDiffer() {
+        let catalog = CurrentValueSubject<LeoEnvironmentCatalogState, Never>(.loaded(Self.catalog))
+        let model = SpawnAgentModel(
+            templateList: Just(.loaded([LeoTemplate(name: "claude")])).eraseToAnyPublisher(),
+            environmentCatalog: catalog.eraseToAnyPublisher(), environmentsSupported: Just(true).eraseToAnyPublisher()
+        )
+        model.template = "claude"
+        model.editEnvironments(LeoEnvironmentList(["dev"]))
+        catalog.send(.loaded(LeoEnvironmentCatalog(names: Self.catalog.names, templateDefaults: ["claude": ["dev"]])))
+        catalog.send(.loaded(LeoEnvironmentCatalog(names: Self.catalog.names, templateDefaults: ["claude": ["prod"]])))
+        #expect(model.environments.names == ["dev"])
+        #expect(model.request().environments == ["dev"])
+    }
+
+    // MARK: Spawn sheet
+
+    private func spawnModel(supported: Bool = true) -> SpawnAgentModel {
+        let model = SpawnAgentModel(
+            templateList: Just(.loaded([LeoTemplate(name: "claude"), LeoTemplate(name: "bare")])).eraseToAnyPublisher(),
+            environmentCatalog: Just(.loaded(Self.catalog)).eraseToAnyPublisher(), environmentsSupported: Just(supported).eraseToAnyPublisher()
+        )
+        model.template = "claude"
+        return model
+    }
+
+    @Test func prefillsTemplateDefault() {
+        let model = spawnModel()
+        #expect(model.environments.names == ["aws", "prod"])
+        model.template = "bare"
+        #expect(model.environments.names.isEmpty)
+    }
+
+    @Test func untouchedPrefillNotSent() {
+        #expect(spawnModel().request().environments == nil)
+    }
+
+    @Test func editedListSentInOrder() {
+        let model = spawnModel()
+        model.editEnvironments(model.environments.adding("dev").moving("aws", by: 1))
+        #expect(model.request().environments == ["prod", "aws", "dev"])
+    }
+
+    @Test func hiddenAndUnsentWithoutFeature() {
+        let model = spawnModel(supported: false)
+        #expect(!model.showsEnvironments)
+        model.editEnvironments(LeoEnvironmentList(["dev"]))
+        #expect(model.request().environments == nil)
+    }
+
+    @Test func spawnErrorShowsDaemonMessage() async {
+        let daemon = EnvironmentDaemon(error: .daemon(code: "unknown_environment", message: "unknown environment \"dev\"", matches: []))
+        let actions = actions(daemon)
+        let model = spawnModel()
+        model.spawn(model.request(), actions: actions, attach: { _, _ in }, dismiss: {})
+        await awaitCondition { await MainActor.run { model.error == "unknown environment \"dev\"" } }
+    }
+}
+
+private actor EnvironmentDaemon: LeoDaemonClient {
+    private(set) var calls: [String] = []
+    private let error: LeoDaemonError?
+    private let catalog: LeoEnvironmentCatalog
+
+    init(error: LeoDaemonError? = nil, catalog: LeoEnvironmentCatalog = LeoEnvironmentCatalog(names: [])) {
+        self.error = error
+        self.catalog = catalog
+    }
+
+    func environmentCatalog() async throws -> LeoEnvironmentCatalog {
+        if let error { throw error }
+        return catalog
+    }
+    func setEnvironments(_ name: String, names: [String]) async throws {
+        calls.append("set:\(name):\(names.joined(separator: ","))")
+        if let error { throw error }
+    }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent {
+        if let error { throw error }
+        return LeoAgent(name: "a", template: nil, repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: nil, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
+    }
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func start(_ name: String) async throws {}
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws {}
+    func restart(_ name: String) async throws -> LeoAgent { try await spawn(LeoSpawnRequest()) }
+    func reset(_ name: String) async throws {}
+    func setTemplate(_ name: String, template: String) async throws {}
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { try await spawn(LeoSpawnRequest()) }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { LeoDeletePlan(name: name, hasWorktree: false, branch: nil, worktreePath: nil) }
+    func logs(_ name: String, lines: Int?) async throws -> String { "" }
+}

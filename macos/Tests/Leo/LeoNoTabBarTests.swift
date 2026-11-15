@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-055 (D-098, D-104): no window ever gets a tab bar, and the menu items
 /// that only made sense with tabs are remapped or hidden. Runs against the
@@ -68,8 +69,13 @@ import Testing
         let xib = try LeoMenuXib.shortcuts()
         #expect(xib.contains { $0.action == "chooseLeoAgent:" && $0.shortcut == "⌘o" })
         #expect(Self.commandOIntruders(xib).map(\.title) == [], "no xib item but Choose Agent… binds ⌘O, and none binds a bare O")
+        let live = LeoMenuXib.shortcuts(in: NSApp.mainMenu)
         #expect(
-            Self.commandOIntruders(LeoMenuXib.shortcuts(in: NSApp.mainMenu)).map(\.title) == [],
+            live.contains { $0.action == "chooseLeoAgent:" && $0.title == "Choose Agent…" && $0.shortcut == "⌘o" },
+            "the live menu walk finds Choose Agent… on ⌘O (an empty walk must not pass the intruder check)"
+        )
+        #expect(
+            Self.commandOIntruders(live).map(\.title) == [],
             "no live menu item but Choose Agent… binds ⌘O, and none binds a bare O"
         )
     }
@@ -202,9 +208,9 @@ import Testing
                 <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
                 <connections><action selector="openFileInLeoEditor:" target="-1" id="a2"/></connections>
             </menuItem>
-            <menuItem title="Open Surfaced File" keyEquivalent="o" id="s2">
+            <menuItem title="Option O" keyEquivalent="o" id="s2">
                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
-                <connections><action selector="openLeoSurfacedFile:" target="-1" id="a3"/></connections>
+                <connections><action selector="openFileInLeoEditor:" target="-1" id="a3"/></connections>
             </menuItem>
             """)
 
@@ -244,19 +250,42 @@ import Testing
         return main
     }
 
-    @Test func liveShortcutsDecodeLikeTheXib() {
-        let menu = Self.liveMenu([
-            Self.liveItem("Command", "a:", "t", .command),
-            Self.liveItem("Bare", "b:", "t", []),
-            Self.liveItem("Upper", "c:", "T", .command),
-            Self.liveItem("Option", "d:", "t", .option),
-            Self.liveItem("None", "e:", "", .command),
-        ])
+    /// One shortcut as the live menu holds it and as MainMenu.xib spells it
+    /// (`xibMask` is the `<modifierMask>` element; none means ⌘).
+    private struct ShortcutCase {
+        let title: String
+        let action: String
+        let key: String
+        let mask: NSEvent.ModifierFlags
+        let xibMask: String
+    }
 
-        let shortcuts = LeoMenuXib.shortcuts(in: menu)
+    private static func xibDocument(_ cases: [ShortcutCase]) throws -> XMLDocument {
+        let items = cases.map { """
+            <menuItem title="\($0.title)" keyEquivalent="\($0.key)">\($0.xibMask)\
+            <connections><action selector="\($0.action)"/></connections></menuItem>
+            """ }
+        return try XMLDocument(xmlString: "<document><items>\(items.joined())</items></document>")
+    }
 
-        #expect(shortcuts.map(\.shortcut) == ["⌘t", "t", "⇧⌘t", "⌥t"])
-        #expect(shortcuts.map(\.action) == ["a:", "b:", "c:", "d:"])
+    @Test func liveShortcutsDecodeLikeTheXib() throws {
+        let cases = [
+            ShortcutCase(title: "Command", action: "a:", key: "t", mask: .command, xibMask: ""),
+            ShortcutCase(title: "Bare", action: "b:", key: "t", mask: [], xibMask: "<modifierMask/>"),
+            ShortcutCase(title: "Upper", action: "c:", key: "T", mask: .command, xibMask: ""),
+            ShortcutCase(title: "Bare upper", action: "d:", key: "T", mask: [], xibMask: "<modifierMask/>"),
+            ShortcutCase(title: "Option", action: "e:", key: "t", mask: .option, xibMask: "<modifierMask option=\"YES\"/>"),
+            ShortcutCase(title: "None", action: "f:", key: "", mask: .command, xibMask: ""),
+        ]
+        let menu = Self.liveMenu(cases.map { Self.liveItem($0.title, $0.action, $0.key, $0.mask) })
+
+        let live = LeoMenuXib.shortcuts(in: menu)
+        let xib = try LeoMenuXib.shortcuts(in: Self.xibDocument(cases))
+
+        #expect(live.map(\.shortcut) == xib.map(\.shortcut))
+        #expect(live.map(\.action) == xib.map(\.action))
+        #expect(live.map(\.title) == xib.map(\.title))
+        #expect(live.map(\.shortcut).contains("⇧t"))
     }
 
     @Test func theLiveGuardFlagsAnyItemOnCommandTOrABareT() {

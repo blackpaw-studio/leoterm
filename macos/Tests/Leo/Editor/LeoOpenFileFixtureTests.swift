@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The DEBUG-only `LEO_OPEN_FILE` hook that opens a local file in the
 /// first window's editor at launch, for GUI checks past the Open File panel.
@@ -54,7 +55,7 @@ struct LeoOpenFileFixtureTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let defaults = LeoInMemoryDefaults()
             let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-            let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+            let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
             let session = runtime.registry.makeSession(defaults: defaults, makeFileAccess: { _ in
                 throw LeoFileAccessError.unavailable(reason: "Leo is connected to work, not localhost")
             })

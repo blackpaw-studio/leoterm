@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoHostConfigurationTests {
     @Test func jsonRoundTripPreservesConfiguration() throws {

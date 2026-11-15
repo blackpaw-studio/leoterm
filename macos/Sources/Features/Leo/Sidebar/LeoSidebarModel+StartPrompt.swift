@@ -1,6 +1,7 @@
 import Foundation
 
-/// B-049: "Start <name>?" for a click on an agent that isn't running.
+/// B-049: "Start <name>?" for a request to open a terminal (new window)
+/// on an agent that isn't running; a plain click shows its chat (B-369).
 struct LeoStartPrompt: Identifiable, Equatable {
     enum Phase: Equatable {
         /// Asking; nothing has been started.
@@ -23,8 +24,9 @@ struct LeoStartPrompt: Identifiable, Equatable {
     }
 }
 
-/// A click goes to the agent: a running one is attached; any other asks
-/// before starting it, then attaches once the daemon reports it running --
+/// A click goes to the agent: a running one is attached; any other shows its
+/// chat. A new-window open of one asks before starting it, then attaches once
+/// the daemon reports it running --
 /// never on a timer, never by guessing (principle 5). The wait ends when
 /// the user cancels, the sheet goes away (its window closed), the start
 /// is refused, or the agent leaves the list; nothing retries.
@@ -35,9 +37,17 @@ extension LeoSidebarModel {
     /// have picked a disposition. Needs the window it came from: that's
     /// where the attach lands and the prompt shows.
     func go(to row: LeoAgentRow, from origin: LeoWindowID?, disposition: AttachDisposition) {
-        guard let origin, !isDisconnected else { return }
+        guard let origin, !isDisconnected(row.host) else { return }
         guard row.status == .running else {
-            askToStart(row, from: origin, disposition: disposition)
+            // B-369: an agent that isn't running has no terminal to attach,
+            // but its history is readable: a plain click shows its chat
+            // and never blocks behind a sheet. Starting it stays a separate
+            // action (row menu, Agents ▸ Start, the chat's Start bar).
+            // Only a request for a terminal in a new window needs it running.
+            switch disposition {
+            case .content: chatRequested(row, origin)
+            case .newWindow: askToStart(row, from: origin, disposition: disposition)
+            }
             return
         }
         requestAttach(row, from: origin, disposition: disposition)
@@ -48,7 +58,7 @@ extension LeoSidebarModel {
     /// for the running report.
     func confirmStart(_ id: LeoStartPrompt.ID) {
         guard let prompt = prompt(id), prompt.phase == .confirm else { return }
-        guard let row = snapshot.rows.first(where: { $0.id == prompt.agent }) else {
+        guard let row = rows.first(where: { $0.id == prompt.agent }) else {
             endStartPrompt(id)
             return
         }
@@ -67,6 +77,7 @@ extension LeoSidebarModel {
 
     /// Return on the list: the same as a single click on the selected row.
     func activateSelection(from origin: LeoWindowID) {
+        if let dispatch = selectedDispatch { return requestDispatchAttach(dispatch, from: origin, disposition: .content) }
         guard let selected = actionableSelection?.id,
               let row = visibleRows.first(where: { $0.id == selected }) else { return }
         rowClicked(row, from: origin)
@@ -74,11 +85,11 @@ extension LeoSidebarModel {
 
     /// After each snapshot: a waiting prompt whose agent the daemon now
     /// reports running attaches; one whose agent left the list ends. A
-    /// disconnected list is stale, so it decides nothing.
+    /// disconnected machine's list is stale, so it decides nothing.
     func resolveStartPrompts() {
-        guard !isDisconnected else { return }
         for prompt in startPrompts.values {
-            guard let row = snapshot.rows.first(where: { $0.id == prompt.agent }) else {
+            guard !isDisconnected(prompt.agent.host) else { continue }
+            guard let row = rows.first(where: { $0.id == prompt.agent }) else {
                 endStartPrompt(prompt.id)
                 continue
             }

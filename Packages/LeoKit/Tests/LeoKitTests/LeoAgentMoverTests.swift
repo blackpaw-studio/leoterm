@@ -1,0 +1,204 @@
+import Foundation
+import Testing
+
+@testable import LeoKit
+
+struct LeoAgentMoverTests {
+    private static func job(_ state: String, mode: String = "move", extra: String = "") -> LeoMoveJob {
+        let json = #"{"id":"mv-1","request":{"mode":"\#(mode)","to":"nas"},"state":"\#(state)"\#(extra)}"#
+        guard let job = try? JSONDecoder().decode(LeoMoveJob.self, from: Data(json.utf8)) else { fatalError("bad job fixture: \(json)") }
+        return job
+    }
+
+    private func mover(_ client: ScriptedMoveClient, sleep: SleepProbe = SleepProbe()) -> LeoAgentMover {
+        LeoAgentMover(client: client, pollInterval: .seconds(1), sleep: { try await sleep.sleep($0) })
+    }
+
+    @Test func pollsUntilDone() async throws {
+        let sleeps = SleepProbe()
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .success(Self.job("running")),
+            .success(Self.job("done", extra: #","result":{"name":"a","to":"nas"}"#)),
+        ])
+        let outcome = try await mover(client, sleep: sleeps).run("a", .move(to: "nas"))
+        #expect(outcome == .done(LeoMoveResult(name: "a", host: nil, to: "nas", workspace: nil, branch: nil)))
+        #expect(await client.pollCount == 2)
+        #expect(await sleeps.durations == [.seconds(1), .seconds(1)])
+    }
+
+    @Test func reportsEachNewStageOnceAsTheJobAdvances() async throws {
+        func stages(_ names: String...) -> String {
+            #","stages":[\#(names.map { #"{"name":"\#($0)","at":"2026-11-14T19:00:00Z"}"# }.joined(separator: ","))]"#
+        }
+        let client = ScriptedMoveClient(start: .success(Self.job("running", extra: stages("validate"))), polls: [
+            .success(Self.job("running", extra: stages("validate", "preflight"))),
+            .success(Self.job("running", extra: stages("validate", "preflight"))),
+            .success(Self.job("done", extra: stages("validate", "preflight", "commit") + #","result":{"name":"a"}"#)),
+        ])
+        let seen = StageLog()
+        _ = try await mover(client).run("a", .move(to: "nas"), onStage: { seen.append($0) })
+        #expect(seen.values == ["validate", "preflight", "commit"])
+    }
+
+    @Test func aBusyMoveIsRefusedWithForceOffered() async throws {
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .success(Self.job("failed", extra: #","error":{"code":"agent_busy","message":"pass --force"}"#)),
+        ])
+        let outcome = try await mover(client).run("a", .move(to: "nas"))
+        #expect(outcome == .refused(code: "agent_busy", message: "This agent is in the middle of a turn.", offersForce: true))
+    }
+
+    @Test func aMissingTranscriptIsRefusedWithAClearMessageAndNoForce() async throws {
+        let daemonText = "widgeon's session 8513c333 has no transcript (looked for /Users/evan/.claude/projects/x); there is nothing to resume, so it was not moved"
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .success(Self.job("failed", extra: """
+            ,"error":{"code":"session_missing","message":"session_missing: \(daemonText)"},
+            "problems":[{"code":"session_missing","message":"\(daemonText)"}]
+            """)),
+        ])
+        let outcome = try await mover(client).run("widgeon", .move(to: "nas"))
+        #expect(outcome == .refused(
+            code: "session_missing",
+            message: "This agent's previous session is no longer on disk, so there is nothing to resume. Nothing was moved.",
+            offersForce: false
+        ))
+    }
+
+    @Test func aBusyCopyOffersNoForce() async throws {
+        let client = ScriptedMoveClient(start: .success(Self.job("running", mode: "copy")), polls: [
+            .success(Self.job("failed", mode: "copy", extra: #","error":{"code":"agent_busy","message":"busy"}"#)),
+        ])
+        let outcome = try await mover(client).run("a", .copy(to: "nas"))
+        #expect(outcome == .refused(code: "agent_busy", message: "busy", offersForce: false), "a copy's busy text is the daemon's own, which carries its advice")
+    }
+
+    @Test func preflightProblemsSurfaceTheDaemonsTextVerbatim() async throws {
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .success(Self.job("failed", extra: #"""
+            ,"error":{"code":"no_repo","message":"no_repo: not a git repo; same_host: already there"},
+            "problems":[{"code":"no_repo","message":"not a git repo"},{"code":"same_host","message":"already there"}]
+            """#)),
+        ])
+        let outcome = try await mover(client).run("a", .move(to: "nas"))
+        #expect(outcome == .refused(code: "no_repo", message: "not a git repo\nalready there", offersForce: false))
+    }
+
+    @Test func aJobAlreadyFailedOnStartIsNotPolled() async throws {
+        let client = ScriptedMoveClient(start: .success(Self.job("failed", extra: #","error":{"code":"name_taken","message":"taken"}"#)), polls: [])
+        let outcome = try await mover(client).run("a", .duplicate(name: "x"))
+        #expect(outcome == .refused(code: "name_taken", message: "taken", offersForce: false))
+        #expect(await client.pollCount == 0)
+    }
+
+    @Test func aPollThatGetsNotFoundIsUnknown() async throws {
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .failure(.daemon(code: "not_found", message: "no such move job", matches: [])),
+        ])
+        let outcome = try await mover(client).run("a", .move(to: "nas"))
+        #expect(outcome == .unknown("no such move job"))
+    }
+
+    @Test func aDroppedPollIsRetriedWithBackoffAndTheMoveStillCompletes() async throws {
+        let sleeps = SleepProbe()
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [
+            .failure(.transport("connection lost")),
+            .failure(.timeout),
+            .success(Self.job("done", extra: #","result":{"name":"a","to":"nas"}"#)),
+        ])
+        let outcome = try await mover(client, sleep: sleeps).run("a", .move(to: "nas"))
+        #expect(outcome == .done(LeoMoveResult(name: "a", to: "nas")))
+        #expect(await client.pollCount == 3)
+        #expect(await sleeps.durations == [.seconds(1), .seconds(2), .seconds(4)])
+    }
+
+    @Test func aSuccessfulPollResetsTheFailureCount() async throws {
+        let drops = Array(repeating: Result<LeoMoveJob, LeoDaemonError>.failure(.timeout), count: LeoAgentMover.maxConsecutivePollFailures - 1)
+        let client = ScriptedMoveClient(
+            start: .success(Self.job("running")),
+            polls: drops + [.success(Self.job("running"))] + drops + [.success(Self.job("done", extra: #","result":{"name":"a"}"#))]
+        )
+        let outcome = try await mover(client).run("a", .move(to: "nas"))
+        #expect(outcome == .done(LeoMoveResult(name: "a")))
+    }
+
+    @Test func tooManyDroppedPollsInARowLeaveTheOutcomeUnknown() async throws {
+        let limit = LeoAgentMover.maxConsecutivePollFailures
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: Array(repeating: .failure(.transport("down")), count: limit))
+        let outcome = try await mover(client).run("a", .move(to: "nas"))
+        #expect(outcome == .unknown(LeoAgentMover.lostContactMessage))
+        #expect(await client.pollCount == limit)
+    }
+
+    @Test func aPollRefusalThatIsNotATransportDropStillThrows() async {
+        let refusal = LeoDaemonError.daemon(code: "unauthorized", message: "bad token", matches: [])
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [.failure(refusal)])
+        await #expect(throws: refusal) { _ = try await mover(client).run("a", .move(to: "nas")) }
+    }
+
+    @Test func cancellationDuringABackoffStillThrows() async {
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: [.failure(.timeout), .success(Self.job("running"))])
+        let sleeps = SleepProbe(cancelOnCall: 2)
+        await #expect(throws: CancellationError.self) { _ = try await mover(client, sleep: sleeps).run("a", .move(to: "nas")) }
+    }
+
+    @Test func aStartRefusalThrowsTheDaemonError() async {
+        let refusal = LeoDaemonError.daemon(code: "agent_moving", message: "already moving", matches: [])
+        let client = ScriptedMoveClient(start: .failure(refusal), polls: [])
+        await #expect(throws: refusal) { _ = try await mover(client).run("a", .move(to: "nas")) }
+    }
+
+    @Test func cancellationStopsPolling() async {
+        let client = ScriptedMoveClient(start: .success(Self.job("running")), polls: Array(repeating: .success(Self.job("running")), count: 5))
+        let sleeps = SleepProbe(cancelOnCall: 2)
+        await #expect(throws: CancellationError.self) { _ = try await mover(client, sleep: sleeps).run("a", .move(to: "nas")) }
+        #expect(await client.pollCount == 1)
+    }
+}
+
+private actor SleepProbe {
+    private(set) var durations: [Duration] = []
+    private let cancelOnCall: Int?
+
+    init(cancelOnCall: Int? = nil) { self.cancelOnCall = cancelOnCall }
+
+    func sleep(_ duration: Duration) throws {
+        durations.append(duration)
+        if durations.count == cancelOnCall { throw CancellationError() }
+    }
+}
+
+private actor ScriptedMoveClient: LeoDaemonClient {
+    private let startResult: Result<LeoMoveJob, LeoDaemonError>
+    private var polls: [Result<LeoMoveJob, LeoDaemonError>]
+    private(set) var pollCount = 0
+
+    init(start: Result<LeoMoveJob, LeoDaemonError>, polls: [Result<LeoMoveJob, LeoDaemonError>]) {
+        startResult = start
+        self.polls = polls
+    }
+
+    func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob { try startResult.get() }
+    func moveJob(id: String) async throws -> LeoMoveJob {
+        pollCount += 1
+        return try polls.removeFirst().get()
+    }
+
+    func listAgents() async throws -> [LeoAgent] { [] }
+    func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func start(_ name: String) async throws {}
+    func stop(_ name: String, wakeOnMessage: Bool?) async throws {}
+    func restart(_ name: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func reset(_ name: String) async throws {}
+    func setTemplate(_ name: String, template: String) async throws {}
+    func rename(_ name: String, newName: String) async throws -> LeoAgent { throw LeoDaemonError.timeout }
+    func delete(_ name: String, force: Bool?, deleteBranch: Bool?) async throws {}
+    func deletePlan(_ name: String) async throws -> LeoDeletePlan { throw LeoDaemonError.timeout }
+    func logs(_ name: String, lines: Int?) async throws -> String { "" }
+}
+
+private final class StageLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [String] = []
+    var values: [String] { lock.withLock { stored } }
+    func append(_ stage: String) { lock.withLock { stored.append(stage) } }
+}

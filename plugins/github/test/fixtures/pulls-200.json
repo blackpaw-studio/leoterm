@@ -1,0 +1,5 @@
+{
+  "status": 200,
+  "headers": { "etag": "W/\"abc123\"", "x-ratelimit-remaining": "4990", "x-ratelimit-reset": "1767268800" },
+  "body": [{ "number": 12, "title": "Add thing", "state": "open", "draft": false, "head": { "sha": "deadbeef", "ref": "feat/thing" }, "html_url": "https://github.com/o/r/pull/12" }]
+}

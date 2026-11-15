@@ -2,6 +2,7 @@ import AppKit
 import Testing
 import Sparkle
 @testable import Ghostty
+@testable import LeoKit
 
 /// Sparkle's "Check for updates automatically?" request is asked once, in
 /// the update pill's popover (B-128). It never also opens Sparkle's standard

@@ -2,8 +2,56 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoMenuCommandsTests {
+    /// B-283: Set Environments sits right after Set Template in the Agent menu.
+    @Test func setEnvironmentsFollowsSetTemplate() throws {
+        let identifiers = try LeoMenuXib.siblingIdentifiers(of: LeoAgentsMenuController.setTemplateItemIdentifier.rawValue)
+        let index = try #require(identifiers.firstIndex(of: LeoAgentsMenuController.setTemplateItemIdentifier.rawValue))
+        #expect(identifiers.dropFirst(index + 1).first == LeoAgentsMenuController.setEnvironmentsItemIdentifier.rawValue)
+    }
+
+    /// B-324: Move To, Copy To and Duplicate… follow Switch to in the Agent menu, each with its own shortcut.
+    @Test func moveCopyAndDuplicateSitInTheAgentMenuWithShortcuts() throws {
+        let identifiers = try LeoMenuXib.siblingIdentifiers(of: LeoAgentsMenuController.moveToItemIdentifier.rawValue)
+        let move = try #require(identifiers.firstIndex(of: LeoAgentsMenuController.moveToItemIdentifier.rawValue))
+        #expect(identifiers[move - 1] == LeoAgentsMenuController.switchEnvironmentItemIdentifier.rawValue)
+        #expect(identifiers[move + 1] == LeoAgentsMenuController.copyToItemIdentifier.rawValue)
+        let shortcuts = try LeoMenuXib.shortcuts()
+        #expect(shortcuts.first { $0.title == "Move To" }?.shortcut == "⌃⇧⌘m")
+        #expect(shortcuts.first { $0.title == "Copy To" }?.shortcut == "⌃⇧⌘c")
+        let duplicate = try #require(shortcuts.first { $0.action == "duplicateSelectedLeoAgent:" })
+        #expect(duplicate.shortcut == "⌃⌘d")
+        #expect(duplicate.title == "Duplicate…")
+    }
+
+    /// B-324: AppKit enables a submenu parent that has no action whatever its
+    /// `isEnabled`, so Move To and Copy To carry an action the window validates.
+    @Test func theMoveAndCopyParentsHaveActionsToValidate() throws {
+        #expect(try LeoMenuXib.titles(forAction: "moveSelectedLeoAgent:") == ["Move To"])
+        #expect(try LeoMenuXib.titles(forAction: "copySelectedLeoAgent:") == ["Copy To"])
+    }
+
+    /// B-324: a daemon without `agent_move` can't move, copy or duplicate, so those
+    /// items go away for its agents; a daemon that has it keeps them.
+    @Test func aDaemonWithoutAgentMoveHasNoMoveItems() {
+        let availability = LeoRowActionAvailability(status: .running, isPending: false)
+        let without = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: availability, movesSupported: false)
+        #expect(!LeoMenuCommands.canMove(without) && !LeoMenuCommands.canCopy(without) && !LeoMenuCommands.canDuplicate(without))
+        #expect(!LeoMenuCommands.showsMoveItems(without))
+        let with = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: availability, movesSupported: true)
+        #expect(LeoMenuCommands.showsMoveItems(with))
+        let nothingSelected = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: nil)
+        #expect(LeoMenuCommands.showsMoveItems(nothingSelected), "with no row there is no daemon to blame; the items stay, disabled")
+    }
+
+    /// B-329: AppKit enables a submenu parent that has no action whatever its
+    /// `isEnabled`, so Set Template carries an action the window validates.
+    @Test func theSetTemplateParentHasAnActionToValidate() throws {
+        #expect(try LeoMenuXib.titles(forAction: "setTemplateForSelectedLeoAgent:") == ["Set Template"])
+    }
+
     @Test @MainActor func setTemplateItemIsFoundByIdentifierNotTitle() {
         let item = NSMenuItem(title: "Set Template", action: nil, keyEquivalent: "")
         item.identifier = LeoAgentsMenuController.setTemplateItemIdentifier
@@ -40,6 +88,18 @@ struct LeoMenuCommandsTests {
     @Test func createAgentRequiresLeoSession() {
         #expect(LeoMenuCommands.canCreateAgent(hasLeoSession: true))
         #expect(!LeoMenuCommands.canCreateAgent(hasLeoSession: false))
+    }
+
+    /// B-324: Move To, Copy To and Duplicate follow the same availability as the row menu.
+    @Test func moveCopyAndDuplicateFollowTheRowAvailability() {
+        let live = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: LeoRowActionAvailability(status: .running, isPending: false))
+        #expect(LeoMenuCommands.canMove(live) && LeoMenuCommands.canCopy(live) && LeoMenuCommands.canDuplicate(live))
+        let noSession = LeoMenuCommands.AgentContext(hasLeoSession: false, availability: LeoRowActionAvailability(status: .running, isPending: false))
+        #expect(!LeoMenuCommands.canMove(noSession) && !LeoMenuCommands.canCopy(noSession) && !LeoMenuCommands.canDuplicate(noSession))
+        let moved = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: LeoRowActionAvailability(status: .stopped, isPending: false, movedTo: "nas"))
+        #expect(!LeoMenuCommands.canMove(moved) && !LeoMenuCommands.canCopy(moved) && !LeoMenuCommands.canDuplicate(moved))
+        let none = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: nil)
+        #expect(!LeoMenuCommands.canMove(none) && !LeoMenuCommands.canCopy(none) && !LeoMenuCommands.canDuplicate(none))
     }
 
     @Test func agentCommandsDisabledWithoutLeoSession() {
@@ -110,5 +170,38 @@ struct LeoMenuCommandsTests {
         #expect(LeoMenuCommands.canDelete(context) == testCase.delete)
         #expect(LeoMenuCommands.canAttach(context) == testCase.attach)
         #expect(LeoMenuCommands.canViewLogs(context) == testCase.logs)
+    }
+
+    /// B-278: the preview commands each have one menu item on a shortcut
+    /// nothing else in the xib uses (Ghostty's runtime defaults bind ⌘0,
+    /// not ⌥⌘0).
+    @Test func previewShortcutsUnique() throws {
+        let xib = try LeoMenuXib.shortcuts()
+        let expected = [
+            ("toggleLeoEditorRawPresentation:", "⌥⌘u"), ("toggleLeoEditorImageZoom:", "⌥⌘0"), ("revealLeoEditorFile:", "⌥⇧⌘r"),
+        ]
+        for (action, shortcut) in expected {
+            #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
+            #expect(xib.filter { $0.action == action }.count == 1)
+        }
+    }
+
+    @Test func revealReadsByHost() {
+        #expect(LeoEditorPresentation.revealTitle(for: .local) == "Show in Finder")
+        #expect(LeoEditorPresentation.revealTitle(for: .remote("work")) == "Download")
+    }
+
+    /// B-262: the control verbs each have one Agents menu item on a ⌃⌘
+    /// combination nothing else in the xib uses.
+    @Test func controlShortcutsAreBoundOnceAndUnique() throws {
+        let xib = try LeoMenuXib.shortcuts()
+        let expected = [
+            ("messageSelectedLeoAgent:", "⌃⌘m"), ("interruptSelectedLeoAgent:", "⌃⌘."),
+            ("compactSelectedLeoAgent:", "⌃⌘k"), ("clearSelectedLeoAgent:", "⌃⇧⌘k"),
+        ]
+        for (action, shortcut) in expected {
+            #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
+            #expect(xib.filter { $0.action == action }.count == 1)
+        }
     }
 }

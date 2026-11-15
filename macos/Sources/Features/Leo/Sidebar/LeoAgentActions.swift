@@ -1,128 +1,164 @@
 import Combine
 import Foundation
+import LeoKit
+import OSLog
 
 @MainActor final class LeoAgentActions: ObservableObject {
     @Published private(set) var pendingActions: Set<LeoAgentRow.ID> = []
-    /// The selected host's templates, for every UI reader (New Agent sheet,
-    /// a row's Set Template submenu): prefetched on each host selection so
-    /// a menu has them on its first open, and reset to `.loading` the
-    /// moment the host changes so the old host's list is never shown for
-    /// the new one (B-054).
-    @Published private(set) var templateList: LeoTemplateListState = .loading
-    /// Bound to whatever connection is currently selected -- updated by
-    /// `LeoRuntime` (via `updateDaemon`) each time `LeoHostSelection`
-    /// reports a new connected socket. Every call below is unscoped
-    /// (no `host:` parameter): the daemon instance itself already
-    /// represents "whichever host is currently connected".
-    private var daemon: any LeoDaemonClient
-    /// The host `daemon` actually talks to. `LeoHostSelection.selected`
-    /// moves the moment a host is picked, but `daemon` only once that
-    /// host's tunnel is up (and never, if it fails), so a spawn checks this,
-    /// not the selection (B-176).
-    private var daemonHost: LeoHostID
-    /// The one selection `LeoRuntime` owns, injected: only its tunnel may
-    /// exist, so a second `LeoHostSelection` (and a second tunnel for the
-    /// same host) is never built here (B-027).
-    let hostSelection: LeoHostSelection
+    /// What a failed spawn or start says in place of the daemon's raw
+    /// `claude_not_found` text, which names its PATH. The local install flow
+    /// is only for the local host: a remote one needs claude installed there.
+    static func claudeMissingMessage(on host: LeoHostID) -> String {
+        guard host != .local else { return "Claude Code isn’t installed. Set it up from Agents ▸ Set Up Claude…" }
+        return "Claude Code isn’t installed on \(host.displayName). Install it there, then try again."
+    }
+    private static let claudeNotFoundCode = "claude_not_found"
+    /// A spawn or start on the local host failed with `claude_not_found`: the onboarding offer.
+    var claudeNotFound: () -> Void = {}
+    /// Each machine's templates, for every UI reader (New Agent sheet, a
+    /// row's Set Template submenu), keyed by host so one machine's list is
+    /// never shown for another (B-054) and loading one never blanks
+    /// another's. Filled by `loadTemplates(for:)` when a machine connects.
+    @Published private(set) var templateLists: [LeoHostID: LeoTemplateListState] = [:]
+    /// B-283: each machine's environment names and template defaults,
+    /// reloaded whenever its connection comes up (so it describes the host
+    /// it talks to, tunnel included) and on a manual refresh. An older
+    /// daemon fails quietly: every reader is gated on `agent_environments`.
+    @Published private(set) var environmentCatalogs: [LeoHostID: LeoEnvironmentCatalogState] = [:]
+    private var environmentCatalogTokens: [LeoHostID: Int] = [:]
+    /// B-324: where each machine's agents can be moved or copied to (the
+    /// keys of its daemon's `client.hosts`), loaded whenever it connects.
+    @Published private(set) var moveDestinationLists: [LeoHostID: LeoMoveDestinations] = [:]
+    /// A move the daemon refused only because the agent is mid-turn; the UI
+    /// asks whether to move it anyway (`acceptForceOffer`).
+    @Published private(set) var forceOffer: LeoMoveForceOffer?
+    /// B-395: why a move or copy didn't happen, in the daemon's words (every
+    /// preflight reason). Shown as an alert; the row error stays as the
+    /// quieter trace.
+    @Published private(set) var moveNotice: LeoMoveNotice?
+    /// The stage the daemon reports for each row's running move or copy.
+    @Published private(set) var moveStages: [LeoAgentRow.ID: String] = [:]
+    private let moveSleep: LeoAgentMover.Sleep
+    /// Resolves the daemon, generation and configuration of the row's own
+    /// host for every call below, so actions on one machine never wait on,
+    /// or get redirected by, another's connection.
+    private let clients: any LeoMachineClientResolving
     private let cli: LeoCLI
     private let model: LeoSidebarModel
     private let refresh: () -> Void
     /// Runs a remote host's one-off `ssh … leo template list --json`
     /// (B-061). Deliberately no default (B-112): `LeoRuntime` passes its
     /// `templateFetchRunner`, and a test that forgot a fake would ssh into a
-    /// real host on selecting it.
+    /// real host on connecting it.
     private let processRunner: any LeoProcessRunning
     private let sshExecutable: String
-    /// One cache instance for whichever host is currently selected --
-    /// `templateList` and the Agents-menu submenu both read through
-    /// `templates()` below, never fetching on their own. Templates are host
-    /// *configuration*, not agent state, so this is deliberately NOT
-    /// invalidated by every (now SSE-driven, frequent) sidebar list
-    /// refresh -- only by: the selected host changing (keyed inside the
-    /// cache actor by `refreshIfStale(for:_:)`, so the switch is atomic
-    /// with the read), a user-initiated sidebar refresh
+    /// One slot per host -- `templateLists` and the Agents-menu submenu both
+    /// read through `templates(for:)` below, never fetching on their own.
+    /// Templates are host *configuration*, not agent state, so this is
+    /// deliberately NOT invalidated by every (now SSE-driven, frequent)
+    /// sidebar list refresh -- only by a user-initiated sidebar refresh
     /// (`invalidateTemplateCache`, called by `LeoRuntime` off the feed's
-    /// `onManualRefresh` hook), and `LeoTemplateCache.templateCacheTTL` as
-    /// a backstop.
+    /// `onManualRefresh` hook) and `LeoTemplateCache.templateCacheTTL` as a
+    /// backstop.
     private let templateCache = LeoTemplateCache()
-    /// The host `templateList` describes, and a token bumped by every
-    /// reload so a fetch that lands after a newer one started is dropped.
-    private var templateListHost: LeoHostID?
-    private var templateListToken = 0
-    private var selectionObservation: AnyCancellable?
+    /// A token per host bumped by every reload so a fetch that lands after a
+    /// newer one started is dropped.
+    private var templateListTokens: [LeoHostID: Int] = [:]
 
-    init(daemon: any LeoDaemonClient, daemonHost: LeoHostID = .local, cli: LeoCLI, model: LeoSidebarModel,
-         hostSelection: LeoHostSelection,
+    init(clients: any LeoMachineClientResolving, cli: LeoCLI, model: LeoSidebarModel,
          processRunner: any LeoProcessRunning,
          sshExecutable: String = "/usr/bin/ssh",
+         moveSleep: @escaping LeoAgentMover.Sleep = { try await Task.sleep(for: $0) },
          refresh: @escaping () -> Void) {
-        self.daemon = daemon
-        self.daemonHost = daemonHost
+        self.clients = clients
         self.cli = cli
         self.model = model
-        self.hostSelection = hostSelection
         self.processRunner = processRunner
         self.sshExecutable = sshExecutable
+        self.moveSleep = moveSleep
         self.refresh = refresh
-        // `dropFirst`: the list loads on the first `select()` (which
-        // `LeoHostSelection.start` always makes, once hosts are loaded),
-        // not at construction, before a remote host's configuration exists.
-        selectionObservation = hostSelection.$selected.dropFirst().sink { [weak self] host in
-            self?.hostSelected(host)
+    }
+
+    func templateList(for host: LeoHostID) -> LeoTemplateListState { templateLists[host] ?? .loading }
+
+    func environmentCatalog(for host: LeoHostID) -> LeoEnvironmentCatalogState { environmentCatalogs[host] ?? .loading }
+
+    /// Called by `LeoRuntime` whenever `host`'s connection comes up or is
+    /// replaced: loads that machine's templates and environment catalog,
+    /// leaving every other machine's untouched.
+    func hostConnected(_ host: LeoHostID) {
+        loadTemplates(for: host)
+        reloadEnvironmentCatalog(for: host)
+        loadMoveDestinations(for: host)
+    }
+
+    /// Fetches `host`'s catalog from the daemon it is bound to now; a load
+    /// that lands after a newer one started is dropped. Nothing happens
+    /// while the host has no daemon.
+    func reloadEnvironmentCatalog(for host: LeoHostID) {
+        guard let daemon = clients.daemon(for: host) else { return }
+        let token = environmentCatalogTokens[host, default: 0] + 1
+        environmentCatalogTokens[host] = token
+        Task { [weak self] in
+            let state: LeoEnvironmentCatalogState
+            do {
+                state = .loaded(try await daemon.environmentCatalog())
+            } catch {
+                state = .failed(Self.message(error))
+            }
+            guard let self, token == self.environmentCatalogTokens[host] else { return }
+            self.environmentCatalogs[host] = state
         }
     }
 
-    /// Called by `LeoRuntime` whenever the selected connection's daemon
-    /// changes (a new host's tunnel came up, or we switched back to
-    /// localhost).
-    func updateDaemon(_ daemon: any LeoDaemonClient, host: LeoHostID) {
-        self.daemon = daemon
-        daemonHost = host
+    /// Prefetches `host`'s template list so a menu has it on its first open.
+    /// A host that has no loaded list yet shows `.loading` meanwhile;
+    /// reloading a loaded one (a reconnect) keeps its list showing.
+    func loadTemplates(for host: LeoHostID) {
+        if !(templateLists[host]?.isLoaded ?? false) { templateLists[host] = .loading }
+        let token = nextTemplateListToken(for: host)
+        Task { [weak self] in await self?.reloadTemplateList(for: host, token: token) }
     }
 
     /// Called by `LeoRuntime` when the user explicitly asks the sidebar to
     /// refresh (never for SSE-triggered or periodic-poll refreshes), so a
-    /// template renamed/added/removed on the daemon side is reflected on
-    /// demand without every row or the Agents menu fetching for themselves.
+    /// template renamed/added/removed on a daemon is reflected on demand
+    /// without every row or the Agents menu fetching for themselves. Reloads
+    /// every loaded machine that has a connection, each in its own task so a
+    /// slow machine never holds up the others; one with no client keeps its
+    /// list until it connects again.
     func invalidateTemplateCache() {
         let templateCache = templateCache
-        let token = nextTemplateListToken()
+        let reloads = templateLists.keys.filter { clients.daemon(for: $0) != nil }
+            .map { ($0, nextTemplateListToken(for: $0)) }
         Task { [weak self] in
             await templateCache.invalidate()
-            await self?.reloadTemplateList(token: token)
+            for (host, token) in reloads {
+                Task { [weak self] in await self?.reloadTemplateList(for: host, token: token) }
+            }
         }
+        environmentCatalogs.keys.forEach { reloadEnvironmentCatalog(for: $0) }
+        moveDestinationLists.keys.forEach { loadMoveDestinations(for: $0) }
     }
 
-    /// `$selected` publishes before the new value is stored, so the
-    /// reload is deferred to a task, which reads the stored selection.
-    /// The old host's list (or a failure) is cleared synchronously, here;
-    /// re-selecting the same host (a retry) keeps its loaded list showing.
-    private func hostSelected(_ host: LeoHostID) {
-        if host != templateListHost || !templateList.isLoaded {
-            templateListHost = host
-            templateList = .loading
-        }
-        let token = nextTemplateListToken()
-        Task { [weak self] in await self?.reloadTemplateList(token: token) }
+    private func nextTemplateListToken(for host: LeoHostID) -> Int {
+        let token = templateListTokens[host, default: 0] + 1
+        templateListTokens[host] = token
+        return token
     }
 
-    private func nextTemplateListToken() -> Int {
-        templateListToken += 1
-        return templateListToken
-    }
-
-    /// Publishes the selected host's templates unless a newer reload (a
-    /// later host switch or manual refresh) started meanwhile.
-    private func reloadTemplateList(token: Int) async {
-        guard token == templateListToken else { return }
+    /// Publishes `host`'s templates unless a newer reload for it started
+    /// meanwhile.
+    private func reloadTemplateList(for host: LeoHostID, token: Int) async {
+        guard token == templateListTokens[host] else { return }
         let state: LeoTemplateListState
         do {
-            state = .loaded(try await templates())
+            state = .loaded(try await templates(for: host))
         } catch {
             state = .failed(Self.message(error))
         }
-        guard token == templateListToken else { return }
-        templateList = state
+        guard token == templateListTokens[host] else { return }
+        templateLists[host] = state
     }
 
     /// `completion` says whether the daemon accepted the start; a refusal
@@ -137,12 +173,168 @@ import Foundation
     func stop(_ row: LeoAgentRow) { run(row) { daemon in try await daemon.stop(row.name, wakeOnMessage: nil) } }
     func restart(_ row: LeoAgentRow) { run(row) { daemon in _ = try await daemon.restart(row.name) } }
     func setTemplate(_ row: LeoAgentRow, template: String) { run(row) { daemon in try await daemon.setTemplate(row.name, template: template) } }
-    func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
-    func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool, success: @escaping () -> Void = {}) {
+    /// B-283: replaces the agent's environment override (empty clears it);
+    /// the daemon restarts and resumes it. A refusal shows on the row.
+    func setEnvironments(_ row: LeoAgentRow, names: [String]) {
+        run(row) { daemon in try await daemon.setEnvironments(row.name, names: names) }
+    }
+    /// The machine's appearance routes (on its config client); nil while
+    /// it isn't connected.
+    func appearanceClient(for host: LeoHostID) -> (any LeoAppearanceAPI)? {
+        clients.daemon(for: host)?.configClient()
+    }
+
+    /// The machine's task-dismiss route; nil while it isn't connected or
+    /// its client doesn't offer one.
+    func taskClient(for host: LeoHostID) -> (any LeoAgentTaskAPI)? {
+        clients.daemon(for: host)?.configClient() as? any LeoAgentTaskAPI
+    }
+
+    /// Dismisses an ended task. The feed's `agent_task_changed` removes it
+    /// from every surface; a task that is already gone needs nothing.
+    func dismissTask(host: LeoHostID, agent: String, id: String) {
+        guard let client = taskClient(for: host) else { return }
+        Task {
+            do {
+                try await client.dismissAgentTask(agent: agent, id: id)
+            } catch LeoAgentTaskError.notFound {
+                return
+            } catch LeoAgentTaskError.notDismissable(let reason) {
+                // An older daemon (before leo#315) refuses anything but failed: the row just stays.
+                Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").notice("dismiss task refused: \(reason, privacy: .public)")
+            } catch {
+                Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo").error("dismiss task failed: \(error.localizedDescription, privacy: .public)")
+            }
+        }
+    }
+
+    // MARK: Move, copy, duplicate (B-324)
+
+    /// nil until `host`'s list has loaded.
+    func moveDestinations(for host: LeoHostID) -> LeoMoveDestinations? { moveDestinationLists[host] }
+
+    /// A host with no daemon has no list to wait for: it reads as unavailable
+    /// instead of loading forever. A load that a reconnect outdated starts over
+    /// against the new connection (or the same answer if there is none).
+    func loadMoveDestinations(for host: LeoHostID) {
+        #if DEBUG
+        guard !seededMoveDestinationHosts.contains(host) else { return }
+        #endif
+        guard let daemon = clients.daemon(for: host) else {
+            moveDestinationLists[host] = .unavailable
+            return
+        }
+        let generation = clients.generation(for: host)
+        Task { [weak self] in
+            let destinations = await LeoMoveDestinations.load(from: daemon)
+            guard let self else { return }
+            guard self.clients.generation(for: host) == generation else { return self.loadMoveDestinations(for: host) }
+            self.moveDestinationLists[host] = destinations
+        }
+    }
+
+    /// What opening the move menu does: starts the load itself (a host with no
+    /// daemon resolves to `.unavailable`), then waits for the list.
+    func loadedMoveDestinations(for host: LeoHostID) async -> LeoMoveDestinations? {
+        loadMoveDestinations(for: host)
+        return await awaitMoveDestinations(for: host)
+    }
+
+    /// `host`'s list once it has loaded; nil when the waiting task is cancelled
+    /// (the menu was reopened) so a wait never outlives the menu that asked.
+    func awaitMoveDestinations(for host: LeoHostID) async -> LeoMoveDestinations? {
+        for await lists in $moveDestinationLists.values {
+            guard !Task.isCancelled else { return nil }
+            if let loaded = lists[host] { return loaded }
+        }
+        return nil
+    }
+
+    #if DEBUG
+    /// The move fixture's stand-in for the daemon's host list; a connection
+    /// coming up does not replace it.
+    func seedMoveDestinations(_ destinations: LeoMoveDestinations, for host: LeoHostID) {
+        moveDestinationLists[host] = destinations
+        seededMoveDestinationHosts.insert(host)
+    }
+    private var seededMoveDestinationHosts: Set<LeoHostID> = []
+    #endif
+
+    func move(_ row: LeoAgentRow, to destination: String, force: Bool = false) {
+        transfer(row, .move(to: destination, force: force))
+    }
+    func copy(_ row: LeoAgentRow, to destination: String, name: String?) { transfer(row, .copy(to: destination, name: name)) }
+    /// A copy on the agent's own host.
+    func duplicate(_ row: LeoAgentRow, name: String?) { transfer(row, .duplicate(name: name)) }
+
+    /// The user chose "Move Anyway": resends the move with the mid-turn check skipped.
+    func acceptForceOffer() {
+        guard let offer = forceOffer else { return }
+        forceOffer = nil
+        move(offer.row, to: offer.destination, force: true)
+    }
+    func dismissForceOffer() { forceOffer = nil }
+    func dismissMoveNotice() { moveNotice = nil }
+
+    /// Runs the job to its outcome while the row stays pending. A finished
+    /// job (or a lost one) refreshes the list: a moved agent turns dormant
+    /// and a copy appears. A refusal shows on the row instead, which a
+    /// refresh would clear.
+    private func transfer(_ row: LeoAgentRow, _ request: LeoMoveRequest) {
+        let sleep = moveSleep
         run(
-            row, onSuccess: { (_: Void) in success() },
-            operation: { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+            row, refreshOnSuccess: false, outlivesReconnect: true,
+            onSuccess: { [weak self] (outcome: LeoAgentMoveOutcome) in self?.finish(outcome, row: row, request: request) },
+            operation: { [weak self] daemon in
+                defer { self?.moveStages[row.id] = nil }
+                do {
+                    return try await LeoAgentMover(client: daemon, sleep: sleep).run(
+                        row.name, request, onStage: { stage in await self?.setMoveStage(stage, for: row.id) }
+                    )
+                } catch let error as LeoDaemonError {
+                    self?.moveNotice = LeoMoveNotice(row: row, request: request, message: error.localizedDescription)
+                    throw error
+                }
+            }
         )
+    }
+
+    private func setMoveStage(_ stage: String, for id: LeoAgentRow.ID) { moveStages[id] = stage }
+
+    private func finish(_ outcome: LeoAgentMoveOutcome, row: LeoAgentRow, request: LeoMoveRequest) {
+        switch outcome {
+        case .done:
+            refresh()
+        case .unknown(let message):
+            model.setRowError(message, for: row.id)
+            moveNotice = LeoMoveNotice(row: row, request: request, message: message)
+            refresh()
+        case .refused(let code, let message, let offersForce):
+            if offersForce, let destination = request.to {
+                forceOffer = LeoMoveForceOffer(row: row, destination: destination, message: message)
+            } else {
+                model.setRowError(message, code: code, for: row.id)
+                moveNotice = LeoMoveNotice(row: row, request: request, message: message)
+            }
+        }
+    }
+
+    func rename(_ row: LeoAgentRow, newName: String) { run(row) { daemon in _ = try await daemon.rename(row.name, newName: newName) } }
+    /// B-274: closes `row`'s editor panes in every window before it's
+    /// deleted, asking about unsaved edits; `false` on Cancel. Wired by
+    /// `LeoRuntime`.
+    var closePanes: @MainActor (LeoAgentRow) async -> Bool = { _ in true }
+
+    /// Asks about the agent's unsaved panes first (`closePanes`): Cancel
+    /// leaves the agent alone.
+    func delete(_ row: LeoAgentRow, force: Bool, deleteBranch: Bool, success: @escaping () -> Void = {}) {
+        Task { [weak self] in
+            guard let self, await closePanes(row) else { return }
+            run(
+                row, onSuccess: { (_: Void) in success() },
+                operation: { daemon in try await daemon.delete(row.name, force: force, deleteBranch: deleteBranch) }
+            )
+        }
     }
     func deletePlan(_ row: LeoAgentRow, receive: @escaping (LeoDeletePlan) -> Void) {
         run(row, refreshOnSuccess: false, onSuccess: receive) { daemon in try await daemon.deletePlan(row.name) }
@@ -151,10 +343,10 @@ import Foundation
     /// Local templates come from the CLI (unchanged); a remote host's
     /// templates are fetched via a one-off `ssh ... leo template list --json`
     /// exec (not the persistent tunnel socket), matching how the local CLI
-    /// path itself works.
-    func templates() async throws -> [LeoTemplate] {
-        let host = hostSelection.selected
-        return try await templateCache.refreshIfStale(for: host) { [cli, processRunner, sshExecutable, host, configuration = hostSelection.selectedConfiguration] in
+    /// path itself works. Cached per host.
+    func templates(for host: LeoHostID) async throws -> [LeoTemplate] {
+        let configuration = clients.configuration(for: host)
+        return try await templateCache.refreshIfStale(for: host) { [cli, processRunner, sshExecutable] in
             if host == .local {
                 return try await cli.templateList()
             } else if let configuration {
@@ -182,33 +374,32 @@ import Foundation
         }
     }
 
-    /// Spawns on `expectedHost` only: refused, without a request, while the
-    /// daemon is still bound to another host (a tunnel still connecting, or
-    /// one that failed). A result that lands after the selection moved on
-    /// is not attached, but `failure` still tells the sheet, which would
-    /// otherwise stay spawning.
-    func spawn(_ request: LeoSpawnRequest, on expectedHost: LeoHostID,
+    /// Spawns on `host`'s own connection: refused, without a request, while
+    /// that machine has none (still connecting, failed or disabled). A result
+    /// that lands after `host` reconnected is not attached, but `failure`
+    /// still tells the sheet, which would otherwise stay spawning. Another
+    /// machine's connection changing never affects it.
+    func spawn(_ request: LeoSpawnRequest, on host: LeoHostID,
                attach: @escaping (LeoAgentRow, AttachDisposition) -> Void,
                dismiss: @escaping () -> Void, failure: @escaping (String) -> Void) {
-        guard daemonHost == expectedHost else {
-            failure("Not connected to \(expectedHost.displayName) yet")
+        guard let daemon = clients.daemon(for: host) else {
+            failure("Not connected to \(host.displayName) yet")
             return
         }
-        let capturedDaemon = daemon
-        let host = daemonHost
-        let capturedGeneration = hostSelection.generationToken
+        let capturedGeneration = clients.generation(for: host)
         Task { [weak self] in
             guard let self else { return }
             do {
-                let agent = try await capturedDaemon.spawn(request)
-                guard self.hostSelection.generationToken == capturedGeneration else {
+                let agent = try await daemon.spawn(request)
+                guard self.clients.generation(for: host) == capturedGeneration else {
                     failure("Host changed; the agent may have been created on \(host.displayName)")
                     return
                 }
                 dismiss(); refresh()
-                attach(LeoAgentRow(host: host, name: agent.name, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil), .content)
+                attach(LeoAgentRow(host: host, name: agent.name, displayName: agent.displayName, template: agent.template, status: agent.status ?? .unknown("unknown"), activity: .unknown, actionDetail: nil, wakeOnMessage: agent.wakeOnMessage), .content)
             } catch {
-                failure(Self.message(error))
+                failure(Self.message(error, host: host))
+                self.offerOnboardingIfClaudeMissing(error, host: host)
             }
         }
     }
@@ -217,45 +408,87 @@ import Foundation
         model.setRowError(message, for: row.id)
     }
 
-    /// Captures `daemon` and the selection's `generationToken` synchronously
-    /// at invocation time (not when the operation actually runs), and runs
-    /// `operation` against that captured daemon -- so a mid-flight host
-    /// switch can never redirect an already-issued request to the NEW
-    /// connection's socket. `operation`'s return value is ONLY handed to
-    /// `onSuccess` (and `refresh()` only called) after re-checking the
-    /// token: every UI callback -- refresh, row-error, and whatever
-    /// `onSuccess` does (attach, delete-plan display, etc.) -- is gated,
-    /// never invoked from inside `operation` itself where a stale
-    /// completion could still reach it.
-    private func run<T>(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, onSuccess: @escaping (T) -> Void = { (_: T) in },
+    /// Captures the row's host's daemon and generation synchronously at
+    /// invocation time (not when the operation actually runs), and runs
+    /// `operation` against that captured daemon -- so a mid-flight reconnect
+    /// can never redirect an already-issued request to the NEW connection's
+    /// socket. `operation`'s return value is ONLY handed to `onSuccess` (and
+    /// `refresh()` only called) after re-checking the generation: every UI
+    /// callback -- refresh, row-error, and whatever `onSuccess` does (attach,
+    /// delete-plan display, etc.) -- is gated, never invoked from inside
+    /// `operation` itself where a stale completion could still reach it.
+    /// Only the row's own host counts: another machine reconnecting changes
+    /// nothing here. A row whose host has no connection fails on the row
+    /// without a request. `outlivesReconnect` is for jobs that run on the
+    /// daemon, not the connection (a move): their outcome, Force offer and row
+    /// error publish even after a reconnect.
+    private func run<T>(_ row: LeoAgentRow, refreshOnSuccess: Bool = true, outlivesReconnect: Bool = false, onSuccess: @escaping (T) -> Void = { (_: T) in },
                         onFailure: @escaping () -> Void = {},
                         operation: @escaping @MainActor (any LeoDaemonClient) async throws -> T) {
         guard pendingActions.insert(row.id).inserted else { return }
-        let capturedDaemon = daemon
-        let capturedGeneration = hostSelection.generationToken
+        guard let capturedDaemon = clients.daemon(for: row.host) else {
+            pendingActions.remove(row.id)
+            model.setRowError("\(row.host.displayName) isn't connected.", for: row.id)
+            onFailure()
+            return
+        }
+        let capturedGeneration = clients.generation(for: row.host)
         Task { [weak self] in
             guard let self else { return }
             defer { self.pendingActions.remove(row.id) }
             do {
                 let value = try await operation(capturedDaemon)
-                guard self.hostSelection.generationToken == capturedGeneration else { return }
+                guard outlivesReconnect || self.clients.generation(for: row.host) == capturedGeneration else { return }
                 if refreshOnSuccess { self.refresh() }
                 onSuccess(value)
             } catch {
-                guard self.hostSelection.generationToken == capturedGeneration else { return }
-                self.model.setRowError(Self.message(error), code: Self.code(error), for: row.id)
+                guard outlivesReconnect || self.clients.generation(for: row.host) == capturedGeneration else { return }
+                self.model.setRowError(Self.message(error, host: row.host), code: Self.code(error), for: row.id)
+                self.offerOnboardingIfClaudeMissing(error, host: row.host)
                 onFailure()
             }
         }
     }
 
+    private func offerOnboardingIfClaudeMissing(_ error: Error, host: LeoHostID) {
+        if host == .local, Self.code(error) == Self.claudeNotFoundCode { claudeNotFound() }
+    }
+
+    private static func message(_ error: Error, host: LeoHostID) -> String {
+        code(error) == claudeNotFoundCode ? claudeMissingMessage(on: host) : message(error)
+    }
+
     private static func message(_ error: Error) -> String {
-        if case let LeoDaemonError.daemon(_, message, _) = error { return message }
-        return error.localizedDescription
+        // `LeoDaemonError.daemon` describes itself with the daemon's own message,
+        // except where LeoKit words a known code (`daemon_restoring`) better.
+        error.localizedDescription
     }
 
     private static func code(_ error: Error) -> String? {
         if case let LeoDaemonError.daemon(code, _, _) = error { return code }
         return nil
+    }
+}
+
+/// A mid-turn refusal of `row`'s move to `destination`, with the daemon's
+/// reason, awaiting the user's choice.
+struct LeoMoveForceOffer: Equatable {
+    let row: LeoAgentRow
+    let destination: String
+    let message: String
+}
+
+/// A move or copy that did not happen, with the daemon's reasons (one per line).
+struct LeoMoveNotice: Equatable {
+    let title: String
+    let message: String
+
+    init(title: String, message: String) {
+        self.title = title
+        self.message = message
+    }
+
+    init(row: LeoAgentRow, request: LeoMoveRequest, message: String) {
+        self.init(title: "Couldn\u{2019}t \(request.mode.rawValue) \(row.displayName)", message: message)
     }
 }

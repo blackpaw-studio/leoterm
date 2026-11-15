@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Leo is single-instance per bundle ID (D-051): a second copy of the same
 /// bundle activates the first and quits before any tunnel state is touched,

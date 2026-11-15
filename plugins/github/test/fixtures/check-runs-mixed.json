@@ -1,0 +1,14 @@
+{
+  "status": 200,
+  "headers": { "etag": "W/\"c1\"" },
+  "body": {
+    "total_count": 5,
+    "check_runs": [
+      { "id": 9001, "name": "build", "status": "completed", "conclusion": "success", "html_url": "https://github.com/o/r/actions/runs/1/job/9001", "details_url": "https://github.com/o/r/actions/runs/1/job/9001", "app": { "slug": "github-actions" } },
+      { "id": 9002, "name": "test", "status": "completed", "conclusion": "failure", "html_url": "https://github.com/o/r/actions/runs/1/job/9002", "details_url": "https://github.com/o/r/actions/runs/1/job/9002", "app": { "slug": "github-actions" } },
+      { "id": 9003, "name": "lint", "status": "in_progress", "conclusion": null, "html_url": "https://github.com/o/r/actions/runs/1/job/9003", "app": { "slug": "github-actions" } },
+      { "id": 9004, "name": "docs", "status": "completed", "conclusion": "skipped", "html_url": "https://github.com/o/r/actions/runs/1/job/9004", "app": { "slug": "github-actions" } },
+      { "id": 9005, "name": "codecov", "status": "completed", "conclusion": "neutral", "html_url": "https://codecov.io/x", "app": { "slug": "codecov" } }
+    ]
+  }
+}

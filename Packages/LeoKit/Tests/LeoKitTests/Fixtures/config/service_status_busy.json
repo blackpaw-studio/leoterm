@@ -1,0 +1,17 @@
+{
+  "ok": true,
+  "data": {
+    "version": "v0.52.0",
+    "pid": 4321,
+    "started_at": "2026-10-23T07:00:00.250Z",
+    "config_path": "/home/leo/leo.yaml",
+    "log_path": "/home/leo/.leo/state/leo.log",
+    "restart_required": {"agents": true, "service": false},
+    "processes": [
+      {"name": "coder", "status": "running", "started_at": "2026-10-23T07:00:05Z", "restarts": 0},
+      {"name": "reviewer", "status": "restarting", "started_at": "2026-10-23T07:10:00Z", "restarts": 2},
+      {"name": "scratch", "status": "running", "started_at": "2026-10-23T07:20:00Z", "restarts": 0, "ephemeral": true},
+      {"name": "old", "status": "stopped", "started_at": "2026-10-22T07:00:00Z", "restarts": 0}
+    ]
+  }
+}

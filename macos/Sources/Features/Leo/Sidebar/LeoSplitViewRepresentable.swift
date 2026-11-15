@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 import SwiftUI
 
 /// Bridges an `NSSplitViewController` into SwiftUI so the agents sidebar has
@@ -33,16 +34,26 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     let detail: Detail
     /// The window's editor pane, a trailing item that collapses while no
     /// file is open (B-004).
-    var editor: LeoEditorPaneModel?
+    var editor: LeoEditorTabs?
     /// The window's workspace browser, an item on the editor's leading
     /// edge that collapses while it's closed (B-005).
     var browser: LeoWorkspaceBrowserModel?
-    /// Where the side panes' header rows start below the split's top edge;
-    /// nil keeps their own rows. Fixed when the panes are built, as
-    /// the window's titlebar style is (D-170).
-    var sidePaneHeaderTopInset: CGFloat?
-    var onEditorPane: (LeoEditorPaneViewController) -> Void = { _ in }
-    var onBrowserPane: (LeoWorkspaceBrowserViewController) -> Void = { _ in }
+    /// The toolbar height the side panes' header rows start below, plus
+    /// the chrome's gap (they follow it as it changes); nil keeps their
+    /// own rows.
+    var sidePaneHeaderTopInset: LeoToolbarInset?
+    /// The window's rows' panes (B-274): the editor and browser items show
+    /// the pane of the row on screen. Takes the place of `editor` and
+    /// `browser`.
+    var panes: LeoRowPanes?
+    var onPaneContainer: (LeoRowPaneContainerViewController) -> Void = { _ in }
+    /// The agent pane under the detail column (plugins' summaries and bodies), and
+    /// the agent the window shows; nil without a plugin system.
+    var agentPane: LeoAgentPaneModel?
+    var agentPaneAgent: LeoAgentPaneAgent?
+    /// The split view is in a window and has laid out once: the window's
+    /// toolbar can bind its tracking separator to it. Called once.
+    var onSplitViewReady: (NSSplitView) -> Void = { _ in }
     /// The sidebar collapsed, or stayed collapsed, to keep the terminal at
     /// its floor (D-036, D-058).
     var onSidebarAutoCollapse: () -> Void = {}
@@ -62,15 +73,17 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             detail: AnyView(detail),
             editor: editor,
             browser: browser,
+            panes: panes,
+            agentPane: agentPane,
             sidePaneHeaderTopInset: sidePaneHeaderTopInset,
             onSidebarAutoCollapse: onSidebarAutoCollapse,
             onSidebarAutoRestore: onSidebarAutoRestore)
 
+        components.controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
         for item in components.controller.splitViewItems {
-            if let pane = item.viewController as? LeoEditorPaneViewController { onEditorPane(pane) }
-            if let pane = item.viewController as? LeoWorkspaceBrowserViewController { onBrowserPane(pane) }
+            if let container = item.viewController as? LeoRowPaneContainerViewController { onPaneContainer(container) }
         }
 
         return components.controller
@@ -80,8 +93,12 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         controller.onDividerWidthChange = onDividerWidthChange
         controller.onSidebarAutoCollapse = onSidebarAutoCollapse
         controller.onSidebarAutoRestore = onSidebarAutoRestore
+        controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting?.rootView = AnyView(sidebar)
         context.coordinator.detailHosting?.rootView = AnyView(detail)
+        // Opening the pane's plugin slots mutates published state, which must not happen
+        // inside a SwiftUI update: defer it (the last agent wins).
+        context.coordinator.scheduleAgent(agentPaneAgent, on: agentPane)
 
         guard let sidebarItem = controller.sidebarItem else { return }
 
@@ -131,9 +148,24 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// Holds the `NSHostingController`s so their `rootView` can be updated
     /// in place across SwiftUI body re-evaluations without recreating the
     /// AppKit view hierarchy.
-    final class Coordinator: NSObject {
+    @MainActor final class Coordinator: NSObject {
         var sidebarHosting: NSHostingController<AnyView>?
         var detailHosting: NSHostingController<AnyView>?
+        /// The agent the next main-queue turn hands to the pane model. Several
+        /// updates in one turn collapse to a single hand-off of the latest.
+        private var pendingAgent: LeoAgentPaneAgent??
+
+        func scheduleAgent(_ agent: LeoAgentPaneAgent?, on pane: LeoAgentPaneModel?) {
+            guard let pane else { return }
+            let isScheduled = pendingAgent != nil
+            pendingAgent = .some(agent)
+            guard !isScheduled else { return }
+            DispatchQueue.main.async { [weak self, weak pane] in
+                guard let self, let latest = self.pendingAgent else { return }
+                self.pendingAgent = nil
+                pane?.setAgent(latest)
+            }
+        }
     }
 }
 
@@ -145,9 +177,11 @@ enum LeoSplitViewControllerFactory {
         onDividerWidthChange: @escaping (CGFloat) -> Void,
         sidebar: AnyView,
         detail: AnyView,
-        editor: LeoEditorPaneModel? = nil,
+        editor: LeoEditorTabs? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
-        sidePaneHeaderTopInset: CGFloat? = nil,
+        panes: LeoRowPanes? = nil,
+        agentPane: LeoAgentPaneModel? = nil,
+        sidePaneHeaderTopInset: LeoToolbarInset? = nil,
         onSidebarAutoCollapse: @escaping () -> Void = {},
         onSidebarAutoRestore: @escaping () -> Void = {}
     ) -> (controller: LeoSplitViewController, sidebarHosting: NSHostingController<AnyView>, detailHosting: NSHostingController<AnyView>) {
@@ -163,26 +197,31 @@ enum LeoSplitViewControllerFactory {
         sidebarItem.isCollapsed = !isSidebarVisible
 
         let detailHosting = NSHostingController(rootView: detail)
-        let detailItem = NSSplitViewItem(viewController: detailHosting)
+        // With a plugin system the detail column is the terminal over the agent pane.
+        let detailController: NSViewController = agentPane.map { LeoDetailColumnController(detail: detailHosting, model: $0) } ?? detailHosting
+        let detailItem = NSSplitViewItem(viewController: detailController)
         detailItem.holdingPriority = LeoSidebarSplitMetrics.detailHoldingPriority
         detailItem.minimumThickness = LeoSidebarSplitMetrics.minimumTerminalWidth
 
         controller.addSplitViewItem(sidebarItem)
         controller.addSplitViewItem(detailItem)
-        if let browser {
-            let browserItem = NSSplitViewItem(
-                viewController: LeoWorkspaceBrowserViewController(model: browser, headerTopInset: sidePaneHeaderTopInset))
+        let sidePanes = LeoSidePanes(editor: editor, browser: browser, panes: panes)
+        if let panes = sidePanes.panes, sidePanes.hasBrowser {
+            let browserItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .browser, panes: panes) {
+                LeoWorkspaceBrowserViewController(model: $0.browser, headerTopInset: sidePaneHeaderTopInset)
+            })
             browserItem.canCollapse = true
-            browserItem.isCollapsed = !browser.isOpen
+            browserItem.isCollapsed = !panes.active.browser.isOpen
             browserItem.holdingPriority = LeoSidebarSplitMetrics.browserHoldingPriority
             browserItem.minimumThickness = LeoWorkspaceBrowserViewController.minimumWidth
             controller.addSplitViewItem(browserItem)
         }
-        if let editor {
-            let editorItem = NSSplitViewItem(
-                viewController: LeoEditorPaneViewController(model: editor, headerTopInset: sidePaneHeaderTopInset))
+        if let panes = sidePanes.panes, sidePanes.hasEditor {
+            let editorItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .editor, panes: panes) {
+                LeoEditorTabsViewController(tabs: $0.tabs, rowPane: $0, headerTopInset: sidePaneHeaderTopInset)
+            })
             editorItem.canCollapse = true
-            editorItem.isCollapsed = !editor.isOpen
+            editorItem.isCollapsed = !(panes.active.tabs.isOpen || panes.active.isAgentBrowserOpen)
             editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
             editorItem.minimumThickness = LeoEditorPaneViewController.minimumWidth
             controller.addSplitViewItem(editorItem)
@@ -218,6 +257,10 @@ final class LeoSplitViewController: NSSplitViewController {
     /// The terminal's item.
     var detailItem: NSSplitViewItem?
     var onDividerWidthChange: ((CGFloat) -> Void)?
+    /// Handed the split view the first time it lays out inside a window;
+    /// see `LeoSplitViewRepresentable.onSplitViewReady`.
+    var onSplitViewReady: ((NSSplitView) -> Void)?
+    private var hasHandedOverSplitView = false
     /// The sidebar was collapsed to keep the terminal at its floor; the
     /// window's session records it as hidden (not persisted).
     var onSidebarAutoCollapse: () -> Void = {}
@@ -321,7 +364,7 @@ final class LeoSplitViewController: NSSplitViewController {
     private func widestSidebarKeepingTerminalFloor(_ sidebarItem: NSSplitViewItem) -> CGFloat {
         guard let detailItem, sidePaneItems.contains(where: { !$0.isCollapsed }) else { return .greatestFiniteMagnitude }
         let room = detailItem.viewController.view.frame.width - LeoSidebarSplitMetrics.terminalFloor
-        return sidebarItem.viewController.view.frame.width + max(0, room)
+        return sidebarWidth(of: sidebarItem) + max(0, room)
     }
 
     /// Before `item` (the browser or the editor) is shown: if the terminal
@@ -332,7 +375,9 @@ final class LeoSplitViewController: NSSplitViewController {
     func makeRoom(forShowing item: NSSplitViewItem) {
         guard isReadyToPositionDivider, let sidebarItem, !sidebarItem.isCollapsed else { return }
         let paneWidths = splitViewItems.filter { ($0 !== detailItem && !$0.isCollapsed) || $0 === item }.map { pane in
-            pane === item ? max(pane.minimumThickness, pane.viewController.view.frame.width) : pane.viewController.view.frame.width
+            // Pane widths (the sidebar's view sits inset inside its pane on macOS 26).
+            let width = Self.paneWidth(of: pane.viewController.view, in: splitView)
+            return pane === item ? max(pane.minimumThickness, width) : width
         }
         guard squeezesTerminal(paneWidths) else { return }
         autoCollapseSidebar()
@@ -345,7 +390,7 @@ final class LeoSplitViewController: NSSplitViewController {
     func sidebarSqueezesTerminal(atWidth width: CGFloat) -> Bool {
         let sidePanes = sidePaneItems.filter { !$0.isCollapsed }
         guard isReadyToPositionDivider, let sidebarItem, !sidePanes.isEmpty else { return false }
-        let sidebarWidth = min(max(width, sidebarItem.minimumThickness), sidebarItem.maximumThickness)
+        let sidebarWidth = min(max(width, sidebarItem.minimumThickness + sidebarInset), sidebarItem.maximumThickness + sidebarInset)
         return squeezesTerminal([sidebarWidth] + sidePanes.map { $0.viewController.view.frame.width })
     }
 
@@ -363,7 +408,7 @@ final class LeoSplitViewController: NSSplitViewController {
     /// width, to come back as the window widens.
     private func autoCollapseSidebar() {
         guard let sidebarItem else { return }
-        floorCollapsedSidebarWidth = sidebarItem.viewController.view.frame.width
+        floorCollapsedSidebarWidth = sidebarWidth(of: sidebarItem)
         sidebarItem.isCollapsed = true
         lastKnownVisible = false
         onSidebarAutoCollapse()
@@ -542,9 +587,20 @@ final class LeoSplitViewController: NSSplitViewController {
             DispatchQueue.main.async { [weak self] in self?.openAtHalfWidth(item) }
         }
         keepTerminalFloor()
+        handOverSplitViewOnce()
         guard let width = pendingWidth, isReadyToPositionDivider else { return }
         pendingWidth = nil
         applyProgrammaticWidth(width)
+    }
+
+    /// Hands the split view to the window's toolbar the first time it lays
+    /// out inside a window, outside this layout pass: the toolbar changes
+    /// the window's content layout.
+    private func handOverSplitViewOnce() {
+        guard !hasHandedOverSplitView, view.window != nil, let handOver = onSplitViewReady else { return }
+        hasHandedOverSplitView = true
+        let splitView = splitView
+        DispatchQueue.main.async { handOver(splitView) }
     }
 
     /// Ties the sidebar's maximum to the split's width (B-091), so a wide
@@ -555,12 +611,48 @@ final class LeoSplitViewController: NSSplitViewController {
     /// width back (`narrowingTheWindowNarrowsAWideSidebarBeforeTheContent`).
     /// Setting it asks for another layout before the window draws, so the
     /// clamp never shows; an unchanged maximum isn't set, so that settles.
+    /// How far the sidebar's view sits inside its pane (8 pt on macOS 26,
+    /// 0 on 27). Item thickness limits clamp the view, the divider and the
+    /// content minimum are about the pane, so limits convert through this.
+    /// Kept from the last layout that had both, so a collapsed sidebar
+    /// (stale frame) doesn't zero it.
+    private var sidebarInset = CGFloat(0)
+
+    private func refreshSidebarInset() {
+        guard let sidebarItem, !sidebarItem.isCollapsed else { return }
+        let view = sidebarItem.viewController.view
+        let pane = Self.paneWidth(of: view, in: splitView)
+        guard pane > 0, view.frame.width > 0 else { return }
+        sidebarInset = max(0, pane - view.frame.width)
+    }
+
     private func updateSidebarMaximum() {
         guard let sidebarItem, splitView.bounds.width > 0 else { return }
-        let maximum = LeoSidebarSplitMetrics.sidebarMaximumWidth(
-            splitWidth: splitView.bounds.width, dividerThickness: splitView.dividerThickness)
+        refreshSidebarInset()
+        let maximum = LeoSidebarSplitMetrics.itemThickness(
+            forPaneWidth: LeoSidebarSplitMetrics.sidebarMaximumWidth(
+                splitWidth: splitView.bounds.width, dividerThickness: splitView.dividerThickness),
+            inset: sidebarInset)
+        let minimum = LeoSidebarSplitMetrics.itemThickness(
+            forPaneWidth: LeoSidebarSplitMetrics.minimumWidth, inset: sidebarInset)
+        if abs(sidebarItem.minimumThickness - minimum) > 0.5 { sidebarItem.minimumThickness = minimum }
         guard abs(sidebarItem.maximumThickness - maximum) > 0.5 else { return }
         sidebarItem.maximumThickness = maximum
+    }
+
+    /// The sidebar's width as the divider sets it: its pane's, not its
+    /// view's. On macOS 26 the sidebar's view sits inside the pane with an
+    /// 8 pt inset, so reading the view undercounts the width `setPosition`
+    /// set and stores (and restores) the sidebar 8 pt narrower than the
+    /// user left it.
+    func sidebarWidth(of item: NSSplitViewItem) -> CGFloat {
+        Self.paneWidth(of: item.viewController.view, in: splitView)
+    }
+
+    /// The width of the arranged subview of `splitView` that holds `view`,
+    /// or `view`'s own when it isn't in one.
+    static func paneWidth(of view: NSView, in splitView: NSSplitView) -> CGFloat {
+        splitView.arrangedSubviews.first { view === $0 || view.isDescendant(of: $0) }?.frame.width ?? view.frame.width
     }
 
     /// Whether `setPosition(_:ofDividerAt:)` can actually take effect.
@@ -589,7 +681,7 @@ final class LeoSplitViewController: NSSplitViewController {
         guard isReadyToPositionDivider else { return }
         view.layoutSubtreeIfNeeded()
         guard let sidebarItem, !sidebarItem.isCollapsed else { return }
-        lastPersistedWidth = sidebarItem.viewController.view.frame.width
+        lastPersistedWidth = sidebarWidth(of: sidebarItem)
     }
 
     /// Persists the sidebar's width when the user moves its divider, as
@@ -618,7 +710,7 @@ final class LeoSplitViewController: NSSplitViewController {
         guard Self.isSidebarDividerMove(notification.userInfo) else { return }
         guard !isApplyingProgrammaticWidth, pendingWidth == nil, isReadyToPositionDivider else { return }
         guard let sidebarItem, !sidebarItem.isCollapsed else { return }
-        let width = sidebarItem.viewController.view.frame.width
+        let width = sidebarWidth(of: sidebarItem)
         guard LeoSidebarSplitMetrics.shouldPersist(newWidth: width, lastPersistedWidth: lastPersistedWidth, isCollapsed: false) else {
             return
         }
@@ -651,12 +743,37 @@ extension NSViewController {
     /// Collapses or shows this controller's own split item (the browser's
     /// or the editor's). Showing it makes room for it first, and with
     /// `openingAtHalfWidth` then widens it to half of what it shares with
-    /// the terminal.
+    /// the terminal. A row's pane inside a container (B-274) asks the
+    /// container, which acts only for the row on screen.
     func setLeoSplitItemCollapsed(_ collapsed: Bool, openingAtHalfWidth: Bool = false) {
+        if let container = parent as? LeoRowPaneContainerViewController {
+            return container.childRequestsCollapsed(self, collapsed, openingAtHalfWidth: openingAtHalfWidth)
+        }
         guard let split = parent as? NSSplitViewController, let item = split.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
         let leoSplit = split as? LeoSplitViewController
         if !collapsed { leoSplit?.makeRoom(forShowing: item) }
         item.isCollapsed = collapsed
         if !collapsed, openingAtHalfWidth { leoSplit?.openAtHalfWidth(item) }
+    }
+}
+
+/// Which side panes the split builds, and from what: a window's rows'
+/// panes, or (tests) one editor and browser standing in for them.
+@MainActor private struct LeoSidePanes {
+    let panes: LeoRowPanes?
+    let hasEditor: Bool
+    let hasBrowser: Bool
+
+    init(editor: LeoEditorTabs?, browser: LeoWorkspaceBrowserModel?, panes: LeoRowPanes?) {
+        hasEditor = panes != nil || editor != nil
+        hasBrowser = panes != nil || browser != nil
+        guard panes == nil, editor != nil || browser != nil else {
+            self.panes = panes
+            return
+        }
+        let makeAccess = LeoWindowSession.noFileAccess
+        let editor = editor ?? LeoEditorTabs(makeAccess: makeAccess)
+        let pane = LeoRowPane(tabs: editor, browser: browser ?? LeoWorkspaceBrowserModel(makeAccess: makeAccess) { try await editor.open($0) })
+        self.panes = LeoRowPanes(startScreen: pane)
     }
 }

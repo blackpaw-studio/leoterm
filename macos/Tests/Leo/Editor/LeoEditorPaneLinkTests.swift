@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Opening a surfaced link for an agent: relative paths resolve against
 /// its workspace, `~` against its host's home, and the file opens on the
@@ -10,8 +11,8 @@ import Testing
 struct LeoEditorPaneLinkTests {
     nonisolated static let kinds: [LeoFileBackendKind] = [.local, .sftp]
 
-    private func makePane(_ kind: LeoFileBackendKind, home: String? = nil, hosts: LeoHostLog? = nil) -> LeoEditorPaneModel {
-        LeoEditorPaneModel(makeAccess: { host in
+    private func makePane(_ kind: LeoFileBackendKind, home: String? = nil, hosts: LeoHostLog? = nil) -> LeoEditorTabs {
+        LeoEditorTabs(makeAccess: { host in
             hosts?.hosts.append(host)
             let access = kind.makeAccess()
             return home.map { LeoFixedHomeAccess(access, home: $0) } ?? access
@@ -29,8 +30,8 @@ struct LeoEditorPaneLinkTests {
             #expect(try await pane.open(link: "src/main.swift:2", for: agent) == .opened)
 
             #expect(pane.document?.fileID == LeoEditorFileID(host: .local, path: sandbox.path("agent/src/main.swift")))
-            #expect(pane.reveal?.line == 2)
-            await pane.close()
+            #expect(pane.selected?.reveal?.line == 2)
+            await pane.closeAll()
         }
     }
 
@@ -44,7 +45,7 @@ struct LeoEditorPaneLinkTests {
             try await pane.open(link: "~/notes.md", for: agent)
 
             #expect(pane.document?.text == "# Notes")
-            await pane.close()
+            await pane.closeAll()
         }
     }
 
@@ -59,7 +60,7 @@ struct LeoEditorPaneLinkTests {
 
             #expect(pane.document?.fileID == LeoEditorFileID(host: .remote("devbox"), path: path))
             #expect(hosts.hosts == [.remote("devbox")])
-            await pane.close()
+            await pane.closeAll()
         }
     }
 

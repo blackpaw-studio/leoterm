@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-088: the "Close …?" confirm names the pane or row it closes, as its
 /// window title and sidebar row name it, so a busy split beside another

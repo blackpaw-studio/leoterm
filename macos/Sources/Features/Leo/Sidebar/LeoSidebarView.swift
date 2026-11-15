@@ -1,5 +1,7 @@
 import AppKit
 import SwiftUI
+import SystemConfiguration
+import LeoKit
 
 /// A named group of rows for the sidebar's `List`, keyed by status. Rows
 /// arrive already sorted (`LeoSidebarLayout`), so grouping by first
@@ -12,12 +14,24 @@ struct LeoSidebarSection: Identifiable, Equatable {
     let rows: [LeoAgentRow]
     /// Header only; the rows stay listed here but aren't shown (B-010).
     let isCollapsed: Bool
+    /// False for Needs You: always open, so its header has no chevron.
+    let isCollapsible: Bool
+    /// The header carries the row count.
+    let showsCount: Bool
+    /// The count reads in orange (Needs You).
+    let isAlert: Bool
 
-    init(id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false) {
+    init(
+        id: String, title: String, rows: [LeoAgentRow], isCollapsed: Bool = false,
+        isCollapsible: Bool = true, showsCount: Bool = false, isAlert: Bool = false
+    ) {
         self.id = id
         self.title = title
         self.rows = rows
         self.isCollapsed = isCollapsed
+        self.isCollapsible = isCollapsible
+        self.showsCount = showsCount
+        self.isAlert = isAlert
     }
 }
 
@@ -42,6 +56,7 @@ enum LeoSidebarSectioning {
         switch status {
         case .running: "running"
         case .starting: "starting"
+        case .restoring: "restoring"
         case .stopped: "stopped"
         case .unknown(let raw): "unknown:\(raw)"
         }
@@ -51,6 +66,7 @@ enum LeoSidebarSectioning {
         switch key {
         case "running": return "Running"
         case "starting": return "Starting"
+        case "restoring": return LeoStatusPresentation.restoringTitle
         case "stopped": return "Stopped"
         default:
             guard key.hasPrefix("unknown:") else { return key.capitalized }
@@ -62,6 +78,12 @@ enum LeoSidebarSectioning {
     }
 }
 
+/// The machine a header's "New Agent Here…" sheet is for.
+private struct LeoMachineSpawnItem: Identifiable {
+    let host: LeoHostID
+    var id: LeoHostID { host }
+}
+
 struct LeoSidebarView: View {
     @ObservedObject var model: LeoSidebarModel
     let windowID: LeoWindowID
@@ -69,6 +91,8 @@ struct LeoSidebarView: View {
     /// This window's own plain shells (B-057): per window, while `model`'s
     /// agent list is app-wide.
     @ObservedObject var terminals: LeoWindowTerminals
+    /// Unread chat messages per agent, for the row badges.
+    @ObservedObject var unread: LeoChatUnreadStore
     /// Bumped by Agents ▸ Find Agent…; each change focuses the search field.
     let searchFocusRequest: Int
     /// The footer buttons' tooltips (B-065).
@@ -76,12 +100,19 @@ struct LeoSidebarView: View {
     /// What the footer's buttons do: this window's File ▸ New Terminal and
     /// View ▸ Quick Terminal.
     private let buttonActions: LeoSidebarButtonActions
-    @ObservedObject private var hostSelection: LeoHostSelection
+    /// When the selected terminal row's reveal is armed (B-149).
+    private let revealScheduler: LeoRevealScheduler
+    /// The window's toolbar height: the header clears it (the sidebar
+    /// runs under the toolbar).
+    @ObservedObject private var toolbarInset: LeoToolbarInset
     @State private var showingSpawn = false
+    /// The machine a header's "New Agent Here…" spawns on.
+    @State private var spawnMachine: LeoMachineSpawnItem?
+    /// How each machine's stats are drawn (Settings ▸ Machines ▸ Stats style).
+    @AppStorage(LeoStatsStyle.defaultsKey) private var statsStyleRaw = LeoStatsStyle.default.rawValue
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
     @State private var worktreeSource: LeoAgentRow?
     @State private var searchField = LeoSidebarSearchFieldHandle()
-    @State private var hostsSheetModel: LeoHostsSheetModel?
 
     /// Main-actor so a missing `shortcutHints` (tests) can be made here.
     @MainActor init(
@@ -89,18 +120,23 @@ struct LeoSidebarView: View {
         windowID: LeoWindowID,
         actions: LeoAgentActions,
         terminals: LeoWindowTerminals,
+        unread: LeoChatUnreadStore? = nil,
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
-        buttonActions: LeoSidebarButtonActions = .none
+        buttonActions: LeoSidebarButtonActions = .none,
+        revealScheduler: LeoRevealScheduler = .nextTurn,
+        toolbarInset: LeoToolbarInset? = nil
     ) {
         self.model = model
         self.windowID = windowID
         self.actions = actions
         self.terminals = terminals
+        _unread = ObservedObject(wrappedValue: unread ?? LeoChatUnreadStore())
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
-        _hostSelection = ObservedObject(wrappedValue: actions.hostSelection)
+        self.revealScheduler = revealScheduler
+        _toolbarInset = ObservedObject(wrappedValue: toolbarInset ?? LeoToolbarInset())
     }
 
     var body: some View {
@@ -114,35 +150,15 @@ struct LeoSidebarView: View {
                 .buttonStyle(.borderless)
                 .help("New Agent…")
                 .accessibilityLabel("New Agent…")
-                .disabled(model.isDisconnected)
+                .disabled(!model.hasConnectedMachine)
             }
-            Menu {
-                hostMenuItem(name: "localhost", isSelected: hostSelection.selected == .local) {
-                    hostSelection.select(.local)
-                }
-                ForEach(hostSelection.hosts) { host in
-                    hostMenuItem(name: host.name, isSelected: hostSelection.selected == .remote(host.name)) {
-                        hostSelection.select(.remote(host.name))
-                    }
-                }
-                if case .failed = hostSelection.state {
-                    Divider()
-                    Button("Retry") { hostSelection.retry() }
-                }
-                Divider()
-                Button("Manage Hosts…") { hostsSheetModel = hostSelection.makeHostsSheetModel() }
-            } label: {
-                HStack {
-                    Text(hostSelection.selected.displayName)
-                    Spacer(minLength: 0)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .help(hostSelection.legacyTooltip ?? "Select host")
-            .accessibilityLabel("Host")
 
-            if let banner = LeoDisconnectedBanner(host: hostSelection.selected, connectivity: model.snapshot.connectivity) {
-                LeoDisconnectedBannerView(banner: banner) { model.retry() }
+            if let banner = model.appLocationBanner {
+                LeoAppLocationBannerView(banner: banner) { model.moveToApplicationsRequested() }
+            }
+
+            if let banner = model.managedBanner {
+                LeoManagedBannerView(banner: banner) { model.managedBannerActionRequested($0) }
             }
 
             LeoSidebarSearchField(
@@ -160,15 +176,20 @@ struct LeoSidebarView: View {
             }
             LeoSidebarButtonBar(hints: shortcutHints, perform: buttonActions.perform)
         }
-        .padding(.top, LeoSidebarChromeMetrics.topInset)
+        .padding(.top, toolbarInset.headerTop)
         .padding(.horizontal, LeoSidebarChromeMetrics.horizontalInset)
         .padding(.bottom, LeoSidebarChromeMetrics.itemSpacing)
         .onChange(of: searchFocusRequest) { _ in searchField.focus() }
         #if DEBUG
-        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "connectivity=\(model.snapshot.connectivity) rows=\(model.snapshot.rows.count)") }
+        .onAppear { LeoLaunchTiming.mark("sidebarAppeared", "machines=\(model.machineHosts.count) rows=\(model.rows.count)") }
         #endif
         .sheet(isPresented: $showingSpawn) {
             SpawnAgentSheet(model: model, actions: actions) { row, disposition in
+                model.requestAttach(row, from: windowID, disposition: disposition)
+            }
+        }
+        .sheet(item: $spawnMachine) { item in
+            SpawnAgentSheet(model: model, actions: actions, context: item.host) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)
             }
         }
@@ -176,9 +197,6 @@ struct LeoSidebarView: View {
             SpawnAgentSheet(model: model, actions: actions, source: source) { row, disposition in
                 model.requestAttach(row, from: windowID, disposition: disposition)
             }
-        }
-        .sheet(item: $hostsSheetModel) { sheetModel in
-            LeoHostsSheet(model: sheetModel) { hostsSheetModel = nil }
         }
         .sheet(item: startPromptBinding) { item in LeoStartAgentSheet(model: model, prompt: item.prompt) }
     }
@@ -197,140 +215,202 @@ struct LeoSidebarView: View {
         )
     }
 
-    /// The agent list (or what stands in for it), with this window's
-    /// Terminals section: the shells don't need the daemon, so they show
-    /// whatever state the agents are in.
+    /// One section per machine, with this window's Terminals section: the
+    /// shells don't need a daemon, so they show whatever state the machines
+    /// are in.
     ///
-    /// One list, in one place, whatever it shows (B-099): a filter that
-    /// matches nothing empties it under "No matches" rather than replacing
-    /// it, and the agents arriving fill the list the Terminals were in. So
-    /// the list's reveal of the selected terminal row (B-067) follows the
-    /// list's own changes, never a new list's first appearance, which can
-    /// come before AppKit has built its table.
+    /// One list, in one place, whatever it shows (B-099, B-148): a filter
+    /// that matches nothing empties it under "No matches" rather than
+    /// replacing it, and the machines connecting, failing or arriving fill
+    /// the list the Terminals were in. So the list's reveal of the selected
+    /// terminal row (B-067) follows the list's own changes, never a new
+    /// list's first appearance, which can come before AppKit has built its
+    /// table.
     @ViewBuilder private var content: some View {
-        if !listsAgents { agentState }
-        if listsAgents || showsTerminals {
-            sidebarList(agentSections: listsAgents ? model.sections : [], agentsInert: listsAgents && model.isDisconnected)
-                .overlay {
-                    if listsAgents && model.showsNoMatches {
-                        Text("No matches").allowsHitTesting(false)
-                    }
+        sidebarList(machines: shownMachines)
+            .overlay {
+                if model.showsNoMatches {
+                    Text("No matches").allowsHitTesting(false)
                 }
-        }
+            }
     }
 
-    /// Rows to list: connected (or disconnected, dimmed) with agents, even
-    /// when the filter matches none of them.
-    private var listsAgents: Bool {
-        switch model.snapshot.connectivity {
-        case .connected, .disconnected: !model.snapshot.rows.isEmpty
-        case .loading, .failed: false
-        }
+    /// While the filter has text only machines with matches are listed.
+    private var shownMachines: [LeoMachineSection] {
+        LeoSidebarLayout.isFiltering(model.query) ? model.machineSections.filter { !$0.sections.isEmpty } : model.machineSections
     }
+
+    private var statsStyle: LeoStatsStyle { LeoStatsStyle(storedValue: statsStyleRaw) }
+
+    /// The Mac's name for the hover on This Mac's header. Read once from
+    /// the system configuration store, which never waits on a name lookup
+    /// the way `Host` can.
+    private static let hostName = SCDynamicStoreCopyComputerName(nil, nil) as String? ?? "This Mac"
+
+    /// Whether the window has shells: while it does, the list stays
+    /// mounted, whatever the filter or the agents are doing (B-148).
+    private var hasTerminals: Bool { !terminals.rows.isEmpty }
 
     /// The Terminals section hides when the window has no shells, and
     /// while the filter (which searches agents) has text.
-    private var showsTerminals: Bool {
-        !terminals.rows.isEmpty && !LeoSidebarLayout.isFiltering(model.query)
-    }
+    private var showsTerminals: Bool { model.showsTerminals(hasTerminals: hasTerminals) }
 
-    @ViewBuilder private var agentState: some View {
-        switch model.snapshot.connectivity {
-        case .loading:
-            stateView { ProgressView(); Text("Loading agents…") }
-        case .failed(let message):
-            let panel = LeoConnectionFailurePanel(message: message, hint: hostSelection.state.failureHint)
-            stateView {
-                Text(panel.message).multilineTextAlignment(.center).textSelection(.enabled)
-                if let hint = panel.hint, let ssh = hostSelection.selectedConfiguration?.sshTarget {
-                    Text(hint).font(.caption).multilineTextAlignment(.center)
-                    Button("Open SSH") { model.sshRequested(ssh) }
-                }
-                Button("Retry") { model.retry() }
-                Button("Start daemon") { model.startDaemonRequested() }
-            }
-        case .connected where model.snapshot.rows.isEmpty:
-            stateView {
-                Text("No Agents").font(.headline)
-                Text("Spawn an agent to start working with it from this window.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                Button("New Agent…") { showingSpawn = true }
-            }
-        case .disconnected where model.snapshot.rows.isEmpty:
-            // The banner above says what happened and offers Retry.
-            stateView {
-                if hostSelection.selected == .local {
-                    Button("Start daemon") { model.startDaemonRequested() }
-                }
-            }
-        case .connected, .disconnected:
-            // Agents to list: the list shows them, or "No matches" over it.
-            EmptyView()
-        }
-    }
-
-    /// How far a disconnected sidebar's stale rows are dimmed.
-    private static let inertOpacity = 0.45
-
-    /// Agent sections, then this window's Terminals. Disconnected, the
-    /// agent rows stay listed but dimmed and inert until a Retry lands a
-    /// fresh list (D-061); the terminals don't depend on the daemon.
-    private func sidebarList(agentSections: [LeoSidebarSection], agentsInert: Bool) -> some View {
+    /// Each machine's section, then this window's Terminals. An offline
+    /// machine folds to its header and a card saying why; the terminals
+    /// don't depend on any daemon.
+    private func sidebarList(machines: [LeoMachineSection]) -> some View {
         // Selection is required (`SelectionValue` is the optional ID
         // itself, so each row's tag is `Optional(id)`): the table then
         // never toggles the selected row off on ⌘-click, which here opens
         // a new window (B-048, D-104). `nil` still shows no selection.
         ScrollViewReader { proxy in
             List<LeoSidebarItemID?, _>(selection: selectionBinding) {
-                ForEach(agentSections) { section in
-                    Section(header: sectionHeader(section)) {
-                        agentRows(section)
-                            .disabled(agentsInert)
-                            .opacity(agentsInert ? Self.inertOpacity : 1)
-                            .accessibilityHint(agentsInert ? "Disconnected" : "")
+                ForEach(topLevelBlocks(machines: machines)) { block in
+                    switch block {
+                    case .machine(let host):
+                        if let machine = machines.first(where: { $0.host == host }) { machineSection(machine) }
+                    case .terminals: terminalSection
+                    case .pluginSection(let id): pluginSection(id: id)
                     }
                 }
-                if showsTerminals { terminalSection }
             }
             .listStyle(.sidebar)
-            .leoRevealsTerminalRow(terminals.selection, isListed: showsTerminals, listsAgents: listsAgents, proxy: proxy)
+            .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
+            .leoRevealsTerminalRow(
+                terminals.selection, isListed: showsTerminals, listsAgents: !model.rows.isEmpty, scheduler: revealScheduler, proxy: proxy
+            )
             .leoLandsWhenTerminalsClose(
                 // Its header's row and each terminal row `terminalSection` lists.
                 sectionRows: showsTerminals ? terminals.list.labels.count + 1 : 0,
                 isFiltering: LeoSidebarLayout.isFiltering(model.query),
-                landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: agentSections),
+                landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: machines.flatMap(\.sections)),
                 terminalsWillChange: terminals.objectWillChange,
                 proxy: proxy
             )
+            // B-171: the window's own terminal selection going (its row
+            // closed) lands the list on the agent it falls back to. That
+            // landing is a decision like a click: a focus report already
+            // in flight doesn't reselect another agent over it. Synchronous
+            // with the change, so the fence is set before such a report
+            // is handled.
+            .onReceive(terminals.$selection.dropFirst().filter { $0 == nil }) { _ in
+                model.fenceInFlightFocusReports()
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             // A key equivalent, so it sees Return before the search
             // field does; there Return means the top match instead.
             // Both are a click on a row (B-049): the top match, or the
-            // selection. Arrow keys only move the selection.
-            Button("") {
+            // selection. Arrow keys only move the selection. Matched
+            // by key, so ⌃C stays the terminal's (B-287).
+            LeoSidebarReturnKey(isEnabled: LeoSidebarSelection.canActivate(model: model, terminals: terminals)) {
                 if searchField.hasFocus {
                     model.searchSubmit(from: windowID)
                 } else {
                     LeoSidebarSelection.activate(model: model, terminals: terminals, from: windowID)
                 }
             }
-            .keyboardShortcut(.return, modifiers: [])
-            .opacity(0)
-            .disabled(!LeoSidebarSelection.canActivate(model: model, terminals: terminals))
+            .frame(width: 0, height: 0)
             .accessibilityHidden(true)
         }
     }
 
-    private var terminalSection: some View {
-        Section(header: Text("Terminals")) {
-            ForEach(terminals.list.labels) { label in
-                LeoTerminalRowView(label: label, terminals: terminals)
-                    .tag(Optional(LeoSidebarItemID.terminal(label.id)))
-                    .id(LeoSidebarItemID.terminal(label.id))
+    @ViewBuilder private func machineSection(_ machine: LeoMachineSection) -> some View {
+        let presentation = LeoMachineHeaderPresentation(
+            section: machine, style: statsStyle, hostName: Self.hostName, now: Date()
+        )
+        Section(header: machineHeader(machine.host, presentation)) {
+            if presentation.isOffline {
+                offlineCard(machine.host, presentation)
+            } else if machine.connectivity == .loading {
+                machineNote("Loading agents…", showsProgress: true)
+            } else if !model.isMachineFolded(machine) {
+                machineRows(machine)
             }
+        }
+    }
+
+    private func machineHeader(_ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation) -> some View {
+        LeoMachineSectionHeader(
+            host: host, presentation: presentation, style: statsStyle,
+            actions: LeoMachineHeaderActions(
+                toggle: { model.toggleMachineCollapsed(host) },
+                newAgentHere: { spawnMachine = LeoMachineSpawnItem(host: host) },
+                reconnect: { model.reconnectRequested(host) },
+                editMachine: { model.editMachineRequested(host) },
+                disable: { model.disableMachineRequested(host) }
+            )
+        )
+    }
+
+    private func offlineCard(_ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation) -> some View {
+        LeoMachineOfflineCard(
+            presentation: presentation,
+            failureHint: model.connectionFailureHint(host),
+            reconnect: { model.reconnectRequested(host) },
+            openSSH: { model.sshRequested($0) },
+            startDaemon: host == .local ? (model.daemonStartAction.title, { model.startDaemonTapped() }) : nil
+        )
+        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+    }
+
+    /// A machine's own sections (Needs You, Pinned, then the groups), each
+    /// under a small title row, or a note when it has no agents.
+    @ViewBuilder private func machineRows(_ machine: LeoMachineSection) -> some View {
+        if machine.sections.isEmpty {
+            if !LeoSidebarLayout.isFiltering(model.query) { machineNote("No agents", showsProgress: false) }
+        } else {
+            ForEach(machine.sections) { section in
+                subsectionHeader(section, host: machine.host)
+                agentRows(section)
+            }
+        }
+    }
+
+    private func machineNote(_ text: String, showsProgress: Bool) -> some View {
+        HStack(spacing: 6) {
+            if showsProgress { ProgressView().controlSize(.small) }
+            Text(text).font(.caption).foregroundStyle(.secondary)
+        }
+        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+    }
+
+    /// A machine's status group (Needs You, Running…) as a title row: a
+    /// `List` section can't nest, so the machine owns the real `Section`.
+    @ViewBuilder private func subsectionHeader(_ section: LeoSidebarSection, host: LeoHostID) -> some View {
+        Group {
+            if LeoSidebarLayout.isFiltering(model.query) {
+                Text(section.title)
+            } else {
+                LeoSidebarSectionHeader(section: section) { model.toggleCollapsed(section.id, host: host) }
+            }
+        }
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+    }
+
+    private var terminalSection: some View {
+        LeoTerminalsSection(titles: terminals.titles, terminals: terminals)
+    }
+
+    /// Plugin section entries, hidden while the filter (which searches
+    /// agents) has text.
+    private var shownPluginEntries: [LeoPluginSidebarSectionEntry] {
+        guard let sections = model.pluginSections, !LeoSidebarLayout.isFiltering(model.query) else { return [] }
+        return sections.entries
+    }
+
+    /// Machines, Terminals, then the app-level plugin sections.
+    private func topLevelBlocks(machines: [LeoMachineSection]) -> [LeoSidebarTopLevel.Block] {
+        LeoSidebarTopLevel.blocks(
+            machines: machines.map(\.host), showsTerminals: showsTerminals, pluginSectionIDs: shownPluginEntries.map(\.id)
+        )
+    }
+
+    @ViewBuilder private func pluginSection(id: String) -> some View {
+        if let sections = model.pluginSections, let entry = shownPluginEntries.first(where: { $0.id == id }) {
+            LeoPluginSidebarSection(sections: sections, slots: sections.host.slots, entry: entry)
         }
     }
 
@@ -355,34 +435,70 @@ struct LeoSidebarView: View {
                 nameHighlights: model.searchHighlights(for: row),
                 isPinned: model.isPinned(row.id),
                 togglePin: { model.togglePin(row.id) },
-                pendingSurfacedFiles: model.pendingSurfacedFiles(for: row),
-                openSurfacedFile: { model.openSurfacedFile($0, for: row) },
-                newWorktreeAgent: { worktreeSource = row }
+                newWorktreeAgent: { worktreeSource = row },
+                environmentsSupported: model.features(for: row.host).contains(.agentEnvironments),
+                appearanceSupported: model.features(for: row.host).contains(.agentAppearance),
+                movesSupported: model.features(for: row.host).contains(.agentMove),
+                inWorkingSection: section.id == LeoSidebarLayout.workingSectionID,
+                unreadCount: unread.count(for: row.id),
+                subagents: subagents(for: row)
             )
+            .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
             .tag(Optional(LeoSidebarItemID.agent(row.id)))
             .id(LeoSidebarItemID.agent(row.id))
-        }
-    }
-
-    /// A section title with a disclosure chevron (B-010). While the filter
-    /// is non-empty every match shows, so there's nothing to collapse.
-    @ViewBuilder private func sectionHeader(_ section: LeoSidebarSection) -> some View {
-        if LeoSidebarLayout.isFiltering(model.query) {
-            Text(section.title)
-        } else {
-            LeoSidebarSectionHeader(title: section.title, isCollapsed: section.isCollapsed) {
-                model.toggleCollapsed(section.id)
+            // Its live dispatches (B-257), right under it; they follow the
+            // row's filter and collapse. Untagged (never selected) unless
+            // the daemon can attach to one (B-266).
+            let dispatches = model.visibleDispatchRows(for: row)
+            ForEach(dispatches) { item in
+                dispatchRow(item, under: row, endsGroup: item.id == dispatches.last?.id)
+                    .listRowInsets(LeoDispatchRowMetrics.listRowInsets)
             }
         }
     }
 
-    private func stateView<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        VStack(spacing: 10) {
-            Spacer()
-            content()
-            Spacer()
+    /// The chevron for a row with dispatches (B-331); only once the daemon's
+    /// dispatch tree is shown (the children are empty otherwise).
+    private func subagents(for row: LeoAgentRow) -> LeoAgentRowContent.Subagents? {
+        guard model.hasSubagents(row) else { return nil }
+        return LeoAgentRowContent.Subagents(
+            isCollapsed: model.areSubagentsCollapsed(row),
+            runningCount: model.runningSubagentCount(for: row),
+            toggle: { model.toggleSubagentsCollapsed(row) }
+        )
+    }
+
+    @ViewBuilder private func dispatchRow(_ item: LeoDispatchRowItem, under row: LeoAgentRow, endsGroup: Bool) -> some View {
+        let ref = LeoDispatchRef(host: row.host, id: item.id)
+        let disclosure = item.hasChildren
+            ? LeoDispatchRowView.Disclosure(isCollapsed: item.isCollapsed) { model.toggleDispatchCollapsed(ref) }
+            : nil
+        if model.isDispatchSelectable(item.node.dispatch, host: row.host) {
+            LeoDispatchRowView(
+                node: item.node,
+                host: row.host,
+                click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
+                disclosure: disclosure,
+                endsGroup: endsGroup,
+                isSelected: LeoSidebarSelection.current(model: model, terminals: terminals) == .dispatch(ref)
+            )
+            .tag(Optional(LeoSidebarItemID.dispatch(ref)))
+            .id(LeoSidebarItemID.dispatch(ref))
+        } else if model.isDispatchClickable(item.node.dispatch, host: row.host) {
+            // Viewed in its caller's own tmux session (B-271): a click
+            // brings that window forward and goes to the caller; untagged,
+            // so never selected.
+            LeoDispatchRowView(
+                node: item.node,
+                host: row.host,
+                click: { model.dispatchClicked(ref, modifierFlags: $0, clickCount: $1, from: windowID) },
+                isSelectable: false,
+                disclosure: disclosure,
+                endsGroup: endsGroup
+            )
+        } else {
+            LeoDispatchRowView(node: item.node, host: row.host, disclosure: disclosure, endsGroup: endsGroup)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func searchEscape() {
@@ -391,29 +507,62 @@ struct LeoSidebarView: View {
         case .leaveField: searchField.focusTerminal()
         }
     }
+}
 
-    /// A single host entry in the host picker menu. Selection is conveyed by
-    /// the menu's own checkmark (via `Toggle`, which macOS renders as a
-    /// checked menu item), and connection state by an SF Symbol + semantic
-    /// color from `LeoStatusPresentation` -- never by a typed character.
-    ///
-    /// Only the currently *selected* remote host has a live connection state
-    /// to show (see `LeoHostSelection`); other configured hosts show a
-    /// neutral glyph until they're selected.
-    private func hostMenuItem(name: String, isSelected: Bool, select: @escaping () -> Void) -> some View {
-        let presentation = LeoStatusPresentation.hostConnection(
-            isSelected: isSelected,
-            state: isSelected ? hostSelection.state : nil
-        )
-        return Toggle(isOn: Binding(get: { isSelected }, set: { _ in select() })) {
-            Label {
-                Text(name)
-            } icon: {
-                Image(systemName: presentation.symbolName)
-                    .foregroundStyle(presentation.color)
+/// Shown while Leo runs outside /Applications and managed features are off.
+struct LeoAppLocationBannerView: View {
+    let banner: LeoAppLocationBanner
+    let move: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "folder.badge.questionmark")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(banner.title).font(.callout.weight(.semibold))
+                Text(banner.detail).font(.caption).foregroundStyle(.secondary)
+                Button(banner.actionTitle, action: move).controlSize(.small)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .accessibilityLabel("\(name), \(presentation.accessibilityLabel)")
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(banner.title)
+    }
+}
+
+/// B5: the local managed daemon's state, with its actions (takeover offer,
+/// Login Items approval, move back, retry).
+struct LeoManagedBannerView: View {
+    let banner: LeoManagedBanner
+    let perform: (LeoManagedBannerAction) -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "gearshape.2")
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(banner.title).font(.callout.weight(.semibold))
+                Text(banner.detail).font(.caption).foregroundStyle(.secondary)
+                if banner.actions.isEmpty {
+                    ProgressView().controlSize(.small)
+                } else {
+                    HStack(spacing: 6) {
+                        ForEach(banner.actions, id: \.title) { action in
+                            Button(action.title) { perform(action) }.controlSize(.small)
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(8)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(banner.title)
     }
 }
 

@@ -1,0 +1,61 @@
+import AppKit
+
+/// The fixed sizes an agent row is pinned to, taken from the fonts rather
+/// than constants: SF Symbols and spinners are taller than the text beside
+/// them, and a tool starting or a pending action must not move the rows
+/// below.
+enum LeoAgentRowMetrics {
+    /// Chosen so a one-line row (this around the name line, with no list row
+    /// inset: see `LeoDispatchRowMetrics.listVerticalInset`) measures exactly
+    /// 24pt, the `.small` row height the list estimates rows it hasn't drawn
+    /// at. A quiet row of any other height grows when it is first drawn --
+    /// after the list has already clamped its scroll offset to the old end,
+    /// leaving it short of the bottom.
+    static let verticalPadding: CGFloat = 4
+    static let lineSpacing: CGFloat = 2
+    /// The leading symbol's column, and the gap between it and the name.
+    static let symbolColumnWidth: CGFloat = 16
+    static let symbolSpacing: CGFloat = 6
+    /// The agent's color bar on the trailing edge, inside the row inset, and
+    /// the gap between it and the name line's trailing content. A row with no
+    /// color keeps the slot blank so trailing content stays aligned.
+    static let colorBarWidth: CGFloat = 3
+    static let colorBarSpacing: CGFloat = 4
+    static var colorBarSlot: CGFloat { colorBarWidth + colorBarSpacing }
+    /// The task indicator's click target (HIG: at least 20 pt); the 16 pt
+    /// indicator sits centered in it. The name line is taller, so the row
+    /// does not grow.
+    static let taskIndicatorHitSize: CGFloat = 20
+    /// The room the name keeps on its line (about ten characters) however
+    /// much trailing content the row carries. Plugin accessories give way
+    /// first: see `LeoPluginRowAccessories`.
+    static let minimumNameWidth: CGFloat = 84
+
+    /// The subagents chevron's square (B-331), at the name line's end.
+    static let disclosureSize: CGFloat = 16
+    /// The emoji before the name, and the gap after it.
+    static let emojiSpacing: CGFloat = 4
+
+    /// The trailing edge of a row that is the chevron's, not the row's: the
+    /// chevron plus the color bar's slot it sits inside of.
+    static var disclosureTrailingEdge: CGFloat { disclosureSize + colorBarSlot }
+
+    /// How far down from a row's top the chevron's strip reaches (B-345): the
+    /// row's top padding and the name line it sits on, not the lines below.
+    static var disclosureTrailingHeight: CGFloat { verticalPadding + nameLineHeight }
+
+    /// Where the name starts, from the row's leading edge. A dispatch row's
+    /// glyph sits on this column.
+    static var nameColumnInset: CGFloat { symbolColumnWidth + symbolSpacing }
+
+    /// The name's line (`.body`).
+    static var nameLineHeight: CGFloat { lineHeight(.body) }
+
+    /// Line 2 (`.caption`).
+    static var detailLineHeight: CGFloat { lineHeight(.caption1) }
+
+    static func lineHeight(_ style: NSFont.TextStyle) -> CGFloat {
+        let font = NSFont.preferredFont(forTextStyle: style)
+        return ceil(font.ascender - font.descender + font.leading)
+    }
+}

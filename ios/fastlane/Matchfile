@@ -1,0 +1,10 @@
+# Read-only in CI: certificates and profiles are created and renewed by hand
+# from a trusted machine (`fastlane match appstore` without --readonly).
+git_url("git@github.com:evandcoleman/match.git")
+git_branch("main")
+storage_mode("git")
+type("appstore")
+app_identifier([
+  "studio.blackpaw.leo.ios",
+  "studio.blackpaw.leo.ios.notification-service"
+])

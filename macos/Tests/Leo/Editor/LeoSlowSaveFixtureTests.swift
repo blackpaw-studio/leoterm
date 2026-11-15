@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The DEBUG-only `LEO_SLOW_SAVE_SECONDS` hold on editor saves, used to
 /// screenshot a close waiting on a save.
@@ -24,6 +25,18 @@ struct LeoSlowSaveFixtureTests {
             await access.close()
             await #expect(throws: LeoFileAccessError.self) { try await access.write(Data("c".utf8), to: path, expecting: nil) }
             #expect(try sandbox.contents("a.txt") == "b")
+        }
+    }
+
+    /// B-278: previews stream their file; the fixture mustn't break that.
+    @Test func forwardsStreamingReads() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let path = try sandbox.file("a.png", "png")
+            let access = LeoSlowSaveFixture.wrap(LeoFileAccessor.local(), delay: .seconds(3600))
+            let sink = LeoRecordingByteSink()
+            try await access.read(path, into: sink)
+            #expect(sink.data == Data("png".utf8))
+            await access.close()
         }
     }
 

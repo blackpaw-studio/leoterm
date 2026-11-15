@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Ghostty's quit review closes windows itself (no close path runs), and
 /// its sheets leave other windows editable. So before it closes a window,
@@ -13,11 +14,13 @@ struct LeoEditorQuitReviewTests {
     private func makeRuntime() -> (LeoRuntime, UserDefaults) {
         let defaults = LeoInMemoryDefaults()
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        return (LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner()), defaults)
+        return (LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient()), defaults)
     }
 
     private func window() -> NSWindow {
-        NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        return window
     }
 
     @Test func editsInTheWindowsItClosesAreAskedAboutFirst() async throws {
@@ -100,15 +103,25 @@ struct LeoEditorQuitReviewTests {
 /// not whichever window is key.
 @MainActor
 struct LeoEditorEntryWindowTests {
-    @Test func anEditorsEntryNamesItsWindow() throws {
-        let defaults = LeoInMemoryDefaults()
-        let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
-        let session = runtime.registry.makeSession(window: window, defaults: defaults)
+    @Test func anEditorsEntryNamesItsWindow() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let defaults = LeoInMemoryDefaults()
+            let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
+            let runtime = LeoRuntime(
+                daemon: QuitReviewDaemon(), cli: .recordingForTests(), activitySource: activity, defaults: defaults,
+                templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(),
+                chatClient: FakeChatClient()
+            )
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 200, height: 100), styleMask: [.titled], backing: .buffered, defer: true)
+            window.isReleasedWhenClosed = false
+            let session = runtime.registry.makeSession(window: window, defaults: defaults, makeFileAccess: { _ in LeoFileAccessor.local() })
+            try await session.editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
 
-        #expect(runtime.editorEntry(for: session).window() === window)
-        #expect(LeoUnsavedEditorsGate.Entry(editor: session.editor) {}.window() == nil)
+            #expect(runtime.editorEntries(for: session).map { $0.window() === window } == [true])
+            let tab = try #require(session.editor.selected)
+            #expect(LeoUnsavedEditorsGate.Entry(editor: tab) {}.window() == nil)
+            await session.editor.release()
+        }
     }
 }
 

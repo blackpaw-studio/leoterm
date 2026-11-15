@@ -819,6 +819,11 @@ class BaseTerminalController: NSWindowController,
         // it is already a single split.
         guard surfaceTree.isSplit else { return }
 
+        // MARK: Leo -- B-110: out of a Leo window, a Leo move (one guarded undo).
+        if let leo = self as? TerminalController, leo.leoMoveToNewWindow(
+            target, position: notification.userInfo?[Notification.Name.ghosttySurfaceDragEndedNoTargetPointKey] as? NSPoint
+        ) { return }
+
         // If we are removing our focused surface then we move it. We need to
         // keep track of our old one so undo sends focus back to the right place.
         let oldFocusedSurface = focusedSurface
@@ -1042,6 +1047,9 @@ class BaseTerminalController: NSWindowController,
             return
         }
 
+        // MARK: Leo -- B-110: between Leo windows, a Leo move (one guarded undo).
+        if let leo = self as? TerminalController, leo.leoMoveSplit(source, from: sourceController, landingAs: newTree) { return }
+
         // Treat our undo below as a full group.
         undoManager?.beginUndoGrouping()
         undoManager?.setActionName("Move Split")
@@ -1202,6 +1210,9 @@ class BaseTerminalController: NSWindowController,
         guard let window = window as? TerminalWindow else {
             return true
         }
+
+        // The toolbar carries the pill, not the overlay.
+        if window.showsUpdateInToolbar { return false }
 
         // Show the overlay if the window isn't.
         return !window.supportsUpdateAccessory
@@ -1461,11 +1472,21 @@ class BaseTerminalController: NSWindowController,
         }
     }
 
+    // Leo:
+    /// The chat file viewer's text (or its find bar's search field) when it
+    /// has the keyboard: the Find menu drives its find bar, not the terminal's
+    /// search. Nil with a terminal focused, so terminal find is unchanged.
+    private var leoFindOwner: LeoFindableTextView? {
+        LeoFindableTextView.owner(of: window?.firstResponder)
+    }
+
     @IBAction func find(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.find(sender) }
         focusedSurface?.find(sender)
     }
 
     @IBAction func selectionForFind(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.selectionForFind(sender) }
         focusedSurface?.selectionForFind(sender)
     }
 
@@ -1474,14 +1495,17 @@ class BaseTerminalController: NSWindowController,
     }
 
     @IBAction func findNext(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.findNext(sender) }
         focusedSurface?.findNext(sender)
     }
 
     @IBAction func findPrevious(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.findPrevious(sender) }
         focusedSurface?.findPrevious(sender)
     }
 
     @IBAction func findHide(_ sender: Any) {
+        if let owner = leoFindOwner { return owner.findHide(sender) }
         focusedSurface?.findHide(sender)
     }
 
@@ -1516,6 +1540,7 @@ extension BaseTerminalController: NSMenuItemValidation {
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         switch item.action {
         case #selector(findHide):
+            if let owner = leoFindOwner { return owner.isFindBarShown }
             return focusedSurface?.searchState != nil
 
         default:

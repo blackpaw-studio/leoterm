@@ -41,10 +41,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// `title` to each surface), and a start screen has none.
     private var leoStartTitle: String?
 
-    /// Intercepts the `new_split` core action: if this window has a Leo
-    /// session and a non-empty tree, the split is routed to the agent
-    /// picker instead of being created directly (`leoCreateSplit` below is
-    /// the committed path the picker uses once a choice is made). An empty
+    /// Intercepts the `new_split` core action. B-333: a terminal row's
+    /// layout splits as a Ghostty tab does, straight into a new shell from
+    /// `config` (the inherited one: the pane's working directory), which
+    /// joins the row's layout. Otherwise, if this window has a Leo session
+    /// and a non-empty tree, the split is routed to the agent picker
+    /// instead of being created directly (`leoCreateSplit` below is the
+    /// committed path the picker uses once a choice is made). An empty
     /// tree can't be split from (there's no `oldView`), so that case is
     /// treated as a `.placeholder` request instead.
     override func newSplit(
@@ -52,6 +55,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         direction: SplitTree<Ghostty.SurfaceView>.NewDirection,
         baseConfig config: Ghostty.SurfaceConfiguration? = nil
     ) -> Ghostty.SurfaceView? {
+        if let leoSession, !surfaceTree.isEmpty, leoSession.splitsIntoShell() {
+            guard let view = super.newSplit(at: oldView, direction: direction, baseConfig: config) else { return nil }
+            leoSession.registerSplitShell(view)
+            return view
+        }
         guard let leoSession, let leoRuntime = (NSApp.delegate as? AppDelegate)?.leoRuntime else {
             return super.newSplit(at: oldView, direction: direction, baseConfig: config)
         }
@@ -134,9 +142,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// sidebar and panes and shows the start screen, as a new one does --
     /// with nothing to undo back into it (B-071).
     func leoShowStartScreen() {
+        leoClearToStartScreen()
+        leoForgetContentUndo()
+    }
+
+    /// The start screen, keeping the window's undo: B-110's move of the
+    /// window's last pane to another window, whose own undo puts it back.
+    func leoClearToStartScreen() {
         leoIsUnfilledPlaceholder = true
         surfaceTree = .init()
-        leoForgetContentUndo()
         // As `TerminalView` would if it reported a nil focus: the closed
         // shell's title and proxy icon go with it, and the window reads as
         // a new one does (B-070).
@@ -190,7 +204,9 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// was made) takes the configured size, computed as `windowDidLoad`
     /// does: never read from the SwiftUI view, which hasn't caught up with
     /// the new surface yet and reports a far smaller size.
-    func leoApplyInitialSize() {
+    /// `visibleFrame` is the screen area the window must fit; it defaults to
+    /// the window's screen, and a test injects a fixed one.
+    func leoApplyInitialSize(visibleFrame: NSRect? = nil) {
         // B-097: what `windowDidLoad` gives the container, so Reset Window
         // Size (and its menu item's enabled state) reads the configured
         // size, not the SwiftUI view's -- whether or not the window is
@@ -208,10 +224,14 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
             return
         }
 
-        guard let size = leoConfiguredContentSize else { return }
-        window.setContentSize(size)
-        window.constrainToScreen()
-        if let screen = window.screen ?? NSScreen.main {
+        guard let asked = leoConfiguredContentSize else { return }
+        let screen = window.screen ?? NSScreen.main
+        let area = visibleFrame ?? screen?.visibleFrame
+        let content = window.contentRect(forFrameRect: window.frame).size
+        let chrome = CGSize(width: window.frame.width - content.width, height: window.frame.height - content.height)
+        window.setContentSize(area.map { LeoInitialSizeDecision.fittedContentSize(asked, chrome: chrome, visibleFrame: $0) } ?? asked)
+        window.constrainToScreen(visibleFrame: area)
+        if visibleFrame == nil, let screen {
             let frame = adjustForWindowPosition(frame: window.frame, on: screen)
             window.setFrameOrigin(frame.origin)
         }
@@ -240,6 +260,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         if !config.windowDecorations {
             return defaultValue
         }
+
+        // MARK: Leo -- an agent window ignores `macos-titlebar-style`: every
+        // style but `native` conflicts with its unified toolbar.
+        if leoRuntime != nil { return "TerminalLeoAgent" }
 
         let nib = switch config.macosTitlebarStyle {
         case .native: "Terminal"
@@ -973,6 +997,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         _ node: SplitTree<Ghostty.SurfaceView>.Node,
         withConfirmation: Bool = true
     ) {
+        // MARK: Leo -- a terminal row's shell closing asks about its row's
+        // unsaved editor edits first, split or not (B-274).
+        if withConfirmation, leoDeferCloseOfRows(in: node, retry: { [weak self] in
+            guard let self, surfaceTree.contains(node) else { return }
+            closeSurface(node, withConfirmation: true)
+        }) { return }
+
         // If this isn't the root then we're dealing with a split closure.
         if surfaceTree.root != node {
             // MARK: Leo -- the confirm names the pane it closes (B-088).
@@ -1419,14 +1450,18 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
         // Initialize our content view to the SwiftUI root
         // MARK: Leo
-        // Leo owns window placement on launch (cold start always shows the
-        // placeholder + agent palette, never a restored plain-shell
-        // window), so every Leo-managed terminal window opts out of
-        // AppKit/macOS state restoration regardless of the upstream
-        // `restorable` flag or `window-save-state` config. Must run after
-        // the upstream restoration setup above, which unconditionally sets
-        // `window.isRestorable`.
+        // A Leo window never saves upstream's whole-window state: AppKit
+        // restores it only through `LeoTerminalWindowRestoration`, which
+        // brings back its Terminals rows (B-332), and only while it lists
+        // one (`leoTerminalsDidChange`) -- else launch shows the start
+        // screen. Never in a test host, whose windows are the debug app's.
+        // Must run after the upstream restoration setup above, which
+        // unconditionally sets `window.isRestorable`.
         window.isRestorable = false
+        if LeoTerminalWindowRestoration.isEnabled {
+            window.restorationClass = LeoTerminalWindowRestoration.self
+            window.identifier = LeoTerminalWindowRestoration.identifier
+        }
         let leoSession = (NSApp.delegate as? AppDelegate)?.leoRuntime.makeWindowSession(for: self)
         self.leoSession = leoSession
         let container = TerminalViewContainer {
@@ -1443,6 +1478,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         container.initialContentSize = leoConfiguredContentSize
 
         window.contentView = container
+        // MARK: Leo
+        leoInstallAgentToolbar()
         // MARK: Leo -- not the sidebar's search field (B-075).
         leoLeaveInitialFocusToContent(container)
 
@@ -1559,6 +1596,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // terminal row, as closing the window does (B-057).
     override func windowCanBeClosedWithoutConfirmation() -> Bool {
         super.windowCanBeClosedWithoutConfirmation() && leoSession?.terminals.hasBusyHiddenShell() != true
+            && leoSession?.hasBusyDrawerShell != true
     }
 
     override func windowWillClose(_ notification: Notification) {
@@ -1640,6 +1678,11 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     // Called when the window will be encoded. We handle the data encoding here in the
     // window controller.
     func window(_ window: NSWindow, willEncodeRestorableState state: NSCoder) {
+        // MARK: Leo -- a Leo window saves its Terminals rows alone (B-332).
+        if let leoSession {
+            leoSession.savedTerminals()?.encode(with: state)
+            return
+        }
         let data = TerminalRestorableState(from: self)
         data.encode(with: state)
     }
@@ -1648,8 +1691,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     @IBAction func newWindow(_ sender: Any?) {
         // MARK: Leo
-        if let leoSession, surfaceTree.isEmpty {
-            (NSApp.delegate as? AppDelegate)?.leoRuntime.routeNewSurface(.placeholder, origin: leoSession.id)
+        // The start screen asks for a window of its own: the bare start
+        // screen, not the palette (B-145).
+        if leoSession != nil, surfaceTree.isEmpty {
+            (NSApp.delegate as? AppDelegate)?.leoOpenStartScreenWindow()
             return
         }
         guard let surface = focusedSurface?.surface else { return }
@@ -1828,6 +1873,8 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 
     override func focusedSurfaceDidChange(to: Ghostty.SurfaceView?) {
         super.focusedSurfaceDidChange(to: to)
+        // MARK: Leo -- the focused pane is saved with its row (B-332).
+        window?.invalidateRestorableState()
 
         // We always cancel our event listener
         surfaceAppearanceCancellables.removeAll()
@@ -2055,7 +2102,12 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
 extension TerminalController {
     override func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if let enabled = validateLeoEditorMenuItem(item) { return enabled }
+        if let enabled = validateLeoEditorTabMenuItem(item) { return enabled }
+        if let enabled = validateLeoRowMenuItem(item) { return enabled }
         if let enabled = validateLeoBrowserMenuItem(item) { return enabled }
+        if let enabled = validateLeoWorkspaceMenuItem(item) { return enabled }
+        if let enabled = validateLeoToolMenuItem(item) { return enabled }
+        if let enabled = validateLeoTitleMenuItem(item) { return enabled }
         switch item.action {
         // MARK: Leo
         case #selector(toggleLeoSidebar(_:)):
@@ -2067,11 +2119,23 @@ extension TerminalController {
         case #selector(toggleSelectedLeoAgentPin(_:)):
             return validateLeoPinMenuItem(item)
 
+        case #selector(toggleLeoHideSubagents(_:)):
+            return validateLeoHideSubagentsMenuItem(item)
+
+        case #selector(toggleLeoAgentPane(_:)):
+            return validateLeoAgentPaneMenuItem(item)
+
         case #selector(sortLeoAgentsByLastActivity(_:)):
             return validateLeoSortMenuItem(item, order: .lastActivity)
 
         case #selector(sortLeoAgentsByName(_:)):
             return validateLeoSortMenuItem(item, order: .name)
+
+        case #selector(groupLeoAgentsByStatus(_:)):
+            return validateLeoGroupMenuItem(item, groupBy: .status)
+
+        case #selector(groupLeoAgentsByAttention(_:)):
+            return validateLeoGroupMenuItem(item, groupBy: .attention)
 
         case #selector(newLeoAgent(_:)):
             return validateNewLeoAgentMenuItem(item)
@@ -2094,11 +2158,38 @@ extension TerminalController {
         case #selector(viewLogsForSelectedLeoAgent(_:)):
             return validateLeoViewLogsMenuItem(item)
 
+        case #selector(setTemplateForSelectedLeoAgent(_:)):
+            return validateLeoSetTemplateMenuItem(item)
+
         case #selector(deleteSelectedLeoAgent(_:)):
             return validateLeoDeleteMenuItem(item)
 
-        case #selector(manageLeoHosts(_:)):
-            return validateLeoManageHostsMenuItem(item)
+        case #selector(duplicateSelectedLeoAgent(_:)):
+            return validateLeoDuplicateMenuItem(item)
+
+        case #selector(moveSelectedLeoAgent(_:)):
+            return validateLeoMoveMenuItem(item, LeoMenuCommands.canMove)
+
+        case #selector(copySelectedLeoAgent(_:)):
+            return validateLeoMoveMenuItem(item, LeoMenuCommands.canCopy)
+
+        case #selector(messageSelectedLeoAgent(_:)):
+            return validateLeoMessageMenuItem()
+
+        case #selector(interruptSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canInterrupt)
+
+        case #selector(compactSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canCompact)
+
+        case #selector(clearSelectedLeoAgent(_:)):
+            return validateLeoControlMenuItem(\.canClear)
+
+        case #selector(showLeoTerminal(_:)):
+            return validateLeoViewMenuItem(item, .terminal)
+
+        case #selector(showLeoChat(_:)):
+            return validateLeoViewMenuItem(item, .chat)
 
         case #selector(jumpToNextLeoAgentNeedingAttention(_:)):
             return validateLeoJumpToAttentionMenuItem(item)
@@ -2108,9 +2199,6 @@ extension TerminalController {
 
         case #selector(reconnectLeo(_:)):
             return validateLeoReconnectMenuItem(item)
-
-        case #selector(openLeoSurfacedFile(_:)):
-            return validateLeoOpenSurfacedFileMenuItem(item)
 
         case #selector(closeTabsOnTheRight):
             guard let window, let tabGroup = window.tabGroup else { return false }

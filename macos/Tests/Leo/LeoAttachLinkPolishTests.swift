@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-016: the sidebar selection vs. focus reports from the attach host,
 /// driven end to end through a real coordinator and sidebar model.

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// One recorded `AttachContentHost` open call; fields a given entry point
 /// doesn't take stay `nil`.
@@ -89,6 +90,8 @@ struct FakeOpenCall {
 
     func isShown(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) && !isHidden(handle) }
 
+    func shownHandle(in window: LeoWindowID) -> AttachmentHandle? { shownInContent[window] }
+
     /// Makes `reveal` answer `false`, as the real host does when it let
     /// the hidden surface go meanwhile.
     var refusesReveal = false
@@ -107,7 +110,23 @@ struct FakeOpenCall {
         return true
     }
 
+    /// Handles that share a pooled split tree with a given hidden handle
+    /// (set by a test): `release` lets go of the whole tree, as the real
+    /// host does, `releasePooledSurface` of one surface only.
+    var pooledSplitMates: [AttachmentHandle: [AttachmentHandle]] = [:]
+
     func release(_ handle: AttachmentHandle) {
+        guard let pool = pools[handle.windowID] else { return }
+        let (remaining, removed) = pool.removing { $0 == handle }
+        pools[handle.windowID] = remaining
+        removed.forEach(drop)
+        guard !removed.isEmpty else { return }
+        (pooledSplitMates[handle] ?? []).forEach(drop)
+    }
+
+    private(set) var releasedPooledSurfaces: [AttachmentHandle] = []
+    func releasePooledSurface(_ handle: AttachmentHandle) {
+        releasedPooledSurfaces.append(handle)
         guard let pool = pools[handle.windowID] else { return }
         let (remaining, removed) = pool.removing { $0 == handle }
         pools[handle.windowID] = remaining
@@ -118,13 +137,23 @@ struct FakeOpenCall {
     /// hidden row's shell is let go (the window then shows nothing here,
     /// rather than a neighbour) and reported closed; a gone one is left be.
     var closedTerminals: [AttachmentHandle] = []
+    /// As the real host does: a surface hidden in the live pool is the
+    /// pool's, so `closeTerminal` leaves it (only `release` lets it go).
+    var closeTerminalLeavesPooledSurfaces = false
     func closeTerminal(_ handle: AttachmentHandle) {
         closedTerminals.append(handle)
+        if closeTerminalLeavesPooledSurfaces, pools[handle.windowID]?.entries.contains(handle) == true { return }
         keptShells[handle.windowID]?.removeAll { $0 == handle }
         if shownInContent[handle.windowID] == handle { shownInContent[handle.windowID] = nil }
         terminalRows.remove(handle)
         guard openHandles.remove(handle) != nil else { return }
         emit(.closed(handle))
+    }
+
+    /// Every split asked for beside a terminal row's shell (B-333).
+    private(set) var terminalSplits: [(AttachmentHandle, LeoSplitDirection)] = []
+    func splitTerminal(_ handle: AttachmentHandle, direction: LeoSplitDirection) {
+        terminalSplits.append((handle, direction))
     }
 
     /// Every window whose sidebar was told to select what it shows again.
@@ -214,6 +243,27 @@ struct FakeOpenCall {
         return try opened(in: origin)
     }
 
+    /// Every `reattachInPlace` call: the handle it replaced and the command.
+    private(set) var reattachCalls: [(handle: AttachmentHandle, command: String)] = []
+    /// Makes `reattachInPlace` throw (after recording the call), changing
+    /// nothing, as the real host does when it can't make the surface.
+    var reattachError: Error?
+    /// As the real host does: a new surface in the shown handle's slot,
+    /// focused if the old one was, and the old one let go (`.closed`).
+    func reattachInPlace(_ handle: AttachmentHandle, command: String, workingDirectory: String?) throws -> AttachmentHandle {
+        reattachCalls.append((handle, command))
+        if let reattachError { throw reattachError }
+        guard isShown(handle) else { throw FakeReattachError.notShown }
+        let new = AttachmentHandle(surfaceID: UUID(), windowID: handle.windowID)
+        handles.append(new)
+        openHandles.insert(new)
+        if shownInContent[handle.windowID] == handle { shownInContent[handle.windowID] = new }
+        if focusedHandle == handle { focusedHandle = new }
+        openHandles.remove(handle)
+        emit(.closed(handle))
+        return new
+    }
+
     var reborn: [AttachmentHandle] = []
     func rebirthPlaceholder(for handle: AttachmentHandle) { reborn.append(handle) }
 
@@ -222,7 +272,12 @@ struct FakeOpenCall {
 
     func focus(_ handle: AttachmentHandle) { focused.append(handle) }
     func isOpen(_ handle: AttachmentHandle) -> Bool { openHandles.contains(handle) }
+    func openHandle(ofSurface surfaceID: UUID) -> AttachmentHandle? { openHandles.first { $0.surfaceID == surfaceID } }
     func setAgentName(_ handle: AttachmentHandle, name: String) { agentNames.append((handle, name)) }
+    var dispatchMarks: [(handle: AttachmentHandle, readOnly: Bool)] = []
+    func markDispatch(_ handle: AttachmentHandle, readOnly: Bool) { dispatchMarks.append((handle, readOnly)) }
+    var exitReports: [AttachmentHandle: AttachExitReport] = [:]
+    func exitReport(for handle: AttachmentHandle) -> AttachExitReport? { exitReports[handle] }
     /// Yields `event` without waiting for the coordinator to receive it --
     /// an event still in flight.
     func emit(_ event: AttachLifecycleEvent) {
@@ -264,6 +319,8 @@ struct FakeOpenCall {
         return handle
     }
 }
+
+enum FakeReattachError: Error { case notShown, failed }
 
 extension AttachLifecycleEvent {
     enum Kind: CaseIterable {

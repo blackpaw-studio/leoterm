@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// The SFTP server argv must ride the tunnel's ControlMaster and never
 /// open a connection of its own. Pure argv checks -- nothing runs ssh.

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A server's status message is untrusted text shown inside the app's own
 /// sentence: it must never read as text the app wrote.

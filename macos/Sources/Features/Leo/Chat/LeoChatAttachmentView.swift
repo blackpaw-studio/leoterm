@@ -1,0 +1,221 @@
+import AppKit
+import AVFoundation
+import LeoKit
+import SwiftUI
+
+private struct LeoChatAttachmentOpenerKey: EnvironmentKey {
+    static let defaultValue: ((LeoChatAttachment, _ fullWindow: Bool) -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// What clicking an attachment does. Unset, it downloads the file and
+    /// opens it in its default app; the chat pane sets it to show the
+    /// file in its viewer, or over the whole window when `fullWindow`.
+    var openChatAttachment: ((LeoChatAttachment, _ fullWindow: Bool) -> Void)? {
+        get { self[LeoChatAttachmentOpenerKey.self] }
+        set { self[LeoChatAttachmentOpenerKey.self] = newValue }
+    }
+}
+
+/// An attachment: images inline, anything else a row that opens the file
+/// in its default app once downloaded.
+struct LeoChatAttachmentView: View {
+    let attachment: LeoChatAttachment
+    @ObservedObject var chat: LeoChatPaneModel
+    @Environment(\.openChatAttachment) private var openAttachment
+
+    var body: some View {
+        if !attachment.available {
+            fileRow(subtitle: "No longer available", isEnabled: false)
+        } else if attachment.isImage {
+            image
+        } else {
+            fileRow(subtitle: subtitle, isEnabled: true)
+        }
+    }
+
+    private var state: LeoChatAttachmentFile? { chat.attachmentFiles[attachment.id] }
+
+    @ViewBuilder private var image: some View {
+        switch state {
+        case .loaded(let url):
+            LeoChatImage(url: url)
+                .overlay { dragSource(preview: LeoChatAttachmentDragSource.thumbnail(of: url, fallback: fileIcon)) }
+                .help(attachment.filename)
+                .contextMenu { openMenu }
+        case .failed:
+            fileRow(subtitle: subtitle, isEnabled: true)
+        case .loading, nil:
+            RoundedRectangle(cornerRadius: 8).fill(.quaternary).frame(width: 200, height: 120)
+                .overlay { ProgressView().controlSize(.small) }
+                .task { await chat.loadAttachment(attachment) }
+        }
+    }
+
+    private var subtitle: String {
+        switch state {
+        case .failed(let reason): reason
+        case .loading: "Downloading…"
+        case .loaded, nil: LeoChatPresentation.byteCount(attachment.bytes)
+        }
+    }
+
+    private func fileRow(subtitle: String, isEnabled: Bool) -> some View {
+        Button { open() } label: {
+            HStack(spacing: 8) {
+                Image(nsImage: fileIcon).resizable().frame(width: 28, height: 28)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(attachment.filename).lineLimit(1).truncationMode(.middle)
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .overlay { if isEnabled { dragSource(preview: fileIcon) } }
+        .help(isEnabled ? "Open \(attachment.filename)" : "")
+        .contextMenu { if isEnabled { openMenu } }
+    }
+
+    @ViewBuilder private var openMenu: some View {
+        Button("Open Full Window") { open(fullWindow: true) }
+        Button("Open in Default App", action: openInDefaultApp)
+        Divider()
+        Button(LeoChatAttachmentExport.downloadMenuTitle, action: downloadTo)
+    }
+
+    private var fileIcon: NSImage { NSWorkspace.shared.icon(for: .init(mimeType: attachment.mime) ?? .data) }
+
+    /// Dragging the attachment to Finder saves its original file there;
+    /// a plain click still opens it.
+    private func dragSource(preview: @autoclosure @escaping () -> NSImage) -> some View {
+        LeoChatAttachmentDragSource(
+            makePromise: { [attachment, chat] in
+                LeoChatAttachmentExport.promise(for: attachment, host: nil, chat: chat)
+            },
+            preview: preview,
+            onClick: { open() }
+        )
+    }
+
+    private func downloadTo() {
+        LeoChatAttachmentExport.presentSavePanel(
+            for: attachment, host: nil, chat: chat, in: NSApp.keyWindow ?? NSApp.mainWindow
+        )
+    }
+
+    private func open(fullWindow: Bool = false) {
+        if let openAttachment { return openAttachment(attachment, fullWindow) }
+        openInDefaultApp()
+    }
+
+    private func openInDefaultApp() {
+        Task {
+            if let url = await chat.downloadedFile(attachment) { NSWorkspace.shared.open(url) }
+        }
+    }
+}
+
+/// A downloaded image, decoded off the main thread.
+struct LeoChatImage: View {
+    let url: URL
+    @State private var image: NSImage?
+
+    var body: some View {
+        Group {
+            if let image {
+                // The shared layout keeps a tall image from squeezing the bubble thin: it crops past 2:1 and is at least readable wide.
+                let size = LeoChatImageLayout.frameSize(for: image.size)
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                RoundedRectangle(cornerRadius: 8).fill(.quaternary).frame(width: 200, height: 120)
+            }
+        }
+        .task(id: url) {
+            let url = url
+            image = await Task.detached { NSImage(contentsOf: url) }.value
+        }
+    }
+}
+
+/// A voice note: a player for its audio and the transcript under it.
+struct LeoChatVoiceNote: View {
+    let message: LeoChatMessage
+    @ObservedObject var chat: LeoChatPaneModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let audio = message.attachments.first(where: \.isAudio) {
+                LeoChatAudioPlayer(attachment: audio, chat: chat)
+            }
+            if let transcript = message.transcript {
+                LeoChatMarkdownText(text: transcript)
+            } else {
+                Text(message.isPending ? "Transcribing…" : "No transcript").font(.callout).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+/// Play/pause and progress for one audio attachment.
+struct LeoChatAudioPlayer: View {
+    let attachment: LeoChatAttachment
+    @ObservedObject var chat: LeoChatPaneModel
+    @StateObject private var player = LeoChatAudioPlayback()
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Button(action: toggle) {
+                Image(systemName: player.isPlaying ? "pause.circle.fill" : "play.circle.fill").font(.title2)
+            }
+            .buttonStyle(.borderless)
+            .disabled(!attachment.available || chat.attachmentFiles[attachment.id] == .loading)
+            .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
+            TimelineView(.periodic(from: .now, by: 0.25)) { _ in
+                ProgressView(value: player.progress).frame(width: 140)
+            }
+            Text(player.durationText).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+        }
+    }
+
+    private func toggle() {
+        Task {
+            guard let url = await chat.downloadedFile(attachment) else { return }
+            player.toggle(url: url)
+        }
+    }
+}
+
+@MainActor final class LeoChatAudioPlayback: NSObject, ObservableObject, AVAudioPlayerDelegate {
+    @Published private(set) var isPlaying = false
+    private var player: AVAudioPlayer?
+
+    var progress: Double {
+        guard let player, player.duration > 0 else { return 0 }
+        return player.currentTime / player.duration
+    }
+
+    var durationText: String {
+        guard let player else { return "" }
+        return Duration.seconds(player.duration).formatted(.time(pattern: .minuteSecond))
+    }
+
+    func toggle(url: URL) {
+        if let player, player.isPlaying {
+            player.pause()
+            isPlaying = false
+            return
+        }
+        if player?.url != url { player = try? AVAudioPlayer(contentsOf: url) }
+        player?.delegate = self
+        isPlaying = player?.play() ?? false
+    }
+
+    nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor in self.isPlaying = false }
+    }
+}

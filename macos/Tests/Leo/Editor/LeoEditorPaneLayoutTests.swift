@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Where the pane's rows land in a real window (B-045): a close waiting on
 /// a save shows its banner as its own leading-aligned row under the
@@ -15,6 +16,7 @@ struct LeoEditorPaneLayoutTests {
             let model = LeoEditorPaneModel(makeAccess: { _ in access })
             let pane = LeoEditorPaneViewController(model: model)
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 500), styleMask: [.titled], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false
             window.contentView = pane.view
             // Even when a `#require` below ends the test early: no held
             // save or window outlives it.

@@ -34,7 +34,7 @@ extension KeyboardShortcut: @retroactive CustomStringConvertible {
         case .home: keyString = "⤒"
         case .end: keyString = "⤓"
         default:
-            keyString = String(key.character.uppercased())
+            keyString = key.functionKeyName ?? String(key.character.uppercased())
         }
 
         result.append(keyString)
@@ -43,6 +43,18 @@ extension KeyboardShortcut: @retroactive CustomStringConvertible {
 
     public var description: String {
         return self.keyList.joined()
+    }
+}
+
+extension KeyEquivalent {
+    /// AppKit's F1…F35 key equivalents: consecutive private-use characters.
+    private static let functionKeys = NSF1FunctionKey...NSF35FunctionKey
+
+    /// "F1"…"F35" for AppKit's function-key characters, else nil.
+    var functionKeyName: String? {
+        guard character.unicodeScalars.count == 1, let scalar = character.unicodeScalars.first,
+              Self.functionKeys.contains(Int(scalar.value)) else { return nil }
+        return "F\(Int(scalar.value) - NSF1FunctionKey + 1)"
     }
 }
 

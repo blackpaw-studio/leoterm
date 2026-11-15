@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-052: what an attach surface contributes to its tab and window title.
 /// (Change Tab Title… sits above this in `BaseTerminalController`; see

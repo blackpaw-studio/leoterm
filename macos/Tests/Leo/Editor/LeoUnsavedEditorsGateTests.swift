@@ -4,6 +4,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Every close of a tab, a window or the app goes through the gate, so
 /// unsaved editor edits are never dropped: a close that can ask asks about

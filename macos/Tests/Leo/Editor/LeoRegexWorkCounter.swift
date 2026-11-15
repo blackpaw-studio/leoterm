@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// A `LeoSyntaxHighlighter.Matcher` that runs the same regex on ICU -- the
 /// engine under `NSRegularExpression` -- directly, so it can count the

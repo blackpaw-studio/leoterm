@@ -55,6 +55,51 @@ final class UnixSocketTestServer: @unchecked Sendable {
     }
 }
 
+/// Blocks until the peer of `client` has closed its end, so a handler can
+/// assert "the transport closed the connection" without sleeping or timing
+/// luck. Drains whatever the peer already sent (a request longer than the
+/// bytes the handler read leaves data queued, and that is not a close) and
+/// never writes, so it can't race the close or raise SIGPIPE. Returns false
+/// if `timeout` elapses first or the socket fails in a way that isn't a close.
+func waitForPeerClose(_ client: Int32, timeout: TimeInterval = 5) -> Bool {
+    var limit = timeval(tv_sec: Int(timeout), tv_usec: 0)
+    _ = setsockopt(client, SOL_SOCKET, SO_RCVTIMEO, &limit, socklen_t(MemoryLayout<timeval>.size))
+    var buffer = [UInt8](repeating: 0, count: 4096)
+    while true {
+        let received = recv(client, &buffer, buffer.count, 0)
+        if received == 0 { return true }
+        if received > 0 || errno == EINTR { continue }
+        return errno == ECONNRESET
+    }
+}
+
+/// Connects a raw blocking client to the unix socket at `path`.
+func connectUnixClient(to path: String) throws -> Int32 {
+    let descriptor = socket(AF_UNIX, SOCK_STREAM, 0)
+    guard descriptor >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
+    var noSigPipe: Int32 = 1
+    _ = setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSigPipe, socklen_t(MemoryLayout<Int32>.size))
+    var address = sockaddr_un()
+    address.sun_family = sa_family_t(AF_UNIX)
+    let capacity = MemoryLayout.size(ofValue: address.sun_path) - 1
+    _ = path.withCString { source in
+        withUnsafeMutablePointer(to: &address.sun_path) {
+            strncpy(UnsafeMutableRawPointer($0).assumingMemoryBound(to: CChar.self), source, capacity)
+        }
+    }
+    let connected = withUnsafePointer(to: &address) {
+        $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+            connect(descriptor, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+        }
+    }
+    guard connected == 0 else {
+        let error = NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        Darwin.close(descriptor)
+        throw error
+    }
+    return descriptor
+}
+
 /// Like `UnixSocketTestServer`, but accepts an unbounded number of
 /// concurrent connections (each handled on its own queue) instead of
 /// exactly one -- for exercising a transport under concurrent load.

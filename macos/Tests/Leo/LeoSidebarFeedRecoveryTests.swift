@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @Suite(.timeLimit(.minutes(1)))
 struct LeoSidebarFeedRecoveryTests {
@@ -9,7 +10,7 @@ struct LeoSidebarFeedRecoveryTests {
         let daemon = RecoveryDaemon(agents: [])
         let activity = LeoActivityClient(config: .init(baseURL: URL(string: "http://127.0.0.1")!, token: "test"))
         weak var model: LeoSidebarModel?
-        var runtime: LeoRuntime? = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activity: activity, templateFetchRunner: LeoRecordingTemplateRunner())
+        var runtime: LeoRuntime? = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activity: activity, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner())
         model = runtime?.model
 
         runtime = nil
@@ -70,7 +71,7 @@ struct LeoSidebarFeedRecoveryTests {
         // a dead stream, which disconnects the feed (D-061) and can beat
         // the first refresh.
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
         let session = runtime.makeWindowSession()
         // The sidebar is hidden by default on a fresh install -- this test
         // is specifically about *visible*-sidebar pollability, so state
@@ -97,7 +98,7 @@ struct LeoSidebarFeedRecoveryTests {
         // An inert stream: a dead one would (rightly) disconnect the feed
         // and stop all refreshes (D-061), which is not what this is about.
         let activity = LeoSidebarActivitySource(events: { AsyncStream { $0.finish() } }, fetchState: { [] })
-        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner())
+        let runtime = LeoRuntime(daemon: daemon, cli: .recordingForTests(), activitySource: activity, defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), chatClient: FakeChatClient())
         let session = runtime.makeWindowSession()
 
         runtime.start()
@@ -111,6 +112,59 @@ struct LeoSidebarFeedRecoveryTests {
         #expect(session.isPollable)
         runtime.shutdown()
     }
+
+    /// Cold launch: the first list fails (5 s deadline, refused socket). The
+    /// 30 s disconnected poll must not be the next attempt -- quick retries
+    /// with backoff run until a list lands.
+    @Test func failedFirstListRetriesWithBackoffBeforeThePoll() async throws {
+        let daemon = RecoveryDaemon(agents: [agent("alpha")], failingLists: 2)
+        let clock = LeoFiringClock()
+        let recorder = RecoverySnapshotRecorder()
+        let feed = LeoSidebarFeed(
+            daemon: daemon,
+            activity: .init(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
+            sleep: { try await clock.sleep($0) },
+            sink: { snapshot in Task { await recorder.append(snapshot) } }
+        )
+
+        await feed.start()
+        await feed.setPolling(true)
+
+        try await until { clock.pending(Self.second).count == 1 }
+        #expect(await daemon.listCallCount == 1)
+        clock.fire(Self.second)
+        try await until { clock.pending(2 * Self.second).count == 1 }
+        #expect(await daemon.listCallCount == 2)
+        clock.fire(2 * Self.second)
+        try await until { await recorder.last?.rows.map(\.name) == ["alpha"] }
+        #expect(await daemon.listCallCount == 3)
+        #expect(await recorder.last?.connectivity == .connected)
+        await feed.stop()
+    }
+
+    @Test func baselineRetriesStopOnceAListLands() async throws {
+        let daemon = RecoveryDaemon(agents: [agent("alpha")], failingLists: 1)
+        let clock = LeoFiringClock()
+        let recorder = RecoverySnapshotRecorder()
+        let feed = LeoSidebarFeed(
+            daemon: daemon,
+            activity: .init(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
+            sleep: { try await clock.sleep($0) },
+            sink: { snapshot in Task { await recorder.append(snapshot) } }
+        )
+
+        await feed.start()
+        await feed.setPolling(true)
+        try await until { clock.pending(Self.second).count == 1 }
+        clock.fire(Self.second)
+        try await until { await recorder.last?.rows.map(\.name) == ["alpha"] }
+
+        for backoff in [1, 2, 4, 8] { #expect(clock.pending(UInt64(backoff) * Self.second).isEmpty) }
+        #expect(await daemon.listCallCount == 2)
+        await feed.stop()
+    }
+
+    private static let second: UInt64 = 1_000_000_000
 
     private func agent(_ name: String) -> LeoAgent {
         .init(name: name, template: "default", repo: nil, workspace: nil, branch: nil, canonicalPath: nil, status: .running, startedAt: nil, restarts: nil, stoppedReason: nil, wakeOnMessage: nil)
@@ -126,10 +180,19 @@ private enum RecoveryError: Error { case unavailable }
 private actor RecoveryDaemon: LeoDaemonClient {
     let agents: [LeoAgent]
     private(set) var listCallCount = 0
+    /// How many leading `listAgents()` calls throw.
+    let failingLists: Int
 
-    init(agents: [LeoAgent]) { self.agents = agents }
+    init(agents: [LeoAgent], failingLists: Int = 0) {
+        self.agents = agents
+        self.failingLists = failingLists
+    }
 
-    func listAgents() async throws -> [LeoAgent] { listCallCount += 1; return agents }
+    func listAgents() async throws -> [LeoAgent] {
+        listCallCount += 1
+        if listCallCount <= failingLists { throw RecoveryError.unavailable }
+        return agents
+    }
     func spawn(_ request: LeoSpawnRequest) async throws -> LeoAgent { fatalError() }
     func start(_ name: String) async throws { fatalError() }
     func stop(_ name: String, wakeOnMessage: Bool?) async throws { fatalError() }

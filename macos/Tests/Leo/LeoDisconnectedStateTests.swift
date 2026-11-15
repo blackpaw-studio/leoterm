@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-007 / D-061 around the feed: the banner's words, the Reconnect menu
 /// item, the palette, the sidebar model's inert rows, the wake check and
@@ -50,6 +51,24 @@ import Testing
         #expect(!LeoMenuCommands.canReconnect(hasLeoSession: false, connectivity: .disconnected(reason: "x", isRetrying: false)))
     }
 
+    /// Q7: ⇧⌘R reconnects every machine that isn't connected, including one
+    /// still connecting, but not one already retrying.
+    @Test func reconnectTargetsEveryMachineThatIsNotConnected() {
+        let machines: [(host: LeoHostID, connectivity: LeoConnectivity)] = [
+            (.local, .connected),
+            (.remote("a"), .failed(message: "refused")),
+            (.remote("b"), .disconnected(reason: "x", isRetrying: false)),
+            (.remote("c"), .disconnected(reason: "x", isRetrying: true)),
+            (.remote("d"), .loading),
+        ]
+
+        #expect(LeoMenuCommands.machinesToReconnect(machines) == [.remote("a"), .remote("b"), .remote("d")])
+        #expect(LeoMenuCommands.canReconnect(hasLeoSession: true, machines: machines))
+        #expect(LeoMenuCommands.canReconnect(hasLeoSession: true, machines: [(.local, .connected), (.remote("d"), .loading)]))
+        #expect(!LeoMenuCommands.canReconnect(hasLeoSession: true, machines: [(.local, .connected), (.remote("c"), .disconnected(reason: "x", isRetrying: true))]))
+        #expect(!LeoMenuCommands.canReconnect(hasLeoSession: false, machines: machines))
+    }
+
     /// Read from the xib source (instantiating MainMenu would also build
     /// its AppDelegate): Reconnect is ⇧⌘R and nothing else in the menu bar
     /// uses it. Ghostty's config keybinds don't bind ⇧⌘R on macOS either.
@@ -65,8 +84,8 @@ import Testing
     // MARK: Palette
 
     @Test func thePaletteShowsTheDisconnectedStateInsteadOfAttachableRows() throws {
-        var retried = false
-        let model = LeoAgentPaletteModel(retry: { retried = true })
+        var retried: [LeoHostID] = []
+        let model = LeoAgentPaletteModel(retry: { retried.append($0) })
         model.update(
             snapshot: LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .disconnected(reason: "Connection closed", isRetrying: false), generation: 3),
             selectedHost: .local,
@@ -74,10 +93,10 @@ import Testing
         )
 
         let banner = LeoDisconnectedBanner(host: .local, connectivity: .disconnected(reason: "Connection closed", isRetrying: false))
-        #expect(model.rows == [.disconnected(try #require(banner)), .newAgent, .plainShell])
+        #expect(model.rows == [.disconnected(host: .local, banner: try #require(banner)), .newAgent, .plainShell])
         #expect(model.confirm() == nil)
-        model.retryConnection()
-        #expect(retried)
+        model.retryConnection(.local)
+        #expect(retried == [.local])
     }
 
     /// A remote tunnel's failure text is ssh's stderr: sanitized (B-020).
@@ -91,7 +110,9 @@ import Testing
             hostState: .failed(message: message, hint: hint)
         )
 
-        #expect(model.rows.first == .status(text: LeoSFTPServerText.sanitized(message), hint: LeoSFTPServerText.sanitized(hint), canRetry: true))
+        #expect(model.rows.first == .status(
+            host: .remote("mars"), text: LeoSFTPServerText.sanitized(message), hint: LeoSFTPServerText.sanitized(hint), canRetry: true
+        ))
     }
 
     /// The sidebar's full-panel failure (an initial remote connect that
@@ -112,16 +133,16 @@ import Testing
         let model = LeoSidebarModel()
         var attached: [String] = []
         model.attachRequested = { row, _, _ in attached.append(row.name) }
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .disconnected(reason: "x", isRetrying: false), generation: 1))
+        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .disconnected(reason: "x", isRetrying: false), generation: 1), for: .local)
         model.selection = Self.alpha.id
 
-        #expect(model.isDisconnected)
+        #expect(model.isDisconnected(.local))
         #expect(model.actionableSelection == nil)
         model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .content)
         #expect(attached.isEmpty)
 
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2))
-        #expect(!model.isDisconnected)
+        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2), for: .local)
+        #expect(!model.isDisconnected(.local))
         #expect(model.actionableSelection == Self.alpha)
         model.requestAttach(Self.alpha, from: LeoWindowID(), disposition: .content)
         #expect(attached == ["alpha"])
@@ -136,22 +157,23 @@ import Testing
         let runtime = LeoRuntime(
             daemon: daemon, cli: .recordingForTests(),
             activitySource: .init(events: { AsyncStream { $0.finish() } }, fetchState: { [] }),
-            defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), wakeNotifications: center
+            defaults: defaults, templateFetchRunner: LeoRecordingTemplateRunner(), machineRunner: LeoRecordingTemplateRunner(), wakeNotifications: center,
+            chatClient: FakeChatClient()
         )
         let session = runtime.makeWindowSession()
         session.setSidebarVisible(true)
         runtime.start()
-        await awaitCondition(timeout: 5) { await runtime.model.snapshot.connectivity == .connected }
+        await awaitCondition(timeout: 5) { await runtime.model.snapshot(for: .local)?.connectivity == .connected }
         let calls = await daemon.listCallCount
 
         center.post(name: NSWorkspace.didWakeNotification, object: nil)
 
         await awaitCondition(timeout: 5) {
-            if case .disconnected = await runtime.model.snapshot.connectivity { return true }
+            if case .disconnected? = await runtime.model.snapshot(for: .local)?.connectivity { return true }
             return false
         }
         #expect(await daemon.listCallCount == calls + 1)
-        #expect(runtime.model.snapshot.rows.map(\.name) == ["alpha"])
+        #expect(runtime.model.snapshot(for: .local)?.rows.map(\.name) == ["alpha"])
         runtime.shutdown()
     }
 
@@ -164,29 +186,104 @@ import Testing
         #expect(LeoForcedDisconnectFixture.reason(environment: [LeoForcedDisconnectFixture.environmentKey: "0"]) == nil)
     }
 
-    @Test func theForcedDisconnectFixtureDisconnectsOnceAfterTheFirstList() async throws {
+    /// Only the fixture's own drop is exempt from the automatic retry, so
+    /// its banner stays up for screenshots.
+    @Test func onlyTheFixturesOwnDropIsForced() {
+        let forced = LeoForcedDisconnectFixture.forcedReason
+        #expect(LeoForcedDisconnectFixture.isForced(.disconnected(reason: forced, isRetrying: false)))
+        #expect(!LeoForcedDisconnectFixture.isForced(.disconnected(reason: "Connection closed", isRetrying: false)))
+        #expect(!LeoForcedDisconnectFixture.isForced(.connected))
+    }
+
+    /// B-166: This Mac's feed can list on its own before the registry's
+    /// first connect (generation 0). The force must wait for a registry
+    /// connection's list: forced on the early one, that first connect reads
+    /// as a Retry and reconnects, and the banner never shows.
+    @Test func theForcedDisconnectHoldsWhenTheEarlyListLandsBeforeTheFirstConnect() async throws {
+        let daemon = WakeDaemon(failAfter: .max)
+        let (model, feeds, delivered) = Self.forcedFeeds(daemon: daemon)
+        LeoForcedDisconnectFixture.arm(feeds: feeds, reason: LeoForcedDisconnectFixture.forcedReason)
+        feeds.start(pollable: false)
+        let feed = try #require(feeds.feed(for: .local))
+
+        feeds.refresh()
+        await awaitCondition { @MainActor in delivered.values.contains(.connected) }
+        feeds.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemon, activitySource: Self.silentActivity()))
+        await awaitCondition { await daemon.listCallCount == 2 }
+        await awaitCondition { Self.isSettled(await feed.snapshot.connectivity) }
+        await feed.drainEmissions()
+
+        #expect(model.snapshot(for: .local)?.connectivity == Self.forcedDown)
+    }
+
+    @Test func theForcedDisconnectFiresOnceOnTheFirstConnectsListAndRetryReconnects() async throws {
+        let daemon = WakeDaemon(failAfter: .max)
+        let (model, feeds, delivered) = Self.forcedFeeds(daemon: daemon)
+        LeoForcedDisconnectFixture.arm(feeds: feeds, reason: LeoForcedDisconnectFixture.forcedReason)
+        feeds.start(pollable: false)
+        let feed = try #require(feeds.feed(for: .local))
+
+        feeds.updateConnection(host: .local, generation: 1, phase: .connected(daemon: daemon, activitySource: Self.silentActivity()))
+        await awaitCondition { await daemon.listCallCount == 1 }
+        await awaitCondition { await feed.snapshot.connectivity == Self.forcedDown }
+        await feed.drainEmissions()
+        #expect(model.snapshot(for: .local)?.connectivity == Self.forcedDown)
+
+        // The header's Reconnect: the registry's next generation.
+        feeds.updateConnection(host: .local, generation: 2, phase: .connected(daemon: daemon, activitySource: Self.silentActivity()))
+        await awaitCondition { await daemon.listCallCount == 2 }
+        await awaitCondition { await feed.snapshot.connectivity == .connected }
+        await feed.drainEmissions()
+
+        #expect(model.snapshot(for: .local)?.connectivity == .connected)
+        #expect(delivered.forcedDrops == 1, "forced down once, not again on the Retry")
+    }
+
+    nonisolated private static let forcedDown = LeoConnectivity.disconnected(reason: LeoForcedDisconnectFixture.forcedReason, isRetrying: false)
+
+    /// A list has landed on the connection: up, or forced down by it.
+    nonisolated private static func isSettled(_ connectivity: LeoConnectivity) -> Bool {
+        connectivity == .connected || connectivity == forcedDown
+    }
+
+    /// This Mac's feed wired to a sidebar model the way `LeoRuntime` wires
+    /// it, not yet started, and every connectivity the model was handed.
+    private static func forcedFeeds(daemon: any LeoDaemonClient) -> (LeoSidebarModel, LeoMachineFeeds, DeliveredConnectivity) {
         let model = LeoSidebarModel()
-        let requests = ForcedRequests()
-        let arming = LeoForcedDisconnectFixture.arm(model: model, reason: "Forced") { reason in
-            Task { await requests.append(reason) }
-        }
+        model.setMachines([.local])
+        let delivered = DeliveredConnectivity()
+        let feeds = LeoMachineFeeds(dependencies: .init(
+            localDaemon: daemon, localActivity: silentActivity(),
+            onSnapshot: { host, snapshot in
+                model.receive(snapshot, for: host)
+                delivered.values.append(snapshot.connectivity)
+            }
+        ))
+        feeds.setMachines([.local])
+        return (model, feeds, delivered)
+    }
 
-        model.receive(LeoSidebarSnapshot(rows: [], connectivity: .loading, generation: 1))
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 2))
-        model.receive(LeoSidebarSnapshot(rows: [Self.alpha], connectivity: .connected, generation: 3))
-
-        await awaitCondition { await requests.values == ["Forced"] }
-        for _ in 0..<20 { await Task.yield() }
-        #expect(await requests.values == ["Forced"], "only the first live list is forced down")
-        withExtendedLifetime(arming) {}
+    /// An activity stream that never sends and stays open.
+    nonisolated private static func silentActivity() -> LeoSidebarActivitySource {
+        LeoSidebarActivitySource(events: { AsyncStream { _ in } }, fetchState: { [] })
     }
     #endif
 }
 
-private actor ForcedRequests {
-    private(set) var values: [String] = []
-    func append(_ value: String) { values.append(value) }
+#if DEBUG
+/// Every connectivity a sidebar model was handed, in order.
+@MainActor private final class DeliveredConnectivity {
+    var values: [LeoConnectivity] = []
+
+    /// How many times the fixture's drop was entered from any other state.
+    var forcedDrops: Int {
+        zip([nil] + values.map(Optional.some), values).filter { previous, value in
+            value == LeoConnectivity.disconnected(reason: LeoForcedDisconnectFixture.forcedReason, isRetrying: false)
+                && !(previous.map(LeoForcedDisconnectFixture.isForced) ?? false)
+        }.count
+    }
 }
+#endif
 
 /// Lists `alpha` for the first `failAfter` calls, then times out.
 private actor WakeDaemon: LeoDaemonClient {

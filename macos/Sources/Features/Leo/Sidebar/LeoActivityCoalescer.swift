@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Buffers `agentActivity` SSE events between the first arrival and a flush,
 /// so a chatty agent's rapid activity updates can be applied in one merge +

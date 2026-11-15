@@ -1,0 +1,5 @@
+source "https://rubygems.org"
+
+# Pinned (with Gemfile.lock) for `fastlane match` and `pilot` in the
+# TestFlight workflow.
+gem "fastlane", "~> 2.234"

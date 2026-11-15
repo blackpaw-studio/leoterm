@@ -7,12 +7,15 @@
 # `-XCTest All <bundle>` on its own argv; Ghostty.Config.loadConfig skips CLI
 # arg parsing whenever isRunningXCTest() is true specifically so that argv
 # never reaches config parsing, so no test failures need to be tolerated here.
-# Env: DERIVED_DATA, DEVELOPER_DIR. Optional LOG (default $RUNNER_TEMP/leo-tests.log).
+# Env: DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
 set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
 readonly TEST_TIMEOUT_SECONDS=900
+export TEST_TIMEOUT_SECONDS
 log="${LOG:-${RUNNER_TEMP:-/tmp}/leo-tests.log}"
+# Resolved before the cd below; BASH_SOURCE is relative when CI runs the script by path.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$(git rev-parse --show-toplevel)/macos"
 
 echo "::group::build-for-testing"
@@ -26,10 +29,16 @@ xcodebuild build-for-testing \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO
 echo "::endgroup::"
 
+# Host tier (real key focus, surfaces, WebKit): only an explicit LEO_HOST_TESTS=1
+# turns it on. Passed explicitly so the test host sees exactly what is logged.
+host_tests="${LEO_HOST_TESTS:-}"
+if [[ "$host_tests" == "1" ]]; then echo "host tier: on"; else echo "host tier: off"; fi
+
 D="$DEVELOPER_DIR"
 app="$DERIVED_DATA/Build/Products/Debug/Leo.app"
 set +e
 timeout "$TEST_TIMEOUT_SECONDS" env \
+  LEO_HOST_TESTS="$host_tests" \
   DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
   DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
   DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
@@ -39,28 +48,4 @@ timeout "$TEST_TIMEOUT_SECONDS" env \
 rc=$?
 set -e
 
-summary="$(grep -E 'Test run with [0-9]+ tests' "$log" | tail -1 || true)"
-echo "${summary:-no test summary found}"
-if [[ $rc -eq 124 ]]; then
-  echo "::error::Test run timed out after ${TEST_TIMEOUT_SECONDS}s"
-  grep -E '◇ Test .* started' "$log" | tail -5 || true
-  exit 1
-fi
-if [[ -z "$summary" ]]; then
-  tail -40 "$log"
-  echo "::error::Test runner exited ($rc) without a summary"
-  exit 1
-fi
-if [[ $rc -ne 0 ]]; then
-  grep -E '^✘' "$log" | head -60
-  echo "::error::Test runner exited with status $rc"
-  exit 1
-fi
-
-failed="$(grep -E '^✘ Test ' "$log" || true)"
-if [[ -n "$failed" ]]; then
-  echo "$failed" | head -60
-  echo "::error::Test failures reported despite a zero exit status"
-  exit 1
-fi
-echo "All tests passed"
+"$script_dir/check-test-log.sh" "$log" "$rc"

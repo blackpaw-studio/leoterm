@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 struct LeoUnixSocketTransport: LeoDaemonTransport {
     private let clock: any LeoDaemonClock
@@ -27,7 +28,13 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
                 continuation.finish(throwing: error)
                 return
             }
-            let request = LeoHTTPRequest(method: "GET", path: path).serialized()
+            let request: Data
+            do {
+                request = try LeoHTTPRequest(method: "GET", path: path).serialized()
+            } catch {
+                continuation.finish(throwing: error)
+                return
+            }
             let task = Task.detached(priority: .userInitiated) { [clock, onIdlePhase] in
                 do {
                     try await Self.runStream(bridge, wire: request, idleTimeout: idleTimeout, clock: clock, onIdlePhase: onIdlePhase) {
@@ -47,7 +54,7 @@ struct LeoUnixSocketTransport: LeoDaemonTransport {
         let bridge = try LeoNWConnectionBridge(socketPath: socketPath)
         return try await withTaskCancellationHandler(operation: {
             try Task.checkCancellation()
-            return try await Self.runRequest(bridge, wire: request.serialized(), timeout: timeout)
+            return try await Self.runRequest(bridge, wire: try request.serialized(), timeout: timeout)
         }, onCancel: { bridge.cancel(reason: .task) })
     }
 
@@ -219,3 +226,5 @@ private final class LeoIdleWatchdog: @unchecked Sendable {
         task?.cancel()
     }
 }
+
+extension LeoUnixSocketTransport: LeoSocketActivityTransport {}

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 struct LeoSidebarSectioningTests {
     @Test func groupsRowsByStatusPreservingRankOrder() {
@@ -16,6 +17,11 @@ struct LeoSidebarSectioningTests {
 
         #expect(sections.map(\.title) == ["Running", "Starting", "Stopped", "Weird"])
         #expect(sections.map { $0.rows.map(\.name) } == [["a"], ["b"], ["c"], ["d"]])
+    }
+
+    @Test func restoringRowsGetTheirOwnSectionAfterStarting() {
+        let sections = LeoSidebarSectioning.sections(for: [row("a", status: .starting), row("b", status: .restoring)])
+        #expect(sections.map(\.title) == ["Starting", "Restoring…"])
     }
 
     @Test func allRunningProducesSingleSection() {

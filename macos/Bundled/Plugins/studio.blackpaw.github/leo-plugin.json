@@ -1,0 +1,24 @@
+{
+  "id": "studio.blackpaw.github",
+  "name": "GitHub",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "main": "main.js",
+  "permissions": {
+    "network": ["github.com", "api.github.com", "*.actions.githubusercontent.com", "*.blob.core.windows.net"],
+    "secrets": true,
+    "agents": ["read", "send", "spawn"]
+  },
+  "contributes": {
+    "views": [{ "id": "github", "title": "GitHub", "sfSymbol": "arrow.triangle.pull" }],
+    "rowAccessories": [{ "id": "pr" }],
+    "commands": [
+      { "id": "new-agent-from-issue", "title": "New Agent from Issue" },
+      { "id": "open-pr", "title": "Open Pull Request" },
+      { "id": "create-pr", "title": "Create Pull Request" },
+      { "id": "sign-in", "title": "Sign In to GitHub" },
+      { "id": "sign-out", "title": "Sign Out of GitHub" }
+    ],
+    "sidebarSections": [{ "id": "assigned-issues", "title": "Assigned Issues" }]
+  }
+}

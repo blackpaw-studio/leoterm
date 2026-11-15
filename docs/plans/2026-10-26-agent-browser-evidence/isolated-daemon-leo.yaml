@@ -1,0 +1,31 @@
+defaults:
+  model: sonnet
+  max_turns: 100
+  harness_options:
+    permission_mode: auto
+    remote_control: false
+web:
+  enabled: true
+  port: 18370
+  bind: 127.0.0.1
+templates:
+  e2e-claude:
+    workspace: /private/tmp/claude-501/leoe2e/app
+    model: sonnet
+    env:
+      CLAUDE_CONFIG_DIR: /Users/evan/.claude-blackpaw-evan
+  e2e-codex:
+    workspace: /private/tmp/claude-501/leoe2e/app
+    model: gpt-6.1-sol
+    harness: codex
+    env:
+      CODEX_HOME: /Users/evan/.codex
+    harness_options:
+      permission_mode: approve-for-me
+  e2e-opencode:
+    workspace: /private/tmp/claude-501/leoe2e/app
+    model: openai/gpt-6-sol
+    harness: opencode
+    env:
+      XDG_DATA_HOME: /Users/evan/.local/share
+      XDG_CONFIG_HOME: /Users/evan/.config

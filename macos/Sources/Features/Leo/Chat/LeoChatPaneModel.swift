@@ -1,0 +1,606 @@
+import Combine
+import Foundation
+import LeoKit
+
+/// Leo Chat for the agent selected in the sidebar: its thread (paged,
+/// merged by id with live `chat.*` events, reloaded after a reconnect or a
+/// sequence gap), read marks while the pane is on screen, answers to `ask`
+/// and `permission` prompts, attachment downloads, and a draft per agent
+/// whose send keeps it on failure. It talks to each agent's own machine:
+/// `LeoRuntime` binds a client per machine as its daemon connects and unbinds
+/// it when the connection drops.
+@MainActor final class LeoChatPaneModel: ObservableObject {
+    static let pageSize = 50
+    /// The longest voice note: ten minutes.
+    static let maximumRecording: TimeInterval = 600
+    /// Anything shorter was a click, not a recording.
+    static let minimumRecording: TimeInterval = 0.5
+    static let microphoneDeniedMessage = "Leo can't use the microphone. Allow it in System Settings ▸ Privacy & Security ▸ Microphone."
+
+    typealias FileReader = @Sendable (LeoChatOutgoingFile) async throws -> LeoChatUpload
+
+    @Published private(set) var agent: LeoAgentID?
+    /// A prompt that is no longer open loses its ask draft.
+    @Published private(set) var timeline = LeoChatTimeline() {
+        didSet { dropSettledAskDrafts() }
+    }
+    @Published private(set) var isLoading = false
+    @Published private(set) var isLoadingOlder = false
+    @Published private(set) var loadError: String?
+    /// Message ids with an answer in flight.
+    @Published private(set) var answering: Set<String> = []
+    /// The answer being put together per open `radio`, `checkboxes` or
+    /// `text` ask, kept across thread switches until the prompt settles.
+    @Published private(set) var askDrafts: [String: LeoChatAskDraft] = [:]
+    /// The answers being put together per open questions card, kept until
+    /// the card settles.
+    @Published private(set) var questionsDrafts: [String: LeoChatQuestionsDraft] = [:]
+    /// A refused questions answer or dismissal, shown inside its own card.
+    @Published private(set) var questionsErrors: [String: String] = [:]
+    @Published private(set) var drafts: [LeoAgentID: LeoChatComposerDraft] = [:]
+    /// The send in flight per agent.
+    @Published private(set) var sending: [LeoAgentID: LeoChatOutgoing] = [:]
+    @Published private(set) var recording = LeoChatRecording.idle
+    @Published private(set) var attachmentFiles: [String: LeoChatAttachmentFile] = [:]
+    /// A failed send or answer, or a microphone problem.
+    @Published private(set) var notice: String?
+
+    private var clients: [LeoHostID: any LeoChatClient]
+    private let recorder: any LeoChatVoiceRecording
+    let attachmentDirectory: URL
+    private let maximumUploadBytes: Int
+    private let readFile: FileReader
+    private let onRead: @MainActor (LeoAgentID) -> Void
+    /// Identifies the page request whose answer still counts.
+    private var loadToken = 0
+    /// Downloads in flight, so a second request waits for the first.
+    private var attachmentLoads: [String: Task<Void, Never>] = [:]
+    private var visibleCount = 0
+    private var lastRead: String?
+
+    init(
+        clients: [LeoHostID: any LeoChatClient], recorder: any LeoChatVoiceRecording, attachmentDirectory: URL,
+        maximumUploadBytes: Int = LeoChatUpload.maximumBytes, readFile: @escaping FileReader = LeoChatPaneModel.readFromDisk,
+        onRead: @escaping @MainActor (LeoAgentID) -> Void = { _ in }
+    ) {
+        self.clients = clients
+        self.recorder = recorder
+        self.attachmentDirectory = attachmentDirectory
+        self.maximumUploadBytes = maximumUploadBytes
+        self.readFile = readFile
+        self.onRead = onRead
+    }
+
+    /// `host`'s daemon connected. Nothing loads here: the runtime's resync
+    /// for the machine reloads the shown thread if it is on it.
+    func bind(_ client: any LeoChatClient, host: LeoHostID) {
+        clients[host] = client
+    }
+
+    /// `host`'s connection dropped. Its events are ignored from now on and a
+    /// page in flight is dropped. If the shown agent lives there, the thread
+    /// reads as it does when selecting an agent on a machine that is down;
+    /// drafts stay, and reconnecting reloads it.
+    func unbind(_ host: LeoHostID) {
+        clients[host] = nil
+        guard agent?.host == host else { return }
+        timeline = LeoChatTimeline(taskFilter: timeline.taskFilter)
+        lastRead = nil
+        isLoading = false
+        isLoadingOlder = false
+        loadToken += 1
+        loadError = NotConnected(host: host).errorDescription
+    }
+
+    private struct NotConnected: LocalizedError {
+        let host: LeoHostID
+        var errorDescription: String? { "\(host.displayName) isn't connected." }
+    }
+
+    private func connectedClient(for host: LeoHostID) throws -> any LeoChatClient {
+        guard let client = clients[host] else { throw NotConnected(host: host) }
+        return client
+    }
+
+    var isOnScreen: Bool { visibleCount > 0 }
+
+    /// Whether `agent`'s unread messages are being marked read as they
+    /// arrive: its unfiltered thread is on screen.
+    func marksRead(_ agent: LeoAgentID) -> Bool {
+        isOnScreen && self.agent == agent && timeline.taskFilter == nil
+    }
+
+    // MARK: Thread
+
+    /// Shows `agent`'s thread (nil: none), loading its newest page.
+    func show(_ agent: LeoAgentID?) async {
+        guard agent != self.agent else { return }
+        self.agent = agent
+        timeline = LeoChatTimeline()
+        answering = []
+        loadError = nil
+        lastRead = nil
+        isLoading = false
+        isLoadingOlder = false
+        loadToken += 1
+        guard agent != nil else { return }
+        await loadNewest()
+    }
+
+    /// A pane showing the thread appeared (true) or went away (false).
+    func setOnScreen(_ isVisible: Bool) async {
+        visibleCount = max(0, visibleCount + (isVisible ? 1 : -1))
+        guard isVisible, let newest = timeline.newest else { return }
+        await markRead(newest.id)
+    }
+
+    func receive(_ event: LeoChatEvent, host: LeoHostID) async {
+        let message = event.message
+        guard clients[host] != nil, let agent, agent.host == host, timeline.admits(message, agent: agent.name) else { return }
+        if case .updated = event, timeline.message(id: message.id) == nil { return }
+        timeline.mergeLive(message, isFetching: isLoading || isLoadingOlder)
+        guard case .message = event else { return }
+        await markRead(message.id)
+    }
+
+    /// Events from `host` may have been lost (a reconnect or a sequence
+    /// gap): the shown thread reloads its newest page and merges it by id.
+    func resync(host: LeoHostID) async {
+        guard clients[host] != nil, let agent, agent.host == host else { return }
+        await loadNewest()
+    }
+
+    func retry() async { await loadNewest() }
+
+    func loadOlder() async {
+        guard let agent, timeline.hasMore, !isLoading, !isLoadingOlder, let oldest = timeline.oldest else { return }
+        isLoadingOlder = true
+        let query = LeoChatPageQuery(before: oldest.id, limit: Self.pageSize, task: timeline.taskFilter)
+        let result = await fetch(agent, query)
+        guard let result else { return }
+        isLoadingOlder = false
+        apply(result)
+    }
+
+    func setTaskFilter(_ task: String?) async {
+        guard agent != nil, task != timeline.taskFilter else { return }
+        timeline = LeoChatTimeline(taskFilter: task, knownTasks: timeline.knownTasks)
+        await loadNewest()
+    }
+
+    func dismissNotice() { notice = nil }
+
+    func showNotice(_ text: String) { notice = text }
+
+    private func loadNewest() async {
+        guard let agent else { return }
+        guard clients[agent.host] != nil else {
+            loadError = NotConnected(host: agent.host).errorDescription
+            return
+        }
+        isLoading = true
+        isLoadingOlder = false
+        let result = await fetch(agent, LeoChatPageQuery(limit: Self.pageSize, task: timeline.taskFilter))
+        guard let result else { return }
+        isLoading = false
+        apply(result)
+        guard case .success = result, let newest = timeline.newest else { return }
+        await markRead(newest.id)
+    }
+
+    /// One page request; nil when a newer request or another agent made
+    /// its answer moot.
+    private func fetch(_ agent: LeoAgentID, _ query: LeoChatPageQuery) async -> Result<LeoChatPage, any Error>? {
+        loadToken += 1
+        let token = loadToken
+        timeline.beginFetch()
+        let result: Result<LeoChatPage, any Error>
+        do {
+            let client = try connectedClient(for: agent.host)
+            result = .success(try await client.messages(agent: agent.name, query: query))
+        } catch {
+            result = .failure(error)
+        }
+        guard token == loadToken, agent == self.agent, query.task == timeline.taskFilter else { return nil }
+        return result
+    }
+
+    private func apply(_ result: Result<LeoChatPage, any Error>) {
+        switch result {
+        case .success(let page):
+            loadError = nil
+            timeline.mergePage(page)
+        case .failure(let error):
+            timeline.endFetch()
+            loadError = error.localizedDescription
+        }
+    }
+
+    /// Best effort, and only for the unfiltered thread on screen: a failure
+    /// only leaves the unread count up. `onRead` hears of successes only.
+    private func markRead(_ id: String) async {
+        guard isOnScreen, timeline.taskFilter == nil, let agent, let client = clients[agent.host], id != lastRead else { return }
+        lastRead = id
+        do {
+            try await client.markRead(agent: agent.name, upTo: id)
+            onRead(agent)
+        } catch {
+            // Left unread; the next message or resync retries.
+        }
+    }
+
+    // MARK: Answers
+
+    func askDraft(for messageID: String) -> LeoChatAskDraft { askDrafts[messageID] ?? LeoChatAskDraft() }
+
+    /// The answer Submit would send, or nil while the daemon would refuse
+    /// it (or the prompt isn't taking input).
+    func askAnswer(for messageID: String) -> LeoChatAnswer? {
+        guard let input = openAskInput(messageID) else { return nil }
+        return askDraft(for: messageID).answer(for: input)
+    }
+
+    /// A choice clicked: `buttons` (and permission prompts) answer at once,
+    /// `radio` and `checkboxes` update the draft.
+    func choose(messageID: String, value: String) async {
+        guard let input = openAskInput(messageID) else { return }
+        let draft = askDraft(for: messageID).choosing(value, in: input)
+        guard input.kind == .buttons else {
+            askDrafts[messageID] = draft
+            return
+        }
+        guard let answer = draft.answer(for: input) else { return }
+        await self.answer(messageID: messageID, answer)
+    }
+
+    func setAskText(messageID: String, _ text: String) {
+        guard openAskInput(messageID) != nil, askDraft(for: messageID).text != text else { return }
+        askDrafts[messageID] = askDraft(for: messageID).withText(text)
+    }
+
+    func submitAsk(messageID: String) async {
+        guard let answer = askAnswer(for: messageID) else { return }
+        await self.answer(messageID: messageID, answer)
+    }
+
+    /// Sends `answer`. A prompt settled meanwhile (409) just refetches the
+    /// thread; any other refusal says why and keeps the draft.
+    func answer(messageID: String, _ answer: LeoChatAnswer) async {
+        guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
+        defer { answering.remove(messageID) }
+        do {
+            let client = try connectedClient(for: agent.host)
+            let updated = try await client.answer(agent: agent.name, messageID: messageID, answer: answer)
+            guard agent == self.agent else { return }
+            if let updated, timeline.admits(updated, agent: agent.name) {
+                timeline.merge([updated])
+            } else if let message = timeline.message(id: messageID) {
+                timeline.merge([message.answered(answer)])
+            }
+        } catch LeoChatAnswerError.settled {
+            askDrafts[messageID] = nil
+            guard agent == self.agent else { return }
+            await refreshSettled(messageID, agent: agent)
+        } catch {
+            notice = "Couldn't answer: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: Questions card
+
+    /// The draft of an open, shown questions card (kept while its answer is
+    /// in flight); nil for anything else.
+    func questionsDraft(for messageID: String) -> LeoChatQuestionsDraft? {
+        guard let questions = openQuestions(messageID) else { return nil }
+        return questionsDrafts[messageID] ?? LeoChatQuestionsDraft(questions: questions)
+    }
+
+    func chooseQuestion(messageID: String, questionID: String, value: String) {
+        updateQuestionsDraft(messageID) { $0.choosing(value, question: questionID) }
+    }
+
+    func setQuestionText(messageID: String, questionID: String, _ text: String) {
+        updateQuestionsDraft(messageID) { $0.withText(text, question: questionID) }
+    }
+
+    func submitQuestions(messageID: String) async {
+        guard let draft = questionsDraft(for: messageID), draft.isComplete else { return }
+        let payload = draft.answersPayload
+        await settleQuestions(messageID, failure: "Couldn't answer") { client, agent in
+            try await client.answerQuestions(agent: agent, messageID: messageID, answers: payload)
+        } localCopy: { $0.answered(LeoChatAnswer(answers: payload)) }
+    }
+
+    /// "Answer in terminal": the daemon hands the question to the agent's
+    /// own terminal dialog and expires the card.
+    func dismissQuestions(messageID: String) async {
+        guard openQuestions(messageID) != nil else { return }
+        await settleQuestions(messageID, failure: "Couldn't hand the question to the terminal") { client, agent in
+            try await client.dismiss(agent: agent, messageID: messageID)
+        }
+    }
+
+    /// One request against a questions card. The daemon's copy replaces the
+    /// card. Without one, a card still open takes `localCopy` (nil: it
+    /// refetches instead); a card that settled meanwhile (a push) is left
+    /// alone. A 409 refetches; any other refusal shows inside the card and
+    /// keeps the draft.
+    private func settleQuestions(
+        _ messageID: String, failure: String, request: (any LeoChatClient, String) async throws -> LeoChatMessage?,
+        localCopy: ((LeoChatMessage) -> LeoChatMessage)? = nil
+    ) async {
+        guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
+        questionsErrors[messageID] = nil
+        defer { answering.remove(messageID) }
+        do {
+            let updated = try await request(try connectedClient(for: agent.host), agent.name)
+            guard agent == self.agent else { return }
+            if let updated, timeline.admits(updated, agent: agent.name) {
+                timeline.merge([updated])
+            } else if let message = timeline.message(id: messageID), message.isOpen {
+                if let localCopy {
+                    timeline.merge([localCopy(message)])
+                } else {
+                    await refreshSettled(messageID, agent: agent)
+                }
+            }
+        } catch LeoChatAnswerError.settled {
+            questionsDrafts[messageID] = nil
+            guard agent == self.agent else { return }
+            await refreshSettled(messageID, agent: agent)
+        } catch {
+            questionsErrors[messageID] = "\(failure): \(error.localizedDescription)"
+        }
+    }
+
+    private func updateQuestionsDraft(_ messageID: String, _ change: (LeoChatQuestionsDraft) -> LeoChatQuestionsDraft) {
+        guard !answering.contains(messageID), let draft = questionsDraft(for: messageID) else { return }
+        let updated = change(draft)
+        guard updated != draft else { return }
+        questionsDrafts[messageID] = updated
+        questionsErrors[messageID] = nil
+    }
+
+    /// The questions of a shown card that is still open.
+    private func openQuestions(_ messageID: String) -> [LeoChatQuestion]? {
+        guard let message = timeline.message(id: messageID), message.isOpen,
+              let input = message.input, input.kind == .questions else { return nil }
+        return input.questions
+    }
+
+    /// Resyncs after a 409. The newest page may not reach back to the
+    /// prompt; if it still shows open, the page just above it carries its
+    /// settled copy.
+    private func refreshSettled(_ messageID: String, agent: LeoAgentID) async {
+        await loadNewest()
+        guard agent == self.agent, timeline.message(id: messageID)?.isOpen == true,
+              let index = timeline.messages.firstIndex(where: { $0.id == messageID }),
+              index + 1 < timeline.messages.count else { return }
+        let query = LeoChatPageQuery(before: timeline.messages[index + 1].id, limit: 1, task: timeline.taskFilter)
+        guard let client = try? connectedClient(for: agent.host),
+              let page = try? await client.messages(agent: agent.name, query: query), agent == self.agent else { return }
+        timeline.merge(page.messages.filter { $0.id == messageID && timeline.admits($0, agent: agent.name) })
+    }
+
+    /// The input of a shown prompt that is open and not being answered.
+    private func openAskInput(_ messageID: String) -> LeoChatInput? {
+        guard let message = timeline.message(id: messageID), message.isOpen, !answering.contains(messageID) else { return nil }
+        return message.answerInput
+    }
+
+    private func dropSettledAskDrafts() {
+        guard !askDrafts.isEmpty || !questionsDrafts.isEmpty || !questionsErrors.isEmpty else { return }
+        let isSettled = { (id: String) in self.timeline.message(id: id).map { !$0.isOpen } ?? false }
+        askDrafts.keys.filter(isSettled).forEach { askDrafts[$0] = nil }
+        questionsDrafts.keys.filter(isSettled).forEach { questionsDrafts[$0] = nil }
+        questionsErrors.keys.filter(isSettled).forEach { questionsErrors[$0] = nil }
+    }
+
+    // MARK: Attachments
+
+    /// Downloads `attachment` once into the attachment folder; a failure
+    /// can be retried, and a call during a download waits for it. `host`
+    /// is the machine to fetch it from; nil is the shown agent's (a drag
+    /// out passes the machine it started on, which the pane may have left
+    /// by the time Finder asks for the file).
+    func loadAttachment(_ attachment: LeoChatAttachment, from host: LeoHostID? = nil) async {
+        guard attachment.available else { return }
+        if let inFlight = attachmentLoads[attachment.id] { return await inFlight.value }
+        if case .loaded = attachmentFiles[attachment.id] { return }
+        let load = Task { await download(attachment, from: host) }
+        attachmentLoads[attachment.id] = load
+        await load.value
+        attachmentLoads[attachment.id] = nil
+    }
+
+    private func download(_ attachment: LeoChatAttachment, from host: LeoHostID?) async {
+        guard let host = host ?? agent?.host else {
+            attachmentFiles[attachment.id] = .failed("Open a chat to download attachments.")
+            return
+        }
+        let folderName = LeoChatPresentation.safeFilename(attachment.id, fallback: "attachment")
+        let folder = attachmentDirectory.appending(path: folderName)
+        guard let url = LeoChatPresentation.contained(
+            folder.appending(path: LeoChatPresentation.safeFilename(attachment.filename, fallback: folderName)), in: attachmentDirectory
+        ) else {
+            attachmentFiles[attachment.id] = .failed("Refused an attachment name outside the download folder.")
+            return
+        }
+        attachmentFiles[attachment.id] = .loading
+        do {
+            let client = try connectedClient(for: host)
+            let data = try await client.download(attachmentID: attachment.id)
+            try await Task.detached {
+                try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                try data.write(to: url, options: .atomic)
+            }.value
+            attachmentFiles[attachment.id] = .loaded(url)
+        } catch {
+            attachmentFiles[attachment.id] = .failed(error.localizedDescription)
+        }
+    }
+
+    /// The attachment's local file once downloaded, nil when the download
+    /// failed (`attachmentFiles` holds the reason) or is still in flight.
+    func downloadedFile(_ attachment: LeoChatAttachment, from host: LeoHostID? = nil) async -> URL? {
+        await loadAttachment(attachment, from: host)
+        guard case .loaded(let url) = attachmentFiles[attachment.id] else { return nil }
+        return url
+    }
+
+    // MARK: Composer
+
+    func draft(for agent: LeoAgentID) -> LeoChatComposerDraft { drafts[agent] ?? .empty }
+
+    func isSending(_ agent: LeoAgentID) -> Bool { sending[agent] != nil }
+
+    var canSend: Bool {
+        guard let agent else { return false }
+        return !isSending(agent) && draft(for: agent).outgoing != nil
+    }
+
+    var isRecording: Bool { recording != .idle }
+
+    func setText(_ text: String) {
+        guard let agent, draft(for: agent).text != text else { return }
+        updateDraft(agent) { $0.text = text }
+    }
+
+    func setReply(to messageID: String?) {
+        guard let agent else { return }
+        updateDraft(agent) { $0.replyTo = messageID }
+    }
+
+    /// Attaches files to `agent`'s draft: the agent the drop or picker
+    /// started for, even if the selection has moved since. Folders,
+    /// unreadable files and files over the upload cap are refused (the
+    /// first refusal throws, and nothing is attached).
+    func addFiles(_ urls: [URL], to agent: LeoAgentID) throws {
+        let files = try urls.map(outgoingFile)
+        guard !files.isEmpty else { return }
+        notice = nil
+        updateDraft(agent) { $0.files.append(contentsOf: files) }
+    }
+
+    func removeFile(_ id: UUID) {
+        guard let agent else { return }
+        updateDraft(agent) { $0.files.removeAll { $0.id == id } }
+    }
+
+    func send() async {
+        guard let agent else { return }
+        await send(agent)
+    }
+
+    /// Uploads the draft's files, then sends; clears only what was sent.
+    /// One send per agent at a time; a failure keeps the draft.
+    private func send(_ agent: LeoAgentID) async {
+        guard clients[agent.host] != nil, sending[agent] == nil, let outgoing = draft(for: agent).outgoing else { return }
+        sending[agent] = outgoing
+        notice = nil
+        defer { sending[agent] = nil }
+        let readFile = readFile
+        do {
+            let client = try connectedClient(for: agent.host)
+            var ids: [String] = []
+            for file in outgoing.files {
+                ids.append(try await client.upload(try await readFile(file)).id)
+            }
+            let message = try await client.send(
+                agent: agent.name, LeoChatDraft(text: outgoing.text, replyTo: outgoing.replyTo, attachmentIDs: ids)
+            )
+            drafts[agent] = draft(for: agent).finishing(outgoing)
+            Self.deleteVoiceNotes(outgoing.files)
+            // The live event may have brought it (newer) already.
+            if agent == self.agent, timeline.message(id: message.id) == nil, timeline.admits(message, agent: agent.name) {
+                timeline.merge([message])
+            }
+        } catch {
+            notice = "Couldn't send: \(error.localizedDescription)"
+        }
+    }
+
+    private func updateDraft(_ agent: LeoAgentID, _ change: (inout LeoChatComposerDraft) -> Void) {
+        var draft = draft(for: agent)
+        change(&draft)
+        drafts[agent] = draft == .empty ? nil : draft
+    }
+
+    private func outgoingFile(_ url: URL) throws -> LeoChatOutgoingFile {
+        let name = url.lastPathComponent
+        guard let values = try? url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey]) else {
+            throw LeoChatFileError.unreadable(name)
+        }
+        if values.isDirectory == true { throw LeoChatFileError.directory(name) }
+        let bytes = values.fileSize ?? 0
+        guard bytes <= maximumUploadBytes else { throw LeoChatFileError.tooLarge(name, bytes: bytes, limit: maximumUploadBytes) }
+        return LeoChatOutgoingFile(id: UUID(), url: url, filename: name, mime: LeoChatPresentation.mime(forFilename: name), isVoiceNote: false)
+    }
+
+    // MARK: Voice notes
+
+    /// The mic button: starts recording, or finishes the note (which joins
+    /// the draft and sends at once unless a send is already in flight).
+    func toggleRecording() async {
+        switch recording {
+        case .idle: await startRecording()
+        case .recording: await finishRecording()
+        case .requesting: return
+        }
+    }
+
+    func cancelRecording() {
+        guard recording != .idle else { return }
+        if case .recording = recording { recorder.cancel() }
+        recording = .idle
+    }
+
+    private func startRecording() async {
+        guard let agent, clients[agent.host] != nil else { return }
+        recording = .requesting
+        notice = nil
+        guard await recorder.requestPermission() else {
+            recording = .idle
+            notice = Self.microphoneDeniedMessage
+            return
+        }
+        // Cancelled while the permission prompt was up.
+        guard recording == .requesting else { return }
+        let folder = attachmentDirectory.appending(path: "recordings")
+        let url = folder.appending(path: "voice-\(UUID().uuidString).m4a")
+        do {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            try recorder.start(url: url, limit: Self.maximumRecording) { [weak self] in
+                Task { await self?.finishRecording() }
+            }
+            recording = .recording(url: url, agent: agent, startedAt: Date())
+        } catch {
+            recording = .idle
+            notice = "Couldn't record: \(error.localizedDescription)"
+        }
+    }
+
+    private func finishRecording() async {
+        guard case .recording(let url, let agent, _) = recording else { return }
+        let duration = recorder.stop()
+        recording = .idle
+        guard duration >= Self.minimumRecording else {
+            try? FileManager.default.removeItem(at: url)
+            return
+        }
+        let note = LeoChatOutgoingFile(id: UUID(), url: url, filename: "Voice note.m4a", mime: "audio/mp4", isVoiceNote: true)
+        updateDraft(agent) { $0.files.append(note) }
+        await send(agent)
+    }
+
+    private static func deleteVoiceNotes(_ files: [LeoChatOutgoingFile]) {
+        for file in files where file.isVoiceNote { try? FileManager.default.removeItem(at: file.url) }
+    }
+
+    nonisolated static func readFromDisk(_ file: LeoChatOutgoingFile) async throws -> LeoChatUpload {
+        try await Task.detached {
+            guard let data = try? Data(contentsOf: file.url) else { throw LeoChatFileError.unreadable(file.filename) }
+            return LeoChatUpload(filename: file.filename, mime: file.mime, data: data)
+        }.value
+    }
+}

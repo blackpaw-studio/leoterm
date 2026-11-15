@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// The words of the sidebar's full-panel connection failure. The message
 /// is often a remote ssh's stderr and the hint names the configured
@@ -11,4 +12,11 @@ struct LeoConnectionFailurePanel: Equatable {
         self.message = LeoSFTPServerText.sanitized(message)
         self.hint = hint.map(LeoSFTPServerText.sanitized)
     }
+}
+
+/// What a remote machine's failed connection suggests: the hint, and the
+/// ssh target Open SSH runs it against.
+struct LeoConnectionFailureHint: Equatable {
+    let hint: String
+    let sshTarget: String
 }

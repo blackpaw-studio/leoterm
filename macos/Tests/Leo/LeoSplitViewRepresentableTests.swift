@@ -1,8 +1,10 @@
+import AVKit
 import AppKit
 import SwiftUI
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 extension LeoAppEventQueueTests {
 /// Layout invariants for the agents-sidebar split view.
@@ -80,7 +82,7 @@ struct LeoSplitViewRepresentableTests {
         harness.resizeWindow(toWidth: Self.windowWidth + 200)
         #expect(abs(harness.editorWidth - editorWidth) <= 1)
 
-        await editor.close()
+        await editor.closeAll()
         await harness.settle()
         #expect(harness.editorItem?.isCollapsed == true)
     }
@@ -114,7 +116,7 @@ struct LeoSplitViewRepresentableTests {
         await harness.settle()
         await harness.settle()
         #expect(abs(harness.editorWidth - editorWidth) <= 1)
-        await editor.close()
+        await editor.closeAll()
     }
 
     /// A file opened before the split is in a window: the pane opens at
@@ -147,7 +149,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(panes.last.map { $0.frame.width > LeoEditorPaneViewController.minimumWidth + 100 } == true)
         #expect(abs((panes.last?.frame.width ?? 0) - panes[1].frame.width) <= 1)
         window.orderOut(nil)
-        await editor.close()
+        await editor.closeAll()
     }
 
     /// Beside the browser, the half is of what the terminal and the editor
@@ -170,12 +172,27 @@ struct LeoSplitViewRepresentableTests {
         #expect(abs(harness.browserWidth - browserWidth) <= 1)
         #expect(abs(harness.editorWidth - harness.terminalWidth) <= 1)
         #expect(harness.editorWidth > LeoEditorPaneViewController.minimumWidth)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
     /// Half never takes the terminal under its floor: at most what's left
     /// above it, and never under the editor's own minimum.
+    /// The sidebar's width is its pane's, however far the OS insets the
+    /// sidebar's view inside it (macOS 26 does, by 8 pt).
+    @Test func aPanesWidthIsTheArrangedSubviewsNotTheInsetViewInsideIt() {
+        let split = NSSplitView(frame: NSRect(x: 0, y: 0, width: 600, height: 100))
+        let pane = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 100))
+        let inset = NSView(frame: NSRect(x: 4, y: 4, width: 312, height: 92))
+        pane.addSubview(inset)
+        split.addArrangedSubview(pane)
+        let loose = NSView(frame: NSRect(x: 0, y: 0, width: 50, height: 10))
+
+        #expect(LeoSplitViewController.paneWidth(of: inset, in: split) == 320)
+        #expect(LeoSplitViewController.paneWidth(of: pane, in: split) == 320)
+        #expect(LeoSplitViewController.paneWidth(of: loose, in: split) == 50)
+    }
+
     @Test func theOpeningWidthKeepsTheTerminalFloor() {
         let minimum = LeoEditorPaneViewController.minimumWidth
         let floor = LeoSidebarSplitMetrics.terminalFloor
@@ -207,8 +224,8 @@ struct LeoSplitViewRepresentableTests {
 
         let items = harness.components.controller.splitViewItems
         #expect(items.count == 4)
-        #expect(items[2].viewController is LeoWorkspaceBrowserViewController)
-        #expect(items[3].viewController is LeoEditorPaneViewController)
+        #expect(items[2].leoPaneRole == .browser)
+        #expect(items[3].leoPaneRole == .editor)
         #expect(harness.browserItem?.isCollapsed == true)
         #expect(abs(harness.sidebarWidth - Self.storedWidth) <= 1)
     }
@@ -232,12 +249,15 @@ struct LeoSplitViewRepresentableTests {
 
         for (index, component) in components.enumerated() {
             let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: Self.windowWidth, height: Self.windowHeight), styleMask: [.titled], backing: .buffered, defer: false)
+            // `close()` would otherwise release the window once more than ARC
+            // retains it, which kills the host on macOS 26 when it deallocates.
+            window.isReleasedWhenClosed = false
             window.contentViewController = component.controller
             window.setContentSize(NSSize(width: Self.windowWidth, height: Self.windowHeight))
             window.layoutIfNeeded()
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
             window.layoutIfNeeded()
-            let item = component.controller.splitViewItems.first { $0.viewController is LeoWorkspaceBrowserViewController }
+            let item = component.controller.splitViewItems.first { $0.leoPaneRole == .browser }
             #expect(item?.isCollapsed == (index == 1))
             window.close()
         }
@@ -271,7 +291,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.sidebarItem?.isCollapsed == true)
         #expect(autoCollapses == 1)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -298,7 +318,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.browserWidth >= LeoWorkspaceBrowserViewController.minimumWidth - 1)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.minimumTerminalWidth)
         #expect(harness.terminalWidth > 200, "only the sidebar gave way, not the terminal down to its minimum")
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -320,7 +340,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.sidebarItem?.isCollapsed == false)
         #expect(autoCollapses == 0)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -336,7 +356,7 @@ struct LeoSplitViewRepresentableTests {
     /// unless `sidebarVisible` is false) at its minimum beside them.
     private func withBothPanes(
         sidebarVisible: Bool = true, opensBrowser: Bool = true,
-        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorPaneModel, FloorCounts) async throws -> Void
+        _ body: (Harness, LeoWorkspaceBrowserModel, LeoEditorTabs, FloorCounts) async throws -> Void
     ) async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
@@ -360,7 +380,7 @@ struct LeoSplitViewRepresentableTests {
         }
         try #require(harness.sidebarItem?.isCollapsed == !sidebarVisible)
         try await body(harness, browser, editor, counts)
-        await editor.close()
+        await editor.closeAll()
         await browser.close()
     }
 
@@ -449,7 +469,7 @@ struct LeoSplitViewRepresentableTests {
             try #require(harness.sidebarItem?.isCollapsed == true)
             #expect(controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.minimumWidth))
 
-            await editor.close()
+            await editor.closeAll()
             await browser.close()
             await harness.settle()
             #expect(!controller.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.maximumWidth))
@@ -614,7 +634,7 @@ struct LeoSplitViewRepresentableTests {
     /// reading `defaults`, persisting divider moves back through it.
     private static func launch(
         _ defaults: UserDefaults, attachesAfterAMainQueueTurn: Bool = false, isSidebarVisible: Bool = true,
-        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth, editor: LeoEditorPaneModel? = nil
+        windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth, editor: LeoEditorTabs? = nil
     ) async -> Harness {
         let session = LeoWindowSession(defaults: defaults)
         let harness = Harness(
@@ -726,8 +746,9 @@ struct LeoSplitViewRepresentableTests {
     }
 
     /// A real mouse drag on the divider, through `NSSplitView`'s own
-    /// tracking, is stored.
-    @Test func aMouseDragOnTheDividerIsStored() async throws {
+    /// tracking, is stored. `.hostOnly`: the tracking's own offsets differ
+    /// on macOS 26 (5 pt off on a 26.6 VM), and that is AppKit's, not ours.
+    @Test(.hostOnly) func aMouseDragOnTheDividerIsStored() async throws {
         let defaults = LeoInMemoryDefaults()
         defaults.set(300.0, forKey: LeoWindowSession.sidebarWidthKey)
         let harness = await Self.launch(defaults)
@@ -743,7 +764,7 @@ struct LeoSplitViewRepresentableTests {
     /// Dragging the terminal's trailing divider past the terminal's minimum
     /// pushes the sidebar too. Only the sidebar's own divider is a
     /// sidebar-width choice, so the pushed width isn't stored (B-089).
-    @Test func pushingTheSidebarWithTheEditorsDividerStoresNothing() async throws {
+    @Test(.hostOnly) func pushingTheSidebarWithTheEditorsDividerStoresNothing() async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
         let defaults = LeoInMemoryDefaults()
@@ -764,7 +785,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(abs(harness.sidebarWidth - (storedWidth - push)) <= 1)
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(storedWidth))
         #expect(abs(harness.components.controller.lastPersistedWidth - storedWidth) <= 1)
-        await editor.close()
+        await editor.closeAll()
     }
 
     /// Narrow enough that the terminal reaches its minimum and the sidebar
@@ -832,8 +853,8 @@ struct LeoSplitViewRepresentableTests {
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(Self.relaunchedWidth))
     }
 
-    private static func makeEditor() -> LeoEditorPaneModel {
-        LeoEditorPaneModel(makeAccess: { _ in LeoFileAccessor.local() })
+    private static func makeEditor() -> LeoEditorTabs {
+        LeoEditorTabs(makeAccess: { _ in LeoFileAccessor.local() })
     }
 
     private static func makeBrowser() -> LeoWorkspaceBrowserModel {
@@ -854,7 +875,7 @@ struct LeoSplitViewRepresentableTests {
         /// main-queue turn after building it.
         init(
             preferredWidth: CGFloat = 240, windowWidth: CGFloat = LeoSplitViewRepresentableTests.windowWidth,
-            isSidebarVisible: Bool = true, editor: LeoEditorPaneModel? = nil, browser: LeoWorkspaceBrowserModel? = nil,
+            isSidebarVisible: Bool = true, editor: LeoEditorTabs? = nil, browser: LeoWorkspaceBrowserModel? = nil,
             onSidebarAutoCollapse: @escaping () -> Void = {}, onSidebarAutoRestore: @escaping () -> Void = {},
             onDividerWidthChange: @escaping (CGFloat) -> Void = { _ in }, attachesWindow: Bool = true
         ) {
@@ -894,20 +915,24 @@ struct LeoSplitViewRepresentableTests {
             window.close()
         }
 
-        var sidebarWidth: CGFloat { components.sidebarHosting.view.frame.width }
+        /// The sidebar's pane: what the divider sets, whatever inset the OS
+        /// puts between it and the sidebar's view (8 pt on macOS 26).
+        var sidebarWidth: CGFloat {
+            LeoSplitViewController.paneWidth(of: components.sidebarHosting.view, in: components.controller.splitView)
+        }
 
         var sidebarItem: NSSplitViewItem? { components.controller.sidebarItem }
 
         var terminalWidth: CGFloat { components.detailHosting.view.frame.width }
 
         var editorItem: NSSplitViewItem? {
-            components.controller.splitViewItems.first { $0.viewController is LeoEditorPaneViewController }
+            components.controller.splitViewItems.first { $0.leoPaneRole == .editor }
         }
 
         var editorWidth: CGFloat { editorItem?.viewController.view.frame.width ?? 0 }
 
         var browserItem: NSSplitViewItem? {
-            components.controller.splitViewItems.first { $0.viewController is LeoWorkspaceBrowserViewController }
+            components.controller.splitViewItems.first { $0.leoPaneRole == .browser }
         }
 
         var browserWidth: CGFloat { browserItem?.viewController.view.frame.width ?? 0 }
@@ -988,4 +1013,104 @@ struct LeoSplitViewRepresentableTests {
         }
     }
 }
+}
+
+extension LeoAppEventQueueTests.LeoSplitViewRepresentableTests {
+    /// B-278: a movie in the editor pane never takes the terminal's width.
+    /// AVKit's inline controls (installed on hover) ask for 750 pt at
+    /// priority 499; they squeezed the terminal to ~40 pt in 800 pt.
+    @Test(.timeLimit(.minutes(1)))
+    func aMoviePreviewKeepsThePanesWidths() async throws {
+        try await expectPreviewKeepsThePanesWidths(named: "clip.mp4") { url in
+            try await LeoTestMovie.write(to: url)
+        } until: { view in
+            guard let movie = view as? LeoMoviePreviewView,
+                  movie.player?.currentItem?.status == .readyToPlay else { return false }
+            Self.hover(over: movie)
+            return Self.descendants(of: movie).contains { "\(type(of: $0))" == "AVMovableView" }
+        }
+    }
+
+    /// The other previews don't size the split either.
+    @Test(.timeLimit(.minutes(1)), arguments: ["shot.png", "doc.pdf", "archive.bin"])
+    func aPreviewKeepsThePanesWidths(name: String) async throws {
+        try await expectPreviewKeepsThePanesWidths(named: name) { url in
+            try Self.previewFixture(named: name).write(to: url)
+        } until: { view in
+            switch name {
+            case "shot.png": view is LeoImagePreviewView
+            case "doc.pdf": view is LeoQuickLookPreviewView
+            default: view is LeoUnavailablePreviewView
+            }
+        }
+    }
+
+    private func expectPreviewKeepsThePanesWidths(
+        named name: String,
+        write: (URL) async throws -> Void,
+        until isInstalled: (NSView) -> Bool
+    ) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let path = sandbox.path(name)
+        try await write(URL(fileURLWithPath: path))
+        let editor = Self.makeEditor()
+        let harness = Harness(windowWidth: 800, isSidebarVisible: false, editor: editor)
+        defer { harness.close() }
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.txt", "a")))
+        for _ in 0..<3 { await harness.settle() }
+        let terminalWidth = harness.terminalWidth
+        #expect(terminalWidth > 300)
+
+        try await editor.open(LeoEditorFileID(host: .local, path: path))
+        await editor.document?.settlePreview()
+        let pane = try #require(harness.editorItem?.viewController as? LeoRowPaneContainerViewController)
+        let tabs = try #require(pane.activeChild as? LeoEditorTabsViewController)
+        var installed = false
+        for _ in 0..<300 where !installed {
+            await harness.settle()
+            installed = tabs.shown?.contentHost.subviews.first.map(isInstalled) ?? false
+            if !installed { try await Task.sleep(for: .milliseconds(10)) }
+        }
+        for _ in 0..<5 { await harness.settle() }
+
+        #expect(installed, "\(name)'s preview never appeared")
+        #expect(abs(harness.terminalWidth - terminalWidth) <= 1, "terminal \(terminalWidth) → \(harness.terminalWidth)")
+        await editor.closeAll()
+    }
+
+    /// Moves the mouse over `view`, which brings up AVKit's controls.
+    private static func hover(over view: NSView) {
+        guard let window = view.window else { return }
+        let point = view.convert(NSPoint(x: view.bounds.midX, y: view.bounds.midY), to: nil)
+        guard let enter = NSEvent.enterExitEvent(with: .mouseEntered, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, trackingNumber: 0, userData: nil),
+              let move = NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 0, pressure: 0) else { return }
+        for tracking in descendants(of: view) where !tracking.trackingAreas.isEmpty {
+            tracking.mouseEntered(with: enter)
+            tracking.mouseMoved(with: move)
+        }
+    }
+
+    private static func descendants(of view: NSView) -> [NSView] {
+        [view] + view.subviews.flatMap(descendants)
+    }
+
+    private static func previewFixture(named name: String) throws -> Data {
+        let image = NSImage(size: NSSize(width: 640, height: 360), flipped: false) { rect in
+            NSColor.systemBlue.setFill()
+            rect.fill()
+            return true
+        }
+        switch name {
+        case "shot.png":
+            let bitmap = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil).map(NSBitmapImageRep.init(cgImage:)))
+            return try #require(bitmap.representation(using: .png, properties: [:]))
+        case "doc.pdf":
+            let page = NSImageView(frame: NSRect(x: 0, y: 0, width: 612, height: 792))
+            page.image = image
+            return page.dataWithPDF(inside: page.bounds)
+        default:
+            return Data([0, 1, 2, 0xFF, 0, 0xFE] + Array(repeating: 0, count: 64))
+        }
+    }
 }

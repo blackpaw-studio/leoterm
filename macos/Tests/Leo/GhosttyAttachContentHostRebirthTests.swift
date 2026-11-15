@@ -2,6 +2,7 @@ import AppKit
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Exercises `GhosttyAttachContentHost.fillPlaceholder`'s per-leaf (non-nil
 /// `surfaceID`) branch against a real `TerminalController` -- there is no
@@ -9,7 +10,7 @@ import Testing
 /// windows and `Ghostty.SurfaceView`s. Requires the app's real `Ghostty.App`
 /// (via `AppDelegate`), which is why these tests bail out (rather than
 /// fail) when that isn't available.
-@MainActor struct GhosttyAttachContentHostRebirthTests {
+@MainActor @Suite struct GhosttyAttachContentHostRebirthTests {
     private func makeDefaults() -> UserDefaults {
         LeoInMemoryDefaults()
     }

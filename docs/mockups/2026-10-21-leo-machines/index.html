@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leo Machines Mockups</title>
+<style>:root{
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro",system-ui,"Helvetica Neue",sans-serif;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,monospace;
+  --page:#121214; --page-fg:#f2f2f4; --page-fg2:#9a9aa3; --card:#1b1b1f; --page-sep:rgba(255,255,255,.09);
+  --stage:linear-gradient(135deg,#1b2745 0%,#33264f 55%,#1d3a40 100%);
+  --win:#1e1e20; --sidebar:#2a2a2d; --content:#1e1e20; --toolbar:#2c2c2f;
+  --label:rgba(255,255,255,.92); --l2:rgba(235,235,245,.6); --l3:rgba(235,235,245,.3); --l4:rgba(235,235,245,.16);
+  --sep:rgba(255,255,255,.1); --win-border:rgba(255,255,255,.14); --field:rgba(255,255,255,.07); --field-bd:rgba(255,255,255,.12);
+  --btn:rgba(255,255,255,.12); --btn-bd:rgba(255,255,255,.14); --track:rgba(255,255,255,.12);
+  --accent:#0a84ff; --green:#30d158; --orange:#ff9f0a; --red:#ff453a; --blue:#0a84ff; --indigo:#5e5ce6; --gray:#8e8e93;
+  --meter-ok:rgba(235,235,245,.5);
+  --menu:rgba(52,52,56,.96); --tip:#3b3b3f; --grouped:rgba(255,255,255,.055);
+  --sel:#0a5fd0; --shadow:0 0 0 .5px var(--win-border),0 24px 64px rgba(0,0,0,.5),0 2px 10px rgba(0,0,0,.3);
+  /* iOS */
+  --ibg:#000; --icell:#1c1c1e; --isep:rgba(84,84,88,.6); --ilabel:#fff; --ilabel2:rgba(235,235,245,.6); --ilabel3:rgba(235,235,245,.3);
+  --itint:#0a84ff; --itrack:rgba(120,120,128,.32); --ibar:rgba(25,25,27,.86); --ibezel:#2a2a2d; --ibezel2:#0b0b0c;
+}
+:root[data-theme="light"]{
+  --page:#f4f4f6; --page-fg:#1c1c1e; --page-fg2:#6c6c72; --card:#fff; --page-sep:rgba(0,0,0,.09);
+  --stage:linear-gradient(135deg,#cfd9f2 0%,#e2d5f0 55%,#cfe8e6 100%);
+  --win:#fff; --sidebar:#e8e8ea; --content:#fff; --toolbar:#ececee;
+  --label:rgba(0,0,0,.85); --l2:rgba(60,60,67,.62); --l3:rgba(60,60,67,.36); --l4:rgba(60,60,67,.18);
+  --sep:rgba(0,0,0,.1); --win-border:rgba(0,0,0,.16); --field:#fff; --field-bd:rgba(0,0,0,.14);
+  --btn:#fff; --btn-bd:rgba(0,0,0,.16); --track:rgba(0,0,0,.1);
+  --accent:#007aff; --green:#28cd41; --orange:#ff9500; --red:#ff3b30; --blue:#007aff; --indigo:#5856d6; --gray:#8e8e93;
+  --meter-ok:rgba(60,60,67,.5);
+  --menu:rgba(246,246,248,.97); --tip:#f7f4e3; --grouped:rgba(0,0,0,.04);
+  --sel:#0a63d8; --shadow:0 0 0 .5px var(--win-border),0 22px 54px rgba(30,30,60,.25),0 2px 8px rgba(0,0,0,.12);
+  --ibg:#f2f2f7; --icell:#fff; --isep:rgba(60,60,67,.29); --ilabel:#000; --ilabel2:rgba(60,60,67,.6); --ilabel3:rgba(60,60,67,.3);
+  --itint:#007aff; --itrack:rgba(120,120,128,.2); --ibar:rgba(249,249,249,.9); --ibezel:#d9d9de; --ibezel2:#f5f5f7;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--page);color:var(--page-fg);font:14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+code{font-family:var(--mono);font-size:.9em;background:var(--page-sep);padding:1px 6px;border-radius:5px}
+.ic{display:block;flex:none}
+
+/* ───── page chrome ───── */
+.top{max-width:1180px;margin:0 auto;padding:36px 28px 8px;display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+.top h1{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.top p{color:var(--page-fg2);margin-top:4px}
+#theme{font:500 13px var(--font);color:var(--page-fg);background:var(--card);border:1px solid var(--page-sep);border-radius:8px;padding:7px 14px;cursor:pointer}
+#theme:hover{border-color:var(--accent)}
+main{max-width:1180px;margin:0 auto;padding:12px 28px 80px;display:flex;flex-direction:column;gap:44px}
+.panel{background:var(--card);border:1px solid var(--page-sep);border-radius:18px;overflow:hidden}
+.plabel{display:flex;gap:14px;align-items:center;padding:18px 22px}
+.pnum{width:30px;height:30px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;display:grid;place-items:center;flex:none}
+.plabel h2{font-size:17px;font-weight:650;letter-spacing:-.01em}
+.plabel p{color:var(--page-fg2);font-size:13px}
+.stage{background:var(--stage);padding:40px 36px 44px;display:flex;justify-content:center}
+.split{display:flex;gap:28px;align-items:flex-start;justify-content:center}
+.stack{display:flex;flex-direction:column;gap:12px;align-items:center}
+.cap{color:rgba(255,255,255,.85);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;text-shadow:0 1px 2px rgba(0,0,0,.35);align-self:flex-start;margin:6px 0 0 6px}
+:root[data-theme="light"] .cap{color:rgba(0,0,0,.6);text-shadow:none}
+.notes{width:290px;flex:none;background:rgba(18,18,22,.55);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:16px 18px;color:#eee;font-size:12.5px}
+:root[data-theme="light"] .notes{background:rgba(255,255,255,.7);color:#222;border-color:rgba(0,0,0,.08)}
+.notes.slim{width:232px}
+.notes h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;opacity:.6;margin:14px 0 8px}
+.notes h4:first-child{margin-top:0}
+.notes dt{font-weight:600;display:flex;align-items:center;gap:6px;margin-top:8px}
+.notes dd{opacity:.78;margin-top:2px;line-height:1.4}
+.notes p{opacity:.78;line-height:1.45}
+.notes .dots{display:flex;flex-wrap:wrap;gap:6px 14px}.notes .dots span{display:flex;align-items:center;gap:6px;opacity:.85}
+.lg{display:flex;align-items:center;gap:12px;margin:8px 0}
+.lg .meter{width:150px}.lr{opacity:.7;font-size:12px}
+
+/* ───── macOS window ───── */
+.win{position:relative;display:flex;background:var(--win);border-radius:12px;box-shadow:var(--shadow);color:var(--label);font-size:13px;line-height:1.25;overflow:visible;flex:none}
+.lights{position:absolute;left:14px;top:14px;display:flex;gap:8px;z-index:5}
+.lights i{width:12px;height:12px;border-radius:50%;display:block;border:.5px solid rgba(0,0,0,.18)}
+.lights .r{background:#ff5f57}.lights .y{background:#febc2e}.lights .g{background:#28c840}
+.sidebar{width:290px;background:var(--sidebar);border-radius:12px 0 0 12px;display:flex;flex-direction:column;position:relative;flex:none;border-right:.5px solid var(--sep)}
+.sbhead{margin-top:44px;padding:0 14px 0 16px;display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:15px;height:26px}
+.sbhead .plus{color:var(--l2)}
+.search{margin:10px 12px 6px;height:26px;border-radius:7px;background:var(--field);border:.5px solid var(--field-bd);display:flex;align-items:center;gap:6px;padding:0 8px;color:var(--l3)}
+.sblist{padding:2px 0 12px;overflow:hidden}
+.content{flex:1;background:var(--content);border-radius:0 12px 12px 0;min-width:0}
+
+/* machine header */
+.mh{padding:11px 12px 5px 9px;position:relative}
+.sblist>.mh:first-child{padding-top:6px}
+.mh .l1{display:flex;align-items:center;gap:6px;height:18px}
+.chev{color:var(--l2);width:10px;height:10px;transition:none}
+.chev.open{transform:rotate(90deg)}
+.mn{font-weight:650;font-size:13px;letter-spacing:-.005em}
+.ms{font-size:11px;color:var(--l3);white-space:nowrap}
+.sp{flex:1}
+.cnt{font-size:11px;color:var(--l3);font-variant-numeric:tabular-nums}
+.mh.dim .mn,.mh.dim .ms,.mh.dim .chev{opacity:.5}
+.mh.hover::after,.mh.ctx::after{content:"";position:absolute;inset:3px 6px 2px;border-radius:6px;background:rgba(255,255,255,.04);pointer-events:none}
+:root[data-theme="light"] .mh.hover::after,:root[data-theme="light"] .mh.ctx::after{background:rgba(0,0,0,.035)}
+.mh.hover::after{display:none}
+.mh.ctx::after{background:rgba(255,255,255,.08)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:none;display:inline-block;box-shadow:0 0 0 2px color-mix(in srgb,var(--green) 22%,transparent)}
+.dot.failed{background:var(--red);box-shadow:0 0 0 2px color-mix(in srgb,var(--red) 22%,transparent)}
+.dot.connecting{background:var(--orange);box-shadow:0 0 0 2px color-mix(in srgb,var(--orange) 22%,transparent)}
+.dot.disabled{background:transparent;border:1.5px solid var(--l3);box-shadow:none}
+
+/* meters */
+.meters{display:grid;grid-template-columns:.7fr 1.05fr 1.3fr;gap:6px;margin:6px 0 2px 28px}
+.meter .mt{display:flex;gap:4px;align-items:baseline;white-space:nowrap;margin-bottom:3px}
+.ml{font-size:9px;font-weight:650;text-transform:uppercase;letter-spacing:.05em;color:var(--l3)}
+.mv{font-size:10.5px;color:var(--l2);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.bar{height:3px;border-radius:2px;background:var(--track);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:2px;background:var(--meter-ok)}
+.meter.warn .bar i{background:var(--orange)}.meter.crit .bar i{background:var(--red)}
+.meter.warn .mv{color:var(--orange);font-weight:600}.meter.crit .mv{color:var(--red);font-weight:600}
+.meter.warn .ml{color:var(--orange)}.meter.crit .ml{color:var(--red)}
+
+/* agent rows */
+.row{display:flex;gap:6px;margin:0 6px;padding:4px 8px 4px 14px;border-radius:6px}
+.row.sel{background:var(--sel);color:#fff}
+.sym{width:16px;flex:none;display:flex;justify-content:center;padding-top:1px;height:16px;align-items:center}
+.sym.orange{color:var(--orange)}.sym.blue{color:var(--blue)}.sym.green{color:var(--green)}.sym.red{color:var(--red)}.sym.t3{color:var(--l3)}
+.row.sel .sym{color:#fff}
+.spin .ic{animation:none}
+.rt{flex:1;min-width:0}
+.nl{display:flex;align-items:center;justify-content:space-between;height:16px;gap:6px}
+.nm{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tm{font-size:10px;color:var(--l3);font-variant-numeric:tabular-nums}
+.dl{font-size:10px;height:13px;margin-top:2px;color:var(--l2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dl.orange{color:var(--orange)}.dl.red{color:var(--red)}
+.row.sel .tm,.row.sel .dl{color:rgba(255,255,255,.78)}
+.fail{margin:2px 14px 4px 29px;padding:8px 10px;border-radius:8px;background:color-mix(in srgb,var(--red) 11%,transparent);border:.5px solid color-mix(in srgb,var(--red) 32%,transparent)}
+.ft{font-size:11px;font-weight:650;color:var(--red)}
+.fr{font-size:10.5px;color:var(--l2);margin-top:2px;line-height:1.3;word-break:break-word}
+.fa{display:flex;align-items:center;gap:8px;margin-top:7px}
+.retry{font-size:10px;color:var(--l3)}
+
+/* buttons */
+.btn{font:13px var(--font);color:var(--label);background:var(--btn);border:.5px solid var(--btn-bd);border-radius:6px;padding:2px 11px;height:22px;box-shadow:0 .5px 1px rgba(0,0,0,.2);cursor:default;white-space:nowrap}
+.btn.sm{font-size:11px;height:19px;padding:0 9px;border-radius:5px}
+.btn.prim{background:var(--accent);border-color:transparent;color:#fff}
+
+/* tooltip + menu */
+.tip{position:absolute;z-index:20;background:var(--tip);color:var(--label);border:.5px solid var(--win-border);border-radius:6px;padding:6px 9px;font-size:11px;line-height:1.35;box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:nowrap}
+.tip b{font-weight:650}.tsub{color:var(--l2);margin-top:2px;font-size:10.5px}
+.menu{position:absolute;z-index:30;min-width:190px;background:var(--menu);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:10px;padding:5px;box-shadow:0 0 0 .5px var(--win-border),0 14px 40px rgba(0,0,0,.5)}
+.mi{padding:3px 12px 4px;border-radius:5px;font-size:13px}
+.mi.hi{background:var(--accent);color:#fff}
+.mi.off{color:var(--l3)}
+.msep{height:1px;background:var(--sep);margin:5px 8px}
+
+/* terminal placeholder */
+.term{background:#161618;color:#c9c9d0;display:flex;flex-direction:column}
+:root[data-theme="light"] .term{background:#fafafa;color:#3a3a40}
+.tabbar2{height:38px;display:flex;align-items:flex-end;gap:4px;padding:0 10px;border-bottom:.5px solid var(--sep);margin-left:0}
+.tab{font-size:11px;color:var(--l3);padding:6px 12px;border-radius:7px 7px 0 0}
+.tab.on{color:var(--label);background:var(--win)}
+.term pre{font:11.5px/1.65 var(--mono);padding:16px 18px;white-space:pre-wrap;opacity:.8;flex:1;overflow:hidden}
+.caret{display:inline-block;width:7px;height:13px;background:currentColor;vertical-align:-2px;opacity:.7}
+
+/* ───── spawn sheet ───── */
+.win.ghost .sidebar{opacity:.45}.win.ghost .content{opacity:.45}
+.win.ghost::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.18);border-radius:12px;z-index:1}
+.sheet{position:absolute;z-index:10;left:115px;top:0;width:470px;background:var(--win);border-radius:0 0 14px 14px;box-shadow:0 0 0 .5px var(--win-border),0 24px 70px rgba(0,0,0,.55);padding:22px 24px 18px}
+:root[data-theme="dark"] .sheet{background:#2d2d30}
+.frm{display:flex;flex-direction:column;gap:12px}
+.fr2{display:flex;align-items:center;gap:12px}
+.fr2.align{align-items:flex-start}
+.fr2 label{width:96px;text-align:right;color:var(--label);flex:none}
+.ctl{flex:1;min-width:0}
+.row2{display:flex;gap:8px;align-items:center}
+.fld{height:22px;border-radius:5px;background:var(--field);border:.5px solid var(--field-bd);padding:2px 7px;font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center}
+.fld.ph,.ph{color:var(--l3)}
+.fld.ta{height:88px;align-items:flex-start;padding-top:6px}
+.popup{display:flex;align-items:center;gap:7px;height:22px;border-radius:6px;background:var(--btn);border:.5px solid var(--btn-bd);padding:0 4px 0 9px;width:210px;box-shadow:0 .5px 1px rgba(0,0,0,.2)}
+.popup .ud{margin-left:auto;background:var(--accent);color:#fff;border-radius:4px;width:17px;height:16px;display:grid;place-items:center}
+.envs{display:flex;gap:6px}
+.chip{font-size:11.5px;padding:2px 9px;border-radius:10px;background:var(--btn);border:.5px solid var(--btn-bd)}
+.chip.add{display:grid;place-items:center;padding:2px 6px}
+.btns{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+/* open popup menu: overlays the Machine control, aligned on the selected item */
+.pmenu{position:absolute;z-index:40;left:131px;top:50px;width:315px;background:var(--menu);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:10px;padding:5px;box-shadow:0 0 0 .5px var(--win-border),0 16px 44px rgba(0,0,0,.55)}
+.pmi{display:flex;align-items:center;gap:7px;padding:4px 10px 5px 4px;border-radius:5px;height:24px}
+.pmi .ck{width:14px;display:grid;place-items:center;color:var(--label)}
+.pmi .pn{font-weight:500}
+.pmi .pr{margin-left:auto;font-size:11px;color:var(--l2);font-variant-numeric:tabular-nums}
+.pmi .pr.warn{color:var(--orange)}.pmi .pr.red{color:var(--red)}
+.pmi.chk{background:transparent}
+.pmi.off{opacity:.5}
+.pmi.hi{background:var(--accent);color:#fff}
+
+/* ───── settings ───── */
+.win.settings{flex-direction:column;overflow:hidden}
+.stb{height:74px;background:var(--toolbar);border-bottom:.5px solid var(--sep);position:relative;display:flex;justify-content:center;align-items:flex-end;padding-bottom:6px;border-radius:12px 12px 0 0}
+.tabs{display:flex;gap:2px}
+.stab{width:78px;height:50px;border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--l2);font-size:11px}
+.stab.on{background:var(--l4);color:var(--accent)}
+:root[data-theme="light"] .stab.on{background:rgba(0,0,0,.07)}
+.sbody{display:flex;height:456px}
+.mlist{width:218px;border-right:.5px solid var(--sep);background:var(--sidebar);display:flex;flex-direction:column;border-radius:0 0 0 12px;flex:none}
+.mlrows{flex:1;padding:8px 8px}
+.lrow{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:7px;margin-bottom:2px}
+.lrow.sel{background:var(--sel);color:#fff}
+.lrow.sel .ls{color:rgba(255,255,255,.75)}
+.lt{flex:1;min-width:0}
+.ln{font-weight:600;font-size:13px}
+.ls{font-size:10.5px;color:var(--l2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lrow.offrow .ln{color:var(--l2)}
+.lk{color:var(--l3)}
+.lrow.sel .lk{color:rgba(255,255,255,.6)}
+.tog{width:26px;height:15px;border-radius:8px;background:var(--l4);position:relative;flex:none;border:.5px solid var(--btn-bd)}
+.tog i{position:absolute;top:1.5px;left:1.5px;width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.35)}
+.tog.on{background:var(--green);border-color:transparent}.tog.on i{left:12.5px}
+.lrow.sel .tog.on{background:#fff}.lrow.sel .tog.on i{background:var(--sel)}
+.mlbar{height:30px;border-top:.5px solid var(--sep);display:flex;gap:4px;align-items:center;padding:0 10px;color:var(--l2)}
+.mlbar span{width:22px;height:20px;display:grid;place-items:center}.mlbar .dis{opacity:.35}
+.mdetail{flex:1;padding:14px 18px 12px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.gform{background:var(--grouped);border-radius:10px;border:.5px solid var(--sep);overflow:hidden}
+.gr{display:flex;align-items:center;gap:12px;padding:7px 12px;border-bottom:.5px solid var(--sep);min-height:36px}
+.gr:last-child{border-bottom:0}
+.gr label{width:132px;flex:none}
+.gr .fld{background:transparent;border:0;padding:0;justify-content:flex-end;text-align:right;color:var(--l2);height:auto}
+.gr .fld.row2{justify-content:flex-end}
+.tc{padding:0}
+.tcrow{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;gap:12px}
+.tcrow b{font-weight:600;display:block}.tcrow span{font-size:11px;color:var(--l2)}
+.tres{border-top:.5px solid var(--sep);padding:8px 12px 10px}
+.rhead{display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:4px}
+.rhead b{font-weight:650}.rhead span{color:var(--l3);font-size:11px;margin-left:auto;font-variant-numeric:tabular-nums}
+.rhead.ok .ic{color:var(--green)}.rhead.bad .ic{color:var(--red)}.rhead.bad b{color:var(--red)}
+.rl{display:flex;gap:8px;align-items:flex-start;padding:4px 0 4px 22px;font-size:12px}
+.rl b{font-weight:600;display:inline-block;width:98px}
+.rl>div{flex:1;min-width:0}.rl span{color:var(--l2)}
+.rl .ic{margin-left:-22px;margin-top:1px;position:absolute}
+.rl{position:relative}
+.rl.ok .ic{color:var(--green)}.rl.bad .ic{color:var(--red)}.rl.skip .ic{color:var(--l3)}
+.rl.bad span{color:var(--red)}.rl.skip span{color:var(--l3)}
+.rl.bad>div{display:block}
+.sfoot{display:flex;gap:8px;align-items:center;margin-top:auto}
+
+/* ───── iOS ───── */
+.split.phones{align-items:flex-start;gap:22px}
+.phone{width:356px;height:780px;background:var(--ibezel);border-radius:56px;padding:11px;box-shadow:0 0 0 1.5px rgba(255,255,255,.1),0 0 0 11px var(--ibezel2),0 0 0 12.5px rgba(255,255,255,.12),0 28px 70px rgba(0,0,0,.55);flex:none;margin:12px 8px}
+.screen{position:relative;width:100%;height:100%;background:var(--ibg);border-radius:46px;overflow:hidden;color:var(--ilabel);font:15px/1.3 var(--font);display:flex;flex-direction:column}
+.ist{height:50px;display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0 36px;flex:none;position:relative}
+.clock{font-weight:600;font-size:16px;letter-spacing:-.01em}
+.island{position:absolute;left:50%;top:11px;transform:translateX(-50%);width:104px;height:30px;border-radius:16px;background:#000;box-shadow:0 0 0 .5px rgba(255,255,255,.08)}
+.isr{display:flex;gap:5px;align-items:center}
+.inav{flex:none;padding:0 16px}
+.itop{height:40px;display:flex;justify-content:space-between;align-items:center;color:var(--itint)}
+.inav h1{font-size:34px;font-weight:700;letter-spacing:-.02em;margin:2px 4px 8px;line-height:1.15}
+.ilist{flex:1;overflow:hidden;padding:4px 16px 0}
+.icell{display:flex;gap:14px;align-items:flex-start;background:var(--icell);padding:13px 14px 13px 14px;border-radius:0;position:relative}
+.ilist>.icell{margin-bottom:10px;border-radius:12px}
+.ico{width:34px;flex:none;display:flex;justify-content:center;padding-top:2px}
+.greent{color:#30d158}.redt{color:#ff453a}.oranget{color:#ff9f0a}.bluet{color:#0a84ff}.grayt{color:#8e8e93}
+:root[data-theme="light"] .greent{color:#28cd41}:root[data-theme="light"] .redt{color:#ff3b30}:root[data-theme="light"] .oranget{color:#ff9500}:root[data-theme="light"] .bluet{color:#007aff}
+.ibody{flex:1;min-width:0}
+.iname{font-size:17px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
+.isub{font-size:14px;color:var(--ilabel2);line-height:1.3;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.isub.st{margin-top:0}
+.isub.redt{color:#ff453a;white-space:normal}
+.idot{width:9px;height:9px;border-radius:50%;flex:none;display:inline-block;margin-top:9px}
+.idot.green{background:#30d158}.idot.red{background:#ff453a}.idot.orange{background:#ff9f0a}
+.imeters{display:grid;grid-template-columns:.7fr 1.05fr 1.3fr;gap:8px;margin:12px -22px 0 -48px}
+.it1{display:flex;gap:4px;align-items:baseline;white-space:nowrap;margin-bottom:4px}
+.il{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--ilabel3)}
+.iv{font-size:10.5px;color:var(--ilabel2);font-variant-numeric:tabular-nums}
+.ibar{height:4px;border-radius:2px;background:var(--itrack);overflow:hidden}
+.ibar i{display:block;height:100%;border-radius:2px;background:rgba(235,235,245,.5)}
+:root[data-theme="light"] .ibar i{background:rgba(60,60,67,.45)}
+.imeter.warn .ibar i{background:#ff9f0a}.imeter.crit .ibar i{background:#ff453a}
+.imeter.warn .iv{color:#ff9f0a;font-weight:600}.imeter.crit .iv{color:#ff453a;font-weight:600}
+.imeter.warn .il{color:#ff9f0a}.imeter.crit .il{color:#ff453a}
+.ifoot{font-size:13px;color:var(--ilabel2);padding:2px 18px 0}
+.fleet{padding-top:0}
+.ihead{display:flex;align-items:center;gap:7px;padding:14px 16px 7px;font-size:13px;color:var(--ilabel2)}
+.ihead .idot{width:9px;height:9px;margin-top:0}
+.ihead .hn{font-weight:600;color:var(--ilabel2)}
+.ihead .hl{margin-left:auto;font-size:13px;color:var(--ilabel2)}.ihead .hl.red{color:#ff453a}
+.igroup{border-radius:12px;overflow:hidden}
+.igroup .icell{align-items:center;padding:11px 12px 11px 14px}
+.igroup .icell+.icell::before{content:"";position:absolute;top:0;left:62px;right:0;height:.5px;background:var(--isep)}
+.igroup .ico{padding-top:0}
+.icell.ag .iname{font-size:16px}
+.icell.ag .isub{font-size:13px}
+.badge{font-size:11px;font-weight:600;padding:3px 8px;border-radius:10px;flex:none}
+.orangeb{background:rgba(255,159,10,.18);color:#ff9f0a}.blueb{background:rgba(10,132,255,.18);color:#0a84ff}.greenb{background:rgba(48,209,88,.18);color:#30d158}.redb{background:rgba(255,69,58,.18);color:#ff453a}
+:root[data-theme="light"] .orangeb{color:#c77700}:root[data-theme="light"] .greenb{color:#1f9a37}
+.disc{color:var(--ilabel3);flex:none;margin-left:-2px}
+.itabs{flex:none;height:84px;background:var(--ibar);backdrop-filter:blur(20px);border-top:.5px solid var(--isep);display:flex;padding:7px 8px 0}
+.it{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ilabel3);font-size:10px;font-weight:500}
+.it.on{color:var(--itint)}
+.home{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:136px;height:5px;border-radius:3px;background:var(--ilabel)}
+
+@media (max-width:1100px){.split{flex-direction:column;align-items:center}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-moon" viewBox="0 0 16 16"><path d="M12.6 9.7A5.3 5.3 0 0 1 6.3 3.4a5.3 5.3 0 1 0 6.3 6.3z" fill="currentColor"/></symbol>
+<symbol id="i-working" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3.1 7.3A5 5 0 0 1 12.3 5.1"/><path d="M12.9 2.6v3h-3"/><path d="M12.9 8.7A5 5 0 0 1 3.7 10.9"/><path d="M3.1 13.4v-3h3"/></g></symbol>
+<symbol id="i-check-circle" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M5.3 8.2l1.9 1.9 3.5-3.9"/></g></symbol>
+<symbol id="i-tri" viewBox="0 0 16 16"><path d="M8 1.8l6.5 11.4h-13z" fill="currentColor" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M8 6v3.3M8 11.1v.1" stroke="rgba(0,0,0,.72)" stroke-width="1.5" stroke-linecap="round"/></symbol>
+<symbol id="i-lock" viewBox="0 0 16 16"><rect x="3.3" y="7" width="9.4" height="6.8" rx="1.6" fill="currentColor"/><path d="M5.3 7V5.2a2.7 2.7 0 0 1 5.4 0V7" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="i-lock-sm" viewBox="0 0 16 16"><rect x="3.3" y="7" width="9.4" height="6.8" rx="1.6" fill="currentColor"/><path d="M5.3 7V5.2a2.7 2.7 0 0 1 5.4 0V7" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 16 16"><path d="M5.5 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-disc" viewBox="0 0 16 16"><path d="M5.5 2.5l5.5 5.5-5.5 5.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-minus" viewBox="0 0 16 16"><path d="M2.5 8h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-search" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="6.8" cy="6.8" r="4.6"/><path d="M10.3 10.3L14 14"/></g></symbol>
+<symbol id="i-check" viewBox="0 0 16 16"><path d="M2.8 8.6l3.6 3.6 6.8-8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-updown" viewBox="0 0 16 16"><path d="M4.5 6.2L8 2.8l3.5 3.4M4.5 9.8L8 13.2l3.5-3.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-ok-c" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M4.8 8.3l2.2 2.2 4.2-4.6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="i-bad-c" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="currentColor"/><path d="M5.6 5.6l4.8 4.8M10.4 5.6l-4.8 4.8" stroke="#fff" stroke-width="1.7" stroke-linecap="round"/></symbol>
+<symbol id="i-skip-c" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M5.4 8h5.2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3.3"/><circle cx="12" cy="12" r="7.6" stroke-width="3.4" stroke-dasharray="3.6 2.8"/><circle cx="12" cy="12" r="6.2"/></g></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.5 3L5.5 13.5h5.2L9.8 21l8-10.8h-5.2z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-server" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="6.5" rx="2"/><rect x="3" y="13.5" width="18" height="6.5" rx="2"/></g><circle cx="7" cy="7.25" r="1" fill="currentColor"/><circle cx="7" cy="16.75" r="1" fill="currentColor"/><path d="M11 7.25h6M11 16.75h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+<symbol id="i-list" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/><circle cx="4.6" cy="6.5" r=".6"/><circle cx="4.6" cy="12" r=".6"/><circle cx="4.6" cy="17.5" r=".6"/></g></symbol>
+<symbol id="i-bubble" viewBox="0 0 24 24"><path d="M12 4.2c-4.7 0-8.3 3-8.3 6.9 0 2.1 1.1 4 2.8 5.2-.1 1.2-.6 2.2-1.4 3 1.8-.1 3.2-.8 4.2-1.7.8.2 1.7.3 2.7.3 4.7 0 8.3-3 8.3-6.8S16.700 4.200 12 4.200z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+<symbol id="i-signal" viewBox="0 0 16 16"><g fill="currentColor"><rect x="1.5" y="10" width="2.2" height="3.5" rx=".6"/><rect x="5" y="7.5" width="2.2" height="6" rx=".6"/><rect x="8.5" y="5" width="2.2" height="8.5" rx=".6"/><rect x="12" y="2.5" width="2.2" height="11" rx=".6"/></g></symbol>
+<symbol id="i-wifi" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.6 6a9.5 9.5 0 0 1 12.800 0"/><path d="M3.800 8.500a6.300 6.300 0 0 1 8.400 0"/></g><circle cx="8" cy="11.800" r="1.400" fill="currentColor"/></symbol>
+<symbol id="i-battery" viewBox="0 0 24 16"><rect x="1" y="3" width="19" height="10" rx="3" fill="none" stroke="currentColor" stroke-opacity=".45"/><rect x="2.600" y="4.600" width="15.800" height="6.800" rx="1.800" fill="currentColor"/><path d="M21.500 6v4" stroke="currentColor" stroke-opacity=".45" stroke-width="1.500" stroke-linecap="round"/></symbol>
+</defs></svg>
+
+<header class="top">
+  <div><h1>Leo Machines</h1><p>Design mockups for the approved spec <code>2026-10-21-leo-machines.md</code>. Static, no app code changed.</p></div>
+  <button id="theme" type="button" aria-label="Toggle light and dark mode">Light mode</button>
+</header>
+<main>
+
+<section class="panel" id="panel-1">
+  <div class="plabel"><span class="pnum">1</span><div><h2>Mac sidebar</h2><p>One collapsible section per machine: healthy, warning, offline and no-stats, plus a meter tooltip and the header context menu.</p></div></div>
+  <div class="stage"><div class="split">
+<div class="win" style="width:600px;height:706px">
+  <div class="sidebar">
+    <div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="sbhead"><span>Agents</span><span class="plus"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span></div>
+    <div class="search"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-search"/></svg><span>Search agents</span></div>
+    <div class="sblist"><div class="mh "><div class="l1"><svg class="ic chev open" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-chevron"/></svg><span class="dot ok"></span><span class="mn">This Mac</span><span class="ms">evans-mbp.local</span><span class="sp"></span><span class="cnt">3</span></div><div class="meters"><div class="meter ok"><div class="mt"><span class="ml">CPU</span><span class="mv">23%</span></div><div class="bar"><i style="width:23%"></i></div></div><div class="meter ok"><div class="mt"><span class="ml">Mem</span><span class="mv">18.4/64 GB</span></div><div class="bar"><i style="width:29%"></i></div></div><div class="meter ok"><div class="mt"><span class="ml">Disk</span><span class="mv">412/994 GB</span></div><div class="bar"><i style="width:41%"></i></div></div></div></div><div class="row"><span class="sym orange"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-lock"/></svg></span><div class="rt"><div class="nl"><span class="nm">leoterm</span><span class="tm">1m</span></div><div class="dl orange">Run: git push origin feat/machines</div></div></div><div class="row"><span class="sym blue spin"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-working"/></svg></span><div class="rt"><div class="nl"><span class="nm">web</span><span class="tm">now</span></div><div class="dl ">Editing LeoSidebarView.swift</div></div></div><div class="row"><span class="sym t3"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-moon"/></svg></span><div class="rt"><div class="nl"><span class="nm">scratch</span><span class="tm">2h</span></div></div></div><div class="mh hover"><div class="l1"><svg class="ic chev open" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-chevron"/></svg><span class="dot ok"></span><span class="mn">Dionysus</span><span class="sp"></span><span class="cnt">3</span></div><div class="meters"><div class="meter ok"><div class="mt"><span class="ml">CPU</span><span class="mv">41%</span></div><div class="bar"><i style="width:41%"></i></div></div><div class="meter warn"><div class="mt"><span class="ml">Mem</span><span class="mv">27.2/32 GB</span></div><div class="bar"><i style="width:85%"></i></div></div><div class="meter ok"><div class="mt"><span class="ml">Disk</span><span class="mv">640/1000 GB</span></div><div class="bar"><i style="width:64%"></i></div></div></div></div><div class="row sel"><span class="sym blue spin"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-working"/></svg></span><div class="rt"><div class="nl"><span class="nm">web</span><span class="tm">now</span></div><div class="dl ">Running swift test</div></div></div><div class="row"><span class="sym green"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check-circle"/></svg></span><div class="rt"><div class="nl"><span class="nm">plex-fix</span><span class="tm">12m</span></div><div class="dl ">Fixed transcoder path, 3 files</div></div></div><div class="row"><span class="sym t3"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-moon"/></svg></span><div class="rt"><div class="nl"><span class="nm">nomad-cleanup</span><span class="tm">1d</span></div></div></div><div class="mh dim ctx"><div class="l1"><svg class="ic chev" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-chevron"/></svg><span class="dot failed"></span><span class="mn">Hestia</span><span class="sp"></span></div></div><div class="fail"><div class="ft">Connection failed</div><div class="fr">ssh: connect to host hestia.lan port 22: Operation timed out</div><div class="fa"><button class="btn sm">Reconnect</button><span class="retry">Retrying in 42s</span></div></div><div class="mh "><div class="l1"><svg class="ic chev open" width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-chevron"/></svg><span class="dot ok"></span><span class="mn">leo-vm</span><span class="sp"></span><span class="cnt">2</span></div></div><div class="row"><span class="sym blue spin"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-working"/></svg></span><div class="rt"><div class="nl"><span class="nm">e2e-runner</span><span class="tm">now</span></div><div class="dl ">Tart VM boot check</div></div></div><div class="row"><span class="sym red"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-tri"/></svg></span><div class="rt"><div class="nl"><span class="nm">build-check</span><span class="tm">6m</span></div><div class="dl red">xcodebuild exited with status 65</div></div></div></div>
+  </div>
+  <div class="content term">
+    <div class="tabbar2"><span class="tab on">web — Dionysus</span><span class="tab">leoterm</span></div>
+    <pre>$ swift test --filter LeoMachines
+[1/6] Compiling LeoKit MachineStats.swift
+[2/6] Compiling LeoKit MeterLevel.swift
+Test Suite 'MeterLevelTests' started
+✔ normal below 80 percent
+✔ warning at 80 percent or more
+✔ critical at 90 percent or more
+Test Suite 'MeterLevelTests' passed
+Test Suite 'StatsDecodingTests' started
+✔ null cpu on first sample
+✔ missing machine_stats flag
+…
+$ <span class="caret"></span></pre>
+  </div>
+  <div class="tip" style="left:150px;top:334px"><b>Memory</b> · Dionysus<br>27.2 GB of 32 GB used (85%)<div class="tsub">Sampled 3 s ago · 20:41:07</div></div><div class="menu" style="left:262px;top:446px"><div class="mi off">New Agent Here…</div><div class="mi hi">Reconnect</div><div class="msep"></div><div class="mi">Edit Machine…</div><div class="mi">Disable</div></div>
+</div>
+<aside class="notes">
+  <h4>Meter thresholds</h4>
+  <div class="lg"><div class="meter ok"><div class="mt"><span class="ml">Normal</span><span class="mv">42%</span></div><div class="bar"><i style="width:42%"></i></div></div><span class="lr">below 80%</span></div>
+  <div class="lg"><div class="meter warn"><div class="mt"><span class="ml">Warning</span><span class="mv">85%</span></div><div class="bar"><i style="width:85%"></i></div></div><span class="lr">80% or more</span></div>
+  <div class="lg"><div class="meter crit"><div class="mt"><span class="ml">Critical</span><span class="mv">94%</span></div><div class="bar"><i style="width:94%"></i></div></div><span class="lr">90% or more</span></div>
+  <h4>Section states</h4>
+  <dl>
+    <dt><span class="dot ok"></span> This Mac</dt><dd>Healthy. Hostname subtitle, three meters.</dd>
+    <dt><span class="dot ok"></span> Dionysus</dt><dd>Warning. Memory is at 85%, so that meter turns amber. The dot tracks the connection only.</dd>
+    <dt><span class="dot failed"></span> Hestia</dt><dd>Offline. Dimmed and collapsed, with the failure reason and Reconnect. Meters hidden, since there is no sample.</dd>
+    <dt><span class="dot ok"></span> leo-vm</dt><dd>Daemon too old for stats. Header only, no meters.</dd>
+  </dl>
+  <h4>Status dot</h4>
+  <div class="dots"><span><span class="dot ok"></span>Connected</span><span><span class="dot connecting"></span>Connecting</span><span><span class="dot failed"></span>Failed</span><span><span class="dot disabled"></span>Disabled</span></div>
+  <h4>Callouts</h4>
+  <p>The tooltip is on Dionysus Mem. The context menu is open on Hestia, where <i>New Agent Here…</i> is disabled because the machine is unreachable. Two agents are named <b>web</b>; the section tells them apart.</p>
+</aside></div></div>
+</section>
+
+<section class="panel" id="panel-2">
+  <div class="plabel"><span class="pnum">2</span><div><h2>Spawn sheet</h2><p>Machine is the first field. The picker is open: Hestia is listed but disabled.</p></div></div>
+  <div class="stage"><div class="split">
+<div class="win ghost" style="width:700px;height:560px">
+  <div class="sidebar" style="width:290px"><div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div><div class="sbhead"><span>Agents</span><span class="plus"><svg class="ic " width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span></div></div>
+  <div class="content"></div>
+  <div class="sheet">
+    <div class="frm">
+      <div class="fr2 mach"><label>Machine</label><div class="ctl"><div class="popup"><span class="dot ok"></span><span>Dionysus</span><span class="ud"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-updown"/></svg></span></div></div></div>
+      <div class="fr2"><label>Template</label><div class="ctl"><div class="popup"><span>claude-code</span><span class="ud"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-updown"/></svg></span></div></div></div>
+      <div class="fr2"><label>Repository</label><div class="ctl row2"><div class="fld">~/code/olympus</div><button class="btn">Choose…</button></div></div>
+      <div class="fr2"><label>Name</label><div class="ctl"><div class="fld ph">agent-name</div></div></div>
+      <div class="fr2"><label>Branch</label><div class="ctl"><div class="fld ph">main</div></div></div>
+      <div class="fr2"><label>Environments</label><div class="ctl"><div class="envs"><span class="chip">default</span><span class="chip add"><svg class="ic " width="10" height="10" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span></div></div></div>
+      <div class="fr2 align"><label></label><div class="ctl"><div class="fld ta ph">What should the agent do?</div></div></div>
+    </div>
+    <div class="btns"><button class="btn">Cancel</button><button class="btn prim">Create</button></div>
+    <div class="pmenu"><div class="pmi"><span class="ck"></span><span class="dot ok"></span><span class="pn">This Mac</span><span class="pr ">CPU 23% · Mem 29%</span></div><div class="pmi chk"><span class="ck"><svg class="ic " width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check"/></svg></span><span class="dot ok"></span><span class="pn">Dionysus</span><span class="pr warn">CPU 41% · Mem 85%</span></div><div class="pmi off"><span class="ck"></span><span class="dot failed"></span><span class="pn">Hestia</span><span class="pr red">Unreachable · timed out</span></div><div class="pmi"><span class="ck"></span><span class="dot ok"></span><span class="pn">leo-vm</span><span class="pr ">No stats</span></div></div>
+  </div>
+</div>
+<aside class="notes">
+  <h4>Machine picker</h4>
+  <dl>
+    <dt>First field</dt><dd>Machine sits above Template and drives everything below it.</dd>
+    <dt>Default</dt><dd>Context machine (here: opened from <i>New Agent Here…</i> on Dionysus), else last used, else This Mac.</dd>
+    <dt>Switching</dt><dd>Reloads templates, environment options and feature gates from the new machine.</dd>
+    <dt>Offline</dt><dd>Hestia is listed but dimmed and unselectable, with its status on the right.</dd>
+    <dt>Load</dt><dd>Each row carries a one-line CPU/Mem summary, amber from 80%, red from 90%.</dd>
+  </dl>
+</aside></div></div>
+</section>
+
+<section class="panel" id="panel-3">
+  <div class="plabel"><span class="pnum">3</span><div><h2>Settings → Machines</h2><p>Replaces the Hosts sheet. Same fields as LeoHostConfiguration, enable toggles in the list, Test Connection inline.</p></div></div>
+  <div class="stage">
+<div class="stack">
+  <div class="cap">Test Connection: success</div>
+<div class="win settings" style="width:860px">
+  <div class="stb"><div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="tabs">
+      <div class="stab"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-gear"/></svg><span>General</span></div>
+      <div class="stab on"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg><span>Machines</span></div>
+      <div class="stab"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-bolt"/></svg><span>Advanced</span></div>
+    </div>
+  </div>
+  <div class="sbody">
+    <div class="mlist">
+      <div class="mlrows"><div class="lrow"><span class="dot ok"></span><div class="lt"><div class="ln">This Mac</div><div class="ls">Local daemon socket</div></div><svg class="ic lk" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-lock-sm"/></svg></div><div class="lrow sel"><span class="dot ok"></span><div class="lt"><div class="ln">Dionysus</div><div class="ls">evan@dionysus.lan</div></div><span class="tog on"><i></i></span></div><div class="lrow"><span class="dot failed"></span><div class="lt"><div class="ln">Hestia</div><div class="ls">evan@hestia.lan:2222</div></div><span class="tog on"><i></i></span></div><div class="lrow"><span class="dot ok"></span><div class="lt"><div class="ln">leo-vm</div><div class="ls">admin@192.168.64.7</div></div><span class="tog on"><i></i></span></div><div class="lrow offrow"><span class="dot disabled"></span><div class="lt"><div class="ln">iris-test</div><div class="ls">evan@iris.lan</div></div><span class="tog"><i></i></span></div></div>
+      <div class="mlbar"><span><svg class="ic " width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span><span class="dis"><svg class="ic " width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-minus"/></svg></span></div>
+    </div>
+    <div class="mdetail">
+      <div class="gform">
+        <div class="gr"><label>Name</label><div class="fld">Dionysus</div></div>
+        <div class="gr"><label>SSH Target</label><div class="fld">evan@dionysus.lan</div></div>
+        <div class="gr"><label>Identity File</label><div class="fld row2"><span class="">~/.ssh/id_ed25519</span></div><button class="btn">Choose…</button></div>
+        <div class="gr"><label>Remote Leo Path</label><div class="fld">~/.local/bin/leo</div></div>
+        <div class="gr"><label>Remote Socket Path</label><div class="fld">~/.leo/state/leo.sock</div></div>
+      </div>
+      <div class="gform tc">
+        <div class="tcrow"><div><b>Test Connection</b><span>SSH, then a daemon hello. Nothing is saved.</span></div><button class="btn">Test Connection</button></div>
+        <div class="tres"><div class="rhead ok"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ok-c"/></svg><b>Connected</b><span>0.42 s</span></div><div class="rl ok"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ok-c"/></svg><div><b>SSH</b><span>dionysus.lan reachable as evan</span></div></div><div class="rl ok"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ok-c"/></svg><div><b>Daemon</b><span>leo 0.33.1 answered hello</span></div></div><div class="rl ok"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-ok-c"/></svg><div><b>Machine stats</b><span>Available (machine_stats)</span></div></div></div>
+      </div>
+      <div class="sfoot"><span class="stitle"></span><span class="sp"></span><button class="btn">Revert</button><button class="btn prim">Save</button></div>
+    </div>
+  </div>
+</div>
+  <div class="cap">Test Connection: failure</div>
+<div class="win settings" style="width:860px">
+  <div class="stb"><div class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="tabs">
+      <div class="stab"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-gear"/></svg><span>General</span></div>
+      <div class="stab on"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg><span>Machines</span></div>
+      <div class="stab"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-bolt"/></svg><span>Advanced</span></div>
+    </div>
+  </div>
+  <div class="sbody">
+    <div class="mlist">
+      <div class="mlrows"><div class="lrow"><span class="dot ok"></span><div class="lt"><div class="ln">This Mac</div><div class="ls">Local daemon socket</div></div><svg class="ic lk" width="11" height="11" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-lock-sm"/></svg></div><div class="lrow"><span class="dot ok"></span><div class="lt"><div class="ln">Dionysus</div><div class="ls">evan@dionysus.lan</div></div><span class="tog on"><i></i></span></div><div class="lrow sel"><span class="dot failed"></span><div class="lt"><div class="ln">Hestia</div><div class="ls">evan@hestia.lan:2222</div></div><span class="tog on"><i></i></span></div><div class="lrow"><span class="dot ok"></span><div class="lt"><div class="ln">leo-vm</div><div class="ls">admin@192.168.64.7</div></div><span class="tog on"><i></i></span></div><div class="lrow offrow"><span class="dot disabled"></span><div class="lt"><div class="ln">iris-test</div><div class="ls">evan@iris.lan</div></div><span class="tog"><i></i></span></div></div>
+      <div class="mlbar"><span><svg class="ic " width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span><span class="dis"><svg class="ic " width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-minus"/></svg></span></div>
+    </div>
+    <div class="mdetail">
+      <div class="gform">
+        <div class="gr"><label>Name</label><div class="fld">Hestia</div></div>
+        <div class="gr"><label>SSH Target</label><div class="fld">evan@hestia.lan:2222</div></div>
+        <div class="gr"><label>Identity File</label><div class="fld row2"><span class="ph">optional</span></div><button class="btn">Choose…</button></div>
+        <div class="gr"><label>Remote Leo Path</label><div class="fld">~/.local/bin/leo</div></div>
+        <div class="gr"><label>Remote Socket Path</label><div class="fld">~/.leo/state/leo.sock</div></div>
+      </div>
+      <div class="gform tc">
+        <div class="tcrow"><div><b>Test Connection</b><span>SSH, then a daemon hello. Nothing is saved.</span></div><button class="btn">Test Connection</button></div>
+        <div class="tres"><div class="rhead bad"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-bad-c"/></svg><b>Connection failed</b><span>10.0 s</span></div><div class="rl bad"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-bad-c"/></svg><div><b>SSH</b><span>ssh: connect to host hestia.lan port 2222: Operation timed out</span></div></div><div class="rl skip"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-skip-c"/></svg><div><b>Daemon</b><span>Not tested</span></div></div><div class="rl skip"><svg class="ic " width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-skip-c"/></svg><div><b>Machine stats</b><span>Not tested</span></div></div></div>
+      </div>
+      <div class="sfoot"><span class="stitle"></span><span class="sp"></span><button class="btn">Revert</button><button class="btn prim">Save</button></div>
+    </div>
+  </div>
+</div>
+</div></div>
+</section>
+
+<section class="panel" id="panel-4">
+  <div class="plabel"><span class="pnum">4</span><div><h2>iOS machine list and Fleet</h2><p>UIKit inset-grouped lists. Machine cells carry the same meters; Fleet groups agents by machine.</p></div></div>
+  <div class="stage"><div class="split phones">
+<div class="phone"><div class="screen">
+  <div class="ist"><span class="clock">9:41</span><span class="island"></span><span class="isr"><svg class="ic " width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-signal"/></svg><svg class="ic " width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-wifi"/></svg><svg class="ic " width="22" height="22" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-battery"/></svg></span></div>
+  
+<div class="inav"><div class="itop"><span class="back"></span><span class="add"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span></div><h1>Machines</h1></div>
+<div class="ilist">
+<div class="icell"><span class="ico greent"><svg class="ic " width="26" height="26" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg></span>
+  <div class="ibody"><div class="iname">MacBook Pro</div><div class="isub">evans-mbp.local</div><div class="isub st">Connected · 3 agents</div><div class="imeters"><div class="imeter ok"><div class="it1"><span class="il">CPU</span><span class="iv">23%</span></div><div class="ibar"><i style="width:23%"></i></div></div><div class="imeter ok"><div class="it1"><span class="il">Mem</span><span class="iv">18.4/64 GB</span></div><div class="ibar"><i style="width:29%"></i></div></div><div class="imeter ok"><div class="it1"><span class="il">Disk</span><span class="iv">412/994 GB</span></div><div class="ibar"><i style="width:41%"></i></div></div></div></div>
+  <span class="idot green"></span></div>
+<div class="icell"><span class="ico greent"><svg class="ic " width="26" height="26" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg></span>
+  <div class="ibody"><div class="iname">Dionysus</div><div class="isub">dionysus.lan</div><div class="isub st">Connected · 3 agents</div><div class="imeters"><div class="imeter ok"><div class="it1"><span class="il">CPU</span><span class="iv">41%</span></div><div class="ibar"><i style="width:41%"></i></div></div><div class="imeter warn"><div class="it1"><span class="il">Mem</span><span class="iv">27.2/32 GB</span></div><div class="ibar"><i style="width:85%"></i></div></div><div class="imeter ok"><div class="it1"><span class="il">Disk</span><span class="iv">640/1000 GB</span></div><div class="ibar"><i style="width:64%"></i></div></div></div></div>
+  <span class="idot green"></span></div>
+<div class="icell"><span class="ico redt"><svg class="ic " width="26" height="26" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg></span>
+  <div class="ibody"><div class="iname">Hestia</div><div class="isub">hestia.lan</div><div class="isub st">Unreachable</div><div class="isub redt">Operation timed out</div></div>
+  <span class="idot red"></span></div>
+<div class="icell"><span class="ico greent"><svg class="ic " width="26" height="26" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg></span>
+  <div class="ibody"><div class="iname">leo-vm</div><div class="isub">192.168.64.7</div><div class="isub st">Connected · 2 agents</div></div>
+  <span class="idot green"></span></div>
+<div class="ifoot">Machines you have paired. Meters refresh every few seconds while this list is open. Swipe left to forget one.</div></div>
+  <div class="itabs"><div class="it"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-list"/></svg><span>Agents</span></div><div class="it"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-bubble"/></svg><span>Chat</span></div><div class="it on"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg><span>Machines</span></div><div class="it"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-gear"/></svg><span>Settings</span></div></div>
+  <div class="home"></div>
+</div></div>
+<div class="phone"><div class="screen">
+  <div class="ist"><span class="clock">9:41</span><span class="island"></span><span class="isr"><svg class="ic " width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-signal"/></svg><svg class="ic " width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-wifi"/></svg><svg class="ic " width="22" height="22" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-battery"/></svg></span></div>
+  
+<div class="inav"><div class="itop"><span class="back"></span><span class="add"><svg class="ic " width="20" height="20" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-plus"/></svg></span></div><h1>Agents</h1></div>
+<div class="ilist fleet"><div class="ihead"><span class="idot green"></span><span class="hn">MacBook Pro</span><span class="hl ">Connected</span></div><div class="igroup"><div class="icell ag"><span class="ico oranget"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-lock"/></svg></span><div class="ibody"><div class="iname">leoterm</div><div class="isub">Waiting for permission: git push</div></div><span class="badge orangeb">Needs you</span><span class="disc"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-disc"/></svg></span></div><div class="icell ag"><span class="ico bluet"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-working"/></svg></span><div class="ibody"><div class="iname">web</div><div class="isub">Editing LeoSidebarView.swift</div></div><span class="badge blueb">Working</span><span class="disc"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-disc"/></svg></span></div></div><div class="ihead"><span class="idot green"></span><span class="hn">Dionysus</span><span class="hl ">Connected</span></div><div class="igroup"><div class="icell ag"><span class="ico bluet"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-working"/></svg></span><div class="ibody"><div class="iname">web</div><div class="isub">Running swift test</div></div><span class="badge blueb">Working</span><span class="disc"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-disc"/></svg></span></div><div class="icell ag"><span class="ico greent"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-check-circle"/></svg></span><div class="ibody"><div class="iname">plex-fix</div><div class="isub">Fixed transcoder path, 3 files</div></div><span class="badge greenb">Done</span><span class="disc"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-disc"/></svg></span></div></div><div class="ihead"><span class="idot red"></span><span class="hn">Hestia</span><span class="hl red">Unreachable</span></div><div class="ihead"><span class="idot green"></span><span class="hn">leo-vm</span><span class="hl ">Connected</span></div><div class="igroup"><div class="icell ag"><span class="ico redt"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-tri"/></svg></span><div class="ibody"><div class="iname">build-check</div><div class="isub">xcodebuild exited with status 65</div></div><span class="badge redb">Error</span><span class="disc"><svg class="ic " width="12" height="12" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-disc"/></svg></span></div></div></div>
+  <div class="itabs"><div class="it on"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-list"/></svg><span>Agents</span></div><div class="it"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-bubble"/></svg><span>Chat</span></div><div class="it"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-server"/></svg><span>Machines</span></div><div class="it"><svg class="ic " width="24" height="24" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-gear"/></svg><span>Settings</span></div></div>
+  <div class="home"></div>
+</div></div>
+<aside class="notes slim">
+  <h4>Machines</h4>
+  <dl>
+    <dt>Same meters</dt><dd>CPU %, memory and disk used/total, with the same 80% / 90% thresholds as the Mac.</dd>
+    <dt>Offline</dt><dd>Red dot and reason, no meters. Reconnect stays in the context menu.</dd>
+    <dt>No stats</dt><dd>Older daemon: the cell has no meters.</dd>
+  </dl>
+  <h4>Fleet</h4>
+  <dl>
+    <dt>Grouped</dt><dd>One section per machine once more than one is paired, so the two <b>web</b> agents stay distinct.</dd>
+    <dt>Offline</dt><dd>The section header stays, empty, with its status in red.</dd>
+  </dl>
+</aside></div></div>
+</section>
+</main>
+<script>
+(function () {
+  var root = document.documentElement, btn = document.getElementById('theme');
+  function sync() { btn.textContent = root.dataset.theme === 'dark' ? 'Light mode' : 'Dark mode'; }
+  btn.addEventListener('click', function () {
+    root.dataset.theme = root.dataset.theme === 'dark' ? 'light' : 'dark'; sync();
+  });
+  sync();
+})();
+</script>
+</body>
+</html>

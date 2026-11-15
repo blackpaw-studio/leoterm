@@ -1,6 +1,7 @@
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 @MainActor struct LeoGhosttySurfaceHostTests {
     @Test func leoToSplitTreeDirectionMapsEachCase() {

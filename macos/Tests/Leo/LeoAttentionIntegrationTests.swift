@@ -3,6 +3,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// End to end over a real unix socket: a scripted fake daemon serves
 /// `/events` + `/state` with `attention`, through `LeoSocketActivityClient`,
@@ -21,11 +22,11 @@ import Testing
         let client = LeoSocketActivityClient(socketPath: server.path)
         let center = RecordingNotificationCenter()
         let defaults = LeoInMemoryDefaults()
-        let controller = LeoAttentionController(center: center, defaults: defaults, currentHost: { .local }, showDeniedInstructions: {})
+        let controller = LeoAttentionController(center: center, defaults: defaults, isLive: { $0 == .local }, showDeniedInstructions: {})
         await controller.enable()
         let snapshots = SnapshotBox()
         let daemon = ListOnlyDaemon(names: ["alpha", "beta"])
-        let source = LeoSidebarActivitySource(events: { await client.events() }, fetchState: { try await client.fetchState() })
+        let source = LeoSidebarActivitySource(events: { await client.events() }, observedState: { try await client.fetchState() })
         let feed = LeoSidebarFeed(
             daemon: daemon,
             activity: source,

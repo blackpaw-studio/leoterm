@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// B-007 / D-061: a dropped stream, a dead tunnel or a failed wake check
 /// puts the feed in `.disconnected`: rows stay (activity cleared) but no
@@ -120,7 +121,7 @@ struct LeoSidebarFeedDisconnectTests {
         await harness.stop()
     }
 
-    /// Tunnel drop: `LeoHostSelection` publishes `.failed` for the live
+    /// Tunnel drop: the machine's connection publishes `.failed` for the live
     /// connection's own generation.
     @Test func aTunnelDropOnALiveConnectionIsDisconnectedNotFailed() async throws {
         let harness = DisconnectHarness(results: [.success(["alpha"])], host: .remote("mars"))

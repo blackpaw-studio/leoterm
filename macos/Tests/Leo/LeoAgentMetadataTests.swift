@@ -2,6 +2,7 @@ import Foundation
 import Testing
 
 @testable import Ghostty
+@testable import LeoKit
 
 /// Row metadata (B-011, D-074): what `/state` reports per agent, when an
 /// entry may attach to a row, and how the row draws it.
@@ -47,12 +48,57 @@ struct LeoAgentMetadataTests {
         #expect(!task.unicodeScalars.contains("\u{202E}"))
     }
 
+    // B-260: kind "tool" shows the tool's name, never its arguments.
+    @Test func toolActionYieldsToolNameWithoutArguments() throws {
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: "tool", detail: "Read ~/a.go")])
+        let metadata = try #require(entries.metadata(name: "alpha", startedAt: "s1"))
+        #expect(metadata.tool == "Read")
+        #expect(metadata.task == nil)
+    }
+
+    @Test(arguments: [("Bash", "Bash"), ("mcp__srv__do x y", "mcp__srv__do"), ("  Edit   a b ", "Edit")])
+    func toolNameIsTheFirstToken(detail: String, expected: String) {
+        #expect(LeoAgentMetadata.toolName(fromDetail: detail) == expected)
+    }
+
+    @Test func blankToolDetailYieldsNothing() {
+        #expect(LeoAgentMetadata.toolName(fromDetail: "") == nil)
+        #expect(LeoAgentMetadata.toolName(fromDetail: " \t ") == nil)
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: "tool", detail: "   ")])
+        #expect(entries.metadata(name: "alpha", startedAt: "s1") == nil)
+    }
+
+    @Test func toolNameIsSanitized() {
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31mBash\u{1B}[0m make") == "Bash", "CSI escapes are stripped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}]0;title\u{07}Read x") == "Read", "OSC escapes are stripped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}]8;;http://x\u{1B}\\Edit\u{1B}]8;;\u{1B}\\ y") == "Edit")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Ba\u{202E}sh\nmake") == "Bash", "bidi controls are dropped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "Gr\u{0}ep\u{7} x") == "Grep", "control characters are dropped")
+        #expect(LeoAgentMetadata.toolName(fromDetail: "\u{1B}[31m\u{1B}[0m") == nil)
+    }
+
+    @Test(arguments: ["pane", nil, "future"] as [String?])
+    func otherKindsKeepTheTaskLine(kind: String?) throws {
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", kind: kind, detail: "Reading files now")])
+        let metadata = try #require(entries.metadata(name: "alpha", startedAt: "s1"))
+        #expect(metadata.task == "Reading files now")
+        #expect(metadata.tool == nil)
+    }
+
     @Test func anEntryAttachesOnlyToTheIncarnationThatReportedIt() {
         let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", detail: "Reading")])
         #expect(entries.metadata(name: "alpha", startedAt: "s1")?.task == "Reading")
         #expect(entries.metadata(name: "alpha", startedAt: "s2") == nil, "a recreated namesake")
         #expect(entries.metadata(name: "alpha", startedAt: nil) == nil, "no identity, no attachment")
         #expect(entries.metadata(name: "beta", startedAt: "s1") == nil)
+    }
+
+    @Test func usageAttachesOnlyToSameIncarnation() {
+        let usage = LeoAgentUsage(session: LeoUsageTotals(tokens: 10, costUSD: 0.1))
+        let entries = LeoAgentMetadataIndex(state: [observed("alpha", startedAt: "s1", usage: usage)])
+        #expect(entries.metadata(name: "alpha", startedAt: "s1")?.usage == usage, "usage alone earns an entry")
+        #expect(entries.metadata(name: "alpha", startedAt: "s2")?.usage == nil, "a different started_at gets no usage")
+        #expect(LeoAgentMetadataIndex(state: [observed("alpha", startedAt: nil, usage: usage)]).metadata(name: "alpha", startedAt: nil) == nil)
     }
 
     @Test func anEntryWithoutIdentityNeverAttaches() {
@@ -100,72 +146,11 @@ struct LeoAgentMetadataTests {
 
     // MARK: Row presentation
 
-    @Test func subtitleAppendsTheRelativeTime() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-300), isWorking: false, task: nil)
-        let presentation = LeoAgentRowPresentation(
-            row: row("alpha", template: "claude", attention: .needsInput, metadata: metadata), isSelected: false,
-            now: Self.now, timeZone: Self.utc, locale: .init(identifier: "en_US")
-        )
-        #expect(presentation.subtitle?.text == "claude · Needs Input · 5m")
-        #expect(presentation.subtitle?.lastActive == "5m")
-    }
-
-    @Test func theTimeNeverTruncatesAndTheTemplateGivesWayFirst() throws {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-300), isWorking: false, task: nil)
-        let presentation = LeoAgentRowPresentation(
-            row: row("alpha", template: "claude", attention: .needsInput, metadata: metadata), isSelected: false, now: Self.now
-        )
-        let segments = try #require(presentation.subtitle?.segments)
-        #expect(segments.map(\.text) == ["claude", "Needs Input", "5m"])
-        #expect(segments.map(\.hasSeparator) == [false, true, true])
-        #expect(segments.map(\.truncation) == [.first, .second, .never])
-        #expect(LeoAgentRowPresentation.Subtitle.Truncation.first.layoutPriority
-            < LeoAgentRowPresentation.Subtitle.Truncation.second.layoutPriority)
-        #expect(presentation.subtitle?.accessibilityLabel == "claude, last active 5 minutes ago")
-    }
-
-    @Test func segmentsOmitWhateverIsMissing() throws {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-7200), isWorking: false, task: nil)
-        let timeOnly = try #require(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), isSelected: false, now: Self.now).subtitle)
-        #expect(timeOnly.segments.map(\.text) == ["2h"])
-        #expect(timeOnly.segments.map(\.hasSeparator) == [false])
-        let noTime = try #require(LeoAgentRowPresentation(row: row("alpha", template: "claude", attention: .finished), isSelected: false).subtitle)
-        #expect(noTime.segments.map(\.truncation) == [.first, .second])
-    }
-
-    @Test func aWorkingAgentIsActiveNow() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-3 * 3600), isWorking: true, task: nil)
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", metadata: metadata), isSelected: false, now: Self.now)
-        #expect(presentation.subtitle?.text == "claude · now")
-    }
-
-    @Test func timeAloneMakesASubtitle() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now.addingTimeInterval(-7200), isWorking: false, task: nil)
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), isSelected: false, now: Self.now)
-        #expect(presentation.subtitle?.text == "2h")
-    }
-
-    @Test func missingMetadataAddsNothing() {
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude"), isSelected: false, now: Self.now)
-        #expect(presentation.subtitle?.text == "claude")
-        #expect(presentation.subtitle?.lastActive == nil)
-        #expect(presentation.task == nil)
-        let bare = LeoAgentRowPresentation(row: row("alpha", template: nil), isSelected: false, now: Self.now)
-        #expect(bare.subtitle == nil, "no placeholder")
-    }
-
-    @Test func noClockNoTime() {
-        let metadata = LeoAgentMetadata(lastActiveAt: Self.now, isWorking: false, task: "Reading")
-        let presentation = LeoAgentRowPresentation(row: row("alpha", template: "claude", metadata: metadata), isSelected: false)
-        #expect(presentation.subtitle?.text == "claude")
-        #expect(presentation.task == "Reading")
-    }
-
     @Test func taskComesFromMetadataNotTheEventDrivenDetail() {
         let fromEvents = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .working, actionDetail: "event detail")
-        #expect(LeoAgentRowPresentation(row: fromEvents, isSelected: false, now: Self.now).task == nil)
+        #expect(LeoAgentRowPresentation(row: fromEvents, error: nil, now: Self.now).detail == .fallback(LeoAgentRowPresentation.emptyFallback))
         let metadata = LeoAgentMetadata(lastActiveAt: nil, isWorking: false, task: "snapshot task")
-        #expect(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), isSelected: false, now: Self.now).task == "snapshot task")
+        #expect(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), error: nil, now: Self.now).detail == .task("snapshot task"))
     }
 
     // MARK: Helpers
@@ -174,10 +159,13 @@ struct LeoAgentMetadataTests {
         ISO8601DateFormatter().date(from: text)!
     }
 
-    private func observed(_ name: String, startedAt: String?, lastActivityAt: String? = nil, detail: String? = nil) -> LeoObservedAgent {
+    private func observed(
+        _ name: String, startedAt: String?, lastActivityAt: String? = nil, kind: String? = "pane",
+        detail: String? = nil, usage: LeoAgentUsage? = nil
+    ) -> LeoObservedAgent {
         LeoObservedAgent(
-            name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: "pane", detail: $0) },
-            lastActivityAt: lastActivityAt, startedAt: startedAt
+            name: name, status: .running, activity: .idle, currentAction: detail.map { .init(kind: kind, detail: $0) },
+            lastActivityAt: lastActivityAt, startedAt: startedAt, usage: usage
         )
     }
 
