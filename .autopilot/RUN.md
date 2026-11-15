@@ -25,6 +25,10 @@ Lane: B-401
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-15T17:42:58Z
+  Call: No client-side cache or restore of `finished`; the agent JSON has no per-instance id that survives a daemon restart — P2
+  Call: Restore only at-rest states; `working` comes back as `unknown` — P2
+  Call: Key the persisted attention record by name and attention token, so a recreated agent inherits nothing — P2
+  Call: The fix lives in the daemon, so Mac and iOS get it with no app code. The app side adds pin tests only, in LeoKit, the Mac feed and the iOS model — P3, repo Mac/iOS rule, D-789
 
 Lane: B-402
   Branch: autopilot-lane/B-402
