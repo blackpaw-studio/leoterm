@@ -530,18 +530,19 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
         switch event {
         case .closed(let handle): remove(handle)
-        case .moved: break
-        case .processExited(let handle):
+        case .moved(let from, let to): rekey(from, to: to)
+        case .processExited(let reported):
             // Untracked handles (e.g. a plain shell, which has no identity
             // to key attach bookkeeping on) never enter `inactive` -- there
             // is nothing for `.closed` to clean up afterwards, since
             // `remove(_:)` is itself a no-op for handles with no identity.
-            guard let identity = identityByHandle[handle] else { return }
+            guard let handle = trackedHandle(reported), let identity = identityByHandle[handle] else { return }
             // A dispatch's attach ends with the dispatch: nothing to
             // restart, so no placeholder; the surface closes (B-266).
             guard identity.dispatchID == nil else { return closeEndedDispatch(handle, of: identity) }
             inactive.insert(handle)
-            host.rebirthPlaceholder(for: handle)
+            // Moved meanwhile (B-110): its placeholder shows where it is now.
+            host.rebirthPlaceholder(for: host.openHandle(ofSurface: handle.surfaceID) ?? handle)
         case .focusSuspended:
             receivedFocusReport()
             viewedHandle = nil
@@ -669,8 +670,17 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         handle.flatMap { inactive.contains($0) ? nil : identityByHandle[$0] }
     }
 
+    /// Forgets `identity`'s closed handles. One whose surface the host has
+    /// moved to another window (B-110), before its `.moved` arrived, is
+    /// re-keyed there instead; that `.moved` then finds nothing to do.
     private func discardDeadHandles(for identity: LeoAgentIdentity) {
-        for handle in handlesByIdentity[identity] ?? [] where !host.isOpen(handle) { remove(handle) }
+        for handle in handlesByIdentity[identity] ?? [] where !host.isOpen(handle) {
+            if let moved = host.openHandle(ofSurface: handle.surfaceID) {
+                rekey(handle, to: moved)
+            } else {
+                remove(handle)
+            }
+        }
     }
 
     /// Every attachment lifetime gets a fresh generation, so work begun for
@@ -688,6 +698,27 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         unplaced.remove(handle)
         handlesByIdentity[identity]?.removeAll { $0 == handle }
         if handlesByIdentity[identity]?.isEmpty == true { handlesByIdentity.removeValue(forKey: identity) }
+    }
+
+    /// `handle` while tracked; else, when its surface moved to another
+    /// window and was re-keyed there before an event naming the old handle
+    /// arrived (`discardDeadHandles`, B-110), the handle it has there.
+    private func trackedHandle(_ handle: AttachmentHandle) -> AttachmentHandle? {
+        if identityByHandle[handle] != nil { return handle }
+        return host.openHandle(ofSurface: handle.surfaceID).flatMap { identityByHandle[$0] != nil ? $0 : nil }
+    }
+
+    /// B-110: an agent's surface moved to another window; its bookkeeping
+    /// follows it -- the same tmux client, its place in the recency order,
+    /// exited or not, linked or viewed. A handle with no identity (a plain
+    /// shell) has none to move.
+    private func rekey(_ old: AttachmentHandle, to new: AttachmentHandle) {
+        guard let identity = identityByHandle.removeValue(forKey: old) else { return }
+        identityByHandle[new] = identity
+        handlesByIdentity[identity] = handlesByIdentity[identity]?.map { $0 == old ? new : $0 }
+        if inactive.remove(old) != nil { inactive.insert(new) }
+        if linkedHandle == old { linkedHandle = new }
+        if viewedHandle == old { viewedHandle = new }
     }
 
     private func moveToMostRecent(_ handle: AttachmentHandle, identity: LeoAgentIdentity) {
