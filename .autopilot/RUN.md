@@ -162,3 +162,4 @@ Progress:
 - B-110 landed 19fef2940 (18 commits). Decisions D-796..D-803.
 - Pick: B-143 full (held lane, hard implementer per D-786); B-110 has landed, so the TerminalController overlap is gone.
 - B-398 landed 99a818f53 (5dc991b4d 7109883b5). D-804..D-808. Verifier notes: disabled toggle not visibly dimmed; unidentified circled-square item in the right capsule after hiding; "Configuration Errors" item on a hidden-style launch (likely B-370).
+- leo agent: v0.83.0 released (not installed until owner runs `leo update`): B-219 daemon half shipped (PR #339, errored agents adopt a new session on a hook with their live launch token); interactive dispatches now park after delivering their result (PR #340); per-template mcp_servers (PR #338).
