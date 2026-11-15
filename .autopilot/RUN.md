@@ -27,5 +27,29 @@ Lane: B-143
   Tokens: 60.9M in (60.1M cache read), ≥192k out, 352 requests
   Dispatched: 2026-10-06T23:01:21Z
 
+Lane: B-110
+  Branch: autopilot-lane/B-110
+  Base: be2129990578913aa7929e6d8d253a33eb3c76a8
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T01:51:24Z
+
+Lane: B-219
+  Branch: autopilot-lane/B-219
+  Base: be2129990578913aa7929e6d8d253a33eb3c76a8
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T01:51:24Z
+
 Progress:
+- Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
 - Preflight: main merged (iOS Markdown viewer); queued bump PR #369 (leo 0.82.4) as B-399; inbox applied: B-397 bug, B-398 add, B-399 add; answered B-110, B-143, B-219, B-367 (leo PR #327 already merged), B-393 (fix ships in leo 0.82.4 → depends on B-399).
+- Runners: B-110 d-886703974903, B-219 d-c80c5b6db7f4 (leo implement role), parallel.

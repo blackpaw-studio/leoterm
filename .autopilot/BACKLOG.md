@@ -2962,6 +2962,7 @@ Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; 
 Source: autopilot polish (B-395)
 
 ## B-397 · settings in Leo menu should open Leo settings window, not ghostty…   [ready]
+Issue: #370
 Type: bug
 Report: settings in Leo menu should open Leo settings window, not ghostty settings file (move that to a different menu item)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -2969,6 +2970,7 @@ Source: owner (/issue, 2026-11-14)
 Inbox: 20261115T013159207133Z-cd96f64b#1
 
 ## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [ready]
+Issue: #371
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.82.4 carries the B-393 pending.tasks working-state hold.
 Accept: The lane merges PR #369's head commit 39bcb2fb8bcce17a235e60d6a85e4788b56a62ff (git fetch origin bump/leo-0.82.4) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.82.4; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.82.4.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
@@ -2976,6 +2978,7 @@ Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014752085869Z-2a6cfa2d#1
 
 ## B-398 · Show/hide sidebar button in the top toolbar   [ready]
+Issue: #372
 Why: the agents sidebar can be shown or hidden with one click from the window toolbar, not only from the Agents menu or ⌘⇧L (P1 every action is discoverable; Mac only, since iOS has no sidebar)
 Accept: the toolbar has a standard sidebar toggle button (sidebar.left glyph) that sits at the leading edge next to the traffic lights and stays put when the sidebar collapses; clicking it hides and shows the sidebar using the same path as ⌘⇧L, keeping the remembered width and the existing no-squeeze guard (canToggleSidebar); the button's tooltip and accessibility label read "Hide Agents Sidebar" or "Show Agents Sidebar" to match the menu, and it is disabled whenever the menu item is; screenshots of both states in the default and hidden titlebar styles
 Out: changes to the sidebar's contents or width behavior; toolbar customization; iOS
