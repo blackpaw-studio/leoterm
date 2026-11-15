@@ -4,12 +4,18 @@ import Foundation
 /// `LeoMarkdownBlock` tree. Each run carries its block ancestry as a path of
 /// (kind, identity) pairs; runs sharing an identity belong to the same block.
 enum LeoMarkdownParser {
+    /// Deepest block nesting folded recursively. Deeper documents (a 10k-level
+    /// `>` chain would overflow the stack) show as plain text instead.
+    static let maxNestingDepth = 32
+
     private typealias Kind = PresentationIntent.Kind
 
     private final class Node {
         let kind: Kind?
         let identity: Int
         var children: [Node] = []
+        /// Child lookup by block identity; `children` keeps first-seen order.
+        var childByIdentity: [Int: Node] = [:]
         var runs: [LeoMarkdownRun] = []
 
         init(kind: Kind?, identity: Int) {
@@ -26,6 +32,9 @@ enum LeoMarkdownParser {
         guard let parsed = try? AttributedString(markdown: markdown, options: options) else {
             return markdown.isEmpty ? [] : [.paragraph([LeoMarkdownRun(text: markdown)])]
         }
+        let depthLimit = maxNestingDepth
+        let isTooDeep = parsed.runs.contains { ($0.presentationIntent?.components.count ?? 0) > depthLimit }
+        if isTooDeep { return [.paragraph([LeoMarkdownRun(text: markdown)])] }
         let root = Node(kind: nil, identity: 0)
         var syntheticIdentity = 0
         for run in parsed.runs {
@@ -47,11 +56,12 @@ enum LeoMarkdownParser {
             steps = [(.paragraph, syntheticIdentity)]
         }
         for step in steps {
-            if let existing = current.children.last(where: { $0.identity == step.identity }) {
+            if let existing = current.childByIdentity[step.identity] {
                 current = existing
             } else {
                 let node = Node(kind: step.kind, identity: step.identity)
                 current.children.append(node)
+                current.childByIdentity[step.identity] = node
                 current = node
             }
         }

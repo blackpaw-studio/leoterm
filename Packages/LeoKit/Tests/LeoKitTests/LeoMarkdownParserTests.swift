@@ -95,4 +95,18 @@ import Testing
         #expect(!parse("a\u{0}b\u{1}c\u{7f}").isEmpty)
         #expect(!parse("|\n||\n| | |\n|-|").isEmpty)
     }
+
+    @Test func pathologicalNestingFallsBackToPlainText() {
+        let deep = String(repeating: ">", count: 10_000) + " x"
+        #expect(parse(deep) == [.paragraph([plain(deep)])])
+    }
+
+    @Test func manySiblingBlocksParseInLinearTime() {
+        let doc = String(repeating: "p\n\n", count: 40_000)
+        let clock = ContinuousClock()
+        var blocks: [LeoMarkdownBlock] = []
+        let elapsed = clock.measure { blocks = parse(doc) }
+        #expect(blocks.count == 40_000)
+        #expect(elapsed < .seconds(1.5))
+    }
 }
