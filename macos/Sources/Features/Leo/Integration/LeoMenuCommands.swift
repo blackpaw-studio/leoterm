@@ -33,6 +33,20 @@ enum LeoMenuCommands {
         hasLeoSession && (isSidebarVisible || !showingSqueezesTerminal)
     }
 
+    /// What the sidebar toggle reads: the Agents menu item and the toolbar
+    /// button both take this, so their title and enabled state stay one.
+    struct SidebarToggleState: Equatable {
+        let title: String
+        let isEnabled: Bool
+    }
+
+    static func sidebarToggle(hasLeoSession: Bool, isSidebarVisible: Bool, showingSqueezesTerminal: Bool) -> SidebarToggleState {
+        SidebarToggleState(
+            title: sidebarToggleTitle(hasLeoSession: hasLeoSession, isSidebarVisible: isSidebarVisible),
+            isEnabled: canToggleSidebar(
+                hasLeoSession: hasLeoSession, isSidebarVisible: isSidebarVisible, showingSqueezesTerminal: showingSqueezesTerminal))
+    }
+
     /// Find Agent… shows a hidden sidebar, so it's gated like Show.
     static func canFindAgent(hasLeoSession: Bool, isSidebarVisible: Bool, showingSqueezesTerminal: Bool) -> Bool {
         canToggleSidebar(hasLeoSession: hasLeoSession, isSidebarVisible: isSidebarVisible, showingSqueezesTerminal: showingSqueezesTerminal)

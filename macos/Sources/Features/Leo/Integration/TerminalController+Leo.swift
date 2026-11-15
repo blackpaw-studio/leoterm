@@ -296,16 +296,18 @@ extension TerminalController {
         window?.presentLeoSheet(sheet)
     }
 
-    func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
-        let hasLeoSession = leoSession != nil
-        item.title = LeoMenuCommands.sidebarToggleTitle(
-            hasLeoSession: hasLeoSession,
-            isSidebarVisible: leoSession?.isSidebarVisible ?? false
-        )
-        return LeoMenuCommands.canToggleSidebar(
-            hasLeoSession: hasLeoSession,
+    /// What Agents ▸ Show/Hide Agents Sidebar and the toolbar's toggle read.
+    var leoSidebarToggleState: LeoMenuCommands.SidebarToggleState {
+        LeoMenuCommands.sidebarToggle(
+            hasLeoSession: leoSession != nil,
             isSidebarVisible: leoSession?.isSidebarVisible ?? false,
             showingSqueezesTerminal: leoSession?.showingSidebarSqueezesTerminal ?? false)
+    }
+
+    func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
+        let state = leoSidebarToggleState
+        item.title = state.title
+        return state.isEnabled
     }
 
     func validateFindLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {
