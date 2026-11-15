@@ -3020,3 +3020,4 @@ Source: owner (/feature, 2026-11-15)
 Inbox: 20261115T173431210598Z-bd9ebf13#1
 Done: 9f9382c00 (merged in 6a730e9b2). Header reads `Opus 5.5 · high  77% · 5h 43%`: context bar and cost removed, body unchanged. Decisions D-813, D-814.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-402-1.png
+Reviewed: accepted 2026-11-15 — 6a730e9b284d
