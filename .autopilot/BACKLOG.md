@@ -2973,13 +2973,15 @@ Inbox: 20261115T013159207133Z-cd96f64b#1
 Done: 36cc25719 (merged in dde14dd4c; 4634 tests, lint clean). Leo ▸ Settings… (⌘,) opens the Leo settings window; Ghostty's config file moved to "Open Ghostty Config" (no shortcut). Decisions D-793..D-795.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 
-## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [ready]
+## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [done]
 Issue: #371
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.82.4 carries the B-393 pending.tasks working-state hold.
 Accept: The lane merges PR #369's head commit 39bcb2fb8bcce17a235e60d6a85e4788b56a62ff (git fetch origin bump/leo-0.82.4) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.82.4; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.82.4.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014752085869Z-2a6cfa2d#1
+Done: 39bcb2fb8 (PR #369 head, merged unchanged via 3773cd608; landed in 56857fc1f; 4634 tests). LEO_VERSION 0.82.4; v0.82.4 tarball sha256 matches and reports leo 0.82.4.
+Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
 
 ## B-398 · Show/hide sidebar button in the top toolbar   [ready]
 Issue: #372
