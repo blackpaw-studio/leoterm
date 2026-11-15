@@ -82,6 +82,17 @@ Lane: B-397
   Call: Mac only; iOS has no app menu — P1
   Tokens: 9.46M in (9.14M cache read), ≥40.3k out, 100 requests
 
+Lane: B-399
+  Branch: autopilot-lane/B-399
+  Base: 5cebbc8c0609e517c36ccbcb2a00f0b65f0e6407
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T03:07:22Z
+
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
 Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
@@ -95,3 +106,4 @@ Progress:
 - B-367 blocked: end-to-end check on an isolated leo 0.82.2 with autopilot-scratch: chat replies arrive before and after a simulated /clear; no app change. Waiting on owner close.
 - Pick: B-397 light (Settings menu). Built before B-143 (TerminalController overlap with B-110) and B-393 (needs B-399).
 - B-397 landed dde14dd4c (36cc25719): Settings… opens Leo settings; Open Ghostty Config split out. D-793..D-795. Polish filed B-400 idea.
+- Pick: B-399 light (leo 0.82.4 bump, PR #369). Built before B-143 (overlaps B-110) and B-393 (depends on this).
