@@ -2932,7 +2932,7 @@ Verified: not visually verified — queue/cancellation logic, no UI change
 Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).
 Source: autopilot polish (B-391)
 
-## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [ready]
+## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [blocked]
 Issue: #367
 Type: bug
 Report: an agent with running tasks shouldnt show as finished in the sidebar
@@ -2940,8 +2940,8 @@ Update (2026-11-14): yes — contract sent to the leo agent 2026-11-14; close on
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261113T000249679434Z-b97787b4#1
-Question: Root cause is in the leo daemon, not the app: a supervised agent's turn.complete (internal/observe/bridgefeed.go:307-335, turnCompleteLocked) always advances to finished and never reads ev.Pending; only dispatches honour pending (leo 4459788b, eddf39e8). Should I send the leo agent the pending.tasks hold contract (same as .autopilot/bugs/B-051/spec-pending-hold.md, approved as D-777: non-empty pending.tasks holds working with outstanding.tasks; drops at next turn.start/session.end/interrupt/stop; wakeups never hold)? I'd pick: yes, send it; the app needs no change (it mirrors attention.state). Work kept on autopilot-shelved/B-393.
-Answer: yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
+Question: couldn't reproduce on bundled leo 0.82.4 — isolated daemon with autopilot-scratch: 0.82.3 reports finished after turn.complete with pending.tasks=1 (red); 0.82.4 holds working with outstanding.tasks=1 across polls, a later turn.start clears it, clean and wakeups-only turn.complete give finished. A LeoKit test replaying the 0.82.4 payloads badges Working through the hold (passed first run, not committed). Evidence: /private/tmp/claude-501/b393-evidence/. Reply "B-393: close" to close it, or "B-393: <more detail>" to retry. Work kept on autopilot-shelved/B-393-2.
+Answer:
 
 ## B-394 · Agent toolbar Browser badge — count of tabs the agent opened since you…   [idea]
 Note: Agent toolbar Browser badge — count of tabs the agent opened since you last viewed its browser (needs tab origin field, popup origin inheritance, per-agent seen counter; NSItemBadge is macOS 26+)
@@ -2973,13 +2973,15 @@ Inbox: 20261115T013159207133Z-cd96f64b#1
 Done: 36cc25719 (merged in dde14dd4c; 4634 tests, lint clean). Leo ▸ Settings… (⌘,) opens the Leo settings window; Ghostty's config file moved to "Open Ghostty Config" (no shortcut). Decisions D-793..D-795.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 
-## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [ready]
+## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [done]
 Issue: #371
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.82.4 carries the B-393 pending.tasks working-state hold.
 Accept: The lane merges PR #369's head commit 39bcb2fb8bcce17a235e60d6a85e4788b56a62ff (git fetch origin bump/leo-0.82.4) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.82.4; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.82.4.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014752085869Z-2a6cfa2d#1
+Done: 39bcb2fb8 (PR #369 head, merged unchanged via 3773cd608; landed in 56857fc1f; 4634 tests). LEO_VERSION 0.82.4; v0.82.4 tarball sha256 matches and reports leo 0.82.4.
+Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
 
 ## B-398 · Show/hide sidebar button in the top toolbar   [ready]
 Issue: #372
