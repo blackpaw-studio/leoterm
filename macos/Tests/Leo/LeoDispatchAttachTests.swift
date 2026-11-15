@@ -173,6 +173,35 @@ struct AttachExitReportTests {
         #expect(coordinator.identity(forSurface: handle.surfaceID) == nil)
     }
 
+    /// B-110: a dispatch pane dragged into another window, and then the
+    /// dispatch ends. Its exit names the handle it had before the move,
+    /// and arrives before or after `.moved`; either way the pane still
+    /// closes where it is now, with no exited placeholder.
+    @Test(arguments: [false, true])
+    func anEndedDispatchMovedToAnotherWindowStillCloses(_ exitArrivesFirst: Bool) async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+
+        if exitArrivesFirst {
+            await host.emitAndWait(.processExited(before))
+            await host.emitAndWait(.moved(from: before, to: after))
+        } else {
+            await host.emitAndWait(.moved(from: before, to: after))
+            await host.emitAndWait(.processExited(before))
+        }
+
+        #expect(host.closedTerminals == [after], "closed where it went")
+        #expect(host.reborn.isEmpty)
+        #expect(!host.isOpen(after))
+        #expect(coordinator.inactiveHandleCount == 0)
+        #expect(coordinator.reusableHandleCount == 0, "the dispatch is gone")
+    }
+
     /// `closeTerminal` leaves a surface hidden in the live pool: the exit
     /// cleanup must still let it go, not drop its identity and strand it.
     @Test func aPooledDispatchSurfaceIsLetGoWhenItsProcessExits() async {

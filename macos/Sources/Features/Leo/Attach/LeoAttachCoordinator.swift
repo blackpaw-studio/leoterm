@@ -536,13 +536,12 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
             // to key attach bookkeeping on) never enter `inactive` -- there
             // is nothing for `.closed` to clean up afterwards, since
             // `remove(_:)` is itself a no-op for handles with no identity.
-            guard let handle = trackedHandle(reported), let identity = identityByHandle[handle] else { return }
+            guard let handle = currentHandle(reported), let identity = identityByHandle[handle] else { return }
             // A dispatch's attach ends with the dispatch: nothing to
             // restart, so no placeholder; the surface closes (B-266).
             guard identity.dispatchID == nil else { return closeEndedDispatch(handle, of: identity) }
             inactive.insert(handle)
-            // Moved meanwhile (B-110): its placeholder shows where it is now.
-            host.rebirthPlaceholder(for: host.openHandle(ofSurface: handle.surfaceID) ?? handle)
+            host.rebirthPlaceholder(for: handle)
         case .focusSuspended:
             receivedFocusReport()
             viewedHandle = nil
@@ -706,6 +705,18 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
     private func trackedHandle(_ handle: AttachmentHandle) -> AttachmentHandle? {
         if identityByHandle[handle] != nil { return handle }
         return host.openHandle(ofSurface: handle.surfaceID).flatMap { identityByHandle[$0] != nil ? $0 : nil }
+    }
+
+    /// The tracked handle `reported` names, where its surface is now: moved
+    /// to another window before its `.moved` arrived (B-110), it is
+    /// re-keyed there first, so what follows -- an exited placeholder, an
+    /// ended dispatch's close -- happens where it went, not to the handle
+    /// it left behind. That `.moved` then finds nothing to do.
+    private func currentHandle(_ reported: AttachmentHandle) -> AttachmentHandle? {
+        guard let handle = trackedHandle(reported) else { return nil }
+        guard let moved = host.openHandle(ofSurface: handle.surfaceID), moved != handle else { return handle }
+        rekey(handle, to: moved)
+        return moved
     }
 
     /// B-110: an agent's surface moved to another window; its bookkeeping
