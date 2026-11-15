@@ -172,6 +172,11 @@ extension TerminalController {
             guard let self else { return }
             NSApp.sendAction(action, to: self, from: sender)
         }
+        // The sidebar toggle reads the same state as Agents ▸ Show/Hide Agents Sidebar.
+        window.leoToolbar.sidebarToggleState = { [weak self] in
+            self?.leoSidebarToggleState
+                ?? LeoMenuCommands.sidebarToggle(hasLeoSession: false, isSidebarVisible: false, showingSqueezesTerminal: false)
+        }
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
         // `objectWillChange` fires before the change lands: read next turn.
