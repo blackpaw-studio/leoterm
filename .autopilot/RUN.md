@@ -58,14 +58,16 @@ Lane: B-367
   Branch: autopilot-lane/B-367
   Base: 532d83b57db58ced22489f9ebbb2d1d9cfef31d6
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-15T02:18:48Z
+  Tokens: 3.9M in (3.76M cache read), ≥17.1k out, 44 requests
 
 Finished 1: B-219 landed ba49266d9 · not visually verified
+Finished 2: B-367 blocked
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
@@ -73,3 +75,4 @@ Progress:
 - Runners: B-110 d-886703974903, B-219 d-c80c5b6db7f4 (leo implement role), parallel.
 - B-219 landed ba49266d9 (3ed071fec f928cc679): three LeoKit pin tests; Go test spec for the residual daemon gap sent to the leo agent by the orchestrator (the dispatch had no leo_send_message). Decisions D-789..D-792.
 - Pick: B-367 light (chat reply end-to-end check). Built before B-143 (B-143 touches TerminalController, which may overlap open lane B-110).
+- B-367 blocked: end-to-end check on an isolated leo 0.82.2 with autopilot-scratch: chat replies arrive before and after a simulated /clear; no app change. Waiting on owner close.
