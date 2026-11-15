@@ -4,6 +4,7 @@ Budget: 20 items, until 2026-11-15T13:48:53Z
 Digested-through: 0
 Filed: 0/3 bugs, 1/5 ideas
 Self-filed: B-397 → B-400 idea — Gear icon belongs on Settings…, not Open Ghostty Config
+Self-filed: B-399 → dropped (dup of B-303) — Incremental macOS builds can skip the "Leo tmux terminfo" phase
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -86,11 +87,11 @@ Lane: B-399
   Branch: autopilot-lane/B-399
   Base: 5cebbc8c0609e517c36ccbcb2a00f0b65f0e6407
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: c6519dfa74ccf189cb57d2bb2214f16b55c3a268
   Dispatched: 2026-11-15T03:07:22Z
 
 Finished 1: B-219 landed ba49266d9 · not visually verified
