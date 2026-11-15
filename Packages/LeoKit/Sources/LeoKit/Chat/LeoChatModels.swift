@@ -220,6 +220,14 @@ public struct LeoChatAttachment: Codable, Equatable, Identifiable, Sendable {
 
     public var isImage: Bool { mime.lowercased().hasPrefix("image/") }
     public var isAudio: Bool { mime.lowercased().hasPrefix("audio/") }
+
+    /// A Markdown document, by extension or MIME type.
+    public var isMarkdown: Bool {
+        let ext = (filename as NSString).pathExtension.lowercased()
+        if ext == "md" || ext == "markdown" { return true }
+        let type = mime.lowercased()
+        return type == "text/markdown" || type == "text/x-markdown"
+    }
 }
 
 /// One agent's thread as the Chats list shows it.
