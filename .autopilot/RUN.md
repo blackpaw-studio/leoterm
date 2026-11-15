@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-15T01:48:53Z
 Budget: 20 items, until 2026-11-15T13:48:53Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-397 → B-400 idea — Gear icon belongs on Settings…, not Open Ghostty Config
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -70,12 +71,15 @@ Lane: B-397
   Branch: autopilot-lane/B-397
   Base: 6b04e104d3b3b51065cb072a2b2660118c7c0ac2
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 808a4e7a88f89d32dc84ab661309709331aab306
   Dispatched: 2026-11-15T02:25:25Z
+  Call: "Open Ghostty Config" has no shortcut (Ghostty's default open_config is also ⌘,) — P1
+  Call: ⌘, in a terminal dispatches to Settings… by physical key, like ⌃Tab (B-059) — P1
+  Call: Mac only; iOS has no app menu — P1
 
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked

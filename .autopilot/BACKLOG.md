@@ -2986,3 +2986,7 @@ Accept: the toolbar has a standard sidebar toggle button (sidebar.left glyph) th
 Out: changes to the sidebar's contents or width behavior; toolbar customization; iOS
 Source: owner (/feature, 2026-11-14)
 Inbox: 20261115T014420705040Z-2fa283e5#1
+
+## B-400 · Gear icon belongs on Settings…, not Open Ghostty Config   [idea]
+Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
+Source: autopilot polish (B-397)
