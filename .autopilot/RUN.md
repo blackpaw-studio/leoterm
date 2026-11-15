@@ -33,7 +33,7 @@ Lane: B-110
   Branch: autopilot-lane/B-110
   Base: be2129990578913aa7929e6d8d253a33eb3c76a8
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 1
@@ -47,6 +47,7 @@ Lane: B-110
   Call: Only two marked hooks in upstream files; no Zig changes — AUTONOMY (keep Zig minimal)
   Call: Mac only; cross-window split drag is AppKit window management — Mac/iOS parity rule
   Call: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only) — AUTONOMY
+  Tokens: 66.4M in (65M cache read), ≥257k out, 455 requests
 
 Lane: B-219
   Branch: autopilot-lane/B-219
@@ -134,6 +135,7 @@ Finished 2: B-367 blocked
 Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 Finished 4: B-399 landed 56857fc1f · not visually verified
 Finished 5: B-393 blocked
+Finished 6: B-110 landed 19fef2940 · not visually verified
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
@@ -151,3 +153,4 @@ Progress:
 - Interim digest 1 posted (through Finished 5); notify off.
 - Pick: B-398 full (toolbar sidebar toggle). Built before B-143 (B-143 overlaps B-110 in TerminalController).
 - B-110 ready at 54aebb605 (concurrency review, 4659 tests; not visually verified). Integration stale (autopilot gained B-399 LEO_VERSION) → re-verify round 1. STOP-LIST NEAR-MISS (digest): first implementer's stale click in the debug app selected real stopped agent whatshoveringoverme's chat view; ⌘Z hit its empty field; nothing started or sent.
+- B-110 landed 19fef2940 (18 commits). Decisions D-796..D-803.

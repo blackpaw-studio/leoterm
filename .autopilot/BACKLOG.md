@@ -327,13 +327,15 @@ Question: couldn't reproduce — a test shows a closed pane's shell lives only f
 Answer: close
 Done: closed — not reproducible (Evan)
 
-## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [ready]
+## B-110 · Dragging a Leo surface between windows: rows, window ownership and undo   [done]
 Issue: #114
 Why: B-083 (point 5, parked): the host keeps surface S under window A after splitDidDrop or drag-to-new-window; the Move Split undo halves misbehave after either window swaps, and ⌘Z can free S's shell without a confirm once the redo expires (P2: nothing dies without asking). Candidate fixes: (a) a swap-generation guard in upstream's cross-window branches, or (b) moving row ownership on drop
 Accept: failing tests reproduce the orphaned ownership and the unconfirmed shell free; after the fix a moved surface belongs to (and is reachable from) the window it's in, and no undo path frees a shell without asking
 Source: autopilot (B-083 dismissal)
 Question: runner timed out after 3h — last known step: build mode, fix round 2 of 3 in progress (review rounds 1–2 found races: pre-reconcile ordering and the focus a drop's undo resigns; both reproduced and mostly fixed); lane's last commit 1eee9b5b0 "test(B-110): the focus a drop's undo resigns, as a pure decision". Work kept on autopilot-shelved/B-110 (15 commits: handles follow surfaces across windows, the coordinator re-keys moved agents, a guarded Move Split undo). I'd pick: retry next run from that branch with the hard implementer.
 Answer: accept your recommendation (retry next run from that branch with the hard implementer)
+Done: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6 (merged in 19fef2940; 4659 tests, concurrency review). A moved surface belongs to the window it is in; a cross-window move is one guarded Move Split undo that does nothing after a swap in either window, so no shell is freed unasked. Decisions D-784, D-796..D-803.
+Verified: not visually verified — cross-window drag not safely drivable in the debug app; tests only
 
 ## B-177 · Context menu on Terminals rows   [done]
 Issue: #180
