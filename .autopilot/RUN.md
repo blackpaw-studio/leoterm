@@ -37,7 +37,7 @@ Lane: B-110
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 54aebb605f89bf2b7448f5368a5f043f57ec7e25
+  Reviewed-tip: 7ee86845874c2163fa19aeb65a87a0c7886c6db5
   Dispatched: 2026-11-15T04:09:40Z
   Call: Ownership moves with the surface; the undo is one guarded "Move Split" action — P2, P6
   Call: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked — P2
@@ -46,6 +46,7 @@ Lane: B-110
   Call: A moved agent keeps its attachment generation and placement entry (B-232/B-270) — P2
   Call: Only two marked hooks in upstream files; no Zig changes — AUTONOMY (keep Zig minimal)
   Call: Mac only; cross-window split drag is AppKit window management — Mac/iOS parity rule
+  Call: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only) — AUTONOMY
 
 Lane: B-219
   Branch: autopilot-lane/B-219
