@@ -15,5 +15,16 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-401
+  Branch: autopilot-lane/B-401
+  Base: 1a808ab8a6a4c79eaa1b33c61c01618e117c3c50
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: main already merged; no open bump/leo-* PR to queue; inbox applied: B-401 answered (accept pick: send leo agent the restore contract, pin tests here). Lanes B-233, B-332 unlanded with no RUN.md block (left in place); B-368 landed lane awaits finish.
+- Pick: B-401 full (shelved branch + existing plan). Owner accepted pick: send leo the restore contract, add pins here.
