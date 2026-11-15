@@ -15,5 +15,29 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-401
+  Branch: autopilot-lane/B-401
+  Base: 6e36bc17a570c92535f5873bb4416bc82a605f0d
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T17:42:58Z
+
+Lane: B-402
+  Branch: autopilot-lane/B-402
+  Base: 6e36bc17a570c92535f5873bb4416bc82a605f0d
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-15T17:42:58Z
+
 Progress:
 - Preflight: main merged (ff to 23b935963: leo 0.83.0 bump, Markdown test fix); no open bump/leo-* PR to queue; inbox applied: B-401 bug, B-402 add. Lanes B-233, B-332 unlanded with no RUN.md block (left in place); B-368 landed lane awaits finish.
+- Picks: B-401 full (bug; report is about restoring sidebar state across relaunch = persistence), B-402 light (status tab header copy-level change). Independent footprints, parallel.
+- Runners: B-401 d-ef048aaa88f1, B-402 d-43c07bf975ed (leo implement role).
