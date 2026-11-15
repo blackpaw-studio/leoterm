@@ -35,12 +35,14 @@ Lane: B-402
   Branch: autopilot-lane/B-402
   Base: 6e36bc17a570c92535f5873bb4416bc82a605f0d
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a83a4791761cadce901b99ce0dbef82c313194a9
   Dispatched: 2026-11-15T17:42:58Z
+  Call: Read "usage" as the context % and 5h % figures and kept both. Only the context bar and cost were removed — P2 Calm
+  Call: Effort sits inside the model text node, so the header stays at most two nodes — P2 Calm
 
 Finished 1: B-401 blocked
 
