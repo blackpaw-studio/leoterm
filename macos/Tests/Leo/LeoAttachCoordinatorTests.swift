@@ -446,6 +446,62 @@ import Testing
         #expect(coordinator.focusedIdentity == identity)
     }
 
+    // MARK: A surface moved between windows (B-110)
+
+    /// An agent's surface dragged into another window: its tracking follows
+    /// it, so asking for the agent from there brings that surface forward
+    /// -- no new attach, no second tmux client -- and it is still the
+    /// agent's, live and focused.
+    @Test func aMovedAgentIsBroughtForwardFromItsNewWindow() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        let other = LeoWindowID()
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: other)
+        host.openHandles.remove(before)
+        host.openHandles.insert(after)
+        await host.emitAndWait(.focusChanged(before))
+
+        await host.emitAndWait(.moved(from: before, to: after))
+        await coordinator.attach(identity: identity, from: other, disposition: .content)
+
+        #expect(host.contentCalls.count == 1, "nothing attached anew")
+        #expect(host.focused == [after])
+        #expect(coordinator.identity(forSurface: before.surfaceID) == identity)
+        #expect(coordinator.reusableHandleCount == 1)
+        #expect(coordinator.linkState.focused == LeoAgentRow.ID(host: identity.host, name: identity.name), "the link follows the moved handle")
+    }
+
+    /// A moved handle that exited before it moved stays exited there.
+    @Test func aMovedExitedAgentStaysExited() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        await coordinator.attach(identity: identity, from: origin, disposition: .content)
+        let before = host.handles[0]
+        await host.emitAndWait(.processExited(before))
+        let after = AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())
+
+        await host.emitAndWait(.moved(from: before, to: after))
+
+        #expect(coordinator.inactiveHandleCount == 1)
+        #expect(coordinator.identity(forSurface: before.surfaceID) == nil, "still exited")
+        await host.emitAndWait(.closed(after))
+        #expect(coordinator.inactiveHandleCount == 0, "its close finds it under its new handle")
+    }
+
+    /// A plain shell (no identity) moving changes nothing.
+    @Test func aMovedPlainShellIsANoOp() async {
+        let host = FakeAttachContentHost()
+        let coordinator = makeCoordinator(host: host)
+        let before = AttachmentHandle(surfaceID: UUID(), windowID: origin)
+
+        await host.emitAndWait(.moved(from: before, to: AttachmentHandle(surfaceID: before.surfaceID, windowID: LeoWindowID())))
+
+        #expect(coordinator.reusableHandleCount == 0)
+        #expect(coordinator.inactiveHandleCount == 0)
+    }
+
     // MARK: A closed window's content version (B-062)
 
     @Test func closingAWindowForgetsItsContentVersion() async {

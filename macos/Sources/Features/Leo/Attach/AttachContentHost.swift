@@ -14,6 +14,10 @@ struct AttachmentHandle: Hashable, Sendable {
 enum AttachLifecycleEvent: Equatable, Sendable {
     case closed(AttachmentHandle)
     case processExited(AttachmentHandle)
+    /// B-110: the attachment's surface moved to another window -- dragged
+    /// between Leo windows, or an undo or redo of that -- where `to` is
+    /// its handle now. Nothing closed: an agent's tmux client is the same.
+    case moved(from: AttachmentHandle, to: AttachmentHandle)
     /// The attachment (if any) that now has keyboard focus: the focused
     /// surface of the key window, while it is that window's first
     /// responder. `nil` when keyboard focus left every attachment (the

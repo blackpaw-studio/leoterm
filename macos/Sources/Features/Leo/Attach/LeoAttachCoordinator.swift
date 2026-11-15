@@ -530,6 +530,7 @@ private enum LeoAttachCoordinatorError: Error, LocalizedError {
         }
         switch event {
         case .closed(let handle): remove(handle)
+        case .moved: break
         case .processExited(let handle):
             // Untracked handles (e.g. a plain shell, which has no identity
             // to key attach bookkeeping on) never enter `inactive` -- there
