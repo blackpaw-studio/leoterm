@@ -48,8 +48,9 @@ extension ChatPresentation {
         guard attachment.isMarkdown, let data = try? Data(contentsOf: url) else {
             return ChatQuickLookController(url: url, title: attachment.filename)
         }
-        // Lossy UTF-8 decoding: odd bytes become U+FFFD rather than failing.
-        let viewer = ChatMarkdownViewController(text: String(decoding: data, as: UTF8.self), fileURL: url, title: attachment.filename)
+        // Non-UTF-8 bytes fall back to Latin-1, which accepts every byte, so decoding never fails.
+        let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) ?? ""
+        let viewer = ChatMarkdownViewController(text: text, fileURL: url, title: attachment.filename)
         return UINavigationController(rootViewController: viewer)
     }
 }
