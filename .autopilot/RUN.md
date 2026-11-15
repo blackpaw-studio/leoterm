@@ -33,12 +33,19 @@ Lane: B-110
   Branch: autopilot-lane/B-110
   Base: be2129990578913aa7929e6d8d253a33eb3c76a8
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
-  Dispatched: 2026-11-15T01:51:24Z
+  Reverifies: 1
+  Reviewed-tip: 54aebb605f89bf2b7448f5368a5f043f57ec7e25
+  Dispatched: 2026-11-15T04:09:40Z
+  Call: Ownership moves with the surface; the undo is one guarded "Move Split" action — P2, P6
+  Call: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked — P2
+  Call: A dropped plain shell becomes the window's row only when that window shows no row and no agent; the row it left is handed on at home (D-190/D-280) — P6
+  Call: Agents keep tracking through .moved instead of close-and-reattach; a moved dispatch still closes when it ends (B-266 kept) — P2/P6
+  Call: A moved agent keeps its attachment generation and placement entry (B-232/B-270) — P2
+  Call: Only two marked hooks in upstream files; no Zig changes — AUTONOMY (keep Zig minimal)
+  Call: Mac only; cross-window split drag is AppKit window management — Mac/iOS parity rule
 
 Lane: B-219
   Branch: autopilot-lane/B-219
@@ -142,3 +149,4 @@ Progress:
 - B-393 blocked (shelved autopilot-shelved/B-393-2): leo 0.82.3 red, 0.82.4 green on isolated daemon (hold keeps working with outstanding.tasks; turn.start clears); app mirrors it, no change. Waiting on owner close.
 - Interim digest 1 posted (through Finished 5); notify off.
 - Pick: B-398 full (toolbar sidebar toggle). Built before B-143 (B-143 overlaps B-110 in TerminalController).
+- B-110 ready at 54aebb605 (concurrency review, 4659 tests; not visually verified). Integration stale (autopilot gained B-399 LEO_VERSION) → re-verify round 1. STOP-LIST NEAR-MISS (digest): first implementer's stale click in the debug app selected real stopped agent whatshoveringoverme's chat view; ⌘Z hit its empty field; nothing started or sent.
