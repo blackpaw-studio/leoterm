@@ -13,7 +13,7 @@ final class ChatMarkdownViewController: UIViewController {
     private let renderedScroll = UIScrollView()
     private let renderedContent = UIView()
     private let rawText = UITextView()
-    private var renderedStack: UIStackView?
+    private var renderedStack: UIView?
 
     init(text: String, fileURL: URL, title: String) {
         self.text = text
@@ -94,7 +94,7 @@ final class ChatMarkdownViewController: UIViewController {
 
     private func rebuildRendered() {
         renderedStack?.removeFromSuperview()
-        let stack = ChatMarkdownBlockViews.stack(for: document.blocks, traits: traitCollection)
+        let stack = ChatMarkdownBlockViews.renderedView(for: document, source: text, traits: traitCollection)
         stack.translatesAutoresizingMaskIntoConstraints = false
         renderedContent.addSubview(stack)
         let readable = renderedContent.readableContentGuide

@@ -8,6 +8,12 @@ import UIKit
 enum ChatMarkdownBlockViews {
     static let blockSpacing: CGFloat = 12
     static let maxColumnWidth: CGFloat = 280
+    /// Rendering budget: past either limit the document shows as raw text rather
+    /// than building thousands of text views on the main actor.
+    static let maxBlocks = 2_000
+    static let maxTableCells = 2_000
+    /// Block nesting (lists, quotes) rendered recursively; mirrors the parser's cap.
+    static let maxNesting = 32
     private static let minColumnWidth: CGFloat = 44
     private static let cellInsets = UIEdgeInsets(top: 6, left: 8, bottom: 6, right: 8)
     private static let bullets = ["•", "◦", "▪"]
@@ -16,12 +22,39 @@ enum ChatMarkdownBlockViews {
     private struct Context {
         let traits: UITraitCollection
         var depth = 0
+        var nesting = 0
         var isQuoted = false
         var textStyle: ChatMarkdownText.Style { isQuoted ? .quote : .body }
     }
 
     @MainActor static func view(for block: LeoMarkdownBlock, traits: UITraitCollection) -> UIView {
         view(for: block, context: Context(traits: traits))
+    }
+
+    /// The rendered document, or, past the rendering budget, its raw text
+    /// under a short note.
+    @MainActor static func renderedView(for document: LeoMarkdownDocument, source: String, traits: UITraitCollection) -> UIView {
+        guard document.blockCount > maxBlocks || document.tableCellCount > maxTableCells else {
+            return stack(for: document.blocks, traits: traits)
+        }
+        return fallbackView(source: source, traits: traits)
+    }
+
+    @MainActor private static func fallbackView(source: String, traits: UITraitCollection) -> UIView {
+        let note = UILabel()
+        note.font = .preferredFont(forTextStyle: .footnote, compatibleWith: traits)
+        note.textColor = .secondaryLabel
+        note.numberOfLines = 0
+        note.text = String(localized: "Too large to format — showing raw text")
+        let raw = textView(NSAttributedString(string: source, attributes: [
+            .font: ChatMarkdownText.monospacedFont(traits: traits),
+            .foregroundColor: UIColor.label,
+        ]))
+        raw.accessibilityIdentifier = "markdown.fallback"
+        let column = UIStackView(arrangedSubviews: [note, raw])
+        column.axis = .vertical
+        column.spacing = blockSpacing
+        return column
     }
 
     @MainActor static func stack(for blocks: [LeoMarkdownBlock], traits: UITraitCollection) -> UIStackView {
@@ -38,6 +71,8 @@ enum ChatMarkdownBlockViews {
     }
 
     @MainActor private static func view(for block: LeoMarkdownBlock, context: Context) -> UIView {
+        // The parser already caps nesting; this bounds the recursion for any other caller.
+        if context.nesting > maxNesting { return UIView() }
         switch block {
         case .heading(let level, let runs):
             return textView(ChatMarkdownText.attributed(runs, style: .heading(level), traits: context.traits))
@@ -76,6 +111,7 @@ enum ChatMarkdownBlockViews {
     @MainActor private static func listView(_ list: LeoMarkdownList, context: Context) -> UIView {
         var inner = context
         inner.depth += 1
+        inner.nesting += 1
         let rows = list.items.enumerated().map { index, item -> UIView in
             let marker = UILabel()
             marker.font = .preferredFont(forTextStyle: .body, compatibleWith: context.traits)
@@ -100,6 +136,7 @@ enum ChatMarkdownBlockViews {
     @MainActor private static func quoteView(_ blocks: [LeoMarkdownBlock], context: Context) -> UIView {
         var inner = context
         inner.isQuoted = true
+        inner.nesting += 1
         let bar = UIView()
         bar.backgroundColor = .tertiaryLabel
         bar.widthAnchor.constraint(equalToConstant: 3).isActive = true

@@ -14,6 +14,33 @@ public struct LeoMarkdownDocument: Equatable, Sendable {
     }
 }
 
+extension LeoMarkdownDocument {
+    /// Every block including nested ones; a proxy for how many views rendering costs.
+    public var blockCount: Int { blocks.reduce(0) { $0 + $1.blockCount } }
+
+    /// Header plus body cells across all tables, nested ones included.
+    public var tableCellCount: Int { blocks.reduce(0) { $0 + $1.tableCellCount } }
+}
+
+extension LeoMarkdownBlock {
+    fileprivate var blockCount: Int {
+        switch self {
+        case .list(let list): 1 + list.items.reduce(0) { $0 + $1.reduce(0) { $0 + $1.blockCount } }
+        case .quote(let blocks): 1 + blocks.reduce(0) { $0 + $1.blockCount }
+        default: 1
+        }
+    }
+
+    fileprivate var tableCellCount: Int {
+        switch self {
+        case .table(let table): table.header.count + table.rows.reduce(0) { $0 + $1.count }
+        case .list(let list): list.items.reduce(0) { $0 + $1.reduce(0) { $0 + $1.tableCellCount } }
+        case .quote(let blocks): blocks.reduce(0) { $0 + $1.tableCellCount }
+        default: 0
+        }
+    }
+}
+
 public indirect enum LeoMarkdownBlock: Equatable, Sendable {
     case heading(level: Int, [LeoMarkdownRun])
     case paragraph([LeoMarkdownRun])

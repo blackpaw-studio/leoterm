@@ -109,4 +109,12 @@ import Testing
         #expect(blocks.count == 40_000)
         #expect(elapsed < .seconds(1.5))
     }
+
+    @Test func costCountsNestedBlocksAndTableCells() {
+        let doc = LeoMarkdownDocument.parse("- a\n  > q\n\n| A | B |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |")
+        // list, its paragraph, the quote, the quote's paragraph, and the table.
+        #expect(doc.blockCount == 5)
+        // 2 header cells + 2 rows of 2.
+        #expect(doc.tableCellCount == 6)
+    }
 }

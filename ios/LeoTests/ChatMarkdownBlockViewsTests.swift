@@ -60,4 +60,35 @@ struct ChatMarkdownBlockViewsTests {
         let scroll = try #require(scrollView("markdown.code", in: view))
         #expect(scroll.contentSize.width > scroll.bounds.width)
     }
+
+    // MARK: Rendering budget
+
+    private let traits = UITraitCollection(preferredContentSizeCategory: .large)
+
+    private func rendered(_ blocks: [LeoMarkdownBlock], source: String = "raw source") -> UIView {
+        ChatMarkdownBlockViews.renderedView(for: LeoMarkdownDocument(blocks: blocks), source: source, traits: traits)
+    }
+
+    @Test func overBlockBudgetShowsRawTextFallback() throws {
+        let view = rendered([LeoMarkdownBlock](repeating: .rule, count: ChatMarkdownBlockViews.maxBlocks + 1))
+        let raw = try #require(descendants(of: view, as: UITextView.self).first { $0.accessibilityIdentifier == "markdown.fallback" })
+        #expect(raw.text == "raw source")
+        #expect(descendants(of: view, as: UILabel.self).compactMap(\.text) == ["Too large to format — showing raw text"])
+    }
+
+    @Test func overTableCellBudgetShowsRawTextFallback() {
+        let cell = [LeoMarkdownRun(text: "c")]
+        let table = LeoMarkdownTable(
+            alignments: [.leading], header: [cell],
+            rows: [[[LeoMarkdownRun]]](repeating: [cell], count: ChatMarkdownBlockViews.maxTableCells)
+        )
+        let view = rendered([.table(table)])
+        #expect(descendants(of: view, as: UITextView.self).contains { $0.accessibilityIdentifier == "markdown.fallback" })
+    }
+
+    @Test func underBudgetStillRendersBlocks() {
+        let view = rendered([.paragraph([LeoMarkdownRun(text: "hi")]), .rule])
+        #expect(!descendants(of: view, as: UITextView.self).contains { $0.accessibilityIdentifier == "markdown.fallback" })
+        #expect(descendants(of: view, as: UITextView.self).map(\.text) == ["hi"])
+    }
 }
