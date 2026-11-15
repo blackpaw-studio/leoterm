@@ -3002,6 +3002,7 @@ Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty 
 Source: autopilot polish (B-397)
 
 ## B-401 · when you relaunch all the finished agents in the sidebar revert back…   [ready]
+Issue: #374
 Type: bug
 Report: when you relaunch all the finished agents in the sidebar revert back to idle state. is it possilble to pickup the same sidebar state when relaunching?
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3009,6 +3010,7 @@ Source: owner (/issue, 2026-11-15)
 Inbox: 20261115T172307857844Z-207cea17#1
 
 ## B-402 · Status tab header shows only model, effort and usage   [ready]
+Issue: #375
 Why: The status tab's header button gets less cluttered, so the useful numbers can be read at a glance (P1).
 Accept: The status plugin's tab header button no longer shows the context bar; it no longer shows cost; it still shows model, effort and usage; the status pane body is unchanged; screenshot of the debug build shows the new header
 Out: Changes to the pane body; iOS (the bottom pane is Mac only); daemon or telemetry changes
