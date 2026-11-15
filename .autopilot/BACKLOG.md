@@ -2963,13 +2963,15 @@ Reviewed: accepted 2026-11-14 — 282c2c9d1318
 Note: VISION 3 (local = remote): B-395 shows daemon move stages on the Mac row; iOS move progress cover shows none. LeoKit onStage already exists.
 Source: autopilot polish (B-395)
 
-## B-397 · settings in Leo menu should open Leo settings window, not ghostty…   [ready]
+## B-397 · settings in Leo menu should open Leo settings window, not ghostty…   [done]
 Issue: #370
 Type: bug
 Report: settings in Leo menu should open Leo settings window, not ghostty settings file (move that to a different menu item)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261115T013159207133Z-cd96f64b#1
+Done: 36cc25719 (merged in dde14dd4c; 4634 tests, lint clean). Leo ▸ Settings… (⌘,) opens the Leo settings window; Ghostty's config file moved to "Open Ghostty Config" (no shortcut). Decisions D-793..D-795.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 
 ## B-399 · Land bundled leo daemon bump to 0.82.4 (PR #369)   [ready]
 Issue: #371

@@ -71,7 +71,7 @@ Lane: B-397
   Branch: autopilot-lane/B-397
   Base: 6b04e104d3b3b51065cb072a2b2660118c7c0ac2
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -80,9 +80,11 @@ Lane: B-397
   Call: "Open Ghostty Config" has no shortcut (Ghostty's default open_config is also ⌘,) — P1
   Call: ⌘, in a terminal dispatches to Settings… by physical key, like ⌃Tab (B-059) — P1
   Call: Mac only; iOS has no app menu — P1
+  Tokens: 9.46M in (9.14M cache read), ≥40.3k out, 100 requests
 
 Finished 1: B-219 landed ba49266d9 · not visually verified
 Finished 2: B-367 blocked
+Finished 3: B-397 landed dde14dd4c · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-397-1.png
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
@@ -92,3 +94,4 @@ Progress:
 - Pick: B-367 light (chat reply end-to-end check). Built before B-143 (B-143 touches TerminalController, which may overlap open lane B-110).
 - B-367 blocked: end-to-end check on an isolated leo 0.82.2 with autopilot-scratch: chat replies arrive before and after a simulated /clear; no app change. Waiting on owner close.
 - Pick: B-397 light (Settings menu). Built before B-143 (TerminalController overlap with B-110) and B-393 (needs B-399).
+- B-397 landed dde14dd4c (36cc25719): Settings… opens Leo settings; Open Ghostty Config split out. D-793..D-795. Polish filed B-400 idea.

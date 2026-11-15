@@ -937,3 +937,21 @@ Chose: Leo agent still gets the Go test spec; leo PR #327 only partly covers it 
 Why: AUTONOMY (messaging the leo agent)
 Commit: 3ed071fec f928cc679
 Veto: [ ]
+
+## D-793 · 2026-11-14 · B-397: "Open Ghostty Config" gets no shortcut, because Ghostty's default open_config binding is also ⌘,
+Chose: "Open Ghostty Config" gets no shortcut, because Ghostty's default open_config binding is also ⌘,
+Why: P1
+Commit: 36cc25719
+Veto: [ ]
+
+## D-794 · 2026-11-14 · B-397: ⌘, in a terminal dispatches to Settings… by physical key, as the Window menu does for ⌃Tab (B-059)
+Chose: ⌘, in a terminal dispatches to Settings… by physical key, as the Window menu does for ⌃Tab (B-059)
+Why: P1
+Commit: 36cc25719
+Veto: [ ]
+
+## D-795 · 2026-11-14 · B-397: Mac only, since iOS has no app menu
+Chose: Mac only, since iOS has no app menu
+Why: P1; repo Mac/iOS rule
+Commit: 36cc25719
+Veto: [ ]
