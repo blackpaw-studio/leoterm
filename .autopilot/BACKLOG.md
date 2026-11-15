@@ -3001,13 +3001,15 @@ Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/sho
 Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
 Source: autopilot polish (B-397)
 
-## B-401 · when you relaunch all the finished agents in the sidebar revert back…   [ready]
+## B-401 · when you relaunch all the finished agents in the sidebar revert back…   [blocked]
 Issue: #374
 Type: bug
 Report: when you relaunch all the finished agents in the sidebar revert back to idle state. is it possilble to pickup the same sidebar state when relaunching?
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-15)
 Inbox: 20261115T172307857844Z-207cea17#1
+Question: Can't be fixed in the app: the daemon keeps attention in memory only, so after a daemon restart (e.g. restartIfUpdated on first launch after an update) every agent re-adopts as `unknown` and shows idle; a plain app relaunch already keeps `finished`. Send the leo agent the bug + contract (persist at-rest attention across restart: finished/needs_input/errored restored on adopt, working → unknown, keyed by name + attention token), build only LeoKit/Mac/iOS pin tests here, and close once a bundled leo has it? I'd pick yes (same pattern as D-788). Work kept on autopilot-shelved/B-401.
+Answer:
 
 ## B-402 · Status tab header shows only model, effort and usage   [ready]
 Issue: #375

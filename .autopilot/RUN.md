@@ -19,7 +19,8 @@ Lane: B-401
   Branch: autopilot-lane/B-401
   Base: 6e36bc17a570c92535f5873bb4416bc82a605f0d
   Tier: full
-  State: building
+  Tokens: 3.99M in (3.64M cache read), ≥50.4k out, 45 requests
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -41,7 +42,10 @@ Lane: B-402
   Reviewed-tip: none
   Dispatched: 2026-11-15T17:42:58Z
 
+Finished 1: B-401 blocked
+
 Progress:
 - Preflight: main merged (ff to 23b935963: leo 0.83.0 bump, Markdown test fix); no open bump/leo-* PR to queue; inbox applied: B-401 bug, B-402 add. Lanes B-233, B-332 unlanded with no RUN.md block (left in place); B-368 landed lane awaits finish.
 - Picks: B-401 full (bug; report is about restoring sidebar state across relaunch = persistence), B-402 light (status tab header copy-level change). Independent footprints, parallel.
 - Runners: B-401 d-ef048aaa88f1, B-402 d-43c07bf975ed (leo implement role).
+- B-401 blocked (shelved autopilot-shelved/B-401, no commits): root cause is daemon-side — leo keeps attention in memory only, so a daemon restart (e.g. restartIfUpdated after an app update) re-adopts agents as `unknown`; a plain app relaunch already keeps `finished`. Needs a leo release + bundled bump. Plan at plans/B-401.md.
