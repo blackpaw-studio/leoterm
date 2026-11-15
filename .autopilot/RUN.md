@@ -42,12 +42,16 @@ Lane: B-219
   Branch: autopilot-lane/B-219
   Base: be2129990578913aa7929e6d8d253a33eb3c76a8
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: f928cc679f5b52e32040ffeaca9368686ae4b682
   Dispatched: 2026-11-15T01:51:24Z
+  Call: Pin tests in LeoKit (Mac + iOS); no UI or reducer change — P3
+  Call: No app-side "hide errored while running" rule — P2, D-011, D-785
+  Call: Third pin: working at same/older revision does not clear errored — P2, D-011
+  Call: Leo agent still gets the Go test spec; leo PR #327 only partly covers it — AUTONOMY (messaging the leo agent)
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
