@@ -647,13 +647,15 @@ Accept: B-093 verify: an untitled 500x500 pixels-only window at (0,550) appears 
 Source: autopilot polish (B-093)
 Done: be6f60ff7d5c34ca89f927f91585f89c986bb979, ff8302d491aacba3152dffafb175ecbd6980e231, 16f07b69226415cdf1cbd0746277600f51cd50d3
 
-## B-143 · Replaced launch window lingers in the window list   [ready]
+## B-143 · Replaced launch window lingers in the window list   [done]
 Issue: #147
 Why: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Accept: B-093 verify: a replaced launch window stays off-screen in the CG window list; check whether its controller is ever freed
 Source: autopilot polish (B-093)
 Question: runner timed out after 3h — it was in fix round 2 (the lane's last commit is da8d504d4 "keep waking until the window-server window is gone too", plus wip a3fe1df0d). Root cause: a closed window's controller is freed only when the event loop next wakes, so it lingers while Leo is idle; the fixes so far wake the loop until it is freed and make New Tab's undo hold the window weakly. Work kept on autopilot-lane/B-143 (held: shelve refused over untracked generated files). I'd pick: resume next run from this lane on the hard implementer.
 Answer: accept your recommendation (resume next run from this lane on the hard implementer)
+Done: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b (merged in 8c1d4370b; 4675 tests). A replaced launch window leaves the CG window list within ~10 s while Leo is idle and its controller is freed: a bounded event-loop wake (0.5 s, ≤10 s, stops once freed) plus the agent toolbar's tracking separator letting go of the split view on close. Decisions D-786, D-809..D-812.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-143-1.png
 
 ## B-257 · Agent stays Working while child dispatches run, plus a dispatch tree   [done]
 Issue: #256

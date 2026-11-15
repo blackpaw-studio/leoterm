@@ -21,7 +21,7 @@ Lane: B-143
   Branch: autopilot-lane/B-143
   Base: e23c0aa4232d0c0a670565289661884195ffae3e
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: a3fe1df0d
   Reverifies: 0
@@ -31,6 +31,7 @@ Lane: B-143
   Call: Redo of New Tab whose parent window is gone opens a new window (newTab(from: nil) fallback) — P1
   Call: Windows AppKit holds past 10 s wait for the next event rather than a longer loop — P5 over P1 at the margin
   Call: Release the agent toolbar's tracking separator when its window closes, so it stops holding the split view, controller and window — P1
+  Tokens: 46.1M in (45.3M cache read), ≥151k out, 297 requests
 
 Lane: B-110
   Branch: autopilot-lane/B-110
@@ -146,6 +147,7 @@ Finished 4: B-399 landed 56857fc1f · not visually verified
 Finished 5: B-393 blocked
 Finished 6: B-110 landed 19fef2940 · not visually verified
 Finished 7: B-398 landed 99a818f53 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-398-1.png
+Finished 8: B-143 landed 8c1d4370b · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-143-1.png
 
 Progress:
 - Picks: B-110 full (cross-window drag; hard implementer per D-784), B-219 full (errored attention; pin tests + leo agent per D-785). Independent footprints.
@@ -167,3 +169,4 @@ Progress:
 - Pick: B-143 full (held lane, hard implementer per D-786); B-110 has landed, so the TerminalController overlap is gone.
 - B-398 landed 99a818f53 (5dc991b4d 7109883b5). D-804..D-808. Verifier notes: disabled toggle not visibly dimmed; unidentified circled-square item in the right capsule after hiding; "Configuration Errors" item on a hidden-style launch (likely B-370).
 - leo agent: v0.83.0 released (not installed until owner runs `leo update`): B-219 daemon half shipped (PR #339, errored agents adopt a new session on a hook with their live launch token); interactive dispatches now park after delivering their result (PR #340); per-template mcp_servers (PR #338).
+- B-143 landed 8c1d4370b. D-809..D-812. Root cause after B-110: the agent toolbar separator held the split view.

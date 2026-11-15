@@ -897,7 +897,7 @@ Veto: n/a (owner)
 Context: B-143 (Replaced launch window lingers in the window list) blocked question
 Chose: accept your recommendation (resume next run from this lane on the hard implementer)
 Why: the owner's answer
-Commit:
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
 Veto: n/a (owner)
 
 ## D-787 · 2026-11-14 · Answer to B-367: Sometimes when you message the agent in the chat, it…
@@ -1032,4 +1032,28 @@ Veto: [ ]
 Chose: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar"
 Why: P1
 Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-809 · 2026-11-15 · B-143: Keep the bounded wake (0.5 s, at most 10 s, stops once freed) for every closed terminal window
+Chose: Keep the bounded wake (0.5 s, at most 10 s, stops once freed) for every closed terminal window
+Why: P1, within P5
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]
+
+## D-810 · 2026-11-15 · B-143: Redo of New Tab whose parent window is gone opens a new window (newTab(from: nil) fallback)
+Chose: Redo of New Tab whose parent window is gone opens a new window (newTab(from: nil) fallback)
+Why: P1
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]
+
+## D-811 · 2026-11-15 · B-143: Windows AppKit holds past 10 s wait for the next event rather than a longer loop
+Chose: Windows AppKit holds past 10 s wait for the next event rather than a longer loop
+Why: P5 over P1 at the margin
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]
+
+## D-812 · 2026-11-15 · B-143: Release the agent toolbar's tracking separator when its window closes, so it stops holding the split view, controller and window
+Chose: Release the agent toolbar's tracking separator when its window closes, so it stops holding the split view, controller and window
+Why: P1
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
 Veto: [ ]
