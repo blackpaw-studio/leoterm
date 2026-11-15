@@ -21,8 +21,8 @@ enum LeoAgentToolbarItems {
     ]
 
     /// Items the user can't drag out. The title, the switch and "⋯" are
-    /// always there; the rest are shown and hidden by the app itself (the
-    /// sidebar toggle, the split separator, the update pill, reset zoom).
+    /// always there; the sidebar toggle and split separator are the app's, at
+    /// the leading edge; the update pill and reset zoom come and go with state.
     static let immovable: Set<Identifier> = [
         .leoTitleMenu, .leoViewSwitch, .leoMore, .leoSidebarToggle, .leoSplitSeparator, .leoUpdate, .leoResetZoom,
     ]
@@ -48,7 +48,7 @@ enum LeoAgentToolbarItems {
     ]
 
     private static let tooltips: [Identifier: String] = [
-        .leoTitleMenu: "Agent actions", .leoSidebarToggle: "Show Sidebar", .leoActivity: "Agent status",
+        .leoTitleMenu: "Agent actions", .leoSidebarToggle: "Show Agents Sidebar", .leoActivity: "Agent status",
         .leoResetZoom: "Reset Split Zoom", .leoUpdate: "Update status", .leoFiles: "Show Files",
         .leoBrowser: "Show Agent Browser", .leoAgentPane: "Show Agent Pane", .leoViewSwitch: "Terminal or Chat",
         .leoInterrupt: "Interrupt", .leoMore: "More actions",

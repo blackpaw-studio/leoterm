@@ -878,3 +878,182 @@ Chose: Refusal shown as an NSAlert plus a row-error trace
 Why: VISION 1
 Commit: 9c86be822
 Veto: [ ]
+
+## D-784 · 2026-11-14 · Answer to B-110: Dragging a Leo surface between windows: rows, window…
+Context: B-110 (Dragging a Leo surface between windows: rows, window ownership and undo) blocked question
+Chose: accept your recommendation (retry next run from that branch with the hard implementer)
+Why: the owner's answer
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: n/a (owner)
+
+## D-785 · 2026-11-14 · Answer to B-219: Agents stuck in errored state in the sidebar while…
+Context: B-219 (Agents stuck in errored state in the sidebar while working fine) blocked question
+Chose: accept your recommendation (send the leo agent the bug report plus a failing Go test spec (TestAgentHookAfterClearStillTransitionsAttention), add three Swift pin tests here, and add no app-side "hide errored while running" rule (would break D-011 and principle 2); you then release+restart the daemon)
+Why: the owner's answer
+Commit: 3ed071fec f928cc679
+Veto: n/a (owner)
+
+## D-786 · 2026-11-14 · Answer to B-143: Replaced launch window lingers in the window list
+Context: B-143 (Replaced launch window lingers in the window list) blocked question
+Chose: accept your recommendation (resume next run from this lane on the hard implementer)
+Why: the owner's answer
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: n/a (owner)
+
+## D-787 · 2026-11-14 · Answer to B-367: Sometimes when you message the agent in the chat, it…
+Context: B-367 (Sometimes when you message the agent in the chat, it doesn't respond…) blocked question
+Chose: accept your recommendation (merge it, then reply "B-367: done" so a run checks a chat reply end to end)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-788 · 2026-11-14 · Answer to B-393: an agent with running tasks shouldnt show as finished…
+Context: B-393 (an agent with running tasks shouldnt show as finished in the sidebar) blocked question
+Chose: yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-789 · 2026-11-14 · B-219: Pin tests in LeoKit (Mac + iOS); no UI or reducer change
+Chose: Pin tests in LeoKit (Mac + iOS); no UI or reducer change
+Why: P3; repo Mac/iOS rule
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-790 · 2026-11-14 · B-219: No app-side "hide errored while running" rule
+Chose: No app-side "hide errored while running" rule
+Why: P2, D-011, D-785
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-791 · 2026-11-14 · B-219: Third pin: working at the same or an older revision does not clear errored
+Chose: Third pin: working at the same or an older revision does not clear errored
+Why: P2, D-011
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-792 · 2026-11-14 · B-219: Leo agent still gets the Go test spec; leo PR #327 only partly covers it (sent by the orchestrator 2026-11-14)
+Chose: Leo agent still gets the Go test spec; leo PR #327 only partly covers it (sent by the orchestrator 2026-11-14)
+Why: AUTONOMY (messaging the leo agent)
+Commit: 3ed071fec f928cc679
+Veto: [ ]
+
+## D-793 · 2026-11-14 · B-397: "Open Ghostty Config" gets no shortcut, because Ghostty's default open_config binding is also ⌘,
+Chose: "Open Ghostty Config" gets no shortcut, because Ghostty's default open_config binding is also ⌘,
+Why: P1
+Commit: 36cc25719
+Veto: [ ]
+
+## D-794 · 2026-11-14 · B-397: ⌘, in a terminal dispatches to Settings… by physical key, as the Window menu does for ⌃Tab (B-059)
+Chose: ⌘, in a terminal dispatches to Settings… by physical key, as the Window menu does for ⌃Tab (B-059)
+Why: P1
+Commit: 36cc25719
+Veto: [ ]
+
+## D-795 · 2026-11-14 · B-397: Mac only, since iOS has no app menu
+Chose: Mac only, since iOS has no app menu
+Why: P1; repo Mac/iOS rule
+Commit: 36cc25719
+Veto: [ ]
+
+## D-796 · 2026-11-14 · B-110: Ownership moves with the surface; the undo is one guarded "Move Split" action
+Chose: Ownership moves with the surface; the undo is one guarded "Move Split" action
+Why: P2, P6
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-797 · 2026-11-14 · B-110: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked
+Chose: After a swap in either window, ⌘Z on a cross-window move does nothing, so no shell is freed unasked
+Why: P2
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-798 · 2026-11-14 · B-110: A dropped plain shell becomes the window's row only when that window shows no row and no agent; the row it left is handed on at home (D-190/D-280)
+Chose: A dropped plain shell becomes the window's row only when that window shows no row and no agent; the row it left is handed on at home (D-190/D-280)
+Why: P6
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-799 · 2026-11-14 · B-110: Agents keep tracking through .moved instead of close-and-reattach; a moved dispatch still closes when it ends (B-266 kept)
+Chose: Agents keep tracking through .moved instead of close-and-reattach; a moved dispatch still closes when it ends (B-266 kept)
+Why: P2/P6
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-800 · 2026-11-14 · B-110: A moved agent keeps its attachment generation and placement entry (B-232/B-270)
+Chose: A moved agent keeps its attachment generation and placement entry (B-232/B-270)
+Why: P2
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-801 · 2026-11-14 · B-110: Only two marked hooks in upstream files; no Zig changes
+Chose: Only two marked hooks in upstream files; no Zig changes
+Why: AUTONOMY (keep Zig minimal)
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-802 · 2026-11-14 · B-110: Mac only; cross-window split drag is AppKit window management
+Chose: Mac only; cross-window split drag is AppKit window management
+Why: Mac/iOS parity rule
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-803 · 2026-11-14 · B-110: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only)
+Chose: A handle follows its surface into whichever Leo window holds it (generalizes D-283 for moves only)
+Why: AUTONOMY
+Commit: 61ec5587a 8c20a8ec1 97298b975 a6677ec8f 0345263dc 156175f86 b8bf446b9 62d4b116d 6188d2a81 9e11ff026 fd137a606 64dcb93a1 32844dda5 4a4912ceb 1eee9b5b0 010c44805 e3ed26ed3 2fa263ea6
+Veto: [ ]
+
+## D-804 · 2026-11-14 · B-398: Reuse .leoSidebarToggle (always present, first, immovable) instead of a new identifier
+Chose: Reuse .leoSidebarToggle (always present, first, immovable) instead of a new identifier
+Why: P1, no saved-layout breakage
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-805 · 2026-11-14 · B-398: Glyph sidebar.left; tooltip, label and accessibility "Hide/Show Agents Sidebar", disabled with the menu via one shared helper LeoMenuCommands.sidebarToggle
+Chose: Glyph sidebar.left; tooltip, label and accessibility "Hide/Show Agents Sidebar", disabled with the menu via one shared helper LeoMenuCommands.sidebarToggle
+Why: P1
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-806 · 2026-11-14 · B-398: Click goes through toggleLeoSidebar(_:), the same path as ⌘⇧L
+Chose: Click goes through toggleLeoSidebar(_:), the same path as ⌘⇧L
+Why: P1, P6
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-807 · 2026-11-14 · B-398: Mac only
+Chose: Mac only
+Why: repo Mac/iOS rule
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-808 · 2026-11-14 · B-398: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar"
+Chose: Tooltip table entry "Show Sidebar" → "Show Agents Sidebar"
+Why: P1
+Commit: 5dc991b4d 7109883b5
+Veto: [ ]
+
+## D-809 · 2026-11-15 · B-143: Keep the bounded wake (0.5 s, at most 10 s, stops once freed) for every closed terminal window
+Chose: Keep the bounded wake (0.5 s, at most 10 s, stops once freed) for every closed terminal window
+Why: P1, within P5
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]
+
+## D-810 · 2026-11-15 · B-143: Redo of New Tab whose parent window is gone opens a new window (newTab(from: nil) fallback)
+Chose: Redo of New Tab whose parent window is gone opens a new window (newTab(from: nil) fallback)
+Why: P1
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]
+
+## D-811 · 2026-11-15 · B-143: Windows AppKit holds past 10 s wait for the next event rather than a longer loop
+Chose: Windows AppKit holds past 10 s wait for the next event rather than a longer loop
+Why: P5 over P1 at the margin
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]
+
+## D-812 · 2026-11-15 · B-143: Release the agent toolbar's tracking separator when its window closes, so it stops holding the split view, controller and window
+Chose: Release the agent toolbar's tracking separator when its window closes, so it stops holding the split view, controller and window
+Why: P1
+Commit: a4a73ce09 9c35501ff 77664703f abd906443 f84187b50 da8d504d4 a3fe1df0d 349a1f91e 1cae9a57b
+Veto: [ ]

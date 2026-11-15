@@ -142,9 +142,15 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// sidebar and panes and shows the start screen, as a new one does --
     /// with nothing to undo back into it (B-071).
     func leoShowStartScreen() {
+        leoClearToStartScreen()
+        leoForgetContentUndo()
+    }
+
+    /// The start screen, keeping the window's undo: B-110's move of the
+    /// window's last pane to another window, whose own undo puts it back.
+    func leoClearToStartScreen() {
         leoIsUnfilledPlaceholder = true
         surfaceTree = .init()
-        leoForgetContentUndo()
         // As `TerminalView` would if it reported a nil focus: the closed
         // shell's title and proxy icon go with it, and the window reads as
         // a new one does (B-070).
@@ -501,7 +507,10 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// point to the key window) for a `newWindow` window, which cascades a
     /// turn later. That cascade only reads it with other windows still
     /// open; alone, the window keeps the frame it restored, which is this
-    /// window's too.
+    /// window's too. Like any closed terminal window it is freed once AppKit
+    /// lets go of it, even while Leo sits idle, if within
+    /// `LeoEventLoop.closedWindowWakeLimit` (`wakeUntilFreed`, B-143). The
+    /// New Tab replacing it holds it only weakly, for redo.
     func closeReplacedLeoPlaceholder() {
         guard let window else { return }
         let frame = window.frame
@@ -819,10 +828,13 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
         // Setup our undo
         if let undoManager = parentController.undoManager {
             undoManager.setActionName("New Tab")
+            // MARK: Leo -- the parent is held weakly: an action that outlives
+            // it (a launch window this tab replaced, B-143) must not keep the
+            // closed window alive. Without it, redo opens a window instead.
             undoManager.registerUndo(
                 withTarget: controller,
                 expiresAfter: controller.undoExpiration
-            ) { target in
+            ) { [weak parent] target in
                 // Close the tab when undoing
                 undoManager.disableUndoRegistration {
                     target.closeTab(nil)
@@ -832,7 +844,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
                 undoManager.registerUndo(
                     withTarget: ghostty,
                     expiresAfter: target.undoExpiration
-                ) { ghostty in
+                ) { [weak parent] ghostty in
                     _ = TerminalController.newTab(
                         ghostty,
                         from: parent,

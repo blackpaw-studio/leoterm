@@ -926,3 +926,39 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-15T06:53:33Z
+
+🛠 leoterm autopilot — 3 fixed, 3 shipped, 2 blocked
+Fixed
+• B-219 Agents stuck errored — LeoKit pin tests; Go spec sent to leo, daemon fix shipped in leo 0.83.0 (PR #339) (verified: not visually verified) · full
+• B-397 Leo ▸ Settings… opens Leo settings; "Open Ghostty Config" split out (verified: screenshot) · light
+• B-143 Replaced launch window leaves the window list and is freed within ~10 s idle (verified: screenshot) · full
+Shipped
+• B-399 Bundled leo 0.82.4 (PR #369 head, unchanged) (verified: not visually verified) · light
+• B-110 Cross-window surface drag: ownership moves; guarded Move Split undo never frees a shell unasked (verified: not visually verified) · full
+• B-398 Sidebar toggle at the toolbar's leading edge (verified: screenshot) · full
+• Built out of order: B-367/B-397/B-399/B-393/B-398 before B-143 (B-143 overlapped B-110 in TerminalController)
+Calls I made — reply "veto D-0xx" to undo
+• D-789..D-792 B-219 pins in LeoKit, no hide-errored rule
+• D-793..D-795 B-397 Ghostty Config has no shortcut; ⌘, by physical key
+• D-796..D-803 B-110 ownership follows the surface; ⌘Z no-op after a swap
+• D-804..D-808 B-398 reuse .leoSidebarToggle; "Hide/Show Agents Sidebar"
+• D-809..D-812 B-143 bounded 0.5 s/≤10 s wake; toolbar separator releases on close
+Needs you — reply "B-0xx: <answer>"
+• B-367 couldn't reproduce (chat replies arrive across /clear, simulated hooks). "B-367: close"?
+• B-393 couldn't reproduce on bundled 0.82.4 (0.82.3 red). "B-393: close"?
+• ⚠ Stop-list near-miss (B-110): a stale debug-app click opened real stopped agent whatshoveringoverme's chat; ⌘Z hit its empty field; nothing started or sent.
+• B-398 verifier notes: disabled toggle not visibly dimmed; unknown circled-square toolbar item after hiding.
+• Shared GhosttyKit.xcframework is stale (lanes build their own); B-368 lane dirty, not removed.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184  +80 more
+Self-filed
+• B-400 idea (from B-397) — Gear icon belongs on Settings…
+• dropped (from B-399) — terminfo phase skipped on incremental builds — dup of B-303
+Next up: none ready (bump PR for leo 0.83.0 expected)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$55.06 est. — B-110 ≈$21.60, B-143 ≈$15.03, B-398 ≈$5.37, B-219 ≈$4.41, B-397 ≈$2.86, B-393 ≈$2.76, B-399 ≈$1.93, B-367 ≈$1.12
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

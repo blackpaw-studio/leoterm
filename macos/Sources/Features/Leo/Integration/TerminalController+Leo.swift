@@ -74,18 +74,18 @@ extension TerminalController {
     /// the swap was confirmed at ⌘W and would expire after `undo-timeout`
     /// anyway. Other windows' undo is untouched.
     ///
-    /// Known limit: all windows share one undo manager, and a cross-window
-    /// Move Split is one undo group holding one action per window it
-    /// touched -- `splitDidDrop`'s "Close Terminal" on the source and
-    /// replace on the destination, or `ghosttySurfaceDragEndedNoTarget`'s
-    /// replace on the source and "New Window" for the window it opens.
-    /// This drops only the swapped controller's half; the other window's
-    /// half stays (D-141), and that is not harmless: ⌘Z then replays a
-    /// half-move, and once the redo expires it can free the moved
-    /// surface's shell without asking (P2). That risk, and the moved
-    /// surface's row and window ownership, are B-110's to fix.
+    /// All windows share one undo manager. A pane moved between Leo windows
+    /// (`splitDidDrop` / `ghosttySurfaceDragEndedNoTarget`, B-110) has one
+    /// guarded "Move Split" action for both windows, not upstream's one
+    /// half per window; this ends it too (`LeoCrossWindowMove`), whichever
+    /// of its two windows swapped. Left to upstream, the other window's
+    /// half would replay alone: taking the pane out of every tree (its
+    /// shell freed, unasked, once the redo expired) or pulling it back into
+    /// a window that moved on. Moves to or from a window with no Leo
+    /// session (the quick terminal) keep upstream's halves.
     func leoForgetContentUndo() {
         undoManager?.removeAllActions(withTarget: self)
+        LeoCrossWindowMove.end(involving: self)
     }
 
     /// B-332: whether the window lists a Terminals row, so it saves its
@@ -171,6 +171,11 @@ extension TerminalController {
         window.leoToolbar.setToggleSender { [weak self] action, sender in
             guard let self else { return }
             NSApp.sendAction(action, to: self, from: sender)
+        }
+        // The sidebar toggle reads the same state as Agents ▸ Show/Hide Agents Sidebar.
+        window.leoToolbar.sidebarToggleState = { [weak self] in
+            self?.leoSidebarToggleState
+                ?? LeoMenuCommands.sidebarToggle(hasLeoSession: false, isSidebarVisible: false, showingSqueezesTerminal: false)
         }
         window.leoToolbar.onSubtitleVisibilityChange = { [weak self] in self?.leoRefreshSubtitle() }
         leoSession.onSplitViewReady = { [weak window] in window?.leoToolbar.attach(splitView: $0) }
@@ -296,16 +301,18 @@ extension TerminalController {
         window?.presentLeoSheet(sheet)
     }
 
-    func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
-        let hasLeoSession = leoSession != nil
-        item.title = LeoMenuCommands.sidebarToggleTitle(
-            hasLeoSession: hasLeoSession,
-            isSidebarVisible: leoSession?.isSidebarVisible ?? false
-        )
-        return LeoMenuCommands.canToggleSidebar(
-            hasLeoSession: hasLeoSession,
+    /// What Agents ▸ Show/Hide Agents Sidebar and the toolbar's toggle read.
+    var leoSidebarToggleState: LeoMenuCommands.SidebarToggleState {
+        LeoMenuCommands.sidebarToggle(
+            hasLeoSession: leoSession != nil,
             isSidebarVisible: leoSession?.isSidebarVisible ?? false,
             showingSqueezesTerminal: leoSession?.showingSidebarSqueezesTerminal ?? false)
+    }
+
+    func validateLeoSidebarMenuItem(_ item: NSMenuItem) -> Bool {
+        let state = leoSidebarToggleState
+        item.title = state.title
+        return state.isEnabled
     }
 
     func validateFindLeoAgentMenuItem(_ item: NSMenuItem) -> Bool {
