@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-11-15T23:49:27Z
 Budget: 20 items, until 2026-11-16T11:49:27Z
 Digested-through: 0
@@ -40,3 +40,4 @@ Progress:
 - Runner: B-401 d-1493977acb3f (leo implement role).
 - B-401 ready (general full review; no UI change, not visually verified). Runner couldn't reach leo_send_message, so the orchestrator sent the leo agent the contract + Go test spec at 2026-11-15 19:23 EST (AUTONOMY: messaging the leo agent). The lane doc's Send record still reads "not sent yet".
 - B-401 landed 31d028fbd (339eb6d48 bf329b86f 039a03178 50805c6ce). D-816..D-820. ≈$4.59 est.
+- Digest: backlog drained (pick []). lane finish skipped B-368 (dirty worktree, 1 change).

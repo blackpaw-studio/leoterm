@@ -983,3 +983,27 @@ Tokens (runner + its subagents): B-401 3.99M in (3.64M cache read), ≥50.4k out
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-15T23:49:27Z
+
+🛠 leoterm autopilot — 1 fixed, 0 shipped, 0 blocked
+Fixed
+• B-401 Finished agents revert to idle after relaunch — daemon-restart repro + restore contract doc, LeoKit/Mac/iOS pins; contract + Go test spec sent to the leo agent 19:23 EST (verified: not visually verified — tests/docs only) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-816 no client-side cache of `finished` — P2
+• D-817 restore only at-rest states; working → unknown — P2
+• D-818 persisted records keyed by name + attention token — P2
+• D-819 both platforms, no app code (fix is daemon-side) — P3
+• D-820 extra Mac pin for the unknown-clears-row case — P2
+Needs you
+• B-401 stays open in spirit until a leo release with the restore ships and gets bundled (D-815). The lane doc's "Send record" still says "not sent yet" — the runner had no leo_send_message; I sent it.
+• Lanes left: B-058 held; B-233, B-332 unlanded with no block; B-368 landed but its worktree is dirty (1 change), so finish skipped it.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 Terminals row context menu shows key equivalents · B-181 Rename Terminal sheet hangs from the title bar · B-182 Clearing a custom name after restore restores the live title · B-184 Drive row-menu Split in GUI verification · +80 more
+Next up: nothing ready (13 blocked items await answers)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$4.59 est. — B-401 ≈$4.59 est.
+Tokens (runner + its subagents): B-401 16.4M in (16M cache read), ≥62.6k out, 152 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
