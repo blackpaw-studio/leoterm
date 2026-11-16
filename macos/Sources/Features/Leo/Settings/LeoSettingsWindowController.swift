@@ -212,7 +212,7 @@ private struct LeoSettingsView: View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
             LeoMachinesSettingsView(model: model, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry)
                 .tabItem { Label("Machines", systemImage: "server.rack") }
-                .tag(LeoSettingsTab.machines)
+                .tag(LeoSettingsTab.overview)
             LeoTemplatesSettingsView(target: target)
                 .tabItem { Label("Templates", systemImage: "doc.text") }
                 .tag(LeoTemplatesSettingsView.tab)

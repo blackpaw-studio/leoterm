@@ -502,8 +502,8 @@ struct LeoSettingsTargetModelTests {
         harness.model.register(Pane(dirty: false), for: .config("templates"))
         _ = harness.model.requestTab(.config("templates"))
 
-        #expect(harness.model.requestTab(.machines))
-        #expect(harness.model.selectedTab == .machines)
+        #expect(harness.model.requestTab(.overview))
+        #expect(harness.model.selectedTab == .overview)
     }
 
     @Test func aPaneThatWasReleasedCountsAsClean() {
@@ -515,8 +515,10 @@ struct LeoSettingsTargetModelTests {
         #expect(!harness.model.hasUnsavedChanges)
     }
 
-    @Test func onlyConfigTabsUseTheMachinePicker() {
-        #expect(!LeoSettingsTab.machines.usesMachineTarget)
+    @Test func onlyMachinePagesUseTheMachineTarget() {
+        #expect(!LeoSettingsTab.general.usesMachineTarget)
+        #expect(!LeoSettingsTab.plugins.usesMachineTarget)
+        #expect(LeoSettingsTab.overview.usesMachineTarget)
         #expect(LeoSettingsTab.config("templates").usesMachineTarget)
     }
 }

@@ -2,22 +2,27 @@ import Combine
 import Foundation
 import LeoKit
 
-/// A Settings tab. Machines edits the machine list; a config tab edits one
-/// schema resource (`templates`, `tasks`, …) on the machine the toolbar picks.
+/// A Settings page. General and Plugins are app-wide; the overview and the
+/// config tabs edit one machine, the one the sidebar selection names.
 enum LeoSettingsTab: Hashable {
-    case machines
+    /// App-wide settings (stats style, agent browser, Terminal tab).
+    case general
+    /// A machine's overview page.
+    case overview
     case config(String)
     /// Plugins live in this app, not on a machine, so the pane has no machine target.
     case plugins
 
-    /// Whether the toolbar's machine picker applies to this tab.
+    /// Whether the page edits the selected machine.
     var usesMachineTarget: Bool {
-        if case .config = self { return true }
-        return false
+        switch self {
+        case .overview, .config: true
+        case .general, .plugins: false
+        }
     }
 
-    /// The Service tab, whose model the target owns so a daemon restart can
-    /// be waited out from any pane's prompt.
+    /// The Service content, whose model the target owns so a daemon restart can
+    /// be waited out from any pane's prompt. It shows inside the Daemon pane.
     static let service = LeoSettingsTab.config("service")
 }
 
@@ -73,7 +78,7 @@ extension LeoSettingsPane {
     /// Bumped only when the selected machine changes: panes are rebuilt then,
     /// never on a refresh of the same machine.
     @Published private(set) var machineEpoch = 0
-    @Published private(set) var selectedTab: LeoSettingsTab = .machines
+    @Published private(set) var selectedTab: LeoSettingsTab = .overview
     @Published private(set) var pendingChange: PendingChange?
     /// The revisions the app's own writes superseded on the selected machine.
     let revisions = LeoConfigRevisionTracker()
