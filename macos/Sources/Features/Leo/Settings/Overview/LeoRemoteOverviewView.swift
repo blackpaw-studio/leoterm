@@ -54,7 +54,7 @@ struct LeoRemoteOverviewView: View {
                     HStack(spacing: 12) {
                         LeoConnectionBadge(status: overview.status).fixedSize()
                         HStack(spacing: 8) {
-                            Text("Enabled").foregroundStyle(.secondary)
+                            Text("Enabled").foregroundStyle(.secondary).accessibilityHidden(true)
                             Toggle("Enabled", isOn: Binding(get: { host.isEnabled }, set: { model.setEnabled($0, for: host.id) }))
                                 .labelsHidden()
                                 .toggleStyle(.switch)
