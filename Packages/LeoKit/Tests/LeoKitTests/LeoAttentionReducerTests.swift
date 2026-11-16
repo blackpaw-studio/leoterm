@@ -253,6 +253,36 @@ struct LeoAttentionReducerTests {
         #expect(reducer.tick(now: 10).isEmpty, "restart baselines are silent")
     }
 
+    /// B-401: once the daemon restores at-rest attention across its restart, a
+    /// boot-B baseline carries `finished` at a revision below the old boot's.
+    /// The app shows it silently, as it does any restart baseline.
+    @Test func bootChangeBaselineKeepsRestoredFinished() {
+        var reducer = live(["alpha": signal(.finished, 9)])
+        _ = reducer.observeBoot("b1")
+
+        let restarted = reducer.observeBoot("b2")
+        #expect(restarted)
+        reducer.applyBaseline(["alpha": signal(.finished, 2)])
+
+        #expect(reducer.state(of: "alpha") == .finished)
+        #expect(reducer.nextDeadline == nil)
+        #expect(reducer.tick(now: 10).isEmpty, "a restored baseline raises no transition or notification")
+    }
+
+    /// B-401 / P2: the app never carries `finished` across a boot itself. A
+    /// daemon that reports `unknown` after its restart shows no badge.
+    @Test func bootChangeBaselineUnknownShowsNoBadge() {
+        var reducer = live(["alpha": signal(.finished, 9)])
+        _ = reducer.observeBoot("b1")
+
+        let restarted = reducer.observeBoot("b2")
+        #expect(restarted)
+        reducer.applyBaseline(["alpha": signal(.unknown, 1)])
+
+        #expect(reducer.state(of: "alpha") != .finished)
+        #expect(reducer.dockCount(among: ["alpha"]) == 0)
+    }
+
     @Test func hostSwitchForgetsTheBootID() {
         var reducer = live()
         _ = reducer.observeBoot("b1")

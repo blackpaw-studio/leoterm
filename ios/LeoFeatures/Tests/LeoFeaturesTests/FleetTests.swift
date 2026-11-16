@@ -291,6 +291,60 @@ struct FleetTests {
         }
     }
 
+    /// B-401: once the daemon restores at-rest attention across its restart,
+    /// the new boot's snapshot carries `finished` at a revision below the old
+    /// boot's `working`. The new boot's state wins and the agent reads finished.
+    @Test func aDaemonRestartSnapshotKeepsRestoredFinished() async {
+        let clock = TestClock()
+        let streams = StreamQueue(count: 2)
+        let fetches = LockIsolated(0)
+        let store = TestStore(initialState: Fleet.State(daemons: [.dionysus])) {
+            Fleet()
+        } withDependencies: {
+            $0.continuousClock = clock
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.events = { streams.next($0) }
+            $0.daemonClient.fetchState = { _ in
+                fetches.withValue { $0 += 1 }
+                return LeoObservedState(agents: [
+                    .make("zeus", attention: fetches.value == 1 ? .state(.working, 100) : .state(.finished, 2)),
+                ])
+            }
+        }
+        let id = PairedDaemon.dionysus.id
+        await store.send(.scenePhaseChanged(isActive: true)) {
+            $0.isActive = true
+            $0.sessions[id: id]?.connection = .connecting
+        }
+        streams[0].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-1"))
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.bootID = "boot-1"
+            $0.sessions[id: id]?.connection = .connected
+            $0.sessions[id: id]?.agents = [Agent(.make("zeus", attention: .state(.working, 100)))]
+        }
+        streams[0].finish()
+        await store.receive(\.streamEnded) {
+            $0.sessions[id: id]?.failures = 1
+            $0.sessions[id: id]?.connection = .reconnecting(attempt: 1, reason: "Connection closed")
+        }
+        await clock.advance(by: .seconds(1))
+        await store.receive(\.connect)
+
+        streams[1].yield(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-2"))
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.bootID = "boot-2"
+            $0.sessions[id: id]?.failures = 0
+            $0.sessions[id: id]?.connection = .connected
+            $0.sessions[id: id]?.agents = [Agent(.make("zeus", attention: .state(.finished, 2)))]
+        }
+        #expect(store.state.sessions[id: id]?.agents.first?.priority == .finished)
+
+        await store.send(.scenePhaseChanged(isActive: false)) {
+            $0.isActive = false
+            $0.sessions[id: id]?.connection = .offline
+        }
+    }
+
     @Test func aHelloWithoutASnapshotKeepsBackingOff() async {
         let clock = TestClock()
         let streams = StreamQueue(count: 2)
