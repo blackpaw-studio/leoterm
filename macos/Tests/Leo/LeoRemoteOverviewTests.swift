@@ -24,7 +24,7 @@ struct LeoRemoteOverviewTests {
 
     @Test func aDisabledMachineSaysOffAndShowsTheOffBadge() {
         let off = overview(Self.host.replacing(isEnabled: false), status: .connected)
-        #expect(off.reason == "Off")
+        #expect(off.reason == "Turned off. Turn on Enabled to connect and edit its settings.")
         #expect(off.status == .disabled)
         #expect(off.version == nil)
     }

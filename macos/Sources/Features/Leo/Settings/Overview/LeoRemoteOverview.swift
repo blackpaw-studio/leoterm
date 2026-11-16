@@ -8,7 +8,7 @@ struct LeoRemoteOverview: Equatable {
     let isEnabled: Bool
     /// The badge: off when the draft says so, else the live connection.
     let status: LeoMachineStatus?
-    /// Why the machine can't be used: "Off", the connection error, or that it needs saving.
+    /// Why the machine can't be used: that it is turned off, the connection error, or that it needs saving.
     let reason: String?
     /// The daemon's version; only known while this machine is the one Settings is connected to.
     let version: String?
@@ -22,7 +22,7 @@ struct LeoRemoteOverview: Equatable {
         isEnabled = host.isEnabled
         self.status = host.isEnabled ? status : .disabled
         switch (host.isEnabled, status) {
-        case (false, _): reason = "Off"
+        case (false, _): reason = "Turned off. Turn on Enabled to connect and edit its settings."
         case (true, .failed(let message)?): reason = message
         case (true, _): reason = isSaved ? nil : "Save this machine to edit its settings"
         }
