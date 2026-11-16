@@ -3025,3 +3025,10 @@ Inbox: 20261115T173431210598Z-bd9ebf13#1
 Done: 9f9382c00 (merged in 6a730e9b2). Header reads `Opus 5.5 · high  77% · 5h 43%`: context bar and cost removed, body unchanged. Decisions D-813, D-814.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-402-1.png
 Reviewed: accepted 2026-11-15 — 6a730e9b284d
+
+## B-403 · Land bundled leo daemon bump to 0.84.0 (PR #376)   [ready]
+Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.84.0 carries the B-401 attention restore across daemon restart (leo #341).
+Accept: The lane merges PR #376's head commit b28f6ea2ebbbdc41c444fe07834f4a041a9049d5 (git fetch origin bump/leo-0.84.0) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.84.0; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.84.0.
+Out: Closing or merging PRs on GitHub; any code change beyond the bump.
+Source: owner (/feature, 2026-11-15)
+Inbox: 20261116T012527351545Z-eaf50e5f#1
