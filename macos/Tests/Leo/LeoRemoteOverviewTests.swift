@@ -92,17 +92,4 @@ struct LeoRemoteOverviewTests {
         #expect(model.hosts.map(\.name) == ["hestia"])
         #expect(store.load().map(\.name) == ["hestia"])
     }
-
-    @Test func removalIsRefusedWhenAnotherMachinesEditsCannotBeSaved() throws {
-        let other = LeoHostConfiguration(name: "hestia", sshTarget: "evan@hestia")
-        let (model, store) = try model([Self.host, other])
-        model.selectedID = other.id
-        model.updateSelected { $0.replacing(sshTarget: "") }
-        model.requestRemoval(of: Self.host.id)
-
-        #expect(!model.confirmRemoval(Self.host.id))
-        #expect(model.hosts.map(\.name) == ["dionysus", "hestia"], "the machine stays in the draft, in place")
-        #expect(store.load().map(\.name) == ["dionysus", "hestia"])
-        #expect(model.saveError != nil)
-    }
 }

@@ -74,23 +74,26 @@ import LeoKit
         pendingRemoval = nil
     }
 
-    /// The confirmed removal: takes the machine out of the draft and saves at
+    /// The confirmed removal: writes the saved list without this machine at
     /// once, because a destructive action already confirmed shouldn't also
-    /// need Save. If the draft can't be saved (another machine's edits are
-    /// invalid, or the store changed) the machine stays and `saveError` says why.
+    /// need Save. Only the removal is written: other machines' unsaved edits
+    /// stay in the draft, still pending. The draft changes only after the
+    /// write succeeds; on failure nothing moves and `saveError` says why.
     ///
     /// Takes the id the alert captured: SwiftUI clears `pendingRemoval`
     /// (the dismiss setter) before the pressed button's action runs.
     @discardableResult
     func confirmRemoval(_ id: LeoHostConfiguration.ID) -> Bool {
         pendingRemoval = nil
-        guard let index = hosts.firstIndex(where: { $0.id == id }) else { return false }
-        let removed = hosts[index]
-        hosts.remove(at: index)
-        guard save() else {
-            hosts.insert(removed, at: index)
-            return false
+        guard hosts.contains(where: { $0.id == id }) else { return false }
+        // A machine that was never saved has nothing to write.
+        if openedSnapshot.contains(where: { $0.id == id }) {
+            guard persist(openedSnapshot.filter { $0.id != id }) else { return false }
+            openedSnapshot = store.load()
         }
+        hosts = hosts.filter { $0.id != id }
+        selectedID = selectedID.flatMap { selected in hosts.first { $0.id == selected }?.id } ?? hosts.first?.id
+        onSaved()
         return true
     }
 
@@ -167,17 +170,24 @@ import LeoKit
     /// store the single source of truth for what's actually persistable.
     @discardableResult
     func save() -> Bool {
+        guard persist(hosts) else { return false }
+        hosts = store.load()
+        openedSnapshot = hosts
+        selectedID = selectedID.flatMap { id in hosts.first { $0.id == id }?.id } ?? hosts.first?.id
+        onSaved()
+        return true
+    }
+
+    /// Writes `configurations` unless the store changed since this model
+    /// opened, setting `saveError` either way. Touches nothing else.
+    private func persist(_ configurations: [LeoHostConfiguration]) -> Bool {
         guard store.load() == openedSnapshot else {
             saveError = "Hosts changed in another window; reopen to edit"
             return false
         }
         do {
-            try store.save(hosts.map(Self.normalizingEmptyPathsToDefaults))
-            hosts = store.load()
-            openedSnapshot = hosts
-            selectedID = selectedID.flatMap { id in hosts.first { $0.id == id }?.id } ?? hosts.first?.id
+            try store.save(configurations.map(Self.normalizingEmptyPathsToDefaults))
             saveError = nil
-            onSaved()
             return true
         } catch {
             saveError = Self.message(for: error)

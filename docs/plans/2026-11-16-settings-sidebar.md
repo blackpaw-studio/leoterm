@@ -292,6 +292,6 @@ Branch: `feat/settings-sidebar` (off `main`). **Platform: Mac only**, per the sp
 
 ## B6. Open questions resolved (orchestrator, 2026-11-16)
 
-- **Q1:** Remove Machine… removes the machine and saves immediately once confirmed, as recommended. If other pending draft edits are invalid, refuse and show the save error. A destructive action you've already confirmed shouldn't also need Save. Every other edit keeps today's Save/Revert.
+- **Q1:** Remove Machine… removes the machine and saves immediately once confirmed, as recommended. A destructive action you've already confirmed shouldn't also need Save. Only the removal is written: it saves the last-saved list minus that machine, then rebases the draft onto it, so other machines' unsaved edits stay pending (and unwritten) under Save/Revert, whether or not they are valid. The draft and the sidebar selection change only after that write succeeds; if it fails (for example the store changed in another window), the machine stays selected and the save error shows on its overview. (Amended 2026-11-16 after review: the first version saved the whole draft.) Every other edit keeps today's Save/Revert.
 - **Q2:** Use the remembered item, else the This Mac overview. Delete the `selectedHost` input.
 - **Q3:** Leave the This Mac header with nothing on the model line. Don't add the computer name, because the spec doesn't ask for it.
