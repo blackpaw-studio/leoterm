@@ -93,7 +93,7 @@ private struct LeoDaemonSectionPicker: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .padding(12)
+        .padding(LeoSettingsMetrics.groupPadding)
     }
 
     private func label(_ title: String, dirty: Bool) -> String {

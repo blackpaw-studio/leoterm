@@ -37,10 +37,10 @@ struct LeoDelegationCellPopover: View {
                     }
                 }
                 if let formError = editor.errors[""] {
-                    Text(formError).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                    Text(formError).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).fixedSize(horizontal: false, vertical: true)
                 }
                 if editor.edit.deletesCell, editor.edit.isDirty {
-                    Label("Saving removes this role from \(editor.profile).", systemImage: "trash").font(.caption).foregroundStyle(.orange)
+                    Label("Saving removes this role from \(editor.profile).", systemImage: "trash").font(.caption).foregroundStyle(LeoSettingsStatus.warning.color)
                 }
                 HStack {
                     if model.isBusy { ProgressView().controlSize(.small) }
@@ -51,7 +51,7 @@ struct LeoDelegationCellPopover: View {
                         .keyboardShortcut(.defaultAction).disabled(!editor.edit.isDirty || model.isBusy)
                 }
             }
-            .padding(16).frame(width: 320)
+            .padding(LeoSettingsMetrics.contentPadding).frame(width: 320)
         }
     }
 
@@ -60,7 +60,7 @@ struct LeoDelegationCellPopover: View {
             Text(title).font(.caption).foregroundStyle(.secondary)
             content()
             if let error {
-                Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                Text(error).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).fixedSize(horizontal: false, vertical: true)
             } else if let help {
                 Text(help).font(.caption2).foregroundStyle(.tertiary)
             }
@@ -89,7 +89,7 @@ struct LeoDelegationUseForPopover: View {
                 TextField("Use for…", text: Binding(get: { editor.text }, set: model.setUseForText), axis: .vertical)
                     .lineLimit(3...6).textFieldStyle(.roundedBorder).frame(width: 300)
                 if let error = editor.error {
-                    Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                    Text(error).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).fixedSize(horizontal: false, vertical: true)
                 }
                 HStack {
                     Spacer()
@@ -98,7 +98,7 @@ struct LeoDelegationUseForPopover: View {
                         .keyboardShortcut(.defaultAction).disabled(!editor.isDirty || model.isBusy)
                 }
             }
-            .padding(16)
+            .padding(LeoSettingsMetrics.contentPadding)
         }
     }
 }

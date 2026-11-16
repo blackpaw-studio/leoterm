@@ -23,14 +23,14 @@ struct LeoTaskAddSheet: View {
                 }
             }
             .formStyle(.columns)
-            Text(nameError ?? " ").font(.caption).foregroundStyle(.red).accessibilityHidden(nameError == nil)
+            Text(nameError ?? " ").font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).accessibilityHidden(nameError == nil)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel, action: cancel).keyboardShortcut(.cancelAction)
                 Button("Add", action: confirm).keyboardShortcut(.defaultAction).disabled(!canAdd)
             }
         }
-        .padding(20)
+        .padding(LeoSettingsMetrics.sheetPadding)
         .frame(minWidth: 380)
         .onAppear { isFocused = true }
         .task(id: schedule) {

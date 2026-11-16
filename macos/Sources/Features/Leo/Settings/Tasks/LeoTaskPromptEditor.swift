@@ -32,10 +32,10 @@ struct LeoTaskPromptEditor: View {
             Image(systemName: "lock.doc").font(.largeTitle).foregroundStyle(.secondary).accessibilityHidden(true)
             Text("This prompt file can’t be edited here").font(.headline)
             Text(reason).foregroundStyle(.secondary).multilineTextAlignment(.center).textSelection(.enabled)
-            if let error { Text(error).font(.caption).foregroundStyle(.red) }
+            if let error { Text(error).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color) }
             Button("Choose Another File…") { isNamingFile = true }
         }
-        .padding(24)
+        .padding(LeoSettingsMetrics.panePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -84,7 +84,7 @@ struct LeoTaskPromptEditor: View {
 
     private var conflictBanner: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("This prompt changed on the machine since you opened it").font(.headline)
                 Text("Reload drops your text and shows the new one. Overwrite replaces it with yours.")
@@ -94,15 +94,15 @@ struct LeoTaskPromptEditor: View {
             Button("Reload") { Task { await model.reloadPrompt() } }
             Button("Overwrite", role: .destructive) { Task { await model.overwritePrompt() } }
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(LeoSettingsMetrics.groupPadding)
+        .background(LeoSettingsStatus.warning.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .contain)
     }
 
     /// The task was pointed at another file while text typed for this one was unsaved.
     private func fileChangedBanner(_ file: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("This task now uses “\(file)”").font(.headline)
                 Text("Your text was typed for “\(model.prompt.document?.file ?? "")”. Keep it writes it to the new file, replacing what is there.")
@@ -112,8 +112,8 @@ struct LeoTaskPromptEditor: View {
             Button("Discard", role: .destructive) { Task { await model.discardPromptTextForNewFile() } }
             Button("Keep My Text for \(file)") { Task { await model.keepPromptTextForNewFile() } }
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(LeoSettingsMetrics.groupPadding)
+        .background(LeoSettingsStatus.warning.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .contain)
     }
 
@@ -125,7 +125,7 @@ struct LeoTaskPromptEditor: View {
             Button("Save") { Task { await model.savePrompt() } }
                 .keyboardShortcut(.defaultAction).disabled(!prompt.isDirty || prompt.isSaving || prompt.conflict != nil || prompt.confirmation != nil)
         }
-        .padding(12)
+        .padding(LeoSettingsMetrics.groupPadding)
     }
 
     private var fileSheet: some View {

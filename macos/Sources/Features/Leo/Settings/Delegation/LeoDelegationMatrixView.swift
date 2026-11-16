@@ -99,9 +99,9 @@ private struct LeoDelegationProfileHeader: View {
             .help(model.hasUnsavedChanges ? "Save or revert your edits first" : "Actions for \(profile.name)")
             .accessibilityLabel("Actions for profile \(profile.name)")
         }
-        .padding(8)
+        .padding(LeoSettingsMetrics.compactPadding)
         .frame(width: LeoDelegationMatrixView.profileColumnWidth, alignment: .leading)
-        .background(profile.active ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: 8))
+        .background(profile.active ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .contain)
     }
 }
@@ -118,8 +118,8 @@ private struct LeoDelegationRoleHeader: View {
                 HStack(spacing: 6) {
                     Text(role.name).font(.subheadline.weight(.semibold)).lineLimit(1)
                     if !role.declared {
-                        Text("undeclared").font(.caption2).foregroundStyle(.orange)
-                            .padding(.horizontal, 5).padding(.vertical, 1).background(Color.orange.opacity(0.15), in: Capsule())
+                        Text("undeclared").font(.caption2).foregroundStyle(LeoSettingsStatus.warning.color)
+                            .padding(.horizontal, 5).padding(.vertical, 1).background(LeoSettingsStatus.warning.color.opacity(0.15), in: Capsule())
                             .help("No entry under delegation.roles; routed by a profile only")
                     }
                 }
@@ -142,7 +142,7 @@ private struct LeoDelegationRoleHeader: View {
             .help("Actions for \(role.name)")
             .accessibilityLabel("Actions for role \(role.name)")
         }
-        .padding(8)
+        .padding(LeoSettingsMetrics.compactPadding)
         .frame(width: LeoDelegationMatrixView.roleColumnWidth, alignment: .leading)
         .popover(isPresented: Binding(
             get: { model.useForEditor?.role == role.name }, set: { if !$0 { model.cancelUseForEdit(role: role.name) } }
@@ -163,9 +163,9 @@ private struct LeoDelegationCellButton: View {
         Button { model.beginCellEdit(profile: cell.profile, role: role) } label: { label }
             .buttonStyle(.plain)
             .frame(width: LeoDelegationMatrixView.profileColumnWidth, alignment: .leading)
-            .background(background, in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(.separator))
-            .contentShape(RoundedRectangle(cornerRadius: 8))
+            .background(background, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius).strokeBorder(.separator))
+            .contentShape(RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
             .disabled(!model.isConfigured)
             .popover(isPresented: Binding(
                 get: { model.cellEditor?.profile == cell.profile && model.cellEditor?.role == role },
@@ -199,10 +199,10 @@ private struct LeoDelegationCellButton: View {
                         .background(Color.secondary.opacity(0.15), in: Capsule())
                 }
             }
-            .padding(8).frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+            .padding(LeoSettingsMetrics.compactPadding).frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
         } else {
             Text("Not routed").font(.caption).foregroundStyle(.tertiary)
-                .padding(8).frame(maxWidth: .infinity, minHeight: 58, alignment: .center)
+                .padding(LeoSettingsMetrics.compactPadding).frame(maxWidth: .infinity, minHeight: 58, alignment: .center)
         }
     }
 }

@@ -34,7 +34,7 @@ struct LeoDelegationView: View {
                 LeoDelegationWarnings(warnings: model.warnings)
                 LeoDelegationConsults(consults: model.recentConsults)
             }
-            .padding(20)
+            .padding(LeoSettingsMetrics.sheetPadding)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .sheet(item: $request) { LeoDelegationRequestSheet(model: model, request: $0, close: { request = nil }) }
@@ -141,7 +141,7 @@ struct LeoDelegationNotConfigured: View {
                 Link("Open the web UI", destination: webLink)
             }
         }
-        .padding(24)
+        .padding(LeoSettingsMetrics.panePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
     }

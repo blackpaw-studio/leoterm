@@ -60,7 +60,7 @@ struct LeoRemoteOverviewView: View {
             Section("Connection") {
                 connectionFields(for: host)
                 ForEach(model.errors(for: host), id: \.self) { message in
-                    Text(message).font(.caption).foregroundStyle(LeoTint.red.color)
+                    Text(message).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color)
                 }
             }
             Section {
@@ -107,7 +107,7 @@ struct LeoRemoteOverviewView: View {
         HStack {
             Button("Remove Machine…") { model.requestRemoval(of: host.id) }
             if let error = model.saveError {
-                Text(error).font(.caption).foregroundStyle(LeoTint.red.color).lineLimit(2)
+                Text(error).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).lineLimit(2)
             }
             Spacer()
             Button("Revert", action: model.revert).disabled(!model.isDirty)
@@ -115,7 +115,7 @@ struct LeoRemoteOverviewView: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(!model.isDirty || !model.isValid)
         }
-        .padding(16)
+        .padding(LeoSettingsMetrics.contentPadding)
     }
 
     // MARK: Helpers

@@ -62,10 +62,10 @@ struct LeoTaskRunNoticeView: View {
         case .starting(let name)?:
             Label("Starting \(name)…", systemImage: "play.circle").font(.caption).foregroundStyle(.secondary)
         case .started(let name)?:
-            Label("Started \(name)", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green)
+            Label("Started \(name)", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(LeoSettingsStatus.success.color)
         case .failed(let name, let reason)?:
             Label("Couldn’t start \(name): \(reason)", systemImage: "exclamationmark.triangle.fill")
-                .font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                .font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).fixedSize(horizontal: false, vertical: true)
         case nil:
             EmptyView()
         }
@@ -128,13 +128,13 @@ struct LeoTaskMessageBanner: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: "exclamationmark.octagon.fill").foregroundStyle(.red).accessibilityHidden(true)
+            Image(systemName: "exclamationmark.octagon.fill").foregroundStyle(LeoSettingsStatus.failure.color).accessibilityHidden(true)
             Text(message).textSelection(.enabled)
             Spacer(minLength: 12)
             Button("Dismiss", action: dismiss).buttonStyle(.borderless)
         }
         .padding(10)
-        .background(Color.red.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .background(LeoSettingsStatus.failure.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .combine)
     }
 }

@@ -48,13 +48,13 @@ struct LeoAppearanceRuleRow: View {
                 Button(action: delete) { Image(systemName: "minus.circle") }
                     .buttonStyle(.borderless)
                     .help("Delete Rule")
-                    .accessibilityLabel("Delete Rule \(number)")
+                    .accessibilityLabel("Delete rule \(number)")
             }
             .padding(.leading, Self.numberWidth + Self.spacing)
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(LeoSettingsStatus.warning.color)
                     .padding(.leading, Self.numberWidth + Self.spacing)
             }
         }

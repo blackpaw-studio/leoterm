@@ -149,14 +149,14 @@ struct LeoServiceMessages: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let notice = model.notice {
-                Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(LeoTint.green.color)
+                Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(LeoSettingsStatus.success.color)
             }
             if let summary = model.agentsSummary {
                 Label(summary, systemImage: "arrow.triangle.2.circlepath").foregroundStyle(.secondary)
             }
             if let error = model.errorMessage {
                 HStack(alignment: .firstTextBaseline) {
-                    Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(LeoTint.red.color).textSelection(.enabled)
+                    Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.failure.color).textSelection(.enabled)
                     Spacer(minLength: 8)
                     Button("Dismiss") { model.dismissMessages() }.buttonStyle(.link)
                 }

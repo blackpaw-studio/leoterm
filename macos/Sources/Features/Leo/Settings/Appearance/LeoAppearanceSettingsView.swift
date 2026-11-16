@@ -73,12 +73,12 @@ private struct LeoAppearancePane: View {
     private var rules: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Appearance Rules").font(.headline)
+                Text("Appearance rules").font(.headline)
                 Text("The first rule that matches sets an agent’s color or emoji, unless the agent has its own.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
-            .padding(12)
+            .padding(LeoSettingsMetrics.groupPadding)
             List {
                 ForEach(Array(model.rows.enumerated()), id: \.element.id) { index, row in
                     LeoAppearanceRuleRow(
@@ -93,7 +93,7 @@ private struct LeoAppearancePane: View {
                 }
             }
             .listStyle(.inset(alternatesRowBackgrounds: true))
-            footer.padding(12)
+            footer.padding(LeoSettingsMetrics.groupPadding)
         }
     }
 
@@ -101,7 +101,7 @@ private struct LeoAppearancePane: View {
         HStack {
             Button { model.add() } label: { Label("Add Rule", systemImage: "plus") }
             if let error = model.saveError {
-                Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
+                Text(error).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).lineLimit(2)
             }
             Spacer()
             Button("Revert") { model.revert() }.disabled(!model.isDirty || model.isSaving)
@@ -113,7 +113,7 @@ private struct LeoAppearancePane: View {
 
     private var preview: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Preview").font(.headline).padding(12)
+            Text("Preview").font(.headline).padding(LeoSettingsMetrics.groupPadding)
             List(model.preview) { entry in
                 HStack(spacing: 6) {
                     VStack(alignment: .leading, spacing: 1) {
