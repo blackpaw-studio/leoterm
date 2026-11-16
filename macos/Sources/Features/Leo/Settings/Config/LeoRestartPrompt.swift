@@ -34,13 +34,13 @@ struct LeoRestartPrompt: View {
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.orange).accessibilityHidden(true)
+            Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(LeoSettingsStatus.warning.color).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(headline).font(.headline)
                 Text("Saved to leo.yaml on \(machine). Running processes keep the old settings until then.")
                     .font(.caption).foregroundStyle(.secondary)
                 if let failure {
-                    Text(failure).font(.caption).foregroundStyle(.red).textSelection(.enabled)
+                    Text(failure).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).textSelection(.enabled)
                 }
             }
             Spacer(minLength: 12)
@@ -52,8 +52,8 @@ struct LeoRestartPrompt: View {
             }
             Button("Later", action: dismiss)
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(LeoSettingsMetrics.groupPadding)
+        .background(LeoSettingsStatus.warning.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .contain)
         .confirmationDialog(
             confirming == .service ? "Restart leo on \(machine)?" : "Restart every agent on \(machine)?",

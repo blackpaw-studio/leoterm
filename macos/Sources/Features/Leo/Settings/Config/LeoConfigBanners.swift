@@ -20,19 +20,19 @@ struct LeoConfigBanners: View {
         if hasConflict || errorMessage != nil || warning != nil || restartPrompt != nil {
             VStack(spacing: 8) {
                 if hasConflict { conflictBanner }
-                if let errorMessage { messageBanner(errorMessage, symbol: "exclamationmark.octagon.fill", tint: .red) }
-                if let warning { messageBanner(warning, symbol: "exclamationmark.triangle.fill", tint: .orange) }
+                if let errorMessage { messageBanner(errorMessage, symbol: "exclamationmark.octagon.fill", tint: LeoSettingsStatus.failure.color) }
+                if let warning { messageBanner(warning, symbol: "exclamationmark.triangle.fill", tint: LeoSettingsStatus.warning.color) }
                 if let restartPrompt {
                     LeoRestartPrompt(required: restartPrompt, machine: machine, actions: restart, dismiss: dismissRestart)
                 }
             }
-            .padding(12)
+            .padding(LeoSettingsMetrics.groupPadding)
         }
     }
 
     private var conflictBanner: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Changed on \(machine) since you opened it").font(.headline)
                 Text("Reload keeps your edits over the new settings. Overwrite saves your edits over theirs now.")
@@ -42,8 +42,8 @@ struct LeoConfigBanners: View {
             Button("Reload", action: reload)
             Button("Overwrite", role: .destructive, action: overwrite)
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(LeoSettingsMetrics.groupPadding)
+        .background(LeoSettingsStatus.warning.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .contain)
     }
 
@@ -55,7 +55,7 @@ struct LeoConfigBanners: View {
             Button("Dismiss", action: dismissError).buttonStyle(.borderless)
         }
         .padding(10)
-        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .combine)
     }
 }
@@ -75,6 +75,6 @@ struct LeoConfigSaveBar: View {
             Button("Revert", action: revert).disabled(!isDirty || isBusy)
             Button("Save", action: save).keyboardShortcut(.defaultAction).disabled(!canSave)
         }
-        .padding(12)
+        .padding(LeoSettingsMetrics.groupPadding)
     }
 }

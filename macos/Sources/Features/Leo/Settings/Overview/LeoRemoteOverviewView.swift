@@ -49,10 +49,14 @@ struct LeoRemoteOverviewView: View {
             Section {
                 LeoOverviewHeader(systemImage: "server.rack", name: overview.name, subtitle: overview.subtitle) {
                     HStack(spacing: 12) {
-                        LeoConnectionBadge(status: overview.status)
-                        Toggle("Enabled", isOn: Binding(get: { host.isEnabled }, set: { model.setEnabled($0, for: host.id) }))
-                            .toggleStyle(.switch)
-                            .fixedSize()
+                        LeoConnectionBadge(status: overview.status).fixedSize()
+                        HStack(spacing: 8) {
+                            Text("Enabled").foregroundStyle(.secondary)
+                            Toggle("Enabled", isOn: Binding(get: { host.isEnabled }, set: { model.setEnabled($0, for: host.id) }))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                        }
+                        .fixedSize()
                     }
                 }
                 if let reason = overview.reason { LeoOverviewReason(text: reason, isProblem: overview.isEnabled) }
@@ -68,7 +72,6 @@ struct LeoRemoteOverviewView: View {
                     isTesting: model.isTesting, report: model.testReport,
                     canTest: model.errors(for: host).isEmpty, test: { Task { await model.testSelected() } }
                 )
-                .listRowInsets(EdgeInsets())
             }
             Section("Daemon") {
                 LabeledContent {

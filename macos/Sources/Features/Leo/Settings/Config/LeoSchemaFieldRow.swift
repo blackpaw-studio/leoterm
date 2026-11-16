@@ -22,10 +22,10 @@ struct LeoSchemaFieldRow: View {
             }
             if !row.field.warning.isEmpty {
                 Label(row.field.warning, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption).foregroundStyle(.orange)
+                    .font(.caption).foregroundStyle(LeoSettingsStatus.warning.color)
             }
             ForEach(row.errors, id: \.self) { message in
-                Text(message).font(.caption).foregroundStyle(.red)
+                Text(message).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color)
                     .accessibilityLabel("Error: \(message)")
             }
         }

@@ -219,7 +219,7 @@ struct LeoPaneFailure: View {
             Text(message).foregroundStyle(.secondary).multilineTextAlignment(.center).textSelection(.enabled)
             Button("Try Again", action: retry)
         }
-        .padding(24)
+        .padding(LeoSettingsMetrics.panePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
     }

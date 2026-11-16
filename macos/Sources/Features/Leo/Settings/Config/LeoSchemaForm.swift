@@ -19,7 +19,7 @@ struct LeoSchemaForm: View {
                 Section {
                     ForEach(formErrors, id: \.self) { message in
                         Label(message, systemImage: "exclamationmark.octagon.fill")
-                            .foregroundStyle(.red)
+                            .foregroundStyle(LeoSettingsStatus.failure.color)
                             .accessibilityLabel("Error: \(message)")
                     }
                 }

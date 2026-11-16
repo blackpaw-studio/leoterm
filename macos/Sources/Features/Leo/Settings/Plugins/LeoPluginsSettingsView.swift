@@ -67,7 +67,7 @@ private struct LeoPluginsPane: View {
             Button("Check for Updates") { Task { await model.checkForUpdates() } }
         }
         .disabled(model.isBusy)
-        .padding(12)
+        .padding(LeoSettingsMetrics.groupPadding)
     }
 
     private var list: some View {
@@ -98,7 +98,7 @@ private struct LeoPluginsPane: View {
         case .notice(let text)?:
             Text(text).foregroundStyle(.secondary).modifier(FooterStyle())
         case .failure(let text)?:
-            Label(text, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).modifier(FooterStyle())
+            Label(text, systemImage: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.failure.color).modifier(FooterStyle())
         case nil:
             EmptyView()
         }
@@ -182,17 +182,17 @@ private struct LeoPluginRowView: View {
         case .running, .off:
             EmptyView()
         case .needsApproval(let lines):
-            notice("Needs approval", detail: lines.joined(separator: " · "), symbol: "exclamationmark.shield.fill", tint: .orange) {
+            notice("Needs approval", detail: lines.joined(separator: " · "), symbol: "exclamationmark.shield.fill", tint: LeoSettingsStatus.warning.color) {
                 Button("Review…", action: review)
             }
         case .crashDisabled(let reason):
-            notice("Turned off after repeated crashes", detail: reason, symbol: "exclamationmark.triangle.fill", tint: .red) {
+            notice("Turned off after repeated crashes", detail: reason, symbol: "exclamationmark.triangle.fill", tint: LeoSettingsStatus.failure.color) {
                 Button("Re-enable", action: reenable)
             }
         case .restarting(let reason):
             notice("Restarting", detail: reason, symbol: "arrow.clockwise", tint: .secondary) { EmptyView() }
         case .refused(let reason):
-            notice("Can't run", detail: reason, symbol: "xmark.octagon.fill", tint: .red) { EmptyView() }
+            notice("Can't run", detail: reason, symbol: "xmark.octagon.fill", tint: LeoSettingsStatus.failure.color) { EmptyView() }
         }
     }
 
@@ -238,7 +238,7 @@ private struct LeoPluginInstallSourceSheet: View {
                 .disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(20)
+        .padding(LeoSettingsMetrics.sheetPadding)
         .frame(width: 440)
     }
 }

@@ -14,7 +14,7 @@ struct LeoCronField: View {
             case .valid(let description)?:
                 Text(description).font(.caption).foregroundStyle(.secondary)
             case .invalid(let reason)?:
-                Text(reason).font(.caption).foregroundStyle(.red).accessibilityLabel("Error: \(reason)")
+                Text(reason).font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).accessibilityLabel("Error: \(reason)")
             case nil:
                 EmptyView()
             }

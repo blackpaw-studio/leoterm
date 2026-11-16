@@ -11,7 +11,7 @@ struct LeoStatsStylePreview: View {
             ForEach(Self.samples, id: \.name) { sample in
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 6) {
-                        Circle().fill(.green).frame(width: 8, height: 8)
+                        Circle().fill(LeoSettingsStatus.success.color).frame(width: 8, height: 8)
                         Text(sample.name).fontWeight(.medium)
                         Spacer(minLength: 8)
                         previewCluster(sample.meters)
@@ -23,8 +23,8 @@ struct LeoStatsStylePreview: View {
         }
         .frame(width: 260)
         .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor)))
+        .background(RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius).fill(Color(nsColor: .controlBackgroundColor)))
+        .overlay(RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius).stroke(Color(nsColor: .separatorColor)))
     }
 
     /// The same meters the sidebar's machine headers draw.
