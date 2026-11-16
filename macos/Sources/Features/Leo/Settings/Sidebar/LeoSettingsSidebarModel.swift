@@ -1,0 +1,166 @@
+import Combine
+import Foundation
+import LeoKit
+
+/// The Settings sidebar's state: which row is selected, which machines are
+/// expanded, and the machine rows. The sidebar selection is the only machine
+/// selector; every change goes through the target model, so one dirty check
+/// guards it, and a refused change leaves the old selection until confirmed.
+@MainActor final class LeoSettingsSidebarModel: ObservableObject {
+    /// A machine row: This Mac, or a remote from the Machines draft.
+    struct MachineRow: Identifiable, Equatable {
+        let ref: LeoSettingsMachineRef
+        let name: String
+        let status: LeoMachineStatus?
+        /// Turned off in settings: shown as "Off" instead of a status dot.
+        let isOff: Bool
+
+        var id: LeoSettingsMachineRef { ref }
+
+        /// Whether the machine's panes can be opened. The overview always can.
+        var panesEnabled: Bool { !isOff && LeoSettingsSidebarItem.panesEnabled(status: status) }
+
+        var statusText: String {
+            if isOff { return "Off" }
+            switch status {
+            case .connected?: return "Connected"
+            case .connecting?: return "Connecting"
+            case .failed?: return "Unreachable"
+            case .disabled?: return "Off"
+            case nil: return "Not connected"
+            }
+        }
+
+        /// What VoiceOver reads: "name, status".
+        var accessibilityLabel: String { "\(name), \(statusText)" }
+    }
+
+    @Published private(set) var selection: LeoSettingsSidebarItem
+    @Published private(set) var expanded: Set<LeoSettingsMachineRef>
+
+    private let model: LeoMachinesSettingsModel
+    private let target: LeoSettingsTargetModel
+    private let status: (LeoHostID) -> LeoMachineStatus?
+    private let configurations: () -> [LeoHostConfiguration]
+    /// A selection waiting on the user's answer to the target's question.
+    private var pendingItem: LeoSettingsSidebarItem?
+    private var subscriptions: Set<AnyCancellable> = []
+
+    /// `machinesChanged` fires after the registry's machine list changes (a
+    /// save); `configurations` are the saved machines.
+    init(
+        model: LeoMachinesSettingsModel, target: LeoSettingsTargetModel, status: @escaping (LeoHostID) -> LeoMachineStatus?,
+        configurations: @escaping () -> [LeoHostConfiguration], machinesChanged: AnyPublisher<Void, Never>,
+        initial: LeoSettingsSidebarItem
+    ) {
+        self.model = model
+        self.target = target
+        self.status = status
+        self.configurations = configurations
+        selection = initial
+        expanded = initial.machine.map { [$0] } ?? []
+        model.$hosts.dropFirst()
+            .sink { [weak self] hosts in self?.resync(draft: hosts) }
+            .store(in: &subscriptions)
+        machinesChanged
+            .sink { [weak self] in self?.resync(draft: self?.model.hosts ?? []) }
+            .store(in: &subscriptions)
+        model.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &subscriptions)
+        target.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &subscriptions)
+    }
+
+    // MARK: Rows
+
+    /// This Mac, then the draft's remotes in order (so an unsaved machine shows).
+    var rows: [MachineRow] {
+        let saved = configurations()
+        let local = MachineRow(ref: .local, name: "This Mac", status: status(.local), isOff: false)
+        let remotes = model.hosts.map { host in
+            // The registry knows a machine by its saved name, not the draft's.
+            let liveName = saved.first { $0.id == host.id }?.name
+            return MachineRow(
+                ref: .remote(host.id), name: host.name.isEmpty ? "Untitled" : host.name,
+                status: host.isEnabled ? liveName.flatMap { status(.remote($0)) } : .disabled, isOff: !host.isEnabled
+            )
+        }
+        return [local] + remotes
+    }
+
+    func isExpanded(_ ref: LeoSettingsMachineRef) -> Bool { expanded.contains(ref) }
+
+    // MARK: Actions
+
+    /// Selects `item`. It takes effect now when the target accepts the move,
+    /// else once the user confirms the discard question (`confirmPending`).
+    func select(_ item: LeoSettingsSidebarItem) {
+        guard item != selection else { return }
+        let resolution = resolve(item, draft: model.hosts)
+        if target.requestSelection(host: resolution.host, tab: resolution.tab) {
+            commit(resolution.item)
+        } else {
+            pendingItem = resolution.item
+        }
+    }
+
+    /// The disclosure chevron: expands or collapses a machine, never selects.
+    func toggleDisclosure(_ ref: LeoSettingsMachineRef) {
+        if expanded.contains(ref) { expanded.remove(ref) } else { expanded.insert(ref) }
+    }
+
+    /// The `+` in the Machines header: a new unsaved machine, selected.
+    func addMachine() {
+        model.addHost()
+        guard let id = model.selectedID else { return }
+        select(.machine(.remote(id)))
+    }
+
+    /// The user chose Discard: the target applies its move, and the sidebar follows.
+    func confirmPending() {
+        target.confirmPendingChange()
+        if let pendingItem { commit(pendingItem) }
+        pendingItem = nil
+    }
+
+    func cancelPending() {
+        target.cancelPendingChange()
+        pendingItem = nil
+    }
+
+    // MARK: Internals
+
+    private func commit(_ item: LeoSettingsSidebarItem) {
+        let previous = selection.machine
+        selection = item
+        if let machine = item.machine, machine != previous {
+            if let previous { expanded.remove(previous) }
+            expanded.insert(machine)
+        }
+        if case .remote(let id)? = item.machine, model.selectedID != id { model.selectedID = id }
+    }
+
+    /// A machine removed from the draft is gone from the sidebar even while
+    /// the saved list still has it, so only saved machines the draft still
+    /// holds count as configured.
+    private func resolve(_ item: LeoSettingsSidebarItem, draft: [LeoHostConfiguration]) -> LeoSettingsSidebarItem.Resolution {
+        let kept = configurations().filter { saved in draft.contains { $0.id == saved.id } }
+        return LeoSettingsSidebarItem.resolve(item, configurations: kept, draft: draft)
+    }
+
+    /// The machine list changed: a selected remote that is gone falls back to
+    /// This Mac; one that was renamed is followed to its new name, which the
+    /// target lost when the old name left the registry.
+    private func resync(draft: [LeoHostConfiguration]) {
+        let resolution = resolve(selection, draft: draft)
+        if resolution.item != selection {
+            pendingItem = nil
+            _ = target.requestSelection(host: resolution.host, tab: resolution.tab)
+            commit(resolution.item)
+        } else if let host = resolution.host, host != target.selectedHost {
+            _ = target.requestSelection(host: host, tab: resolution.tab)
+        }
+    }
+}
