@@ -14,10 +14,10 @@ struct LeoStatusDot: View {
 
     private var color: Color {
         switch status {
-        case .connected?: .green
-        case .failed?: .red
-        case .connecting?: .yellow
-        case .disabled?, nil: .gray.opacity(0.5)
+        case .connected?: LeoTint.green.color
+        case .failed?: LeoTint.red.color
+        case .connecting?: LeoTint.orange.color
+        case .disabled?, nil: Color(nsColor: .tertiaryLabelColor)
         }
     }
 

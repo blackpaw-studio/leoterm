@@ -544,6 +544,28 @@ struct LeoSettingsSnapshots {
         try Self.write(await Self.remote(hosts: [host]), named: "remoteDisabled", size: Self.overviewSize, to: directory)
     }
 
+    // MARK: Sidebar
+
+    @Test func sidebar() throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let defaults = LeoInMemoryDefaults()
+        try LeoMachineRegistryTestSupport.save(
+            [LeoMachineRegistryTestSupport.host("dionysus"), LeoMachineRegistryTestSupport.host("helios", enabled: false)], to: defaults
+        )
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults)
+        let model = registry.makeSettingsModel()
+        let target = LeoSettingsTargetModel(
+            clients: FakeMachineClients(), machines: { registry.machines }, status: { registry.status(for: $0) },
+            statuses: registry.machineStatuses, reconnect: { _ in }, initialHost: nil
+        )
+        let sidebar = LeoSettingsSidebarModel(
+            model: model, target: target, status: { registry.status(for: $0) }, configurations: { registry.configurations },
+            machinesChanged: Empty().eraseToAnyPublisher(), initial: .pane(.local, .defaults)
+        )
+        sidebar.toggleDisclosure(.remote(LeoMachineRegistryTestSupport.host("helios").id))
+        try Self.write(LeoSettingsSidebarView(model: sidebar, registry: registry), named: "sidebar", size: NSSize(width: 250, height: 640), to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {

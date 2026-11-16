@@ -35,8 +35,7 @@ import Testing
     private func controller(answers: [Int], machinesDirty: Bool, paneDirty: Bool) -> (LeoSettingsWindowController, ScriptedPrompting, Pane) {
         let prompting = ScriptedPrompting(answers: answers)
         let controller = LeoSettingsWindowController(
-            registry: .isolatedForTesting(), clients: FakeMachineClients(), defaults: LeoInMemoryDefaults(),
-            selectedHost: { nil }, prompting: prompting
+            registry: .isolatedForTesting(), clients: FakeMachineClients(), defaults: LeoInMemoryDefaults(), prompting: prompting
         )
         controller.show()
         let pane = Pane()

@@ -49,7 +49,7 @@ import LeoKit
     let managedFeed = LeoManagedDaemonFeed()
     /// Agents ▸ Machines…: the Leo Settings window. ⌘, stays the Ghostty config.
     private(set) lazy var settingsWindow = LeoSettingsWindowController(
-        managedFeed: managedFeed, registry: machines, clients: clients, defaults: defaults, selectedHost: { [model] in model.selectedRow?.host },
+        managedFeed: managedFeed, registry: machines, clients: clients, defaults: defaults,
         agentBrowser: agentBrowsers.setting, agents: { [model] host in model.snapshot(for: host)?.rows ?? [] },
         plugins: { [weak self] in self?.plugins }, builtInPanes: builtInPanes
     )
