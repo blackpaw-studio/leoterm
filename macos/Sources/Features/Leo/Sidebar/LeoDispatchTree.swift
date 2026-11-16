@@ -13,9 +13,11 @@ struct LeoDispatchNode: Equatable, Sendable, Identifiable {
 /// The selected host's live dispatches, nested for the sidebar (B-257).
 /// Pure value: the `/state` baseline reconciles it, `dispatch_changed`
 /// upserts into it, and a terminal status or `ended_at` removes a record
-/// at once (no lingering). Ids that ended live are remembered for the
-/// daemon's lifetime (capped), so a baseline taken before the end can't
-/// bring them back. Nothing shows unless the daemon advertised
+/// at once (no lingering). Ids that ended live are remembered (capped)
+/// with where in the stream they ended, so a baseline taken before the end
+/// can't bring them back; a live record after the end (a parked dispatch
+/// reopened under the same id) or a baseline newer than it wins. Nothing
+/// shows unless the daemon advertised
 /// `dispatch_tree`: no source means no rows, never an invented state.
 struct LeoDispatchTree: Equatable, Sendable {
     /// How many ended ids are remembered; the oldest falls out first.
@@ -30,8 +32,15 @@ struct LeoDispatchTree: Equatable, Sendable {
 
     private(set) var isEnabled = false
     private var records: [String: LeoDispatch] = [:]
+    /// Where an id ended: the `mark` its end took, and the event seq when
+    /// the daemon sent one. `endedIDs` is their insertion order for the cap.
+    private struct EndPoint: Equatable, Sendable {
+        let mark: Int
+        let seq: Int?
+    }
+
     private var endedIDs: [String] = []
-    private var endedSet: Set<String> = []
+    private var endedAt: [String: EndPoint] = [:]
     private var bootID: String?
     /// Bumped by every live upsert; `upsertMarks` holds each record's.
     private(set) var mark = 0
@@ -60,7 +69,8 @@ struct LeoDispatchTree: Equatable, Sendable {
     }
 
     /// Replaces every record with `dispatches`' live ones, minus any id
-    /// that already ended. `mark` is `self.mark` read when the fetch
+    /// whose end the baseline predates (one it postdates shows it: the id
+    /// was reopened). `mark` is `self.mark` read when the fetch
     /// started: a record the daemon reported live after it is newer than
     /// the baseline, so it stays as it is. A record the fetch began after
     /// the last report of is confirmed stale and goes if the baseline
@@ -72,7 +82,7 @@ struct LeoDispatchTree: Equatable, Sendable {
         let previous = records
         if let seq { newestBaselineSeq = max(newestBaselineSeq ?? seq, seq) }
         var updated = Dictionary(
-            dispatches.filter { $0.isLive && !endedSet.contains($0.id) }.prefix(Self.recordCap).map { ($0.id, $0) },
+            dispatches.filter { $0.isLive && !baseline(since: mark, atSeq: seq, predatesEndOf: $0.id) }.prefix(Self.recordCap).map { ($0.id, $0) },
             uniquingKeysWith: { _, latest in latest }
         )
         var kept: Set<String> = []
@@ -92,6 +102,7 @@ struct LeoDispatchTree: Equatable, Sendable {
             }
         }
         for (id, record) in previous where updated[id] == nil { rememberAncestry(of: record) }
+        for id in updated.keys where endedAt[id] != nil { forgetEnded(id) }
         records = updated
         upsertMarks = upsertMarks.filter { updated[$0.key] != nil }
         if usesStateSeq, let seq {
@@ -110,10 +121,16 @@ struct LeoDispatchTree: Equatable, Sendable {
     /// Applies one live record. Returns whether the records changed.
     @discardableResult
     mutating func upsert(_ dispatch: LeoDispatch, seq: Int? = nil) -> Bool {
-        guard !endedSet.contains(dispatch.id) else { return false }
+        if dispatch.isLive, let end = endedAt[dispatch.id] {
+            // The stream is ordered: a live record after the end is a
+            // reopen. One the end's own seq already covers is a late echo.
+            if usesStateSeq, let seq, let endSeq = end.seq, seq <= endSeq { return false }
+            forgetEnded(dispatch.id)
+        }
         guard dispatch.isLive else {
+            guard endedAt[dispatch.id] == nil else { return false }
             rememberAncestry(of: records[dispatch.id] ?? dispatch)
-            rememberEnded(dispatch.id)
+            rememberEnded(dispatch.id, seq: seq)
             upsertMarks[dispatch.id] = nil
             recordSeqs[dispatch.id] = nil
             return records.removeValue(forKey: dispatch.id) != nil
@@ -136,7 +153,7 @@ struct LeoDispatchTree: Equatable, Sendable {
     @discardableResult
     mutating func remove(_ id: String) -> Bool {
         if let record = records[id] { rememberAncestry(of: record) }
-        rememberEnded(id)
+        rememberEnded(id, seq: nil)
         upsertMarks[id] = nil
         recordSeqs[id] = nil
         return records.removeValue(forKey: id) != nil
@@ -166,7 +183,7 @@ struct LeoDispatchTree: Equatable, Sendable {
         ancestry = [:]
         ancestryOrder = []
         endedIDs = []
-        endedSet = []
+        endedAt = [:]
         return true
     }
 
@@ -242,10 +259,29 @@ struct LeoDispatchTree: Equatable, Sendable {
         ancestry.removeValue(forKey: ancestryOrder.removeFirst())
     }
 
-    private mutating func rememberEnded(_ id: String) {
-        guard endedSet.insert(id).inserted else { return }
+    /// Notes the end at a fresh mark, so a baseline fetched before it
+    /// (`since` < its mark) is told from one fetched after (`since` >= it).
+    private mutating func rememberEnded(_ id: String, seq: Int?) {
+        guard endedAt[id] == nil else { return }
+        mark += 1
+        endedAt[id] = EndPoint(mark: mark, seq: usesStateSeq ? seq : nil)
         endedIDs.append(id)
         guard endedIDs.count > Self.endedCap else { return }
-        endedSet.remove(endedIDs.removeFirst())
+        endedAt.removeValue(forKey: endedIDs.removeFirst())
+    }
+
+    private mutating func forgetEnded(_ id: String) {
+        endedAt.removeValue(forKey: id)
+        endedIDs.removeAll { $0 == id }
+    }
+
+    /// Whether a baseline can't be newer than `id`'s end, so showing the id
+    /// live would resurrect it. By seq when both sides have one, else by
+    /// mark; a baseline with neither can't be ordered and stays excluded.
+    private func baseline(since mark: Int?, atSeq seq: Int?, predatesEndOf id: String) -> Bool {
+        guard let end = endedAt[id] else { return false }
+        if usesStateSeq, let seq, let endSeq = end.seq { return seq <= endSeq }
+        if let mark { return mark < end.mark }
+        return true
     }
 }

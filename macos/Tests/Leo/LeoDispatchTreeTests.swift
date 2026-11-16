@@ -80,8 +80,6 @@ struct LeoDispatchTreeTests {
         tree.upsert(dispatch("d1", status: "done"))
         tree.applyBaseline([dispatch("d1"), dispatch("d2")])
         #expect(ids(tree.children(of: "alpha")) == ["d2"])
-        let changed7 = tree.upsert(dispatch("d1"))
-        #expect(!changed7, "nor can a late live record")
     }
 
     @Test func aBaselineReplacesWhatWasThere() {
@@ -129,14 +127,14 @@ struct LeoDispatchTreeTests {
         #expect(ids(tree.children(of: "alpha")) == ["d2", "d3"])
     }
 
-    @Test func anEndedIDStaysGoneThroughAReconnectBaselineAndLateRepublish() {
+    @Test func anEndedIDStaysGoneThroughABaselineThatPredatesItsEnd() {
         var tree = enabledTree([dispatch("d1")])
-        tree.upsert(dispatch("d1", status: "done"))
         let mark = tree.mark
+        tree.upsert(dispatch("d1", status: "done"))
         tree.applyBaseline([dispatch("d1")], since: mark)
-        let changed = tree.upsert(dispatch("d1"))
-        #expect(!changed)
         #expect(tree.children(of: "alpha").isEmpty)
+        tree.applyBaseline([dispatch("d1")])
+        #expect(tree.children(of: "alpha").isEmpty, "a baseline that can't be ordered never resurrects")
     }
 
     // MARK: state_seq
@@ -190,6 +188,55 @@ struct LeoDispatchTreeTests {
         tree.upsert(dispatch("d1"), seq: 10)
         tree.applyBaseline([], since: tree.mark, atSeq: 5)
         #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    // MARK: reopened dispatches (daemon #340: a parked run comes back under the same id)
+
+    @Test func aLiveEventAfterTheEndReopensTheRow() {
+        var tree = enabledTree()
+        tree.upsert(dispatch("d1"))
+        tree.upsert(dispatch("d1", status: "closed"))
+        #expect(tree.children(of: "alpha").isEmpty)
+        let changed = tree.upsert(dispatch("d1", status: "running"))
+        #expect(changed)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"])
+    }
+
+    @Test func aBaselineNewerThanTheEndShowsTheReopenedRow() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1"), seq: 5)
+        tree.upsert(dispatch("d1", status: "closed"), seq: 10)
+        tree.applyBaseline([dispatch("d1", status: "running")], since: tree.mark, atSeq: 15)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"])
+    }
+
+    @Test func aBaselineOlderThanTheEndStillCannotResurrectTheRow() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1"), seq: 5)
+        tree.upsert(dispatch("d1", status: "closed"), seq: 10)
+        tree.applyBaseline([dispatch("d1")], since: tree.mark, atSeq: 8)
+        #expect(tree.children(of: "alpha").isEmpty)
+        tree.applyBaseline([dispatch("d1")], since: tree.mark, atSeq: 10)
+        #expect(tree.children(of: "alpha").isEmpty, "a snapshot at the end's own seq already reflects the end")
+    }
+
+    @Test func anOlderLiveEventCannotReopenAnEndedRow() {
+        var tree = seqTree()
+        tree.upsert(dispatch("d1", status: "closed"), seq: 10)
+        let late = tree.upsert(dispatch("d1"), seq: 7)
+        #expect(!late)
+        #expect(tree.children(of: "alpha").isEmpty)
+    }
+
+    @Test func withoutStateSeqAMarkOrdersTheBaselineAgainstTheEnd() {
+        var tree = enabledTree()
+        tree.upsert(dispatch("d1"))
+        let beforeEnd = tree.mark
+        tree.upsert(dispatch("d1", status: "closed"))
+        tree.applyBaseline([dispatch("d1")], since: beforeEnd)
+        #expect(tree.children(of: "alpha").isEmpty, "fetch began before the end")
+        tree.applyBaseline([dispatch("d1")], since: tree.mark)
+        #expect(ids(tree.children(of: "alpha")) == ["d1"], "fetch began after the end")
     }
 
     // MARK: dispatch_removed
