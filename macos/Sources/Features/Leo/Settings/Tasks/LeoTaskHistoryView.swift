@@ -48,7 +48,7 @@ struct LeoTaskHistoryView: View {
                 Spacer()
                 Button("Refresh") { Task { await model.reloadHistory() } }.buttonStyle(.borderless)
             }
-            .padding(6)
+            .padding(LeoSettingsMetrics.rowPadding)
         }
     }
 
@@ -67,10 +67,10 @@ struct LeoTaskHistoryView: View {
                     Text(log.file).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                     Spacer()
                     if log.truncated {
-                        Label("Showing the end of a long log", systemImage: "scissors").font(.caption).foregroundStyle(.orange)
+                        Label("Showing the end of a long log", systemImage: "scissors").font(.caption).foregroundStyle(LeoSettingsStatus.warning.color)
                     }
                 }
-                .padding(.horizontal, 12).padding(.vertical, 6)
+                .padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.vertical, LeoSettingsMetrics.rowPadding)
                 Divider()
                 LeoLogTextView(text: log.text.isEmpty ? "The log is empty." : log.text)
             }
@@ -104,8 +104,8 @@ private struct LeoTaskRunRow: View {
 
     private var tint: Color {
         switch run.succeeded {
-        case true?: .green
-        case false?: .red
+        case true?: LeoSettingsStatus.success.color
+        case false?: LeoSettingsStatus.failure.color
         case nil: .secondary
         }
     }

@@ -23,6 +23,26 @@ import Testing
         return names
     }
 
+    // MARK: service section
+
+    @Test func theServiceSectionComesFirstAndIsTheDefault() async throws {
+        let model = try await Self.harness().model
+        #expect(LeoDaemonSettingsModel.Section.allCases == [.service, .web, .client, .hosts])
+        #expect(model.section == .service)
+    }
+
+    @Test func theLogShowsOnlyWhileTheDaemonPaneIsSelectedOnTheServiceSection() async throws {
+        let model = try await Self.harness().model
+
+        #expect(model.isLogVisible(paneSelected: true))
+        #expect(!model.isLogVisible(paneSelected: false))
+
+        model.section = .web
+        #expect(!model.isLogVisible(paneSelected: true))
+        model.section = .service
+        #expect(model.isLogVisible(paneSelected: true))
+    }
+
     // MARK: loading
 
     @Test func loadingReadsTheWebClientAndHostsForms() async throws {

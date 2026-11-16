@@ -444,6 +444,95 @@ struct LeoSettingsTargetModelTests {
         #expect(pane.reloaded.isEmpty)
     }
 
+    // MARK: atomic selection
+
+    @Test func aDirtyPaneOnOneMachineAsksOnceForAnotherMachinesPane() {
+        let harness = Self.harness()
+        let pane = Pane(dirty: true)
+        harness.model.register(pane, for: .config("templates"))
+        _ = harness.model.requestTab(.config("templates"))
+
+        #expect(!harness.model.requestSelection(host: Self.dionysus, tab: .config("tasks")))
+        #expect(harness.model.pendingChange == .selection(Self.dionysus, .config("tasks")))
+        #expect(harness.model.selectedHost == .local)
+        #expect(harness.model.selectedTab == .config("templates"))
+
+        harness.model.confirmPendingChange()
+        #expect(harness.model.selectedHost == Self.dionysus)
+        #expect(harness.model.selectedTab == .config("tasks"))
+        #expect(harness.model.pendingChange == nil)
+        #expect(pane.discards == 1)
+    }
+
+    @Test func cancellingASelectionAppliesNeitherTheMachineNorTheTab() {
+        let harness = Self.harness()
+        let pane = Pane(dirty: true)
+        harness.model.register(pane, for: .config("templates"))
+        _ = harness.model.requestTab(.config("templates"))
+        _ = harness.model.requestSelection(host: Self.dionysus, tab: .config("tasks"))
+        harness.model.cancelPendingChange()
+        #expect(pane.hasUnsavedChanges)
+
+        #expect(harness.model.selectedHost == .local)
+        #expect(harness.model.selectedTab == .config("templates"))
+        #expect(harness.model.pendingChange == nil)
+    }
+
+    @Test func aCleanSelectionMovesMachineAndTabTogether() {
+        let harness = Self.harness()
+        #expect(harness.model.requestSelection(host: Self.dionysus, tab: .config("tasks")))
+        #expect(harness.model.selectedHost == Self.dionysus)
+        #expect(harness.model.selectedTab == .config("tasks"))
+        #expect(harness.model.pendingChange == nil)
+    }
+
+    @Test func aNilHostKeepsTheCurrentMachine() {
+        let harness = Self.harness(initialHost: Self.dionysus)
+        #expect(harness.model.requestSelection(host: nil, tab: .general))
+        #expect(harness.model.selectedHost == Self.dionysus)
+        #expect(harness.model.selectedTab == .general)
+    }
+
+    @Test func selectingTheCurrentMachineAndTabIsANoOp() {
+        let harness = Self.harness()
+        let pane = Pane(dirty: true)
+        harness.model.register(pane, for: .config("templates"))
+        let epoch = harness.model.machineEpoch
+        #expect(harness.model.requestSelection(host: .local, tab: .overview))
+        #expect(harness.model.machineEpoch == epoch)
+    }
+
+    @Test func aDirtyPaneOnTheOtherTabDoesNotBlockATabOnlyMove() {
+        let harness = Self.harness()
+        let pane = Pane(dirty: true)
+        harness.model.register(pane, for: .config("templates"))
+        // The selected tab (overview) is clean, so moving within the machine is free.
+        #expect(harness.model.requestSelection(host: nil, tab: .config("tasks")))
+        #expect(harness.model.pendingChange == nil)
+    }
+
+    // MARK: daemon version
+
+    @Test func theDaemonVersionIsSetForAReadyMachine() async {
+        let harness = Self.harness(daemons: [.local: Self.config(version: "0.52.0")])
+        #expect(harness.model.daemonVersion == nil)
+        await harness.model.settled()
+        #expect(harness.model.daemonVersion == "0.52.0")
+    }
+
+    @Test func theDaemonVersionIsSetForATooOldMachine() async {
+        let harness = Self.harness(daemons: [.local: Self.config(supported: false, version: "0.40.0")])
+        await harness.model.settled()
+        #expect(harness.model.daemonVersion == "0.40.0")
+    }
+
+    @Test func aMachineSwitchClearsTheDaemonVersion() async {
+        let harness = Self.harness(daemons: [.local: Self.config(version: "0.52.0")])
+        await harness.model.settled()
+        _ = harness.model.requestSwitch(to: Self.dionysus)
+        #expect(harness.model.daemonVersion == nil)
+    }
+
     // MARK: unsaved changes
 
     @Test func aDirtyPaneMakesAMachineSwitchAskFirst() async {
@@ -453,7 +542,7 @@ struct LeoSettingsTargetModelTests {
 
         #expect(!harness.model.requestSwitch(to: Self.dionysus))
         #expect(harness.model.selectedHost == .local)
-        #expect(harness.model.pendingChange == .machine(Self.dionysus))
+        #expect(harness.model.pendingChange == .selection(Self.dionysus, .overview))
         #expect(pane.discards == 0)
 
         harness.model.confirmPendingChange()
@@ -490,7 +579,7 @@ struct LeoSettingsTargetModelTests {
 
         #expect(!harness.model.requestTab(.config("tasks")))
         #expect(harness.model.selectedTab == .config("templates"))
-        #expect(harness.model.pendingChange == .tab(.config("tasks")))
+        #expect(harness.model.pendingChange == .selection(nil, .config("tasks")))
 
         harness.model.confirmPendingChange()
         #expect(harness.model.selectedTab == .config("tasks"))
@@ -502,8 +591,8 @@ struct LeoSettingsTargetModelTests {
         harness.model.register(Pane(dirty: false), for: .config("templates"))
         _ = harness.model.requestTab(.config("templates"))
 
-        #expect(harness.model.requestTab(.machines))
-        #expect(harness.model.selectedTab == .machines)
+        #expect(harness.model.requestTab(.overview))
+        #expect(harness.model.selectedTab == .overview)
     }
 
     @Test func aPaneThatWasReleasedCountsAsClean() {
@@ -515,8 +604,10 @@ struct LeoSettingsTargetModelTests {
         #expect(!harness.model.hasUnsavedChanges)
     }
 
-    @Test func onlyConfigTabsUseTheMachinePicker() {
-        #expect(!LeoSettingsTab.machines.usesMachineTarget)
+    @Test func onlyMachinePagesUseTheMachineTarget() {
+        #expect(!LeoSettingsTab.general.usesMachineTarget)
+        #expect(!LeoSettingsTab.plugins.usesMachineTarget)
+        #expect(LeoSettingsTab.overview.usesMachineTarget)
         #expect(LeoSettingsTab.config("templates").usesMachineTarget)
     }
 }

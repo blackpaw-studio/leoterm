@@ -74,8 +74,6 @@ import Testing
         let updater: FakeUpdater
         let log: Log
         let shown: Shown
-        let defaults: LeoInMemoryDefaults
-        let builtIn: LeoBuiltInPaneSettings
     }
 
     /// The requests the approval sheet was asked to show, and the answer it gives.
@@ -109,10 +107,8 @@ import Testing
         let installer = FakeInstaller(log: log)
         let updater = FakeUpdater(log: log)
         let shown = Shown()
-        let defaults = LeoInMemoryDefaults()
-        let builtIn = LeoBuiltInPaneSettings(defaults: defaults)
         let model = LeoPluginsSettingsModel(
-            manager: manager, installer: installer, updater: updater, builtIn: builtIn,
+            manager: manager, installer: installer, updater: updater,
             approve: { request in
                 log.events.append("approve \(request.id)")
                 shown.requests.append(request)
@@ -120,8 +116,7 @@ import Testing
                 return shown.answer
             })
         return Rig(
-            model: model, manager: manager, installer: installer, updater: updater, log: log, shown: shown,
-            defaults: defaults, builtIn: builtIn)
+            model: model, manager: manager, installer: installer, updater: updater, log: log, shown: shown)
     }
 
     private static func pendingInstall(_ manifest: LeoPluginManifest) -> LeoPluginPendingInstall {
@@ -161,33 +156,30 @@ import Testing
         #expect(rig.log.events == ["pane dev.example.demo status hidden=true", "pane dev.example.demo status hidden=false"])
     }
 
-    // MARK: Built-in Terminal tab
+    // MARK: Built-in Terminal tab (the setting General now edits)
 
-    @Test func theTerminalTabSwitchIsOnByDefault() {
-        #expect(Self.rig().model.showsTerminalTab)
+    @Test func theTerminalSwitchIsOnByDefault() {
+        #expect(LeoBuiltInPaneSettings(defaults: LeoInMemoryDefaults()).showsTerminalTab)
     }
 
     @Test func turningTheTerminalTabOffPersistsAndAnotherSettingsObjectOnTheSameDefaultsSeesIt() {
-        let rig = Self.rig()
-        rig.model.setShowsTerminalTab(false)
-        #expect(!rig.model.showsTerminalTab)
-        #expect(!LeoBuiltInPaneSettings(defaults: rig.defaults).showsTerminalTab)
-        rig.model.setShowsTerminalTab(true)
-        #expect(LeoBuiltInPaneSettings(defaults: rig.defaults).showsTerminalTab)
+        let defaults = LeoInMemoryDefaults()
+        let settings = LeoBuiltInPaneSettings(defaults: defaults)
+        settings.setShowsTerminalTab(false)
+        #expect(!settings.showsTerminalTab)
+        #expect(!LeoBuiltInPaneSettings(defaults: defaults).showsTerminalTab)
+        settings.setShowsTerminalTab(true)
+        #expect(LeoBuiltInPaneSettings(defaults: defaults).showsTerminalTab)
     }
 
-    @Test func theTerminalSwitchPublishesItsChangeToTheSharedSettingsAndTheModel() {
-        let rig = Self.rig()
+    @Test func anUnchangedTerminalSwitchPublishesNothing() {
+        let settings = LeoBuiltInPaneSettings(defaults: LeoInMemoryDefaults())
         var shared = 0
-        var viaModel = 0
-        let a = rig.builtIn.$showsTerminalTab.dropFirst().sink { _ in shared += 1 }
-        let b = rig.model.objectWillChange.sink { viaModel += 1 }
-        rig.model.setShowsTerminalTab(false)
-        rig.model.setShowsTerminalTab(false)
-        #expect(shared == 1, "an unchanged value publishes nothing")
-        #expect(viaModel == 1)
-        a.cancel()
-        b.cancel()
+        let subscription = settings.$showsTerminalTab.dropFirst().sink { _ in shared += 1 }
+        settings.setShowsTerminalTab(false)
+        settings.setShowsTerminalTab(false)
+        #expect(shared == 1)
+        subscription.cancel()
     }
 
     @Test func aWrongTypedStoredValueFallsBackToOn() {

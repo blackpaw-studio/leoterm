@@ -9,12 +9,10 @@ struct LeoPluginsSettingsView: View {
 
     /// The plugin system, once the app has started it.
     let system: @MainActor () -> LeoPluginSystem?
-    /// The agent pane's built-in tabs' switches, shared with the windows' panes.
-    let builtIn: LeoBuiltInPaneSettings
 
     var body: some View {
         if let system = system() {
-            LeoPluginsPane(model: LeoPluginsSettingsModel(system: system, builtIn: builtIn))
+            LeoPluginsPane(model: LeoPluginsSettingsModel(system: system))
         } else {
             ProgressView("Starting plugins…").frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -22,9 +20,9 @@ struct LeoPluginsSettingsView: View {
 }
 
 extension LeoPluginsSettingsModel {
-    convenience init(system: LeoPluginSystem, builtIn: LeoBuiltInPaneSettings) {
+    convenience init(system: LeoPluginSystem) {
         self.init(
-            manager: system.manager, installer: system.installFlow, updater: system.updater, builtIn: builtIn,
+            manager: system.manager, installer: system.installFlow, updater: system.updater,
             approve: { await system.presenter.approve($0) })
     }
 }
@@ -39,8 +37,6 @@ private struct LeoPluginsPane: View {
     var body: some View {
         VStack(spacing: 0) {
             toolbar
-            Divider()
-            builtInRow
             Divider()
             if model.rows.isEmpty { emptyState } else { list }
             footer
@@ -71,18 +67,7 @@ private struct LeoPluginsPane: View {
             Button("Check for Updates") { Task { await model.checkForUpdates() } }
         }
         .disabled(model.isBusy)
-        .padding(12)
-    }
-
-    /// The built-in pane tabs, above the plugins' own "Show agent pane" switches.
-    private var builtInRow: some View {
-        HStack {
-            Label("Built-in", systemImage: "terminal").font(.headline)
-            Spacer()
-            Toggle("Show Terminal tab", isOn: Binding(get: { model.showsTerminalTab }, set: { model.setShowsTerminalTab($0) }))
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(LeoSettingsMetrics.groupPadding)
     }
 
     private var list: some View {
@@ -113,7 +98,7 @@ private struct LeoPluginsPane: View {
         case .notice(let text)?:
             Text(text).foregroundStyle(.secondary).modifier(FooterStyle())
         case .failure(let text)?:
-            Label(text, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).modifier(FooterStyle())
+            Label(text, systemImage: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.failure.color).modifier(FooterStyle())
         case nil:
             EmptyView()
         }
@@ -121,7 +106,7 @@ private struct LeoPluginsPane: View {
 
     private struct FooterStyle: ViewModifier {
         func body(content: Content) -> some View {
-            content.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 8)
+            content.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.vertical, LeoSettingsMetrics.compactPadding)
                 .background(.bar).textSelection(.enabled)
         }
     }
@@ -175,7 +160,7 @@ private struct LeoPluginRowView: View {
                     .buttonStyle(.borderless).help("Uninstall “\(row.name)”").accessibilityLabel("Uninstall \(row.name)")
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, LeoSettingsMetrics.rowPadding)
         .accessibilityElement(children: .contain)
     }
 
@@ -197,17 +182,17 @@ private struct LeoPluginRowView: View {
         case .running, .off:
             EmptyView()
         case .needsApproval(let lines):
-            notice("Needs approval", detail: lines.joined(separator: " · "), symbol: "exclamationmark.shield.fill", tint: .orange) {
+            notice("Needs approval", detail: lines.joined(separator: " · "), symbol: "exclamationmark.shield.fill", tint: LeoSettingsStatus.warning.color) {
                 Button("Review…", action: review)
             }
         case .crashDisabled(let reason):
-            notice("Turned off after repeated crashes", detail: reason, symbol: "exclamationmark.triangle.fill", tint: .red) {
+            notice("Turned off after repeated crashes", detail: reason, symbol: "exclamationmark.triangle.fill", tint: LeoSettingsStatus.failure.color) {
                 Button("Re-enable", action: reenable)
             }
         case .restarting(let reason):
             notice("Restarting", detail: reason, symbol: "arrow.clockwise", tint: .secondary) { EmptyView() }
         case .refused(let reason):
-            notice("Can't run", detail: reason, symbol: "xmark.octagon.fill", tint: .red) { EmptyView() }
+            notice("Can't run", detail: reason, symbol: "xmark.octagon.fill", tint: LeoSettingsStatus.failure.color) { EmptyView() }
         }
     }
 
@@ -253,7 +238,7 @@ private struct LeoPluginInstallSourceSheet: View {
                 .disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
-        .padding(20)
+        .padding(LeoSettingsMetrics.sheetPadding)
         .frame(width: 440)
     }
 }

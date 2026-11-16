@@ -124,6 +124,45 @@ struct LeoAppearanceSettingsModelTests {
         #expect(model.rows.map(\.rule) == [Self.prod])
     }
 
+    @Test func addingARuleSelectsIt() async {
+        let (model, _) = await loaded()
+        model.add()
+        #expect(model.selection == model.rows[2].id)
+    }
+
+    @Test func removingTheSelectedRuleSelectsTheOneThatTookItsPlace() async {
+        let (model, _) = await loaded()
+        model.add()
+        model.selection = model.rows[1].id
+        model.deleteSelected()
+        #expect(model.rows.map(\.rule).count == 2)
+        #expect(model.rows.first?.rule == Self.prod)
+        #expect(model.selection == model.rows[1].id)
+    }
+
+    @Test func removingTheSelectedLastRuleSelectsTheNewLastOne() async {
+        let (model, _) = await loaded()
+        model.selection = model.rows[1].id
+        model.deleteSelected()
+        #expect(model.rows.map(\.rule) == [Self.prod])
+        #expect(model.selection == model.rows[0].id)
+    }
+
+    @Test func removingWithNoSelectionChangesNothing() async {
+        let (model, _) = await loaded()
+        model.deleteSelected()
+        #expect(model.rows.map(\.rule) == [Self.prod, Self.alfred])
+        #expect(!model.isDirty)
+    }
+
+    @Test func revertingDropsASelectionOnARuleThatIsGone() async {
+        let (model, _) = await loaded()
+        model.add()
+        #expect(model.selection != nil)
+        model.revert()
+        #expect(model.selection == nil)
+    }
+
     @Test func previewResolvesTheDraftAndCountsMatches() async {
         let (model, _) = await loaded()
         #expect(model.matchCount(at: 0) == 1)

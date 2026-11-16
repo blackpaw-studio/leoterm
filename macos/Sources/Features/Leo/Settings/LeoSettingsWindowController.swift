@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import LeoKit
 import SwiftUI
 
@@ -28,20 +29,25 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     }
 }
 
-/// The Leo Settings window (Agents ▸ Machines…, a header's Edit Machine…).
-/// ⌘, stays the Ghostty config. One window, with a tab per pane; Machines
-/// is the first. A toolbar machine picker chooses which daemon the config
-/// panes edit. Closing the window with unsaved edits asks first.
-@MainActor final class LeoSettingsWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate {
-    private static let machinePickerItem = NSToolbarItem.Identifier("leo.settings.machine")
+/// The Leo Settings window (⌘,, Agents ▸ Machines…, a header's Edit Machine…).
+/// A sidebar and a page, like System Settings: the sidebar selection is the
+/// only way to choose what to edit, App pages and machines alike. One window;
+/// it remembers the last item across opens. Closing it with unsaved edits asks
+/// first.
+@MainActor final class LeoSettingsWindowController: NSWindowController, NSWindowDelegate {
+    /// The window's content size on first open (the mockups' 980 × 720 pt), and its floor.
+    private static let defaultContentSize = NSSize(width: 980, height: 720)
+    private static let minimumContentSize = NSSize(width: 760, height: 520)
+    /// The sidebar's width band; the split view item clamps it (never a split view delegate).
+    private static let sidebarWidth = 230.0...320.0
+    private static let detailMinimumWidth: CGFloat = 520
 
+    private let managedFeed: LeoManagedDaemonFeed
     private let registry: LeoMachineRegistry
     private let clients: any LeoMachineClientResolving
     private let statsStyle: LeoStatsStyleSetting
     private let agentBrowser: LeoAgentBrowserSetting
-    /// The machine of the agent selected in the sidebar, if any.
-    private let selectedHost: () -> LeoHostID?
-    /// A machine's agents as the sidebar shows them, for the Appearance preview.
+    /// A machine's agents as the sidebar shows them, for the Appearance preview and This Mac's count.
     private let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
     private let prompting: any LeoSettingsPrompting
     /// The plugin system, once the app has started it (nil before).
@@ -49,21 +55,25 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     private let builtInPanes: LeoBuiltInPaneSettings
     private(set) var model: LeoMachinesSettingsModel?
     private(set) var target: LeoSettingsTargetModel?
+    private(set) var sidebar: LeoSettingsSidebarModel?
+    /// The item the window last showed: reopened on, while the machine is still there.
+    private(set) var lastItem: LeoSettingsSidebarItem?
+    private var titleSubscription: AnyCancellable?
 
     init(
-        registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
+        managedFeed: LeoManagedDaemonFeed? = nil, registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults,
         agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil,
         agents: @escaping @MainActor (LeoHostID) -> [LeoAgentRow] = { _ in [] },
         plugins: @escaping @MainActor () -> LeoPluginSystem? = { nil },
         builtInPanes: LeoBuiltInPaneSettings? = nil
     ) {
+        self.managedFeed = managedFeed ?? LeoManagedDaemonFeed()
         self.plugins = plugins
         self.builtInPanes = builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults)
         self.prompting = prompting ?? LeoAlertPrompting()
         self.agents = agents
         self.registry = registry
         self.clients = clients
-        self.selectedHost = selectedHost
         statsStyle = LeoStatsStyleSetting(defaults: defaults)
         self.agentBrowser = agentBrowser ?? LeoAgentBrowserSetting(defaults: defaults)
         super.init(window: nil)
@@ -72,76 +82,88 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 
-    /// Shows the window with a fresh draft, or brings the open one forward.
-    /// `host` selects that remote machine in the list.
-    func show(selecting host: LeoHostID? = nil) {
-        let model = self.model ?? makeWindowAndModel()
-        if case .remote(let name)? = host, let id = model.hosts.first(where: { $0.name == name })?.id {
-            model.selectedID = id
+    /// Shows the window on the item `entry` names: a fresh window starts there,
+    /// an open one moves there (asking first when the page being left has
+    /// unsaved edits).
+    func show(_ entry: LeoSettingsEntry = .settings) {
+        if let sidebar {
+            sidebar.open(entry.item(remembered: sidebar.selection, configurations: registry.configurations))
+        } else {
+            makeWindowAndModels(opening: entry.item(remembered: lastItem, configurations: registry.configurations))
         }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
 
-    /// Shows the window on a config `tab` editing `host`. Either move still
-    /// asks first when the pane being left has unsaved edits.
-    func show(target host: LeoHostID, tab: LeoSettingsTab) {
-        _ = model ?? makeWindowAndModel()
-        target?.requestSwitch(to: host)
-        target?.requestTab(tab)
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func makeWindowAndModel() -> LeoMachinesSettingsModel {
+    private func makeWindowAndModels(opening item: LeoSettingsSidebarItem) {
         let model = registry.makeSettingsModel()
-        self.model = model
         let registry = registry
+        let resolution = LeoSettingsSidebarItem.resolve(item, configurations: registry.configurations, draft: model.hosts)
         let target = LeoSettingsTargetModel(
             clients: clients, machines: { registry.machines }, status: { registry.status(for: $0) },
-            statuses: registry.machineStatuses, reconnect: { registry.reconnect($0) }, initialHost: selectedHost()
+            statuses: registry.machineStatuses, reconnect: { registry.reconnect($0) }, initialHost: resolution.host
         )
+        _ = target.requestSelection(host: resolution.host, tab: resolution.tab)
+        let sidebar = LeoSettingsSidebarModel(
+            model: model, target: target, status: { registry.status(for: $0) }, configurations: { registry.configurations },
+            machinesChanged: registry.$machines.dropFirst().map { _ in }.eraseToAnyPublisher(), initial: resolution.item
+        )
+        if case .remote(let id)? = resolution.item.machine { model.selectedID = id }
+        self.model = model
         self.target = target
-        let content = LeoSettingsView(
-            model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry, agents: agents,
-            plugins: plugins, builtInPanes: builtInPanes
-        )
-        let window = NSWindow(contentViewController: NSHostingController(rootView: content))
-        window.title = "Leo Settings"
-        window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        let toolbar = NSToolbar(identifier: "leo.settings")
-        toolbar.delegate = self
-        toolbar.displayMode = .iconOnly
-        window.toolbar = toolbar
+        self.sidebar = sidebar
+        let split = makeSplitViewController(sidebar: sidebar, model: model, target: target)
+        let window = NSWindow(contentViewController: split)
+        window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.isReleasedWhenClosed = false
         window.delegate = self
-        window.setContentSize(NSSize(width: 820, height: 680))
+        // Assigning a content controller resizes the window to its fitting size.
+        window.setContentSize(Self.defaultContentSize)
+        window.contentMinSize = Self.minimumContentSize
         window.center()
         self.window = window
-        return model
+        titleSubscription = sidebar.objectWillChange.sink { [weak self] in
+            // The selection changes after this fires; read it on the next turn.
+            DispatchQueue.main.async { self?.syncTitle() }
+        }
+        syncTitle()
     }
 
-    // MARK: NSToolbarDelegate
-
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, Self.machinePickerItem]
+    private func makeSplitViewController(
+        sidebar: LeoSettingsSidebarModel, model: LeoMachinesSettingsModel, target: LeoSettingsTargetModel
+    ) -> NSSplitViewController {
+        let sidebarHost = NSHostingController(rootView: LeoSettingsSidebarView(model: sidebar, registry: registry))
+        let detailHost = NSHostingController(
+            rootView: LeoSettingsDetailView(
+                sidebar: sidebar, model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, builtInPanes: builtInPanes,
+                managedFeed: managedFeed, registry: registry, agents: agents, plugins: plugins
+            )
+        )
+        // The split view sizes its panes; a hosting controller must not also resize the window.
+        sidebarHost.sizingOptions = []
+        detailHost.sizingOptions = []
+        let sidebarItem = NSSplitViewItem(sidebarWithViewController: sidebarHost)
+        sidebarItem.minimumThickness = Self.sidebarWidth.lowerBound
+        sidebarItem.maximumThickness = Self.sidebarWidth.upperBound
+        sidebarItem.canCollapse = false
+        let detailItem = NSSplitViewItem(viewController: detailHost)
+        detailItem.minimumThickness = Self.detailMinimumWidth
+        let split = NSSplitViewController()
+        split.addSplitViewItem(sidebarItem)
+        split.addSplitViewItem(detailItem)
+        return split
     }
 
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, Self.machinePickerItem]
-    }
-
-    func toolbar(
-        _ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool
-    ) -> NSToolbarItem? {
-        guard identifier == Self.machinePickerItem, let target else { return nil }
-        let item = NSToolbarItem(itemIdentifier: identifier)
-        let host = NSHostingView(rootView: LeoMachinePicker(target: target, registry: registry))
-        host.setFrameSize(host.fittingSize)
-        item.view = host
-        item.label = "Machine"
-        item.paletteLabel = "Machine"
-        return item
+    /// The window's title is the page; for a machine's pane the subtitle names the machine.
+    private func syncTitle() {
+        guard let sidebar, let window else { return }
+        let name = { (ref: LeoSettingsMachineRef) in sidebar.rows.first { $0.ref == ref }?.name ?? "Machine" }
+        switch sidebar.selection {
+        case .general: (window.title, window.subtitle) = ("General", "")
+        case .plugins: (window.title, window.subtitle) = ("Plugins", "")
+        case .machine(let ref): (window.title, window.subtitle) = (name(ref), "")
+        case .pane(let ref, let pane): (window.title, window.subtitle) = (pane.title, name(ref))
+        }
     }
 
     // MARK: NSWindowDelegate
@@ -190,65 +212,13 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     }
 
     func windowWillClose(_ notification: Notification) {
+        lastItem = sidebar?.selection ?? lastItem
+        // The closed window would otherwise keep its old page alive, still wired to the
+        // old models, while the next open builds new ones: tear the content down with it.
+        (notification.object as? NSWindow)?.contentViewController = nil
+        titleSubscription = nil
         model = nil
         target = nil
-    }
-}
-
-/// The tabs. Machines, then one tab per config resource; each config pane is a tab
-/// whose content sits in a `LeoSettingsPaneState`, so a machine that can't be
-/// edited says why instead of showing a half form.
-private struct LeoSettingsView: View {
-    @ObservedObject var model: LeoMachinesSettingsModel
-    @ObservedObject var target: LeoSettingsTargetModel
-    @ObservedObject var statsStyle: LeoStatsStyleSetting
-    let agentBrowser: LeoAgentBrowserSetting
-    @ObservedObject var registry: LeoMachineRegistry
-    let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
-    let plugins: @MainActor () -> LeoPluginSystem?
-    let builtInPanes: LeoBuiltInPaneSettings
-
-    var body: some View {
-        TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
-            LeoMachinesSettingsView(model: model, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry)
-                .tabItem { Label("Machines", systemImage: "server.rack") }
-                .tag(LeoSettingsTab.machines)
-            LeoTemplatesSettingsView(target: target)
-                .tabItem { Label("Templates", systemImage: "doc.text") }
-                .tag(LeoTemplatesSettingsView.tab)
-            LeoTasksSettingsView(target: target)
-                .tabItem { Label("Tasks", systemImage: "clock") }
-                .tag(LeoTasksSettingsView.tab)
-            LeoEnvironmentsSettingsView(target: target)
-                .tabItem { Label("Environments", systemImage: "leaf") }
-                .tag(LeoEnvironmentsSettingsView.tab)
-            LeoDelegationSettingsView(target: target)
-                .tabItem { Label("Delegation", systemImage: "arrow.triangle.branch") }
-                .tag(LeoDelegationSettingsView.tab)
-            LeoAppearanceSettingsView(target: target, agents: agents)
-                .tabItem { Label("Appearance", systemImage: "paintpalette") }
-                .tag(LeoAppearanceSettingsView.tab)
-            LeoDefaultsSettingsView(target: target)
-                .tabItem { Label("Defaults", systemImage: "slider.horizontal.3") }
-                .tag(LeoDefaultsSettingsView.tab)
-            LeoDaemonSettingsView(target: target)
-                .tabItem { Label("Daemon", systemImage: "gearshape.2") }
-                .tag(LeoDaemonSettingsView.tab)
-            LeoServiceSettingsView(target: target)
-                .tabItem { Label("Service", systemImage: "waveform.path.ecg") }
-                .tag(LeoServiceSettingsView.tab)
-            LeoPluginsSettingsView(system: plugins, builtIn: builtInPanes)
-                .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }
-                .tag(LeoPluginsSettingsView.tab)
-        }
-        .alert(
-            "Discard unsaved changes?",
-            isPresented: Binding(get: { target.pendingChange != nil }, set: { if !$0 { target.cancelPendingChange() } })
-        ) {
-            Button("Discard", role: .destructive) { target.confirmPendingChange() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Your edits haven't been saved to the machine.")
-        }
+        sidebar = nil
     }
 }

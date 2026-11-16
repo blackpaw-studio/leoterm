@@ -20,14 +20,14 @@ struct LeoNameSheet: View {
                 .focused($isFocused)
                 .onSubmit(confirm)
                 .frame(minWidth: 280)
-            Text(error ?? " ").font(.caption).foregroundStyle(.red).accessibilityHidden(error == nil)
+            Text(error ?? " ").font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).accessibilityHidden(error == nil)
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel, action: cancel).keyboardShortcut(.cancelAction)
                 Button(confirmTitle, action: confirm).keyboardShortcut(.defaultAction).disabled(error != nil)
             }
         }
-        .padding(20)
+        .padding(LeoSettingsMetrics.sheetPadding)
         .onAppear { isFocused = true }
     }
 

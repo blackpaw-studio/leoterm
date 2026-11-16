@@ -88,7 +88,7 @@ struct LeoDisconnectedPaneNotice: View {
                 Button("Reconnect", action: reconnect)
             }
         }
-        .padding(24)
+        .padding(LeoSettingsMetrics.panePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
     }
@@ -140,7 +140,7 @@ struct LeoTooOldPaneNotice: View {
             Text(headline).font(.headline)
             Text(detail).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
-        .padding(24)
+        .padding(LeoSettingsMetrics.panePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .combine)
     }

@@ -11,8 +11,8 @@ struct LeoDelegationBanners: View {
         if model.conflict != nil || model.errorMessage != nil || model.warning != nil || model.restartPrompt != nil {
             VStack(spacing: 8) {
                 if model.conflict != nil { conflictBanner }
-                if let message = model.errorMessage { messageBanner(message, symbol: "exclamationmark.octagon.fill", tint: .red) }
-                if let warning = model.warning { messageBanner(warning, symbol: "exclamationmark.triangle.fill", tint: .orange) }
+                if let message = model.errorMessage { messageBanner(message, symbol: "exclamationmark.octagon.fill", tint: LeoSettingsStatus.failure.color) }
+                if let warning = model.warning { messageBanner(warning, symbol: "exclamationmark.triangle.fill", tint: LeoSettingsStatus.warning.color) }
                 if let required = model.restartPrompt {
                     LeoRestartPrompt(required: required, machine: machine, actions: restart, dismiss: model.dismissRestartPrompt)
                 }
@@ -22,7 +22,7 @@ struct LeoDelegationBanners: View {
 
     private var conflictBanner: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange).accessibilityHidden(true)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text("Changed on \(machine) since you opened it").font(.headline)
                 Text("Reload keeps your edits over the new settings. Overwrite sends your change over what is there now.")
@@ -32,8 +32,8 @@ struct LeoDelegationBanners: View {
             Button("Reload") { Task { await model.reloadAfterConflict() } }
             Button("Overwrite", role: .destructive) { Task { await model.overwrite() } }
         }
-        .padding(12)
-        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+        .padding(LeoSettingsMetrics.groupPadding)
+        .background(LeoSettingsStatus.warning.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .contain)
     }
 
@@ -45,7 +45,7 @@ struct LeoDelegationBanners: View {
             Button("Dismiss", action: model.dismissError).buttonStyle(.borderless)
         }
         .padding(10)
-        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+        .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .combine)
     }
 }
@@ -86,7 +86,7 @@ struct LeoDelegationWarnings: View {
                 Text("Warnings").font(.headline)
                 ForEach(warnings, id: \.self) { warning in
                     Label { Text(warning).textSelection(.enabled).fixedSize(horizontal: false, vertical: true) } icon: {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color)
                     }
                     .font(.callout)
                 }
@@ -120,7 +120,7 @@ struct LeoDelegationConsults: View {
                             Text(consult.template).lineLimit(1)
                             Text(consult.model.isEmpty ? "inherit" : consult.model).foregroundStyle(consult.model.isEmpty ? .secondary : .primary).lineLimit(1)
                             Text(consult.effort.isEmpty ? "—" : consult.effort).lineLimit(1)
-                            Text(consult.status).foregroundStyle(consult.status == "failed" ? .red : .secondary).lineLimit(1)
+                            Text(consult.status).foregroundStyle(consult.status == "failed" ? LeoSettingsStatus.failure.color : Color.secondary).lineLimit(1)
                         }
                         .font(.callout)
                     }

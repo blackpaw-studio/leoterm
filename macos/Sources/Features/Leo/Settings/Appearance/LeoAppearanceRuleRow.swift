@@ -9,7 +9,6 @@ struct LeoAppearanceRuleRow: View {
     let problem: String?
     let matchCount: Int
     let update: (LeoAppearanceRule) -> Void
-    let delete: () -> Void
 
     /// The number column; the "then" line and the problem indent past it.
     private static let numberWidth: CGFloat = 18
@@ -45,16 +44,12 @@ struct LeoAppearanceRuleRow: View {
                 Text(matchCount == 1 ? "1 agent" : "\(matchCount) agents")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
-                Button(action: delete) { Image(systemName: "minus.circle") }
-                    .buttonStyle(.borderless)
-                    .help("Delete Rule")
-                    .accessibilityLabel("Delete Rule \(number)")
             }
             .padding(.leading, Self.numberWidth + Self.spacing)
             if let problem {
                 Label(problem, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(LeoSettingsStatus.warning.color)
                     .padding(.leading, Self.numberWidth + Self.spacing)
             }
         }

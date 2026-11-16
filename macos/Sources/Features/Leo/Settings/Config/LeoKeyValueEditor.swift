@@ -1,7 +1,8 @@
 import LeoKit
 import SwiftUI
 
-/// A string map as two columns of fields with a remove button per row. Rows
+/// A string map as two columns of fields in a selectable list, with the standard
+/// bottom bar to add a variable or remove the selected one. Rows
 /// keep the order they were typed in (a dictionary has none) and survive an
 /// empty or duplicate key until the validator and the daemon have had their say.
 /// `secrets` are variables whose value the daemon holds back: each is listed
@@ -19,6 +20,7 @@ struct LeoKeyValueEditor: View {
     }
 
     @State private var rows: [Row]
+    @State private var selection: UUID?
 
     init(
         entries: [String: String], secrets: [String: LeoConfigSecretState] = [:],
@@ -32,9 +34,10 @@ struct LeoKeyValueEditor: View {
     }
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 6) {
+        LeoEmbeddedList(rowCount: secrets.count + rows.count, selection: $selection, remove: removeSelected, emptyLabel: "No variables") {
             ForEach(secrets.keys.sorted(), id: \.self) { name in
-                // The same two flexible columns and trailing button slot as a
+                // Held-back values are listed but never selected: they are replaced or
+                // cleared in place, not removed here. The same two flexible columns as a
                 // plain row, so names and values line up down the list.
                 HStack(spacing: 6) {
                     Text(name).font(.body.monospaced()).foregroundStyle(.primary)
@@ -44,25 +47,26 @@ struct LeoKeyValueEditor: View {
                         set: { setSecret(name, $0) }, revert: { setSecret(name, .secret(isSet: true)) }
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "minus.circle").hidden()
                 }
             }
             ForEach($rows) { $row in
                 HStack(spacing: 6) {
                     TextField("Name", text: $row.key).labelsHidden().font(.body.monospaced())
-                        .multilineTextAlignment(.leading).frame(maxWidth: .infinity)
+                        .textFieldStyle(.roundedBorder).multilineTextAlignment(.leading).frame(maxWidth: .infinity)
                     TextField("Value", text: $row.value).labelsHidden()
-                        .multilineTextAlignment(.leading).frame(maxWidth: .infinity)
-                    Button { remove(row.id) } label: { Image(systemName: "minus.circle") }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel("Remove \(row.key.isEmpty ? "entry" : row.key)")
+                        .textFieldStyle(.roundedBorder).multilineTextAlignment(.leading).frame(maxWidth: .infinity)
                 }
                 .frame(maxWidth: .infinity)
             }
-            Button { rows.append(Row(key: "", value: "")) } label: { Label("Add", systemImage: "plus.circle") }
-                .buttonStyle(.borderless)
+        } add: {
+            LeoBarAddButton(label: "Add variable") {
+                let row = Row(key: "", value: "")
+                rows.append(row)
+                selection = row.id
+            }
         }
         .onChange(of: rows) { _ in
+            if let current = selection, !rows.contains(where: { $0.id == current }) { selection = nil }
             let edited = dictionary(of: rows)
             if edited != entries { onChange(edited) }
         }
@@ -72,8 +76,10 @@ struct LeoKeyValueEditor: View {
         }
     }
 
-    private func remove(_ id: UUID) {
-        rows.removeAll { $0.id == id }
+    private func removeSelected() {
+        let removal = LeoListEditing.remove(selection, from: rows)
+        rows = removal.rows
+        selection = removal.selection
     }
 
     private func dictionary(of rows: [Row]) -> [String: String] {

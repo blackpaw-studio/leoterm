@@ -77,7 +77,7 @@ struct LeoConfigCollectionView: View {
                 Spacer()
             }
             .buttonStyle(.borderless)
-            .padding(6)
+            .padding(LeoSettingsMetrics.rowPadding)
             if let footer = extras.listFooter {
                 footer.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.bottom, 6)
             }
@@ -219,7 +219,7 @@ struct LeoPaneFailure: View {
             Text(message).foregroundStyle(.secondary).multilineTextAlignment(.center).textSelection(.enabled)
             Button("Try Again", action: retry)
         }
-        .padding(24)
+        .padding(LeoSettingsMetrics.panePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityElement(children: .contain)
     }
