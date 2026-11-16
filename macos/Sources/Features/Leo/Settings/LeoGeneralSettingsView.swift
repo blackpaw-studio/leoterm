@@ -17,7 +17,7 @@ struct LeoGeneralSettingsView: View {
                 Picker("Stats style", selection: $statsStyle.style) {
                     ForEach(LeoStatsStyle.allCases, id: \.self) { Text($0.settingsTitle).tag($0) }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
                 LabeledContent("Preview") { LeoStatsStylePreview(style: statsStyle.style) }
             } header: {
                 Text("Sidebar")
