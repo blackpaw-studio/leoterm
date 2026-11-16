@@ -78,13 +78,13 @@ import LeoKit
     /// once, because a destructive action already confirmed shouldn't also
     /// need Save. If the draft can't be saved (another machine's edits are
     /// invalid, or the store changed) the machine stays and `saveError` says why.
+    ///
+    /// Takes the id the alert captured: SwiftUI clears `pendingRemoval`
+    /// (the dismiss setter) before the pressed button's action runs.
     @discardableResult
-    func confirmRemoval() -> Bool {
-        guard let id = pendingRemoval, let index = hosts.firstIndex(where: { $0.id == id }) else {
-            pendingRemoval = nil
-            return false
-        }
+    func confirmRemoval(_ id: LeoHostConfiguration.ID) -> Bool {
         pendingRemoval = nil
+        guard let index = hosts.firstIndex(where: { $0.id == id }) else { return false }
         let removed = hosts[index]
         hosts.remove(at: index)
         guard save() else {

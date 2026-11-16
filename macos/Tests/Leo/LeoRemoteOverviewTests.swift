@@ -67,7 +67,6 @@ struct LeoRemoteOverviewTests {
 
         #expect(model.pendingRemoval == nil)
         #expect(model.hosts.count == 1)
-        #expect(!model.confirmRemoval(), "a cancelled question can't be confirmed")
     }
 
     @Test func confirmingRemovesTheMachineAndSavesAtOnce() throws {
@@ -75,11 +74,23 @@ struct LeoRemoteOverviewTests {
         let (model, store) = try model([Self.host, other])
         model.requestRemoval(of: Self.host.id)
 
-        #expect(model.confirmRemoval())
+        #expect(model.confirmRemoval(Self.host.id))
         #expect(model.hosts.map(\.name) == ["hestia"])
         #expect(store.load().map(\.name) == ["hestia"])
         #expect(model.pendingRemoval == nil)
         #expect(!model.isDirty)
+    }
+
+    /// SwiftUI runs an alert's dismiss setter before the pressed button's action.
+    @Test func removalWorksWhenTheAlertDismissesBeforeTheButtonRuns() throws {
+        let other = LeoHostConfiguration(name: "hestia", sshTarget: "evan@hestia")
+        let (model, store) = try model([Self.host, other])
+        model.requestRemoval(of: Self.host.id)
+        model.cancelRemoval()
+
+        #expect(model.confirmRemoval(Self.host.id))
+        #expect(model.hosts.map(\.name) == ["hestia"])
+        #expect(store.load().map(\.name) == ["hestia"])
     }
 
     @Test func removalIsRefusedWhenAnotherMachinesEditsCannotBeSaved() throws {
@@ -89,7 +100,7 @@ struct LeoRemoteOverviewTests {
         model.updateSelected { $0.replacing(sshTarget: "") }
         model.requestRemoval(of: Self.host.id)
 
-        #expect(!model.confirmRemoval())
+        #expect(!model.confirmRemoval(Self.host.id))
         #expect(model.hosts.map(\.name) == ["dionysus", "hestia"], "the machine stays in the draft, in place")
         #expect(store.load().map(\.name) == ["dionysus", "hestia"])
         #expect(model.saveError != nil)

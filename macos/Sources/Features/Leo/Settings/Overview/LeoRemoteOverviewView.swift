@@ -20,11 +20,13 @@ struct LeoRemoteOverviewView: View {
             }
             .alert(
                 "Remove \(host.name.isEmpty ? "this machine" : "“\(host.name)”")?",
-                isPresented: Binding(get: { model.pendingRemoval != nil }, set: { if !$0 { model.cancelRemoval() } })
-            ) {
-                Button("Remove", role: .destructive) { model.confirmRemoval() }
+                isPresented: Binding(get: { model.pendingRemoval != nil }, set: { if !$0 { model.cancelRemoval() } }),
+                presenting: model.pendingRemoval
+            ) { id in
+                // The dismiss setter above has already cleared `pendingRemoval`: act on the id this alert showed.
+                Button("Remove", role: .destructive) { model.confirmRemoval(id) }
                 Button("Cancel", role: .cancel) {}
-            } message: {
+            } message: { _ in
                 Text("Leo stops connecting to it and forgets its settings here. The machine itself isn’t changed.")
             }
         } else {
