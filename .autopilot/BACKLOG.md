@@ -3013,6 +3013,7 @@ Question: Can't be fixed in the app: the daemon keeps attention in memory only, 
 Answer: accept your recommendation (yes (same pattern as D-788))
 Done: 339eb6d48 bf329b86f 039a03178 50805c6ce (daemon-restart repro + restore contract doc, LeoKit/Mac/iOS pins; contract sent to the leo agent 2026-11-15 19:23 EST). Daemon fix pending a leo release + bundled bump (D-815). Decisions D-816..D-820.
 Verified: not visually verified — no UI change (docs and tests only; LeoKit 55/55, iOS FleetTests 15/15, Mac 4678/4678)
+Reviewed: accepted 2026-11-15 — 31d028fbd013
 
 ## B-402 · Status tab header shows only model, effort and usage   [done]
 Issue: #375
