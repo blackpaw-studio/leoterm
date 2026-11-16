@@ -1074,5 +1074,35 @@ Veto: [ ]
 Context: B-401 (when you relaunch all the finished agents in the sidebar revert back…) blocked question
 Chose: accept your recommendation (yes (same pattern as D-788))
 Why: the owner's answer
-Commit:
+Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
 Veto: n/a (owner)
+
+## D-816 · 2026-11-15 · B-401: No client-side cache of `finished`; the agent JSON has no…
+Chose: No client-side cache of `finished`; the agent JSON has no per-instance id that survives a restart
+Why: P2, D-790
+Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
+Veto: [ ]
+
+## D-817 · 2026-11-15 · B-401: Restore only at-rest states; `working` comes back as `unknown`
+Chose: Restore only at-rest states; `working` comes back as `unknown`
+Why: P2
+Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
+Veto: [ ]
+
+## D-818 · 2026-11-15 · B-401: Persisted records keyed by name + attention token
+Chose: Persisted records keyed by name + attention token
+Why: P2
+Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
+Veto: [ ]
+
+## D-819 · 2026-11-15 · B-401: Platform: both Mac and iOS, no app code, because the fix lives in the…
+Chose: Platform: both Mac and iOS, no app code, because the fix lives in the daemon
+Why: P3, D-789
+Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
+Veto: [ ]
+
+## D-820 · 2026-11-15 · B-401: Extra Mac pin `daemonRestartBaselineWithUnknownClearsTheRow`, the Mac…
+Chose: Extra Mac pin `daemonRestartBaselineWithUnknownClearsTheRow`, the Mac twin of the LeoKit P2 pin
+Why: P2
+Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
+Veto: [ ]
