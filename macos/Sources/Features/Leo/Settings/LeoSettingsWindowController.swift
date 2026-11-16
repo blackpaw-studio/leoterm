@@ -35,6 +35,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
 @MainActor final class LeoSettingsWindowController: NSWindowController, NSWindowDelegate, NSToolbarDelegate {
     private static let machinePickerItem = NSToolbarItem.Identifier("leo.settings.machine")
 
+    private let managedFeed: LeoManagedDaemonFeed
     private let registry: LeoMachineRegistry
     private let clients: any LeoMachineClientResolving
     private let statsStyle: LeoStatsStyleSetting
@@ -51,12 +52,13 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     private(set) var target: LeoSettingsTargetModel?
 
     init(
-        registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
+        managedFeed: LeoManagedDaemonFeed? = nil, registry: LeoMachineRegistry, clients: any LeoMachineClientResolving, defaults: UserDefaults, selectedHost: @escaping () -> LeoHostID?,
         agentBrowser: LeoAgentBrowserSetting? = nil, prompting: (any LeoSettingsPrompting)? = nil,
         agents: @escaping @MainActor (LeoHostID) -> [LeoAgentRow] = { _ in [] },
         plugins: @escaping @MainActor () -> LeoPluginSystem? = { nil },
         builtInPanes: LeoBuiltInPaneSettings? = nil
     ) {
+        self.managedFeed = managedFeed ?? LeoManagedDaemonFeed()
         self.plugins = plugins
         self.builtInPanes = builtInPanes ?? LeoBuiltInPaneSettings(defaults: defaults)
         self.prompting = prompting ?? LeoAlertPrompting()

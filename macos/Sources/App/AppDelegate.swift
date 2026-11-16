@@ -568,18 +568,24 @@ class AppDelegate: NSObject,
         // A test host must never touch the real LaunchAgent or ~/.leo.
         guard !LeoSingleInstance.isRunningAsTestHost(), let dependencies = LeoManagedDependencies.live() else { return nil }
         let model = leoRuntime.model
+        let feed = leoRuntime.managedFeed
         let startup = LeoManagedStartup(
             dependencies: dependencies,
             takeoverStore: LeoTakeoverStore(defaults: .ghostty),
             location: { [unowned self] in await self.leoAppLocation.resolvedLocation() },
             presenter: LeoManagedAlerts()
         )
-        startup.onChange = { model.managedPresentationChanged($0) }
+        startup.onChange = { [weak startup] presentation in
+            model.managedPresentationChanged(presentation)
+            if let startup { feed.update(status: startup.status, presentation: presentation) }
+        }
         startup.moveToApplicationsRequested = { model.moveToApplicationsRequested() }
         startup.startCLIDaemonRequested = { model.startDaemonRequested() }
         startup.daemonChanged = { [unowned self] in self.leoRuntime.localDaemonChanged() }
         model.managedBannerActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
         model.daemonStartActionRequested = { action in Task { @MainActor in await startup.perform(action) } }
+        feed.performBanner = { action in Task { @MainActor in await startup.perform(action) } }
+        feed.performStart = { action in Task { @MainActor in await startup.perform(action) } }
         return startup
     }
 
