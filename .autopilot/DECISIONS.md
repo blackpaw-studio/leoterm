@@ -1106,3 +1106,9 @@ Chose: Extra Mac pin `daemonRestartBaselineWithUnknownClearsTheRow`, the Mac twi
 Why: P2
 Commit: 339eb6d48 bf329b86f 039a03178 50805c6ce
 Veto: [ ]
+
+## D-821 · 2026-11-15 · B-403: Rebuilt the stale shared xcframework inside the lane per verify.md
+Chose: Rebuilt the stale shared xcframework inside the lane per verify.md (gitignored); moved macos/build aside to scratchpad instead of deleting it
+Why: verify.md
+Commit: b28f6ea2e
+Veto: [ ]
