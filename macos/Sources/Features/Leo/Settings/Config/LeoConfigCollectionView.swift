@@ -77,7 +77,7 @@ struct LeoConfigCollectionView: View {
                 Spacer()
             }
             .buttonStyle(.borderless)
-            .padding(6)
+            .padding(LeoSettingsMetrics.rowPadding)
             if let footer = extras.listFooter {
                 footer.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 8).padding(.bottom, 6)
             }

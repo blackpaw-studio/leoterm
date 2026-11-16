@@ -42,18 +42,18 @@ struct LeoTaskPromptEditor: View {
     private func editor(_ prompt: LeoTaskPromptState) -> some View {
         VStack(spacing: 0) {
             header(prompt)
-            if case .fileChanged(let file)? = prompt.confirmation { fileChangedBanner(file).padding(.horizontal, 12).padding(.bottom, 8) }
-            if prompt.conflict != nil { conflictBanner.padding(.horizontal, 12).padding(.bottom, 8) }
+            if case .fileChanged(let file)? = prompt.confirmation { fileChangedBanner(file).padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.bottom, LeoSettingsMetrics.compactPadding) }
+            if prompt.conflict != nil { conflictBanner.padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.bottom, LeoSettingsMetrics.compactPadding) }
             if let error = prompt.error {
-                LeoTaskMessageBanner(message: error, dismiss: model.dismissPromptError).padding(.horizontal, 12).padding(.bottom, 8)
+                LeoTaskMessageBanner(message: error, dismiss: model.dismissPromptError).padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.bottom, LeoSettingsMetrics.compactPadding)
             }
             TextEditor(text: Binding(get: { prompt.text }, set: { model.setPromptText($0) }))
                 .font(.body.monospaced())
                 .scrollContentBackground(.hidden)
-                .padding(6)
+                .padding(LeoSettingsMetrics.rowPadding)
                 .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 6))
                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor)))
-                .padding(.horizontal, 12)
+                .padding(.horizontal, LeoSettingsMetrics.groupPadding)
                 .accessibilityLabel("Prompt text")
             saveBar(prompt)
         }
@@ -79,7 +79,7 @@ struct LeoTaskPromptEditor: View {
             }
             Spacer()
         }
-        .padding(.horizontal, 12).padding(.bottom, 8)
+        .padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.bottom, LeoSettingsMetrics.compactPadding)
     }
 
     private var conflictBanner: some View {

@@ -48,7 +48,7 @@ struct LeoTaskHistoryView: View {
                 Spacer()
                 Button("Refresh") { Task { await model.reloadHistory() } }.buttonStyle(.borderless)
             }
-            .padding(6)
+            .padding(LeoSettingsMetrics.rowPadding)
         }
     }
 
@@ -70,7 +70,7 @@ struct LeoTaskHistoryView: View {
                         Label("Showing the end of a long log", systemImage: "scissors").font(.caption).foregroundStyle(LeoSettingsStatus.warning.color)
                     }
                 }
-                .padding(.horizontal, 12).padding(.vertical, 6)
+                .padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.vertical, LeoSettingsMetrics.rowPadding)
                 Divider()
                 LeoLogTextView(text: log.text.isEmpty ? "The log is empty." : log.text)
             }

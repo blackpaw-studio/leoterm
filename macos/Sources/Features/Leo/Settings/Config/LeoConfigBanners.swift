@@ -54,7 +54,7 @@ struct LeoConfigBanners: View {
             Spacer(minLength: 12)
             Button("Dismiss", action: dismissError).buttonStyle(.borderless)
         }
-        .padding(10)
+        .padding(LeoSettingsMetrics.groupPadding)
         .background(tint.opacity(0.1), in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .combine)
     }

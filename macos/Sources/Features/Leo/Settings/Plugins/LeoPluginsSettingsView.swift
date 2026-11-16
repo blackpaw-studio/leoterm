@@ -106,7 +106,7 @@ private struct LeoPluginsPane: View {
 
     private struct FooterStyle: ViewModifier {
         func body(content: Content) -> some View {
-            content.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 8)
+            content.font(.callout).frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, LeoSettingsMetrics.groupPadding).padding(.vertical, LeoSettingsMetrics.compactPadding)
                 .background(.bar).textSelection(.enabled)
         }
     }
@@ -160,7 +160,7 @@ private struct LeoPluginRowView: View {
                     .buttonStyle(.borderless).help("Uninstall “\(row.name)”").accessibilityLabel("Uninstall \(row.name)")
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, LeoSettingsMetrics.rowPadding)
         .accessibilityElement(children: .contain)
     }
 

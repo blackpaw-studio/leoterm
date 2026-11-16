@@ -83,10 +83,10 @@ private struct LeoTaskDetail: View {
             Picker("Page", selection: Binding(get: { model.page }, set: { model.setPage($0) })) {
                 ForEach(LeoTasksSettingsModel.Page.allCases) { Text($0.rawValue).tag($0) }
             }
-            .pickerStyle(.segmented).labelsHidden().padding([.horizontal, .top], 12).padding(.bottom, 8)
+            .pickerStyle(.segmented).labelsHidden().padding([.horizontal, .top], LeoSettingsMetrics.groupPadding).padding(.bottom, LeoSettingsMetrics.compactPadding)
             .accessibilityLabel("Task page")
             if let message = model.message {
-                LeoTaskMessageBanner(message: message, dismiss: model.dismissMessage).padding([.horizontal, .bottom], 12)
+                LeoTaskMessageBanner(message: message, dismiss: model.dismissMessage).padding([.horizontal, .bottom], LeoSettingsMetrics.groupPadding)
             }
             switch model.page {
             case .settings: form
@@ -133,7 +133,7 @@ struct LeoTaskMessageBanner: View {
             Spacer(minLength: 12)
             Button("Dismiss", action: dismiss).buttonStyle(.borderless)
         }
-        .padding(10)
+        .padding(LeoSettingsMetrics.groupPadding)
         .background(LeoSettingsStatus.failure.bannerFill, in: RoundedRectangle(cornerRadius: LeoSettingsMetrics.cornerRadius))
         .accessibilityElement(children: .combine)
     }
