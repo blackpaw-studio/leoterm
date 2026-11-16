@@ -39,7 +39,8 @@ struct LeoRemoteOverviewView: View {
         let live = registry.configurations.first { $0.id == host.id }
         return LeoRemoteOverview(
             host: host, status: live.flatMap { registry.status(for: .remote($0.name)) },
-            isTarget: live.map { target.selectedHost == .remote($0.name) } ?? false, daemonVersion: target.daemonVersion
+            isTarget: live.map { target.selectedHost == .remote($0.name) } ?? false, daemonVersion: target.daemonVersion,
+            isSaved: live != nil
         )
     }
 
@@ -61,7 +62,7 @@ struct LeoRemoteOverviewView: View {
                         .fixedSize()
                     }
                 }
-                if let reason = overview.reason { LeoOverviewReason(text: reason, isProblem: overview.isEnabled) }
+                if let reason = overview.reason { LeoOverviewReason(text: reason, isProblem: overview.isEnabled && overview.isSaved) }
             }
             Section("Connection") {
                 connectionFields(for: host)

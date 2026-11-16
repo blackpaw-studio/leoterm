@@ -8,12 +8,15 @@ struct LeoRemoteOverview: Equatable {
     let isEnabled: Bool
     /// The badge: off when the draft says so, else the live connection.
     let status: LeoMachineStatus?
-    /// Why the machine can't be used: "Off", or the connection error.
+    /// Why the machine can't be used: "Off", the connection error, or that it needs saving.
     let reason: String?
     /// The daemon's version; only known while this machine is the one Settings is connected to.
     let version: String?
+    /// Known to the app. An unsaved machine can't open its panes yet.
+    let isSaved: Bool
 
-    init(host: LeoHostConfiguration, status: LeoMachineStatus?, isTarget: Bool, daemonVersion: String?) {
+    init(host: LeoHostConfiguration, status: LeoMachineStatus?, isTarget: Bool, daemonVersion: String?, isSaved: Bool = true) {
+        self.isSaved = isSaved
         name = host.name.isEmpty ? "Untitled" : host.name
         subtitle = host.sshTarget.isEmpty ? "Remote over SSH" : "Remote over SSH · \(host.sshTarget)"
         isEnabled = host.isEnabled
@@ -21,7 +24,7 @@ struct LeoRemoteOverview: Equatable {
         switch (host.isEnabled, status) {
         case (false, _): reason = "Off"
         case (true, .failed(let message)?): reason = message
-        case (true, _): reason = nil
+        case (true, _): reason = isSaved ? nil : "Save this machine to edit its settings"
         }
         version = isTarget && host.isEnabled ? daemonVersion : nil
     }

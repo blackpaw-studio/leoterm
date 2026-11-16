@@ -35,6 +35,12 @@ struct LeoRemoteOverviewTests {
         #expect(overview(status: .connecting).reason == nil)
     }
 
+    @Test func anUnsavedMachineSaysItMustBeSavedFirst() {
+        let unsaved = LeoRemoteOverview(host: Self.host, status: nil, isTarget: false, daemonVersion: nil, isSaved: false)
+        #expect(unsaved.reason == "Save this machine to edit its settings")
+        #expect(overview(status: nil).reason == nil)
+    }
+
     @Test func theHeaderNamesTheMachineAndItsSSHTarget() {
         #expect(overview().name == "dionysus")
         #expect(overview().subtitle == "Remote over SSH · evan@dionysus")

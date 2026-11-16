@@ -14,11 +14,14 @@ import LeoKit
         let status: LeoMachineStatus?
         /// Turned off in settings: shown as "Off" instead of a status dot.
         let isOff: Bool
+        /// Known to the app. A machine that exists only in the draft isn't:
+        /// its panes would edit another machine until it is saved.
+        let isSaved: Bool
 
         var id: LeoSettingsMachineRef { ref }
 
         /// Whether the machine's panes can be opened. The overview always can.
-        var panesEnabled: Bool { !isOff && LeoSettingsSidebarItem.panesEnabled(status: status) }
+        var panesEnabled: Bool { !isOff && isSaved && LeoSettingsSidebarItem.panesEnabled(status: status) }
 
         var statusText: String {
             if isOff { return "Off" }
@@ -78,13 +81,14 @@ import LeoKit
     /// This Mac, then the draft's remotes in order (so an unsaved machine shows).
     var rows: [MachineRow] {
         let saved = configurations()
-        let local = MachineRow(ref: .local, name: "This Mac", status: status(.local), isOff: false)
+        let local = MachineRow(ref: .local, name: "This Mac", status: status(.local), isOff: false, isSaved: true)
         let remotes = model.hosts.map { host in
             // The registry knows a machine by its saved name, not the draft's.
             let liveName = saved.first { $0.id == host.id }?.name
             return MachineRow(
                 ref: .remote(host.id), name: host.name.isEmpty ? "Untitled" : host.name,
-                status: host.isEnabled ? liveName.flatMap { status(.remote($0)) } : .disabled, isOff: !host.isEnabled
+                status: host.isEnabled ? liveName.flatMap { status(.remote($0)) } : .disabled, isOff: !host.isEnabled,
+                isSaved: liveName != nil
             )
         }
         return [local] + remotes
@@ -97,13 +101,27 @@ import LeoKit
     /// Selects `item`. It takes effect now when the target accepts the move,
     /// else once the user confirms the discard question (`confirm(_:)`).
     func select(_ item: LeoSettingsSidebarItem) {
-        guard item != selection else { return }
+        guard item != selection, canSelect(item) else { return }
         let resolution = resolve(item, draft: model.hosts)
         if target.requestSelection(host: resolution.host, tab: resolution.tab) {
             commit(resolution.item)
         } else {
             pendingItem = resolution.item
         }
+    }
+
+    /// Entry points (menus, the appearance popover): like `select`, but a pane
+    /// whose machine can't open panes lands on that machine's overview.
+    func open(_ item: LeoSettingsSidebarItem) {
+        select(canSelect(item) ? item : .machine(item.machine ?? .local))
+    }
+
+    /// A pane row is selectable only while its machine's panes are enabled:
+    /// the list can still land on a disabled row, and an unsaved machine's
+    /// panes would show and save another machine's config.
+    private func canSelect(_ item: LeoSettingsSidebarItem) -> Bool {
+        guard case .pane(let ref, _) = item else { return true }
+        return rows.first { $0.ref == ref }?.panesEnabled ?? false
     }
 
     /// The disclosure chevron: expands or collapses a machine, never selects.

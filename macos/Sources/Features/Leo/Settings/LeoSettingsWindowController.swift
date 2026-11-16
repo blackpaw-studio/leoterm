@@ -87,7 +87,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     /// unsaved edits).
     func show(_ entry: LeoSettingsEntry = .settings) {
         if let sidebar {
-            sidebar.select(entry.item(remembered: sidebar.selection, configurations: registry.configurations))
+            sidebar.open(entry.item(remembered: sidebar.selection, configurations: registry.configurations))
         } else {
             makeWindowAndModels(opening: entry.item(remembered: lastItem, configurations: registry.configurations))
         }
