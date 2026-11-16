@@ -59,4 +59,6 @@ They pin how the app treats a daemon boot change once the daemon serves restored
 
 ## Send record
 
-(filled in after the message is sent)
+**Not sent yet (2026-11-15 19:0x EST).** The run had no `leo_send_message` tool, and the fallback `SendMessage` to `leo` was denied by the auto-mode permission classifier ("Undermining Oversight"). Nothing was sent by another route. The contract and Go test spec above are the message body; the orchestrator (or Evan) needs to send them to the `leo` agent via `leo_send_message` (target `leo`) and record the time here. No reply yet.
+
+Mac also carries one extra pin, `daemonRestartBaselineWithUnknownClearsTheRow` (the Mac twin of the LeoKit P2 pin).
