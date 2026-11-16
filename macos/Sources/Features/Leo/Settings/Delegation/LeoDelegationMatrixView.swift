@@ -16,11 +16,13 @@ struct LeoDelegationMatrixView: View {
             HStack {
                 Text("Role routing").font(.headline)
                 Spacer()
-                Button { request = .addRole } label: { Label("Add Role", systemImage: "plus") }
-                    .disabled(!model.canRestructure || model.templates.isEmpty)
-                    .help(model.templates.isEmpty ? "Add a template first" : "Route a new role to a template in the active profile")
-                Button { request = .addProfile } label: { Label("Add Profile", systemImage: "plus") }
-                    .disabled(!model.canRestructure)
+                LeoBarAddMenu(label: "Add role or profile") {
+                    Button("Add Role…") { request = .addRole }
+                        .disabled(!model.canRestructure || model.templates.isEmpty)
+                        .help(model.templates.isEmpty ? "Add a template first" : "Route a new role to a template in the active profile")
+                    Button("Add Profile…") { request = .addProfile }
+                        .disabled(!model.canRestructure)
+                }
             }
             if model.matrix.rows.isEmpty {
                 Text("No roles yet.").foregroundStyle(.secondary)

@@ -240,6 +240,43 @@ struct LeoSettingsSnapshots {
         try Self.write(sheet, named: "environmentsAddSheet", size: NSSize(width: 360, height: 150), to: directory)
     }
 
+    // MARK: Appearance pane
+
+    private static func appearanceModel() async -> LeoAppearanceSettingsModel {
+        let rules = [
+            LeoAppearanceRule(field: "environments", op: "contains", value: "prod", color: "red"),
+            LeoAppearanceRule(field: "name", op: "glob", value: "alfred-*", color: "pink", emoji: "🎩"),
+        ]
+        let fake = LeoFakeConfigClient(
+            schema: LeoConfigSchema(resources: []),
+            version: LeoDaemonVersionInfo(version: "0.70.0", capabilities: [LeoConfigAPI.capability, "agent_appearance"])
+        )
+        await fake.seedAppearance(agents: [LeoAppearanceFacts(name: "olympus", environments: ["prod"], template: "ops", harness: "")], rules: rules)
+        let agents = [
+            LeoAppearancePreviewAgent(name: "olympus", environments: ["prod"], template: "ops", manual: nil),
+            LeoAppearancePreviewAgent(name: "alfred-dj", environments: [], template: "assistant", manual: LeoAppearanceManual(emoji: "🎧", color: nil)),
+            LeoAppearancePreviewAgent(name: "rocket", environments: [], template: "assistant", manual: nil),
+        ]
+        let model = LeoAppearanceSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), agents: { agents })
+        await model.load()
+        return model
+    }
+
+    @Test func appearance() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = await Self.appearanceModel()
+        try Self.write(LeoAppearanceEditor(model: model), named: "appearance", size: NSSize(width: 750, height: 720), to: directory)
+    }
+
+    /// A rule selected for the bar's −, a rule added and still invalid, so Save is waiting.
+    @Test func appearanceWithASelectionAndANewRule() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = await Self.appearanceModel()
+        model.add()
+        model.selection = model.rows[1].id
+        try Self.write(LeoAppearanceEditor(model: model), named: "appearanceEdited", size: NSSize(width: 750, height: 720), to: directory)
+    }
+
     // MARK: Delegation pane
 
     private static func delegationModel(_ document: LeoDelegationDocument? = LeoDelegationFixtures.document()) async throws -> (LeoDelegationSettingsModel, LeoFakeConfigClient) {

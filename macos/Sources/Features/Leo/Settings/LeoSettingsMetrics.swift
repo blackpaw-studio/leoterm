@@ -4,6 +4,8 @@ import SwiftUI
 /// Shared spacing for Settings views that draw their own chrome (banners,
 /// sheets, pane notices). Form sections take the system's spacing.
 enum LeoSettingsMetrics {
+    /// Inside a list row or an attached bottom bar.
+    static let rowPadding: CGFloat = 6
     /// Inside a row, strip or compact group.
     static let compactPadding: CGFloat = 8
     /// Inside a banner or a toolbar-like strip.

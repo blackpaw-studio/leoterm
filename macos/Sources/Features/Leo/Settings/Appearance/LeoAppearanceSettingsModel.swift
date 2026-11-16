@@ -59,7 +59,12 @@ struct LeoAppearancePreviewAgent: Equatable, Sendable {
     static let capability = LeoDaemonFeatures.Feature.agentAppearance.rawValue
 
     @Published private(set) var phase = Phase.loading
-    @Published private(set) var rows: [Row] = []
+    @Published private(set) var rows: [Row] = [] {
+        // A reload or revert makes new rows: a selection on one that is gone goes with it.
+        didSet { if let selection, !rows.contains(where: { $0.id == selection }) { self.selection = nil } }
+    }
+    /// The rule the bottom bar's − removes.
+    @Published var selection: UUID?
     @Published private(set) var saved: LeoAppearanceRulesDocument?
     @Published private(set) var isSaving = false
     @Published private(set) var isConflicted = false
@@ -128,7 +133,16 @@ struct LeoAppearancePreviewAgent: Equatable, Sendable {
     // MARK: Editing
 
     func add() {
-        rows += [Row(id: UUID(), rule: LeoAppearanceRule(field: LeoAppearanceRule.Field.environments.rawValue, op: LeoAppearanceRule.Op.contains.rawValue, value: "", color: LeoAppearanceColor.blue.rawValue))]
+        let row = Row(id: UUID(), rule: LeoAppearanceRule(field: LeoAppearanceRule.Field.environments.rawValue, op: LeoAppearanceRule.Op.contains.rawValue, value: "", color: LeoAppearanceColor.blue.rawValue))
+        rows += [row]
+        selection = row.id
+    }
+
+    /// The bottom bar's −: removes the selected rule and selects its neighbour.
+    func deleteSelected() {
+        let removal = LeoListEditing.remove(selection, from: rows)
+        rows = removal.rows
+        selection = removal.selection
     }
 
     func delete(_ id: UUID) {
