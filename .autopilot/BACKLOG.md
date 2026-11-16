@@ -3035,3 +3035,4 @@ Source: owner (/feature, 2026-11-15)
 Inbox: 20261116T012527351545Z-eaf50e5f#1
 Done: b28f6ea2e (PR #376 head, merged unchanged via f6a960da1; landed in eb013d44f; 4678 tests). LEO_VERSION 0.84.0; v0.84.0 tarball sha256 matches and reports leo 0.84.0. Closes the daemon half of B-401. D-821.
 Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
+Reviewed: accepted 2026-11-15 — eb013d44fa3c
