@@ -84,6 +84,55 @@ struct LeoSidebarFeedAttentionRecoveryTests {
         #expect(await harness.activity.fetchCount == fetches, "a stale hello must not start a recovery")
         await harness.stop()
     }
+
+    // MARK: B-401: finished survives a daemon restart once the daemon restores it
+
+    private static func agent(_ state: LeoAttentionState, _ revision: Int) -> LeoObservedAgent {
+        LeoObservedAgent(
+            name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil,
+            attention: .init(state: state, revision: revision)
+        )
+    }
+
+    @Test func relaunchBaselineShowsFinishedRow() async throws {
+        let harness = RecoveryHarness(listFailures: 0, stateFailures: 0, state: [Self.agent(.finished, 2)])
+        await harness.start()
+
+        try await harness.waitFor { $0.rows.first?.attention == .finished }
+        await harness.stop()
+    }
+
+    @Test func daemonRestartBaselineShowsRestoredFinished() async throws {
+        let harness = RecoveryHarness(listFailures: 0, stateFailures: 0, state: [Self.agent(.finished, 9)])
+        await harness.start()
+        await harness.feed.receive(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-1"))
+        try await harness.waitFor { $0.rows.first?.attention == .finished }
+        let fetches = await harness.activity.fetchCount
+        await harness.activity.replaceState([Self.agent(.finished, 2)])
+
+        await harness.feed.receive(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-2"))
+        try await until { await harness.activity.fetchCount > fetches }
+        await harness.settle()
+
+        try await harness.waitFor { $0.rows.first?.attention == .finished }
+        await harness.stop()
+    }
+
+    @Test func daemonRestartBaselineWithUnknownClearsTheRow() async throws {
+        let harness = RecoveryHarness(listFailures: 0, stateFailures: 0, state: [Self.agent(.finished, 9)])
+        await harness.start()
+        await harness.feed.receive(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-1"))
+        try await harness.waitFor { $0.rows.first?.attention == .finished }
+        let fetches = await harness.activity.fetchCount
+        await harness.activity.replaceState([Self.agent(.unknown, 1)])
+
+        await harness.feed.receive(.hello(seq: 1, at: nil, version: nil, serverTime: nil, bootID: "boot-2"))
+        try await until { await harness.activity.fetchCount > fetches }
+        await harness.settle()
+
+        try await harness.waitFor { $0.rows.first?.attention != .finished }
+        await harness.stop()
+    }
 }
 
 private struct RecoveryHarness {
@@ -138,7 +187,7 @@ private enum ScriptedFailure: Error { case unavailable }
 private actor ScriptedActivity {
     private let stream: AsyncStream<LeoObserveEvent>
     private var failures: Int
-    private let state: [LeoObservedAgent]
+    private var state: [LeoObservedAgent]
     private(set) var fetchCount = 0
 
     init(failures: Int, state: [LeoObservedAgent]) {
@@ -148,6 +197,8 @@ private actor ScriptedActivity {
     }
 
     func events() -> AsyncStream<LeoObserveEvent> { stream }
+
+    func replaceState(_ state: [LeoObservedAgent]) { self.state = state }
 
     func fetchState() throws -> [LeoObservedAgent] {
         fetchCount += 1
