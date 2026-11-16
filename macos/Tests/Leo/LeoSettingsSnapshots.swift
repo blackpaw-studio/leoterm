@@ -460,6 +460,44 @@ struct LeoSettingsSnapshots {
         try Self.write(view, named: "general", size: NSSize(width: 700, height: 520), to: directory)
     }
 
+    // MARK: This Mac overview
+
+    private static let overviewSize = NSSize(width: 760, height: 620)
+
+    private static func thisMac(
+        managed: LeoManagedStatus, status: LeoMachineStatus = .connected, connection: LeoHostConnectionState? = .connected(socketPath: "/Users/evan/.leo/state/leo.sock"),
+        withService: Bool = true
+    ) async throws -> LeoThisMacOverviewContent {
+        let presentation = LeoManagedPresentation(status: managed, notice: nil)
+        let service = LeoServiceStatus(version: "v0.49.2", pid: 48_211, configPath: "/Users/evan/.leo/leo.yaml")
+        let overview = LeoThisMacOverview(
+            managed: managed, presentation: presentation, connection: connection, status: status, service: withService ? service : nil,
+            agentCount: 14, daemonVersion: "0.49.2"
+        )
+        let model = withService ? try await serviceModel() : nil
+        return LeoThisMacOverviewContent(overview: overview, service: model, perform: { _ in }, reveal: { _ in })
+    }
+
+    @Test func thisMacConnected() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        try Self.write(try await Self.thisMac(managed: .managed(version: "0.49.2")), named: "thisMacConnected", size: Self.overviewSize, to: directory)
+    }
+
+    @Test func thisMacOffline() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let view = try await Self.thisMac(
+            managed: .inactive, status: .failed("The Leo daemon socket is missing at ~/.leo/state/leo.sock"),
+            connection: .failed(message: "socket missing", hint: nil), withService: false
+        )
+        try Self.write(view, named: "thisMacOffline", size: Self.overviewSize, to: directory)
+    }
+
+    @Test func thisMacOfferToTakeOver() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let view = try await Self.thisMac(managed: .usingCLI(offerTakeover: true, isRunning: true))
+        try Self.write(view, named: "thisMacTakeover", size: Self.overviewSize, to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {

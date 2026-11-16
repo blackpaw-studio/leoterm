@@ -55,17 +55,34 @@ struct LeoServiceView: View {
                 LeoServiceLogTail(model: model)
             }
             .padding(16)
-            .alert(
-                title(for: model.confirmation),
-                isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.cancelConfirmation() } }),
-                presenting: model.confirmation
-            ) { pending in
-                // The dismiss setter above has already cleared `confirmation`: act on the one this alert showed.
-                Button(buttonTitle(for: pending), role: .destructive) { Task { await model.confirm(pending) } }
-                Button("Cancel", role: .cancel) {}
-            } message: { pending in
-                Text(message(for: pending))
-            }
+            .leoServiceConfirmations(model, machine: machine)
+        }
+    }
+}
+
+extension View {
+    /// The restart questions a Service model asks, as an alert. Both the Daemon
+    /// pane and This Mac's overview present them.
+    func leoServiceConfirmations(_ model: LeoServiceSettingsModel, machine: String) -> some View {
+        modifier(LeoServiceConfirmations(model: model, machine: machine))
+    }
+}
+
+private struct LeoServiceConfirmations: ViewModifier {
+    @ObservedObject var model: LeoServiceSettingsModel
+    let machine: String
+
+    func body(content: Content) -> some View {
+        content.alert(
+            title(for: model.confirmation),
+            isPresented: Binding(get: { model.confirmation != nil }, set: { if !$0 { model.cancelConfirmation() } }),
+            presenting: model.confirmation
+        ) { pending in
+            // The dismiss setter above has already cleared `confirmation`: act on the one this alert showed.
+            Button(buttonTitle(for: pending), role: .destructive) { Task { await model.confirm(pending) } }
+            Button("Cancel", role: .cancel) {}
+        } message: { pending in
+            Text(message(for: pending))
         }
     }
 
@@ -159,7 +176,7 @@ private struct LeoServiceActions: View {
     }
 }
 
-private struct LeoServiceMessages: View {
+struct LeoServiceMessages: View {
     @ObservedObject var model: LeoServiceSettingsModel
 
     var body: some View {
