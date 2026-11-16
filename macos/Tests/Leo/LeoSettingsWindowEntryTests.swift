@@ -70,6 +70,18 @@ import Testing
         #expect(rig.controller.window?.subtitle == "dionysus")
     }
 
+    /// A closed window's content must not outlive it: a stale tree kept answering
+    /// clicks for the old models while the reopened window's title followed new ones.
+    @Test func closingTheWindowReleasesItsContent() throws {
+        let rig = try rig()
+        rig.controller.show(.settings)
+        let window = try #require(rig.controller.window)
+
+        window.close()
+
+        #expect(window.contentViewController == nil)
+    }
+
     @Test func anOpenWindowMovesToTheNewEntry() throws {
         let rig = try rig()
         rig.controller.show(.settings)

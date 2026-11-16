@@ -213,6 +213,9 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
 
     func windowWillClose(_ notification: Notification) {
         lastItem = sidebar?.selection ?? lastItem
+        // The closed window would otherwise keep its old page alive, still wired to the
+        // old models, while the next open builds new ones: tear the content down with it.
+        (notification.object as? NSWindow)?.contentViewController = nil
         titleSubscription = nil
         model = nil
         target = nil
