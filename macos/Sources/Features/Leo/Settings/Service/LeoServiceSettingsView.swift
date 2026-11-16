@@ -1,42 +1,8 @@
 import LeoKit
 import SwiftUI
 
-/// The Service tab. Its model belongs to the target (a restart started from
-/// another tab's prompt is waited out there), so this view only shows it and
-/// tells it when the log is on screen.
-struct LeoServiceSettingsView: View {
-    static let tab = LeoSettingsTab.service
-
-    @ObservedObject var target: LeoSettingsTargetModel
-
-    var body: some View {
-        LeoSettingsPaneState(target: target, tab: Self.tab) { client in
-            LeoServicePane(target: target, client: client)
-        }
-    }
-}
-
-private struct LeoServicePane: View {
-    @ObservedObject var target: LeoSettingsTargetModel
-    @ObservedObject private var model: LeoServiceSettingsModel
-
-    init(target: LeoSettingsTargetModel, client: any LeoConfigClient) {
-        self.target = target
-        model = target.service(using: client)
-    }
-
-    private var isSelected: Bool { target.selectedTab == LeoServiceSettingsView.tab }
-
-    var body: some View {
-        LeoServiceView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost))
-            .task { await model.load() }
-            .onAppear { model.setLogVisible(isSelected) }
-            .onChange(of: isSelected) { model.setLogVisible($0) }
-            .onDisappear { model.setLogVisible(false) }
-    }
-}
-
-/// Status, the three actions, and a live log tail.
+/// Status, the actions and a live log tail, as grouped Form sections. The
+/// Daemon pane shows it on its Service section.
 struct LeoServiceView: View {
     @ObservedObject var model: LeoServiceSettingsModel
     let machine: String
@@ -48,13 +14,17 @@ struct LeoServiceView: View {
         case .failed(let message):
             LeoPaneFailure(message: message) { Task { await model.load() } }
         case .loaded:
-            VStack(alignment: .leading, spacing: 16) {
-                LeoServiceStatusCard(status: model.status, machine: machine)
-                LeoServiceActions(model: model)
-                LeoServiceMessages(model: model)
+            Form {
+                LeoServiceStatusSection(status: model.status, machine: machine)
+                Section {
+                    LeoServiceActions(model: model)
+                    if model.notice != nil || model.agentsSummary != nil || model.errorMessage != nil {
+                        LeoServiceMessages(model: model)
+                    }
+                }
                 LeoServiceLogTail(model: model)
             }
-            .padding(16)
+            .formStyle(.grouped)
             .leoServiceConfirmations(model, machine: machine)
         }
     }
@@ -111,29 +81,26 @@ private struct LeoServiceConfirmations: ViewModifier {
     }
 }
 
-private struct LeoServiceStatusCard: View {
+private struct LeoServiceStatusSection: View {
     let status: LeoServiceStatus?
     let machine: String
 
     var body: some View {
-        GroupBox {
+        Section {
             if let status {
-                Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 16, verticalSpacing: 6) {
-                    row("Version", status.version)
-                    row("Process ID", String(status.pid))
-                    if let startedAt = status.startedAt {
-                        row("Started", startedAt.formatted(date: .abbreviated, time: .shortened))
-                    }
-                    row("Agents", agentsLine(status))
-                    row("Config file", status.configPath, monospaced: true)
-                    row("Log file", status.logPath, monospaced: true)
+                row("Version", status.version)
+                row("Process ID", String(status.pid))
+                if let startedAt = status.startedAt {
+                    row("Started", startedAt.formatted(date: .abbreviated, time: .shortened))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                row("Agents", agentsLine(status))
+                row("Config file", status.configPath, monospaced: true)
+                row("Log file", status.logPath, monospaced: true)
             } else {
                 Text("No status from \(machine).").foregroundStyle(.secondary)
             }
-        } label: {
-            Label("leo on \(machine)", systemImage: "server.rack").font(.headline)
+        } header: {
+            Text("leo on \(machine)")
         }
     }
 
@@ -144,10 +111,10 @@ private struct LeoServiceStatusCard: View {
 
     @ViewBuilder private func row(_ label: String, _ value: String, monospaced: Bool = false) -> some View {
         if !value.isEmpty {
-            GridRow {
-                Text(label).foregroundStyle(.secondary).gridColumnAlignment(.trailing)
+            LabeledContent(label) {
                 Text(value)
                     .font(monospaced ? .system(.callout, design: .monospaced) : .body)
+                    .foregroundStyle(.secondary)
                     .textSelection(.enabled)
                     .lineLimit(1)
                     .truncationMode(.middle)
@@ -182,14 +149,14 @@ struct LeoServiceMessages: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if let notice = model.notice {
-                Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                Label(notice, systemImage: "checkmark.circle.fill").foregroundStyle(LeoTint.green.color)
             }
             if let summary = model.agentsSummary {
                 Label(summary, systemImage: "arrow.triangle.2.circlepath").foregroundStyle(.secondary)
             }
             if let error = model.errorMessage {
                 HStack(alignment: .firstTextBaseline) {
-                    Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).textSelection(.enabled)
+                    Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(LeoTint.red.color).textSelection(.enabled)
                     Spacer(minLength: 8)
                     Button("Dismiss") { model.dismissMessages() }.buttonStyle(.link)
                 }
@@ -203,26 +170,25 @@ private struct LeoServiceLogTail: View {
     @ObservedObject var model: LeoServiceSettingsModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("Log").font(.headline)
-                if model.isLogPaused { Text("Paused").font(.caption).foregroundStyle(.secondary) }
-                Spacer()
-                Button(model.isLogPaused ? "Resume" : "Pause") { model.setLogPaused(!model.isLogPaused) }
-                Button("Copy") { model.copyLog() }.disabled(model.logText.isEmpty)
-            }
+        Section {
             ZStack {
                 LeoLogTextView(text: model.logText, label: "Daemon log", followsEnd: true)
                 if model.logText.isEmpty {
                     Text(model.logError ?? "No log output yet.").foregroundStyle(.secondary)
                 }
             }
-            .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 6))
-            .frame(minHeight: 160, maxHeight: .infinity)
+            .frame(height: 240)
             if let error = model.logError, !model.logText.isEmpty {
                 Text("Couldn’t refresh the log: \(error)").font(.caption).foregroundStyle(.secondary)
             }
+        } header: {
+            HStack {
+                Text("Log")
+                if model.isLogPaused { Text("Paused").font(.caption).foregroundStyle(.secondary) }
+                Spacer()
+                Button(model.isLogPaused ? "Resume" : "Pause") { model.setLogPaused(!model.isLogPaused) }
+                Button("Copy") { model.copyLog() }.disabled(model.logText.isEmpty)
+            }
         }
-        .frame(maxHeight: .infinity)
     }
 }

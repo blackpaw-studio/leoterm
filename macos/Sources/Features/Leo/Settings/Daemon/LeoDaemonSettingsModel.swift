@@ -2,8 +2,9 @@ import Combine
 import Foundation
 import LeoKit
 
-/// The Daemon tab: the web UI form, the remote client form and the remote
-/// hosts, three resources behind one tab. Each keeps its own draft, so
+/// The Daemon pane: the service (status, actions, log), the web UI form, the
+/// remote client form and the remote hosts, behind one picker. The service's
+/// model belongs to the target, not to this one. Each keeps its own draft, so
 /// switching between them never loses an edit, and the tab answers the
 /// Settings window's unsaved-changes and reconnect hooks for all three.
 ///
@@ -12,7 +13,7 @@ import LeoKit
 /// deleting the default host leaves the setting as it was.
 @MainActor final class LeoDaemonSettingsModel: ObservableObject, LeoSettingsPane {
     enum Section: CaseIterable, Hashable {
-        case web, client, hosts
+        case service, web, client, hosts
     }
 
     static let hostsKey = "hosts"
@@ -21,7 +22,7 @@ import LeoKit
     let web: LeoConfigSingletonModel
     let client: LeoConfigSingletonModel
     let hosts: LeoConfigCollectionModel
-    @Published var section = Section.web
+    @Published var section = Section.service
 
     private var subscriptions: Set<AnyCancellable> = []
 
@@ -42,6 +43,12 @@ import LeoKit
         await hosts.load()
         await web.load()
         await client.load()
+    }
+
+    /// Whether the service log tail polls: only while it is on screen, which
+    /// is the Daemon pane selected on the Service section.
+    func isLogVisible(paneSelected: Bool) -> Bool {
+        paneSelected && section == .service
     }
 
     // MARK: LeoSettingsPane

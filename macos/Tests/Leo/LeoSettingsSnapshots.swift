@@ -434,6 +434,16 @@ struct LeoSettingsSnapshots {
         model.stop()
     }
 
+    @Test func daemonServiceSection() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let service = try await Self.serviceModel()
+        let model = try await Self.daemonModel(.service)
+        try Self.write(
+            LeoDaemonView(model: model, machine: "dionysus", service: service), named: "daemonService", size: Self.serviceSize, to: directory
+        )
+        service.stop()
+    }
+
     @Test func serviceRestartingAndAgentsSummary() async throws {
         let directory = try #require(snapshotOutputDirectory)
         let model = try await Self.serviceModel()
