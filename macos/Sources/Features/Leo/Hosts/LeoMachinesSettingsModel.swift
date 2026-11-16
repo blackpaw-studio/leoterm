@@ -18,6 +18,8 @@ import LeoKit
     /// untested, while a test runs, and after any edit that could change it.
     @Published private(set) var testReport: LeoConnectionTestReport?
     @Published private(set) var isTesting = false
+    /// The machine whose Remove Machine… confirmation is showing.
+    @Published private(set) var pendingRemoval: LeoHostConfiguration.ID?
 
     private let store: LeoHostStore
     private let tester: any LeoMachineConnectionTesting
@@ -60,6 +62,36 @@ import LeoKit
         guard let index = selectedIndex else { return }
         hosts.remove(at: index)
         selectedID = hosts.first?.id
+    }
+
+    /// Remove Machine…: asks first (`pendingRemoval`); nothing changes yet.
+    func requestRemoval(of id: LeoHostConfiguration.ID) {
+        guard hosts.contains(where: { $0.id == id }) else { return }
+        pendingRemoval = id
+    }
+
+    func cancelRemoval() {
+        pendingRemoval = nil
+    }
+
+    /// The confirmed removal: takes the machine out of the draft and saves at
+    /// once, because a destructive action already confirmed shouldn't also
+    /// need Save. If the draft can't be saved (another machine's edits are
+    /// invalid, or the store changed) the machine stays and `saveError` says why.
+    @discardableResult
+    func confirmRemoval() -> Bool {
+        guard let id = pendingRemoval, let index = hosts.firstIndex(where: { $0.id == id }) else {
+            pendingRemoval = nil
+            return false
+        }
+        pendingRemoval = nil
+        let removed = hosts[index]
+        hosts.remove(at: index)
+        guard save() else {
+            hosts.insert(removed, at: index)
+            return false
+        }
+        return true
     }
 
     /// Whether the draft differs from what is saved.

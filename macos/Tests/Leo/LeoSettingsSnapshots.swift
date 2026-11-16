@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import SwiftUI
 import Testing
@@ -496,6 +497,41 @@ struct LeoSettingsSnapshots {
         let directory = try #require(snapshotOutputDirectory)
         let view = try await Self.thisMac(managed: .usingCLI(offerTakeover: true, isRunning: true))
         try Self.write(view, named: "thisMacTakeover", size: Self.overviewSize, to: directory)
+    }
+
+    // MARK: Remote overview
+
+    private static func remote(
+        hosts: [LeoHostConfiguration], report: LeoConnectionTestReport? = nil
+    ) async -> LeoRemoteOverviewView {
+        let defaults = LeoInMemoryDefaults()
+        let store = LeoHostStore(defaults: defaults)
+        try? store.save(hosts)
+        let model = LeoMachinesSettingsModel(store: store, tester: SnapshotTester(report: report))
+        if report != nil { await model.testSelected() }
+        let target = LeoSettingsTargetModel(
+            clients: FakeMachineClients(), machines: { [.local] }, status: { _ in nil }, statuses: Empty().eraseToAnyPublisher(),
+            reconnect: { _ in }, initialHost: nil
+        )
+        return LeoRemoteOverviewView(model: model, target: target, registry: LeoMachineRegistry.isolatedForTesting(defaults: defaults))
+    }
+
+    private struct SnapshotTester: LeoMachineConnectionTesting {
+        let report: LeoConnectionTestReport?
+        func test(_ configuration: LeoHostConfiguration) async -> LeoConnectionTestReport { report ?? .sshFailed("not used") }
+    }
+
+    @Test func remoteOverview() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let host = LeoHostConfiguration(name: "dionysus", sshTarget: "evan@dionysus", remoteLeoPath: "~/.leo/app/bin/leo")
+        let report = LeoConnectionTestReport.success(version: "0.49.1", statsAdvertised: true, duration: 0.084)
+        try Self.write(await Self.remote(hosts: [host], report: report), named: "remoteConnected", size: Self.overviewSize, to: directory)
+    }
+
+    @Test func remoteOverviewDisabled() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let host = LeoHostConfiguration(name: "helios", sshTarget: "evan@helios", isEnabled: false)
+        try Self.write(await Self.remote(hosts: [host]), named: "remoteDisabled", size: Self.overviewSize, to: directory)
     }
 
     // MARK: Rendering

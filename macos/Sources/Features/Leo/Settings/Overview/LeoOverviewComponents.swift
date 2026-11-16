@@ -63,13 +63,15 @@ struct LeoOverviewHeader<Trailing: View>: View {
     }
 }
 
-/// A line explaining why a machine can't be used ("Off", the connection error).
+/// A line explaining why a machine can't be used: a problem (the connection
+/// error) in orange, or a calm note ("Off").
 struct LeoOverviewReason: View {
     let text: String
+    var isProblem = true
 
     var body: some View {
-        Label(text, systemImage: "exclamationmark.triangle.fill")
-            .foregroundStyle(LeoTint.orange.color)
+        Label(text, systemImage: isProblem ? "exclamationmark.triangle.fill" : "power")
+            .foregroundStyle(isProblem ? LeoTint.orange.color : Color(nsColor: .secondaryLabelColor))
             .textSelection(.enabled)
     }
 }

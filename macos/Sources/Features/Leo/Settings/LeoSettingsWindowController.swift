@@ -212,7 +212,7 @@ private struct LeoSettingsView: View {
 
     var body: some View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
-            LeoMachinesSettingsView(model: model, registry: registry)
+            LeoRemoteOverviewView(model: model, target: target, registry: registry)
                 .tabItem { Label("Machines", systemImage: "server.rack") }
                 .tag(LeoSettingsTab.overview)
             LeoTemplatesSettingsView(target: target)
