@@ -21,10 +21,7 @@ struct LeoMachinesSettingsLayoutTests {
         try? store.save([.init(name: "work", sshTarget: "evan@work")])
         let model = LeoMachinesSettingsModel(store: store, tester: SuccessTester())
         await model.testSelected()
-        let view = LeoMachinesSettingsView(
-            model: model, statsStyle: LeoStatsStyleSetting(defaults: defaults), agentBrowser: LeoAgentBrowserSetting(defaults: defaults),
-            registry: LeoMachineRegistry.isolatedForTesting(defaults: defaults)
-        )
+        let view = LeoMachinesSettingsView(model: model, registry: LeoMachineRegistry.isolatedForTesting(defaults: defaults))
         let window = NSWindow(
             contentRect: NSRect(x: -6000, y: -6000, width: 780, height: 600), styleMask: .borderless, backing: .buffered, defer: false
         )

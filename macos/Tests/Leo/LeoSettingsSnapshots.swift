@@ -448,6 +448,18 @@ struct LeoSettingsSnapshots {
         agents.stop()
     }
 
+    // MARK: General
+
+    @Test func general() throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let defaults = LeoInMemoryDefaults()
+        let view = LeoGeneralSettingsView(
+            statsStyle: LeoStatsStyleSetting(defaults: defaults), agentBrowser: LeoAgentBrowserSetting(defaults: defaults),
+            builtIn: LeoBuiltInPaneSettings(defaults: defaults)
+        )
+        try Self.write(view, named: "general", size: NSSize(width: 700, height: 520), to: directory)
+    }
+
     // MARK: Rendering
 
     private static func write(_ view: some View, named name: String, size: NSSize, to directory: URL) throws {

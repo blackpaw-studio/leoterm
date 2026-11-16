@@ -212,7 +212,7 @@ private struct LeoSettingsView: View {
 
     var body: some View {
         TabView(selection: Binding(get: { target.selectedTab }, set: { _ = target.requestTab($0) })) {
-            LeoMachinesSettingsView(model: model, statsStyle: statsStyle, agentBrowser: agentBrowser, registry: registry)
+            LeoMachinesSettingsView(model: model, registry: registry)
                 .tabItem { Label("Machines", systemImage: "server.rack") }
                 .tag(LeoSettingsTab.overview)
             LeoTemplatesSettingsView(target: target)
@@ -239,7 +239,10 @@ private struct LeoSettingsView: View {
             LeoServiceSettingsView(target: target)
                 .tabItem { Label("Service", systemImage: "waveform.path.ecg") }
                 .tag(LeoServiceSettingsView.tab)
-            LeoPluginsSettingsView(system: plugins, builtIn: builtInPanes)
+            LeoGeneralSettingsView(statsStyle: statsStyle, agentBrowser: agentBrowser, builtIn: builtInPanes)
+                .tabItem { Label("General", systemImage: "gearshape") }
+                .tag(LeoGeneralSettingsView.tab)
+            LeoPluginsSettingsView(system: plugins)
                 .tabItem { Label("Plugins", systemImage: "puzzlepiece.extension") }
                 .tag(LeoPluginsSettingsView.tab)
         }

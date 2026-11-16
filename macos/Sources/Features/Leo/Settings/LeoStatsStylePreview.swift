@@ -1,35 +1,12 @@
 import LeoKit
 import SwiftUI
 
-/// Settings ▸ Machines ▸ Stats style: a segmented control and a live
-/// preview. Every fill is a flat colour, never a gradient.
-struct LeoStatsStyleSection: View {
-    @ObservedObject var setting: LeoStatsStyleSetting
+/// Settings ▸ General ▸ Stats style: a live preview of the chosen style on
+/// two sample machines. Every fill is a flat colour, never a gradient.
+struct LeoStatsStylePreview: View {
+    let style: LeoStatsStyle
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
-                Text("Stats style").frame(width: 90, alignment: .trailing)
-                VStack(alignment: .leading, spacing: 6) {
-                    Picker("Stats style", selection: $setting.style) {
-                        ForEach(LeoStatsStyle.allCases, id: \.self) { Text($0.settingsTitle).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(maxWidth: 380)
-                    Text("Shown beside each machine in the sidebar and the machine picker. Stored on this Mac only.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            HStack(alignment: .top, spacing: 12) {
-                Text("Preview").frame(width: 90, alignment: .trailing)
-                preview
-            }
-        }
-        .padding(16)
-    }
-
-    private var preview: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Self.samples, id: \.name) { sample in
                 VStack(alignment: .leading, spacing: 2) {
@@ -40,7 +17,7 @@ struct LeoStatsStyleSection: View {
                         previewCluster(sample.meters)
                     }
                     .frame(minHeight: 20)
-                    LeoMachineMeterRow(meters: sample.meters, style: setting.style).padding(.leading, 14)
+                    LeoMachineMeterRow(meters: sample.meters, style: style).padding(.leading, 14)
                 }
             }
         }
@@ -52,8 +29,8 @@ struct LeoStatsStyleSection: View {
 
     /// The same meters the sidebar's machine headers draw.
     @ViewBuilder private func previewCluster(_ meters: LeoMachineHeaderPresentation.Meters) -> some View {
-        if setting.style.showsMeters {
-            LeoMachineMeterCluster(meters: meters, style: setting.style)
+        if style.showsMeters {
+            LeoMachineMeterCluster(meters: meters, style: style)
         } else {
             Text("No meters").font(.caption).foregroundStyle(.secondary)
         }
@@ -77,7 +54,7 @@ struct LeoStatsStyleSection: View {
     }
 }
 
-private extension LeoStatsStyle {
+extension LeoStatsStyle {
     var settingsTitle: String {
         switch self {
         case .capsules: "Capsules"
