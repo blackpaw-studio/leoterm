@@ -95,7 +95,7 @@ import LeoKit
     // MARK: Actions
 
     /// Selects `item`. It takes effect now when the target accepts the move,
-    /// else once the user confirms the discard question (`confirmPending`).
+    /// else once the user confirms the discard question (`confirm(_:)`).
     func select(_ item: LeoSettingsSidebarItem) {
         guard item != selection else { return }
         let resolution = resolve(item, draft: model.hosts)
@@ -118,10 +118,24 @@ import LeoKit
         select(.machine(.remote(id)))
     }
 
-    /// The user chose Discard: the target applies its move, and the sidebar follows.
-    func confirmPending() {
-        target.confirmPendingChange()
-        if let pendingItem { commit(pendingItem) }
+    /// The discard question's content: the target's refused change and the
+    /// row the sidebar will move to. nil while nothing is pending.
+    struct PendingSelection: Equatable {
+        let change: LeoSettingsTargetModel.PendingChange
+        let item: LeoSettingsSidebarItem
+    }
+
+    var pendingSelection: PendingSelection? {
+        guard let pendingItem, let change = target.pendingChange else { return nil }
+        return PendingSelection(change: change, item: pendingItem)
+    }
+
+    /// The user chose Discard: the target applies its move, and the sidebar
+    /// follows. Takes the pair the alert showed, since the alert's dismiss
+    /// (`cancelPending`) has already cleared the model's own copy.
+    func confirm(_ pending: PendingSelection) {
+        target.confirmPendingChange(pending.change)
+        commit(pending.item)
         pendingItem = nil
     }
 

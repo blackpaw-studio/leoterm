@@ -20,11 +20,13 @@ struct LeoSettingsDetailView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .alert(
                 "Discard unsaved changes?",
-                isPresented: Binding(get: { target.pendingChange != nil }, set: { if !$0 { sidebar.cancelPending() } })
-            ) {
-                Button("Discard", role: .destructive) { sidebar.confirmPending() }
+                isPresented: Binding(get: { sidebar.pendingSelection != nil }, set: { if !$0 { sidebar.cancelPending() } }),
+                presenting: sidebar.pendingSelection
+            ) { pending in
+                // The dismiss setter above has already cleared the pending change: act on the one this alert showed.
+                Button("Discard", role: .destructive) { sidebar.confirm(pending) }
                 Button("Cancel", role: .cancel) {}
-            } message: {
+            } message: { _ in
                 Text("Your edits haven't been saved to the machine.")
             }
     }

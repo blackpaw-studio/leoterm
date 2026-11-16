@@ -244,6 +244,13 @@ extension LeoSettingsPane {
 
     func confirmPendingChange() {
         guard let change = pendingChange else { return }
+        confirmPendingChange(change)
+    }
+
+    /// Applies `change` as the user confirmed it. An alert's dismiss clears
+    /// `pendingChange` before its Discard button runs, so the caller passes
+    /// the change the alert showed.
+    func confirmPendingChange(_ change: PendingChange) {
         pendingChange = nil
         switch change {
         case .selection(let host, let tab):

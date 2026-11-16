@@ -7,8 +7,8 @@ import Testing
 
 @MainActor
 struct LeoSettingsSidebarModelTests {
-    private static let dionysus = LeoHostConfiguration(name: "dionysus", sshTarget: "evan@dionysus")
-    private static let hestia = LeoHostConfiguration(name: "hestia", sshTarget: "evan@hestia", isEnabled: false)
+    static let dionysus = LeoHostConfiguration(name: "dionysus", sshTarget: "evan@dionysus")
+    static let hestia = LeoHostConfiguration(name: "hestia", sshTarget: "evan@hestia", isEnabled: false)
 
     private final class Pane: LeoSettingsPane {
         var hasUnsavedChanges: Bool
@@ -17,7 +17,7 @@ struct LeoSettingsSidebarModelTests {
         func reload(using client: any LeoConfigClient) async {}
     }
 
-    private struct Harness {
+    struct Harness {
         let sidebar: LeoSettingsSidebarModel
         let model: LeoMachinesSettingsModel
         let target: LeoSettingsTargetModel
@@ -25,7 +25,7 @@ struct LeoSettingsSidebarModelTests {
         let machinesChanged: PassthroughSubject<Void, Never>
     }
 
-    private static func harness(initial: LeoSettingsSidebarItem = .machine(.local)) throws -> Harness {
+    static func harness(initial: LeoSettingsSidebarItem = .machine(.local)) throws -> Harness {
         let store = LeoHostStore(defaults: LeoInMemoryDefaults())
         try store.save([dionysus, hestia])
         let model = LeoMachinesSettingsModel(store: store, tester: IdleTester())
@@ -35,7 +35,7 @@ struct LeoSettingsSidebarModelTests {
         )
         let changed = PassthroughSubject<Void, Never>()
         let sidebar = LeoSettingsSidebarModel(
-            model: model, target: target, status: { $0 == .local ? .connected : nil }, configurations: { store.load() },
+            model: model, target: target, status: { _ in .connected }, configurations: { store.load() },
             machinesChanged: changed.eraseToAnyPublisher(), initial: initial
         )
         return Harness(sidebar: sidebar, model: model, target: target, store: store, machinesChanged: changed)
@@ -111,9 +111,10 @@ struct LeoSettingsSidebarModelTests {
 
         harness.sidebar.select(.pane(dionysus, .tasks))
         #expect(harness.sidebar.selection == .machine(.local))
-        #expect(harness.target.pendingChange != nil)
+        let pending = try #require(harness.sidebar.pendingSelection)
+        #expect(pending.item == .pane(dionysus, .tasks))
 
-        harness.sidebar.confirmPending()
+        harness.sidebar.confirm(pending)
         #expect(harness.sidebar.selection == .pane(dionysus, .tasks))
         #expect(harness.sidebar.expanded == [dionysus])
         #expect(harness.target.selectedHost == .remote("dionysus"))
@@ -129,10 +130,7 @@ struct LeoSettingsSidebarModelTests {
         #expect(harness.sidebar.selection == .machine(.local))
         #expect(harness.target.pendingChange == nil)
         #expect(pane.hasUnsavedChanges)
-
-        // A later confirm must not resurrect the cancelled move.
-        harness.sidebar.confirmPending()
-        #expect(harness.sidebar.selection == .machine(.local))
+        #expect(harness.sidebar.pendingSelection == nil)
     }
 
     // MARK: removal, rename, add
@@ -141,8 +139,8 @@ struct LeoSettingsSidebarModelTests {
         let harness = try Self.harness()
         let dionysus = LeoSettingsMachineRef.remote(Self.dionysus.id)
         harness.sidebar.select(.pane(dionysus, .defaults))
-        harness.model.selectedID = Self.dionysus.id
-        harness.model.removeSelected()
+        harness.model.requestRemoval(of: Self.dionysus.id)
+        #expect(harness.model.confirmRemoval(Self.dionysus.id))
 
         #expect(harness.sidebar.selection == .machine(.local))
         #expect(harness.target.selectedHost == .local)
