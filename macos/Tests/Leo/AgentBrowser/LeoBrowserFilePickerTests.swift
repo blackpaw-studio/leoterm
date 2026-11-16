@@ -95,6 +95,8 @@ struct LeoBrowserFilePickerTests {
         let tab = try await tabs.openTab(url: LeoAgentBrowserTabs.blank)
         let results = ResultBox()
         try choose(tabs, on: tab, results)
+        #expect(picker.requests.count == 1)
+        #expect(results.urls.isEmpty)
         picker.answer(nil)
         #expect(results.urls.count == 1)
         #expect(results.urls[0] == nil)
