@@ -1,12 +1,35 @@
 import AppKit
 
+/// Who is asking for a file, and for what. Several agents' browsers can be
+/// open at once, so the chooser says which agent and which site asked.
+struct LeoBrowserFilePickRequest: Equatable {
+    /// The agent whose browser holds the page.
+    let agent: String
+    /// The requesting frame's origin, already formatted for people.
+    let origin: String
+    let allowsMultipleSelection: Bool
+    let allowsDirectories: Bool
+
+    /// What the chooser says: "<agent> · <origin> wants to upload a file".
+    var message: String {
+        "\(agent) · \(origin) wants to upload a \(allowsDirectories ? "folder" : "file")"
+    }
+
+    /// `host` plus a non-default `port` (0 means the scheme's default), or
+    /// "this page" when there is no host, as for `about:blank`.
+    static func originLabel(host: String, port: Int) -> String {
+        guard !host.isEmpty else { return "this page" }
+        return port == 0 ? host : "\(host):\(port)"
+    }
+}
+
 /// A file chooser the browser can show for a page's `<input type=file>`.
 /// The real one is a standalone `NSOpenPanel`; tests inject a fake.
 @MainActor protocol LeoBrowserFilePicking {
     /// Shows the chooser and calls `completion` with the chosen URLs, or
     /// nil when the user cancels. The returned session dismisses it early.
     func present(
-        allowsMultipleSelection: Bool, allowsDirectories: Bool,
+        _ request: LeoBrowserFilePickRequest,
         completion: @escaping @MainActor ([URL]?) -> Void
     ) -> any LeoBrowserFilePickSession
 }
@@ -22,12 +45,13 @@ import AppKit
 /// never freeze that window behind a sheet.
 @MainActor struct LeoOpenPanelFilePicker: LeoBrowserFilePicking {
     func present(
-        allowsMultipleSelection: Bool, allowsDirectories: Bool,
+        _ request: LeoBrowserFilePickRequest,
         completion: @escaping @MainActor ([URL]?) -> Void
     ) -> any LeoBrowserFilePickSession {
         let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = allowsMultipleSelection
-        panel.canChooseDirectories = allowsDirectories
+        panel.allowsMultipleSelection = request.allowsMultipleSelection
+        panel.canChooseDirectories = request.allowsDirectories
+        panel.message = request.message
         panel.canChooseFiles = true
         panel.begin { response in
             MainActor.assumeIsolated { completion(response == .OK ? panel.urls : nil) }
