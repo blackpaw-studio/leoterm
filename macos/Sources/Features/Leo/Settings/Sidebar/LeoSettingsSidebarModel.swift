@@ -47,6 +47,8 @@ import LeoKit
     private let configurations: () -> [LeoHostConfiguration]
     /// A selection waiting on the user's answer to the target's question.
     private var pendingItem: LeoSettingsSidebarItem?
+    /// The machine the selection was last on; an app page keeps it, so it can still be collapsed.
+    private var lastMachine: LeoSettingsMachineRef?
     private var subscriptions: Set<AnyCancellable> = []
 
     /// `machinesChanged` fires after the registry's machine list changes (a
@@ -62,6 +64,7 @@ import LeoKit
         self.configurations = configurations
         selection = initial
         expanded = initial.machine.map { [$0] } ?? []
+        lastMachine = initial.machine
         model.$hosts.dropFirst()
             .sink { [weak self] hosts in self?.resync(draft: hosts) }
             .store(in: &subscriptions)
@@ -167,9 +170,11 @@ import LeoKit
     private func commit(_ item: LeoSettingsSidebarItem) {
         let previous = selection.machine
         selection = item
-        if let machine = item.machine, machine != previous {
-            if let previous { expanded.remove(previous) }
-            expanded.insert(machine)
+        if let machine = item.machine {
+            if machine != previous { expanded.insert(machine) }
+            // The machine shown last collapses, even across an app page (General, Plugins).
+            if let lastMachine, lastMachine != machine { expanded.remove(lastMachine) }
+            lastMachine = machine
         }
         if case .remote(let id)? = item.machine, model.selectedID != id { model.selectedID = id }
     }
