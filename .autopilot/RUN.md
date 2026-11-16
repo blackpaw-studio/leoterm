@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-11-16T01:25:55Z
 Budget: 20 items, until 2026-11-16T13:25:55Z
 Digested-through: 0
@@ -34,3 +34,4 @@ Progress:
 - Preflight: main already merged; queued open bump PR #376 (leo 0.84.0) → B-403. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane, dirty worktree (finish skips it).
 - Pick: B-403 light (version bump, merge PR head unchanged; same as B-399).
 - B-403 landed eb013d44f (b28f6ea2e, PR #376 head unchanged). D-821. ≈$1.77 est.
+- Digest: backlog drained (pick []).

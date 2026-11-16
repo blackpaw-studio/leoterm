@@ -1007,3 +1007,20 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-16T01:25:55Z
+
+🛠 leoterm autopilot — 0 fixed, 1 shipped, 0 blocked
+Shipped
+• B-403 Land bundled leo daemon bump to 0.84.0 (PR #376) — PR head merged unchanged; LEO_VERSION 0.84.0, tarball sha256 matches and reports leo 0.84.0; 4678 tests pass. Brings in the B-401 attention restore (verified: not visually verified — version file only) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-821 rebuilt the stale shared xcframework in the lane; moved macos/build aside instead of deleting — verify.md
+Needs you
+• Lanes left: B-058 held; B-233, B-332 unlanded with no block; B-368 landed but its worktree is dirty (1 change), so finish skipped it.
+Next up: nothing ready (13 blocked items await answers)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$1.77 est. — B-403 ≈$1.77 est.
+Tokens (runner + its subagents): B-403 4.73M in (4.49M cache read), ≥17k out, 59 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
