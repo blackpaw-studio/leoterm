@@ -1,0 +1,189 @@
+📱 Application: Leo[DEBUG]
+[win] Window: Defaults – scratch-remote
+🧊 Detection method: AXorcist
+📊 UI elements detected: 177
+⚙️  Interactable elements: 32
+⏱️  Execution time: 0.61s
+
+Accessibility Tree
+  elem_21 [button] Expand This Mac
+  elem_25 [button] Expand archive-box
+  elem_29 [button] Collapse scratch-remote
+  elem_58 [button] Harness value="inherit" value_settable=false
+  elem_73 [button] Session value="resume (built-in)" value_settable=false
+  elem_82 [button] Add
+  elem_88 [button] Permission mode value="" value_settable=false
+  elem_92 [button] Bypass permissions value="Inherit" value_settable=false
+  elem_96 [button] Remote control value="Inherit" value_settable=false
+  elem_104 [button] Add
+  elem_108 [button] Add
+  elem_118 [button] MCP profile value="" value_settable=false
+  elem_122 [button] Add
+  elem_126 [button] Plugin profile value="" value_settable=false
+  elem_149 [button] Placement value="default" value_settable=false
+  elem_158 [button] increment page button
+  elem_159 [button] Revert disabled
+  elem_160 [button] Save disabled
+  elem_161 [button] close button
+  elem_162 [button] full screen button
+  elem_164 [button] minimize button
+  elem_63 [textField] sonnet value="sonnet" value_settable=true
+  elem_68 [textField] Max turns value="50" value_settable=true
+  elem_77 [textField] Rotate session after value="" value_settable=true
+  elem_100 [textField] Agent value="" value_settable=true
+  elem_113 [textField] text entry area value="" value_settable=true
+  elem_154 [textField] Idle suspend after value="" value_settable=true
+  menuitem_175 [textField] search text field value="" value_settable=true
+  elem_2 [group] group
+  elem_7 [group] group
+  elem_17 [group] group
+  elem_53 [group] group
+  elem_56 [group] group
+  elem_61 [group] group
+  elem_66 [group] group
+  elem_70 [group] group
+  elem_71 [group] group
+  elem_75 [group] group
+  elem_80 [group] group
+  elem_85 [group] group
+  elem_86 [group] group
+  elem_90 [group] group
+  elem_94 [group] group
+  elem_98 [group] group
+  elem_102 [group] group
+  elem_106 [group] group
+  elem_110 [group] group
+  elem_116 [group] group
+  elem_120 [group] group
+  elem_124 [group] group
+  elem_129 [group] group
+  elem_130 [group] group
+  elem_134 [group] group
+  elem_138 [group] group
+  elem_142 [group] group
+  elem_147 [group] group
+  elem_152 [group] group
+  elem_163 [group] group
+  elem_132 [checkbox] Needs input value="1" value_settable=false
+  elem_136 [checkbox] Finished value="1" value_settable=false
+  elem_140 [checkbox] Errored value="1" value_settable=false
+  elem_144 [checkbox] Chat messages value="1" value_settable=false
+  menuitem_166 [menu] menu bar
+  elem_0 [other] Defaults – scratch-remote
+  elem_1 [other] split group
+  elem_3 [other] scroll area
+  elem_4 [other] Sidebar
+  elem_5 [other] outline row
+  elem_6 [other] cell
+  elem_8 [other] App
+  elem_9 [other] outline row
+  elem_10 [other] cell
+  elem_11 [other] General value="General"
+  elem_12 [other] outline row
+  elem_13 [other] cell
+  elem_14 [other] Plugins value="Plugins"
+  elem_15 [other] outline row
+  elem_16 [other] cell
+  elem_18 [other] Machines, Add machine
+  elem_19 [other] outline row
+  elem_20 [other] cell
+  elem_22 [other] This Mac, Connected
+  elem_23 [other] outline row
+  elem_24 [other] cell
+  elem_26 [other] archive-box, Off
+  elem_27 [other] outline row
+  elem_28 [other] cell
+  elem_30 [other] scratch-remote, Connected
+  elem_31 [other] outline row
+  elem_32 [other] cell
+  elem_33 [other] Templates, scratch-remote value="Templates, scratch-remote"
+  elem_34 [other] outline row
+  elem_35 [other] cell
+  elem_36 [other] Tasks, scratch-remote value="Tasks, scratch-remote"
+  elem_37 [other] outline row
+  elem_38 [other] cell
+  elem_39 [other] Environments, scratch-remote value="Environments, scratch-remote"
+  elem_40 [other] outline row
+  elem_41 [other] cell
+  elem_42 [other] Delegation, scratch-remote value="Delegation, scratch-remote"
+  elem_43 [other] outline row
+  elem_44 [other] cell
+  elem_45 [other] Appearance, scratch-remote value="Appearance, scratch-remote"
+  elem_46 [other] outline row
+  elem_47 [other] cell
+  elem_48 [other] Defaults, scratch-remote value="Defaults, scratch-remote"
+  elem_49 [other] outline row
+  elem_50 [other] cell
+  elem_51 [other] Daemon, scratch-remote value="Daemon, scratch-remote"
+  elem_52 [other] column
+  elem_54 [other] scroll area
+  elem_55 [other] Harness
+  elem_57 [other] Harness value="Harness"
+  elem_59 [other] Coding agent CLI driving this scope; options below are harness-specific value="Coding agent CLI driving this scope; options below are harness-specific"
+  elem_60 [other] Model
+  elem_62 [other] Model value="Model"
+  elem_64 [other] Go Down
+  elem_65 [other] Limits
+  elem_67 [other] Max turns value="Max turns"
+  elem_69 [other] Execution
+  elem_72 [other] Session value="Session"
+  elem_74 [other] default for oneshot tasks that set no session: resume continues the stored session, fresh starts a new one every run; empty = resume value="default for oneshot tasks that set no session: resume continues the stored session, fresh starts a new one every run; empty = resume"
+  elem_76 [other] Rotate session after value="Rotate session after"
+  elem_78 [other] default for oneshot tasks: start a fresh session after this many runs; 0 = never (ignored when the effective session is fresh) value="default for oneshot tasks: start a fresh session after this many runs; 0 = never (ignored when the effective session is fresh)"
+  elem_79 [other] Behavior
+  elem_81 [other] Environments value="Environments"
+  elem_83 [other] Named environments (see the Environments page), comma-separated; merged left to right, later wins value="Named environments (see the Environments page), comma-separated; merged left to right, later wins"
+  elem_84 [other] Harness options
+  elem_87 [other] Permission mode value="Permission mode"
+  elem_89 [other] --permission-mode for the spawned claude value="--permission-mode for the spawned claude"
+  elem_91 [other] Bypass permissions value="Bypass permissions"
+  elem_93 [other] --dangerously-skip-permissions value="--dangerously-skip-permissions"
+  elem_95 [other] Remote control value="Remote control"
+  elem_97 [other] --remote-control (claude.ai remote control) value="--remote-control (claude.ai remote control)"
+  elem_99 [other] Agent value="Agent"
+  elem_101 [other] --agent: named claude sub-agent value="--agent: named claude sub-agent"
+  elem_103 [other] Allowed tools value="Allowed tools"
+  elem_105 [other] --allowed-tools, comma-separated value="--allowed-tools, comma-separated"
+  elem_107 [other] Disallowed tools value="Disallowed tools"
+  elem_109 [other] --disallowed-tools, comma-separated value="--disallowed-tools, comma-separated"
+  elem_111 [other] Append system prompt value="Append system prompt"
+  elem_112 [other] scroll area
+  elem_114 [other] 0 value="0" value_settable=true disabled
+  elem_115 [other] --append-system-prompt value="--append-system-prompt"
+  elem_117 [other] MCP profile value="MCP profile"
+  elem_119 [other] inherit global MCP servers or use Leo-only value="inherit global MCP servers or use Leo-only"
+  elem_121 [other] MCP servers value="MCP servers"
+  elem_123 [other] with mcp: none, also load these user-scope servers from the account's .claude.json value="with mcp: none, also load these user-scope servers from the account's .claude.json"
+  elem_125 [other] Plugin profile value="Plugin profile"
+  elem_127 [other] inherit installed plugins or disable them value="inherit installed plugins or disable them"
+  elem_128 [other] Push notifications
+  elem_131 [other] Needs input value="Needs input"
+  elem_133 [other] Push to paired phones when an agent needs permission, has a question, or awaits your input value="Push to paired phones when an agent needs permission, has a question, or awaits your input"
+  elem_135 [other] Finished value="Finished"
+  elem_137 [other] Push when an agent finishes its turn value="Push when an agent finishes its turn"
+  elem_139 [other] Errored value="Errored"
+  elem_141 [other] Push when an agent hits an error value="Push when an agent hits an error"
+  elem_143 [other] Chat messages value="Chat messages"
+  elem_145 [other] Push an agent's Leo Chat messages and questions value="Push an agent's Leo Chat messages and questions"
+  elem_146 [other] Dispatch viewer
+  elem_148 [other] Placement value="Placement"
+  elem_150 [other] Where interactive dispatch viewers open; unset is pane, or window on a Leo.app-managed install value="Where interactive dispatch viewers open; unset is pane, or window on a Leo.app-managed install"
+  elem_151 [other] Advanced
+  elem_153 [other] Idle suspend after value="Idle suspend after"
+  elem_155 [other] Auto-suspend idle ephemeral agents, e.g. "2h"; empty disables value="Auto-suspend idle ephemeral agents, e.g. "2h"; empty disables"
+  elem_156 [other] 0 value="0" value_settable=true
+  elem_157 [other] 0 value="0"
+  elem_165 [other] Defaults – scratch-remote value="Defaults – scratch-remote"
+  menuitem_167 [other] Apple
+  menuitem_168 [other] Leo
+  menuitem_169 [other] File
+  menuitem_170 [other] Edit
+  menuitem_171 [other] View
+  menuitem_172 [other] Agents
+  menuitem_173 [other] Window
+  menuitem_174 [other] Help
+  menuitem_176 [other] search result
+
+Snapshot ID: ps1_c60d3364236a6b099379ce8f7723e26e
+Target receipt: pid=66778 process_start_identity=1794851306981664 window_id=325683
+Agent: Use a tool like view_image to inspect it.
