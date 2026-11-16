@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option C · Templates on This Mac</title>
+<link rel="stylesheet" href="mac.css">
+</head>
+<body>
+<div class="window" style="width:880px;height:640px">
+  <div class="traffic"><span></span><span></span><span></span></div>
+  <div class="wtitle">Templates</div>
+  <nav class="tabs below" aria-label="Settings">
+    <div class="tab"><i class="ic" data-i="gear"></i>General</div>
+    <div class="tab"><i class="ic" data-i="puzzle"></i>Plugins</div>
+    <div class="tab"><i class="ic" data-i="server"></i>Machines</div>
+    <div class="tab sep"></div>
+    <div class="tab on"><i class="ic" data-i="doc"></i>Templates</div>
+    <div class="tab"><i class="ic" data-i="clock"></i>Tasks</div>
+    <div class="tab"><i class="ic" data-i="leaf"></i>Environments</div>
+    <div class="tab"><i class="ic" data-i="branch"></i>Delegation</div>
+    <div class="tab"><i class="ic" data-i="palette"></i>Appearance</div>
+    <div class="tab"><i class="ic" data-i="gauge"></i>Defaults</div>
+    <div class="tab"><i class="ic" data-i="pulse"></i>Daemon</div>
+  </nav>
+  <main class="content" style="top:100px;left:24px;right:24px;bottom:52px">
+    <div class="scope">
+      <span class="k">Machine</span><span class="popup"><span class="dot ok" style="width:7px;height:7px"></span>This Mac<i class="ic" data-i="updown" data-w="1.7"></i></span>
+      <span style="flex:1"></span>
+      <i class="ic" data-i="seal" style="color:var(--green)"></i><span>Managed by Leo</span><span class="k">· leo 0.49.2</span>
+    </div>
+    <div class="sec-f" style="padding-bottom:14px">Templates, Tasks, Environments, Delegation, Appearance, Defaults and Daemon all edit leo.yaml on the machine picked here.</div>
+
+    <div style="display:flex;gap:16px;height:356px">
+      <aside class="srclist" style="width:200px">
+        <div class="items">
+          <div class="srcrow" style="padding:5px 8px">assistant</div>
+          <div class="srcrow sel" style="padding:5px 8px">claude</div>
+          <div class="srcrow" style="padding:5px 8px">claude-explorer</div>
+          <div class="srcrow" style="padding:5px 8px">codex</div>
+          <div class="srcrow" style="padding:5px 8px">fable</div>
+          <div class="srcrow" style="padding:5px 8px">local</div>
+          <div class="srcrow" style="padding:5px 8px">opus-planner</div>
+          <div class="srcrow" style="padding:5px 8px">sandboxed</div>
+        </div>
+        <div class="bar"><span><i class="ic" data-i="plus" data-w="2"></i></span><span><i class="ic" data-i="minus" data-w="2"></i></span></div>
+      </aside>
+      <div style="flex:1;min-width:0">
+        <div class="group">
+          <div class="row"><div class="lbl">Model</div><span class="popup">opus<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+          <div class="row"><div class="lbl">Harness</div><span class="popup">claude<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+          <div class="row"><div class="lbl">Environments</div><span class="token">CLAUDE_BLACKPAW_EVAN</span><span class="btn sm"><i class="ic" data-i="plus" data-w="2"></i></span></div>
+          <div class="row"><div class="lbl">Suspend when idle for</div><span class="field" style="width:80px;justify-content:flex-end">72h</span></div>
+          <div class="row"><div class="lbl">Remote control</div><span class="switch on"></span></div>
+        </div>
+        <div class="sec-h">Environment variables</div>
+        <div class="group">
+          <div class="row"><span class="mono" style="flex:1">BLACKPAW_TELEGRAM_RECEIVE</span><span class="field mono" style="width:120px">0</span></div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer class="footerbar">
+    <span class="btn dis">Revert</span>
+    <span class="btn primary" style="opacity:.45">Save</span>
+  </footer>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

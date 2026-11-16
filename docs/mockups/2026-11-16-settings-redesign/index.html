@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leo Settings Redesign</title>
+<style>
+  :root {
+    --bg: #f5f5f7; --card: #fff; --ink: #1d1d1f; --ink-2: #6e6e73; --line: rgba(0,0,0,.09);
+    --accent: #0088ff; --rec: #34c759; --rec-soft: rgba(52,199,89,.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161618; --card: #232326; --ink: #f5f5f7; --ink-2: #a1a1a6; --line: rgba(255,255,255,.1); --accent: #0091ff; --rec: #30d158; --rec-soft: rgba(48,209,88,.16); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  main { max-width: 1120px; margin: 0 auto; padding: 48px 24px 80px; }
+  h1 { font-size: 34px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 6px; }
+  h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0; }
+  h3 { font-size: 15px; margin: 22px 0 6px; }
+  p { margin: 0 0 10px; }
+  .lede { color: var(--ink-2); font-size: 17px; max-width: 760px; }
+  .card { background: var(--card); border-radius: 18px; box-shadow: 0 0 0 .5px var(--line); padding: 28px; margin-top: 28px; }
+  .card.rec { box-shadow: 0 0 0 2px var(--rec); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 99px; background: var(--rec-soft); color: var(--rec); vertical-align: middle; margin-left: 8px; }
+  .pitch { color: var(--ink-2); margin: 6px 0 18px; font-size: 16px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  figure { margin: 0; }
+  figure img { width: 100%; height: auto; display: block; border-radius: 10px; box-shadow: 0 0 0 .5px var(--line); }
+  figcaption { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0 32px; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 3px 0; }
+  .ios { margin-top: 16px; padding-top: 14px; border-top: .5px solid var(--line); font-size: 14px; color: var(--ink-2); }
+  .ios b { color: var(--ink); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: .5px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--ink-2); font-weight: 600; }
+  code { font: 13px ui-monospace, "SF Mono", Menlo, monospace; }
+  .verdict { font-size: 17px; }
+  @media (max-width: 560px) { main { padding: 32px 16px 60px; } .card { padding: 20px; } h1 { font-size: 28px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Leo Settings redesign</h1>
+  <p class="lede">Three macOS 26 options for the Settings window (<code>macos/Sources/Features/Leo/Settings/</code>). They answer Evan’s three complaints: This Mac can’t be selected, the config tabs quietly follow a toolbar machine picker, and the window looks sloppy. These are static mockups. No Swift has changed.</p>
+
+  <section class="card">
+    <h2>What’s wrong today</h2>
+    <div class="cols">
+      <div>
+        <h3>Two selectors that reach different things</h3>
+        <p>Machines shows This Mac as a locked row above the list (“always on: nothing to edit”). The toolbar <code>LeoMachinePicker</code> is the only way to aim the config tabs at This Mac, and it shows up only on those tabs. Nothing on a tab says which machine it is editing.</p>
+      </div>
+      <div>
+        <h3>Scope is invisible</h3>
+        <p>Templates, Tasks, Environments, Delegation, Appearance rules, Defaults, Daemon and Service write to the chosen machine’s <code>leo.yaml</code>. Stats style, Agent browser and Plugins (including the Terminal tab and agent pane) are stored in the app on this Mac. All of them sit side by side in one row of 10 icon-only tabs.</p>
+      </div>
+    </div>
+    <h3>Fixes shared by every option</h3>
+    <ul>
+      <li>Grouped <code>Form</code> on every pane, with no <code>GroupBox</code>. Use system margins (20 pt) instead of hard-coded padding and widths.</li>
+      <li>One control rule: a switch for on/off, a pop-up button for one of many, and segmented controls only for switching views (2–5 segments).</li>
+      <li>Labels and section headers in sentence case. Buttons and menu items in title case with an ellipsis when more input follows (HIG: writing, menus).</li>
+      <li>Status always pairs a symbol and text with semantic colors, never a hard-coded <code>.green</code>/<code>.red</code> alone (HIG: color, accessibility).</li>
+      <li>Add/remove stays attached to its list, or becomes an “Add…” button. Save and Revert sit in one pinned footer per pane.</li>
+      <li>Service merges into Daemon (status, log, Reload Config, Restart Daemon…, Web UI, remote client), which removes one tab.</li>
+      <li>This Mac’s daemon state comes straight from <code>LeoManagedStatus</code>: <em>Managed by Leo</em> with a version, or <em>Started from the leo command line</em> with the existing “Let Leo Manage It” offer.</li>
+    </ul>
+  </section>
+
+  <section class="card rec">
+    <h2>A · One sidebar<span class="tag">Recommended</span></h2>
+    <p class="pitch">The System Settings model. An <b>App</b> group (General, Plugins) sits above a <b>Machines</b> group. This Mac and each remote are rows in that group, and the machine’s panes open beneath it. The selection is the scope.</p>
+    <div class="shots">
+      <figure><img src="png/a1-this-mac.png" alt="Option A with This Mac selected"><figcaption>A1: This Mac selected. Daemon managed by Leo.</figcaption></figure>
+      <figure><img src="png/a3-this-mac-defaults.png" alt="Option A, This Mac Defaults pane"><figcaption>A3: This Mac › Defaults, with unsaved edits.</figcaption></figure>
+      <figure><img src="png/a2-remote.png" alt="Option A with Dionysus selected"><figcaption>A2: remote Dionysus selected, showing its connection.</figcaption></figure>
+      <figure><img src="png/a1-this-mac-dark.png" alt="Option A dark, This Mac"><figcaption>A1 in dark mode.</figcaption></figure>
+      <figure><img src="png/a3-this-mac-defaults-dark.png" alt="Option A dark, Defaults"><figcaption>A3 in dark mode.</figcaption></figure>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>HIG rationale</h3>
+        <ul>
+          <li>The HIG puts navigation among many areas in a sidebar and says a toolbar is not general navigation (HIG: sidebars, toolbars). Ten or more panes is past what toolbar tabs carry.</li>
+          <li>Two levels only: machine, then pane. That is the HIG maximum for a sidebar, with disclosure controlling depth.</li>
+          <li>The floating Liquid Glass sidebar sits over content. The content stays in the plain grouped form, with no glass in the content layer.</li>
+          <li>Search in the sidebar matches System Settings, and Leo’s schema-driven fields make it cheap to build.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Tradeoffs</h3>
+        <ul>
+          <li>Biggest rewrite: <code>NSSplitViewController</code> (or <code>NavigationSplitView</code>) replaces the <code>TabView</code>. It needs a sidebar-state model and Back/Forward history.</li>
+          <li>With many machines the sidebar gets long. Only the selected machine expands, the rest stay collapsed, and remotes that are off are dimmed.</li>
+          <li>Moving between machines while a pane has unsaved edits still needs the existing “Discard unsaved changes?” prompt. It now fires on a sidebar selection.</li>
+          <li>Collection panes (Templates, Tasks) drill in to item detail instead of showing list and form side by side.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="ios"><b>iOS:</b> iOS already makes the same split. App rows (Notifications, Stats style) live in Settings, and each machine’s config is a <code>MachineSettingsViewController</code> page pushed from Daemons. A adds a Machines section to the iOS Settings root that pushes that same page, so both platforms use one model with section names shared through LeoKit.</p>
+  </section>
+
+  <section class="card">
+    <h2>B · Machines as a source list</h2>
+    <p class="pitch">A classic Settings window with three toolbar tabs (General, Machines, Plugins). Machines works like Xcode’s Accounts pane: a source list where This Mac is a normal, selectable row, and a detail view with a segmented control for that machine’s sections.</p>
+    <div class="shots">
+      <figure><img src="png/b1-this-mac.png" alt="Option B with This Mac selected"><figcaption>B1: This Mac selected. CLI daemon, with the takeover offer.</figcaption></figure>
+      <figure><img src="png/b2-remote.png" alt="Option B with Dionysus selected"><figcaption>B2: Dionysus › Agents (Templates, Defaults).</figcaption></figure>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>HIG rationale</h3>
+        <ul>
+          <li>Toolbar tabs remain the conventional Mac Settings window. Three nouns with icon and label read at a glance (HIG: settings).</li>
+          <li>Machine scope comes from one list selection, and +/− attach to that list.</li>
+          <li>App-wide settings get their own tabs, so nothing app-wide sits next to per-machine config.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Tradeoffs</h3>
+        <ul>
+          <li>Machine config gets three levels deep (tab › machine › segment), and Templates and Tasks need a fourth (item sheet).</li>
+          <li>Eight panes fold into five segments (Overview, Agents, Tasks, Delegation, Daemon), so “Agents” becomes a long mixed page.</li>
+          <li>The detail column is about 560 pt wide, which cramps list-plus-form editors.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="ios"><b>iOS:</b> General and Plugins become rows in the root list. Machines becomes a pushed list, and each machine pushes a page with the same five sections as grouped rows instead of a segmented control.</p>
+  </section>
+
+  <section class="card">
+    <h2>C · Keep the tabs, show the scope</h2>
+    <p class="pitch">The smallest change. Remove the toolbar picker and put an explicit “Machine: [This Mac ▾]” header inside every machine-scoped tab, showing that machine’s daemon state. App tabs say they are app-wide. New General tab. This Mac becomes selectable on Machines.</p>
+    <div class="shots">
+      <figure><img src="png/c1-this-mac.png" alt="Option C Templates on This Mac"><figcaption>C1: Templates on This Mac. Daemon managed by Leo.</figcaption></figure>
+      <figure><img src="png/c2-remote.png" alt="Option C Delegation on Dionysus"><figcaption>C2: Delegation on Dionysus, machine menu open.</figcaption></figure>
+      <figure><img src="png/c3-app-wide.png" alt="Option C General tab"><figcaption>C3: General, an app-wide tab with no machine picker.</figcaption></figure>
+    </div>
+    <div class="cols">
+      <div>
+        <h3>HIG rationale</h3>
+        <ul>
+          <li>The scope control sits in the content it affects, not in window chrome (HIG: toolbars: items act on the current view’s content).</li>
+          <li>A footnote states the shared behavior: changing the machine on any machine tab changes it for all of them.</li>
+          <li>Toolbar tabs are grouped: app tabs, a separator, then machine tabs. Icon and label on every tab.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Tradeoffs</h3>
+        <ul>
+          <li>Still ten tabs, which needs a window about 880 pt wide and is close to overflowing.</li>
+          <li>The “follow” behavior remains. It is now visible and explained, but it is still a hidden coupling between tabs.</li>
+          <li>Cheapest to build: <code>LeoMachinePicker</code> moves into <code>LeoSettingsPaneState</code>, with no navigation rewrite.</li>
+        </ul>
+      </div>
+    </div>
+    <p class="ios"><b>iOS:</b> no structural change. Each pushed config screen gets the same machine header row (name, status, daemon state) as its first section.</p>
+  </section>
+
+  <section class="card">
+    <h2>Recommendation: A</h2>
+    <p class="verdict">A is the only option where the thing Evan clicks is the thing he edits. Picking This Mac or Dionysus in the sidebar both scopes and reveals that machine’s panes, so there is no second selector and nothing to follow. App-wide versus per-machine is the sidebar’s own structure (App vs Machines), not a footnote. It is also the System Settings pattern every Tahoe user already knows, and it matches how the iOS app already separates app rows from machine pages.</p>
+    <p>B is a sound fallback if a toolbar-tab window is a hard requirement, but its machine detail is cramped and nests too deeply. C is worth shipping first only as a stopgap. It fixes the confusion but keeps the coupling.</p>
+    <h3>Scope map (all options)</h3>
+    <table>
+      <tr><th>Setting</th><th>Stored</th><th>Where it lives in A</th></tr>
+      <tr><td>Stats style, Agent browser, Show Terminal tab, Show agent pane</td><td>App (UserDefaults, this Mac)</td><td>App › General</td></tr>
+      <tr><td>Plugins</td><td>App</td><td>App › Plugins</td></tr>
+      <tr><td>Machine list, SSH connection, enabled</td><td>App</td><td>Machines › <i>machine</i> (overview)</td></tr>
+      <tr><td>Templates, Tasks, Environments, Delegation, Appearance rules, Defaults</td><td>That machine’s <code>leo.yaml</code></td><td>Machines › <i>machine</i> › pane</td></tr>
+      <tr><td>Daemon: Web UI, remote client, remote hosts, status, log, restart</td><td>That machine’s daemon</td><td>Machines › <i>machine</i> › Daemon</td></tr>
+    </table>
+  </section>
+</main>
+</body>
+</html>

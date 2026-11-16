@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option A · Dionysus</title>
+<link rel="stylesheet" href="mac.css">
+</head>
+<body>
+<div class="window" style="width:900px;height:640px">
+  <div class="traffic"><span></span><span></span><span></span></div>
+
+  <nav class="sidebar" aria-label="Settings">
+    <div class="side-search"><i class="ic" data-i="search"></i>Search</div>
+    <div class="side-h">App</div>
+    <div class="side-row"><span class="tile" style="background:var(--gray-tile)"><i class="ic" data-i="gear"></i></span><span class="grow">General</span></div>
+    <div class="side-row"><span class="tile" style="background:var(--purple)"><i class="ic" data-i="puzzle"></i></span><span class="grow">Plugins</span></div>
+    <div class="side-h">Machines <i class="ic" data-i="plus"></i></div>
+    <div class="side-row"><i class="ic disclosure" data-i="chevR" data-w="2"></i><span class="tile" style="background:var(--accent)"><i class="ic" data-i="laptop"></i></span><span class="grow">This Mac</span><span class="dot ok"></span></div>
+    <div class="side-row sel"><i class="ic disclosure" data-i="chevD" data-w="2"></i><span class="tile" style="background:var(--graphite);box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)"><i class="ic" data-i="server"></i></span><span class="grow">Dionysus</span><span class="dot ok"></span></div>
+    <div class="side-row child"><i class="ic" data-i="doc"></i><span class="grow">Templates</span></div>
+    <div class="side-row child"><i class="ic" data-i="clock"></i><span class="grow">Tasks</span></div>
+    <div class="side-row child"><i class="ic" data-i="leaf"></i><span class="grow">Environments</span></div>
+    <div class="side-row child"><i class="ic" data-i="branch"></i><span class="grow">Delegation</span></div>
+    <div class="side-row child"><i class="ic" data-i="palette"></i><span class="grow">Appearance</span></div>
+    <div class="side-row child"><i class="ic" data-i="gauge"></i><span class="grow">Defaults</span></div>
+    <div class="side-row child"><i class="ic" data-i="pulse"></i><span class="grow">Daemon</span></div>
+    <div class="side-row off"><i class="ic disclosure" data-i="chevR" data-w="2"></i><span class="tile" style="background:var(--graphite);opacity:.55"><i class="ic" data-i="server"></i></span><span class="grow">Helios</span><span class="trail">Off</span></div>
+  </nav>
+
+  <header class="toolbar" style="left:240px">
+    <div class="navcap"><span><i class="ic" data-i="chevL" data-w="2"></i></span><span class="dim"><i class="ic" data-i="chevR" data-w="2"></i></span></div>
+    <div><div class="tb-title">Dionysus</div></div>
+  </header>
+
+  <main class="content" style="top:52px;left:240px;right:0;bottom:52px;padding:6px 28px 16px">
+    <div class="group">
+      <div class="row" style="padding:14px 14px;gap:14px">
+        <span class="tile lg" style="background:var(--graphite)"><i class="ic" data-i="server"></i></span>
+        <div class="lbl"><div style="font-size:17px;line-height:21px;font-weight:600">Dionysus</div><span class="sub" style="font-size:12px">Remote over SSH · 22 agents running</span></div>
+        <span class="badge ok"><span class="dot ok" style="width:6px;height:6px"></span>Connected</span>
+        <span class="val" style="margin-left:6px">Enabled</span><span class="switch on"></span>
+      </div>
+    </div>
+
+    <div class="sec-h">Connection</div>
+    <div class="group">
+      <div class="row"><div class="lbl">Name</div><span class="field" style="width:280px">Dionysus</span></div>
+      <div class="row"><div class="lbl">SSH target</div><span class="field" style="width:280px">evan@dionysus</span></div>
+      <div class="row"><div class="lbl">Identity file</div><span class="field ph" style="width:196px">Optional</span><span class="btn">Choose…</span></div>
+      <div class="row"><div class="lbl">Remote leo path</div><span class="field mono" style="width:280px">~/.leo/app/bin/leo</span></div>
+      <div class="row"><div class="lbl">Remote socket path</div><span class="field mono" style="width:280px">~/.leo/state/leo.sock</span></div>
+      <div class="row">
+        <span class="ic" data-i="check" style="color:var(--green)" data-w="2"></span>
+        <div class="lbl" style="color:var(--label-2)">Reached leo 0.49.1 in 84 ms</div>
+        <span class="btn">Test Connection</span>
+      </div>
+    </div>
+
+    <div class="sec-h">Daemon</div>
+    <div class="group">
+      <div class="row">
+        <span class="ic rowicon" data-i="terminal" style="color:var(--label-2);width:18px;height:18px"></span>
+        <div class="lbl">Runs its own leo<span class="sub">Leo connects to it over SSH. Updates happen on Dionysus.</span></div>
+        <span class="val">leo 0.49.1</span>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footerbar" style="left:240px">
+    <span class="btn">Remove Machine…</span>
+    <span style="flex:1"></span>
+    <span class="btn dis">Revert</span>
+    <span class="btn primary" style="opacity:.45">Save</span>
+  </footer>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

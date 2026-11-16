@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option B · This Mac</title>
+<link rel="stylesheet" href="mac.css">
+</head>
+<body>
+<div class="window" style="width:820px;height:640px">
+  <div class="traffic"><span></span><span></span><span></span></div>
+  <div class="wtitle">Machines</div>
+  <nav class="tabs below" aria-label="Settings">
+    <div class="tab"><i class="ic" data-i="gear"></i>General</div>
+    <div class="tab on"><i class="ic" data-i="server"></i>Machines</div>
+    <div class="tab"><i class="ic" data-i="puzzle"></i>Plugins</div>
+  </nav>
+
+  <aside class="srclist" style="position:absolute;top:96px;left:16px;bottom:16px;width:208px">
+    <div class="items">
+      <div class="srcrow sel"><span class="tile" style="background:var(--accent);box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)"><i class="ic" data-i="laptop"></i></span><span class="grow">This Mac<span class="sub">CLI daemon · leo 0.48.0</span></span><span class="dot ok" style="background:#fff;box-shadow:0 0 0 1.5px var(--green)"></span></div>
+      <div class="srcrow"><span class="tile" style="background:var(--graphite)"><i class="ic" data-i="server"></i></span><span class="grow">Dionysus<span class="sub">evan@dionysus</span></span><span class="dot ok"></span></div>
+      <div class="srcrow off"><span class="tile" style="background:var(--graphite);opacity:.55"><i class="ic" data-i="server"></i></span><span class="grow">Helios<span class="sub">Off</span></span><span class="dot off"></span></div>
+    </div>
+    <div class="bar"><span><i class="ic" data-i="plus" data-w="2"></i></span><span class="dim"><i class="ic" data-i="minus" data-w="2"></i></span></div>
+  </aside>
+
+  <main class="content" style="top:96px;left:240px;right:16px;bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px;padding:2px 4px 12px">
+      <span class="tile lg" style="background:var(--accent);width:40px;height:40px;border-radius:10px"><i class="ic" data-i="laptop"></i></span>
+      <div style="flex:1"><div style="font-size:17px;line-height:21px;font-weight:600">This Mac</div><div style="font-size:12px;color:var(--label-2)">MacBook Pro · 14 agents running</div></div>
+      <span class="badge ok"><span class="dot ok" style="width:6px;height:6px"></span>Connected</span>
+    </div>
+    <div style="display:flex;justify-content:center;padding-bottom:14px">
+      <div class="seg"><span class="on">Overview</span><span>Agents</span><span>Tasks</span><span>Delegation</span><span>Daemon</span></div>
+    </div>
+
+    <div class="banner">
+      <i class="ic" data-i="seal"></i>
+      <div style="flex:1"><b>Let Leo run your daemon?</b><p>Leo can take over the leo daemon you installed, keep it running in the background and update it with the app. Your agents keep running.</p>
+        <div style="display:flex;gap:8px;margin-top:9px"><span class="btn primary">Let Leo Manage It</span><span class="btn">Not Now</span></div>
+      </div>
+    </div>
+
+    <div class="sec-h">Daemon</div>
+    <div class="group">
+      <div class="row">
+        <span class="ic rowicon" data-i="terminal" style="color:var(--orange);width:18px;height:18px"></span>
+        <div class="lbl">Started from the leo command line<span class="sub">Leo can’t restart or update it until Leo manages it.</span></div>
+        <span class="badge warn">CLI</span><span class="val">leo 0.48.0</span>
+      </div>
+      <div class="row"><div class="lbl">Config file</div><span class="val mono">~/.leo/leo.yaml</span><span class="btn sm">Show in Finder</span></div>
+    </div>
+
+    <div class="sec-h">Connection</div>
+    <div class="group">
+      <div class="row">
+        <span class="ic rowicon" data-i="lock" style="color:var(--label-2)"></span>
+        <div class="lbl">Local socket<span class="sub">This Mac is always on and can’t be removed.</span></div>
+        <span class="val mono">~/.leo/state/leo.sock</span>
+      </div>
+    </div>
+    <div class="sec-f">Agents, Tasks, Delegation and Daemon edit leo.yaml on This Mac.</div>
+  </main>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

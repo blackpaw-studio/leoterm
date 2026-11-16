@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option A · This Mac › Defaults</title>
+<link rel="stylesheet" href="mac.css">
+</head>
+<body>
+<div class="window" style="width:900px;height:640px">
+  <div class="traffic"><span></span><span></span><span></span></div>
+
+  <nav class="sidebar" aria-label="Settings">
+    <div class="side-search"><i class="ic" data-i="search"></i>Search</div>
+    <div class="side-h">App</div>
+    <div class="side-row"><span class="tile" style="background:var(--gray-tile)"><i class="ic" data-i="gear"></i></span><span class="grow">General</span></div>
+    <div class="side-row"><span class="tile" style="background:var(--purple)"><i class="ic" data-i="puzzle"></i></span><span class="grow">Plugins</span></div>
+    <div class="side-h">Machines <i class="ic" data-i="plus"></i></div>
+    <div class="side-row"><i class="ic disclosure" data-i="chevD" data-w="2"></i><span class="tile" style="background:var(--accent)"><i class="ic" data-i="laptop"></i></span><span class="grow">This Mac</span><span class="dot ok"></span></div>
+    <div class="side-row child"><i class="ic" data-i="doc"></i><span class="grow">Templates</span></div>
+    <div class="side-row child"><i class="ic" data-i="clock"></i><span class="grow">Tasks</span></div>
+    <div class="side-row child"><i class="ic" data-i="leaf"></i><span class="grow">Environments</span></div>
+    <div class="side-row child"><i class="ic" data-i="branch"></i><span class="grow">Delegation</span></div>
+    <div class="side-row child"><i class="ic" data-i="palette"></i><span class="grow">Appearance</span></div>
+    <div class="side-row child sel"><i class="ic" data-i="gauge"></i><span class="grow">Defaults</span><span class="trail">Edited</span></div>
+    <div class="side-row child"><i class="ic" data-i="pulse"></i><span class="grow">Daemon</span></div>
+    <div class="side-row"><i class="ic disclosure" data-i="chevR" data-w="2"></i><span class="tile" style="background:var(--graphite)"><i class="ic" data-i="server"></i></span><span class="grow">Dionysus</span><span class="dot ok"></span></div>
+    <div class="side-row off"><i class="ic disclosure" data-i="chevR" data-w="2"></i><span class="tile" style="background:var(--graphite);opacity:.55"><i class="ic" data-i="server"></i></span><span class="grow">Helios</span><span class="trail">Off</span></div>
+  </nav>
+
+  <header class="toolbar" style="left:240px">
+    <div class="navcap"><span><i class="ic" data-i="chevL" data-w="2"></i></span><span class="dim"><i class="ic" data-i="chevR" data-w="2"></i></span></div>
+    <div><div class="tb-title">Defaults</div><div class="tb-sub">This Mac</div></div>
+  </header>
+
+  <main class="content" style="top:52px;left:240px;right:0;bottom:52px;padding:4px 28px 16px">
+    <div class="sec-h">Agents</div>
+    <div class="group">
+      <div class="row"><div class="lbl">Model</div><span class="popup">opus[1m]<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+      <div class="row"><div class="lbl">Max turns</div><span class="stepper"><span class="field" style="width:64px;justify-content:flex-end">120</span><span class="arrows"><i class="ic" data-i="updown" data-w="1.7"></i></span></span></div>
+      <div class="row"><div class="lbl">Session</div><span class="popup">Fresh<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+      <div class="row"><div class="lbl">Environments</div><span class="token">CLAUDE_BLACKPAW_EVAN</span><span class="btn sm"><i class="ic" data-i="plus" data-w="2"></i></span></div>
+    </div>
+
+    <div class="sec-h">Harness</div>
+    <div class="group">
+      <div class="row"><div class="lbl">Permission mode</div><span class="popup">Auto<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+      <div class="row"><div class="lbl">Bypass permissions</div><span class="switch"></span></div>
+      <div class="row"><div class="lbl">Remote control</div><span class="switch"></span></div>
+    </div>
+
+    <div class="sec-h">Dispatch</div>
+    <div class="group">
+      <div class="row"><div class="lbl">Max concurrent dispatches</div><span class="stepper"><span class="field" style="width:64px;justify-content:flex-end">20</span><span class="arrows"><i class="ic" data-i="updown" data-w="1.7"></i></span></span></div>
+      <div class="row"><div class="lbl">Open dispatch viewers in</div><span class="popup">Window<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+      <div class="row"><div class="lbl">Notify when an agent finishes</div><span class="switch"></span></div>
+    </div>
+  </main>
+
+  <footer class="footerbar" style="left:240px">
+    <span class="note"><i class="ic" data-i="info" style="width:13px;height:13px"></i>Saved to ~/.leo/leo.yaml on This Mac. Templates can override these.</span>
+    <span class="btn">Revert</span>
+    <span class="btn primary">Save</span>
+  </footer>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>
