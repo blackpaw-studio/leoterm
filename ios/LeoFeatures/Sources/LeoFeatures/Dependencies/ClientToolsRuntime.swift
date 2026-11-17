@@ -108,7 +108,12 @@ import LeoKit
         isSuspended = true
         onForegroundChange?(false)
         let running = sessions.values.map(\.session)
-        for session in running { await session.suspend() }
+        // A resume meanwhile has already resumed every session; suspending
+        // the rest would leave them off while the runtime is foreground.
+        for session in running {
+            guard isSuspended else { return }
+            await session.suspend()
+        }
     }
 
     public func resume() {

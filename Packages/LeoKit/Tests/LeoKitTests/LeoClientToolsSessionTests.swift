@@ -48,7 +48,20 @@ import Testing
     var failingPosts = 0
     private(set) var postAttempts = 0
 
+    /// While set, each post waits until `releasePosts()`.
+    var holdsPosts = false
+    private var heldPosts: [CheckedContinuation<Void, Never>] = []
+    var heldPostCount: Int { heldPosts.count }
+
+    func releasePosts() {
+        holdsPosts = false
+        let held = heldPosts
+        heldPosts = []
+        held.forEach { $0.resume() }
+    }
+
     @MainActor func postResult(_ requestID: String, _ outcome: LeoClientToolOutcome) async throws {
+        if holdsPosts { await withCheckedContinuation { heldPosts.append($0) } }
         postAttempts += 1
         if failingPosts > 0 {
             failingPosts -= 1
@@ -360,6 +373,53 @@ struct LeoClientToolsSessionTests {
         await until { client.registered.count == 2 }
         await until { executor.started == ["ctr_9"] }
         #expect(client.claims == ["ctr_9"])
+    }
+
+    /// The user switches away and straight back while the background answers
+    /// are still posting: the session ends live on a fresh stream that picks
+    /// up what arrived while it was suspended.
+    @Test func resumeDuringSuspendReopensAndClaimsWhatArrived() async {
+        let session = session()
+        defer { session.stop() }
+        await connected(session)
+        client.pendingRequests = [Self.pending("ctr_1", owner: "ct_1")]
+        client.send(.request(Self.request("ctr_1", owner: "ct_1")))
+        await until { executor.started == ["ctr_1"] }
+        client.holdsPosts = true
+        let suspending = Task { await session.suspend() }
+        await until { client.heldPostCount == 1 }
+        client.pendingRequests = [Self.pending("ctr_2", owner: "ct_1")]
+        client.send(.request(Self.request("ctr_2", owner: "ct_1")))
+
+        session.resume()
+        client.releasePosts()
+        await suspending.value
+
+        await until { client.streams.count == 2 }
+        client.send(.hello(clientID: "ct_1"))
+        await until { executor.started == ["ctr_1", "ctr_2"] }
+        #expect(client.endedStreams == 1, "the stream that was open while suspended was replaced")
+    }
+
+    @Test func suspendAgainDuringSuspendStaysSuspended() async {
+        let session = session()
+        defer { session.stop() }
+        await connected(session)
+        client.pendingRequests = [Self.pending("ctr_1", owner: "ct_1")]
+        client.send(.request(Self.request("ctr_1", owner: "ct_1")))
+        await until { executor.started == ["ctr_1"] }
+        client.holdsPosts = true
+        let suspending = Task { await session.suspend() }
+        await until { client.heldPostCount == 1 }
+
+        session.resume()
+        await session.suspend()
+        client.releasePosts()
+        await suspending.value
+
+        await until { client.endedStreams == 1 }
+        for _ in 0..<50 { await Task.yield() }
+        #expect(client.streams.count == 1, "the later suspend wins")
     }
 
     @Test func deferredClaimYieldsToOwner() async {

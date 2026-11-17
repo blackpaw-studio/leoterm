@@ -201,11 +201,33 @@ struct AgentBrowserTests {
         #expect(foreground == [false, true])
     }
 
+    /// Back to the foreground while the first daemon's background answer is
+    /// still posting: every daemon ends with a live stream.
+    @Test func resumeDuringSuspendLeavesEveryDaemonResumed() async {
+        let first = HeldCallProvider(clientID: "ct_1"), second = HeldCallProvider(clientID: "ct_2")
+        let runtime = ClientToolsRuntime(
+            makeBrowser: { _, _ in BlockingIOSBrowser() },
+            makeClient: { $0.daemonID == "d1" ? first : second }
+        )
+        runtime.connected(Self.machine(advertises: true, daemonID: "d1"))
+        runtime.connected(Self.machine(advertises: true, daemonID: "d2"))
+        await until { first.claims == 1 && second.claims == 1 }
+        first.holdsPosts = true
+
+        let suspending = Task { await runtime.suspend() }
+        await until { first.heldPosts == 1 }
+        runtime.resume()
+        first.releasePosts()
+        await suspending.value
+
+        await until { first.openStreams.value == 1 && second.openStreams.value == 1 }
+    }
+
     // MARK: - Helpers
 
-    private static func machine(advertises: Bool) -> ClientToolsMachine {
+    private static func machine(advertises: Bool, daemonID: String = PairedDaemon.dionysus.id) -> ClientToolsMachine {
         ClientToolsMachine(
-            daemonID: PairedDaemon.dionysus.id, name: "dionysus",
+            daemonID: daemonID, name: "dionysus",
             endpoint: LeoRemoteEndpoint(baseURL: URL(string: "https://leo.example.com")!, token: "t"), advertisesClientTools: advertises
         )
     }
@@ -224,6 +246,74 @@ struct AgentBrowserTests {
     func execute(_ request: LeoClientToolRequest) async -> LeoClientToolOutcome { .success([.text("ok")]) }
     func openBlankTabIfEmpty() {}
     func close() { isClosed = true }
+}
+
+/// A browser whose calls run until cancelled.
+@MainActor final class BlockingIOSBrowser: LeoAgentBrowserRunning {
+    let control = LeoBrowserControlModel()
+
+    func execute(_ request: LeoClientToolRequest) async -> LeoClientToolOutcome {
+        let gate = LockIsolated<CheckedContinuation<Void, Never>?>(nil)
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in gate.setValue(continuation) }
+        } onCancel: {
+            gate.withValue { $0?.resume(); $0 = nil }
+        }
+        return .failure(LeoClientToolError(code: "cancelled", message: ""))
+    }
+
+    func openBlankTabIfEmpty() {}
+    func close() {}
+}
+
+/// A daemon that says hello on every stream and, on the first, hands this
+/// client one call it owns; posts can be held to stretch a suspend.
+@MainActor final class HeldCallProvider: LeoClientToolsProviding {
+    private let clientID: String
+    private var streamCount = 0
+    let openStreams = LockIsolated(0)
+    private(set) var claims = 0
+    var holdsPosts = false
+    private var held: [CheckedContinuation<Void, Never>] = []
+    var heldPosts: Int { held.count }
+
+    init(clientID: String) {
+        self.clientID = clientID
+    }
+
+    private var request: LeoClientToolRequest {
+        LeoClientToolRequest(id: "ctr_\(clientID)", agent: "zeus", group: "browser", tool: "browser_click", args: .object([:]), owner: clientID, timeoutSeconds: 30)
+    }
+
+    @MainActor func events() async -> AsyncStream<LeoClientToolsEvent> {
+        streamCount += 1
+        openStreams.withValue { $0 += 1 }
+        let (stream, continuation) = AsyncStream.makeStream(of: LeoClientToolsEvent.self)
+        continuation.onTermination = { [openStreams] _ in openStreams.withValue { $0 -= 1 } }
+        continuation.yield(.hello(clientID: clientID))
+        if streamCount == 1 { continuation.yield(.request(request)) }
+        return stream
+    }
+
+    @MainActor func register(group: String, tools: [LeoClientToolDefinition]) async throws -> Int { 1 }
+
+    @MainActor func claim(_ requestID: String) async throws -> LeoClientToolRequest {
+        claims += 1
+        return request
+    }
+
+    @MainActor func postResult(_ requestID: String, _ outcome: LeoClientToolOutcome) async throws {
+        if holdsPosts { await withCheckedContinuation { held.append($0) } }
+    }
+
+    @MainActor func pending() async throws -> [LeoClientToolPending] { [] }
+
+    func releasePosts() {
+        holdsPosts = false
+        let waiting = held
+        held = []
+        waiting.forEach { $0.resume() }
+    }
 }
 
 /// A daemon whose provider streams stay open until the session closes them.

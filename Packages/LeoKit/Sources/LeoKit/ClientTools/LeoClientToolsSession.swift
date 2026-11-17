@@ -73,6 +73,11 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
     private var isAdvertised = false
     private var isEnabled = true
     private var isSuspended = false
+    /// A suspend is still posting its answers; a `resume()` meanwhile waits
+    /// for it (`resumesAfterSuspend`) so the suspend always ends by closing
+    /// its stream and the resume opens a fresh one that recovers.
+    private var isSuspending = false
+    private var resumesAfterSuspend = false
     /// The daemon answered that it has no client tools: no retry until the
     /// session starts again or the daemon advertises the feature anew.
     private var isUnsupported = false
@@ -130,9 +135,14 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
     /// answered `cancelled` while its stream is still open (so the agent
     /// hears now, not at its timeout), then the stream closes. Nothing is
     /// claimed until `resume()`. Returns once the answers are sent or failed.
+    /// A suspend during another one cancels a resume that was waiting on it.
     public func suspend() async {
-        guard !isSuspended else { return }
+        guard !isSuspended else {
+            resumesAfterSuspend = false
+            return
+        }
         isSuspended = true
+        isSuspending = true
         let held = liveGeneration.map { stream in inFlight.filter { $0.value.claim == .held(generation: stream) }.map(\.key) } ?? []
         let aborted = inFlight
         inFlight = [:]
@@ -149,11 +159,20 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
                 }
             }
         }
+        isSuspending = false
         reconcile()
+        guard resumesAfterSuspend else { return }
+        resumesAfterSuspend = false
+        resume()
     }
 
     /// The app is back: the stream reopens, registers and recovers pending.
+    /// During a suspend, it waits for that suspend to close its stream.
     public func resume() {
+        guard !isSuspending else {
+            resumesAfterSuspend = true
+            return
+        }
         isSuspended = false
         reconcile()
     }
