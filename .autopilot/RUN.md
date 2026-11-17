@@ -220,11 +220,18 @@ Lane: B-411
   Dispatched: 2026-11-17T09:35:44Z
   Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 52ac058bbd636fda869c8f57b3cdb6b949b3de17
+  Call: New tools browser_hover (ref), browser_select_option (ref, values), browser_drag (start_ref, end_ref), snapshot refs, B-307 wording — D-759
+  Call: All three gated by changesPage: user_has_control while the user drives; stale refs → stale_ref — D-762, D-860..D-868, P2
+  Call: Hover sent as native leftMouseDragged with no mouse-down (WebKit drops mouseMoved for a non-key window)
+  Call: Select is JS-only: matches value then label, fires input then change, returns {value,label}; 1..100 values, no deselect-all
+  Call: Drag: script DragEvents with shared DataTransfer for HTML5-draggable sources; otherwise native press, 8 moves, release (release sent on cancel/failure)
+  Call: Schemas, scripts, parsing and executor in LeoKit; native events Mac only; iOS wiring deferred to B-305
+  Call: Accepted: drag returns ok even if the target refuses the drop; native drag moves report buttons == 0 (documented in the tool description)
 
 Lane: B-412
   Branch: autopilot-lane/B-412
