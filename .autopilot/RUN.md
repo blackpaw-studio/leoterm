@@ -179,7 +179,7 @@ Lane: B-409
 
 Lane: B-410
   Branch: autopilot-lane/B-410
-  Dispatched: 2026-11-17T07:56:26Z
+  Dispatched: 2026-11-17T07:57:32Z
   Base: 4ff9c5089fa085f39fa048a9f6d8b266e244c627
   Tier: full
   State: building
@@ -227,3 +227,4 @@ Progress:
 - B-406 ready (fix 2, hard implementer, security review). Accepted: symlinked folder inside the workspace allows writes outside (lexical confinement; agent has a shell there).
 - B-406 landed aecf8c1ca. D-869..D-881.
 - Pick: B-410 full (permissions prompts; security-sensitive).
+- Dispatched B-410 d-bc762c591f42.
