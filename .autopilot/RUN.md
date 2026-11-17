@@ -101,3 +101,4 @@ Progress:
 - Pick: B-420 light bug (⌘L select-all in address field; B-419 landed, no overlap with B-421).
 - Dispatched B-420 d-62c77f54796a.
 - B-421 runner reported blocked on infra, not product: its verifier stalled on a harness permission prompt repointing the lane's GhosttyKit symlink (shared copy stale since Oct 1). Deviation from shelve: orchestrator refreshed shared/GhosttyKit.xcframework + zig-out per verify.md (old copies → ~/.Trash, ditto B-419's Nov 17 lane build; verify.md note updated) and dispatched a re-verify round at reviewed tip c0cb847 (integration also stale: B-419 landed). Error line was leo_send_dispatch refusing a permission answer, not a failed dispatch.
+- Dispatched B-421 re-verify d-c2d335bf30c7.
