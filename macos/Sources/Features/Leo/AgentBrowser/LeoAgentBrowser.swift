@@ -108,6 +108,48 @@ import WebKit
         Task { _ = try? await tabSet.openTab(url: LeoAgentBrowserTabs.blank) }
     }
 
+    var canReopenClosedTab: Bool {
+        !tabSet.closedTabs.isEmpty && tabSet.tabs.count < LeoBrowserLimits.maximumTabs
+    }
+
+    func reopenClosedTab() -> Bool {
+        guard canReopenClosedTab, let tab = tabSet.takeClosedTab() else { return false }
+        Task { await reopen(tab) }
+        return true
+    }
+
+    /// Opens `tab` again through the URL mapping, which reopens the port
+    /// forward its page needed, as the address bar does.
+    func reopen(_ tab: LeoClosedTab) async {
+        guard let url = tab.url else { return }
+        do {
+            let local = try await urlMapping.toLocal(urlMapping.toRemote(url))
+            _ = try await tabSet.openTab(url: local, userAgent: tab.userAgent, at: tab.index)
+        } catch {
+            Self.logger.error("reopen closed tab failed url=\(url.absoluteString, privacy: .private) error=\(String(describing: error), privacy: .public)")
+        }
+    }
+
+    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] {
+        guard let list = tabSet.activePage?.webView.backForwardList else { return [] }
+        let items = direction == .back ? list.backList.reversed() : Array(list.forwardList)
+        return items.prefix(LeoBrowserHistoryEntry.menuLimit).enumerated().map { index, item in
+            LeoBrowserHistoryEntry(
+                offset: direction == .back ? -(index + 1) : index + 1,
+                title: item.title ?? "", url: urlMapping.toRemote(item.url)
+            )
+        }
+    }
+
+    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool {
+        guard let webView = tabSet.activePage?.webView,
+              let item = webView.backForwardList.item(at: entry.offset),
+              urlMapping.toRemote(item.url) == entry.url
+        else { return false }
+        webView.go(to: item)
+        return true
+    }
+
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler
@@ -148,6 +190,9 @@ import WebKit
     /// File choosers open per web view, answered when the tab closes.
     private var filePicks: [ObjectIdentifier: [LeoBrowserFilePick]] = [:]
     private var list: [Tab] = []
+    /// Tabs closed since this browser opened, for ⌘⇧T. `closeAll` (the
+    /// browser going away) leaves it alone: it goes with the browser.
+    private(set) var closedTabs = LeoBrowserClosedTabs()
     private var activeID: Int?
     private var nextID = 1
 
@@ -182,7 +227,12 @@ import WebKit
     }
 
     func openTab(url: URL, userAgent: String?) async throws -> Int {
-        let tab = add(LeoWKBrowserPage(configuration: configuration, allowsURL: allowsURL, input: input))
+        try await openTab(url: url, userAgent: userAgent, at: nil)
+    }
+
+    /// Opens a tab at `index` (clamped; the end when nil).
+    func openTab(url: URL, userAgent: String?, at index: Int?) async throws -> Int {
+        let tab = add(LeoWKBrowserPage(configuration: configuration, allowsURL: allowsURL, input: input), at: index)
         tab.page.setUserAgent(userAgent)
         try await tab.page.load(url)
         return tab.id
@@ -197,10 +247,15 @@ import WebKit
     func closeTab(_ id: Int) {
         guard let index = list.firstIndex(where: { $0.id == id }) else { return }
         let tab = list.remove(at: index)
+        let override = tab.page.webView.customUserAgent
+        closedTabs.record(LeoClosedTab(url: tab.page.url, index: index, userAgent: override?.isEmpty == false ? override : nil))
         if activeID == id { activeID = list.indices.contains(index) ? list[index].id : list.last?.id }
         tear(down: tab)
         onChange?()
     }
+
+    /// The most recently closed tab, removed from the stack.
+    func takeClosedTab() -> LeoClosedTab? { closedTabs.popLast() }
 
     func closeAll() {
         let closing = list
@@ -270,7 +325,7 @@ import WebKit
 
     // MARK: - Helpers
 
-    private func add(_ page: LeoWKBrowserPage) -> Tab {
+    private func add(_ page: LeoWKBrowserPage, at index: Int? = nil) -> Tab {
         let id = nextID
         nextID += 1
         page.webView.uiDelegate = self
@@ -285,7 +340,7 @@ import WebKit
             page.webView.observe(\.canGoForward) { notify($0, $1) },
         ]
         let tab = Tab(id: id, page: page, observations: observations)
-        list.append(tab)
+        list.insert(tab, at: min(max(index ?? list.count, 0), list.count))
         activeID = id
         viewHost.adopt(page.webView)
         onChange?()

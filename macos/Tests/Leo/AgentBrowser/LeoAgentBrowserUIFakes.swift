@@ -45,6 +45,25 @@ import LeoKit
     func navigate(to url: URL) { calls.append("navigate \(url.absoluteString)") }
     func openBlankTab() { calls.append("newTab") }
 
+    var canReopenClosedTab = false
+    /// What `history(_:)` lists, by direction.
+    var fakeHistory: [LeoBrowserHistoryDirection: [LeoBrowserHistoryEntry]] = [:]
+    /// Whether `goToHistory` finds its entry still current.
+    var historyJumpSucceeds = true
+
+    func reopenClosedTab() -> Bool {
+        guard canReopenClosedTab else { return false }
+        calls.append("reopenClosedTab")
+        return true
+    }
+
+    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] { fakeHistory[direction] ?? [] }
+
+    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool {
+        calls.append("history \(entry.offset)")
+        return historyJumpSucceeds
+    }
+
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler
