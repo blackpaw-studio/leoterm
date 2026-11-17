@@ -42,3 +42,4 @@ Progress:
 - Board sync: B-404: gh issue view: dial tcp 140.82.114.6:443: i/o timeout
 - Pick: B-305 full (iOS executor, milestone 4; pick order lists it first); B-419 light bug (address field) in parallel — independent footprints (iOS app vs Mac browser pane). B-420 overlaps B-419 (address field); waits.
 - Dispatched runners via leo_dispatch implement: B-305 d-faad684af5f4, B-419 d-fcc99dfe43e6.
+- leo agent (10:03 EST): lost-dispatch bug (bridge-connect timeout under load → relaunch killed, turn marked lost) fixed in leo main PR #345 (945a27d3), unreleased. If a runner comes back lost/exit 137, re-dispatch rather than treat as a runner failure.
