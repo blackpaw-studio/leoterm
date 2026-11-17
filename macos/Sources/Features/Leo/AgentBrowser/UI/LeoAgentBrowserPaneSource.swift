@@ -52,8 +52,38 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     func navigate(to url: URL)
     /// Opens a blank tab and makes it active (the toolbar's + button).
     func openBlankTab()
+    /// Whether ⌘⇧T has a closed tab to bring back and room to open it.
+    var canReopenClosedTab: Bool { get }
+    /// Reopens the most recently closed tab at its old place and makes it
+    /// active, in the agent's (remote) terms; false (nothing started) when
+    /// `canReopenClosedTab` is false. A failed load shows in the page.
+    func reopenClosedTab() -> Bool
+    /// The active tab's pages behind (`.back`) or ahead (`.forward`), nearest
+    /// first, at most `LeoBrowserHistoryEntry.menuLimit`.
+    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry]
+    /// Jumps the active tab to `entry`. False when the history has changed
+    /// since the entry was listed (the page at that offset is no longer it).
+    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool
 
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void
+}
+
+enum LeoBrowserHistoryDirection: Equatable {
+    case back, forward
+}
+
+/// One page in a tab's back or forward list. `offset` is relative to the
+/// current page (-1 is the previous page, 1 the next); `url` is in the
+/// agent's (remote) terms.
+struct LeoBrowserHistoryEntry: Equatable {
+    /// The most entries a history menu lists.
+    static let menuLimit = 20
+
+    let offset: Int
+    let title: String
+    let url: URL
+
+    var direction: LeoBrowserHistoryDirection { offset < 0 ? .back : .forward }
 }
 
 enum LeoAgentBrowserPresenceChange: Equatable {

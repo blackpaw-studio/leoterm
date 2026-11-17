@@ -107,6 +107,147 @@ struct LeoAgentBrowserTests {
         #expect(browser.activeRemoteURL == LeoWKFixtureServer.url("other"))
     }
 
+    // MARK: - B-408: reopen closed tab and history
+
+    /// The reopened tab is added after the browser maps the URL, so wait for it.
+    @available(macOS 14, *)
+    private func waitForTabs(_ count: Int, in browser: LeoAgentBrowser) async throws {
+        for _ in 0..<500 where browser.tabs.tabs.count != count { try await Task.sleep(for: .milliseconds(10)) }
+        #expect(browser.tabs.tabs.count == count)
+    }
+
+    @available(macOS 14, *)
+    @Test func reopenClosedTabRestoresTheURLAtItsIndexPerAgent() async throws {
+        let alpha = fixtureBrowser()
+        let beta = fixtureBrowser(key: LeoAgentBrowserKey(host: Self.key.host, agent: "beta"))
+        defer { alpha.close(); beta.close() }
+        let first = try await alpha.tabs.openTab(url: LeoWKFixtureServer.url("links"))
+        let middle = try await alpha.tabs.openTab(url: LeoWKFixtureServer.url("other"), userAgent: "Bot/9.0")
+        _ = try await alpha.tabs.openTab(url: LeoWKFixtureServer.url("links"))
+        _ = try await beta.tabs.openTab(url: LeoWKFixtureServer.url("other"))
+        #expect(!alpha.canReopenClosedTab)
+
+        alpha.tabs.closeTab(middle)
+        beta.tabs.closeTab(try #require(beta.tabs.tabs.first).id)
+
+        #expect(alpha.canReopenClosedTab)
+        #expect(beta.canReopenClosedTab)
+        #expect(beta.tabs.tabs.isEmpty)
+        #expect(alpha.reopenClosedTab())
+        try await waitForTabs(3, in: alpha)
+        let tabs = alpha.tabs.tabs
+        #expect(tabs.map(\.url) == [LeoWKFixtureServer.url("links"), LeoWKFixtureServer.url("other"), LeoWKFixtureServer.url("links")])
+        #expect(tabs[1].isActive)
+        #expect(tabs[0].id == first)
+        #expect(try await userAgent(alpha, tab: tabs[1].id) == "Bot/9.0")
+        #expect(!alpha.canReopenClosedTab)
+        #expect(!alpha.reopenClosedTab())
+        #expect(beta.tabs.tabs.isEmpty, "alpha's reopen leaves beta's closed tab alone")
+        #expect(beta.canReopenClosedTab)
+    }
+
+    @available(macOS 14, *)
+    @Test func anAgentTabCloseIsReopenable() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        _ = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("links"))
+        let agentClosed = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("other"))
+
+        #expect(await call(browser, "browser_tab_close", ["tab": .int(agentClosed)]) == .success([.text("ok")]))
+
+        #expect(browser.canReopenClosedTab)
+        #expect(browser.reopenClosedTab())
+        try await waitForTabs(2, in: browser)
+        #expect(browser.tabs.tabs.last?.url == LeoWKFixtureServer.url("other"))
+    }
+
+    @available(macOS 14, *)
+    @Test func aPagesWindowCloseIsReopenable() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        let first = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("links"))
+        let opener = try #require(browser.tabs.page(forTab: first))
+        #expect(try await click(#"link "Open other""#, in: browser) == .success([.text("ok")]))
+        try await settle(opener) { browser.tabs.tabs.count > 1 }
+        let popup = try #require(browser.tabs.tabs.last)
+        try await browser.tabs.page(forTab: popup.id)?.waitForText("Elsewhere", timeoutMilliseconds: 5_000)
+
+        _ = try? await browser.tabs.page(forTab: popup.id)?.evaluate("window.close(); return 0")
+        for _ in 0..<500 where browser.tabs.tabs.count != 1 { try await Task.sleep(for: .milliseconds(10)) }
+
+        #expect(browser.tabs.tabs.count == 1)
+        #expect(browser.reopenClosedTab())
+        try await waitForTabs(2, in: browser)
+        #expect(browser.tabs.tabs.last?.url == LeoWKFixtureServer.url("other"))
+    }
+
+    @available(macOS 14, *)
+    @Test func closingTheWholeBrowserAndBlankTabsLeaveNothingToReopen() async throws {
+        let browser = fixtureBrowser()
+        let blank = try await browser.tabs.openTab(url: URL(string: "about:blank")!)
+        browser.tabs.closeTab(blank)
+        #expect(!browser.canReopenClosedTab)
+        _ = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("other"))
+
+        browser.close()
+
+        #expect(browser.tabs.tabs.isEmpty)
+        #expect(!browser.canReopenClosedTab)
+    }
+
+    @available(macOS 14, *)
+    @Test func reopenAtTheTabLimitDoesNothingAndKeepsTheEntry() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        let closing = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("other"))
+        browser.tabs.closeTab(closing)
+        for _ in 0..<LeoBrowserLimits.maximumTabs { _ = try await browser.tabs.openTab(url: URL(string: "about:blank")!) }
+
+        #expect(!browser.canReopenClosedTab)
+        #expect(!browser.reopenClosedTab())
+        browser.tabs.closeTab(try #require(browser.tabs.tabs.first).id)
+
+        #expect(browser.canReopenClosedTab)
+    }
+
+    @available(macOS 14, *)
+    @Test func historyListsBackAndForwardNearestFirstAndJumps() async throws {
+        let server = LeoWKFixtureServer(Self.pages.merging(["c": "<title>C</title>"]) { $1 })
+        let browser = fixtureBrowser(server: server)
+        defer { browser.close() }
+        let tab = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("links"))
+        let page = try pageFor(browser, tab)
+        try await page.load(LeoWKFixtureServer.url("other"))
+        try await page.load(LeoWKFixtureServer.url("c"))
+
+        let back = browser.history(.back)
+        #expect(back.map(\.offset) == [-1, -2])
+        #expect(back.map(\.url) == [LeoWKFixtureServer.url("other"), LeoWKFixtureServer.url("links")])
+        #expect(back.map(\.title) == ["Other", "Links"])
+        #expect(browser.history(.forward).isEmpty)
+
+        #expect(browser.goToHistory(try #require(back.last)))
+        for _ in 0..<500 where !browser.history(.back).isEmpty { try await Task.sleep(for: .milliseconds(10)) }
+
+        #expect(browser.activeRemoteURL == LeoWKFixtureServer.url("links"))
+        #expect(browser.history(.forward).map(\.url) == [LeoWKFixtureServer.url("other"), LeoWKFixtureServer.url("c")])
+        #expect(browser.history(.forward).map(\.offset) == [1, 2])
+        #expect(browser.history(.back).isEmpty)
+    }
+
+    @available(macOS 14, *)
+    @Test func aHistoryEntryWhosePageChangedIsRefused() async throws {
+        let browser = fixtureBrowser()
+        defer { browser.close() }
+        let tab = try await browser.tabs.openTab(url: LeoWKFixtureServer.url("links"))
+        try await pageFor(browser, tab).load(LeoWKFixtureServer.url("other"))
+        let current = LeoBrowserHistoryEntry(offset: -1, title: "x", url: LeoWKFixtureServer.url("links"))
+
+        #expect(!browser.goToHistory(LeoBrowserHistoryEntry(offset: -1, title: "x", url: LeoWKFixtureServer.url("c"))), "another page at that offset")
+        #expect(!browser.goToHistory(LeoBrowserHistoryEntry(offset: -2, title: "x", url: LeoWKFixtureServer.url("links"))), "no page at that offset")
+        #expect(browser.goToHistory(current))
+    }
+
     @available(macOS 14, *)
     @Test func theUsersInputInAPageTakesControl() async throws {
         let browser = fixtureBrowser()

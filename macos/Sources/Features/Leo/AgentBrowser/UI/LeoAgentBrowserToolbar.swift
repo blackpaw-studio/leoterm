@@ -15,14 +15,17 @@ final class LeoAgentBrowserToolbar: NSView {
 
     var onBack: () -> Void = {}
     var onForward: () -> Void = {}
+    /// The tab's pages behind or ahead, for the Back and Forward lists.
+    var history: (LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] = { _ in [] }
+    var onHistory: (LeoBrowserHistoryEntry) -> Void = { _ in }
     var onReload: () -> Void = {}
     var onNewTab: () -> Void = {}
     var onSubmitURL: (String) -> Void = { _ in }
     var onPill: () -> Void = {}
     var onGiveBack: () -> Void = {}
 
-    let backButton = LeoAgentBrowserToolbar.symbolButton("chevron.backward", label: "Back")
-    let forwardButton = LeoAgentBrowserToolbar.symbolButton("chevron.forward", label: "Forward")
+    let backButton = LeoAgentBrowserToolbar.historyButton("chevron.backward", label: "Back (⌘[)")
+    let forwardButton = LeoAgentBrowserToolbar.historyButton("chevron.forward", label: "Forward (⌘])")
     let reloadButton = LeoAgentBrowserToolbar.symbolButton("arrow.clockwise", label: "Reload")
     let newTabButton = LeoAgentBrowserToolbar.symbolButton("plus", label: "New Tab")
     let urlField = NSTextField()
@@ -64,12 +67,24 @@ final class LeoAgentBrowserToolbar: NSView {
     }
 
     private static func symbolButton(_ symbol: String, label: String) -> NSButton {
-        let button = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: label) ?? NSImage(), target: nil, action: nil)
+        styled(NSButton(), symbol: symbol, label: label, toolTip: label)
+    }
+
+    /// Back or Forward: its tooltip says the key and that holding lists history.
+    private static func historyButton(_ symbol: String, label: String) -> LeoBrowserHistoryButton {
+        let name = label.split(separator: " ").first.map(String.init) ?? label
+        let button = LeoBrowserHistoryButton()
+        _ = styled(button, symbol: symbol, label: name, toolTip: "\(label) — press and hold for history")
+        return button
+    }
+
+    private static func styled(_ button: NSButton, symbol: String, label: String, toolTip: String) -> NSButton {
+        button.image = NSImage(systemSymbolName: symbol, accessibilityDescription: label) ?? NSImage()
         button.isBordered = false
         button.bezelStyle = .accessoryBarAction
         button.symbolConfiguration = .init(pointSize: NSFont.smallSystemFontSize, weight: .medium)
         button.contentTintColor = .secondaryLabelColor
-        button.toolTip = label
+        button.toolTip = toolTip
         button.setAccessibilityLabel(label)
         button.refusesFirstResponder = true
         button.widthAnchor.constraint(equalToConstant: 22).isActive = true
@@ -81,6 +96,10 @@ final class LeoAgentBrowserToolbar: NSView {
         setAccessibilityElement(false)
         wire(backButton, #selector(back(_:)))
         wire(forwardButton, #selector(forward(_:)))
+        backButton.history = { [weak self] in self?.history(.back) ?? [] }
+        forwardButton.history = { [weak self] in self?.history(.forward) ?? [] }
+        backButton.onSelect = { [weak self] in self?.onHistory($0) }
+        forwardButton.onSelect = { [weak self] in self?.onHistory($0) }
         wire(reloadButton, #selector(reload(_:)))
         wire(newTabButton, #selector(newTab(_:)))
 

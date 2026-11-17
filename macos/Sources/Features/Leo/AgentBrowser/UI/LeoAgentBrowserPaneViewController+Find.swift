@@ -88,6 +88,7 @@ extension LeoAgentBrowserPaneViewController: NSMenuItemValidation {
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
         if let action = item.action, Self.saveActions.contains(action) { return canSavePage && saveSheet == nil }
+        if let isValid = validateHistoryItem(item) { return isValid }
         return item.action == #selector(findHide(_:)) ? findController.isShown : true
     }
 

@@ -497,6 +497,33 @@
                         </items>
                     </menu>
                 </menuItem>
+                <!-- MARK: History (B-408) -->
+                <menuItem title="History" id="Leo-History-MenuItem">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="History" id="Leo-History-Menu">
+                        <items>
+                            <menuItem title="Back" id="Leo-History-Back">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="browserGoBack:" target="-1" id="Leo-History-Back-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Forward" id="Leo-History-Forward">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="browserGoForward:" target="-1" id="Leo-History-Forward-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-History-Separator"/>
+                            <menuItem title="Reopen Closed Tab" id="Leo-History-Reopen">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="reopenClosedTab:" target="-1" id="Leo-History-Reopen-Action"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
                 <!-- MARK: Leo -->
                 <menuItem title="Agents" id="Leo-Agents-MenuItem">
                     <modifierMask key="keyEquivalentModifierMask"/>

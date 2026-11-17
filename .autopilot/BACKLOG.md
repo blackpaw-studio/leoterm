@@ -47,12 +47,14 @@ Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661 (4887 tests; landed 290801942). Decisions D-842..D-850.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
 
-## B-408 · Reopen closed tab and back/forward history menus in the agent browser   [ready]
+## B-408 · Reopen closed tab and back/forward history menus in the agent browser   [done]
 Issue: #385
 Why: Milestone 2. Closing an agent's tab by accident shouldn't lose it.
 Accept: ⌘⇧T reopens the most recently closed browser tab for that agent with its URL (per agent, tested); long-press or right-click on Back/Forward shows that tab's history and jumps to an entry (tested); History menu items exist; screenshot of the history menu
 Out: Persistent history across app restarts; a global history window. Mac only.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: 4eb1b7a61 e583db40a d1d21bef9 5ad646332 (4932 tests; landed 346db3e91). Decisions D-860..D-868.
+Verified: not visually verified — screen captures only (B-408-1..6, screen), no window shot
 
 ## B-409 · Open in Default Browser, Copy URL, and per-agent Clear Site Data   [ready]
 Issue: #386
@@ -3138,3 +3140,21 @@ Source: autopilot polish (B-404)
 ## B-418 · Browser pane stays blank after a navigation becomes a download   [idea]
 Note: Reads as nothing happening — P2.
 Source: autopilot polish (B-404)
+
+## B-419 · Browser address field shows a stale URL while focused   [ready (next run)]
+Type: bug
+Report: Address field shows a stale URL while focused (about:blank on pages one/two) — wrong text in the address bar, P1 Safari parity. Also seen in B-407 verify: the address bar shows the previous URL, one navigation behind.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-408)
+
+## B-420 · ⌘L doesn't select the browser address field's text   [ready (next run)]
+Type: bug
+Report: ⌘L does not select the address field's text — P1 keyboard-first.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-408)
+
+## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [ready (next run)]
+Type: bug
+Report: Open browser pane collapses within ~15 s when the agent is stopped — the pane vanishes under the user.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-408)

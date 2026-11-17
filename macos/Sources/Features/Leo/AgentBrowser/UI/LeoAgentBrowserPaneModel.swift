@@ -195,6 +195,27 @@ import LeoKit
     func goForward() { act { source.goForward() } }
     func reload() { act { source.reload() } }
     func newTab() { act { source.openBlankTab() } }
+
+    /// ⌘⇧T. False (and no takeover) when there is nothing to reopen.
+    @discardableResult
+    func reopenClosedTab() -> Bool {
+        guard source.canReopenClosedTab else { return false }
+        act { _ = source.reopenClosedTab() }
+        return true
+    }
+
+    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] {
+        source.history(direction)
+    }
+
+    /// A pick from a history menu. False (and no takeover) when the history
+    /// has changed since the menu was built.
+    @discardableResult
+    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool {
+        guard source.history(entry.direction).contains(entry) else { return false }
+        act { _ = source.goToHistory(entry) }
+        return true
+    }
     func selectTab(id: Int) { act { source.tabs.selectTab(id) } }
     func closeTab(id: Int) { act { source.tabs.closeTab(id) } }
 

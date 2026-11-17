@@ -72,7 +72,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         let stack = LeoAgentBrowserPaneStack(views: rows)
         stack.onKeyEquivalent = { [weak self] event in
             guard let self else { return false }
-            return performFindKeyEquivalent(event) || performSaveKeyEquivalent(event)
+            return performFindKeyEquivalent(event) || performHistoryKeyEquivalent(event) || performSaveKeyEquivalent(event)
         }
         stack.orientation = .vertical
         stack.spacing = 0
@@ -110,6 +110,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private func wire() {
         toolbar.onBack = { [model] in model.goBack() }
         toolbar.onForward = { [model] in model.goForward() }
+        toolbar.history = { [model] in model.history($0) }
+        toolbar.onHistory = { [model] in if !model.goToHistory($0) { NSSound.beep() } }
         toolbar.onReload = { [model] in model.reload() }
         toolbar.onNewTab = { [model] in model.newTab() }
         toolbar.onSubmitURL = { [weak self] in self?.submitURL($0) }

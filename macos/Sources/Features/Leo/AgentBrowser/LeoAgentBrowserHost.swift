@@ -36,6 +36,7 @@ import AppKit
 
     /// A closed tab's view leaves every window.
     func release(_ view: NSView) {
+        viewers.lazy.compactMap(\.slot).first { $0.hostedView === view }?.noteHostedViewLeaving()
         view.removeFromSuperview()
     }
 
@@ -72,8 +73,12 @@ import AppKit
         }
         winner.isShownElsewhere = false
         let active = source.activeView
+        // The page in focus going away (a tab closed or switched) hands focus
+        // to the page that replaces it, so the keyboard keeps working.
+        let hadFocus = winner.takeFocusClaim()
         if let hosted = winner.hostedView, hosted !== active { parking.park(hosted) }
         if let active, winner.hostedView !== active { winner.host(active) }
+        if hadFocus { winner.focusPage() }
         if winner.bounds.width > 0, winner.bounds.height > 0 { parking.resize(to: winner.bounds.size) }
     }
 }
@@ -94,6 +99,8 @@ final class LeoAgentBrowserSlot: NSView {
     var hostedView: NSView? { hosted?.superview === self ? hosted : nil }
 
     private weak var hosted: NSView?
+    /// The hosted page held focus when it was released.
+    private var hostedHadFocus = false
     private let elsewhereLabel = NSTextField(labelWithString: "Shown in another window")
     private var isVisible = false
     private var windowCloseObserver: NSObjectProtocol?
@@ -112,6 +119,33 @@ final class LeoAgentBrowserSlot: NSView {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    /// A slot can hold focus itself, so a pane whose last tab closed keeps it
+    /// (the page-less pane still answers ⌘⇧T).
+    override var acceptsFirstResponder: Bool { true }
+
+    /// Whether focus is in the hosted page, or was when it was released.
+    func takeFocusClaim() -> Bool {
+        defer { hostedHadFocus = false }
+        return hostedHadFocus || holdsPageFocus
+    }
+
+    /// Called as the hosted page leaves the window for good.
+    func noteHostedViewLeaving() {
+        hostedHadFocus = holdsPageFocus
+    }
+
+    /// Focus goes to the hosted page, or to the slot when there is none.
+    func focusPage() {
+        guard let window else { return }
+        window.makeFirstResponder(hostedView ?? self)
+    }
+
+    private var holdsPageFocus: Bool {
+        guard let hosted = hostedView, let responder = window?.firstResponder else { return false }
+        let responderView = (responder as? NSText)?.delegate as? NSView ?? responder as? NSView
+        return responderView?.isDescendant(of: hosted) ?? false
+    }
 
     /// Shows `view`, filling the slot.
     func host(_ view: NSView) {

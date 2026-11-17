@@ -1,8 +1,8 @@
 Status: running
 Started: 2026-11-17T00:10:08Z
 Budget: 20 items, until 2026-11-17T12:10:08Z
-Digested-through: 0
-Filed: 0/3 bugs, 5/5 ideas
+Digested-through: 5
+Filed: 3/3 bugs, 5/5 ideas
 Self-filed: B-413 → B-414 idea — Sidebar needs-you pill overlaps the edge row's text
 Self-filed: B-413 → B-415 idea — Retake B-413 indicator shots with scratch-only rows
 Self-filed: B-404 → B-416 idea — Download failure strip wraps to two lines
@@ -14,6 +14,11 @@ Self-filed: B-407 → dropped (over cap) — Hide Find Bar stays enabled with no
 Self-filed: B-407 → dropped (over cap) — Browser address bar shows the previous URL, one navigation behind
 Self-filed: B-405 → dropped (over cap) — Upload picker header says "a file" for a multiple input
 Self-filed: B-405 → dropped (over cap) — Agent browser_click on a file input still opens the picker
+Self-filed: B-408 → B-419 bug — Browser address field shows a stale URL while focused
+Self-filed: B-408 → B-420 bug — ⌘L doesn't select the browser address field's text
+Self-filed: B-408 → B-421 bug — Open browser pane collapses ~15 s after autopilot-scratch stops
+Self-filed: B-408 → dropped (over cap) — History button opens its menu on any drag instead of going back
+Self-filed: B-408 → dropped (over cap) — Browser host re-focuses the web view on every refresh
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -128,6 +133,27 @@ Lane: B-408
   Dispatched: 2026-11-17T05:51:09Z
   Base: fbc0a72cdb1584e393c07052d8148754f06e441f
   Tier: full
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 15fe279c54c5bf8bf4d73987f804fcd3ed9036d9
+  Tokens: 28.8M in (28M cache read), ≥164k out, 237 requests
+  Call: ⌘[ / ⌘] / ⌘⇧T claimed only while focus is in the browser pane; Ghostty undo/goto_split untouched elsewhere — P1, follows D-843
+  Call: History menu (Back, Forward, Reopen Closed Tab) between View and Agents, no key equivalents — P1, D-847
+  Call: Every close is reopenable (user ×, agent tool, window.close()); blank tabs skipped; cap 20 per agent; stack dies with the browser — P2
+  Call: Reopened tab returns at its old index with its UA override; back history not restored — P1
+  Call: Reopen and history jumps count as user input and take control; impossible actions beep — P2
+  Call: Press-and-hold 0.4 s, history menus show 20 entries, titles cut at 60 chars, VoiceOver show-menu — P1
+  Call: Focus moves to the replacement page when the focused page leaves the slot — P1
+  Call: A reopen whose URL-mapping load fails is logged and the entry is lost — P2, accepted
+  Call: A stale focus claim can linger if a slot isn't the winning viewer when its page is released — accepted edge
+
+Lane: B-409
+  Branch: autopilot-lane/B-409
+  Dispatched: 2026-11-17T06:56:17Z
+  Base: 2089f6acfe74c47fdbe41e05543f641d2b3ee562
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
@@ -141,6 +167,8 @@ Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 3: B-407 landed 290801942 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
 
 Finished 4: B-405 landed 9cf0c4069 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
+
+Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -162,3 +190,7 @@ Progress:
 - B-405 landed 9cf0c4069. D-851..D-859.
 - Pick: B-408 full (reopen closed tab + history menus).
 - Dispatched B-408 d-a01e72312213.
+- B-408 ready (0 fixes, general review). Shots are screen captures only (not attached). Verifier denied Screen Recording prompts and force-killed the debug app.
+- B-408 landed 346db3e91. D-860..D-868.
+- Pick: B-409 full (menu actions + data store clearing).
+- Dispatched B-409 d-d470908db7cd. Interim digest 1 posted (items 1–5).
