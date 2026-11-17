@@ -120,10 +120,20 @@ enum LeoBrowserFindScript {
       state.sheet = sheet;
     };
 
+    // A replaced highlight must give its ranges up: WebKit repaints a range when
+    // its highlight lets go of it, but not when the registry swaps the highlight
+    // for another, which left the old query's marks painted.
+    const retire = (name) => {
+      const old = highlights.get(name);
+      if (!old) return;
+      old.clear();
+      highlights.delete(name);
+    };
+
     const clearPaint = () => {
       if (highlights) {
-        highlights.delete('\(allHighlight)');
-        highlights.delete('\(currentHighlight)');
+        retire('\(allHighlight)');
+        retire('\(currentHighlight)');
       }
       if (state.sheet) {
         document.adoptedStyleSheets = document.adoptedStyleSheets.filter((s) => s !== state.sheet);
@@ -152,6 +162,8 @@ enum LeoBrowserFindScript {
     const paint = (ranges, current) => {
       if (highlights) {
         ensureSheet();
+        retire('\(allHighlight)');
+        retire('\(currentHighlight)');
         const all = new Highlight(...ranges);
         const one = new Highlight(ranges[current]);
         one.priority = 1;

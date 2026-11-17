@@ -32,6 +32,7 @@ struct LeoBrowserFindScriptTests {
         "spacing": "<p>foo\n   bar</p><p>foo&nbsp;bar</p><p>foo      bar</p><p>x<br>y</p><p>a<br>b <b>c</b></p>",
         "wrapped": "<p id=\"p\">before  foo\n\t bar after</p>",
         "deep": deepPage,
+        "restyle": "<p>Alpha apple and another apple, then Apple again.</p><p>foo bar baz</p><p>second foo bar here</p>",
         "selectable": "<p id=\"p\">Pick this phrase please</p>",
     ]
 
@@ -243,5 +244,51 @@ struct LeoBrowserFindScriptTests {
 
         #expect(result.total == 1)
         #expect(isVisible == true)
+    }
+
+    /// Records every `Highlight` the finder registers, so a test can look at
+    /// the ones it later replaced.
+    private static let recordHighlights = """
+    if (!globalThis.__leoSeen) {
+      globalThis.__leoSeen = [];
+      const set = CSS.highlights.set.bind(CSS.highlights);
+      CSS.highlights.set = (name, highlight) => { globalThis.__leoSeen.push(highlight); return set(name, highlight); };
+    }
+    return 1
+    """
+
+    /// How many `Highlight`s the finder registered that are no longer
+    /// registered but still hold ranges. WebKit repaints a range when its
+    /// highlight lets go of it; a replaced highlight that keeps its ranges
+    /// leaves their old marks painted (seen in the browser pane: the old
+    /// query's matches stayed highlighted after the query changed).
+    private func orphansHoldingRanges(_ fixture: LeoWKPageFixture) async throws -> Int? {
+        try await fixture.page.webView.callAsyncJavaScript(
+            """
+            const live = new Set([...CSS.highlights.values()]);
+            return globalThis.__leoSeen.filter((h) => !live.has(h) && h.size > 0).length
+            """, arguments: [:], in: nil, contentWorld: LeoWKPageFinder.world) as? Int
+    }
+
+    private func searches(_ queries: [String]) async throws -> Int? {
+        let fixture = Self.fixture()
+        defer { fixture.close() }
+        let finder = try await open("restyle", in: fixture)
+        _ = try await fixture.page.webView.callAsyncJavaScript(
+            Self.recordHighlights, arguments: [:], in: nil, contentWorld: LeoWKPageFinder.world)
+        for query in queries { _ = await finder.search(query, in: fixture.page.webView) }
+        return try await orphansHoldingRanges(fixture)
+    }
+
+    @available(macOS 14, *)
+    @Test func aReplacedQueryLeavesNoHighlightHoldingTheOldMatches() async throws {
+        #expect(try await searches(["apple", "foo bar"]) == 0)
+    }
+
+    @available(macOS 14, *)
+    @Test func typingCharByCharThenChangingTheQueryLeavesNoHighlightHoldingOldMatches() async throws {
+        let typed = ["a", "ap", "app", "appl", "apple", "f", "fo", "foo", "foo ", "foo b", "foo ba", "foo bar"]
+
+        #expect(try await searches(typed) == 0)
     }
 }
