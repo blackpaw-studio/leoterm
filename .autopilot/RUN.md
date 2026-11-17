@@ -114,3 +114,4 @@ Progress:
 - B-420 ready (0 fixes, general review, 5018 tests). Not visually verified: auto-mode classifier denied the verifier's keystroke into the debug app.
 - B-420 landed 6db5b0ab9. D-929..D-931.
 - B-421 ready (fix rounds 2, general delta clean, 5016 tests, window shots). Integration stale (B-420 landed toolbar/menu changes) → re-verify round 2.
+- Dispatched B-421 re-verify 2 d-f147f2e424a6.
