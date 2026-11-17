@@ -230,26 +230,36 @@ import WebKit
     /// `maxScreenshotWidth` pixels wide, and the top `maxFullPageHeight`
     /// points of a taller page.
     private func fullPageScreenshot() async throws -> Data {
-        let data = try await pdf()
-        guard let provider = CGDataProvider(data: data as CFData), let page = CGPDFDocument(provider)?.page(at: 1) else {
+        let data = try await screenshotPDF()
+        guard let provider = CGDataProvider(data: data as CFData), let document = CGPDFDocument(provider) else {
             throw LeoBrowserError.javaScript("Could not render the page.")
         }
-        let box = page.getBoxRect(.mediaBox)
-        guard box.width > 0, box.height > 0 else { throw LeoBrowserError.javaScript("The page is empty.") }
-        let height = min(box.height, Self.maxFullPageHeight)
-        let scale = min(webView.window?.backingScaleFactor ?? 2, Double(Self.maxScreenshotWidth) / box.width)
+        // WebKit splits a PDF taller than 14,400 pt (the PDF page limit) into
+        // pages; they are stacked back into one image.
+        let pages = (0..<document.numberOfPages).compactMap { document.page(at: $0 + 1) }
+        let boxes = pages.map { $0.getBoxRect(.mediaBox) }
+        let width = boxes.map(\.width).max() ?? 0
+        let height = min(boxes.reduce(0) { $0 + $1.height }, Self.maxFullPageHeight)
+        guard width > 0, height > 0 else { throw LeoBrowserError.javaScript("The page is empty.") }
+        let scale = min(webView.window?.backingScaleFactor ?? 2, Double(Self.maxScreenshotWidth) / width)
         guard
             let context = CGContext(
-                data: nil, width: max(1, Int((box.width * scale).rounded(.down))), height: max(1, Int((height * scale).rounded())),
+                data: nil, width: max(1, Int((width * scale).rounded(.down))), height: max(1, Int((height * scale).rounded())),
                 bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         else { throw LeoBrowserError.javaScript("Could not render the page.") }
         context.setFillColor(.white)
         context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
         context.scaleBy(x: scale, y: scale)
-        // PDF space runs bottom-up: the page's top `height` points fill the bitmap.
-        context.translateBy(x: -box.minX, y: height - box.maxY)
-        context.drawPDFPage(page)
+        // PDF space runs bottom-up: each page's top sits where the last one ended.
+        var top = height
+        for (page, box) in zip(pages, boxes) where top > 0 {
+            context.saveGState()
+            context.translateBy(x: -box.minX, y: top - box.maxY)
+            context.drawPDFPage(page)
+            context.restoreGState()
+            top -= box.height
+        }
         guard let image = context.makeImage() else { throw LeoBrowserError.javaScript("Could not render the page.") }
         return try Self.png(image, maxWidth: Self.maxScreenshotWidth)
     }
@@ -257,8 +267,25 @@ import WebKit
     /// The whole document as one continuous PDF page, as Safari's Export
     /// as PDF makes it: not the viewport, and not paginated for printing.
     func pdf() async throws -> Data {
+        try await pdf(WKPDFConfiguration())
+    }
+
+    /// The PDF a full-page screenshot is drawn from: only the region the
+    /// screenshot keeps (the viewport's width, the top `maxFullPageHeight`
+    /// points of the document), so a very long page is never rendered whole.
+    /// The rect is in document coordinates, whatever the scroll position.
+    func screenshotPDF() async throws -> Data {
+        let height = try await run("return document.documentElement.scrollHeight", [:], in: Self.agentWorld) as? Double
+        guard let height else { throw LeoBrowserError.javaScript("Could not measure the page.") }
+        let configuration = WKPDFConfiguration()
+        configuration.rect = CGRect(
+            x: 0, y: 0, width: webView.bounds.width, height: min(height, Self.maxFullPageHeight) * webView.pageZoom)
+        return try await pdf(configuration)
+    }
+
+    private func pdf(_ configuration: WKPDFConfiguration) async throws -> Data {
         do {
-            return try await webView.pdf(configuration: WKPDFConfiguration())
+            return try await webView.pdf(configuration: configuration)
         } catch {
             throw LeoBrowserError.javaScript("The PDF couldn’t be made: \(error.localizedDescription)")
         }

@@ -30,6 +30,9 @@ struct LeoWKBrowserPageTests {
         "long": (0..<3_000).map { "<p>Paragraph \($0) with some filler text in it</p>" }.joined(),
         "tall": #"<body style="margin:0"><div style="height:3000px;background:#3366cc"></div></body>"#,
         // Beige page, red block in its last 600 px: far below an 800x600 viewport.
+        // Taller than the full-page cap (16,384): blue top, red just above
+        // the cap, green below it.
+        "huge": #"<body style="margin:0;background:#f5f0e6"><div style="height:300px;background:#0000ff"></div><div style="height:15784px"></div><div style="height:300px;background:#ff0000"></div><div style="height:3616px;background:#00ff00"></div></body>"#,
         "marked": #"<body style="margin:0;background:#f5f0e6"><div style="height:2400px"></div><div style="height:600px;background:#ff0000"></div></body>"#,
         "console": """
         <script>
@@ -339,6 +342,33 @@ struct LeoWKBrowserPageTests {
         let bottom = try #require(Self.pixel(image, atHeightFraction: 0.95))
         #expect(top.red > 230 && top.green > 225 && top.blue > 210, "top is the beige page: \(top)")
         #expect(bottom.red > 200 && bottom.green < 60 && bottom.blue < 60, "the red block near the bottom is painted: \(bottom)")
+    }
+
+    /// A page taller than the cap renders only the capped region for its
+    /// screenshot, so a very long page can't exhaust memory; the PNG still
+    /// starts at the top of the document when the page is scrolled.
+    @available(macOS 14, *)
+    @Test func fullPageScreenshotRendersOnlyTheCappedRegion() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        _ = try await fixture.page.navigate(to: LeoWKFixtureServer.url("huge"))
+        _ = try await fixture.page.eval("window.scrollTo(0, 9000); scrollY")
+
+        // WebKit pages a PDF at 14,400 pt; together the pages cover only the cap.
+        let pdf = try #require(PDFDocument(data: try await fixture.page.screenshotPDF()))
+        let boxes = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.bounds(for: .mediaBox) }
+        let rendered = boxes.reduce(0) { $0 + $1.height }
+        #expect(abs(rendered - LeoWKBrowserPage.maxFullPageHeight) < 1, "the screenshot's PDF pages are \(boxes)")
+        #expect(boxes.allSatisfy { $0.width <= 800 })
+
+        let png = try await fixture.page.screenshot(fullPage: true)
+        let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        let top = try #require(Self.pixel(image, atHeightFraction: 0.005))
+        let bottom = try #require(Self.pixel(image, atHeightFraction: 0.999))
+        #expect(top.blue > 200 && top.red < 60, "the document's top, though scrolled: \(top)")
+        #expect(bottom.red > 200 && bottom.green < 60, "the last capped points are the red block: \(bottom), image \(image.width)x\(image.height)")
+        #expect(Double(image.height) / Double(image.width) > 16_000.0 / 800, "\(image.width)x\(image.height)")
     }
 
     /// The colour in the middle of the row `fraction` of the way down.
