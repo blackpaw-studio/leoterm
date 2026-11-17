@@ -510,6 +510,36 @@
                         </items>
                     </menu>
                 </menuItem>
+                <!-- MARK: Browser (B-409) -->
+                <menuItem title="Browser" id="Leo-Browser-MenuItem">
+                    <modifierMask key="keyEquivalentModifierMask"/>
+                    <menu key="submenu" title="Browser" id="Leo-Browser-Menu">
+                        <items>
+                            <menuItem title="Open in Default Browser" keyEquivalent="o" id="Leo-Browser-OpenInDefault">
+                                <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="openInDefaultBrowser:" target="-1" id="Leo-Browser-OpenInDefault-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Copy URL" keyEquivalent="C" id="Leo-Browser-CopyURL">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="copyBrowserURL:" target="-1" id="Leo-Browser-CopyURL-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Browser-Separator"/>
+                            <menuItem title="Clear Site Data for This Agent…" id="Leo-Browser-ClearSiteData">
+                                <string key="keyEquivalent" base64-UTF8="YES">
+CA
+</string>
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="clearAgentSiteData:" target="-1" id="Leo-Browser-ClearSiteData-Action"/>
+                                </connections>
+                            </menuItem>
+                        </items>
+                    </menu>
+                </menuItem>
                 <!-- MARK: Leo -->
                 <menuItem title="Agents" id="Leo-Agents-MenuItem">
                     <modifierMask key="keyEquivalentModifierMask"/>

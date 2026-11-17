@@ -253,6 +253,7 @@ struct LeoAgentBrowserBrowserMenuTests {
         let actions = menu.items.filter { !$0.isSeparatorItem }
         #expect(actions.compactMap(\.action) == [open, copy, clear])
         #expect(actions.allSatisfy { $0.target === pane && $0.isEnabled })
+        #expect(LeoMenuXib.shortcuts(in: menu).map(\.shortcut) == ["⌥⌘o", "⇧⌘c", "⇧⌘⌫"], "the Browser menu's shortcuts")
         let copyItem = actions[1]
         #expect(NSApp.sendAction(copy, to: copyItem.target, from: copyItem))
         #expect(services.pasteboard.string(forType: .string) == Self.remotePage.absoluteString)
