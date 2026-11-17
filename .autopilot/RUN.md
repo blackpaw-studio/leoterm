@@ -77,7 +77,7 @@ Lane: B-407
 
 Lane: B-405
   Branch: autopilot-lane/B-405
-  Dispatched: 2026-11-17T02:21:26Z
+  Dispatched: 2026-11-17T02:22:28Z
   Base: 2d3139ab68c7d824a6895f3854211d823fec400f
   Tier: full
   State: building
@@ -101,3 +101,4 @@ Progress:
 - B-404 ready (fix 1, hard implementer, security review clean).
 - B-404 landed 88a18c9fb. D-832..D-841.
 - Pick: B-405 full (uploads; new tool + picker).
+- Dispatched B-405 d-2c841ad94d65.
