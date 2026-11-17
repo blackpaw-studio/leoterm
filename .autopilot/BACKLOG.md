@@ -3,13 +3,15 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
-## B-413 · Sidebar shows when an off-screen agent needs you   [ready]
+## B-413 · Sidebar shows when an off-screen agent needs you   [done]
 Issue: #380
 Why: An agent needing attention, erroring, or with an unread chat badge can sit scrolled out of the sidebar's view and go unnoticed. P2 Calm, attention-driven: "needs you" must always be noticeable.
 Accept: when a row with needs-input, errored, or an unread chat badge is scrolled above or below the visible sidebar area, an indicator appears at that edge (top or bottom), and the two directions show independently (tested); clicking the indicator scrolls to the nearest such row, and VoiceOver can reach it (tested); the indicator disappears once the row scrolls into view or its state clears, and it never shows for working, finished or idle rows (tested); screenshots from the isolated debug build of top and bottom indicators, using autopilot-scratch only
 Out: Dock and notification changes; collapsed sidebar sections; the iOS app (Mac only, since iOS has the needs-you inbox)
 Source: owner (/feature, 2026-11-16)
 Inbox: 20261117T000842166210Z-f9850bf9#1
+Done: 57694ff39 21ec5304b (4825 tests; landed dd5910e72). Decisions D-822..D-831.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 ## B-404 · Agent browser downloads land in the agent's workspace   [ready]
 Issue: #381
@@ -3110,3 +3112,11 @@ Inbox: 20261116T012527351545Z-eaf50e5f#1
 Done: b28f6ea2e (PR #376 head, merged unchanged via f6a960da1; landed in eb013d44f; 4678 tests). LEO_VERSION 0.84.0; v0.84.0 tarball sha256 matches and reports leo 0.84.0. Closes the daemon half of B-401. D-821.
 Verified: not visually verified — diff is only LEO_VERSION; Debug builds carry no bundled daemon
 Reviewed: accepted 2026-11-15 — eb013d44fa3c
+
+## B-414 · Sidebar needs-you pill overlaps the edge row's text   [idea]
+Note: The B-413 edge pill covers part of the row nearest the edge (e.g. "leave-fa…") — P1.
+Source: autopilot polish (B-413)
+
+## B-415 · Retake B-413 indicator shots with scratch-only rows   [idea]
+Note: B-413's top/bottom shots show real agents' names (badges zeroed; fixture can't hide rows); acceptance asked for scratch-only.
+Source: autopilot polish (B-413)

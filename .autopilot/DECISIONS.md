@@ -1112,3 +1112,63 @@ Chose: Rebuilt the stale shared xcframework inside the lane per verify.md (gitig
 Why: verify.md
 Commit: b28f6ea2e
 Veto: [ ]
+
+## D-822 · 2026-11-16 · B-413: Needs you = displayed Needs You or Error state (including a failed-action error), or an…
+Chose: Needs you = displayed Needs You or Error state (including a failed-action error), or an unread badge; working, finished, idle and stopped rows count only with unread
+Why: P2
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-823 · 2026-11-16 · B-413: Collapsed groups, folded or offline machines, filtered-out rows and dispatch rows never…
+Chose: Collapsed groups, folded or offline machines, filtered-out rows and dispatch rows never count
+Why: Out (collapsed sections), P2
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-824 · 2026-11-16 · B-413: A row is in view when its midY is inside the unobscured area
+Chose: A row is in view when its midY is inside the unobscured area
+Why: AUTONOMY UX detail
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-825 · 2026-11-16 · B-413: Capsule at the top or bottom edge, material with a hairline, arrow plus "Needs you" or…
+Chose: Capsule at the top or bottom edge, material with a hairline, arrow plus "Needs you" or "N need you", tinted by state (orange needs you, red error, accent unread)
+Why: P1, P2
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-826 · 2026-11-16 · B-413: No fade: the capsule appears and disappears instantly (plan said fade; instant is…
+Chose: No fade: the capsule appears and disappears instantly (plan said fade; instant is calmer and keeps hosted tests deterministic)
+Why: P2
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-827 · 2026-11-16 · B-413: A click scrolls instantly, centering the nearest row; it never selects, attaches or…
+Chose: A click scrolls instantly, centering the nearest row; it never selects, attaches or takes focus
+Why: P6, P2
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-828 · 2026-11-16 · B-413: The capsule is an AppKit view acting as the single accessibility button; it takes focus…
+Chose: The capsule is an AppKit view acting as the single accessibility button; it takes focus only from keyboard navigation with Full Keyboard Access on
+Why: P1
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-829 · 2026-11-16 · B-413: VoiceOver label "Scroll up/down to <name>, <state>"; no new shortcut
+Chose: VoiceOver label "Scroll up/down to <name>, <state>"; no new shortcut
+Why: P1
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-830 · 2026-11-16 · B-413: Mac only; iOS has the needs-you inbox
+Chose: Mac only; iOS has the needs-you inbox
+Why: parity rule, Out
+Commit: 57694ff39 21ec5304b
+Veto: [ ]
+
+## D-831 · 2026-11-16 · B-413: DEBUG-only `unread` fixture key: unnamed local agents read 0 when it's present; an…
+Chose: DEBUG-only `unread` fixture key: unnamed local agents read 0 when it's present; an explicit 0 is honored
+Why: verification tooling
+Commit: 57694ff39 21ec5304b
+Veto: [ ]

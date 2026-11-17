@@ -55,6 +55,36 @@ struct LeoAttentionFixtureTests {
         #expect(malformed.usage.isEmpty && malformed.turns.isEmpty)
     }
 
+    /// B-413: a reserved `unread` key gives This Mac's agents unread counts
+    /// and zeroes every agent it doesn't name, so real badges can't leak into
+    /// a screenshot; an explicit 0 is honored, negative and malformed entries
+    /// are dropped, and a malformed key is ignored.
+    @Test func unreadKeyDecodesCountsAndNamesTheOnlyAgentsWithAny() throws {
+        let json = #"{"alpha":{"state":"needs_input","revision":1},"unread":{"a":3,"b":0,"c":"x","d":-1}}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.unread == ["a": 3, "b": 0])
+        #expect(file.attention.keys.sorted() == ["alpha"])
+        let empty = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"unread":{}}"#.utf8))
+        #expect(empty.unread == [:], "an empty object means no agent has unread")
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"unread":3}"#.utf8))
+        #expect(malformed.unread == nil)
+        let absent = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{}"#.utf8))
+        #expect(absent.unread == nil, "without the key the real counts show")
+    }
+
+    @MainActor @Test func unreadFixtureOverridesRealCountsForEveryLocalAgent() {
+        let store = LeoChatUnreadStore()
+        let named = LeoAgentID(host: .local, name: "named")
+        let other = LeoAgentID(host: .local, name: "other")
+        let remote = LeoAgentID(host: .remote("box"), name: "named")
+        store.fixtureCounts = ["named": 3]
+        #expect(store.count(for: named) == 3)
+        #expect(store.count(for: other) == 0, "an agent the fixture doesn't name has none")
+        #expect(store.count(for: remote) == 0, "the key is This Mac's only; a remote agent keeps its real (here no) count")
+        store.fixtureCounts = nil
+        #expect(store.count(for: named) == 0)
+    }
+
     /// B-260: a reserved `actions` key overlays `current_action` for named
     /// agents only; a malformed entry is dropped and the fixture still loads.
     @Test func actionsKeyOverlaysCurrentAction() async throws {
