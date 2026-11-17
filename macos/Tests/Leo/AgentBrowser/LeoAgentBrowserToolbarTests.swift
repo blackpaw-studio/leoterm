@@ -250,4 +250,51 @@ struct LeoAgentBrowserToolbarTests {
         #expect(toolbar.moreMenu?.items.first?.target === pane)
         _ = window
     }
+
+    private static func commandL(_ window: NSWindow) -> NSEvent {
+        NSEvent.keyEvent(
+            with: .keyDown, location: .zero, modifierFlags: [.command], timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            characters: "l", charactersIgnoringModifiers: "l", isARepeat: false, keyCode: 0)!
+    }
+
+    /// B-420: ⌘L from the page focuses the address bar with all of it selected.
+    @Test func commandLFocusesTheAddressBarWithAllTextSelected() async throws {
+        let source = FakePaneSource()
+        source.activeRemoteURL = URL(string: "https://example.com/one")
+        let pane = LeoAgentBrowserPaneViewController(source: source)
+        pane.view.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        let window = Self.window(showing: pane.view)
+        source.changed()
+        await drainMainQueue()
+        #expect(window.makeFirstResponder(pane.view))
+
+        #expect(pane.performBrowserKeyEquivalent(Self.commandL(window)))
+
+        let field = pane.toolbar.urlField
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        #expect(editor.selectedRange == NSRange(location: 0, length: field.stringValue.utf16.count))
+        editor.insertText("example.org", replacementRange: editor.selectedRange)
+        #expect(field.stringValue == "example.org")
+    }
+
+    /// B-420: clicking into an unfocused bar selects it all; a click into a
+    /// focused bar still places the caret.
+    @Test func clickingIntoAnUnfocusedAddressBarSelectsAllText() async throws {
+        let source = FakePaneSource()
+        source.activeRemoteURL = URL(string: "https://example.com/one")
+        let pane = LeoAgentBrowserPaneViewController(source: source)
+        pane.view.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        let window = Self.window(showing: pane.view)
+        source.changed()
+        await drainMainQueue()
+        let field = pane.toolbar.urlField
+        let click = NSEvent.mouseEvent(
+            with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
+            eventNumber: 0, clickCount: 1, pressure: 1)!
+
+        field.mouseDown(with: click)
+
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        #expect(editor.selectedRange == NSRange(location: 0, length: field.stringValue.utf16.count))
+    }
 }
