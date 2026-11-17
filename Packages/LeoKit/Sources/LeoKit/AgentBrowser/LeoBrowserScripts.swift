@@ -331,6 +331,47 @@ public enum LeoBrowserScripts {
     """#
 
     /// Body of an async function run in the snapshot's content world, with
+    /// arguments `ref` and `values` (strings): selects the options of the
+    /// `<select>` for `ref` whose value is each of `values`, else whose
+    /// label is, and fires `input`
+    /// then `change` on it. Returns `{selected: [{value, label}]}`,
+    /// `{stale: true}` like `locateRef`, or `{error: message}`. Nothing
+    /// changes when any value fails. Built in Leo's world, so the page can't
+    /// interfere, and never focuses or opens the select's popup.
+    public static let selectOption = #"""
+    const state = globalThis.__leoAgent;
+    const el = state && state.refs.get(ref);
+    if (!el || !el.isConnected) return { stale: true };
+    const select = el;
+    if (select.tagName !== 'SELECT') {
+      return { error: `ref ${ref} is not a <select>; for a custom dropdown, browser_click it and then its option` };
+    }
+    if (select.matches(':disabled')) return { error: `The select for ref ${ref} is disabled` };
+    if (values.length > 1 && !select.multiple) {
+      return { error: `ref ${ref} is a select that takes one option; pass one value, or a [multiple] select` };
+    }
+    const options = Array.from(select.options);
+    const describe = o => `${JSON.stringify(o.value)} (${o.label.trim()})`;
+    const chosen = [];
+    for (const wanted of values) {
+      const option = options.find(o => o.value === wanted) || options.find(o => o.label.trim() === wanted);
+      if (!option) {
+        return { error: `No option ${JSON.stringify(wanted)} in the select for ref ${ref}. Options: ${options.map(describe).join(', ')}` };
+      }
+      if (option.matches(':disabled')) return { error: `The option ${describe(option)} is disabled` };
+      if (!chosen.includes(option)) chosen.push(option);
+    }
+    if (select.multiple) {
+      for (const option of options) option.selected = chosen.includes(option);
+    } else {
+      chosen[0].selected = true;
+    }
+    select.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    return { selected: Array.from(select.selectedOptions).map(o => ({ value: o.value, label: o.label.trim() })) };
+    """#
+
+    /// Body of an async function run in the snapshot's content world, with
     /// arguments `ref` and `files` (`[{name, type, data}]`, `data` in
     /// base64): replaces the resolved input's files with these and fires
     /// `input` then `change`, as a user's pick does. Built in Leo's world,

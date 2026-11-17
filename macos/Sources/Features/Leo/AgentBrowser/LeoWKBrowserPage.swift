@@ -312,7 +312,7 @@ import WebKit
 
     /// The file input `ref` resolves to.
     func fileInput(ref: String) async throws -> LeoBrowserFileInput {
-        let result = try await runOnFileInput(LeoBrowserScripts.fileInput, ref: ref, [:])
+        let result = try await runOnRef(LeoBrowserScripts.fileInput, ref: ref, [:])
         return LeoBrowserFileInput(allowsMultiple: result["multiple"] as? Bool ?? false)
     }
 
@@ -320,15 +320,28 @@ import WebKit
     /// the bytes travel as base64.
     func setFiles(ref: String, files: [LeoBrowserUploadFile]) async throws {
         let payload = files.map { ["name": $0.name, "type": $0.mimeType, "data": $0.data.base64EncodedString()] }
-        _ = try await runOnFileInput(LeoBrowserScripts.setFiles, ref: ref, ["files": payload])
+        _ = try await runOnRef(LeoBrowserScripts.setFiles, ref: ref, ["files": payload])
     }
 
-    private func runOnFileInput(_ script: String, ref: String, _ arguments: [String: Any]) async throws -> [String: Any] {
+    private func runOnRef(_ script: String, ref: String, _ arguments: [String: Any]) async throws -> [String: Any] {
         guard Self.generation(of: ref) == generation else { throw LeoBrowserError.staleRef(ref) }
         let result = try await run(script, arguments.merging(["ref": ref]) { $1 }, in: Self.agentWorld) as? [String: Any]
         guard let result, result["stale"] == nil else { throw LeoBrowserError.staleRef(ref) }
         if let message = result["error"] as? String { throw LeoBrowserError.invalidArgs(message) }
         return result
+    }
+
+    // MARK: Select options
+
+    /// Selects the options `values` name in the `<select>` `ref` resolves
+    /// to, from Leo's world, and reports the ones it ends with.
+    func selectOption(ref: String, values: [String]) async throws -> [LeoBrowserSelectedOption] {
+        let result = try await runOnRef(LeoBrowserScripts.selectOption, ref: ref, ["values": values])
+        let selected = result["selected"] as? [[String: Any]] ?? []
+        return selected.compactMap { entry in
+            guard let value = entry["value"] as? String, let label = entry["label"] as? String else { return nil }
+            return LeoBrowserSelectedOption(value: value, label: label)
+        }
     }
 
     // MARK: Input

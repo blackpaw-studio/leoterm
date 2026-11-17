@@ -33,6 +33,45 @@ struct LeoWKBrowserPointerTests {
         """,
     ]
 
+    /// Logs what a select's listeners see: `type:id:bubbles:composed:trusted`.
+    private static let selectRecorder = """
+    <script>
+    window.events = [];
+    for (const type of ['input', 'change'])
+      document.addEventListener(type, e => events.push([e.type, e.target.id, e.bubbles, e.composed, e.isTrusted].join(':')), true);
+    </script>
+    """
+
+    private static let selectPages = [
+        "select": selectRecorder + """
+        <title>Select</title>
+        <select id="size" aria-label="Size">
+          <option value="a">Alpha</option><option value="b">Beta</option><option value="c"> Gamma </option>
+          <option value="Alpha">Zed</option><option value="locked" disabled>Locked</option>
+        </select>
+        <select id="tags" multiple aria-label="Tags">
+          <option value="x" selected>X ray</option><option value="y">Yankee</option><option value="z">Zulu</option>
+        </select>
+        <select id="off" aria-label="Off"><option value="o">Only</option></select>
+        <button id="plain">Plain</button>
+        """,
+    ]
+
+    private func selectPage(_ fixture: LeoWKPageFixture) async throws -> LeoWKBrowserPage {
+        _ = try await fixture.page.navigate(to: LeoWKFixtureServer.url("select"))
+        return fixture.page
+    }
+
+    private func events(_ page: LeoWKBrowserPage) async throws -> [String] {
+        let json = try await page.eval("window.events")
+        return try JSONDecoder().decode([String].self, from: Data(json.utf8))
+    }
+
+    private func selectedValues(_ page: LeoWKBrowserPage, _ id: String) async throws -> [String] {
+        let json = try await page.eval("Array.from(document.getElementById('\(id)').selectedOptions).map(o => o.value)")
+        return try JSONDecoder().decode([String].self, from: Data(json.utf8))
+    }
+
     private func log(_ page: LeoWKBrowserPage) async throws -> [String] {
         let json = try await page.eval("window.log")
         return try JSONDecoder().decode([String].self, from: Data(json.utf8))
@@ -72,5 +111,86 @@ struct LeoWKBrowserPointerTests {
         #expect(await page.failureCode { try await $0.hover(ref: old) } == "stale_ref")
         #expect(await page.failureCode { try await $0.hover(ref: "s999e1") } == "stale_ref")
         #expect(try await log(page).isEmpty)
+    }
+
+    // MARK: Select options
+
+    @available(macOS 14, *)
+    @Test func selectOptionMatchesValueBeforeLabelAndFiresInputThenChange() async throws {
+        let fixture = LeoWKPageFixture(Self.pages.merging(Self.selectPages) { $1 })
+        defer { fixture.close() }
+        let page = try await selectPage(fixture)
+        let ref = try #require(leoSnapshotRef(try await page.snapshot(), #"combobox "Size""#))
+
+        let byValue = try await page.selectOption(ref: ref, values: ["b"])
+        #expect(byValue == [LeoBrowserSelectedOption(value: "b", label: "Beta")])
+        #expect(try await events(page) == ["input:size:true:true:false", "change:size:true:false:false"])
+
+        let byLabel = try await page.selectOption(ref: ref, values: ["Gamma"])
+        #expect(byLabel == [LeoBrowserSelectedOption(value: "c", label: "Gamma")])
+        #expect(try await selectedValues(page, "size") == ["c"])
+
+        // "Alpha" is the value of the fourth option and the label of the first: value wins.
+        let clash = try await page.selectOption(ref: ref, values: ["Alpha"])
+        #expect(clash == [LeoBrowserSelectedOption(value: "Alpha", label: "Zed")])
+    }
+
+    @available(macOS 14, *)
+    @Test func selectOptionSetsAMultipleSelectToExactlyTheValuesPassed() async throws {
+        let fixture = LeoWKPageFixture(Self.pages.merging(Self.selectPages) { $1 })
+        defer { fixture.close() }
+        let page = try await selectPage(fixture)
+        let ref = try #require(leoSnapshotRef(try await page.snapshot(), #"listbox "Tags""#))
+        #expect(try await selectedValues(page, "tags") == ["x"])
+
+        let chosen = try await page.selectOption(ref: ref, values: ["Zulu", "y", "y"])
+
+        #expect(chosen.map(\.value) == ["y", "z"])
+        #expect(try await selectedValues(page, "tags") == ["y", "z"], "x is deselected; duplicates collapse")
+    }
+
+    @available(macOS 14, *)
+    @Test func selectOptionRejectsInputThatCannotBeHonoured() async throws {
+        let fixture = LeoWKPageFixture(Self.pages.merging(Self.selectPages) { $1 })
+        defer { fixture.close() }
+        let page = try await selectPage(fixture)
+        let snapshot = try await page.snapshot()
+        let size = try #require(leoSnapshotRef(snapshot, #"combobox "Size""#))
+        let off = try #require(leoSnapshotRef(snapshot, #"combobox "Off""#))
+        let plain = try #require(leoSnapshotRef(snapshot, #"button "Plain""#))
+
+        _ = try await page.eval("document.getElementById('off').disabled = true")
+
+        func message(_ ref: String, _ values: [String]) async -> String? {
+            do {
+                _ = try await page.selectOption(ref: ref, values: values)
+                return nil
+            } catch let error as LeoBrowserError {
+                return "\(error.code.rawValue): \(error.message)"
+            } catch {
+                return "unexpected \(error)"
+            }
+        }
+        let unknown = await message(size, ["nope"])
+        #expect(unknown?.hasPrefix("invalid_args: No option \"nope\"") == true, "\(unknown ?? "nil")")
+        #expect(unknown?.contains(#""b" (Beta)"#) == true, "the message lists the options: \(unknown ?? "nil")")
+        #expect(await message(size, ["a", "b"])?.hasPrefix("invalid_args:") == true, "several values for a single select")
+        #expect(await message(plain, ["a"])?.contains("is not a <select>") == true)
+        #expect(await message(off, ["o"])?.contains("is disabled") == true)
+        #expect(await message(size, ["locked"])?.contains("is disabled") == true, "a disabled option")
+        #expect(try await events(page).isEmpty, "a refused call changes nothing and fires nothing")
+        #expect(try await selectedValues(page, "size") == ["a"])
+    }
+
+    @available(macOS 14, *)
+    @Test func selectOptionRejectsStaleRefs() async throws {
+        let fixture = LeoWKPageFixture(Self.pages.merging(Self.selectPages) { $1 })
+        defer { fixture.close() }
+        let page = try await selectPage(fixture)
+        let old = try #require(leoSnapshotRef(try await page.snapshot(), #"combobox "Size""#))
+        _ = try await page.snapshot()
+        #expect(await page.failureCode { try await $0.selectOption(ref: old, values: ["a"]) } == "stale_ref")
+        #expect(await page.failureCode { try await $0.selectOption(ref: "s999e1", values: ["a"]) } == "stale_ref")
+        #expect(try await events(page).isEmpty)
     }
 }

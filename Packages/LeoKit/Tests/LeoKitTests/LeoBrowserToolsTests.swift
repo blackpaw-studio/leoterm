@@ -7,7 +7,7 @@ struct LeoBrowserToolsTests {
     @Test func declaresEveryToolInTheSpecTable() {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
-            "browser_hover", "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
+            "browser_hover", "browser_select_option", "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
             "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
             "browser_handoff",
         ])
@@ -31,6 +31,19 @@ struct LeoBrowserToolsTests {
         #expect(try properties("browser_hover")["tab"] != nil)
         #expect(hover.description.contains("by ref from the latest snapshot"))
         #expect(hover.description.hasPrefix("Leo app browser: "))
+
+        let select = try definition("browser_select_option")
+        #expect(try schema("browser_select_option")["required"] == .array([.string("ref"), .string("values")]))
+        #expect(try properties("browser_select_option")["tab"] != nil)
+        let values = try #require(try properties("browser_select_option")["values"]?.objectValue)
+        #expect(values["type"] == .string("array"))
+        #expect(values["items"] == .object(["type": .string("string")]))
+        #expect(values["minItems"] == .int(1))
+        #expect(values["maxItems"] == .int(LeoBrowserCommand.maximumSelectValues))
+        #expect(select.description.hasPrefix("Leo app browser: "))
+        for phrase in ["by ref from the latest snapshot", "<select>", "value", "label", "[multiple]", "browser_click"] {
+            #expect(select.description.contains(phrase), "\(phrase)")
+        }
     }
 
     @Test func uploadTakesARefAndAListOfWorkspacePaths() throws {

@@ -109,6 +109,8 @@ public final class LeoBrowserExecutor {
             try await page.click(ref: ref)
         case .hover(let ref):
             try await page.hover(ref: ref)
+        case .selectOption(let ref, let values):
+            return [selectedOptions(try await page.selectOption(ref: ref, values: values))]
         case .type(let ref, let text, let submit):
             try await page.type(ref: ref, text: text, submit: submit)
         case .upload(let ref, let paths):
@@ -154,6 +156,10 @@ public final class LeoBrowserExecutor {
         return json(.object([
             "path": .string(saved.path), "workspace_path": .string(saved.workspacePath), "size": .int(Int(clamping: saved.size)),
         ]))
+    }
+
+    private func selectedOptions(_ options: [LeoBrowserSelectedOption]) -> LeoClientToolContent {
+        json(.object(["selected": .array(options.map { .object(["value": .string($0.value), "label": .string($0.label)]) })]))
     }
 
     private func openTab(url: String?, userAgent: String?) async throws -> [LeoClientToolContent] {

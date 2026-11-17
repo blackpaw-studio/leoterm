@@ -34,6 +34,18 @@ public struct LeoBrowserFileInput: Equatable, Sendable {
     }
 }
 
+/// An option of a `<select>` as the page reports it after a selection.
+public struct LeoBrowserSelectedOption: Equatable, Sendable {
+    public let value: String
+    /// What the option shows: its `label`, else its text.
+    public let label: String
+
+    public init(value: String, label: String) {
+        self.value = value
+        self.label = label
+    }
+}
+
 /// One browser tab as the executor drives it: a page that loads URLs, reads
 /// itself and takes input. WebKit-agnostic; the Mac app conforms with a
 /// `WKWebView` adapter and tests conform with a fake.
@@ -74,6 +86,15 @@ public protocol LeoBrowserPage: AnyObject {
     /// with a real mouse-move event, leaving the pointer there. Throws
     /// `stale_ref` like `click`.
     func hover(ref: String) async throws
+
+    /// Selects, in the `<select>` for `ref`, the option whose value is each of `values`, else whose label
+    /// is; a `[multiple]` select ends holding exactly these, any other takes
+    /// one. Fires `input` and `change` on the select, as a user's pick does,
+    /// and returns the selected options. Throws `stale_ref` like `click`,
+    /// and `invalid_args` for a ref that is no `<select>`, a disabled select
+    /// or option, a value that names no option (the message lists them) or
+    /// several values for a single select.
+    func selectOption(ref: String, values: [String]) async throws -> [LeoBrowserSelectedOption]
 
     /// Focuses the element for `ref` and types `text` with real key events,
     /// then presses Enter when `submit` is true. Throws `stale_ref` like `click`.
