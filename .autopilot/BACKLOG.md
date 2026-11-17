@@ -81,6 +81,7 @@ Out: Persisted per-site permissions; screen sharing. Mac only.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0 (4998 Mac tests, swiftlint clean; landed 8017ffba3). Decisions D-890..D-900.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
+Reviewed: accepted 2026-11-17 — 8017ffba3146
 
 ## B-411 · Agent browser tools: hover, select option, drag   [done]
 Issue: #388
