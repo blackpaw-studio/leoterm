@@ -110,6 +110,17 @@ struct LeoBrowserWorkspaceFilePickerTests {
         return (enumerator?.allObjects as? [URL] ?? []).filter { (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true }.map(\.lastPathComponent)
     }
 
+    /// Anything, files or folders, below each pick's own folder: a failed or
+    /// cancelled choice must leave none of its attempt behind.
+    private func attemptLeftovers(in stagingFolder: URL) -> [String] {
+        guard let enumerator = FileManager.default.enumerator(at: stagingFolder, includingPropertiesForKeys: nil) else { return [] }
+        var leftovers: [String] = []
+        while let url = enumerator.nextObject() as? URL {
+            if enumerator.level > 1 { leftovers.append(url.lastPathComponent) }
+        }
+        return leftovers
+    }
+
     // MARK: - Tests
 
     @Test(arguments: kinds)
@@ -262,7 +273,7 @@ struct LeoBrowserWorkspaceFilePickerTests {
 
         #expect(h.results.answers.count == 1)
         #expect(h.results.answers.first == .some(nil))
-        #expect(files(in: h.picker.stagingFolder).isEmpty)
+        #expect(attemptLeftovers(in: h.picker.stagingFolder).isEmpty)
         #expect(h.pick.error == nil)
     }
 
@@ -299,7 +310,7 @@ struct LeoBrowserWorkspaceFilePickerTests {
         #expect(h.results.answers.isEmpty)
         #expect(h.pick.error?.hasPrefix("Couldn’t copy “a.txt”") == true)
         #expect(h.presenter.dismissed == 0)
-        #expect(files(in: h.picker.stagingFolder).isEmpty)
+        #expect(attemptLeftovers(in: h.picker.stagingFolder).isEmpty)
         h.pick.cancel()
     }
 
