@@ -177,6 +177,17 @@ Lane: B-409
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-410
+  Branch: autopilot-lane/B-410
+  Dispatched: 2026-11-17T07:57:32Z
+  Base: 4ff9c5089fa085f39fa048a9f6d8b266e244c627
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
@@ -215,3 +226,5 @@ Progress:
 - Dispatched B-409 d-d470908db7cd. Interim digest 1 posted (items 1–5).
 - B-406 ready (fix 2, hard implementer, security review). Accepted: symlinked folder inside the workspace allows writes outside (lexical confinement; agent has a shell there).
 - B-406 landed aecf8c1ca. D-869..D-881.
+- Pick: B-410 full (permissions prompts; security-sensitive).
+- Dispatched B-410 d-bc762c591f42.
