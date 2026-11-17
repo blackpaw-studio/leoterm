@@ -17,6 +17,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     let pageTabBar = LeoEditorTabBar(style: .pages, accessibilityLabel: "Browser tabs")
     private var topSpacer: NSView?
     let banner = LeoHandoffBanner()
+    let findBar = LeoBrowserFindBar()
+    let findController: LeoBrowserFindController
     let pageSlot = LeoAgentBrowserSlot()
     private let emptyLabel = NSTextField(labelWithString: "Waiting for the agent to open a page.")
     private let headerTopInset: LeoToolbarInset?
@@ -24,11 +26,13 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private var insetSubscription: AnyCancellable?
 
     /// Binds right away: a collapsed split item's view isn't loaded until it is shown.
-    init(source: any LeoAgentBrowserPaneSource, headerTopInset: LeoToolbarInset? = nil) {
+    init(source: any LeoAgentBrowserPaneSource, headerTopInset: LeoToolbarInset? = nil, finder: any LeoPageFinding = LeoWKPageFinder()) {
         model = LeoAgentBrowserPaneModel(source: source)
+        findController = LeoBrowserFindController(finder: finder)
         self.headerTopInset = headerTopInset
         super.init(nibName: nil, bundle: nil)
         wire()
+        wireFind()
         pageSlot.onVisibilityChange = { [source, weak pageSlot] isVisible in
             guard let pageSlot else { return }
             if isVisible { source.viewHost.show(source, in: pageSlot) } else { source.viewHost.hide(pageSlot) }
@@ -54,9 +58,10 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         pageSlot.setContentHuggingPriority(.defaultLow, for: .vertical)
 
         // Top to bottom: the row pane's strip (installed above these), the
-        // browser's tabs, the toolbar, the handoff banner, the page.
-        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, pageSlot]
-        let stack = NSStackView(views: rows)
+        // browser's tabs, the toolbar, the handoff banner, find, the page.
+        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot]
+        let stack = LeoAgentBrowserPaneStack(views: rows)
+        stack.onKeyEquivalent = { [weak self] in self?.performFindKeyEquivalent($0) ?? false }
         stack.orientation = .vertical
         stack.spacing = 0
         stack.alignment = .width
@@ -138,5 +143,6 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         })
         pageTabBar.isHidden = model.tabItems.count < 2
         emptyLabel.isHidden = model.source.activeView != nil
+        findController.pageChanged(to: model.source.activeView, isLoading: model.source.isLoading)
     }
 }
