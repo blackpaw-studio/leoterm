@@ -3,8 +3,8 @@ import LeoKit
 
 /// The browser pane's one toolbar row: back, forward and reload, the address
 /// bar, new tab, then the control pill (**Agent driving** / **You have
-/// control**) at the trailing end, with Give Back beside it while the user is
-/// driving. Below `compactWidth` the pill shrinks to its icon so the address
+/// control**), with Give Back beside it while the user is driving, and the
+/// More menu (B-409) at the trailing end. Below `compactWidth` the pill shrinks to its icon so the address
 /// bar keeps its room. Drawn from `LeoAgentBrowserPaneModel`; every click goes
 /// back to it.
 final class LeoAgentBrowserToolbar: NSView {
@@ -23,6 +23,14 @@ final class LeoAgentBrowserToolbar: NSView {
     var onSubmitURL: (String) -> Void = { _ in }
     var onPill: () -> Void = {}
     var onGiveBack: () -> Void = {}
+    /// What More shows: Open in Default Browser, Copy URL and Clear Site Data,
+    /// set by the pane.
+    var moreMenu: NSMenu?
+    /// Pops `menu` under `button`; tests stand in for the menu's tracking loop.
+    var showMenu: (_ menu: NSMenu, _ button: NSView) -> Void = { menu, button in
+        let below = button.isFlipped ? button.bounds.maxY + 4 : button.bounds.minY - 4
+        menu.popUp(positioning: nil, at: NSPoint(x: button.bounds.minX, y: below), in: button)
+    }
 
     let backButton = LeoAgentBrowserToolbar.historyButton("chevron.backward", label: "Back (⌘[)")
     let forwardButton = LeoAgentBrowserToolbar.historyButton("chevron.forward", label: "Forward (⌘])")
@@ -31,6 +39,7 @@ final class LeoAgentBrowserToolbar: NSView {
     let urlField = NSTextField()
     let pill = LeoControlPill()
     let giveBackButton = NSButton()
+    let moreButton = LeoAgentBrowserToolbar.symbolButton("ellipsis.circle", label: "More")
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -102,6 +111,7 @@ final class LeoAgentBrowserToolbar: NSView {
         forwardButton.onSelect = { [weak self] in self?.onHistory($0) }
         wire(reloadButton, #selector(reload(_:)))
         wire(newTabButton, #selector(newTab(_:)))
+        wire(moreButton, #selector(more(_:)))
 
         urlField.placeholderString = "Search or enter website address"
         urlField.bezelStyle = .roundedBezel
@@ -130,12 +140,13 @@ final class LeoAgentBrowserToolbar: NSView {
         giveBackButton.setContentCompressionResistancePriority(.required, for: .horizontal)
         pill.onClick = { [weak self] in self?.onPill() }
 
-        let row = NSStackView(views: [backButton, forwardButton, reloadButton, urlField, newTabButton, pill, giveBackButton])
+        let row = NSStackView(views: [backButton, forwardButton, reloadButton, urlField, newTabButton, pill, giveBackButton, moreButton])
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = 2
         row.setCustomSpacing(8, after: newTabButton)
         row.setCustomSpacing(4, after: pill)
+        row.setCustomSpacing(6, after: giveBackButton)
         row.edgeInsets = NSEdgeInsets(top: 0, left: 8, bottom: 0, right: 8)
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)
@@ -158,6 +169,10 @@ final class LeoAgentBrowserToolbar: NSView {
     @objc private func reload(_ sender: Any?) { onReload() }
     @objc private func newTab(_ sender: Any?) { onNewTab() }
     @objc private func giveBack(_ sender: Any?) { onGiveBack() }
+    @objc private func more(_ sender: Any?) {
+        guard let moreMenu else { return }
+        showMenu(moreMenu, moreButton)
+    }
     @objc private func submit(_ sender: Any?) { onSubmitURL(urlField.stringValue) }
 }
 

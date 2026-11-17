@@ -80,4 +80,27 @@ struct LeoAgentBrowserToolbarTests {
         #expect(field.currentEditor() == nil)
         #expect(field.stringValue == "https://example.com/welcome")
     }
+
+    /// B-409: More ends the row and shows the pane's menu under itself
+    /// without taking focus from the page or the address bar.
+    @Test func theMoreButtonEndsTheRowAndShowsThePanesMenu() throws {
+        let pane = LeoAgentBrowserPaneViewController(source: FakePaneSource())
+        pane.view.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        let window = Self.window(showing: pane.view)
+        let toolbar = pane.toolbar
+        var shown: [(NSMenu, NSView)] = []
+        toolbar.showMenu = { shown.append(($0, $1)) }
+        let row = try #require(toolbar.subviews.first as? NSStackView)
+
+        toolbar.moreButton.performClick(nil)
+
+        #expect(row.arrangedSubviews.last === toolbar.moreButton)
+        #expect(toolbar.moreButton.accessibilityLabel() == "More")
+        #expect(toolbar.moreButton.refusesFirstResponder)
+        #expect(shown.count == 1)
+        #expect(shown.first?.0 === toolbar.moreMenu)
+        #expect(shown.first?.1 === toolbar.moreButton)
+        #expect(toolbar.moreMenu?.items.first?.target === pane)
+        _ = window
+    }
 }

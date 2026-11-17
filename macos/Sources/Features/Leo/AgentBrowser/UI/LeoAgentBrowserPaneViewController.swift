@@ -26,11 +26,21 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private let headerTopInset: LeoToolbarInset?
     private var subscription: AnyCancellable?
     private var insetSubscription: AnyCancellable?
+    /// What Open, Copy and Clear reach outside the pane (B-409).
+    let services: LeoBrowserPaneServices
+    /// Clear Site Data's confirmation is up.
+    var isConfirmingClear = false
+    /// The latest Open in Default Browser or Clear Site Data, while it runs.
+    var pendingSiteAction: Task<Void, Never>?
 
     /// Binds right away: a collapsed split item's view isn't loaded until it is shown.
-    init(source: any LeoAgentBrowserPaneSource, headerTopInset: LeoToolbarInset? = nil, finder: any LeoPageFinding = LeoWKPageFinder()) {
+    init(
+        source: any LeoAgentBrowserPaneSource, headerTopInset: LeoToolbarInset? = nil, finder: any LeoPageFinding = LeoWKPageFinder(),
+        services: LeoBrowserPaneServices = .live
+    ) {
         model = LeoAgentBrowserPaneModel(source: source)
         findController = LeoBrowserFindController(finder: finder)
+        self.services = services
         self.headerTopInset = headerTopInset
         super.init(nibName: nil, bundle: nil)
         wire()
@@ -66,8 +76,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         // the latest download.
         let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot, downloadSeparator, downloadStrip]
         let stack = LeoAgentBrowserPaneStack(views: rows)
-        stack.onKeyEquivalent = { [weak self] in
-            self?.performFindKeyEquivalent($0) ?? false || self?.performHistoryKeyEquivalent($0) ?? false
+        stack.onKeyEquivalent = { [weak self] event in
+            guard let self else { return false }
+            return performFindKeyEquivalent(event) || performHistoryKeyEquivalent(event) || performBrowserKeyEquivalent(event)
         }
         stack.orientation = .vertical
         stack.spacing = 0
@@ -112,6 +123,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         toolbar.onSubmitURL = { [weak self] in self?.submitURL($0) }
         toolbar.onPill = { [model] in model.pillClicked() }
         toolbar.onGiveBack = { [model] in model.giveBack() }
+        toolbar.moreMenu = makeMoreMenu()
         banner.onDone = { [model] in model.done() }
         banner.onDecline = { [model] in model.decline() }
         banner.doneButton.isFocusInPane = { [weak self] responder in self?.isFocusOnPaneChrome(responder) ?? false }
