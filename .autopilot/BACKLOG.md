@@ -3,13 +3,15 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
-## B-413 · Sidebar shows when an off-screen agent needs you   [ready]
+## B-413 · Sidebar shows when an off-screen agent needs you   [done]
 Issue: #380
 Why: An agent needing attention, erroring, or with an unread chat badge can sit scrolled out of the sidebar's view and go unnoticed. P2 Calm, attention-driven: "needs you" must always be noticeable.
 Accept: when a row with needs-input, errored, or an unread chat badge is scrolled above or below the visible sidebar area, an indicator appears at that edge (top or bottom), and the two directions show independently (tested); clicking the indicator scrolls to the nearest such row, and VoiceOver can reach it (tested); the indicator disappears once the row scrolls into view or its state clears, and it never shows for working, finished or idle rows (tested); screenshots from the isolated debug build of top and bottom indicators, using autopilot-scratch only
 Out: Dock and notification changes; collapsed sidebar sections; the iOS app (Mac only, since iOS has the needs-you inbox)
 Source: owner (/feature, 2026-11-16)
 Inbox: 20261117T000842166210Z-f9850bf9#1
+Done: 57694ff39 21ec5304b (4825 tests; landed dd5910e72). Decisions D-822..D-831.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 ## B-404 · Agent browser downloads land in the agent's workspace   [ready]
 Issue: #381

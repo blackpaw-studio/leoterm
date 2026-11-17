@@ -22,11 +22,12 @@ Lane: B-413
   Dispatched: 2026-11-17T00:13:40Z
   Base: 1a9361eecbb9960c562f109facd6bdebbe74108e
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 21ec5304b98c4da25ede4fd76fa997826681a969
+  Tokens: 44M in (43M cache read), ≥184k out, 292 requests
   Call: Needs you = displayed Needs You or Error state (including a failed-action error), or an unread badge; working, finished, idle and stopped rows count only with unread — P2
   Call: Collapsed groups, folded or offline machines, filtered-out rows and dispatch rows never count — Out (collapsed sections), P2
   Call: A row is in view when its midY is inside the unobscured area — AUTONOMY UX detail
@@ -49,8 +50,11 @@ Lane: B-404
   Reverifies: 0
   Reviewed-tip: none
 
+Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
+
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
 - Dispatched runners via leo_dispatch implement: B-413 d-79b7d16f0ad7, B-404 d-a8528e767eac.
 - B-413 ready (fix 1). INCIDENT: first verify's GUI click on the pill attached Evan's real `assistant` agent (resized its tmux to 66x28 while attached); verifier detached+quit. Root cause fixed (pill exempt from row click monitor). Flag in digest.
+- B-413 landed dd5910e72. D-822..D-831.
