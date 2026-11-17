@@ -220,11 +220,12 @@ Lane: B-411
   Dispatched: 2026-11-17T09:35:44Z
   Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 52ac058bbd636fda869c8f57b3cdb6b949b3de17
+  Tokens: 52.6M in (51.7M cache read), ≥184k out, 325 requests
   Call: New tools browser_hover (ref), browser_select_option (ref, values), browser_drag (start_ref, end_ref), snapshot refs, B-307 wording — D-759
   Call: All three gated by changesPage: user_has_control while the user drives; stale refs → stale_ref — D-762, D-860..D-868, P2
   Call: Hover sent as native leftMouseDragged with no mouse-down (WebKit drops mouseMoved for a non-key window)
@@ -258,6 +259,7 @@ Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/
 
 Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 Finished 8: B-410 landed 8017ffba3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
+Finished 9: B-411 landed f0f75a9f3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-411-2.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).

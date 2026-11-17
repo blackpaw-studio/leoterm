@@ -1588,3 +1588,46 @@ Chose: Mac only; ledger and agent state in LeoKit
 Why: Item Out; D-841
 Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
 Veto: [ ]
+
+
+## D-901 · 2026-11-17 · B-411: New interaction tools
+Chose: browser_hover (ref), browser_select_option (ref, values), browser_drag (start_ref, end_ref), addressed by snapshot ref like browser_click, B-307 wording
+Why: D-759 — new tools, not overloads
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
+
+## D-902 · 2026-11-17 · B-411: Gating and errors
+Chose: All three gated by changesPage (user_has_control while the user drives); stale refs return stale_ref
+Why: D-762, D-860..D-868, P2
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
+
+## D-903 · 2026-11-17 · B-411: Hover mechanism
+Chose: Native leftMouseDragged with no mouse-down
+Why: WebKit drops plain mouseMoved for a non-key window, and parked tabs are never key
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
+
+## D-904 · 2026-11-17 · B-411: Select semantics
+Chose: JS-only; match value then label; fire input then change; return {value,label} pairs; 1..100 values, no deselect-all
+Why: Matches Playwright's selectOption closely without native input
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
+
+## D-905 · 2026-11-17 · B-411: Drag mechanism
+Chose: Script DragEvents with a shared DataTransfer for HTML5-draggable sources; otherwise a native press, 8 moves and a release, released even on cancel or failure
+Why: No cursor-bound native drag session; never leave a button stuck down
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
+
+## D-906 · 2026-11-17 · B-411: Drag result and pointer-drag gap (accepted)
+Chose: drag returns ok even if the target refuses the drop; native drag moves report buttons == 0, so some pointer-drag libraries won't drag (documented in the description)
+Why: Playwright doesn't report drop acceptance either; patching MouseEvent.prototype was rejected
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
+
+## D-907 · 2026-11-17 · B-411: Platform
+Chose: Schemas, scripts, parsing and executor in LeoKit; native events Mac only; iOS wiring deferred to B-305
+Why: Parity rule — logic shared, platform glue per app
+Commit: f0f3e75cc 488f0e8e3 5e81f50a2
+Veto: [ ]
