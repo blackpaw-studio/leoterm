@@ -123,6 +123,17 @@ Lane: B-406
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-408
+  Branch: autopilot-lane/B-408
+  Dispatched: 2026-11-17T05:50:06Z
+  Base: fbc0a72cdb1584e393c07052d8148754f06e441f
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
@@ -149,3 +160,4 @@ Progress:
 - Dispatched B-406 d-7b7dd4233572.
 - B-405 ready (fix 1, hard implementer, security review). Picker buttons not GUI-driven (Peekaboo clicks didn't register); SFTP covered by tests only.
 - B-405 landed 9cf0c4069. D-851..D-859.
+- Pick: B-408 full (reopen closed tab + history menus).
