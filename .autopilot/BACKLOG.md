@@ -91,6 +91,7 @@ Out: Coordinate-based mouse paths; keyboard chords beyond `browser_press`. Both 
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: f0f3e75cc 488f0e8e3 5e81f50a2 (LeoKit 1830 + Mac 5009 tests, swiftlint clean; landed f0f75a9f3). Decisions D-901..D-907.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-411-2.png
+Reviewed: accepted 2026-11-17 — f0f75a9f3ce4
 
 ## B-412 · Agents see and answer JavaScript dialogs in the agent browser   [done]
 Issue: #389
