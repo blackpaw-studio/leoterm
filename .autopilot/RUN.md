@@ -60,8 +60,20 @@ Lane: B-419
 
 Lane: B-421
   Branch: autopilot-lane/B-421
-  Dispatched: 2026-11-17T16:53:52Z
+  Dispatched: 2026-11-17T17:13:17Z
   Base: 97efeb2da678b49ec08b43db632f004a7fd399ee
+  Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: c0cb847bd977778f62ad856a0bcbbfb95e3e994e
+  Call: A stopped agent's open browser pane and browser stay live; a restart reuses the browser; the pane doesn't yet show "stopped" — P2
+
+Lane: B-420
+  Branch: autopilot-lane/B-420
+  Dispatched: 2026-11-17T17:11:43Z
+  Base: 28443755573d26cdb61e58bfcff890d0fc3bb65c
   Tier: light
   State: building
   Fixes: 0
@@ -86,3 +98,8 @@ Progress:
 - Dispatched B-419 re-verify d-4c616368bfee.
 - B-419 re-verify ready (general delta clean, 5016 tests). Fresh.
 - B-419 landed 075ad32a2. D-925..D-928. ≈$11.23 est.
+- Pick: B-420 light bug (⌘L select-all in address field; B-419 landed, no overlap with B-421).
+- Dispatched B-420 d-62c77f54796a.
+- B-421 runner reported blocked on infra, not product: its verifier stalled on a harness permission prompt repointing the lane's GhosttyKit symlink (shared copy stale since Oct 1). Deviation from shelve: orchestrator refreshed shared/GhosttyKit.xcframework + zig-out per verify.md (old copies → ~/.Trash, ditto B-419's Nov 17 lane build; verify.md note updated) and dispatched a re-verify round at reviewed tip c0cb847 (integration also stale: B-419 landed). Error line was leo_send_dispatch refusing a permission answer, not a failed dispatch.
+- Dispatched B-421 re-verify d-c2d335bf30c7.
+- B-421 old runner retracted its diagnosis: verifier was only queued behind B-419's verify lock; the symlink prompt was a side step. Re-verify round already covers it. Shared refresh still warranted (B-305/B-419 runners both found the Oct 1 shared build lacks B-334's symbols).
