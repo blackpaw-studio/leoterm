@@ -529,6 +529,11 @@
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="Browser" id="Leo-Browser-Menu">
                         <items>
+                            <menuItem title="Open Location" keyEquivalent="l" id="Leo-Browser-OpenLocation">
+                                <connections>
+                                    <action selector="focusAddressBar:" target="-1" id="Leo-Browser-OpenLocation-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem title="Open in Default Browser" keyEquivalent="o" id="Leo-Browser-OpenInDefault">
                                 <modifierMask key="keyEquivalentModifierMask" option="YES" command="YES"/>
                                 <connections>

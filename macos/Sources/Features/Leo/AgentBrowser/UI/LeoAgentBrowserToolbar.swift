@@ -36,7 +36,7 @@ final class LeoAgentBrowserToolbar: NSView, NSTextFieldDelegate {
     let forwardButton = LeoAgentBrowserToolbar.historyButton("chevron.forward", label: "Forward (⌘])")
     let reloadButton = LeoAgentBrowserToolbar.symbolButton("arrow.clockwise", label: "Reload")
     let newTabButton = LeoAgentBrowserToolbar.symbolButton("plus", label: "New Tab")
-    let urlField = NSTextField()
+    let urlField = LeoAddressField()
     let pill = LeoControlPill()
     let giveBackButton = NSButton()
     let moreButton = LeoAgentBrowserToolbar.symbolButton("ellipsis.circle", label: "More")
@@ -194,6 +194,14 @@ final class LeoAgentBrowserToolbar: NSView, NSTextFieldDelegate {
     /// it stays to be fixed.
     func commitEdit() { hasUserEdits = false }
 
+    /// ⌘L: focuses the address bar with its whole text selected, so typing
+    /// replaces it (Safari parity, B-420). The edit flag stays as it was: an
+    /// untouched bar keeps following the page, a typed one keeps its text.
+    func focusAddress() {
+        guard let window = urlField.window, window.makeFirstResponder(urlField) else { return }
+        urlField.selectText(nil)
+    }
+
     @objc private func submit(_ sender: Any?) { onSubmitURL(urlField.stringValue) }
 
     func controlTextDidChange(_ notification: Notification) { hasUserEdits = true }
@@ -286,4 +294,13 @@ class LeoControlPill: NSButton {
     }
 
     @objc private func clicked(_ sender: Any?) { onClick() }
+}
+
+/// The address bar. A click into it while unfocused focuses it with everything
+/// selected, as Safari does (B-420); once focused, clicks place the caret.
+final class LeoAddressField: NSTextField {
+    override func mouseDown(with event: NSEvent) {
+        guard currentEditor() == nil, isEnabled, window?.makeFirstResponder(self) == true else { return super.mouseDown(with: event) }
+        selectText(nil)
+    }
 }

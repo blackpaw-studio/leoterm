@@ -230,11 +230,11 @@ struct LeoMenuCommandsTests {
         #expect(topLevel[browser + 1] == "Agents")
         let items = try document.nodes(forXPath: "//menu[@title='Browser']/items/menuItem")
             .compactMap { ($0 as? XMLElement)?.attribute(forName: "title")?.stringValue ?? "" }
-        #expect(items == ["Open in Default Browser", "Copy URL", "", "Clear Site Data for This Agent…"])
+        #expect(items == ["Open Location", "Open in Default Browser", "Copy URL", "", "Clear Site Data for This Agent…"])
 
         let xib = try LeoMenuXib.shortcuts()
         let expected = [
-            ("openInDefaultBrowser:", "⌥⌘o"), ("copyBrowserURL:", "⇧⌘c"), ("clearAgentSiteData:", "⇧⌘⌫"),
+            ("focusAddressBar:", "⌘l"), ("openInDefaultBrowser:", "⌥⌘o"), ("copyBrowserURL:", "⇧⌘c"), ("clearAgentSiteData:", "⇧⌘⌫"),
         ]
         for (action, shortcut) in expected {
             #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
