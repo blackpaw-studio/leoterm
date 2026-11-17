@@ -24,6 +24,12 @@ public struct LeoBrowserError: Error, Equatable, Sendable {
         case noDialog = "no_dialog"
         /// `browser_dialog`: the dialog was answered before this call.
         case dialogHandled = "dialog_handled"
+        /// The URL is on the agent's machine's localhost, which this device
+        /// can't reach (Leo on iPhone has no port forward, B-305).
+        case localhostUnreachable = "localhost_unreachable"
+        /// The tool needs something this device doesn't have (a workspace
+        /// file backend on iPhone, B-305).
+        case unsupported
     }
 
     public let code: Code

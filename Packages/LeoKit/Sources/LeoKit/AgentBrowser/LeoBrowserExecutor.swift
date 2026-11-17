@@ -20,15 +20,20 @@ public final class LeoBrowserExecutor {
     private let control: LeoBrowserControlModel
     private let sleep: Sleeper
     private let uploads: LeoBrowserUploadReader
+    private let canSaveToWorkspace: Bool
     private let gate = LeoBrowserSerialGate()
 
+    /// `canSaveToWorkspace` is false where the device has no file backend for
+    /// the agent's workspace (iOS): uploads, PDFs and screenshots saved to a
+    /// path then fail `unsupported`, and `browser_downloads` lists nothing.
     public init(
         tabs: any LeoBrowserTabs, urlMapping: any LeoBrowserURLMapping, control: LeoBrowserControlModel,
-        uploads: LeoBrowserUploadReader = .noWorkspace,
+        uploads: LeoBrowserUploadReader = .noWorkspace, canSaveToWorkspace: Bool = true,
         sleep: @escaping Sleeper = { try await Task.sleep(for: $0) }
     ) {
         self.tabs = tabs
         self.uploads = uploads
+        self.canSaveToWorkspace = canSaveToWorkspace
         self.urlMapping = urlMapping
         self.control = control
         self.sleep = sleep
@@ -43,6 +48,7 @@ public final class LeoBrowserExecutor {
     private func outcome(tool: String, args: LeoJSONValue, requestID: String) async -> LeoClientToolOutcome {
         do {
             let command = try LeoBrowserCommand(tool: tool, args: args)
+            if !canSaveToWorkspace, let unsupported = Self.needsWorkspace(command.action, tool: tool) { throw unsupported }
             switch command.action {
             case .handoff(let message):
                 return try await handoff(requestID: requestID, message: message)
@@ -64,6 +70,22 @@ public final class LeoBrowserExecutor {
 
     private static let cancelledError = LeoClientToolError(code: "cancelled", message: "The request was cancelled")
 
+    /// The failure for an action that reads or writes workspace files, on a
+    /// device that can't reach them.
+    private static func needsWorkspace(_ action: LeoBrowserAction, tool: String) -> LeoBrowserError? {
+        let reason = "The device running this browser can't reach the agent's workspace"
+        switch action {
+        case .upload:
+            return LeoBrowserError(.unsupported, "\(reason), so \(tool) can't read files from it")
+        case .pdf:
+            return LeoBrowserError(.unsupported, "\(reason), so \(tool) can't save there")
+        case .screenshot(_, _?):
+            return LeoBrowserError(.unsupported, "\(reason), so \(tool) can't save to a path; call it without path to get the image")
+        default:
+            return nil
+        }
+    }
+
     // MARK: - Operations
 
     /// Checks control and the tab's dialog, then runs the command until it
@@ -84,7 +106,7 @@ public final class LeoBrowserExecutor {
             list.compactMap { dialogs.dialog(inTab: $0.id)?.id }.forEach(dialogs.markTold)
             return [json(.array(list.map(tabEntry)))]
         case .downloads:
-            return [json(.array(tabs.downloads.map(downloadEntry)))]
+            return [json(.array(canSaveToWorkspace ? tabs.downloads.map(downloadEntry) : []))]
         case .tabNew(let url, let userAgent):
             return try await openTab(url: url, userAgent: userAgent)
         case .tabSelect(let tab):

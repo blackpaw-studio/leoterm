@@ -17,13 +17,17 @@ struct LeoBrowserExecutorTests {
         var page: FakePage { tabs.pages[tabs.activeID!]! }
     }
 
-    private func harness(pageCount: Int = 1, uploads: LeoBrowserUploadReader = .noWorkspace, control: LeoBrowserControlModel? = nil) -> Harness {
+    private func harness(
+        pageCount: Int = 1, uploads: LeoBrowserUploadReader = .noWorkspace, control: LeoBrowserControlModel? = nil,
+        canSaveToWorkspace: Bool = true
+    ) -> Harness {
         let control = control ?? LeoBrowserControlModel()
         let tabs = FakeTabs(pageCount: pageCount)
         let mapping = FakeMapping()
         let sleeps = SleepLog()
         let executor = LeoBrowserExecutor(
-            tabs: tabs, urlMapping: mapping, control: control, uploads: uploads, sleep: { sleeps.durations.append($0) }
+            tabs: tabs, urlMapping: mapping, control: control, uploads: uploads, canSaveToWorkspace: canSaveToWorkspace,
+            sleep: { sleeps.durations.append($0) }
         )
         return Harness(executor: executor, tabs: tabs, control: control, mapping: mapping, sleeps: sleeps)
     }
@@ -150,6 +154,25 @@ struct LeoBrowserExecutorTests {
     }
 
     // MARK: - Captures
+
+    /// B-305: Leo on iPhone has no workspace file backend. The tool list
+    /// stays the Mac's, but tools that read or write workspace files say so.
+    @Test func workspaceToolsUnsupportedWithoutFileBackend() async throws {
+        let h = harness(canSaveToWorkspace: false)
+        h.page.screenshotData = Data([0x89, 0x50, 0x4E, 0x47])
+        h.page.fileInputResult = LeoBrowserFileInput(allowsMultiple: true)
+        h.tabs.downloads = [LeoBrowserDownload(id: 1, name: "a", sourceURL: nil, state: .failed("Nothing was saved."))]
+
+        #expect(errorCode(await run(h, "browser_upload", ["ref": .string("e3"), "paths": .array([.string("a.pdf")])])) == "unsupported")
+        #expect(errorCode(await run(h, "browser_pdf")) == "unsupported")
+        #expect(errorCode(await run(h, "browser_screenshot", ["path": .string("shots/a.png")])) == "unsupported")
+        #expect(texts(await run(h, "browser_downloads")) == ["[]"])
+        #expect(h.tabs.captures.isEmpty)
+        #expect(h.page.calls.isEmpty, "nothing touched the page")
+
+        guard case .success(let content) = await run(h, "browser_screenshot") else { Issue.record("expected success"); return }
+        #expect(content == [.image(data: Data([0x89, 0x50, 0x4E, 0x47]).base64EncodedString(), mimeType: "image/png")])
+    }
 
     @Test func screenshotWithPathSavesPNGAndReturnsWorkspacePath() async throws {
         let h = harness()

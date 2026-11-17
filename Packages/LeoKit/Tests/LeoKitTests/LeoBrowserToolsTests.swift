@@ -186,8 +186,8 @@ struct LeoBrowserToolsTests {
         #expect(error.clientToolError == LeoClientToolError(code: "user_has_control", message: error.message))
         #expect(error.message.contains("browser_handoff"))
         #expect(LeoBrowserError.Code.allCases.map(\.rawValue).sorted() == [
-            "dialog_handled", "dialog_open", "file_error", "invalid_args", "js_error", "navigation_failed", "no_dialog", "no_such_file", "no_such_tab",
-            "save_failed", "scheme_not_allowed", "stale_ref", "tab_limit", "timeout", "user_has_control",
+            "dialog_handled", "dialog_open", "file_error", "invalid_args", "js_error", "localhost_unreachable", "navigation_failed", "no_dialog",
+            "no_such_file", "no_such_tab", "save_failed", "scheme_not_allowed", "stale_ref", "tab_limit", "timeout", "unsupported", "user_has_control",
         ])
     }
 }

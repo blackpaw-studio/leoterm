@@ -20,9 +20,9 @@ public enum LeoClientToolsEvent: Equatable, Sendable {
     case disconnected(reason: String)
 }
 
-/// The app side of the daemon's client-tools relay over a daemon socket:
-/// a provider event stream (`GET /events?client_tools=1`) plus the register,
-/// claim, result and pending routes.
+/// The app side of the daemon's client-tools relay: a provider event stream
+/// (`?client_tools=1`) plus the register, claim, result and pending routes,
+/// over the daemon socket (Mac) or a paired daemon's HTTPS API (iOS).
 ///
 /// One stream per `events()` call and no reconnect of its own (D-061): when
 /// the stream ends it yields `.disconnected` and finishes, and the session
@@ -35,19 +35,21 @@ public actor LeoClientToolsClient {
     public static let unsupportedReason = "Daemon does not support client tools"
 
     static let root = "/api/v1/client-tools"
-    static let providerStreamPath = "/events?client_tools=1"
     private static let idCharacters = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
 
-    private let socketPath: String
-    private let transport: any LeoSocketActivityTransport
+    private let transport: any LeoClientToolsTransport
     private let callTimeout: TimeInterval
     private var generation = 0
     public private(set) var clientID: String?
 
-    public init(socketPath: String, transport: any LeoSocketActivityTransport, callTimeout: TimeInterval = 10) {
-        self.socketPath = socketPath
+    public init(transport: any LeoClientToolsTransport, callTimeout: TimeInterval = 10) {
         self.transport = transport
         self.callTimeout = callTimeout
+    }
+
+    /// The Mac's client: the daemon's unix socket.
+    public init(socketPath: String, transport: any LeoSocketActivityTransport, callTimeout: TimeInterval = 10) {
+        self.init(transport: LeoClientToolsSocketTransport(socketPath: socketPath, transport: transport), callTimeout: callTimeout)
     }
 
     // MARK: - Stream
@@ -67,25 +69,22 @@ public actor LeoClientToolsClient {
             continuation.finish()
         }
         var lastSequence: Int?
-        var parser = LeoSSEParser()
         var reason = LeoSocketActivityClient.closedReason
-        leoClientToolsLogger.log("clientTools: connecting socketPath=\(self.socketPath, privacy: .public)")
+        leoClientToolsLogger.log("clientTools: connecting target=\(self.transport.logTarget, privacy: .public)")
         do {
-            for try await bytes in transport.stream(path: Self.providerStreamPath, socketPath: socketPath, idleTimeout: 60) {
-                for raw in parser.feed(bytes) {
-                    guard let event = LeoClientToolsWireEvent.decode(raw) else { continue }
-                    if let lastSequence, event.sequence > lastSequence + 1 {
-                        continuation.yield(.gap(expected: lastSequence + 1, received: event.sequence))
-                    }
-                    lastSequence = event.sequence
-                    guard let mapped = map(event, generation: generation) else { continue }
-                    if case .disconnected(let because) = mapped {
-                        reason = because
-                        continuation.yield(mapped)
-                        return
-                    }
-                    continuation.yield(mapped)
+            for try await raw in transport.providerEvents() {
+                guard let event = LeoClientToolsWireEvent.decode(raw) else { continue }
+                if let lastSequence, event.sequence > lastSequence + 1 {
+                    continuation.yield(.gap(expected: lastSequence + 1, received: event.sequence))
                 }
+                lastSequence = event.sequence
+                guard let mapped = map(event, generation: generation) else { continue }
+                if case .disconnected(let because) = mapped {
+                    reason = because
+                    continuation.yield(mapped)
+                    return
+                }
+                continuation.yield(mapped)
             }
         } catch is CancellationError {
             return
@@ -170,7 +169,7 @@ public actor LeoClientToolsClient {
 
     private func send<Response: Decodable & Sendable>(_ method: String, _ path: String, body: (some Encodable)?) async throws -> Response {
         let encoded = try body.map { try JSONEncoder().encode($0) }
-        let response = try await transport.send(LeoHTTPRequest(method: method, path: path, body: encoded), socketPath: socketPath, timeout: callTimeout)
+        let response = try await transport.send(LeoHTTPRequest(method: method, path: path, body: encoded), timeout: callTimeout)
         // A failure's `data` (name_conflict's `{tool}`) is not the success
         // shape, so the outcome is read before `data` is typed.
         if let failure = try? LeoDaemonEnvelope<LeoClientToolEmpty>.decode(response.body), !failure.ok {

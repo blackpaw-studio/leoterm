@@ -2424,13 +2424,15 @@ Inbox: 20261024T234539423483Z-b13bef15#1
 Note: the "Leo tmux terminfo" script phase is skipped as up to date after "Resources" re-syncs `terminfo/`, so tmux256ColorEntryIsBundled and tmux256ColorEntryUsesTheLegacyFormat fail on a stale build (CI/test-infra only; no user-visible effect)
 Source: autopilot polish (B-157)
 
-## B-305 · iOS agent-browser executor — serve the `browser` client-tools group…   [ready]
+## B-305 · iOS agent-browser executor — serve the `browser` client-tools group…   [done]
 Issue: #390
 Why: Milestone 4 ("Agent Browser, for real"): Mac/iOS parity for the browser tool group. Rank after B-404–B-412 so iOS picks up their LeoKit tools.
 Accept: Leo iOS declares and serves the `browser` client-tools group from a WKWebView pane with a per-agent data store and takeover/handoff UI, reusing LeoKit's browser tools (including B-404–B-412 where they exist); backgrounding relinquishes claims cleanly (tested); remote-localhost has a working route or a plain explanation; tests plus a simulator screenshot
 Note: iOS agent-browser executor — serve the `browser` client-tools group from Leo iOS (WKWebView pane, per-agent data store, takeover/handoff UI) using LeoKit's LeoBrowserTools/LeoBrowserExecutor/ClientTools client; Mac shipped 04d50cd80, spec docs/superpowers/specs/2026-10-26-agent-browser.md (plan F5). iOS differences: backgrounding suspends the executor (relinquish claims), touch input, no ssh port forward (needs another route to remote localhost)
 Source: owner (/idea, 2026-10-26)
 Inbox: 20261026T232735230091Z-feeac761#1
+Done: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632 (merged in 961f5f8a7; Mac 5009, LeoKit 1898, LeoFeatures 501, iOS browser 8/8). iOS serves the browser group via HTTPS/SSE with takeover/handoff; remote localhost explained, not routed; file tools unsupported on iOS. D-917..D-924.
+Verified: not visually verified — simulator screen captures only (/Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-305-1.png)
 
 ## B-312 · Add an iOS simulator + fixture-daemon recipe to verify.md   [idea]
 Note: iOS UI changes can't be visually verified, so fixes like B-304 ship on tests alone
@@ -3181,3 +3183,27 @@ Type: bug
 Report: Open browser pane collapses within ~15 s when the agent is stopped — the pane vanishes under the user.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
+
+## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready (next run)]
+Type: bug
+Report: Hosted iOS test host crashes when launch `reconcile` calls the unimplemented `PushCleanupClient.load` test value during a test (1 of 4 runs; on main, not B-305) — flaky iOS test runs
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-305)
+
+## B-423 · iOS address bar keeps the previous URL after a rejected localhost navigation   [idea]
+Note: keeps the field consistent with the page the user is looking at (P2)
+Source: autopilot polish (B-305)
+
+## B-424 · Device check: keyboard raised when the agent focuses a field hides the iOS pill   [idea]
+Note: typing handoff clarity (P2); verified only in the simulator
+Source: autopilot polish (B-305)
+
+## B-425 · Daemon localhost proxy so iPhone pages can reach an agent machine's localhost   [idea]
+Note: P3 local = remote; B-305 ships a plain localhost_unreachable explanation instead
+Source: autopilot polish (B-305)
+
+## B-426 · After Return on a new address, the bar shows the old page's URL until the new page commits   [ready (next run)]
+Type: bug
+Report: After Return on a new address, the bar shows the old page's URL until the new page commits (`LeoAgentBrowserPaneViewController.swift:162-164`); predates B-419. Safari keeps the typed address during load — Safari parity (P1).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-419)

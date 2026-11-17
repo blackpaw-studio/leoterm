@@ -1686,3 +1686,51 @@ Chose: Desk, tool and executor in LeoKit; WebKit glue and bar Mac only; iOS UI d
 Why: D-879, D-900; parity rule
 Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
 Veto: [ ]
+
+## D-917 · 2026-11-17 · B-305: Second browser provider over HTTPS/SSE
+Chose: iOS is a second browser provider over HTTPS/SSE (daemon already accepts device tokens, no leo change); it claims unowned requests after a 1.5 s grace so a connected Mac wins, and claims requests it owns at once
+Why: P1, P2
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-918 · 2026-11-17 · B-305: Remote localhost explanation, no route
+Chose: Remote localhost gets no route, only a plain `localhost_unreachable` explanation in the tool error and the pane; Open in Safari is disabled for those URLs; a daemon proxy is a backlog follow-up
+Why: P3, P2
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-919 · 2026-11-17 · B-305: File tools unsupported on iOS
+Chose: Upload, pdf, screenshot `path` and download saving return `unsupported` on iOS (no file backend); the tool list stays identical to the Mac's
+Why: scope-cut allowance, D-841/D-859/D-879
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-920 · 2026-11-17 · B-305: Agent input as page JS events
+Chose: Agent input on iOS uses page JS events; only trusted taps/keys take control
+Why: P4, D-844/D-864
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-921 · 2026-11-17 · B-305: Backgrounding behavior
+Chose: On background: in-flight calls answered `cancelled`, permission asks denied and withdrawn, dialogs stay pending, then the stream closes; resume re-registers and recovers
+Why: P2, D-894/D-913
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-922 · 2026-11-17 · B-305: iOS system find bar, picker and prompts
+Chose: System find bar and WebKit file picker replace D-842/D-856 on iOS; geolocation denied; camera/mic reuse the D-890–D-895 copy; Clear Site Data uses a destructive alert
+Why: P1/HIG
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-923 · 2026-11-17 · B-305: Agent Browser on This iPhone setting
+Chose: 
+Why: "Agent Browser on This iPhone" setting defaults on, mirroring the Mac; Mac copy reused for the pane
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
+
+## D-924 · 2026-11-17 · B-305: Platform
+Chose: 
+Why: Platform call: both. Session, registry and loopback policy moved to LeoKit; the Mac only switched to the moved types
+Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
+Veto: [ ]
