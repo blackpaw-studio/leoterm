@@ -25,6 +25,9 @@ Self-filed: B-406 → dropped (over cap) — Save menu items disabled with no hi
 Self-filed: B-409 → dropped (dup of B-419) — Address bar keeps showing about:blank after load while focused
 Self-filed: B-409 → dropped (over cap) — Clear Site Data alert destructive button reads poorly
 Self-filed: B-409 → dropped (over cap) — LeoClearConfirmation comment wrongly claims Cancel answers Return
+Self-filed: B-410 → dropped (over cap) — browser_press Escape/Enter reached the terminal pane, not the page (P1 bug)
+Self-filed: B-410 → dropped (over cap) — Optionally mute camera/mic when a tab leaves the pane
+Self-filed: B-410 → dropped (over cap) — LeoHandoffBanner button flush-right in narrow panes
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -194,11 +197,22 @@ Lane: B-410
   Dispatched: 2026-11-17T07:57:32Z
   Base: 4ff9c5089fa085f39fa048a9f6d8b266e244c627
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b28769882723c7ce0be70d3d7fad4cfe7d4a2f30
+  Call: In-pane permission bar under the handoff banner, not a sheet or WebKit prompt — P1, P2
+  Call: Copy '<agent> · <site> wants to use your camera|microphone|camera and microphone|location', 'Only you can answer. Your answer lasts until this tab closes.'; Don't Allow / Allow with no key equivalents — P1, P3
+  Call: Auto-deny when the tab isn't active in an on-screen, unminimised, unoccluded window — AC
+  Call: Answers remembered per tab, per site (scheme/host/port), per kind; auto-denies not remembered; camera+mic allowed only if both — AC, P2
+  Call: Pending ask denied and withdrawn on tab switch, pane hide, close, navigation or process death; covering/minimising a shown ask does not withdraw — P2
+  Call: No tool answers prompts: browser_tabs waiting_on_user {permission, site}, snapshot waiting line, permission_denied console line; answering doesn't take control — P2
+  Call: No new sidebar state or notification — P2
+  Call: Geolocation delegate declared by ObjC selector (macOS 27 public + private twin for ≤26) — P1
+  Call: Camera/mic/location usage strings reworded; entitlements unchanged
+  Call: Accepted: WebKit may reuse a human-approved grant for that tab+site+kind while the tab is hidden (no capture mute on hide) — AC scope
+  Call: Mac only; ledger and agent state in LeoKit
 
 Lane: B-411
   Branch: autopilot-lane/B-411
