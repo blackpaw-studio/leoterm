@@ -29,6 +29,8 @@ struct LeoWKBrowserPageTests {
         "other": "<title>Other</title><p>Elsewhere</p>",
         "long": (0..<3_000).map { "<p>Paragraph \($0) with some filler text in it</p>" }.joined(),
         "tall": #"<body style="margin:0"><div style="height:3000px;background:#3366cc"></div></body>"#,
+        // Beige page, red block in its last 600 px: far below an 800x600 viewport.
+        "marked": #"<body style="margin:0;background:#f5f0e6"><div style="height:2400px"></div><div style="height:600px;background:#ff0000"></div></body>"#,
         "console": """
         <script>
         console.log('hello', {a: 1});
@@ -316,6 +318,45 @@ struct LeoWKBrowserPageTests {
         #expect(CGImageSourceGetType(source) as String? == "public.png")
         #expect(image.width <= 1_600)
         #expect(Double(image.height) / Double(image.width) > 600.0 / 2_000.0 * 4)
+    }
+
+    /// WebKit only paints what is on screen, so a snapshot of a rect taller
+    /// than the viewport came back blank below it; the low part of the page
+    /// must be there in the PNG.
+    @available(macOS 14, *)
+    @Test func fullPageScreenshotPaintsBelowTheViewport() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        _ = try await fixture.page.navigate(to: LeoWKFixtureServer.url("marked"))
+
+        let png = try await fixture.page.screenshot(fullPage: true)
+
+        let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        #expect(image.width <= 1_600)
+        #expect(Double(image.height) / Double(image.width) > 3.5, "\(image.width)x\(image.height) for a 3000 pt page")
+        let top = try #require(Self.pixel(image, atHeightFraction: 0.05))
+        let bottom = try #require(Self.pixel(image, atHeightFraction: 0.95))
+        #expect(top.red > 230 && top.green > 225 && top.blue > 210, "top is the beige page: \(top)")
+        #expect(bottom.red > 200 && bottom.green < 60 && bottom.blue < 60, "the red block near the bottom is painted: \(bottom)")
+    }
+
+    /// The colour in the middle of the row `fraction` of the way down.
+    private static func pixel(_ image: CGImage, atHeightFraction fraction: Double) -> (red: UInt8, green: UInt8, blue: UInt8)? {
+        let width = image.width, height = image.height
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        // Bitmap memory runs top row first.
+        let offset = (Int(Double(height - 1) * fraction) * width + width / 2) * 4
+        return (bytes[offset], bytes[offset + 1], bytes[offset + 2])
     }
 
     /// Like Safari's Export as PDF: one page as tall as the document, not
