@@ -19,6 +19,9 @@ Self-filed: B-408 → B-420 bug — ⌘L doesn't select the browser address fiel
 Self-filed: B-408 → B-421 bug — Open browser pane collapses ~15 s after autopilot-scratch stops
 Self-filed: B-408 → dropped (over cap) — History button opens its menu on any drag instead of going back
 Self-filed: B-408 → dropped (over cap) — Browser host re-focuses the web view on every refresh
+Self-filed: B-406 → dropped (over cap) — Full-page PNG has a ~17 px white strip on the right edge
+Self-filed: B-406 → dropped (over cap) — Workspace browser truncates file names in the middle
+Self-filed: B-406 → dropped (over cap) — Save menu items disabled with no hint outside the browser pane
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -122,11 +125,24 @@ Lane: B-406
   Dispatched: 2026-11-17T05:11:29Z
   Base: 641b72e22435a6fb0945fba72d1b5a100bdd2c29
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 085ab9748c79c85a67d19b0d79c5235025a19227
+  Call: New `browser_pdf` tool, plus `path` on `browser_screenshot` (`full_page` already existed) — item, D-759
+  Call: Saved PDF is one continuous page of the whole document, not paginated for printing (WebKit splits past 14,400 pt) — P1, item Out
+  Call: Default capture target `downloads/<title>.pdf|.png`, falling back to host name, then `page` — D-832, D-834, P3
+  Call: A capture name clash gets a numbered name and the real name is reported; nothing is overwritten — D-833, P2
+  Call: Capture path rules: workspace-relative or absolute inside the workspace; trailing `/` means default name; missing folders created; missing extension appended; wrong extension, `..` or outside path is `invalid_args` — P3
+  Call: A screenshot with `path` returns the saved path, not the image — P2
+  Call: Captures are reads: they work while the user drives — D-844, D-835
+  Call: Save Page as PDF… ⇧⌘S, Save Full-Page Screenshot… ⌥⇧⌘S; enabled only with focus in the browser pane and a page loaded — P1, D-843
+  Call: Save uses a one-field workspace path sheet, because NSSavePanel can't browse SFTP — P3
+  Call: Saved strip shown for menu saves only, with D-837 copy — P2
+  Call: Capture tool and logic in LeoKit (both platforms); menu/sheet/WebKit Mac only, iOS with B-305 — D-841
+  Call: Capture path details: empty path is invalid_args; a real extension is 1–8 ASCII letters/digits; default name never doubles an extension; `/ws/` saves the default name at the workspace root, `/ws` is rejected; save errors become `save_failed`; menu items disabled on about:blank and while the sheet is up — implementer
+  Call: Full-page PNG is rendered from createPDF over a rect capped at viewport width × min(scrollHeight, 16,384 pt), replacing takeSnapshot (blank below the viewport) — bug fix
 
 Lane: B-408
   Branch: autopilot-lane/B-408
@@ -194,3 +210,4 @@ Progress:
 - B-408 landed 346db3e91. D-860..D-868.
 - Pick: B-409 full (menu actions + data store clearing).
 - Dispatched B-409 d-d470908db7cd. Interim digest 1 posted (items 1–5).
+- B-406 ready (fix 2, hard implementer, security review). Accepted: symlinked folder inside the workspace allows writes outside (lexical confinement; agent has a shell there).
