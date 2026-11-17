@@ -41,6 +41,8 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     var canGoForward: Bool { get }
     /// Moves the browser's pages between panes and the parking window.
     var viewHost: LeoAgentBrowserHost { get }
+    /// This session's downloads; the pane's strip observes it directly.
+    var downloads: LeoBrowserDownloads { get }
 
     func goBack()
     func goForward()

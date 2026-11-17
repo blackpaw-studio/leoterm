@@ -26,6 +26,25 @@ import LeoKit
         let message: String
     }
 
+    /// The download strip's one line (B-404).
+    struct DownloadStrip: Equatable {
+        enum Kind: Equatable {
+            case downloading, saving, finished, failed
+        }
+
+        let id: Int
+        let kind: Kind
+        let text: String
+        /// 0...1 while downloading with a known size.
+        let progress: Double?
+    }
+
+    /// Runs `action` after `delay` on the main actor.
+    typealias Schedule = @MainActor (_ delay: Duration, _ action: @escaping @MainActor () -> Void) -> Void
+
+    /// How long a saved file's line stays; a failure stays until dismissed.
+    static let finishedDownloadDuration: Duration = .seconds(5)
+
     static let blankTabTitle = "New Tab"
     static let invalidURLMessage = "Enter a web address starting with http:// or https://"
 
@@ -39,16 +58,40 @@ import LeoKit
     @Published private(set) var isLoading = false
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
+    /// The latest download the user hasn't dismissed, or nil.
+    @Published private(set) var downloadStrip: DownloadStrip?
+    /// Says each download's outcome once, for VoiceOver.
+    var onAnnouncement: (@MainActor (String) -> Void)?
+    private let schedule: Schedule
+    private var dismissedDownloads: Set<Int> = []
+    /// Saved files whose line has had its time.
+    private var expiredDownloads: Set<Int>
+    private var announcedDownloads: Set<Int>
     private var stoppers: [() -> Void] = []
 
-    init(source: any LeoAgentBrowserPaneSource) {
+    /// Downloads that ended before the pane opened are not announced, and
+    /// only their failures show.
+    init(source: any LeoAgentBrowserPaneSource, schedule: @escaping Schedule = LeoAgentBrowserPaneModel.scheduleOnMain) {
         self.source = source
+        self.schedule = schedule
         control = source.control.state
+        let entries = source.downloads.entries
+        expiredDownloads = Set(entries.filter { Self.kind(of: $0.state) == .finished }.map(\.id))
+        announcedDownloads = Set(entries.filter { [.finished, .failed].contains(Self.kind(of: $0.state)) }.map(\.id))
         refresh()
+        refreshDownloads()
         stoppers = [
             source.observe { [weak self] in self?.refresh() },
             source.control.observe { [weak self] state in self?.control = state },
+            source.downloads.observe { [weak self] in self?.refreshDownloads() },
         ]
+    }
+
+    static let scheduleOnMain: Schedule = { delay, action in
+        Task { @MainActor in
+            try? await Task.sleep(for: delay)
+            action()
+        }
     }
 
     deinit {
@@ -80,6 +123,14 @@ import LeoKit
     func decline() {
         guard let handoff else { return }
         source.control.send(.decline(requestID: handoff.requestID))
+    }
+
+    /// The strip's close button: hides this download's line (the download
+    /// itself carries on).
+    func dismissDownload() {
+        guard let id = downloadStrip?.id else { return }
+        dismissedDownloads.insert(id)
+        refreshDownloads()
     }
 
     func goBack() { act { source.goBack() } }
@@ -114,6 +165,51 @@ import LeoKit
         set(\.isLoading, source.isLoading)
         set(\.canGoBack, source.canGoBack)
         set(\.canGoForward, source.canGoForward)
+    }
+
+    private func refreshDownloads() {
+        let entries = source.downloads.entries
+        for entry in entries where !announcedDownloads.contains(entry.id) {
+            let kind = Self.kind(of: entry.state)
+            guard kind == .finished || kind == .failed else { continue }
+            announcedDownloads.insert(entry.id)
+            onAnnouncement?(Self.strip(for: entry).text)
+            if kind == .finished {
+                schedule(Self.finishedDownloadDuration) { [weak self] in self?.expire(entry.id) }
+            }
+        }
+        let visible = entries.first { !dismissedDownloads.contains($0.id) && !expiredDownloads.contains($0.id) }
+        set(\.downloadStrip, visible.map(Self.strip(for:)))
+    }
+
+    private func expire(_ id: Int) {
+        expiredDownloads.insert(id)
+        refreshDownloads()
+    }
+
+    private static func kind(of state: LeoBrowserDownload.State) -> DownloadStrip.Kind {
+        switch state {
+        case .downloading: .downloading
+        case .saving: .saving
+        case .finished: .finished
+        case .failed: .failed
+        }
+    }
+
+    static func strip(for download: LeoBrowserDownload) -> DownloadStrip {
+        let folder = LeoBrowserDownloadSaver.folderName + "/"
+        switch download.state {
+        case let .downloading(received, expected):
+            let fraction = expected.flatMap { $0 > 0 ? min(1, Double(received) / Double($0)) : nil }
+            let percent = fraction.map { " \(Int(($0 * 100).rounded(.down)))%" } ?? ""
+            return DownloadStrip(id: download.id, kind: .downloading, text: "Downloading “\(download.name)”…\(percent)", progress: fraction)
+        case .saving:
+            return DownloadStrip(id: download.id, kind: .saving, text: "Saving “\(download.name)” to \(folder)…", progress: nil)
+        case .finished(let saved):
+            return DownloadStrip(id: download.id, kind: .finished, text: "Saved “\(saved.name)” to \(folder)", progress: nil)
+        case .failed(let message):
+            return DownloadStrip(id: download.id, kind: .failed, text: "Couldn’t download “\(download.name)”. \(message)", progress: nil)
+        }
     }
 
     /// Assigns only a change, so an unrelated source change doesn't redraw the

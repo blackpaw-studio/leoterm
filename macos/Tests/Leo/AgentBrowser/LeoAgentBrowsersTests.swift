@@ -9,6 +9,7 @@ import Testing
     let fakeTabs = FakeBrowserTabs()
     let control = LeoBrowserControlModel()
     let viewHost = LeoAgentBrowserHost()
+    let downloads = LeoBrowserDownloads.withoutWorkspace()
     var tabs: any LeoBrowserTabs { fakeTabs }
     var activeView: NSView?
     var activeRemoteURL: URL?

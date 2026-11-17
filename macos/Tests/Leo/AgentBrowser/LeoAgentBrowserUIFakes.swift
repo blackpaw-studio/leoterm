@@ -28,6 +28,8 @@ import LeoKit
     let fakeTabs = FakeBrowserTabs()
     let control = LeoBrowserControlModel()
     let viewHost = LeoAgentBrowserHost()
+    /// Set before making a model: it observes the log it finds.
+    var downloads = LeoBrowserDownloads.withoutWorkspace()
     var tabs: any LeoBrowserTabs { fakeTabs }
     var activeView: NSView?
     var activeRemoteURL: URL?
