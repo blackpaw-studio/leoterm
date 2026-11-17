@@ -239,11 +239,23 @@ Lane: B-412
   Dispatched: 2026-11-17T10:24:49Z
   Base: f97fcfff2fafe3c4d32dd64a43570caac38efc16
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 370570572a151b4c57fb5efc707d1ff0314101ff
+  Call: In-pane dialog bar under the permission bar; no sheet, no new sidebar state — D-890, P2
+  Call: Bar buttons have no key equivalents; Return in a prompt field = OK, Escape = Cancel; alert OK only, confirm/prompt Cancel+OK, beforeunload Stay on Page / Leave Page — P1
+  Call: browser_dialog {action: accept|dismiss, text?, tab?}, follows user_has_control; text only with accept on a prompt (else invalid_args) — D-759, D-762
+  Call: browser_dialog skips the serial gate; any other call that triggers a dialog returns at once with it
+  Call: Agent sees dialog_open on page tools, the pending dialog in browser_tabs, and a one-time dialog_handled note when the user answered first (never what the user typed)
+  Call: No auto-answer: hidden tab's dialog stays pending; withdrawn on tab close, teardown, process death or committed navigation; a second concurrent dialog in a tab is dismissed at once
+  Call: beforeunload via WebKit private selector; generic 'Leave this page?' text for both sides
+  Call: Page dialog text capped at 1,000 chars and JSON-quoted for the agent
+  Call: While a dialog is pending, only tabs/downloads/console/tab_new/select/close/wait/dialog are allowed; screenshot and user_agent blocked
+  Call: An agent's answer applies only to a dialog it was shown; unseen ones are described via dialog_open and left pending — fix round 1
+  Call: Desk, tool and executor in LeoKit; WebKit glue and bar Mac only; iOS UI deferred to B-305 (must conform to LeoBrowserTabs.dialogs) — D-879, D-900
+  Call: Accepted: a call ending early on a dialog leaves its page work running and drops the result (30 s daemon timeout covers it)
 
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
