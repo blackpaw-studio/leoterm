@@ -108,8 +108,12 @@ public final class LeoBrowserExecutor {
             try await page.type(ref: ref, text: text, submit: submit)
         case .press(let combo):
             try await page.press(combo)
-        case .screenshot(let fullPage):
+        case .screenshot(let fullPage, nil):
             return [.image(data: try await page.screenshot(fullPage: fullPage).base64EncodedString(), mimeType: "image/png")]
+        case .screenshot(let fullPage, let path?):
+            return [try await save(try await page.screenshot(fullPage: fullPage), kind: .png, path: path, of: page)]
+        case .pdf(let path):
+            return [try await save(try await page.pdf(), kind: .pdf, path: path, of: page)]
         case .wait(.text(let text)):
             try await page.waitForText(text, timeoutMilliseconds: LeoBrowserCommand.maximumWaitMilliseconds)
         case .eval(let js):
@@ -122,6 +126,27 @@ public final class LeoBrowserExecutor {
             throw LeoBrowserError.invalidArgs("\(action) is not a page action")
         }
         return [Self.ok]
+    }
+
+    /// Saves a capture of `page` and reports where it landed, named as
+    /// saved (numbered after a clash). The default name comes from the
+    /// title, else the host in remote terms.
+    private func save(_ data: Data, kind: LeoBrowserCaptureKind, path: String?, of page: any LeoBrowserPage) async throws -> LeoClientToolContent {
+        let host = page.url.map(urlMapping.toRemote)?.host()
+        let defaultName = LeoBrowserCapturePath.defaultName(title: page.title, host: host, kind: kind)
+        let saved: LeoBrowserSavedDownload
+        do {
+            saved = try await tabs.saveCapture(data, kind: kind, path: path, defaultName: defaultName)
+        } catch let error as LeoBrowserError {
+            throw error
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw LeoBrowserError(.saveFailed, error.localizedDescription)
+        }
+        return json(.object([
+            "path": .string(saved.path), "workspace_path": .string(saved.workspacePath), "size": .int(Int(clamping: saved.size)),
+        ]))
     }
 
     private func openTab(url: String?, userAgent: String?) async throws -> [LeoClientToolContent] {

@@ -25,8 +25,9 @@ struct LeoBrowserCommandTests {
         #expect(try decode("browser_type", ["ref": .string("e3"), "text": .string("hi")]).action == .type(ref: "e3", text: "hi", submit: false))
         #expect(try decode("browser_type", ["ref": .string("e3"), "text": .string("hi"), "submit": .bool(true)]).action == .type(ref: "e3", text: "hi", submit: true))
         #expect(try decode("browser_press", ["key": .string("Meta+a")]).action == .press(try #require(LeoBrowserKeyCombo("Meta+a"))))
-        #expect(try decode("browser_screenshot").action == .screenshot(fullPage: false))
-        #expect(try decode("browser_screenshot", ["full_page": .bool(true)]).action == .screenshot(fullPage: true))
+        #expect(try decode("browser_screenshot").action == .screenshot(fullPage: false, path: nil))
+        #expect(try decode("browser_screenshot", ["full_page": .bool(true)]).action == .screenshot(fullPage: true, path: nil))
+        #expect(try decode("browser_pdf").action == .pdf(path: nil))
         #expect(try decode("browser_wait", ["text": .string("Done")]).action == .wait(.text("Done")))
         #expect(try decode("browser_wait", ["ms": .int(250)]).action == .wait(.milliseconds(250)))
         #expect(try decode("browser_eval", ["js": .string("1+1")]).action == .eval(js: "1+1"))
@@ -102,6 +103,32 @@ struct LeoBrowserCommandTests {
         invalidArgs("browser_handoff")
         invalidArgs("browser_click", ["ref": .string("e1"), "tab": .string("x")])
         invalidArgs("browser_screenshot", ["full_page": .string("yes")])
+    }
+
+    @Test func screenshotTakesOptionalPath() throws {
+        let command = try decode("browser_screenshot", ["full_page": .bool(true), "path": .string("shots/a.png"), "tab": .int(2)])
+        #expect(command.action == .screenshot(fullPage: true, path: "shots/a.png"))
+        #expect(command.tab == 2)
+        #expect(try decode("browser_screenshot", ["path": .null]).action == .screenshot(fullPage: false, path: nil))
+        #expect(try decode("browser_screenshot", ["path": .string("/elsewhere/a.png")]).action == .screenshot(fullPage: false, path: "/elsewhere/a.png"),
+                "an absolute path is checked against the workspace when it is saved")
+        invalidArgs("browser_screenshot", ["path": .string("../a.png")])
+        invalidArgs("browser_screenshot", ["path": .string("a.pdf")])
+        invalidArgs("browser_screenshot", ["path": .string("")])
+        invalidArgs("browser_screenshot", ["path": .int(1)])
+    }
+
+    @Test func pdfParsesPath() throws {
+        #expect(try decode("browser_pdf", ["path": .string("reports/")]).action == .pdf(path: "reports/"))
+        #expect(try decode("browser_pdf", ["path": .string("q3"), "tab": .int(3)]) == LeoBrowserCommand(tab: 3, action: .pdf(path: "q3")))
+        invalidArgs("browser_pdf", ["path": .string("a//b.pdf")])
+        invalidArgs("browser_pdf", ["path": .string("a.png")])
+        invalidArgs("browser_pdf", ["path": .bool(true)])
+    }
+
+    @Test func capturesDoNotChangePage() {
+        #expect(!LeoBrowserAction.pdf(path: nil).changesPage)
+        #expect(!LeoBrowserAction.screenshot(fullPage: true, path: "a.png").changesPage)
     }
 
     @Test func waitNeedsExactlyOneConditionWithinLimits() {

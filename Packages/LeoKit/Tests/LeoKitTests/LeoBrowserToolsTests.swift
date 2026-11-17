@@ -7,7 +7,7 @@ struct LeoBrowserToolsTests {
     @Test func declaresEveryToolInTheSpecTable() {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
-            "browser_type", "browser_press", "browser_screenshot", "browser_wait", "browser_eval", "browser_console",
+            "browser_type", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
             "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
             "browser_handoff",
         ])
@@ -89,6 +89,22 @@ struct LeoBrowserToolsTests {
         for phrase in ["downloads/", "workspace", "never overwrites", "numbered", "workspace_path", "newest first"] {
             #expect(tool.description.contains(phrase), "\(phrase)")
         }
+    }
+
+    @Test func capturesSayWhereTheyLandAndThatNothingIsOverwritten() throws {
+        func definition(_ name: String) throws -> LeoClientToolDefinition { try #require(LeoBrowserTools.definitions.first { $0.name == name }) }
+        func path(_ name: String) throws -> String {
+            try #require(try definition(name).inputSchema.objectValue?["properties"]?.objectValue?["path"]?.objectValue?["description"]?.stringValue)
+        }
+        let pdf = try definition("browser_pdf")
+        for phrase in ["workspace", "never overwrites", "numbered", "workspace_path", "one continuous page"] {
+            #expect(pdf.description.lowercased().contains(phrase), "\(phrase)")
+        }
+        #expect(pdf.inputSchema.objectValue?["required"] == nil)
+        #expect(try path("browser_pdf").contains("downloads/"))
+        #expect(try path("browser_pdf").contains("trailing /"))
+        #expect(try definition("browser_screenshot").description.contains("path"))
+        #expect(try path("browser_screenshot").contains("instead of returning the image"))
     }
 
     @Test func registrationMatchesTheGoldenFixture() throws {

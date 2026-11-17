@@ -43,6 +43,12 @@ public protocol LeoBrowserTabs: AnyObject {
     /// A non-nil `userAgent` is set before that load, so the first request carries it.
     func openTab(url: URL, userAgent: String?) async throws -> Int
 
+    /// Saves a page capture into the agent's workspace (see
+    /// `LeoBrowserDownloads.saveCapture`): `path` per `LeoBrowserCapturePath`,
+    /// nil for `downloads/<defaultName>`. Never overwrites. Throws
+    /// `invalid_args` for a path outside the workspace and `save_failed`.
+    func saveCapture(_ data: Data, kind: LeoBrowserCaptureKind, path: String?, defaultName: String) async throws -> LeoBrowserSavedDownload
+
     func selectTab(_ id: Int)
 
     /// Closes a tab; when it was active, the browser picks another active tab.
