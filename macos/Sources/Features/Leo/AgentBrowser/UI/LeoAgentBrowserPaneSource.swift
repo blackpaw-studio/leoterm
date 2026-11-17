@@ -30,6 +30,8 @@ struct LeoAgentBrowserKey: Hashable, Sendable {
 /// - The user actions below come from the user's own clicks. The pane reports
 ///   user input to `control` itself before calling them, so they are not gated
 ///   on `control` and must work whoever is driving.
+/// - `pendingPermission` changes are reported through `observe` too.
+///   Answering one is not user input: it never takes control (B-410).
 @MainActor
 protocol LeoAgentBrowserPaneSource: AnyObject {
     var tabs: any LeoBrowserTabs { get }
@@ -64,6 +66,12 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     /// Jumps the active tab to `entry`. False when the history has changed
     /// since the entry was listed (the page at that offset is no longer it).
     func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool
+    /// The active tab's camera, microphone or location request waiting on
+    /// the user (B-410), or nil.
+    var pendingPermission: LeoBrowserPermissionPrompt? { get }
+    /// The user's Allow or Don't Allow on `prompt`. Does nothing when it is
+    /// no longer the request waiting.
+    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool)
     /// The machine and agent this browser belongs to: whose data store Clear
     /// Site Data empties.
     var key: LeoAgentBrowserKey { get }

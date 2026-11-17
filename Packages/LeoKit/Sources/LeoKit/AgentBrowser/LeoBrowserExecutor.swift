@@ -76,7 +76,7 @@ public final class LeoBrowserExecutor {
         case .navigate(let url) where command.tab == nil && tabs.tabs.isEmpty:
             return try await navigateInNewTab(url: url)
         default:
-            return try await perform(command.action, on: try page(command.tab))
+            return try await perform(command.action, on: try page(command.tab), tab: command.tab)
         }
         return [Self.ok]
     }
@@ -89,7 +89,8 @@ public final class LeoBrowserExecutor {
         return [report(page)]
     }
 
-    private func perform(_ action: LeoBrowserAction, on page: any LeoBrowserPage) async throws -> [LeoClientToolContent] {
+    /// `tab` is the command's own (nil for the active tab).
+    private func perform(_ action: LeoBrowserAction, on page: any LeoBrowserPage, tab: Int?) async throws -> [LeoClientToolContent] {
         switch action {
         case .navigate(let url):
             try await page.load(try await urlMapping.toLocal(try LeoBrowserURLPolicy.validate(url)))
@@ -104,7 +105,8 @@ public final class LeoBrowserExecutor {
             try await page.reload()
             return [report(page)]
         case .snapshot:
-            return [.text(try await page.snapshot())]
+            let text = try await page.snapshot()
+            return [.text(waitingLine(forTab: tab).map { $0 + "\n" + text } ?? text)]
         case .click(let ref):
             try await page.click(ref: ref)
         case .type(let ref, let text, let submit):
@@ -210,9 +212,26 @@ public final class LeoBrowserExecutor {
     }
 
     private func tabEntry(_ tab: LeoBrowserTabInfo) -> LeoJSONValue {
-        .object([
+        var entry: [String: LeoJSONValue] = [
             "id": .int(tab.id), "url": .string(remoteString(tab.url)), "title": .string(tab.title), "active": .bool(tab.isActive),
-        ])
+        ]
+        if let waiting = tab.waitingPermission {
+            entry["waiting_on_user"] = .object(["permission": .string(waiting.kind.rawValue), "site": .string(remoteOrigin(waiting.site))])
+        }
+        return .object(entry)
+    }
+
+    /// A site's origin in remote terms (a forwarded local port maps back).
+    private func remoteOrigin(_ site: LeoBrowserSite) -> String {
+        site.url.map(urlMapping.toRemote).flatMap(LeoBrowserSite.init(url:))?.origin ?? site.origin
+    }
+
+    /// What a snapshot of `tab` (the active tab when nil) leads with while
+    /// its page waits on the user.
+    private func waitingLine(forTab tab: Int?) -> String? {
+        let info = tabs.tabs.first { tab == nil ? $0.isActive : $0.id == tab }
+        guard let waiting = info?.waitingPermission else { return nil }
+        return LeoBrowserPermissionText.waitingLine(kind: waiting.kind, origin: remoteOrigin(waiting.site))
     }
 
     /// A finished download is named as saved (numbered after a clash).

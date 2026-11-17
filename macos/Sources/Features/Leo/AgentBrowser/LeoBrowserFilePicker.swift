@@ -1,25 +1,20 @@
 import AppKit
+import LeoKit
 
 /// Who is asking for a file, and for what. Several agents' browsers can be
 /// open at once, so the chooser says which agent and which site asked.
 struct LeoBrowserFilePickRequest: Equatable {
     /// The agent whose browser holds the page.
     let agent: String
-    /// The requesting frame's origin, already formatted for people.
+    /// The requesting frame's origin, already formatted for people
+    /// (`LeoBrowserSite.label`).
     let origin: String
     let allowsMultipleSelection: Bool
     let allowsDirectories: Bool
 
     /// What the chooser says: "<agent> · <origin> wants to upload a file".
     var message: String {
-        "\(agent) · \(origin) wants to upload a \(allowsDirectories ? "folder" : "file")"
-    }
-
-    /// `host` plus a non-default `port` (0 means the scheme's default), or
-    /// "this page" when there is no host, as for `about:blank`.
-    static func originLabel(host: String, port: Int) -> String {
-        guard !host.isEmpty else { return "this page" }
-        return port == 0 ? host : "\(host):\(port)"
+        LeoBrowserRequestText.message(agent: agent, origin: origin, wants: "upload a \(allowsDirectories ? "folder" : "file")")
     }
 }
 

@@ -13,12 +13,16 @@ public struct LeoBrowserTabInfo: Equatable, Sendable {
     public let url: URL?
     public let title: String
     public let isActive: Bool
+    /// The request the tab's page waits on the user to answer (B-410), in
+    /// local terms like `url`; nil when it waits on nothing.
+    public let waitingPermission: LeoBrowserPermissionRequest?
 
-    public init(id: Int, url: URL?, title: String, isActive: Bool) {
+    public init(id: Int, url: URL?, title: String, isActive: Bool, waitingPermission: LeoBrowserPermissionRequest? = nil) {
         self.id = id
         self.url = url
         self.title = title
         self.isActive = isActive
+        self.waitingPermission = waitingPermission
     }
 }
 

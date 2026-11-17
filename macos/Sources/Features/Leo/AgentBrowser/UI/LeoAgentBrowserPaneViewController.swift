@@ -17,6 +17,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     let pageTabBar = LeoEditorTabBar(style: .pages, accessibilityLabel: "Browser tabs")
     private var topSpacer: NSView?
     let banner = LeoHandoffBanner()
+    let permissionBar = LeoBrowserPermissionBar()
     let findBar = LeoBrowserFindBar()
     let findController: LeoBrowserFindController
     let pageSlot = LeoAgentBrowserSlot()
@@ -76,9 +77,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         downloadSeparator.boxType = .separator
 
         // Top to bottom: the row pane's strip (installed above these), the
-        // browser's tabs, the toolbar, the handoff banner, find, the page, and
-        // the latest download.
-        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot, downloadSeparator, downloadStrip]
+        // browser's tabs, the toolbar, the handoff banner, the permission
+        // bar, find, the page, and the latest download.
+        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, permissionBar, findBar, pageSlot, downloadSeparator, downloadStrip]
         let stack = LeoAgentBrowserPaneStack(views: rows)
         stack.onKeyEquivalent = { [weak self] event in
             guard let self else { return false }
@@ -132,6 +133,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         banner.onDone = { [model] in model.done() }
         banner.onDecline = { [model] in model.decline() }
         banner.doneButton.isFocusInPane = { [weak self] responder in self?.isFocusOnPaneChrome(responder) ?? false }
+        permissionBar.onAllow = { [model] in model.answerPermission(allow: true) }
+        permissionBar.onDeny = { [model] in model.answerPermission(allow: false) }
+        permissionBar.onAnnounce = { [weak self] text in self?.announce(text) }
         downloadStrip.onDismiss = { [model] in model.dismissDownload() }
         model.onAnnouncement = { [weak self] text in self?.announce(text) }
         pageTabBar.onSelect = { [weak self] index in
@@ -166,6 +170,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         guard isViewLoaded else { return }
         toolbar.update(model)
         banner.show(model.handoff)
+        permissionBar.show(model.permission)
         pageTabBar.update(model.tabItems.map {
             LeoEditorTabBar.Item(title: $0.title, toolTip: $0.title, isDirty: false, isSelected: $0.isActive)
         })

@@ -28,6 +28,33 @@ struct LeoAgentBrowserPaneModelTests {
         #expect(!model.pill.canGiveBack, "a handoff is answered with Done or Decline")
     }
 
+    /// B-410: the bar follows the source's waiting request, and answering
+    /// it neither takes control nor answers a request that has gone.
+    @Test
+    func permissionFollowsTheSourceAndAnsweringKeepsControl() {
+        let model = model()
+        #expect(model.permission == nil)
+        model.answerPermission(allow: true)
+        #expect(source.calls.isEmpty, "nothing waits")
+
+        let prompt = LeoBrowserPermissionPrompt(
+            id: 7, agent: "alfred",
+            request: LeoBrowserPermissionRequest(kind: .location, site: LeoBrowserSite(scheme: "https", host: "maps.example.com", port: nil))
+        )
+        source.pendingPermission = prompt
+        source.changed()
+        #expect(model.permission == prompt)
+
+        model.answerPermission(allow: false)
+        model.answerPermission(allow: true)
+        #expect(source.calls == ["permission 7 deny", "permission 7 allow"])
+        #expect(source.control.state == .agent)
+
+        source.pendingPermission = nil
+        source.changed()
+        #expect(model.permission == nil)
+    }
+
     @Test
     func clickingThePillTakesControlAndGiveBackReturnsIt() {
         let model = model()

@@ -304,6 +304,45 @@ struct LeoBrowserExecutorTests {
         #expect(list[1]["title"] as? String == "Two")
     }
 
+    /// B-410: a page waiting on the user for a permission says so, in
+    /// remote terms, only while it waits.
+    @Test func tabsShowWaitingOnUserOnlyWhilePending() async throws {
+        let h = harness(pageCount: 2)
+        h.tabs.waiting[2] = LeoBrowserPermissionRequest(
+            kind: .cameraAndMicrophone, site: LeoBrowserSite(scheme: "http", host: "localhost", port: 49152)
+        )
+        let waiting = try tabList(await run(h, "browser_tabs"))
+        #expect(waiting[0]["waiting_on_user"] == nil)
+        let entry = try #require(waiting[1]["waiting_on_user"] as? [String: String])
+        #expect(entry == ["permission": "camera_and_microphone", "site": "http://localhost:5173"])
+
+        h.tabs.waiting[2] = nil
+        #expect(try tabList(await run(h, "browser_tabs")).allSatisfy { $0["waiting_on_user"] == nil })
+    }
+
+    @Test func snapshotStartsWithTheWaitingLine() async {
+        let h = harness(pageCount: 2)
+        h.tabs.pages[1]!.snapshotText = "button \"Join\" [e1]"
+        h.tabs.pages[2]!.snapshotText = "other"
+        h.tabs.waiting[1] = LeoBrowserPermissionRequest(
+            kind: .location, site: LeoBrowserSite(scheme: "https", host: "maps.example.com", port: nil)
+        )
+
+        let lines = texts(await run(h, "browser_snapshot")).first?.components(separatedBy: "\n") ?? []
+        #expect(lines.count == 2)
+        #expect(lines.first == LeoBrowserPermissionText.waitingLine(kind: .location, origin: "https://maps.example.com"))
+        #expect(lines.first?.contains("location") == true)
+        #expect(lines.last == "button \"Join\" [e1]")
+        // Another tab's snapshot is its own; tab 1 by id still says it waits.
+        #expect(texts(await run(h, "browser_snapshot", ["tab": .int(2)])) == ["other"])
+        #expect(texts(await run(h, "browser_snapshot", ["tab": .int(1)])).first?.hasPrefix("Waiting on the user") == true)
+    }
+
+    private func tabList(_ outcome: LeoClientToolOutcome) throws -> [[String: Any]] {
+        let text = try #require(texts(outcome).first)
+        return try #require(try JSONSerialization.jsonObject(with: Data(text.utf8)) as? [[String: Any]])
+    }
+
     @Test func tabNewOpensWithTheMappedURLAndReturnsTheNewID() async {
         let h = harness()
         let outcome = await run(h, "browser_tab_new", ["url": .string("http://localhost:5173/")])
@@ -863,8 +902,13 @@ private final class FakeTabs: LeoBrowserTabs {
         return id
     }
 
+    /// Tabs whose page waits on the user for a permission (B-410).
+    var waiting: [Int: LeoBrowserPermissionRequest] = [:]
+
     var tabs: [LeoBrowserTabInfo] {
-        pages.keys.sorted().map { LeoBrowserTabInfo(id: $0, url: pages[$0]!.url, title: pages[$0]!.title, isActive: $0 == activeID) }
+        pages.keys.sorted().map {
+            LeoBrowserTabInfo(id: $0, url: pages[$0]!.url, title: pages[$0]!.title, isActive: $0 == activeID, waitingPermission: waiting[$0])
+        }
     }
 
     func page(forTab id: Int?) -> (any LeoBrowserPage)? { (id ?? activeID).flatMap { pages[$0] } }

@@ -18,12 +18,13 @@ import WebKit
     let key: LeoAgentBrowserKey
     let control = LeoBrowserControlModel()
     let viewHost: LeoAgentBrowserHost
-    private let tabSet: LeoAgentBrowserTabs
+    let tabSet: LeoAgentBrowserTabs
     private let urlMapping: any LeoBrowserURLMapping
     private let uploads: LeoBrowserUploadReader
     private let filePicker: any LeoBrowserFilePicking
     private lazy var executor = LeoBrowserExecutor(tabs: tabSet, urlMapping: urlMapping, control: control, uploads: uploads)
     private var handlers: [UUID: @MainActor () -> Void] = [:]
+    private var stopPlacement: (() -> Void)?
 
     /// `configuration` carries the agent's data store; each tab gets its own copy.
     /// `downloads` saves finished downloads into the agent's workspace; by
@@ -43,11 +44,13 @@ import WebKit
         self.filePicker = filePicker
         tabSet = LeoAgentBrowserTabs(
             agentName: key.agent, configuration: configuration, allowsURL: allowsURL, input: input, viewHost: viewHost,
-            filePicker: filePicker, downloader: downloads ?? LeoWKBrowserDownloads(log: .withoutWorkspace())
+            filePicker: filePicker, downloader: downloads ?? LeoWKBrowserDownloads(log: .withoutWorkspace()),
+            toRemote: { [urlMapping] in urlMapping.toRemote($0) }
         )
         super.init()
         tabSet.onUserInput = { [weak self] in self?.control.send(.userInput) }
         tabSet.onChange = { [weak self] in self?.changed() }
+        stopPlacement = viewHost.observePlacement { [weak self] in self?.tabSet.placementChanged() }
     }
 
     var dataStore: WKWebsiteDataStore { tabSet.dataStore }
@@ -69,6 +72,8 @@ import WebKit
     /// file choosers, then removes the local copies of files chosen for
     /// upload. The data store stays for the agent's next browser.
     func close() {
+        stopPlacement?()
+        stopPlacement = nil
         tabSet.closeAll()
         tabSet.downloader.cancelAll()
         filePicker.close()
@@ -76,6 +81,12 @@ import WebKit
     }
 
     // MARK: - LeoAgentBrowserPaneSource
+
+    var pendingPermission: LeoBrowserPermissionPrompt? { tabSet.pendingPermission }
+
+    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {
+        tabSet.answerPermission(prompt, allow: allow)
+    }
 
     var tabs: any LeoBrowserTabs { tabSet }
     var activeView: NSView? { tabSet.activePage?.webView }
@@ -185,7 +196,8 @@ import WebKit
 }
 
 /// An agent browser's tabs: the `LeoBrowserTabs` the executor drives, and
-/// the `WKUIDelegate` that turns a page's new windows into tabs.
+/// the `WKUIDelegate` that turns a page's new windows into tabs and takes
+/// its camera, microphone and location requests to the user (B-410).
 @available(macOS 14, *)
 @MainActor final class LeoAgentBrowserTabs: NSObject, LeoBrowserTabs, WKUIDelegate {
     static let blank = URL(string: "about:blank")!
@@ -209,6 +221,12 @@ import WebKit
     private let agentName: String
     private let filePicker: any LeoBrowserFilePicking
     let downloader: LeoWKBrowserDownloads
+    /// Maps a page's URL to the agent's (remote) terms, for what the user
+    /// and the agent read about permission requests.
+    private let toRemote: @MainActor (URL) -> URL
+    private lazy var permissions = LeoBrowserPermissionDesk { [weak self] tab, request, denial in
+        self?.note(denial, of: request, inTab: tab)
+    }
     /// File choosers open per web view, answered when the tab closes.
     private var filePicks: [ObjectIdentifier: [LeoBrowserFilePick]] = [:]
     private var list: [Tab] = []
@@ -221,9 +239,10 @@ import WebKit
     init(
         agentName: String, configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
         input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, filePicker: any LeoBrowserFilePicking,
-        downloader: LeoWKBrowserDownloads
+        downloader: LeoWKBrowserDownloads, toRemote: @escaping @MainActor (URL) -> URL = { $0 }
     ) {
         self.agentName = agentName
+        self.toRemote = toRemote
         self.filePicker = filePicker
         self.downloader = downloader
         self.configuration = configuration
@@ -239,7 +258,12 @@ import WebKit
     // MARK: - LeoBrowserTabs
 
     var tabs: [LeoBrowserTabInfo] {
-        list.map { LeoBrowserTabInfo(id: $0.id, url: $0.page.url, title: $0.page.title, isActive: $0.id == activeID) }
+        list.map {
+            LeoBrowserTabInfo(
+                id: $0.id, url: $0.page.url, title: $0.page.title, isActive: $0.id == activeID,
+                waitingPermission: permissions.waiting(inTab: $0.id)?.request
+            )
+        }
     }
 
     var downloads: [LeoBrowserDownload] { downloader.log.entries }
@@ -267,6 +291,7 @@ import WebKit
     func selectTab(_ id: Int) {
         guard activeID != id, list.contains(where: { $0.id == id }) else { return }
         activeID = id
+        permissions.withdraw(exceptTab: activeID)
         onChange?()
     }
 
@@ -277,6 +302,7 @@ import WebKit
         closedTabs.record(LeoClosedTab(url: tab.page.url, index: index, userAgent: override?.isEmpty == false ? override : nil))
         if activeID == id { activeID = list.indices.contains(index) ? list[index].id : list.last?.id }
         tear(down: tab)
+        permissions.withdraw(exceptTab: activeID)
         onChange?()
     }
 
@@ -322,9 +348,8 @@ import WebKit
         _ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
         initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
     ) {
-        let origin = frame.securityOrigin
         chooseFiles(
-            for: webView, origin: LeoBrowserFilePickRequest.originLabel(host: origin.host, port: origin.port),
+            for: webView, origin: LeoBrowserSite(frame.securityOrigin).label,
             allowsMultipleSelection: parameters.allowsMultipleSelection,
             allowsDirectories: parameters.allowsDirectories, completion: completionHandler
         )
@@ -349,6 +374,87 @@ import WebKit
         pick.attach(filePicker.present(request, completion: { pick.finish($0) }))
     }
 
+    /// A page asked for the camera, the microphone or both.
+    func webView(
+        _ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo,
+        type: WKMediaCaptureType, decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void
+    ) {
+        guard let kind = LeoBrowserPermissionKind(type) else { return decisionHandler(.deny) }
+        requestPermission(for: webView, kind: kind, site: LeoBrowserSite(frame.securityOrigin)) { decisionHandler($0 ? .grant : .deny) }
+    }
+
+    /// A page asked for location. WebKit's public method from macOS 27 (the
+    /// SDK we build with predates it, so it is declared by selector).
+    @objc(webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:)
+    func webView(
+        _ webView: WKWebView, requestGeolocationPermissionFor origin: WKSecurityOrigin, initiatedBy frame: WKFrameInfo,
+        decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void
+    ) {
+        requestPermission(for: webView, kind: .location, site: LeoBrowserSite(frame.securityOrigin)) { decisionHandler($0 ? .grant : .deny) }
+    }
+
+    /// The same request on macOS 26 and earlier, where WebKit only calls
+    /// its private twin. Without it those systems deny location silently.
+    @objc(_webView:requestGeolocationPermissionForOrigin:initiatedByFrame:decisionHandler:)
+    func legacyWebView(
+        _ webView: WKWebView, requestGeolocationPermissionFor origin: WKSecurityOrigin, initiatedBy frame: WKFrameInfo,
+        decisionHandler: @escaping @MainActor @Sendable (WKPermissionDecision) -> Void
+    ) {
+        requestPermission(for: webView, kind: .location, site: LeoBrowserSite(frame.securityOrigin)) { decisionHandler($0 ? .grant : .deny) }
+    }
+
+    // MARK: - Permissions (B-410)
+
+    /// A request from `webView`'s page: denied at once unless its tab is
+    /// the active one and on screen, answered from the tab's earlier
+    /// answers when it can be, else shown to the user. Never answered by
+    /// an agent. `decide` runs exactly once.
+    func requestPermission(
+        for webView: WKWebView, kind: LeoBrowserPermissionKind, site: LeoBrowserSite, decide: @escaping @MainActor (Bool) -> Void
+    ) {
+        guard let tab = list.first(where: { $0.page.webView === webView }) else { return decide(false) }
+        let isShown = tab.id == activeID && viewHost.isOnScreen(webView)
+        let request = LeoBrowserPermissionRequest(kind: kind, site: site)
+        if permissions.receive(request, inTab: tab.id, isShown: isShown, decide: decide) { onChange?() }
+    }
+
+    /// The active tab's ask waiting on the user, in remote terms.
+    var pendingPermission: LeoBrowserPermissionPrompt? {
+        guard let activeID, let ask = permissions.waiting(inTab: activeID) else { return nil }
+        let request = LeoBrowserPermissionRequest(kind: ask.request.kind, site: remote(ask.request.site))
+        return LeoBrowserPermissionPrompt(id: ask.id, agent: agentName, request: request)
+    }
+
+    /// The user's Allow or Don't Allow on `prompt`; nothing when it is no
+    /// longer the ask shown. Not user input: it doesn't take control.
+    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {
+        guard let activeID, permissions.answer(prompt.id, allow: allow, inTab: activeID) else { return }
+        onChange?()
+    }
+
+    /// A page moved between a pane and the parking window: an ask whose
+    /// page left the pane is withdrawn. A covered or minimised window keeps it.
+    func placementChanged() {
+        guard let activeID, let page = activePage, permissions.waiting(inTab: activeID) != nil,
+              !viewHost.isInPane(page.webView) else { return }
+        withdrawAsks(inTab: activeID, because: .paneHidden)
+    }
+
+    private func withdrawAsks(inTab tab: Int, because reason: LeoBrowserPermissionDenial.Withdrawal) {
+        if permissions.withdraw(inTab: tab, because: reason) { onChange?() }
+    }
+
+    private func note(_ denial: LeoBrowserPermissionDenial, of request: LeoBrowserPermissionRequest, inTab tab: Int) {
+        guard let page = list.first(where: { $0.id == tab })?.page else { return }
+        let origin = remote(request.site).origin
+        page.noteConsole(level: "error", text: LeoBrowserPermissionText.deniedLine(kind: request.kind, origin: origin, because: denial))
+    }
+
+    /// `site` in the agent's (remote) terms: a forwarded local port maps back.
+    private func remote(_ site: LeoBrowserSite) -> LeoBrowserSite {
+        site.url.map(toRemote).flatMap(LeoBrowserSite.init(url:)) ?? site
+    }
+
     // MARK: - Helpers
 
     private func add(_ page: LeoWKBrowserPage, at index: Int? = nil) -> Tab {
@@ -357,6 +463,8 @@ import WebKit
         page.webView.uiDelegate = self
         page.webView.onUserInput = { [weak self] in self?.onUserInput?() }
         page.onDownload = { [weak self] in self?.downloader.adopt($0) }
+        page.onCommit = { [weak self] in self?.withdrawAsks(inTab: id, because: .navigated) }
+        page.onContentProcessTerminate = { [weak self] in self?.withdrawAsks(inTab: id, because: .pageStopped) }
         let notify: @Sendable (WKWebView, Any) -> Void = { [weak self] _, _ in MainActor.assumeIsolated { self?.onChange?() } }
         let observations: [NSKeyValueObservation] = [
             page.webView.observe(\.url) { notify($0, $1) },
@@ -368,6 +476,7 @@ import WebKit
         let tab = Tab(id: id, page: page, observations: observations)
         list.insert(tab, at: min(max(index ?? list.count, 0), list.count))
         activeID = id
+        permissions.withdraw(exceptTab: activeID)
         viewHost.adopt(page.webView)
         onChange?()
         return tab
@@ -378,6 +487,9 @@ import WebKit
         tab.observations.forEach { $0.invalidate() }
         downloader.cancel(for: tab.page.webView)
         tab.page.onDownload = nil
+        tab.page.onCommit = nil
+        tab.page.onContentProcessTerminate = nil
+        permissions.forget(tab: tab.id)
         tab.page.webView.uiDelegate = nil
         filePicks.removeValue(forKey: ObjectIdentifier(tab.page.webView))?.forEach { $0.abandon() }
         tab.page.webView.onUserInput = nil
