@@ -2,11 +2,13 @@ Status: running
 Started: 2026-11-17T14:04:05Z
 Budget: 20 items, until 2026-11-18T02:04:05Z
 Digested-through: 0
-Filed: 1/3 bugs, 3/5 ideas
+Filed: 2/3 bugs, 3/5 ideas
 Self-filed: B-305 → B-422 bug — Hosted iOS test host crashes on unimplemented PushCleanupClient.load
 Self-filed: B-305 → B-423 idea — iOS address bar keeps the previous URL after a rejected localhost navigation
 Self-filed: B-305 → B-424 idea — Device check: keyboard raised when the agent focuses a field hides the iOS pill
 Self-filed: B-305 → B-425 idea — Daemon localhost proxy so iPhone pages can reach an agent machine's localhost
+Self-filed: B-419 → B-426 bug — After Return on a new address, the bar shows the old page's URL until the new page commits
+Self-filed: B-419 → dropped (dup of B-420) — Typing after clicking the bar appends to the old URL (focus doesn't select all)
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -44,11 +46,15 @@ Lane: B-419
   Dispatched: 2026-11-17T14:07:51Z
   Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 521c151a4f9b13fa63456f65d512ddde6460fb21
+  Call: Mac only: AppKit pane UI, iOS has no pane equivalent, so nothing goes in LeoKit — P1
+  Call: Escape restores the page address and resumes following — P1 Safari parity
+  Call: Leaving the bar with an unsent edit drops the edit and shows the page URL — P1
+  Call: Return commit and a tab change hand the bar back to the page — P1
 
 Lane: B-421
   Branch: autopilot-lane/B-421
@@ -73,3 +79,4 @@ Progress:
 - B-305 landed 961f5f8a7. D-917..D-924. ≈$39.10 est.
 - Pick: B-421 light bug (pane collapse on agent stop). B-421 built before B-420 (independent; B-420 overlaps B-419's address field).
 - Dispatched B-421 d-117d1e98df4f.
+- B-419 ready (fix 1, standard implementer, general review). Integration stale (B-305 landed Mac/LeoKit changes) → re-verify round 1. Runner note: shared GhosttyKit.xcframework is stale since B-334; lanes build their own.
