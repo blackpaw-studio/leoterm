@@ -88,6 +88,67 @@ struct LeoAgentBrowserPaneModelTests {
         #expect(model.urlError == nil)
     }
 
+    /// B-426: Safari keeps the typed address in the bar while the page loads.
+    private func submitWhileOnOldPage(_ text: String) -> LeoAgentBrowserPaneModel {
+        source.activeRemoteURL = URL(string: "https://old.example/")
+        let model = model()
+        model.submitURL(text)
+        source.isLoading = true
+        source.changed()
+        return model
+    }
+
+    @Test
+    func barShowsTheTypedAddressWhileTheNewPageLoads() {
+        let model = submitWhileOnOldPage("new.example/path")
+
+        #expect(model.urlText == "https://new.example/path")
+    }
+
+    @Test
+    func barFollowsThePageOnceItCommitsEvenAfterARedirect() {
+        let model = submitWhileOnOldPage("new.example")
+
+        source.activeRemoteURL = URL(string: "https://www.new.example/home")
+        source.changed()
+        #expect(model.urlText == "https://www.new.example/home")
+
+        source.isLoading = false
+        source.changed()
+        #expect(model.urlText == "https://www.new.example/home")
+    }
+
+    @Test
+    func barFallsBackToThePagesURLWhenTheLoadEndsWithoutCommitting() {
+        let model = submitWhileOnOldPage("new.example")
+
+        source.isLoading = false
+        source.changed()
+
+        #expect(model.urlText == "https://old.example/")
+    }
+
+    @Test
+    func barDropsTheTypedAddressWhenTheActiveTabChanges() {
+        let model = submitWhileOnOldPage("new.example")
+
+        source.fakeTabs.tabs = [LeoBrowserTabInfo(id: 2, url: nil, title: "", isActive: true)]
+        source.activeRemoteURL = URL(string: "https://other.example/")
+        source.changed()
+
+        #expect(model.urlText == "https://other.example/")
+    }
+
+    @Test
+    func aRefusedAddressLeavesTheBarOnThePage() {
+        source.activeRemoteURL = URL(string: "https://old.example/")
+        let model = model()
+
+        model.submitURL("file:///etc/passwd")
+
+        #expect(model.urlText == "https://old.example/")
+    }
+
     @Test(arguments: [
         ("example.com", "https://example.com"),
         ("  https://example.com/a?b=1#c ", "https://example.com/a?b=1#c"),

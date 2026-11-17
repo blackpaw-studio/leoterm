@@ -85,6 +85,20 @@ import LeoKit
     /// Tells the latest handled line from an earlier one whose time is up.
     private var handledLineID = 0
     private var stoppers: [() -> Void] = []
+    /// The address the user sent, shown in the bar until that load commits (B-426).
+    private var provisional: ProvisionalAddress?
+
+    /// A typed address awaiting its page, as Safari keeps it in the bar. It
+    /// ends when the page commits (the address or the tab changes) or the
+    /// load ends without committing, so the bar never invents a state the
+    /// page didn't report.
+    private struct ProvisionalAddress {
+        let text: String
+        /// The committed address and tab when it was sent.
+        let baseURL: URL?
+        let tabID: Int?
+        var sawLoading = false
+    }
 
     /// A File-menu save's line. It shows until a download newer than the
     /// save starts, it is dismissed, or (once saved) its time is up.
@@ -272,7 +286,23 @@ import LeoKit
             return
         }
         urlError = nil
+        provisional = ProvisionalAddress(text: url.absoluteString, baseURL: source.activeRemoteURL, tabID: activeTabID)
         act { source.navigate(to: url) }
+        refresh()
+    }
+
+    private var activeTabID: Int? { source.tabs.tabs.first(where: \.isActive)?.id }
+
+    /// The address to show: the sent one while its load is pending, else the page's.
+    private func resolvedURLText() -> String {
+        let remote = source.activeRemoteURL
+        if var pending = provisional {
+            let committed = remote != pending.baseURL || activeTabID != pending.tabID
+            pending.sawLoading = pending.sawLoading || source.isLoading
+            let ended = pending.sawLoading && !source.isLoading
+            provisional = committed || ended ? nil : pending
+        }
+        return provisional?.text ?? remote?.absoluteString ?? ""
     }
 
     private func act(_ action: () -> Void) {
@@ -283,7 +313,7 @@ import LeoKit
     // MARK: - Reading the source
 
     private func refresh() {
-        set(\.urlText, source.activeRemoteURL?.absoluteString ?? "")
+        set(\.urlText, resolvedURLText())
         set(\.tabItems, source.tabs.tabs.map {
             TabItem(id: $0.id, title: $0.title.isEmpty ? Self.blankTabTitle : $0.title, isActive: $0.isActive)
         })
