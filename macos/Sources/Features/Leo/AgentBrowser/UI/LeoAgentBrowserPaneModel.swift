@@ -99,6 +99,10 @@ import LeoKit
         /// The committed address and tab when it was sent.
         let baseURL: URL?
         let tabID: Int?
+        /// Whether the source was loading at the last look. A load only counts
+        /// as this address's once it starts after the send (false to true), so
+        /// the previous page finishing can't end it.
+        var wasLoading: Bool
         var sawLoading = false
     }
 
@@ -290,7 +294,7 @@ import LeoKit
         urlError = nil
         submissionCount += 1
         let id = submissionCount
-        provisional = ProvisionalAddress(id: id, text: url.absoluteString, baseURL: source.activeRemoteURL, tabID: activeTabID)
+        provisional = ProvisionalAddress(id: id, text: url.absoluteString, baseURL: source.activeRemoteURL, tabID: activeTabID, wasLoading: source.isLoading)
         act { source.navigate(to: url) { [weak self] in self?.navigationFailed(id) } }
         refresh()
     }
@@ -310,7 +314,8 @@ import LeoKit
         let remote = source.activeRemoteURL
         if var pending = provisional {
             let committed = remote != pending.baseURL || activeTabID != pending.tabID
-            pending.sawLoading = pending.sawLoading || source.isLoading
+            pending.sawLoading = pending.sawLoading || (source.isLoading && !pending.wasLoading)
+            pending.wasLoading = source.isLoading
             let ended = pending.sawLoading && !source.isLoading
             provisional = committed || ended ? nil : pending
         }

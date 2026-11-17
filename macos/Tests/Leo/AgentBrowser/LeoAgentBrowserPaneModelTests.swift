@@ -129,6 +129,24 @@ struct LeoAgentBrowserPaneModelTests {
     }
 
     @Test
+    func barKeepsTheTypedAddressWhenTheOldPagesLoadEndsBeforeTheNewOneStarts() {
+        source.activeRemoteURL = URL(string: "https://old.example/")
+        source.isLoading = true
+        let model = model()
+        model.submitURL("new.example")
+
+        source.isLoading = false
+        source.changed()
+        #expect(model.urlText == "https://new.example")
+
+        source.isLoading = true
+        source.changed()
+        source.isLoading = false
+        source.changed()
+        #expect(model.urlText == "https://old.example/")
+    }
+
+    @Test
     func barDropsTheTypedAddressWhenTheActiveTabChanges() {
         let model = submitWhileOnOldPage("new.example")
 
