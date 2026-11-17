@@ -24,10 +24,11 @@ Lane: B-305
   Dispatched: 2026-11-17T14:07:51Z
   Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
+  Tokens: 108M in (106M cache read), ≥477k out, 581 requests
   Reviewed-tip: 777769817707c64aba9aa61772738740a36f8067
   Call: iOS is a second browser provider over HTTPS/SSE (daemon already accepts device tokens, no leo change); it claims unowned requests after a 1.5 s grace so a connected Mac wins, and claims requests it owns at once — P1, P2
   Call: Remote localhost gets no route, only a plain `localhost_unreachable` explanation in the tool error and the pane; Open in Safari is disabled for those URLs; a daemon proxy is a backlog follow-up — P3, P2
@@ -49,6 +50,8 @@ Lane: B-419
   Reverifies: 0
   Reviewed-tip: none
 
+Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
+
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-419, B-420, B-421. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Board sync: B-404: gh issue view: dial tcp 140.82.114.6:443: i/o timeout
@@ -56,3 +59,4 @@ Progress:
 - Dispatched runners via leo_dispatch implement: B-305 d-faad684af5f4, B-419 d-fcc99dfe43e6.
 - leo agent (10:03 EST): lost-dispatch bug (bridge-connect timeout under load → relaunch killed, turn marked lost) fixed in leo main PR #345 (945a27d3), unreleased. If a runner comes back lost/exit 137, re-dispatch rather than treat as a runner failure.
 - B-305 ready (fix 1, hard implementer, concurrency review). Shots are screen captures only (simulator). Calls checked against D-822..D-916: iOS platform adaptations, no contradiction.
+- B-305 landed 961f5f8a7. D-917..D-924. ≈$39.10 est.
