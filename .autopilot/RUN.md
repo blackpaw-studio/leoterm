@@ -8,6 +8,10 @@ Self-filed: B-413 → B-415 idea — Retake B-413 indicator shots with scratch-o
 Self-filed: B-404 → B-416 idea — Download failure strip wraps to two lines
 Self-filed: B-404 → B-417 idea — Download ending while the browser pane is closed shows nothing
 Self-filed: B-404 → B-418 idea — Browser pane stays blank after a navigation becomes a download
+Self-filed: B-407 → dropped (over cap) — Edit ▸ Find items show no ⌘F/⌘G/⌘⇧G key equivalents
+Self-filed: B-407 → dropped (over cap) — Find match inside an overflow:auto box doesn't scroll into view
+Self-filed: B-407 → dropped (over cap) — Hide Find Bar stays enabled with no bar up
+Self-filed: B-407 → dropped (over cap) — Browser address bar shows the previous URL, one navigation behind
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -69,11 +73,20 @@ Lane: B-407
   Dispatched: 2026-11-17T01:47:05Z
   Base: f1d8748307b0d94bbe67e579c7cc99f257c28564
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 2
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 9a4c38661cc8379e9aad202ee2e825245c740381
+  Call: Safari-style find bar above the page, count "2 of 12" / "No matches" / "1000+" — P1
+  Call: ⌘F/⌘G/⌘⇧G claimed whenever focus is anywhere in the browser pane (page, URL field, find field); terminal and editor paths untouched — P1
+  Call: Finding is reading: no user-input event, no agent takeover — P2
+  Call: Esc in the find field closes the bar, clears highlights, returns focus to the page — P1
+  Call: Bar stays open across tab switches and page loads and re-searches; ⌘G with no query opens the bar — P2
+  Call: Case-insensitive, no options; Edit ▸ Find shows no key equivalents, same as terminal and editor — P1 / item Out
+  Call: Query is kept after Esc (result and highlights cleared); reopening searches it again — P2
+  Call: Reveal scrolls the page only, not inner overflow:auto containers — scope (accepted gap)
+  Call: Whitespace and nbsp collapse to one space, <br> counts as a break — P1
 
 Lane: B-405
   Branch: autopilot-lane/B-405
@@ -102,3 +115,4 @@ Progress:
 - B-404 landed 88a18c9fb. D-832..D-841.
 - Pick: B-405 full (uploads; new tool + picker).
 - Dispatched B-405 d-2c841ad94d65.
+- B-407 ready (fix 2). Integrate conflict with B-404 strip resolved. Verifier incident: a mis-focused Return started `autopilot-scratch` (scratch only; stopped again). Edit ▸ Find key-glyph gap accepted as polish (items and shortcuts both work).
