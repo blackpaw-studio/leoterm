@@ -15,5 +15,26 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-422
+  Branch: autopilot-lane/B-422
+  Base: 8c72a4a605b90d57a55a36021ed847686a692b78
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-426
+  Branch: autopilot-lane/B-426
+  Base: 8c72a4a605b90d57a55a36021ed847686a692b78
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-422, B-426, B-427. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
+- Pick: B-422 light bug (iOS test-host flake; the crash is in the test harness, not the product) and B-426 light bug (Mac address bar) in parallel — independent footprints. B-427 overlaps B-426 (Return commit in the pane); waits.
