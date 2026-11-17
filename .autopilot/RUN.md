@@ -200,6 +200,17 @@ Lane: B-410
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-411
+  Branch: autopilot-lane/B-411
+  Dispatched: pending
+  Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
