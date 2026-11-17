@@ -110,6 +110,7 @@ Timeout is 30 s unless noted.
 | `browser_snapshot` | — | text tree of the page with element refs, truncated at 50 000 chars with a note |
 | `browser_click` | `ref` | ok |
 | `browser_type` | `ref`, `text`, `submit?` | ok |
+| `browser_upload` | `ref`, `paths` (1–20 workspace files); timeout 120 s | `{files: [{name, size, workspace_path}]}` |
 | `browser_press` | `key` (e.g. `Enter`, `Escape`, `Meta+a`) | ok |
 | `browser_screenshot` | `full_page?` | PNG image block, max 1600 px wide |
 | `browser_wait` | `text?` or `ms?` (≤ 25 000) | ok / timeout |
@@ -138,6 +139,30 @@ browser feature can be switched off in Settings, which withdraws the group.
 - Allowed schemes: `http`, `https`, `about:blank`. Others fail with `scheme_not_allowed`.
 - The browser closes when the agent stops or Evan closes the pane. The data store is kept.
 
+### File uploads (B-405)
+
+- `browser_upload` sets workspace files on a file input, as a user's pick
+  would (`input` then `change`). `ref` is the input, a label for it, or an
+  element holding exactly one; several paths only when the input is
+  `multiple`. Paths are workspace-relative or absolute inside the workspace
+  (checked lexically); at most 20 files and 25 MB per call; no folders.
+  Files are read through the machine's file backend (local or SFTP) and set
+  from Leo's isolated content world. Errors: `no_such_file` ("No file at
+  <path> in the workspace", or no workspace at all), `invalid_args` (outside
+  the workspace, a folder, too much, not a file input, a single-file input
+  given several), `file_error` (the backend couldn't read: permission, lost
+  connection).
+- The snapshot lists every file input as `button "…" [file]`, with
+  `[multiple]`, `[accept=…]` and `[hidden]` (sites hide the real input
+  behind their own button) as they apply, and the chosen names as its value.
+- A page's own file chooser (a click on a file input) is a standalone panel
+  rooted at the agent's workspace on its machine: Return chooses, Escape
+  cancels, ⌘⇧. shows hidden files, and **Choose from Mac…** opens the Mac's
+  open panel instead. Folder inputs and agents with no workspace go straight
+  to the Mac panel. Chosen files are copied to a private temp folder (WebKit
+  takes only local files) and removed when the browser closes; launch sweeps
+  any a crash left.
+
 ### Pane UI
 
 - A new content case in `LeoRowPane` beside editor tabs: an inner tab strip,
@@ -148,7 +173,7 @@ browser feature can be switched off in Settings, which withdraws the group.
 - Takeover: any user mouse or keyboard input in a web view, or clicking the
   pill, switches to **You have control**. While it is on, agent actions that
   change the page (`navigate`, `back`/`forward`/`reload`, `click`, `type`,
-  `press`, `eval`, `tab_new`/`select`/`close`) fail with `user_has_control`
+  `upload`, `press`, `eval`, `tab_new`/`select`/`close`) fail with `user_has_control`
   ("The user has control of the browser; wait or call browser_handoff").
   `snapshot`, `screenshot`, `tabs`, `console` and `wait` still work. **Give back**
   returns control.
@@ -172,7 +197,8 @@ browser feature can be switched off in Settings, which withdraws the group.
 - `screenshot`: `WKWebView.takeSnapshot`. `console`: an injected script buffers
   the last 500 messages per tab.
 - Errors are returned as `{ok:false, error:{code, message}}` with the codes above
-  plus `navigation_failed`, `timeout`, `js_error`.
+  plus `navigation_failed`, `timeout`, `js_error`, and for `browser_upload`
+  `no_such_file` and `file_error`.
 
 ### Port forwarding
 
