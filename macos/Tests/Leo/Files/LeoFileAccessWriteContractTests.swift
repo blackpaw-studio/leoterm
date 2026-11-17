@@ -34,11 +34,12 @@ struct LeoFileAccessWriteContractTests {
         try await withLeoFileSandbox(kind) { sandbox, access in
             let source = LeoFailingByteSource(prefix: leoPatternData(count: kind.writeChunkSize), failAt: UInt64(kind.writeChunkSize))
 
-            await #expect(throws: (any Error).self) {
+            await #expect(throws: LeoFileAccessError.self) {
                 try await access.create(at: sandbox.path("half.bin"), from: source)
             }
 
-            #expect(try sandbox.names().isEmpty)
+            let names = try sandbox.names()
+            #expect(names.isEmpty)
         }
     }
 
