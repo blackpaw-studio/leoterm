@@ -117,7 +117,7 @@ import WebKit
         tabSet.activePage?.webView.reload()
     }
 
-    func navigate(to url: URL) {
+    func navigate(to url: URL, onFailure: @escaping @MainActor () -> Void) {
         tabSet.withdrawActiveDialog()
         Task {
             do {
@@ -129,6 +129,7 @@ import WebKit
                 }
             } catch {
                 Self.logger.error("address bar load failed url=\(url.absoluteString, privacy: .private) error=\(String(describing: error), privacy: .public)")
+                onFailure()
             }
         }
     }

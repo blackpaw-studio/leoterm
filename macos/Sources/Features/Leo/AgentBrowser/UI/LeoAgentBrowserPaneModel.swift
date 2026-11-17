@@ -85,6 +85,26 @@ import LeoKit
     /// Tells the latest handled line from an earlier one whose time is up.
     private var handledLineID = 0
     private var stoppers: [() -> Void] = []
+    /// The address the user sent, shown in the bar until that load commits (B-426).
+    private var provisional: ProvisionalAddress?
+    private var submissionCount = 0
+
+    /// A typed address awaiting its page, as Safari keeps it in the bar. It
+    /// ends when the page commits (the address or the tab changes) or the
+    /// load ends without committing, so the bar never invents a state the
+    /// page didn't report.
+    private struct ProvisionalAddress {
+        let id: Int
+        let text: String
+        /// The committed address and tab when it was sent.
+        let baseURL: URL?
+        let tabID: Int?
+        /// Whether the source was loading at the last look. A load only counts
+        /// as this address's once it starts after the send (false to true), so
+        /// the previous page finishing can't end it.
+        var wasLoading: Bool
+        var sawLoading = false
+    }
 
     /// A File-menu save's line. It shows until a download newer than the
     /// save starts, it is dismissed, or (once saved) its time is up.
@@ -272,7 +292,34 @@ import LeoKit
             return
         }
         urlError = nil
-        act { source.navigate(to: url) }
+        submissionCount += 1
+        let id = submissionCount
+        provisional = ProvisionalAddress(id: id, text: url.absoluteString, baseURL: source.activeRemoteURL, tabID: activeTabID, wasLoading: source.isLoading)
+        act { source.navigate(to: url) { [weak self] in self?.navigationFailed(id) } }
+        refresh()
+    }
+
+    /// The source couldn't start submission `id`: no load will follow, so the
+    /// bar goes back to the page's address (D-928), unless a newer address took over.
+    private func navigationFailed(_ id: Int) {
+        guard provisional?.id == id else { return }
+        provisional = nil
+        refresh()
+    }
+
+    private var activeTabID: Int? { source.tabs.tabs.first(where: \.isActive)?.id }
+
+    /// The address to show: the sent one while its load is pending, else the page's.
+    private func resolvedURLText() -> String {
+        let remote = source.activeRemoteURL
+        if var pending = provisional {
+            let committed = remote != pending.baseURL || activeTabID != pending.tabID
+            pending.sawLoading = pending.sawLoading || (source.isLoading && !pending.wasLoading)
+            pending.wasLoading = source.isLoading
+            let ended = pending.sawLoading && !source.isLoading
+            provisional = committed || ended ? nil : pending
+        }
+        return provisional?.text ?? remote?.absoluteString ?? ""
     }
 
     private func act(_ action: () -> Void) {
@@ -283,7 +330,7 @@ import LeoKit
     // MARK: - Reading the source
 
     private func refresh() {
-        set(\.urlText, source.activeRemoteURL?.absoluteString ?? "")
+        set(\.urlText, resolvedURLText())
         set(\.tabItems, source.tabs.tabs.map {
             TabItem(id: $0.id, title: $0.title.isEmpty ? Self.blankTabTitle : $0.title, isActive: $0.isActive)
         })
