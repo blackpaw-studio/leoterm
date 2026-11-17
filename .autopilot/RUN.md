@@ -75,6 +75,17 @@ Lane: B-407
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-405
+  Branch: autopilot-lane/B-405
+  Dispatched: 2026-11-17T02:21:26Z
+  Base: 2d3139ab68c7d824a6895f3854211d823fec400f
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
@@ -89,3 +100,4 @@ Progress:
 - Dispatched B-407 d-97db0ebeb9a4.
 - B-404 ready (fix 1, hard implementer, security review clean).
 - B-404 landed 88a18c9fb. D-832..D-841.
+- Pick: B-405 full (uploads; new tool + picker).
