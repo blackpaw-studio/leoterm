@@ -101,6 +101,7 @@ Out: Auth (HTTP basic) dialogs. Both platforms: logic in LeoKit, Mac UI now.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572 (5027 Mac tests, swiftlint clean; landed 091fca205). Decisions D-908..D-916.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-412-1.png
+Reviewed: accepted 2026-11-17 — 091fca205343
 
 ## B-067 · Terminals row scrolls into view when created or selected   [done]
 Issue: #71
