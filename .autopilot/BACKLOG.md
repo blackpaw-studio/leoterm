@@ -41,6 +41,7 @@ Out: Printing to a printer; web archives. Both platforms: tool in LeoKit, Mac me
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39 (4950 tests; landed aecf8c1ca). Decisions D-869..D-881.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
+Reviewed: accepted 2026-11-17 — aecf8c1ca676
 
 ## B-407 · Find in page in the agent browser (⌘F, ⌘G, ⌘⇧G)   [done]
 Issue: #384
