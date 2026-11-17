@@ -72,6 +72,13 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     /// The user's Allow or Don't Allow on `prompt`. Does nothing when it is
     /// no longer the request waiting.
     func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool)
+    /// The active tab's open JavaScript dialog (B-412), or nil; `observe`
+    /// reports its changes. `tabs.dialogs` reports who answered.
+    var pendingDialog: LeoBrowserDialogPrompt? { get }
+    /// The user's answer in the dialog bar: OK or Leave Page when `accept`,
+    /// with a prompt's `text`. Does nothing when `prompt` was already
+    /// answered. Not user input: it never takes control.
+    func answerDialog(_ prompt: LeoBrowserDialogPrompt, accept: Bool, text: String?)
     /// The machine and agent this browser belongs to: whose data store Clear
     /// Site Data empties.
     var key: LeoAgentBrowserKey { get }

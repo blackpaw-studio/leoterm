@@ -18,6 +18,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private var topSpacer: NSView?
     let banner = LeoHandoffBanner()
     let permissionBar = LeoBrowserPermissionBar()
+    let dialogBar = LeoBrowserDialogBar()
     let findBar = LeoBrowserFindBar()
     let findController: LeoBrowserFindController
     let pageSlot = LeoAgentBrowserSlot()
@@ -78,8 +79,11 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
 
         // Top to bottom: the row pane's strip (installed above these), the
         // browser's tabs, the toolbar, the handoff banner, the permission
-        // bar, find, the page, and the latest download.
-        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, permissionBar, findBar, pageSlot, downloadSeparator, downloadStrip]
+        // bar, the page's JavaScript dialog, find, the page, and the latest
+        // download.
+        let rows: [NSView] = [
+            pageTabBar, toolbar, separator, banner, permissionBar, dialogBar, findBar, pageSlot, downloadSeparator, downloadStrip,
+        ]
         let stack = LeoAgentBrowserPaneStack(views: rows)
         stack.onKeyEquivalent = { [weak self] event in
             guard let self else { return false }
@@ -136,6 +140,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         permissionBar.onAllow = { [model] in model.answerPermission(allow: true) }
         permissionBar.onDeny = { [model] in model.answerPermission(allow: false) }
         permissionBar.onAnnounce = { [weak self] text in self?.announce(text) }
+        dialogBar.onAnswer = { [model] accept, text in model.answerDialog(accept: accept, text: text) }
+        dialogBar.onAnnounce = { [weak self] text in self?.announce(text) }
         downloadStrip.onDismiss = { [model] in model.dismissDownload() }
         model.onAnnouncement = { [weak self] text in self?.announce(text) }
         pageTabBar.onSelect = { [weak self] index in
@@ -171,6 +177,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         toolbar.update(model)
         banner.show(model.handoff)
         permissionBar.show(model.permission)
+        dialogBar.show(model.dialogBar)
         pageTabBar.update(model.tabItems.map {
             LeoEditorTabBar.Item(title: $0.title, toolTip: $0.title, isDirty: false, isSelected: $0.isActive)
         })
