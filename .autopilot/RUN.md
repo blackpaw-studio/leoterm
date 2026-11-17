@@ -69,7 +69,7 @@ Lane: B-421
   Fixes: 2
   Wip: none
   Reverifies: 2
-  Reviewed-tip: 8979b86f9a96961febadedf33d3794352ffe42f7
+  Reviewed-tip: f54532504d4438bad3d13f8f093e356c7ffbf6af
   Call: A stopped agent's open browser pane and browser stay live; a restart reuses the browser; the pane doesn't yet show "stopped" — P2
   Call: Calls cancelled by a stop get their own message, "The agent stopped"; the close path keeps "The agent's browser was closed" — P2
 
@@ -115,3 +115,4 @@ Progress:
 - B-420 landed 6db5b0ab9. D-929..D-931.
 - B-421 ready (fix rounds 2, general delta clean, 5016 tests, window shots). Integration stale (B-420 landed toolbar/menu changes) → re-verify round 2.
 - Dispatched B-421 re-verify 2 d-f147f2e424a6.
+- B-421 re-verify 2 ready (delta clean, 5018 tests, GUI unchanged).
