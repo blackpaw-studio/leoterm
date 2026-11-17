@@ -21,14 +21,12 @@ enum LeoBrowserFindScript {
     const SKIPPED = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TEXTAREA', 'HEAD', 'TITLE']);
     const highlights = typeof CSS !== 'undefined' && CSS.highlights && typeof Highlight === 'function' ? CSS.highlights : null;
 
-    const lower = (text) => {
-      let out = '';
-      for (const ch of text) {
-        const l = ch.toLowerCase();
-        out += l.length === ch.length ? l : ch;
-      }
-      return out;
+    // Lower case that never changes a character's length, so offsets stay put.
+    const lowerChar = (ch) => {
+      const l = ch.toLowerCase();
+      return l.length === ch.length ? l : ch;
     };
+    const lower = (text) => Array.from(text, lowerChar).join('');
 
     const visibility = new Map();
     const isRendered = (el) => {
@@ -48,15 +46,29 @@ enum LeoBrowserFindScript {
       return blocks.get(el);
     };
 
+    // The page's visible text with every run of whitespace (a no-break space
+    // included) read as one space, and a break between blocks and at each <br>.
+    // `nodeOf` and `offsetOf` take a position in that text back to its text
+    // node and offset, so a match becomes a range on the real nodes.
     const scan = (query) => {
       const needle = lower(query).replace(/\\s+/g, ' ');
       const ranges = [];
       let capped = false;
       if (!needle || !document.body) return { ranges, capped };
       const nodes = [];
+      const nodeOf = [];
+      const offsetOf = [];
       let text = '';
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      let last = '';
+      const emit = (ch, node, offset) => {
+        text += ch;
+        last = ch;
+        nodeOf.push(node);
+        offsetOf.push(offset);
+      };
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
         acceptNode(node) {
+          if (node.nodeType === Node.ELEMENT_NODE) return node.tagName === 'BR' ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
           const el = node.parentElement;
           if (!el || !node.nodeValue) return NodeFilter.FILTER_REJECT;
           for (let a = el; a; a = a.parentElement) if (SKIPPED.has(a.tagName)) return NodeFilter.FILTER_REJECT;
@@ -64,30 +76,35 @@ enum LeoBrowserFindScript {
         },
       });
       let previousBlock = null;
+      let breakPending = false;
       for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const block = blockOf(node.parentElement);
-        if (nodes.length && block !== previousBlock) text += '\\n';
-        previousBlock = block;
-        nodes.push({ node, start: text.length });
-        text += lower(node.nodeValue);
-      }
-      const locate = (offset, isEnd) => {
-        let lo = 0, hi = nodes.length - 1;
-        while (lo < hi) {
-          const mid = (lo + hi + 1) >> 1;
-          if (nodes[mid].start <= offset) lo = mid; else hi = mid - 1;
+        if (node.nodeType === Node.ELEMENT_NODE) {
+          breakPending = true;
+          continue;
         }
-        const entry = nodes[lo];
-        const local = Math.min(offset - entry.start, entry.node.nodeValue.length);
-        return { node: entry.node, offset: local };
-      };
+        const block = blockOf(node.parentElement);
+        if (nodes.length && last !== '\\n' && (breakPending || block !== previousBlock)) emit('\\n', -1, 0);
+        breakPending = false;
+        previousBlock = block;
+        const index = nodes.push(node) - 1;
+        let offset = 0;
+        for (const ch of node.nodeValue) {
+          if (/\\s/.test(ch)) {
+            if (last !== '' && last !== ' ' && last !== '\\n') emit(' ', index, offset);
+          } else {
+            const l = lowerChar(ch);
+            for (let k = 0; k < l.length; k++) emit(l[k], index, offset + k);
+          }
+          offset += ch.length;
+        }
+      }
       for (let at = text.indexOf(needle); at !== -1; at = text.indexOf(needle, at + needle.length)) {
         if (ranges.length === LIMIT) { capped = true; break; }
-        const from = locate(at, false);
-        const to = locate(at + needle.length - 1, true);
+        const end = at + needle.length - 1;
+        if (nodeOf[at] < 0 || nodeOf[end] < 0) continue;
         const range = document.createRange();
-        range.setStart(from.node, from.offset);
-        range.setEnd(to.node, Math.min(to.offset + 1, to.node.nodeValue.length));
+        range.setStart(nodes[nodeOf[at]], offsetOf[at]);
+        range.setEnd(nodes[nodeOf[end]], Math.min(offsetOf[end] + 1, nodes[nodeOf[end]].nodeValue.length));
         ranges.push(range);
       }
       return { ranges, capped };
@@ -118,10 +135,18 @@ enum LeoBrowserFindScript {
       }
     };
 
+    // Scrolls until the match itself is on screen. The element holding it can
+    // be taller than the window (a long <pre>), so centring it is not enough.
     const reveal = (range) => {
-      const rect = range.getBoundingClientRect();
-      const inView = rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth;
-      if (!inView) range.startContainer.parentElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
+      const targetRect = () => range.getClientRects()[0] ?? range.getBoundingClientRect();
+      const isVisible = (rect) => rect.top >= 0 && rect.bottom <= innerHeight && rect.left >= 0 && rect.right <= innerWidth;
+      if (isVisible(targetRect())) return;
+      range.startContainer.parentElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
+      const rect = targetRect();
+      if (isVisible(rect)) return;
+      const dy = rect.top + rect.height / 2 - innerHeight / 2;
+      const outsideX = rect.left < 0 || rect.right > innerWidth;
+      scrollBy(outsideX ? rect.left + rect.width / 2 - innerWidth / 2 : 0, dy);
     };
 
     const paint = (ranges, current) => {

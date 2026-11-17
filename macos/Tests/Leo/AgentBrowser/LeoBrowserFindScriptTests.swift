@@ -8,7 +8,14 @@ import WebKit
 @MainActor
 @Suite(.serialized)
 struct LeoBrowserFindScriptTests {
-    private static let pages = [
+    /// A tall <pre> with its one match far down.
+    private static let deepPage: String = {
+        let before = (0..<3_000).map { "line \($0)" }.joined(separator: "\n")
+        let after = (0..<200).map { "tail \($0)" }.joined(separator: "\n")
+        return "<style>pre { font: 14px/20px monospace; margin: 0 }</style><pre>\(before)\ndeepneedle here\n\(after)</pre>"
+    }()
+
+    private static let pages: [String: String] = [
         "apples": "<p>Apple ap<b>ple</b> APPLE</p>",
         "blocks": "<p>foo</p><p>bar</p><p>foo bar</p>",
         "hidden": """
@@ -22,6 +29,9 @@ struct LeoBrowserFindScriptTests {
         """,
         "many": (0..<1_200).map { _ in "<i>x</i>" }.joined(),
         "tall": (0..<200).map { "<p>row \($0)</p>" }.joined() + "<p id=\"end\">findme</p>",
+        "spacing": "<p>foo\n   bar</p><p>foo&nbsp;bar</p><p>foo      bar</p><p>x<br>y</p><p>a<br>b <b>c</b></p>",
+        "wrapped": "<p id=\"p\">before  foo\n\t bar after</p>",
+        "deep": deepPage,
         "selectable": "<p id=\"p\">Pick this phrase please</p>",
     ]
 
@@ -179,5 +189,59 @@ struct LeoBrowserFindScriptTests {
 
         #expect(await finder.search("a", in: NSView()) == .none)
         #expect(await finder.search("a", in: nil) == .none)
+    }
+
+    @available(macOS 14, *)
+    @Test func whitespaceRunsNewlinesAndNoBreakSpacesMatchOneSpace() async throws {
+        let fixture = Self.fixture()
+        defer { fixture.close() }
+        let finder = try await open("spacing", in: fixture)
+
+        #expect(await finder.search("foo bar", in: fixture.page.webView).total == 3)
+        #expect(await finder.search("foo   bar", in: fixture.page.webView).total == 3)
+    }
+
+    @available(macOS 14, *)
+    @Test func aLineBreakSeparatesWordsButASpaceAfterItStillMatches() async throws {
+        let fixture = Self.fixture()
+        defer { fixture.close() }
+        let finder = try await open("spacing", in: fixture)
+        let view = fixture.page.webView
+
+        #expect(await finder.search("xy", in: view).total == 0)
+        #expect(await finder.search("ab", in: view).total == 0)
+        #expect(await finder.search("b c", in: view).total == 1)
+    }
+
+    @available(macOS 14, *)
+    @Test func aMatchAcrossCollapsedWhitespaceHighlightsTheRealText() async throws {
+        let fixture = Self.fixture()
+        defer { fixture.close() }
+        let finder = try await open("wrapped", in: fixture)
+
+        let result = await finder.search("FOO bar", in: fixture.page.webView)
+        let text = try await fixture.page.webView.callAsyncJavaScript(
+            "return [...CSS.highlights.get('leo-find-current')].map(String).join('|')",
+            arguments: [:], in: nil, contentWorld: LeoWKPageFinder.world) as? String
+
+        #expect(result.total == 1)
+        #expect(text == "foo\n\t bar")
+    }
+
+    @available(macOS 14, *)
+    @Test func scrollsAMatchDeepInsideATallElementIntoView() async throws {
+        let fixture = Self.fixture()
+        defer { fixture.close() }
+        let finder = try await open("deep", in: fixture)
+
+        let result = await finder.search("deepneedle", in: fixture.page.webView)
+        let isVisible = try await fixture.page.webView.callAsyncJavaScript(
+            """
+            const rect = [...CSS.highlights.get('leo-find-current')][0].getBoundingClientRect();
+            return rect.top >= 0 && rect.bottom <= innerHeight
+            """, arguments: [:], in: nil, contentWorld: LeoWKPageFinder.world) as? Bool
+
+        #expect(result.total == 1)
+        #expect(isVisible == true)
     }
 }
