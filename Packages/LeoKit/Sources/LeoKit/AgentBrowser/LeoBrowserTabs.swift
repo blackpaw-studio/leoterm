@@ -38,6 +38,11 @@ public protocol LeoBrowserTabs: AnyObject {
     /// This app session's downloads in the browser, newest first.
     var downloads: [LeoBrowserDownload] { get }
 
+    /// The JavaScript dialogs the tabs' pages have open (B-412). The tabs
+    /// put each one here and withdraw it when its tab closes or its page
+    /// stops or goes away.
+    var dialogs: LeoBrowserDialogDesk { get }
+
     /// The page for `id`, or the active tab's when nil; nil when there is no such
     /// tab (or no tab at all).
     func page(forTab id: Int?) -> (any LeoBrowserPage)?

@@ -359,7 +359,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Leo app browser: List the browser's tabs as {id, url, title, active}. A tab whose page asked for the camera, microphone or location and waits on the user to answer also has waiting_on_user: {permission, site}. Only the user can answer, in the browser pane; no tool does. A request made while the pane isn't showing the tab is denied, and every denial shows in browser_console as permission_denied.",
+    "description" : "Leo app browser: List the browser's tabs as {id, url, title, active}. A tab whose page asked for the camera, microphone or location and waits on the user to answer also has waiting_on_user: {permission, site}. Only the user can answer, in the browser pane; no tool does. A request made while the pane isn't showing the tab is denied, and every denial shows in browser_console as permission_denied. A tab with a JavaScript dialog open also has dialog: {kind, message, default_text, site}; answer it with browser_dialog.",
     "input_schema" : {
       "properties" : {
 
@@ -469,5 +469,34 @@
     },
     "name" : "browser_handoff",
     "timeout_s" : 0
+  },
+  {
+    "description" : "Leo app browser: Answer the JavaScript dialog open in a tab: an alert, confirm or prompt, or a beforeunload \"Leave this page?\" dialog. While a dialog is open its page is paused: tools that read or act on that page fail with dialog_open, and a call during which a dialog opens returns at once saying so. accept presses OK (Leave Page on a beforeunload dialog) and dismiss presses Cancel (Stay on Page); an alert has only OK, which both press. The user sees the dialog in the browser pane and may answer it first; then this fails with dialog_handled, saying how they answered.",
+    "input_schema" : {
+      "properties" : {
+        "action" : {
+          "description" : "accept (OK, Leave Page) or dismiss (Cancel, Stay on Page).",
+          "enum" : [
+            "accept",
+            "dismiss"
+          ],
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        },
+        "text" : {
+          "description" : "Only with accept on a prompt: the answer to send. Without it the prompt's default text is sent.",
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "action"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_dialog",
+    "timeout_s" : 30
   }
 ]

@@ -45,6 +45,9 @@ import LeoKit
     /// How long a saved file's line stays; a failure stays until dismissed.
     static let finishedDownloadDuration: Duration = .seconds(5)
 
+    /// How long the dialog bar says the agent answered.
+    static let dialogHandledDuration: Duration = .seconds(4)
+
     static let blankTabTitle = "New Tab"
     static let invalidURLMessage = "Enter a web address starting with http:// or https://"
 
@@ -60,6 +63,11 @@ import LeoKit
     @Published private(set) var canGoForward = false
     /// The active tab's permission request waiting on the user (B-410).
     @Published private(set) var permission: LeoBrowserPermissionPrompt?
+    /// The active tab's open JavaScript dialog (B-412).
+    @Published private(set) var dialog: LeoBrowserDialogPrompt?
+    /// "alfred answered: OK" for a moment after the agent answered the
+    /// dialog the active tab showed.
+    @Published private(set) var dialogHandledLine: String?
     /// The latest download, or File-menu save (B-406), the user hasn't
     /// dismissed, or nil.
     @Published private(set) var downloadStrip: DownloadStrip?
@@ -74,6 +82,8 @@ import LeoKit
     private var capture: Capture?
     /// Saves count down from -1, so they never share an id with a download.
     private var nextCaptureID = -1
+    /// Tells the latest handled line from an earlier one whose time is up.
+    private var handledLineID = 0
     private var stoppers: [() -> Void] = []
 
     /// A File-menu save's line. It shows until a download newer than the
@@ -99,6 +109,7 @@ import LeoKit
             source.observe { [weak self] in self?.refresh() },
             source.control.observe { [weak self] state in self?.control = state },
             source.downloads.observe { [weak self] in self?.refreshDownloads() },
+            source.tabs.dialogs.observe { [weak self] in self?.dialogEvent($0) },
         ]
     }
 
@@ -145,6 +156,32 @@ import LeoKit
     func answerPermission(allow: Bool) {
         guard let permission else { return }
         source.answerPermission(permission, allow: allow)
+    }
+
+    /// OK, Cancel, Stay on Page or Leave Page in the dialog bar. Answering
+    /// for the page is not driving it: the agent keeps control.
+    func answerDialog(accept: Bool, text: String?) {
+        guard let dialog else { return }
+        source.answerDialog(dialog, accept: accept, text: text)
+    }
+
+    /// What the dialog bar shows: the open dialog, else the agent's answer.
+    var dialogBar: LeoBrowserDialogBar.Content? {
+        dialog.map { .dialog($0) } ?? dialogHandledLine.map { .handled($0) }
+    }
+
+    /// The agent answered the dialog in the tab the user is looking at:
+    /// say so for a moment. The user's own answers need no line.
+    private func dialogEvent(_ event: LeoBrowserDialogDesk.Event) {
+        guard case .answered(let answer) = event, answer.answerer == .agent,
+              source.tabs.tabs.first(where: \.isActive)?.id == answer.dialog.tab else { return }
+        handledLineID += 1
+        let id = handledLineID
+        dialogHandledLine = LeoBrowserDialogText.handledLine(agent: source.key.agent, answer: answer)
+        schedule(Self.dialogHandledDuration) { [weak self] in
+            guard let self, handledLineID == id else { return }
+            dialogHandledLine = nil
+        }
     }
 
     /// The strip's close button: hides this download's line (the download
@@ -254,6 +291,7 @@ import LeoKit
         set(\.canGoBack, source.canGoBack)
         set(\.canGoForward, source.canGoForward)
         set(\.permission, source.pendingPermission)
+        set(\.dialog, source.pendingDialog)
     }
 
     private func refreshDownloads() {

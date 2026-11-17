@@ -807,12 +807,12 @@ final class Latch {
 }
 
 @MainActor
-private final class SleepLog {
+final class SleepLog {
     var durations: [Duration] = []
 }
 
 @MainActor
-private final class FakePage: LeoBrowserPage {
+final class FakePage: LeoBrowserPage {
     var calls: [String] = []
     var currentURL: URL? = URL(string: "about:blank")
     var currentTitle = ""
@@ -849,7 +849,14 @@ private final class FakePage: LeoBrowserPage {
         return snapshotText
     }
 
-    func click(ref: String) async throws { try record("click \(ref)") }
+    /// Holds `click` until opened, like a click whose page script waits.
+    var clickGate: Latch?
+
+    func click(ref: String) async throws {
+        try record("click \(ref)")
+        await clickGate?.wait()
+    }
+
     func hover(ref: String) async throws { try record("hover \(ref)") }
 
     func drag(startRef: String, endRef: String) async throws { try record("drag \(startRef) \(endRef)") }
@@ -920,7 +927,7 @@ private final class FakePage: LeoBrowserPage {
 }
 
 @MainActor
-private final class FakeTabs: LeoBrowserTabs {
+final class FakeTabs: LeoBrowserTabs {
     struct Capture: Equatable {
         let data: Data
         let kind: LeoBrowserCaptureKind
@@ -953,6 +960,8 @@ private final class FakeTabs: LeoBrowserTabs {
     /// Tabs whose page waits on the user for a permission (B-410).
     var waiting: [Int: LeoBrowserPermissionRequest] = [:]
 
+    let dialogs = LeoBrowserDialogDesk()
+
     var tabs: [LeoBrowserTabInfo] {
         pages.keys.sorted().map {
             LeoBrowserTabInfo(id: $0, url: pages[$0]!.url, title: pages[$0]!.title, isActive: $0 == activeID, waitingPermission: waiting[$0])
@@ -979,6 +988,7 @@ private final class FakeTabs: LeoBrowserTabs {
     func selectTab(_ id: Int) { activeID = id }
 
     func closeTab(_ id: Int) {
+        dialogs.withdraw(inTab: id)
         pages[id] = nil
         if activeID == id { activeID = pages.keys.sorted().first }
     }
@@ -987,7 +997,7 @@ private final class FakeTabs: LeoBrowserTabs {
 /// Maps remote-terms `:5173` to a local `:49152`, like a port forward whose
 /// same-numbered local port was taken.
 @MainActor
-private final class FakeMapping: LeoBrowserURLMapping {
+final class FakeMapping: LeoBrowserURLMapping {
     var localCalls: [String] = []
     var localError: LeoBrowserError?
 

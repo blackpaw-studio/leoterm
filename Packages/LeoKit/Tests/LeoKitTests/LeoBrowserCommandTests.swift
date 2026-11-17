@@ -44,6 +44,21 @@ struct LeoBrowserCommandTests {
         #expect(try decode("browser_tab_select", ["tab": .int(2)]).action == .tabSelect(tab: 2))
         #expect(try decode("browser_tab_close", ["tab": .int(2)]).action == .tabClose(tab: 2))
         #expect(try decode("browser_handoff", ["message": .string("Log in")]).action == .handoff(message: "Log in"))
+        #expect(try decode("browser_dialog", ["action": .string("accept")]).action == .dialog(accept: true, text: nil))
+    }
+
+    /// B-412: accept or dismiss, with text only for accepting (a prompt).
+    @Test func parsesBrowserDialogActionAndText() throws {
+        #expect(try decode("browser_dialog", ["action": .string("dismiss")]).action == .dialog(accept: false, text: nil))
+        #expect(try decode("browser_dialog", ["action": .string("accept"), "text": .string("Ada")]).action == .dialog(accept: true, text: "Ada"))
+        #expect(try decode("browser_dialog", ["action": .string("accept"), "text": .string("")]).action == .dialog(accept: true, text: ""))
+        #expect(try decode("browser_dialog", ["action": .string("accept"), "text": .null]).action == .dialog(accept: true, text: nil))
+        #expect(try decode("browser_dialog", ["action": .string("accept"), "tab": .int(3)]).tab == 3)
+        invalidArgs("browser_dialog")
+        invalidArgs("browser_dialog", ["action": .string("ok")])
+        invalidArgs("browser_dialog", ["action": .bool(true)])
+        invalidArgs("browser_dialog", ["action": .string("dismiss"), "text": .string("Ada")])
+        invalidArgs("browser_dialog", ["action": .string("accept"), "text": .int(3)])
     }
 
     @Test func userAgentOverridesDecodeOnTabNewAndOnAnExistingTab() throws {
@@ -207,7 +222,7 @@ struct LeoBrowserCommandTests {
         let mutating: Set<String> = [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_click", "browser_type",
             "browser_hover", "browser_select_option", "browser_drag", "browser_press", "browser_eval", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent",
-            "browser_upload",
+            "browser_upload", "browser_dialog",
         ]
         for tool in LeoBrowserTools.definitions.map(\.name) {
             let command = try decode(tool, LeoBrowserCommandTests.sampleArgs[tool] ?? [:])
@@ -230,5 +245,6 @@ struct LeoBrowserCommandTests {
         "browser_user_agent": ["user_agent": .string("Bot/1.0")],
         "browser_handoff": ["message": .string("hi")],
         "browser_upload": ["ref": .string("e1"), "paths": .array([.string("a.txt")])],
+        "browser_dialog": ["action": .string("accept")],
     ]
 }

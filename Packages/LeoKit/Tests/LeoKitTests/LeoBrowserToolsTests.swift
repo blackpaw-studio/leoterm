@@ -9,8 +9,26 @@ struct LeoBrowserToolsTests {
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
             "browser_hover", "browser_select_option", "browser_drag", "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
             "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
-            "browser_handoff",
+            "browser_handoff", "browser_dialog",
         ])
+    }
+
+    /// B-412: the agent learns what each action presses, that the page is
+    /// paused meanwhile, and that the user may answer first.
+    @Test func dialogSaysWhatItAnswersAndThatTheUserMayAnswerFirst() throws {
+        let tool = try #require(LeoBrowserTools.definitions.first { $0.name == "browser_dialog" })
+        for phrase in ["alert", "confirm", "prompt", "beforeunload", "paused", "dialog_open", "browser pane", "answer it first", "dialog_handled", "Leave Page"] {
+            #expect(tool.description.contains(phrase), "\(phrase)")
+        }
+        let schema = try #require(tool.inputSchema.objectValue)
+        #expect(schema["required"] == .array([.string("action")]))
+        let properties = try #require(schema["properties"]?.objectValue)
+        #expect(properties["action"]?.objectValue?["enum"] == .array([.string("accept"), .string("dismiss")]))
+        #expect(properties["text"]?.objectValue?["type"] == .string("string"))
+        #expect(properties["tab"] != nil)
+        #expect(tool.timeoutSeconds == 30)
+        let tabs = try #require(LeoBrowserTools.definitions.first { $0.name == "browser_tabs" })
+        #expect(tabs.description.contains("dialog: {kind, message, default_text, site}"))
     }
 
     @Test func handoffHasNoTimeoutUploadTwoMinutesAndEveryOtherToolThirtySeconds() {
@@ -168,8 +186,8 @@ struct LeoBrowserToolsTests {
         #expect(error.clientToolError == LeoClientToolError(code: "user_has_control", message: error.message))
         #expect(error.message.contains("browser_handoff"))
         #expect(LeoBrowserError.Code.allCases.map(\.rawValue).sorted() == [
-            "file_error", "invalid_args", "js_error", "navigation_failed", "no_such_file", "no_such_tab", "save_failed", "scheme_not_allowed", "stale_ref",
-            "tab_limit", "timeout", "user_has_control",
+            "dialog_handled", "dialog_open", "file_error", "invalid_args", "js_error", "navigation_failed", "no_dialog", "no_such_file", "no_such_tab",
+            "save_failed", "scheme_not_allowed", "stale_ref", "tab_limit", "timeout", "user_has_control",
         ])
     }
 }

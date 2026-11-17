@@ -31,6 +31,8 @@ import Testing
     func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
     var pendingPermission: LeoBrowserPermissionPrompt? { nil }
     func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {}
+    var pendingDialog: LeoBrowserDialogPrompt? { nil }
+    func answerDialog(_ prompt: LeoBrowserDialogPrompt, accept: Bool, text: String?) {}
     var key = LeoAgentBrowserKey(host: .local, agent: "fake")
     func externalURL() async throws -> URL? { nil }
     var isClearingSiteData: Bool { false }

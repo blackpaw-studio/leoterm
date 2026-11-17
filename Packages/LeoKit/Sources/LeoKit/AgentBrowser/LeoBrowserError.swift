@@ -18,6 +18,12 @@ public struct LeoBrowserError: Error, Equatable, Sendable {
         case fileError = "file_error"
         /// A capture couldn't be written into the workspace.
         case saveFailed = "save_failed"
+        /// The tab's page is paused on a JavaScript dialog (B-412).
+        case dialogOpen = "dialog_open"
+        /// `browser_dialog`: the tab has no dialog open.
+        case noDialog = "no_dialog"
+        /// `browser_dialog`: the dialog was answered before this call.
+        case dialogHandled = "dialog_handled"
     }
 
     public let code: Code
