@@ -11,6 +11,14 @@ import LeoKit
 struct LeoAgentBrowserToolbarTests {
     private final class KeyWindow: NSWindow {
         override var isKeyWindow: Bool { true }
+        /// The running app keeps the address bar focused after a committed
+        /// address, so `makeFirstResponder(nil)` doesn't end the edit there.
+        var refusesToResignFocus = false
+
+        override func makeFirstResponder(_ responder: NSResponder?) -> Bool {
+            if refusesToResignFocus, responder == nil { return false }
+            return super.makeFirstResponder(responder)
+        }
     }
 
     /// Counts the pill's layer updates.
@@ -23,7 +31,7 @@ struct LeoAgentBrowserToolbarTests {
         }
     }
 
-    private static func window(showing view: NSView) -> NSWindow {
+    private static func window(showing view: NSView) -> KeyWindow {
         let window = KeyWindow(contentRect: NSRect(x: 0, y: 0, width: 700, height: 400), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = view
@@ -79,6 +87,145 @@ struct LeoAgentBrowserToolbarTests {
         #expect(source.calls == ["navigate https://example.com"])
         #expect(field.currentEditor() == nil)
         #expect(field.stringValue == "https://example.com/welcome")
+    }
+
+    /// A focused pane with the address bar first responder, showing `url`.
+    private static func focusedPane(at url: String, source: FakePaneSource) throws -> (pane: LeoAgentBrowserPaneViewController, field: NSTextField, window: KeyWindow) {
+        source.activeRemoteURL = URL(string: url)
+        let pane = LeoAgentBrowserPaneViewController(source: source)
+        pane.view.frame = NSRect(x: 0, y: 0, width: 700, height: 400)
+        let window = Self.window(showing: pane.view)
+        let field = pane.toolbar.urlField
+        source.changed()
+        #expect(window.makeFirstResponder(field))
+        return (pane, field, window)
+    }
+
+    private static func navigate(_ source: FakePaneSource, to url: String) async {
+        source.activeRemoteURL = URL(string: url)
+        source.changed()
+        await drainMainQueue()
+    }
+
+    /// B-419: focused but untouched, the bar follows the page's committed URL.
+    @Test func aFocusedUntouchedAddressBarFollowsThePage() async throws {
+        let source = FakePaneSource()
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+
+        await Self.navigate(source, to: "https://example.com/two")
+
+        #expect(field.stringValue == "https://example.com/two")
+        _ = (pane, window)
+    }
+
+    /// B-419: once the user types, their text stays until commit or Escape.
+    @Test func typedTextSurvivesPageChangesWhileTheBarIsFocused() async throws {
+        let source = FakePaneSource()
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        editor.string = "exam"
+        editor.didChangeText()
+
+        await Self.navigate(source, to: "https://example.com/two")
+
+        #expect(field.stringValue == "exam")
+        _ = (pane, window)
+    }
+
+    /// B-419: Escape drops the user's edit and the bar shows the page again,
+    /// and follows it from then on.
+    @Test func escapeRestoresThePagesAddressAndResumesFollowing() async throws {
+        let source = FakePaneSource()
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        editor.string = "exam"
+        editor.didChangeText()
+
+        editor.doCommand(by: #selector(NSResponder.cancelOperation(_:)))
+        #expect(field.stringValue == "https://example.com/one")
+        await Self.navigate(source, to: "https://example.com/two")
+
+        #expect(field.stringValue == "https://example.com/two")
+        _ = (pane, window)
+    }
+
+    private static func type(_ text: String, into field: NSTextField) throws {
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        editor.string = text
+        editor.didChangeText()
+    }
+
+    /// B-419: Return, as AppKit delivers it -- the end-editing notice (Return
+    /// movement) first, then the action -- with the bar staying focused, as it
+    /// does in the app. After a good commit the bar follows the page again,
+    /// one navigation at a time (Back included).
+    @Test func afterACommittedAddressTheStillFocusedBarFollowsThePage() async throws {
+        let source = FakePaneSource()
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+        window.refusesToResignFocus = true
+        try Self.type("example.com/two", into: field)
+
+        NotificationCenter.default.post(
+            name: NSControl.textDidEndEditingNotification, object: field,
+            userInfo: [NSText.movementUserInfoKey: NSReturnTextMovement]
+        )
+        field.sendAction(field.action, to: field.target)
+        await Self.navigate(source, to: "https://example.com/two")
+        #expect(field.stringValue == "https://example.com/two")
+
+        await Self.navigate(source, to: "https://example.com/one")
+        #expect(field.stringValue == "https://example.com/one")
+        _ = (pane, window)
+    }
+
+    /// B-419: leaving the bar without committing drops the edit and shows
+    /// the page's address again.
+    @Test func leavingTheBarWithoutCommittingShowsThePageAgain() throws {
+        let source = FakePaneSource()
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+        try Self.type("exam", into: field)
+
+        #expect(window.makeFirstResponder(nil))
+
+        #expect(field.stringValue == "https://example.com/one")
+        _ = (pane, window)
+    }
+
+    /// B-419: another tab is another page: an edit started on the old tab
+    /// doesn't carry over.
+    @Test func switchingTabsDropsTheEditAndShowsTheNewPage() async throws {
+        let source = FakePaneSource()
+        source.fakeTabs.tabs = [
+            LeoBrowserTabInfo(id: 1, url: nil, title: "One", isActive: true),
+            LeoBrowserTabInfo(id: 2, url: nil, title: "Two", isActive: false),
+        ]
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+        try Self.type("exam", into: field)
+
+        source.fakeTabs.tabs = [
+            LeoBrowserTabInfo(id: 1, url: nil, title: "One", isActive: false),
+            LeoBrowserTabInfo(id: 2, url: nil, title: "Two", isActive: true),
+        ]
+        await Self.navigate(source, to: "https://example.org/other")
+
+        #expect(field.stringValue == "https://example.org/other")
+        _ = (pane, window)
+    }
+
+    /// B-419: a refused address stays in the bar to be fixed, even as the
+    /// page changes underneath it.
+    @Test func aRefusedAddressStaysInTheBarWhileFocused() async throws {
+        let source = FakePaneSource()
+        let (pane, field, window) = try Self.focusedPane(at: "https://example.com/one", source: source)
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        editor.string = "file:///etc/passwd"
+        editor.didChangeText()
+
+        field.sendAction(field.action, to: field.target)
+        await Self.navigate(source, to: "https://example.com/two")
+
+        #expect(field.stringValue == "file:///etc/passwd")
+        _ = (pane, window)
     }
 
     /// B-409: More ends the row and shows the pane's menu under itself
