@@ -218,15 +218,23 @@ public final class LeoBrowserExecutor {
 
     /// `browser_dialog`: answers at once, never queued, since the call it
     /// would wait behind may be one its dialog paused. Whoever answers
-    /// first wins; a later answer hears how it went.
+    /// first wins; a later answer hears how it went. Only a dialog the agent
+    /// was shown is answered: an open one it hasn't seen is described instead.
     private func answerDialog(inTab tab: Int?, accept: Bool, text: String?) throws -> [LeoClientToolContent] {
         guard control.state.allowsAgentActions else { throw LeoBrowserError.userHasControl }
         guard let id = tabID(tab) else { throw LeoBrowserError(.noSuchTab, "The browser has no tabs") }
         try requireTab(id)
-        if text != nil, let dialog = dialogs.dialog(inTab: id), dialog.kind != .prompt {
-            throw LeoBrowserError.invalidArgs("text answers a prompt; tab \(id) has a \(LeoBrowserDialogText.name(dialog.kind)) open. Call again without text")
+        let open = dialogs.dialog(inTab: id)
+        if let open, !dialogs.wasTold(open.id) {
+            // The page opened it after the one the agent saw was answered:
+            // describe it, leave it open, and let the agent decide again.
+            dialogs.markTold(open.id)
+            throw LeoBrowserError(.dialogOpen, LeoBrowserDialogText.unseenLine(open, origin: remoteOrigin(open.site)))
         }
-        switch dialogs.answer(inTab: id, accept: accept, text: text, by: .agent) {
+        if text != nil, let open, open.kind != .prompt {
+            throw LeoBrowserError.invalidArgs("text answers a prompt; tab \(id) has a \(LeoBrowserDialogText.name(open.kind)) open. Call again without text")
+        }
+        switch dialogs.answer(inTab: id, dialog: open?.id, accept: accept, text: text, by: .agent) {
         case .answered:
             return [Self.ok]
         case .alreadyHandled(let answer):

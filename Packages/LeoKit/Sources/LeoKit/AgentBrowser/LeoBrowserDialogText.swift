@@ -62,6 +62,12 @@ public enum LeoBrowserDialogText {
             + "Its page is paused until the dialog is answered, so tools that read or act on the page fail until then. " + howToAnswer(dialog)
     }
 
+    /// The `dialog_open` error of a `browser_dialog` call whose tab's open
+    /// dialog is not the one the agent was shown.
+    public static func unseenLine(_ dialog: LeoBrowserDialog, origin: String) -> String {
+        "Nothing was answered: you hadn't been shown this dialog yet. " + openLine(dialog, origin: origin)
+    }
+
     /// The result of a call that ended early because a dialog opened while it ran.
     public static func openedLine(_ dialog: LeoBrowserDialog, origin: String) -> String {
         "While this call ran, tab \(dialog.tab) opened a \(name(dialog.kind)), from \(origin): \(quoted(message(of: dialog))). "

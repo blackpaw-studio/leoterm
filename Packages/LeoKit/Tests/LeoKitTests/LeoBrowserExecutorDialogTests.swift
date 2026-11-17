@@ -32,11 +32,15 @@ struct LeoBrowserExecutorDialogTests {
         return Harness(executor: executor, tabs: tabs, control: control, replies: Replies())
     }
 
+    /// `told`: the agent has already been shown it (a tool result named it).
     @discardableResult
     private func open(
-        _ h: Harness, _ kind: LeoBrowserDialogKind, tab: Int = 1, message: String = "Delete report.pdf?", defaultText: String? = nil
+        _ h: Harness, _ kind: LeoBrowserDialogKind, tab: Int = 1, message: String = "Delete report.pdf?", defaultText: String? = nil,
+        told: Bool = false
     ) -> LeoBrowserDialog? {
-        h.desk.open(tab: tab, kind: kind, message: message, defaultText: defaultText, site: Self.site) { h.replies.list.append($0) }
+        let dialog = h.desk.open(tab: tab, kind: kind, message: message, defaultText: defaultText, site: Self.site) { h.replies.list.append($0) }
+        if told, let dialog { h.desk.markTold(dialog.id) }
+        return dialog
     }
 
     private func run(_ h: Harness, _ tool: String, _ args: [String: LeoJSONValue] = [:]) async -> LeoClientToolOutcome {
@@ -175,7 +179,7 @@ struct LeoBrowserExecutorDialogTests {
 
     @Test func dialogToolAnswersWhileAnotherCallIsStuck() async {
         let h = harness()
-        open(h, .confirm)
+        open(h, .confirm, told: true)
         let latch = Latch()
         h.page(2).snapshotGate = latch
         let stuck = Task { await run(h, "browser_snapshot", ["tab": .int(2)]) }
@@ -189,11 +193,11 @@ struct LeoBrowserExecutorDialogTests {
 
     @Test func dialogToolAcceptsWithPromptTextAndDismisses() async {
         let h = harness()
-        open(h, .prompt, tab: 2, defaultText: "Untitled")
+        open(h, .prompt, tab: 2, defaultText: "Untitled", told: true)
         #expect(texts(await run(h, "browser_dialog", ["action": .string("accept"), "text": .string("Q3"), "tab": .int(2)])) == ["ok"])
-        open(h, .confirm)
+        open(h, .confirm, told: true)
         #expect(texts(await run(h, "browser_dialog", ["action": .string("dismiss")])) == ["ok"])
-        open(h, .leave)
+        open(h, .leave, told: true)
         #expect(texts(await run(h, "browser_dialog", ["action": .string("accept")])) == ["ok"])
 
         #expect(h.replies.list == [
@@ -202,9 +206,42 @@ struct LeoBrowserExecutorDialogTests {
         ])
     }
 
-    @Test func textWithAcceptOnAConfirmIsInvalidArgsAndLeavesItOpen() async {
+    /// The agent answers only a dialog it was shown. One the page opened
+    /// after the user answered the one the agent saw is described instead,
+    /// and stays open until the agent answers again.
+    @Test func aChainedDialogTheAgentWasNotShownIsDescribedNotAnswered() async throws {
+        let h = harness()
+        let first = try #require(open(h, .confirm, message: "Delete project?"))
+        #expect(error(await run(h, "browser_snapshot"))?.code == "dialog_open")
+        _ = h.desk.answer(inTab: 1, dialog: first.id, accept: true, by: .user)
+        let second = try #require(open(h, .confirm, message: "This cannot be undone. Continue?"))
+
+        let refused = try #require(error(await run(h, "browser_dialog", ["action": .string("accept")])))
+
+        #expect(refused.code == "dialog_open")
+        #expect(refused.message.contains(#""This cannot be undone. Continue?""#))
+        #expect(refused.message.contains("Nothing was answered"))
+        #expect(refused.message.contains(LeoBrowserDialogText.handledNote(.init(dialog: first, answerer: .user, accepted: true))))
+        #expect(h.desk.dialog(inTab: 1) == second)
+        #expect(h.replies.list == [LeoBrowserDialogReply(accepted: true, text: nil)])
+
+        #expect(texts(await run(h, "browser_dialog", ["action": .string("accept")])) == ["ok"])
+        #expect(h.replies.list == [LeoBrowserDialogReply(accepted: true, text: nil), LeoBrowserDialogReply(accepted: true, text: nil)])
+        #expect(h.desk.dialog(inTab: 1) == nil)
+    }
+
+    @Test func anUnseenDialogIsDescribedBeforeTextIsChecked() async throws {
         let h = harness()
         open(h, .confirm)
+
+        #expect(error(await run(h, "browser_dialog", ["action": .string("accept"), "text": .string("yes")]))?.code == "dialog_open")
+        #expect(error(await run(h, "browser_dialog", ["action": .string("accept"), "text": .string("yes")]))?.code == "invalid_args")
+        #expect(h.replies.list.isEmpty)
+    }
+
+    @Test func textWithAcceptOnAConfirmIsInvalidArgsAndLeavesItOpen() async {
+        let h = harness()
+        open(h, .confirm, told: true)
 
         let failure = error(await run(h, "browser_dialog", ["action": .string("accept"), "text": .string("yes")]))
         #expect(failure?.code == "invalid_args")

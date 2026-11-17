@@ -184,6 +184,9 @@ public final class LeoBrowserDialogDesk {
         told.insert(id)
     }
 
+    /// Whether the agent has been shown open dialog `id`.
+    public func wasTold(_ id: Int) -> Bool { told.contains(id) }
+
     /// The user's answers to dialogs the agent was shown, oldest first,
     /// each given once.
     public func takeNotes() -> [LeoBrowserDialogAnswer] {
