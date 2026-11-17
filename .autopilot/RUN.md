@@ -125,11 +125,12 @@ Lane: B-406
   Dispatched: 2026-11-17T05:11:29Z
   Base: 641b72e22435a6fb0945fba72d1b5a100bdd2c29
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
   Reviewed-tip: 085ab9748c79c85a67d19b0d79c5235025a19227
+  Tokens: 89M in (87.6M cache read), ≥323k out, 541 requests
   Call: New `browser_pdf` tool, plus `path` on `browser_screenshot` (`full_page` already existed) — item, D-759
   Call: Saved PDF is one continuous page of the whole document, not paginated for printing (WebKit splits past 14,400 pt) — P1, item Out
   Call: Default capture target `downloads/<title>.pdf|.png`, falling back to host name, then `page` — D-832, D-834, P3
@@ -186,6 +187,8 @@ Finished 4: B-405 landed 9cf0c4069 · shot /Users/evan/.leo/agents/leoterm/.git/
 
 Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 
+Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
+
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
@@ -211,3 +214,4 @@ Progress:
 - Pick: B-409 full (menu actions + data store clearing).
 - Dispatched B-409 d-d470908db7cd. Interim digest 1 posted (items 1–5).
 - B-406 ready (fix 2, hard implementer, security review). Accepted: symlinked folder inside the workspace allows writes outside (lexical confinement; agent has a shell there).
+- B-406 landed aecf8c1ca. D-869..D-881.

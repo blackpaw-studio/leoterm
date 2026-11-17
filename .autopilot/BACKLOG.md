@@ -31,12 +31,14 @@ Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962 (4907 tests; landed 9cf0c4069). Decisions D-851..D-859.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
 
-## B-406 · Save a browser page as PDF or full-page screenshot into the workspace   [ready]
+## B-406 · Save a browser page as PDF or full-page screenshot into the workspace   [done]
 Issue: #383
 Why: Milestone 1. Lets you and agents keep a page (receipts, docs, rendered UI) next to the work.
 Accept: File ▸ Save Page as PDF… and Save Full-Page Screenshot… write into the agent's workspace (local and SFTP, tested); `browser_screenshot` gains a full-page option and both can target a workspace path; no silent overwrite (tested); screenshot of the menu and a saved file in the workspace browser
 Out: Printing to a printer; web archives. Both platforms: tool in LeoKit, Mac menu now.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39 (4950 tests; landed aecf8c1ca). Decisions D-869..D-881.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
 
 ## B-407 · Find in page in the agent browser (⌘F, ⌘G, ⌘⇧G)   [done]
 Issue: #384
