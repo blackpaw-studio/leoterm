@@ -125,7 +125,7 @@ Lane: B-406
 
 Lane: B-408
   Branch: autopilot-lane/B-408
-  Dispatched: 2026-11-17T05:50:06Z
+  Dispatched: 2026-11-17T05:51:09Z
   Base: fbc0a72cdb1584e393c07052d8148754f06e441f
   Tier: full
   State: building
@@ -161,3 +161,4 @@ Progress:
 - B-405 ready (fix 1, hard implementer, security review). Picker buttons not GUI-driven (Peekaboo clicks didn't register); SFTP covered by tests only.
 - B-405 landed 9cf0c4069. D-851..D-859.
 - Pick: B-408 full (reopen closed tab + history menus).
+- Dispatched B-408 d-a01e72312213.
