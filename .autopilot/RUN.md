@@ -46,6 +46,17 @@ Lane: B-426
   Call: After Return the bar shows the typed address while the page loads, then follows the page again — P1 Safari parity, D-928
   Call: A failed or cancelled load, or a navigation that can't start, drops the typed address and shows the page URL — P2, D-928
 
+Lane: B-427
+  Branch: autopilot-lane/B-427
+  Dispatched: 2026-11-17T21:00:09Z
+  Base: 28c44ca4f6a998c4a15098e5c2d0c8b14f6969b6
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-422 landed dcd049de7 · not visually verified
 Finished 2: B-426 landed 2e7220332 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
 
@@ -59,3 +70,4 @@ Progress:
 - Dispatched B-426 re-verify d-c334ea57ed5c.
 - B-426 re-verify 1 ready (fix 1: an old load's end dropped the typed address; delta review clean, 5027 tests, window shots). Fresh.
 - B-426 landed 2e7220332. D-937..D-939. ≈$9.19 est.
+- Pick: B-427 light bug (Give Back pill after Return; B-426 landed, no overlap left).
