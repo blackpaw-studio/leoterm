@@ -98,3 +98,4 @@ Progress:
 - B-419 re-verify ready (general delta clean, 5016 tests). Fresh.
 - B-419 landed 075ad32a2. D-925..D-928. ≈$11.23 est.
 - Pick: B-420 light bug (⌘L select-all in address field; B-419 landed, no overlap with B-421).
+- Dispatched B-420 d-62c77f54796a.
