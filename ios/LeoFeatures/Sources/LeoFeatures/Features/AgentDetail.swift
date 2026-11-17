@@ -9,6 +9,7 @@ import LeoKit
 public struct AgentDetail {
     @Reducer
     public enum Destination {
+        case browser(AgentBrowser)
         case terminal(Terminal)
     }
 
@@ -25,6 +26,10 @@ public struct AgentDetail {
         public var isLoadingEnvironments = false
         /// What the Move section offers; kept live by the parent from the daemon's features and hosts.
         public var moves = MoveAvailability.unsupported
+        /// The daemon advertises `client_tools`; kept live by the parent.
+        public var supportsBrowser = false
+        /// Settings > Agent browser on this iPhone.
+        @Shared(.agentBrowserEnabled) public var isBrowserEnabled
         /// The fleet's progress clock, kept live by the parent; task text reads this.
         public var progressClock = Date(timeIntervalSince1970: 0)
         @Presents public var alert: AlertState<Never>?
@@ -43,10 +48,15 @@ public struct AgentDetail {
         public var displayName: String { agent?.displayName ?? agentName }
         public var id: AgentRef { ref }
         public var isBusy: Bool { inFlight != nil || isLoadingEnvironments }
+        /// The Browser row: only where the daemon can relay browser calls
+        /// and the setting lets this iPhone serve them (B-305).
+        public var showsBrowser: Bool { supportsBrowser && isBrowserEnabled }
     }
 
     public enum Action {
         case alert(PresentationAction<Never>)
+        /// Pushes the agent's browser (B-305).
+        case browserButtonTapped
         /// Opens the agent's chat thread (the parent swaps the selection).
         case chatButtonTapped
         /// Swipe on a failed task: the parent asks the daemon to dismiss it.
@@ -97,6 +107,10 @@ public struct AgentDetail {
             case .confirmation, .destination:
                 return .none
 
+            case .browserButtonTapped:
+                guard state.showsBrowser else { return .none }
+                state.destination = .browser(AgentBrowser.State(agent: state.ref, machineName: state.daemon.name, displayName: state.displayName))
+                return .none
             case .terminalButtonTapped:
                 let isRunning = state.agent?.canOpenTerminal ?? false
                 state.destination = .terminal(Terminal.State(daemon: state.daemon, agentName: state.agentName, isAgentRunning: isRunning, displayName: state.displayName))

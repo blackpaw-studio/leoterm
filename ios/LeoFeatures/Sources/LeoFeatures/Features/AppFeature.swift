@@ -32,6 +32,8 @@ public struct AppFeature {
         public var hasLoadedDaemons = false
         /// Settings > Chat: when a thread's live terminal strip shows.
         @Shared(.liveTerminalMode) public var liveTerminalMode
+        /// Settings > Agent browser on this iPhone (B-305).
+        @Shared(.agentBrowserEnabled) public var isAgentBrowserEnabled
         /// A tapped notification's agent, opened once the fleet has it.
         public var pendingAgent: AgentRef?
         /// A tapped chat notification's thread, opened once its daemon is known.
@@ -46,6 +48,8 @@ public struct AppFeature {
     }
 
     public enum Action: BindableAction {
+        /// Settings > Agent browser on this iPhone.
+        case agentBrowserToggled(Bool)
         case agentTapped(AgentRef)
         case appearance(PresentationAction<AgentAppearance.Action>)
         /// Long press > Appearance. Ignored for a daemon that doesn't
@@ -87,6 +91,7 @@ public struct AppFeature {
     }
 
     @Dependency(\.chatClient) var chatClient
+    @Dependency(\.clientTools) var clientTools
     @Dependency(\.chatNotifier) var chatNotifier
     @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.pairedDaemons) var pairedDaemons
@@ -265,8 +270,15 @@ public struct AppFeature {
                     let strip: Effect<Action> = state.chat == nil
                         ? .none
                         : stripReducer.reduce(into: &state.chat!.strip, action: .scenePhaseChanged(isActive: isActive)).map { .chat(.strip($0)) }
-                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, chatTerminal, strip, pushCheck, settings)
+                    let clientTools = clientTools
+                    // Background: answer in-flight browser calls before the streams close.
+                    let browser: Effect<Action> = .run { _ in isActive ? await clientTools.resume() : await clientTools.suspend() }
+                    return .merge(fleet(.scenePhaseChanged(isActive: isActive), state: &state), terminal, chatTerminal, strip, pushCheck, settings, browser)
 
+                case .agentBrowserToggled(let isOn):
+                    state.$isAgentBrowserEnabled.withLock { $0 = isOn }
+                    let clientTools = clientTools
+                    return .run { _ in await clientTools.setEnabled(isOn) }
                 case .liveTerminalModeChanged(let mode):
                     state.$liveTerminalMode.withLock { $0 = mode }
                     return .none
@@ -276,7 +288,8 @@ public struct AppFeature {
                     return .none
 
                 case .task:
-                    return fleet(.task, state: &state)
+                    let (clientTools, isOn) = (clientTools, state.isAgentBrowserEnabled)
+                    return .merge(.run { _ in await clientTools.setEnabled(isOn) }, fleet(.task, state: &state))
 
                 case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .move, .pairing, .push:
                     return .none

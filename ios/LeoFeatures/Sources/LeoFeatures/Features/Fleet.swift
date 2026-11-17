@@ -186,6 +186,7 @@ public struct Fleet {
     /// too old to show.
     static let staleAfterMissedPolls = 3
 
+    @Dependency(\.clientTools) var clientTools
     @Dependency(\.continuousClock) var clock
     @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.progressNow) var now
@@ -223,11 +224,12 @@ public struct Fleet {
 
             case .daemonRemoved(let id):
                 state.sessions.remove(id: id)
-                let secrets = secrets
+                let (secrets, clientTools) = (secrets, clientTools)
                 return .merge(
                     .cancel(id: CancelID.connection(id)),
                     .cancel(id: CancelID.stats(id)),
                     save(state),
+                    .run { _ in await clientTools.removed(id) },
                     .run { _ in try secrets.delete(id) }
                 )
 
@@ -446,29 +448,39 @@ public struct Fleet {
         guard state.isActive, let session = state.sessions[id: id] else { return .none }
         if session.failures == 0 { state.sessions[id: id]?.connection = .connecting }
         let daemon = session.daemon
-        let (daemonClient, secrets) = (daemonClient, secrets)
+        let (daemonClient, secrets, clientTools) = (daemonClient, secrets, clientTools)
         return .run { send in
             guard let saved = try secrets.load(daemon.id) else {
                 await send(.streamEnded(id, .missingCredentials))
                 return
             }
             let connection = DaemonConnection(daemon: daemon, secrets: saved)
+            /// The agent browser follows the daemon's listing (B-305).
+            @Sendable func listed(_ snapshot: LeoObservedState) async -> LeoObservedState {
+                await clientTools.agentsListed(daemon.id, Self.statuses(snapshot))
+                return snapshot
+            }
             var lastSequence: Int?
             for try await event in daemonClient.events(connection) {
                 let sequence = event.sequence
                 if case .hello(_, _, _, _, let bootID, let features) = event {
-                    await send(.connected(id, bootID: bootID, features: LeoDaemonFeatures(features), try await daemonClient.fetchState(connection)))
+                    let advertised = LeoDaemonFeatures(features)
+                    let snapshot = try await daemonClient.fetchState(connection)
+                    await clientTools.connected(ClientToolsMachine(
+                        daemonID: daemon.id, name: daemon.name, endpoint: connection.endpoint, advertisesClientTools: advertised.contains(.clientTools)
+                    ))
+                    await send(.connected(id, bootID: bootID, features: advertised, await listed(snapshot)))
                     lastSequence = sequence
                     continue
                 }
                 if sequence >= 0, let lastSequence, sequence > lastSequence + 1 {
                     await send(.sequenceGap(id))
-                    await send(.snapshotLoaded(id, try await daemonClient.fetchState(connection)))
+                    await send(.snapshotLoaded(id, await listed(try await daemonClient.fetchState(connection))))
                 }
                 if sequence >= 0 { lastSequence = sequence }
                 await send(.eventReceived(id, event))
                 if case .agentSpawned = event {
-                    await send(.snapshotLoaded(id, try await daemonClient.fetchState(connection)))
+                    await send(.snapshotLoaded(id, await listed(try await daemonClient.fetchState(connection))))
                 }
             }
             await send(.streamEnded(id, .closed))
@@ -476,6 +488,15 @@ public struct Fleet {
             await send(.streamEnded(id, StreamEnd(error)))
         }
         .cancellable(id: CancelID.connection(id), cancelInFlight: true)
+    }
+}
+
+extension Fleet {
+    /// Each listed agent's status by name; an agent the daemon reports no
+    /// status for counts as running (only stopped or unlisted agents close
+    /// their browsers).
+    static func statuses(_ snapshot: LeoObservedState) -> [String: LeoAgentStatus] {
+        Dictionary(snapshot.agents.map { ($0.name, $0.status ?? .running) }, uniquingKeysWith: { first, _ in first })
     }
 }
 
