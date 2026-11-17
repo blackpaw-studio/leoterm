@@ -3236,3 +3236,7 @@ Source: autopilot polish (B-420)
 ## B-429 · Stopped agent's open browser pane doesn't say the agent stopped   [idea]
 Note: the pane stays calm but shows only the Idle pill, not why it's idle (P2)
 Source: autopilot polish (B-421)
+
+## B-430 · Address field keeps its text selected after Return   [idea]
+Note: the bar looks mid-edit after a navigation starts (P1 Safari parity)
+Source: autopilot polish (B-426)

@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-17T18:31:40Z
 Budget: 20 items, until 2026-11-18T06:31:40Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
+Self-filed: B-426 → B-430 idea — Address field keeps its text selected after Return
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -36,10 +37,10 @@ Lane: B-426
   Base: 8c72a4a605b90d57a55a36021ed847686a692b78
   Tier: light
   State: building
-  Fixes: 1
+  Fixes: 2
   Wip: none
   Reverifies: 1
-  Reviewed-tip: a0cb2acc6c772d7945f71efc5977b57747a22317
+  Reviewed-tip: 792fb42988b412da31b2d5496819909b3aa5b307
   Call: Mac only: AppKit pane UI, nothing in LeoKit — D-925 / AUTONOMY
   Call: After Return the bar shows the typed address while the page loads, then follows the page again — P1 Safari parity, D-928
   Call: A failed or cancelled load, or a navigation that can't start, drops the typed address and shows the page URL — P2, D-928
@@ -54,3 +55,4 @@ Progress:
 - B-422 landed dcd049de7. D-934..D-936. ≈$4.52 est.
 - B-426 ready (fix 1, general review, 5026 tests). Not visually verified: no browser-pane GUI recipe in verify.md. Calls checked vs D-925..D-931: consistent (Escape during a pending load restores the typed address — treated as the loading page's address, not a D-926 contradiction). Integration stale (B-422 landed iOS files) → re-verify round 1.
 - Dispatched B-426 re-verify d-c334ea57ed5c.
+- B-426 re-verify 1 ready (fix 1: an old load's end dropped the typed address; delta review clean, 5027 tests, window shots). Fresh.
