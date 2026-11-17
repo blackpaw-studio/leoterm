@@ -1024,3 +1024,36 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+
+## Run 2026-11-17T00:10:08Z
+
+🛠 leoterm autopilot — 10 shipped, 0 blocked
+Shipped
+• B-413 Sidebar attention indicator (verified: screenshot) · full
+• B-404 Browser downloads into the workspace (verified: screenshot) · full
+• B-407 Find in page, ⌘F/⌘G (verified: screenshot) · full
+• B-405 File uploads from the workspace (verified: screenshot) · full
+• B-408 Closed-tab stack + History menu (screen capture, not attached) · full
+• B-406 Save page as PDF / full-page PNG (verified: screenshot) · full
+• B-409 Open in Default Browser, Copy URL, Clear Site Data (verified: screenshot) · full
+• B-410 Camera/mic/location prompts ask you (verified: screenshot) · full
+• B-411 browser_hover / select_option / drag tools (verified: screenshot) · full
+• B-412 JS dialogs shown to you and agents, browser_dialog (verified: screenshot) · full
+• B-407 built before B-405/B-406 (independent)
+Calls I made — reply "veto D-0xx" to undo (D-822..D-916)
+• D-899 hidden tab may keep a grant you allowed (no capture mute) — AC scope
+• D-882 ⌥⌘O/⇧⌘C/⇧⌘⌫ only with pane focus — P1
+• D-909 dialog bar buttons have no key equivalents — P1
+Needs you
+• Verifier incidents: B-413 click attached your real `assistant` (tmux resized 66x28 — check it); B-407 Return started autopilot-scratch (stopped)
+• P1 bug not filed (cap full): browser_press Escape/Enter reach the terminal, not the page
+• Old lanes left: B-058 held; B-233, B-332 unlanded; B-368 dirty. Untracked: default.profraw scratchpad/
+Ideas parked: B-058, B-180, B-181, B-182, B-184 +84 more
+Self-filed: B-419/B-420/B-421 bugs; B-414..B-418 ideas; 19 dropped (1 dup of B-419, 18 over cap)
+Next up: B-305
+Spend (estimated, lower bound · prices 2026-10-09): ≈$182.50 est.
+Interim updates: 1 posted, through item 5
+Board sync: 1 failure (B-411, GitHub timeout)
+Review: /autopilot-review leoterm
+Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
