@@ -94,6 +94,9 @@ final class LeoBrowserDownloadStrip: NSView {
 
         row.setViews([icon, label, progressBar, dismissButton], in: .leading)
         row.orientation = .horizontal
+        // The label takes the slack, so the close button sits at the
+        // trailing edge however short the line is.
+        row.distribution = .fill
         row.alignment = .centerY
         row.spacing = 8
         row.edgeInsets = Self.insets
