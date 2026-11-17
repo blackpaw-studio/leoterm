@@ -52,7 +52,7 @@ Lane: B-404
 
 Lane: B-407
   Branch: autopilot-lane/B-407
-  Dispatched: 2026-11-17T01:46:06Z
+  Dispatched: 2026-11-17T01:47:05Z
   Base: f1d8748307b0d94bbe67e579c7cc99f257c28564
   Tier: full
   State: building
@@ -70,3 +70,4 @@ Progress:
 - B-413 ready (fix 1). INCIDENT: first verify's GUI click on the pill attached Evan's real `assistant` agent (resized its tmux to 66x28 while attached); verifier detached+quit. Root cause fixed (pill exempt from row click monitor). Flag in digest.
 - B-413 landed dd5910e72. D-822..D-831.
 - Pick: B-407 full (find bar feature). B-407 built before B-405, B-406 (independent; those share B-404's workspace file-backend footprint).
+- Dispatched B-407 d-97db0ebeb9a4.
