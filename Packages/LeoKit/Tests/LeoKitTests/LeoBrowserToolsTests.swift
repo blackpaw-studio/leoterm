@@ -7,7 +7,7 @@ struct LeoBrowserToolsTests {
     @Test func declaresEveryToolInTheSpecTable() {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
-            "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
+            "browser_hover", "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
             "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
             "browser_handoff",
         ])
@@ -18,6 +18,19 @@ struct LeoBrowserToolsTests {
         for tool in LeoBrowserTools.definitions {
             #expect(tool.timeoutSeconds == expected[tool.name, default: 30], "\(tool.name)")
         }
+    }
+
+    @Test func pointerToolsAddressElementsByRefLikeClick() throws {
+        func definition(_ name: String) throws -> LeoClientToolDefinition { try #require(LeoBrowserTools.definitions.first { $0.name == name }) }
+        func schema(_ name: String) throws -> [String: LeoJSONValue] { try #require(try definition(name).inputSchema.objectValue) }
+        func properties(_ name: String) throws -> [String: LeoJSONValue] { try #require(try schema(name)["properties"]?.objectValue) }
+
+        let hover = try definition("browser_hover")
+        #expect(try schema("browser_hover")["required"] == .array([.string("ref")]))
+        #expect(try properties("browser_hover")["ref"] != nil)
+        #expect(try properties("browser_hover")["tab"] != nil)
+        #expect(hover.description.contains("by ref from the latest snapshot"))
+        #expect(hover.description.hasPrefix("Leo app browser: "))
     }
 
     @Test func uploadTakesARefAndAListOfWorkspacePaths() throws {

@@ -342,6 +342,16 @@ import WebKit
         }
     }
 
+    /// Moves the pointer onto the centre of `ref`'s element with a real
+    /// mouse-move event and leaves it there.
+    func hover(ref: String) async throws {
+        try await driving {
+            try requireWindow()
+            let point = try await locate(ref: ref)
+            try await deliver(input.hover(at: point, in: webView))
+        }
+    }
+
     /// Focuses `ref`'s element and types `text` over its contents with real
     /// key events; `submit` then presses Enter.
     func type(ref: String, text: String, submit: Bool) async throws {

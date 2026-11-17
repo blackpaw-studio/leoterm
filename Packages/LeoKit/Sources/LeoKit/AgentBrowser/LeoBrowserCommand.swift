@@ -30,6 +30,8 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             self.init(tab: try reader.tab(), action: .snapshot)
         case "browser_click":
             self.init(tab: try reader.tab(), action: .click(ref: try reader.requiredString("ref")))
+        case "browser_hover":
+            self.init(tab: try reader.tab(), action: .hover(ref: try reader.requiredString("ref")))
         case "browser_type":
             self.init(tab: try reader.tab(), action: .type(
                 ref: try reader.requiredString("ref"), text: try reader.requiredString("text", allowEmpty: true),
@@ -150,6 +152,8 @@ public enum LeoBrowserAction: Equatable, Sendable {
     case reload
     case snapshot
     case click(ref: String)
+    /// Moves the pointer over the element for `ref`, leaving it there.
+    case hover(ref: String)
     case type(ref: String, text: String, submit: Bool)
     /// Sets workspace files, as given, on the file input for `ref`.
     case upload(ref: String, paths: [String])
@@ -178,7 +182,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .click, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
+        case .navigate, .back, .forward, .reload, .click, .hover, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
         case .snapshot, .screenshot, .pdf, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }

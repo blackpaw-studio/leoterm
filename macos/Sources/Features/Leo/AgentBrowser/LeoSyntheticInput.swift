@@ -74,14 +74,30 @@ extension LeoSyntheticKey {
 
     /// Hover, press and release at `point` in `view`'s coordinates.
     func click(at point: CGPoint, in view: NSView) -> [NSEvent] {
-        let location = view.convert(point, to: nil)
-        let windowNumber = view.window?.windowNumber ?? 0
-        return [NSEvent.EventType.mouseMoved, .leftMouseDown, .leftMouseUp].compactMap { type in
-            NSEvent.mouseEvent(
-                with: type, location: location, modifierFlags: [], timestamp: nextTimestamp(),
-                windowNumber: windowNumber, context: nil, eventNumber: nextEventNumber(),
-                clickCount: type == .mouseMoved ? 0 : 1, pressure: type == .leftMouseDown ? 1 : 0)
+        [NSEvent.EventType.mouseMoved, .leftMouseDown, .leftMouseUp].compactMap { type in
+            mouseEvent(type, at: point, in: view)
         }
+    }
+
+    /// Moves the pointer to `point` in `view`'s coordinates: one mouse move.
+    ///
+    /// It is a `leftMouseDragged` event, though no button is down. WebKit
+    /// runs a plain `mouseMoved` through a full hover hit test only while
+    /// the page's window is key, and a parked tab's window never is, so
+    /// the page would get no events and no `:hover`. An event that
+    /// carries a button always gets one, and with no earlier mouse-down
+    /// WebKit takes it for a plain move: the page sees trusted
+    /// `pointerover`, `mouseover`, `mouseenter`, `pointermove` and
+    /// `mousemove` (button 0, buttons 0), and its `:hover` rules apply.
+    func hover(at point: CGPoint, in view: NSView) -> [NSEvent] {
+        [mouseEvent(.leftMouseDragged, at: point, in: view)].compactMap { $0 }
+    }
+
+    private func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in view: NSView) -> NSEvent? {
+        NSEvent.mouseEvent(
+            with: type, location: view.convert(point, to: nil), modifierFlags: [], timestamp: nextTimestamp(),
+            windowNumber: view.window?.windowNumber ?? 0, context: nil, eventNumber: nextEventNumber(),
+            clickCount: type == .mouseMoved || type == .leftMouseDragged ? 0 : 1, pressure: type == .leftMouseDown ? 1 : 0)
     }
 
     /// Down and up for `key`; nil when it names no key.
@@ -137,6 +153,7 @@ extension LeoSyntheticKey {
         case .mouseMoved: view.mouseMoved(with: event)
         case .leftMouseDown: view.mouseDown(with: event)
         case .leftMouseUp: view.mouseUp(with: event)
+        case .leftMouseDragged: view.mouseDragged(with: event)
         case .keyDown: view.keyDown(with: event)
         case .keyUp: view.keyUp(with: event)
         default: break

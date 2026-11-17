@@ -107,6 +107,8 @@ public final class LeoBrowserExecutor {
             return [.text(try await page.snapshot())]
         case .click(let ref):
             try await page.click(ref: ref)
+        case .hover(let ref):
+            try await page.hover(ref: ref)
         case .type(let ref, let text, let submit):
             try await page.type(ref: ref, text: text, submit: submit)
         case .upload(let ref, let paths):

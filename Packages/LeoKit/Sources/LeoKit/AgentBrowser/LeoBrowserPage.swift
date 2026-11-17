@@ -70,6 +70,11 @@ public protocol LeoBrowserPage: AnyObject {
     /// events. Throws `stale_ref` when the ref is not in the current snapshot.
     func click(ref: String) async throws
 
+    /// Scrolls the element for `ref` into view and moves the pointer onto it
+    /// with a real mouse-move event, leaving the pointer there. Throws
+    /// `stale_ref` like `click`.
+    func hover(ref: String) async throws
+
     /// Focuses the element for `ref` and types `text` with real key events,
     /// then presses Enter when `submit` is true. Throws `stale_ref` like `click`.
     func type(ref: String, text: String, submit: Bool) async throws

@@ -98,6 +98,27 @@
     "timeout_s" : 30
   },
   {
+    "description" : "Leo app browser: Hover the pointer over an element by ref from the latest snapshot. The element is scrolled into view and the page gets real mouse-move events (its :hover styles, hover menus and tooltips apply) until the pointer moves away; use it before browser_snapshot to read a hover menu.",
+    "input_schema" : {
+      "properties" : {
+        "ref" : {
+          "description" : "Element ref from browser_snapshot.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "ref"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_hover",
+    "timeout_s" : 30
+  },
+  {
     "description" : "Leo app browser: Type text into an element by ref from the latest snapshot.",
     "input_schema" : {
       "properties" : {

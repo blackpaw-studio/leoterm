@@ -30,6 +30,8 @@ public enum LeoBrowserTools {
         tool("browser_snapshot", "Read the page as a text tree of roles, names and values with a ref (e.g. e12) on each visible interactive element. Refs stay valid until the next snapshot or navigation in that tab.", [:]),
         tool("browser_click", "Click an element by ref from the latest snapshot.",
              ["ref": string("Element ref from browser_snapshot.")], required: ["ref"]),
+        tool("browser_hover", "Hover the pointer over an element by ref from the latest snapshot. The element is scrolled into view and the page gets real mouse-move events (its :hover styles, hover menus and tooltips apply) until the pointer moves away; use it before browser_snapshot to read a hover menu.",
+             ["ref": string("Element ref from browser_snapshot.")], required: ["ref"]),
         tool("browser_type", "Type text into an element by ref from the latest snapshot.",
              ["ref": string("Element ref from browser_snapshot."), "text": string("Text to type."),
               "submit": boolean("Press Enter after typing.")], required: ["ref", "text"]),

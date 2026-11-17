@@ -105,6 +105,21 @@ struct LeoBrowserExecutorTests {
         #expect(h.page.calls == ["click e1", "type e2 hi submit=true", "press meta+a"])
     }
 
+    @Test func hoverMapsToAPageCallAndReportsOk() async {
+        let h = harness()
+        #expect(texts(await run(h, "browser_hover", ["ref": .string("e1")])) == ["ok"])
+        #expect(h.page.calls == ["hover e1"])
+    }
+
+    @Test func aStaleRefFromAPointerToolComesBackAsStaleRef() async {
+        let h = harness()
+        h.page.error = LeoBrowserError.staleRef("e9")
+        let outcome = await run(h, "browser_hover", ["ref": .string("e9")])
+        #expect(errorCode(outcome) == "stale_ref")
+        guard case .failure(let error) = outcome else { return }
+        #expect(error.message == LeoBrowserError.staleRef("e9").message)
+    }
+
     @Test func screenshotReturnsAPNGImageBlock() async throws {
         let h = harness()
         h.page.screenshotData = Data([0x89, 0x50, 0x4E, 0x47])
@@ -369,7 +384,7 @@ struct LeoBrowserExecutorTests {
         h.control.send(.userInput)
         let calls: [(String, [String: LeoJSONValue])] = [
             ("browser_navigate", ["url": .string("https://a.test/")]), ("browser_back", [:]), ("browser_forward", [:]),
-            ("browser_reload", [:]), ("browser_click", ["ref": .string("e1")]),
+            ("browser_reload", [:]), ("browser_click", ["ref": .string("e1")]), ("browser_hover", ["ref": .string("e1")]),
             ("browser_type", ["ref": .string("e1"), "text": .string("x")]), ("browser_press", ["key": .string("Enter")]),
             ("browser_eval", ["js": .string("1")]), ("browser_tab_new", [:]), ("browser_tab_select", ["tab": .int(1)]),
             ("browser_tab_close", ["tab": .int(1)]), ("browser_user_agent", ["user_agent": .string("x")]),
@@ -773,6 +788,7 @@ private final class FakePage: LeoBrowserPage {
     }
 
     func click(ref: String) async throws { try record("click \(ref)") }
+    func hover(ref: String) async throws { try record("hover \(ref)") }
 
     var fileInputResult = LeoBrowserFileInput(allowsMultiple: false)
     var uploaded: [LeoBrowserUploadFile] = []
