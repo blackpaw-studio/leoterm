@@ -98,6 +98,84 @@
     "timeout_s" : 30
   },
   {
+    "description" : "Leo app browser: Hover the pointer over an element by ref from the latest snapshot. The element is scrolled into view and the page gets real mouse-move events (its :hover styles, hover menus and tooltips apply) until the pointer moves away; use it before browser_snapshot to read a hover menu.",
+    "input_schema" : {
+      "properties" : {
+        "ref" : {
+          "description" : "Element ref from browser_snapshot.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "ref"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_hover",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Leo app browser: Choose options in a <select> element by ref from the latest snapshot (a combobox, or a listbox that is [multiple]), as if the user had picked them; the page gets its input and change events. Each of values is matched against an option's value first, then its label. Pass one value, or several only for a [multiple] select, which then holds exactly those options and none other. Returns the selected options as {value, label}. A custom dropdown is not a <select>: use browser_click on it, then on an option.",
+    "input_schema" : {
+      "properties" : {
+        "ref" : {
+          "description" : "Element ref from browser_snapshot: the <select>.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        },
+        "values" : {
+          "description" : "Option values or labels to select.",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 100,
+          "minItems" : 1,
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "ref",
+        "values"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_select_option",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Leo app browser: Drag one element onto another, by refs from the latest snapshot: press on the start element, move to the end element and let go, for sortable lists, sliders, drag handles and drop zones. The start element is scrolled into view. An HTML5 draggable one (draggable=\"true\", a link or an image) gets the drag events (dragstart, drag, dragenter, dragover, then drop only when the page accepts the drop by cancelling dragover, else dragleave, and dragend); any other element gets real mouse events (pointerdown, mousedown, several moves, then pointerup and mouseup) from its centre to the other's centre; their `buttons` reads 0, because the browser takes it from the physical mouse. Never drops files.",
+    "input_schema" : {
+      "properties" : {
+        "end_ref" : {
+          "description" : "Element ref from browser_snapshot: where to drop it.",
+          "type" : "string"
+        },
+        "start_ref" : {
+          "description" : "Element ref from browser_snapshot: what to pick up.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "start_ref",
+        "end_ref"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_drag",
+    "timeout_s" : 30
+  },
+  {
     "description" : "Leo app browser: Type text into an element by ref from the latest snapshot.",
     "input_schema" : {
       "properties" : {

@@ -179,9 +179,14 @@ import WebKit
             let x = box["x"] as? Double, let y = box["y"] as? Double,
             let width = box["width"] as? Double, let height = box["height"] as? Double
         else { throw LeoBrowserError.staleRef(ref) }
+        return viewPoint(x: x + width / 2, y: y + height / 2)
+    }
+
+    /// A point in viewport (CSS) pixels as the web view's coordinates.
+    private func viewPoint(x: Double, y: Double) -> CGPoint {
         let zoom = webView.pageZoom
-        let center = CGPoint(x: (x + width / 2) * zoom, y: (y + height / 2) * zoom)
-        return webView.isFlipped ? center : CGPoint(x: center.x, y: webView.bounds.height - center.y)
+        let point = CGPoint(x: x * zoom, y: y * zoom)
+        return webView.isFlipped ? point : CGPoint(x: point.x, y: webView.bounds.height - point.y)
     }
 
     /// Evaluates `js` in the page's own world and returns the result as JSON
@@ -316,7 +321,7 @@ import WebKit
 
     /// The file input `ref` resolves to.
     func fileInput(ref: String) async throws -> LeoBrowserFileInput {
-        let result = try await runOnFileInput(LeoBrowserScripts.fileInput, ref: ref, [:])
+        let result = try await runOnRef(LeoBrowserScripts.fileInput, ref: ref, [:])
         return LeoBrowserFileInput(allowsMultiple: result["multiple"] as? Bool ?? false)
     }
 
@@ -324,15 +329,79 @@ import WebKit
     /// the bytes travel as base64.
     func setFiles(ref: String, files: [LeoBrowserUploadFile]) async throws {
         let payload = files.map { ["name": $0.name, "type": $0.mimeType, "data": $0.data.base64EncodedString()] }
-        _ = try await runOnFileInput(LeoBrowserScripts.setFiles, ref: ref, ["files": payload])
+        _ = try await runOnRef(LeoBrowserScripts.setFiles, ref: ref, ["files": payload])
     }
 
-    private func runOnFileInput(_ script: String, ref: String, _ arguments: [String: Any]) async throws -> [String: Any] {
+    private func runOnRef(_ script: String, ref: String, _ arguments: [String: Any]) async throws -> [String: Any] {
         guard Self.generation(of: ref) == generation else { throw LeoBrowserError.staleRef(ref) }
         let result = try await run(script, arguments.merging(["ref": ref]) { $1 }, in: Self.agentWorld) as? [String: Any]
         guard let result, result["stale"] == nil else { throw LeoBrowserError.staleRef(ref) }
         if let message = result["error"] as? String { throw LeoBrowserError.invalidArgs(message) }
         return result
+    }
+
+    // MARK: Drag
+
+    /// How many moves a pointer drag takes from the start to the end.
+    static let dragSteps = 8
+
+    /// Drags `startRef`'s element onto `endRef`'s. An HTML5-draggable source
+    /// gets script drag events: a native drag would start a drag session
+    /// that follows the user's cursor. Anything else gets a real press,
+    /// moves with the button down and a release; the button is released
+    /// even if the call is cancelled or fails part-way.
+    func drag(startRef: String, endRef: String) async throws {
+        try await driving {
+            try requireWindow()
+            let refs = ["startRef": startRef, "endRef": endRef]
+            for ref in [startRef, endRef] where Self.generation(of: ref) != generation { throw LeoBrowserError.staleRef(ref) }
+            let source = try await runOnDragRefs(LeoBrowserScripts.dragSource, refs)
+            guard
+                let x = source["x"] as? Double, let y = source["y"] as? Double, let isHTML5 = source["html5"] as? Bool
+            else { throw LeoBrowserError.staleRef(startRef) }
+            guard startRef != endRef else { return }
+            if isHTML5 {
+                _ = try await runOnDragRefs(LeoBrowserScripts.html5Drag, refs)
+            } else {
+                try await pointerDrag(from: viewPoint(x: x, y: y), endRef: endRef)
+            }
+        }
+    }
+
+    private func runOnDragRefs(_ script: String, _ refs: [String: String]) async throws -> [String: Any] {
+        let result = try await run(script, refs, in: Self.agentWorld) as? [String: Any]
+        guard let result else { throw LeoBrowserError.javaScript("The drag script returned nothing.") }
+        if let ref = result["stale"] as? String { throw LeoBrowserError.staleRef(ref) }
+        if let message = result["error"] as? String { throw LeoBrowserError.invalidArgs(message) }
+        return result
+    }
+
+    private func pointerDrag(from start: CGPoint, endRef: String) async throws {
+        var last = start
+        do {
+            try await deliver(input.mouseDown(at: start, in: webView))
+            // The end can need scrolling, so it is located once the button is down.
+            let end = try await locate(ref: endRef)
+            try await deliver(input.dragMoves(from: start, to: end, steps: Self.dragSteps, in: webView))
+            last = end
+            try await deliver(input.mouseUp(at: end, in: webView))
+        } catch {
+            input.deliverImmediately(input.mouseUp(at: last, in: webView), to: webView)
+            throw error
+        }
+    }
+
+    // MARK: Select options
+
+    /// Selects the options `values` name in the `<select>` `ref` resolves
+    /// to, from Leo's world, and reports the ones it ends with.
+    func selectOption(ref: String, values: [String]) async throws -> [LeoBrowserSelectedOption] {
+        let result = try await runOnRef(LeoBrowserScripts.selectOption, ref: ref, ["values": values])
+        let selected = result["selected"] as? [[String: Any]] ?? []
+        return selected.compactMap { entry in
+            guard let value = entry["value"] as? String, let label = entry["label"] as? String else { return nil }
+            return LeoBrowserSelectedOption(value: value, label: label)
+        }
     }
 
     // MARK: Input
@@ -343,6 +412,16 @@ import WebKit
             try requireWindow()
             let point = try await locate(ref: ref)
             try await deliver(input.click(at: point, in: webView))
+        }
+    }
+
+    /// Moves the pointer onto the centre of `ref`'s element with a real
+    /// mouse-move event and leaves it there.
+    func hover(ref: String) async throws {
+        try await driving {
+            try requireWindow()
+            let point = try await locate(ref: ref)
+            try await deliver(input.hover(at: point, in: webView))
         }
     }
 

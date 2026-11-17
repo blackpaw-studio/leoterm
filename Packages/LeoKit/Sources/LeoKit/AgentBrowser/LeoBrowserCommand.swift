@@ -30,6 +30,12 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             self.init(tab: try reader.tab(), action: .snapshot)
         case "browser_click":
             self.init(tab: try reader.tab(), action: .click(ref: try reader.requiredString("ref")))
+        case "browser_hover":
+            self.init(tab: try reader.tab(), action: .hover(ref: try reader.requiredString("ref")))
+        case "browser_select_option":
+            self.init(tab: try reader.tab(), action: .selectOption(ref: try reader.requiredString("ref"), values: try Self.selectValues(reader)))
+        case "browser_drag":
+            self.init(tab: try reader.tab(), action: .drag(startRef: try reader.requiredString("start_ref"), endRef: try reader.requiredString("end_ref")))
         case "browser_type":
             self.init(tab: try reader.tab(), action: .type(
                 ref: try reader.requiredString("ref"), text: try reader.requiredString("text", allowEmpty: true),
@@ -77,6 +83,9 @@ public struct LeoBrowserCommand: Equatable, Sendable {
     /// The longest `browser_wait` the page honours, in milliseconds.
     public static let maximumWaitMilliseconds = 25_000
 
+    /// The most values one `browser_select_option` takes.
+    public static let maximumSelectValues = 100
+
     /// The most files one `browser_upload` sets.
     public static let maximumUploadFiles = 20
 
@@ -110,6 +119,16 @@ public struct LeoBrowserCommand: Equatable, Sendable {
         guard let path = try reader.string("path") else { return nil }
         try LeoBrowserCapturePath.validate(path, kind: kind)
         return path
+    }
+
+    /// `values`: 1 to `maximumSelectValues` strings; an empty one is a real
+    /// option value, so blanks stay.
+    private static func selectValues(_ reader: LeoBrowserArgs) throws -> [String] {
+        guard let values = try reader.stringArray("values"), !values.isEmpty else {
+            throw LeoBrowserError.invalidArgs("values is required: at least one option value or label")
+        }
+        guard values.count <= maximumSelectValues else { throw LeoBrowserError.invalidArgs("values takes at most \(maximumSelectValues) options") }
+        return values
     }
 
     /// `paths`: 1 to `maximumUploadFiles` non-blank strings without NUL.
@@ -166,6 +185,14 @@ public enum LeoBrowserAction: Equatable, Sendable {
     case reload
     case snapshot
     case click(ref: String)
+    /// Moves the pointer over the element for `ref`, leaving it there.
+    case hover(ref: String)
+    /// Selects the options of the `<select>` for `ref` whose value or label
+    /// is each of `values`.
+    case selectOption(ref: String, values: [String])
+    /// Presses on the element for `startRef`, moves to the element for
+    /// `endRef` and releases.
+    case drag(startRef: String, endRef: String)
     case type(ref: String, text: String, submit: Bool)
     /// Sets workspace files, as given, on the file input for `ref`.
     case upload(ref: String, paths: [String])
@@ -197,7 +224,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// screenshot does: WebKit draws it in the page's own process.
     public var needsPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .snapshot, .click, .type, .upload, .press, .screenshot, .pdf, .wait(.text), .eval, .setUserAgent: true
+        case .navigate, .back, .forward, .reload, .snapshot, .click, .hover, .selectOption, .drag, .type, .upload, .press, .screenshot, .pdf, .wait(.text), .eval, .setUserAgent: true
         case .wait(.milliseconds), .console, .tabs, .tabNew, .tabSelect, .tabClose, .downloads, .handoff, .dialog: false
         }
     }
@@ -206,7 +233,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .click, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent, .dialog: true
+        case .navigate, .back, .forward, .reload, .click, .hover, .selectOption, .drag, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent, .dialog: true
         case .snapshot, .screenshot, .pdf, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }

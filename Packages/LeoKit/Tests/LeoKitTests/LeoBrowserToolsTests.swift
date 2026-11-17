@@ -7,7 +7,7 @@ struct LeoBrowserToolsTests {
     @Test func declaresEveryToolInTheSpecTable() {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
-            "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
+            "browser_hover", "browser_select_option", "browser_drag", "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
             "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
             "browser_handoff", "browser_dialog",
         ])
@@ -35,6 +35,40 @@ struct LeoBrowserToolsTests {
         let expected = ["browser_handoff": 0, "browser_upload": 120]
         for tool in LeoBrowserTools.definitions {
             #expect(tool.timeoutSeconds == expected[tool.name, default: 30], "\(tool.name)")
+        }
+    }
+
+    @Test func pointerToolsAddressElementsByRefLikeClick() throws {
+        func definition(_ name: String) throws -> LeoClientToolDefinition { try #require(LeoBrowserTools.definitions.first { $0.name == name }) }
+        func schema(_ name: String) throws -> [String: LeoJSONValue] { try #require(try definition(name).inputSchema.objectValue) }
+        func properties(_ name: String) throws -> [String: LeoJSONValue] { try #require(try schema(name)["properties"]?.objectValue) }
+
+        let hover = try definition("browser_hover")
+        #expect(try schema("browser_hover")["required"] == .array([.string("ref")]))
+        #expect(try properties("browser_hover")["ref"] != nil)
+        #expect(try properties("browser_hover")["tab"] != nil)
+        #expect(hover.description.contains("by ref from the latest snapshot"))
+        #expect(hover.description.hasPrefix("Leo app browser: "))
+
+        let select = try definition("browser_select_option")
+        #expect(try schema("browser_select_option")["required"] == .array([.string("ref"), .string("values")]))
+        #expect(try properties("browser_select_option")["tab"] != nil)
+        let values = try #require(try properties("browser_select_option")["values"]?.objectValue)
+        #expect(values["type"] == .string("array"))
+        #expect(values["items"] == .object(["type": .string("string")]))
+        #expect(values["minItems"] == .int(1))
+        #expect(values["maxItems"] == .int(LeoBrowserCommand.maximumSelectValues))
+        #expect(select.description.hasPrefix("Leo app browser: "))
+
+        let drag = try definition("browser_drag")
+        #expect(try schema("browser_drag")["required"] == .array([.string("start_ref"), .string("end_ref")]))
+        #expect(try properties("browser_drag")["tab"] != nil)
+        #expect(drag.description.hasPrefix("Leo app browser: "))
+        for phrase in ["by refs from the latest snapshot", "draggable", "dragstart", "drop", "mouse events"] {
+            #expect(drag.description.contains(phrase), "\(phrase)")
+        }
+        for phrase in ["by ref from the latest snapshot", "<select>", "value", "label", "[multiple]", "browser_click"] {
+            #expect(select.description.contains(phrase), "\(phrase)")
         }
     }
 

@@ -22,6 +22,10 @@ struct LeoBrowserCommandTests {
         #expect(try decode("browser_reload").action == .reload)
         #expect(try decode("browser_snapshot").action == .snapshot)
         #expect(try decode("browser_click", ["ref": .string("e3")]).action == .click(ref: "e3"))
+        #expect(try decode("browser_hover", ["ref": .string("e3")]).action == .hover(ref: "e3"))
+        #expect(try decode("browser_drag", ["start_ref": .string("e1"), "end_ref": .string("e2")]).action == .drag(startRef: "e1", endRef: "e2"))
+        #expect(try decode("browser_select_option", ["ref": .string("e3"), "values": .array([.string("a"), .string("")])]).action
+            == .selectOption(ref: "e3", values: ["a", ""]))
         #expect(try decode("browser_type", ["ref": .string("e3"), "text": .string("hi")]).action == .type(ref: "e3", text: "hi", submit: false))
         #expect(try decode("browser_type", ["ref": .string("e3"), "text": .string("hi"), "submit": .bool(true)]).action == .type(ref: "e3", text: "hi", submit: true))
         #expect(try decode("browser_press", ["key": .string("Meta+a")]).action == .press(try #require(LeoBrowserKeyCombo("Meta+a"))))
@@ -107,6 +111,21 @@ struct LeoBrowserCommandTests {
         invalidArgs("browser_click")
         invalidArgs("browser_click", ["ref": .string("")])
         invalidArgs("browser_click", ["ref": .int(3)])
+        invalidArgs("browser_select_option", ["values": .array([.string("a")])])
+        invalidArgs("browser_select_option", ["ref": .string("e1")])
+        invalidArgs("browser_select_option", ["ref": .string("e1"), "values": .array([])])
+        invalidArgs("browser_select_option", ["ref": .string("e1"), "values": .string("a")])
+        invalidArgs("browser_select_option", ["ref": .string("e1"), "values": .array([.string("a"), .int(1)])])
+        invalidArgs("browser_select_option", [
+            "ref": .string("e1"), "values": .array(Array(repeating: .string("a"), count: LeoBrowserCommand.maximumSelectValues + 1)),
+        ])
+        invalidArgs("browser_drag", ["end_ref": .string("e2")])
+        invalidArgs("browser_drag", ["start_ref": .string("e1")])
+        invalidArgs("browser_drag", ["start_ref": .string(""), "end_ref": .string("e2")])
+        invalidArgs("browser_drag", ["start_ref": .string("e1"), "end_ref": .int(2)])
+        invalidArgs("browser_hover")
+        invalidArgs("browser_hover", ["ref": .string("")])
+        invalidArgs("browser_hover", ["ref": .int(3)])
         invalidArgs("browser_navigate")
         invalidArgs("browser_type", ["ref": .string("e1")])
         invalidArgs("browser_type", ["text": .string("x")])
@@ -202,7 +221,7 @@ struct LeoBrowserCommandTests {
     @Test func mutatingFlagMarksTheActionsThatChangeThePage() throws {
         let mutating: Set<String> = [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_click", "browser_type",
-            "browser_press", "browser_eval", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent",
+            "browser_hover", "browser_select_option", "browser_drag", "browser_press", "browser_eval", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent",
             "browser_upload", "browser_dialog",
         ]
         for tool in LeoBrowserTools.definitions.map(\.name) {
@@ -214,6 +233,9 @@ struct LeoBrowserCommandTests {
     static let sampleArgs: [String: [String: LeoJSONValue]] = [
         "browser_navigate": ["url": .string("https://a.test")],
         "browser_click": ["ref": .string("e1")],
+        "browser_hover": ["ref": .string("e1")],
+        "browser_drag": ["start_ref": .string("e1"), "end_ref": .string("e2")],
+        "browser_select_option": ["ref": .string("e1"), "values": .array([.string("a")])],
         "browser_type": ["ref": .string("e1"), "text": .string("x")],
         "browser_press": ["key": .string("Enter")],
         "browser_wait": ["ms": .int(1)],

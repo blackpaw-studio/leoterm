@@ -220,22 +220,42 @@ Lane: B-411
   Dispatched: 2026-11-17T09:35:44Z
   Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
   Tier: full
-  State: building
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 52ac058bbd636fda869c8f57b3cdb6b949b3de17
+  Tokens: 52.6M in (51.7M cache read), ≥184k out, 325 requests
+  Call: New tools browser_hover (ref), browser_select_option (ref, values), browser_drag (start_ref, end_ref), snapshot refs, B-307 wording — D-759
+  Call: All three gated by changesPage: user_has_control while the user drives; stale refs → stale_ref — D-762, D-860..D-868, P2
+  Call: Hover sent as native leftMouseDragged with no mouse-down (WebKit drops mouseMoved for a non-key window)
+  Call: Select is JS-only: matches value then label, fires input then change, returns {value,label}; 1..100 values, no deselect-all
+  Call: Drag: script DragEvents with shared DataTransfer for HTML5-draggable sources; otherwise native press, 8 moves, release (release sent on cancel/failure)
+  Call: Schemas, scripts, parsing and executor in LeoKit; native events Mac only; iOS wiring deferred to B-305
+  Call: Accepted: drag returns ok even if the target refuses the drop; native drag moves report buttons == 0 (documented in the tool description)
 
 Lane: B-412
   Branch: autopilot-lane/B-412
-  Dispatched: 2026-11-17T10:24:49Z
+  Dispatched: 2026-11-17T12:24:47Z
   Base: f97fcfff2fafe3c4d32dd64a43570caac38efc16
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 370570572a151b4c57fb5efc707d1ff0314101ff
+  Call: In-pane dialog bar under the permission bar; no sheet, no new sidebar state — D-890, P2
+  Call: Bar buttons have no key equivalents; Return in a prompt field = OK, Escape = Cancel; alert OK only, confirm/prompt Cancel+OK, beforeunload Stay on Page / Leave Page — P1
+  Call: browser_dialog {action: accept|dismiss, text?, tab?}, follows user_has_control; text only with accept on a prompt (else invalid_args) — D-759, D-762
+  Call: browser_dialog skips the serial gate; any other call that triggers a dialog returns at once with it
+  Call: Agent sees dialog_open on page tools, the pending dialog in browser_tabs, and a one-time dialog_handled note when the user answered first (never what the user typed)
+  Call: No auto-answer: hidden tab's dialog stays pending; withdrawn on tab close, teardown, process death or committed navigation; a second concurrent dialog in a tab is dismissed at once
+  Call: beforeunload via WebKit private selector; generic 'Leave this page?' text for both sides
+  Call: Page dialog text capped at 1,000 chars and JSON-quoted for the agent
+  Call: While a dialog is pending, only tabs/downloads/console/tab_new/select/close/wait/dialog are allowed; screenshot and user_agent blocked
+  Call: An agent's answer applies only to a dialog it was shown; unseen ones are described via dialog_open and left pending — fix round 1
+  Call: Desk, tool and executor in LeoKit; WebKit glue and bar Mac only; iOS UI deferred to B-305 (must conform to LeoBrowserTabs.dialogs) — D-879, D-900
+  Call: Accepted: a call ending early on a dialog leaves its page work running and drops the result (30 s daemon timeout covers it)
 
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
@@ -251,6 +271,7 @@ Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/
 
 Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 Finished 8: B-410 landed 8017ffba3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
+Finished 9: B-411 landed f0f75a9f3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-411-2.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
