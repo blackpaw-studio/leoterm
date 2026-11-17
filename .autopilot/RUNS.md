@@ -1092,3 +1092,31 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board sync: 1 failure (B-404 network timeout at preflight; see RUN.md)
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-17T18:31:40Z
+
+🛠 leoterm autopilot — 2 fixed, 0 shipped, 1 blocked
+Fixed
+• B-422 Hosted iOS test host crash on PushCleanupClient.load — launch/scene-phase sends are gated under the XCTest host only; mutation check reproduces the crash (verified: not visually verified, no UI change) · light
+• B-426 Address bar shows the old URL after Return — the bar keeps the typed address while the page loads; failed/cancelled loads fall back to the page URL (verified: screenshot) · light
+Nothing shipped: the ready queue held only bugs.
+Calls I made — reply "veto D-0xx" to undo
+• D-934 B-422 iOS only
+• D-935 test-host-only gate, product behavior unchanged — AUTONOMY
+• D-936 gate every lifecycle send instead of stubbing dependencies
+• D-937 B-426 Mac only — D-925
+• D-938 typed address shown during load; only a load started after the send ends it — P1 Safari parity
+• D-939 failed/cancelled/unstartable load falls back to the page URL — P2 (note: Escape mid-load restores the typed address)
+Needs you — reply "B-0xx: <answer>"
+• B-427 couldn't reproduce: Give Back works after a Return commit in tests with real mouse events; likely a Peekaboo click artefact. Reply "B-427: close", or more detail to retry. Shelved on autopilot-shelved/B-427.
+• Lanes still left: B-058 held; B-233, B-332 unlanded with no block; B-368 landed but dirty. Untracked-left: default.profraw scratchpad/
+Self-filed
+• B-430 idea (from B-426) — Address field keeps its text selected after Return
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 Terminals row context menu shows key equivalents · B-181 Rename Terminal sheet hangs from the title bar · B-182 Clearing a custom name after restore restores the live title · B-184 Drive row-menu Split in GUI verification · +90 more
+Next up: none ready
+Spend (estimated, lower bound · prices 2026-10-09): ≈$14.98 est. — B-422 ≈$4.52, B-426 ≈$9.19, B-427 ≈$1.27
+Tokens (runner + its subagents): B-422 15.4M in (14.9M cache read), ≥55.1k out, 152 requests · B-426 31.2M in (30.2M cache read), ≥112k out, 310 requests · B-427 4.32M in (4.15M cache read), ≥18.5k out, 44 requests
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
