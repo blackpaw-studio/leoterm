@@ -241,11 +241,12 @@ Lane: B-412
   Dispatched: 2026-11-17T12:24:47Z
   Base: f97fcfff2fafe3c4d32dd64a43570caac38efc16
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
   Reviewed-tip: 1aa7a4e9c98edefb0daeba0062c16d80c2061659
+  Tokens: 59.2M in (57.7M cache read), ≥287k out, 412 requests
   Call: In-pane dialog bar under the permission bar; no sheet, no new sidebar state — D-890, P2
   Call: Bar buttons have no key equivalents; Return in a prompt field = OK, Escape = Cancel; alert OK only, confirm/prompt Cancel+OK, beforeunload Stay on Page / Leave Page — P1
   Call: browser_dialog {action: accept|dismiss, text?, tab?}, follows user_has_control; text only with accept on a prompt (else invalid_args) — D-759, D-762
@@ -275,6 +276,7 @@ Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 Finished 8: B-410 landed 8017ffba3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
 Finished 9: B-411 landed f0f75a9f3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-411-2.png
+Finished 10: B-412 landed 091fca205 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-412-1.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).

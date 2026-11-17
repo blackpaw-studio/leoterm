@@ -85,12 +85,14 @@ Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: f0f3e75cc 488f0e8e3 5e81f50a2 (LeoKit 1830 + Mac 5009 tests, swiftlint clean; landed f0f75a9f3). Decisions D-901..D-907.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-411-2.png
 
-## B-412 · Agents see and answer JavaScript dialogs in the agent browser   [ready]
+## B-412 · Agents see and answer JavaScript dialogs in the agent browser   [done]
 Issue: #389
 Why: Milestone 3. An alert/confirm/prompt currently blocks or is answered for the agent invisibly.
 Accept: A pending alert/confirm/prompt shows in the pane for you and is reported in the next tool result for the agent; a new `browser_dialog` tool accepts/dismisses with optional prompt text (tested); whoever answers first wins and the other side sees it was handled (tested); beforeunload dialogs are covered; screenshot of a pending dialog
 Out: Auth (HTTP basic) dialogs. Both platforms: logic in LeoKit, Mac UI now.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572 (5027 Mac tests, swiftlint clean; landed 091fca205). Decisions D-908..D-916.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-412-1.png
 
 ## B-067 · Terminals row scrolls into view when created or selected   [done]
 Issue: #71

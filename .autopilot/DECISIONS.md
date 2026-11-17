@@ -1631,3 +1631,58 @@ Chose: Schemas, scripts, parsing and executor in LeoKit; native events Mac only;
 Why: Parity rule — logic shared, platform glue per app
 Commit: f0f3e75cc 488f0e8e3 5e81f50a2
 Veto: [ ]
+
+
+## D-908 · 2026-11-17 · B-412: Dialog surface
+Chose: In-pane bar under the permission bar; no sheet, no new sidebar state
+Why: D-890, P2
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-909 · 2026-11-17 · B-412: Dialog keys and buttons
+Chose: Bar buttons have no key equivalents; Return in a prompt field means OK, Escape Cancel; alert OK only, confirm/prompt Cancel and OK, beforeunload Stay on Page / Leave Page
+Why: P1 — Return never silently accepts a destructive confirm
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-910 · 2026-11-17 · B-412: browser_dialog tool shape
+Chose: browser_dialog {action: accept|dismiss, text?, tab?}, follows user_has_control; text only with accept on a prompt (else invalid_args); returns ok
+Why: D-759, D-762
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-911 · 2026-11-17 · B-412: Dialog-aware tool flow
+Chose: browser_dialog skips the serial gate; any other call that triggers a dialog returns at once with it; while pending only tabs/downloads/console/tab_new/select/close/wait/dialog are allowed (screenshot, user_agent, hover/select/drag, click/type fail with dialog_open)
+Why: A stuck call can't block the answer
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-912 · 2026-11-17 · B-412: What the agent learns
+Chose: dialog_open on page tools, the pending dialog in browser_tabs, a one-time dialog_handled note when the user answered first; never what the user typed; page text capped at 1,000 chars and JSON-quoted
+Why: P2; untrusted page text stays data
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-913 · 2026-11-17 · B-412: Pending dialog lifetime
+Chose: No auto-answer; a hidden tab's dialog stays pending; withdrawn on tab close, teardown, process death or committed navigation; a second dialog in the same tab is dismissed at once
+Why: Whoever answers first wins; never answer for the human
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-914 · 2026-11-17 · B-412: Agent answers only seen dialogs
+Chose: An agent's answer applies only to a dialog it was shown; an unseen one is reported via dialog_open and left pending
+Why: Fix round 1 — concurrency review
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-915 · 2026-11-17 · B-412: beforeunload
+Chose: Covered via WebKit's private selector; both sides see the generic 'Leave this page?' text
+Why: AC — beforeunload dialogs are covered
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
+
+## D-916 · 2026-11-17 · B-412: Platform
+Chose: Desk, tool and executor in LeoKit; WebKit glue and bar Mac only; iOS UI deferred to B-305
+Why: D-879, D-900; parity rule
+Commit: e25ba26c4 adbf40534 43b11c316 f726d8f8f a1b40c2f2 370570572
+Veto: [ ]
