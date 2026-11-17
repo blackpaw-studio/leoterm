@@ -22,6 +22,9 @@ Self-filed: B-408 → dropped (over cap) — Browser host re-focuses the web vie
 Self-filed: B-406 → dropped (over cap) — Full-page PNG has a ~17 px white strip on the right edge
 Self-filed: B-406 → dropped (over cap) — Workspace browser truncates file names in the middle
 Self-filed: B-406 → dropped (over cap) — Save menu items disabled with no hint outside the browser pane
+Self-filed: B-409 → dropped (dup of B-419) — Address bar keeps showing about:blank after load while focused
+Self-filed: B-409 → dropped (over cap) — Clear Site Data alert destructive button reads poorly
+Self-filed: B-409 → dropped (over cap) — LeoClearConfirmation comment wrongly claims Cancel answers Return
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -171,6 +174,37 @@ Lane: B-409
   Dispatched: 2026-11-17T06:56:17Z
   Base: 2089f6acfe74c47fdbe41e05543f641d2b3ee562
   Tier: full
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: eda4cb7aee5a3bc7939d6f284980391b53dbeb35
+  Tokens: 68.5M in (67.4M cache read), ≥262k out, 397 requests
+  Call: Shortcuts ⌥⌘O Open in Default Browser, ⇧⌘C Copy URL, ⇧⌘⌫ Clear Site Data…; claimed only with focus in the pane — P1
+  Call: Browser menu after History; pane More menu mirrors it without pane focus — P1
+  Call: Remote localhost opens via forwarded 127.0.0.1:<port>; unreachable machine shows a sheet, opens nothing; only http(s) with host sent — P3
+  Call: Each page keeps its remote port across a reconnect — P3
+  Call: Copy URL copies the agent-side address as text and URL; off for no page/blank — P3
+  Call: Clear removes all WebKit data types from that agent's store only, no reload; downloads/history/closed tabs/UA overrides stay; alert names agent (+machine) — P1/P2
+  Call: Clear alert: Cancel + destructive Clear Site Data; Return picks neither, Escape cancels — P1
+  Call: Mac only
+
+Lane: B-410
+  Branch: autopilot-lane/B-410
+  Dispatched: 2026-11-17T07:57:32Z
+  Base: 4ff9c5089fa085f39fa048a9f6d8b266e244c627
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-411
+  Branch: autopilot-lane/B-411
+  Dispatched: 2026-11-17T09:35:44Z
+  Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
@@ -189,6 +223,7 @@ Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 
 Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
 
+Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
@@ -215,3 +250,5 @@ Progress:
 - Dispatched B-409 d-d470908db7cd. Interim digest 1 posted (items 1–5).
 - B-406 ready (fix 2, hard implementer, security review). Accepted: symlinked folder inside the workspace allows writes outside (lexical confinement; agent has a shell there).
 - B-406 landed aecf8c1ca. D-869..D-881.
+- Pick: B-410 full (permissions prompts; security-sensitive).
+- Dispatched B-410 d-bc762c591f42.

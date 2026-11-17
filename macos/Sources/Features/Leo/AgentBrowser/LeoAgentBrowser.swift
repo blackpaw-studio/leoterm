@@ -161,6 +161,28 @@ import WebKit
         return true
     }
 
+    /// The address the system's default browser can open for the active
+    /// page (B-409): the one Leo itself loads, so a remote loopback page goes
+    /// through its machine's forward on 127.0.0.1. The URL is checked again
+    /// after mapping, since a page chose it. nil for no page or a blank tab.
+    func externalURL() async throws -> URL? {
+        guard let remote = activeRemoteURL, LeoBrowserURLPolicy.isExternallyOpenable(remote) else { return nil }
+        let local = try await urlMapping.toLocal(remote)
+        return LeoBrowserURLPolicy.isExternallyOpenable(local) ? local : nil
+    }
+
+    private(set) var isClearingSiteData = false
+
+    /// Empties this agent's data store (B-409): every type WebKit keeps
+    /// (cookies, caches, local and session storage, IndexedDB, service
+    /// workers), whenever written. The store the tabs use, never one looked up
+    /// again by name. Open pages stay as they are until they reload.
+    func clearSiteData() async {
+        isClearingSiteData = true
+        defer { isClearingSiteData = false }
+        await dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+    }
+
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler

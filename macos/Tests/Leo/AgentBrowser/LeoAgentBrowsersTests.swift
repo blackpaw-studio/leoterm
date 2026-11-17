@@ -31,6 +31,10 @@ import Testing
     func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
     var pendingPermission: LeoBrowserPermissionPrompt? { nil }
     func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {}
+    var key = LeoAgentBrowserKey(host: .local, agent: "fake")
+    func externalURL() async throws -> URL? { nil }
+    var isClearingSiteData: Bool { false }
+    func clearSiteData() async {}
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
 
     /// Requests wait until cancelled, like a page load that never finishes;

@@ -217,4 +217,28 @@ struct LeoMenuCommandsTests {
             #expect(xib.filter { $0.action == action }.count == 1)
         }
     }
+
+    /// B-409: the Browser menu sits between History and Agents with Open in
+    /// Default Browser (⌥⌘O), Copy URL (⇧⌘C) and Clear Site Data for This
+    /// Agent… (⇧⌘⌫), each shortcut held by that item alone.
+    @Test func browserMenuSitsBetweenHistoryAndAgentsWithItsShortcuts() throws {
+        let document = try XMLDocument(contentsOf: LeoMenuXib.xibURL)
+        let topLevel = try document.nodes(forXPath: "//menu[@systemMenu='main']/items/menuItem")
+            .compactMap { ($0 as? XMLElement)?.attribute(forName: "title")?.stringValue }
+        let browser = try #require(topLevel.firstIndex(of: "Browser"))
+        #expect(topLevel[browser - 1] == "History")
+        #expect(topLevel[browser + 1] == "Agents")
+        let items = try document.nodes(forXPath: "//menu[@title='Browser']/items/menuItem")
+            .compactMap { ($0 as? XMLElement)?.attribute(forName: "title")?.stringValue ?? "" }
+        #expect(items == ["Open in Default Browser", "Copy URL", "", "Clear Site Data for This Agent…"])
+
+        let xib = try LeoMenuXib.shortcuts()
+        let expected = [
+            ("openInDefaultBrowser:", "⌥⌘o"), ("copyBrowserURL:", "⇧⌘c"), ("clearAgentSiteData:", "⇧⌘⌫"),
+        ]
+        for (action, shortcut) in expected {
+            #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
+            #expect(xib.filter { $0.action == action }.count == 1)
+        }
+    }
 }

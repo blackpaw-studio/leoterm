@@ -37,4 +37,13 @@ public enum LeoBrowserURLPolicy {
         default: false
         }
     }
+
+    /// Whether `url` may go to the system's default browser (B-409): an
+    /// `http` or `https` page with a host. A page picks its own URL, so
+    /// anything else (`mailto:`, `file:`, a custom scheme) could launch an
+    /// app or reveal a file instead of opening a page.
+    public static func isExternallyOpenable(_ url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" else { return false }
+        return url.host?.isEmpty == false
+    }
 }

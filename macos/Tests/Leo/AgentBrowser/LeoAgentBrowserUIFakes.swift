@@ -80,6 +80,14 @@ import LeoKit
         calls.append("permission \(prompt.id) \(allow ? "allow" : "deny")")
     }
 
+    var key = LeoAgentBrowserKey(host: .local, agent: "alpha")
+    /// What `externalURL()` gives, or throws.
+    var externalURLResult: Result<URL?, any Error> = .success(nil)
+    var isClearingSiteData = false
+
+    func externalURL() async throws -> URL? { try externalURLResult.get() }
+    func clearSiteData() async { calls.append("clearSiteData") }
+
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler

@@ -72,6 +72,19 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     /// The user's Allow or Don't Allow on `prompt`. Does nothing when it is
     /// no longer the request waiting.
     func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool)
+    /// The machine and agent this browser belongs to: whose data store Clear
+    /// Site Data empties.
+    var key: LeoAgentBrowserKey { get }
+    /// The active page's address for the system's default browser, through
+    /// the machine's port forward for a remote loopback page; nil for no page
+    /// or a page that isn't http(s). Throws a `LeoBrowserError` saying why a
+    /// remote loopback page can't be reached (B-409).
+    func externalURL() async throws -> URL?
+    /// Whether a Clear Site Data is under way.
+    var isClearingSiteData: Bool { get }
+    /// Empties this agent's own data store, and no other agent's. Open pages
+    /// aren't reloaded. The caller asks the user first.
+    func clearSiteData() async
 
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void
 }
