@@ -12,6 +12,7 @@ Source: owner (/feature, 2026-11-16)
 Inbox: 20261117T000842166210Z-f9850bf9#1
 Done: 57694ff39 21ec5304b (4825 tests; landed dd5910e72). Decisions D-822..D-831.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
+Reviewed: accepted 2026-11-17 — dd5910e7275c
 
 ## B-404 · Agent browser downloads land in the agent's workspace   [done]
 Issue: #381
