@@ -39,8 +39,8 @@ import Testing
 }
 
 /// C5: the app's agent browsers, one per (machine, agent): made on the
-/// first request or Open Browser, closed when the agent stops or the user
-/// closes it.
+/// first request or Open Browser, closed when the agent goes or the user
+/// closes it; a stopped agent's browser stays.
 @MainActor
 struct LeoAgentBrowsersTests {
     private static let dionysus = LeoHostID.remote("dionysus")
@@ -90,6 +90,11 @@ struct LeoAgentBrowsersTests {
     private static func code(of outcome: LeoClientToolOutcome?) -> String? {
         guard case .failure(let error)? = outcome else { return nil }
         return error.code
+    }
+
+    private static func message(of outcome: LeoClientToolOutcome?) -> String? {
+        guard case .failure(let error)? = outcome else { return nil }
+        return error.message
     }
 
     @Test func theFirstRequestMakesTheBrowserAndLaterOnesReuseIt() async throws {
@@ -154,7 +159,7 @@ struct LeoAgentBrowsersTests {
         #expect(browsers.model(for: key) == nil)
     }
 
-    @Test func aListingClosesTheBrowsersOfAgentsThatStoppedOrWent() {
+    @Test func aListingClosesTheBrowsersOfAgentsThatWentButKeepsStoppedOnes() {
         let made = Made()
         let browsers = registry(made)
         let keys = ["alpha", "beta", "gamma", "restoring", "dispatch:d1", "dispatch:d2"].map { LeoAgentBrowserKey(host: Self.dionysus, agent: $0) }
@@ -165,7 +170,44 @@ struct LeoAgentBrowsersTests {
             on: Self.dionysus, statuses: ["alpha": .running, "beta": .stopped, "restoring": .restoring], dispatches: ["d1"]
         )
 
-        #expect(browsers.keys == Set([keys[0], keys[3], keys[4], elsewhere]))
+        // gamma is no longer listed and d2 is gone; stopped beta stays where the user put it.
+        #expect(browsers.keys == Set([keys[0], keys[1], keys[3], keys[4], elsewhere]))
+    }
+
+    @Test func aStoppedAgentsOpenBrowserStaysAcrossListingsAndIsNotReportedClosed() throws {
+        let made = Made()
+        let browsers = registry(made)
+        let key = LeoAgentBrowserKey(host: Self.dionysus, agent: "alpha")
+        _ = browsers.openModel(for: key)
+        var changes: [LeoAgentBrowserPresenceChange] = []
+        let stop = browsers.observe { changes.append($0) }
+        defer { stop() }
+
+        for _ in 0..<3 { browsers.agentsListed(on: Self.dionysus, statuses: ["alpha": .stopped], dispatches: nil) }
+
+        #expect(browsers.model(for: key) != nil)
+        #expect(made.browsers[key]?.isClosed == false)
+        #expect(changes.isEmpty)
+        #expect(made.closed.isEmpty)
+    }
+
+    @Test func aStoppedAgentsInFlightCallIsAnsweredCancelledWhileItsBrowserStays() async throws {
+        let made = Made()
+        let browsers = registry(made)
+        let key = LeoAgentBrowserKey(host: Self.dionysus, agent: "alpha")
+        let browser = try #require(made.browserOpened(by: browsers, for: key))
+        browser.parksRequests = true
+
+        let answer = call(browsers, Self.request("ctr_1", agent: "alpha", tool: "browser_navigate"))
+        await until { browser.executed == ["ctr_1"] }
+        browsers.agentsListed(on: Self.dionysus, statuses: ["alpha": .stopped], dispatches: nil)
+
+        await until { answer.outcome != nil }
+        #expect(Self.code(of: answer.outcome) == "cancelled")
+        #expect(Self.message(of: answer.outcome) == "The agent stopped")
+        await until { browser.cancelledRuns == ["ctr_1"] }
+        #expect(browsers.model(for: key) != nil)
+        #expect(browser.isClosed == false)
     }
 
     @Test func closingTheBrowserAnswersItsInFlightCallAndStopsIt() async throws {
@@ -181,6 +223,7 @@ struct LeoAgentBrowsersTests {
 
         await until { answer.outcome != nil }
         #expect(Self.code(of: answer.outcome) == "cancelled")
+        #expect(Self.message(of: answer.outcome) == "The agent's browser was closed")
         await until { browser.cancelledRuns == ["ctr_1"] }
     }
 

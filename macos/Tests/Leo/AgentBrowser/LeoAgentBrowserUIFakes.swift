@@ -135,7 +135,7 @@ import LeoKit
         remove(key)
     }
 
-    /// The agent stopped: the browser goes without a close request.
+    /// The agent was removed: the browser goes without a close request.
     func remove(_ key: LeoAgentBrowserKey) {
         guard browsers.removeValue(forKey: key) != nil else { return }
         handlers.values.forEach { $0(.closed(key)) }

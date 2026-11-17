@@ -445,7 +445,7 @@ struct LeoAgentBrowserTests {
     }
 
     @available(macOS 14, *)
-    @Test func anAgentStoppingClosesItsBrowserAndKeepsItsStore() async throws {
+    @Test func aStoppedAgentsBrowserStaysOpenAndKeepsItsStore() async throws {
         let machineID = "test-\(UUID().uuidString)"
         let host = LeoAgentBrowserHost(parking: LeoAgentBrowserParkingWindow(size: CGSize(width: 800, height: 600)))
         let factory = LeoAgentBrowserFactory(
@@ -464,12 +464,13 @@ struct LeoAgentBrowserTests {
         let view = try #require(opened.activeView)
         browsers.agentStopped(Self.key)
 
-        #expect(changes == [.opened(Self.key), .closed(Self.key)])
-        #expect(browsers.keys.isEmpty)
-        #expect(view.window == nil)
-        let reopened = try #require(browsers.openBrowser(for: Self.key) as? LeoAgentBrowser)
-        #expect(reopened.dataStore.identifier == store)
-        let cookies = await reopened.dataStore.httpCookieStore.allCookies()
+        #expect(changes == [.opened(Self.key)])
+        #expect(browsers.keys == [Self.key])
+        #expect(view.window != nil)
+        let kept = try #require(browsers.model(for: Self.key) as? LeoAgentBrowser)
+        #expect(kept === opened)
+        #expect(kept.dataStore.identifier == store)
+        let cookies = await kept.dataStore.httpCookieStore.allCookies()
         #expect(cookies.contains { $0.name == "session" && $0.value == "kept" })
         browsers.closeBrowser(for: Self.key)
         try? await WKWebsiteDataStore.remove(forIdentifier: store)
