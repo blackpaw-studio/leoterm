@@ -11,7 +11,7 @@ struct LeoClientToolsHTTPTransportTests {
     private static func helloFrame() throws -> String {
         let object = try JSONSerialization.jsonObject(with: try LeoClientToolsWireTests.fixture("hello-provider"))
         let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
-        return "event: hello\ndata: \(String(decoding: data, as: UTF8.self))\n\n"
+        return "event: hello\ndata: \(String(bytes: data, encoding: .utf8) ?? "")\n\n"
     }
 
     @Test func providerStreamSendsBearerCFAccessAndClientToolsQuery() async throws {
@@ -40,7 +40,7 @@ struct LeoClientToolsHTTPTransportTests {
     }
 
     @Test func registerClaimResultHitV1Routes() async throws {
-        let web = ClientToolsWebTransport(frames: [LeoSSEEvent(name: "hello", data: String(decoding: try LeoClientToolsWireTests.fixture("hello-provider"), as: UTF8.self))])
+        let web = ClientToolsWebTransport(frames: [LeoSSEEvent(name: "hello", data: String(bytes: try LeoClientToolsWireTests.fixture("hello-provider"), encoding: .utf8) ?? "")])
         let client = LeoClientToolsClient(transport: LeoClientToolsHTTPTransport(web: web, logTarget: "test"))
         let stream = await client.events()
         let collector = Task { for await _ in stream {} }

@@ -247,7 +247,8 @@ public actor LeoBrowserDownloadSaver {
     /// Best effort: a staging that can't be removed yet stays listed.
     private func removeLeftovers(with access: any LeoFileAccess) async {
         for staging in leftoverStagings {
-            if (try? await access.removeStaging(staging)) != nil { leftoverStagings.remove(staging) }
+            guard (try? await access.removeStaging(staging)) != nil else { continue }
+            leftoverStagings.remove(staging)
         }
     }
 
