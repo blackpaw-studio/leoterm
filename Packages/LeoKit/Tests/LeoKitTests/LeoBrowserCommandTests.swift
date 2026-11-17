@@ -33,6 +33,7 @@ struct LeoBrowserCommandTests {
         #expect(try decode("browser_console").action == .console(since: nil))
         #expect(try decode("browser_console", ["since": .int(12)]).action == .console(since: 12))
         #expect(try decode("browser_tabs").action == .tabs)
+        #expect(try decode("browser_downloads").action == .downloads)
         #expect(try decode("browser_tab_new").action == .tabNew(url: nil, userAgent: nil))
         #expect(try decode("browser_tab_new", ["url": .string("https://a.test")]).action == .tabNew(url: "https://a.test", userAgent: nil))
         #expect(try decode("browser_tab_select", ["tab": .int(2)]).action == .tabSelect(tab: 2))
@@ -80,6 +81,7 @@ struct LeoBrowserCommandTests {
 
     @Test func tabLevelToolsTakeNoPageTab() throws {
         #expect(try decode("browser_tabs", ["tab": .int(3)]).tab == nil)
+        #expect(try decode("browser_downloads", ["tab": .int(3)]).tab == nil)
         #expect(try decode("browser_handoff", ["message": .string("x"), "tab": .int(3)]).tab == nil)
         #expect(try decode("browser_tab_select", ["tab": .int(3)]).tab == nil)
         #expect(try decode("browser_tab_new", ["tab": .int(3)]).tab == nil)

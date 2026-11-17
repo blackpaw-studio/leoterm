@@ -312,6 +312,17 @@
     "timeout_s" : 30
   },
   {
+    "description" : "Leo app browser: List the files downloaded in this browser during this app session, newest first (at most 50), whether you or the user started them, each with its state: downloading, saving, finished or failed. Every download is saved to downloads\/ in your workspace and never overwrites a file there: a name that is taken gets a numbered one (\"report 2.pdf\"). Finished entries give the absolute path and the workspace_path; failed ones say why.",
+    "input_schema" : {
+      "properties" : {
+
+      },
+      "type" : "object"
+    },
+    "name" : "browser_downloads",
+    "timeout_s" : 30
+  },
+  {
     "description" : "Leo app browser: Ask the user to take over the browser (to log in, solve a captcha). Blocks until they press Done or Decline; returns done or declined.",
     "input_schema" : {
       "properties" : {

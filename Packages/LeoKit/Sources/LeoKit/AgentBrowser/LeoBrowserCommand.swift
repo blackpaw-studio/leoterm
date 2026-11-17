@@ -57,6 +57,8 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             self.init(tab: nil, action: .tabClose(tab: try reader.requiredTab()))
         case "browser_user_agent":
             self.init(tab: try reader.tab(), action: .setUserAgent(try Self.userAgent(reader, required: true)))
+        case "browser_downloads":
+            self.init(tab: nil, action: .downloads)
         case "browser_handoff":
             self.init(tab: nil, action: .handoff(message: try reader.requiredString("message")))
         default:
@@ -136,6 +138,8 @@ public enum LeoBrowserAction: Equatable, Sendable {
     case tabClose(tab: Int)
     /// Sets the tab's user agent override; nil clears it back to the default.
     case setUserAgent(String?)
+    /// This app session's downloads, newest first.
+    case downloads
     case handoff(message: String)
 
     /// Whether the action changes the page or the tab set, and so fails with
@@ -143,7 +147,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     public var changesPage: Bool {
         switch self {
         case .navigate, .back, .forward, .reload, .click, .type, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
-        case .snapshot, .screenshot, .wait, .console, .tabs, .handoff: false
+        case .snapshot, .screenshot, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }
 }

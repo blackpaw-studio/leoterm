@@ -50,6 +50,8 @@ public enum LeoBrowserTools {
         tool("browser_user_agent", "Override the user agent of a tab, for sites that gate on it. Takes effect on the tab's next navigation (reload to apply it to the current page); until you set one, the tab sends the default Safari-accurate user agent.",
              ["user_agent": string("The user agent string to send and to return from navigator.userAgent until the tab is closed: printable ASCII, at most 1024 characters. Pass an empty string to clear the override and return to the default.")],
              required: ["user_agent"]),
+        tool("browser_downloads", "List the files downloaded in this browser during this app session, newest first (at most \(LeoBrowserDownloads.historyLimit)), whether you or the user started them, each with its state: downloading, saving, finished or failed. Every download is saved to \(LeoBrowserDownloadSaver.folderName)/ in your workspace and never overwrites a file there: a name that is taken gets a numbered one (\"report 2.pdf\"). Finished entries give the absolute path and the workspace_path; failed ones say why.",
+             [:], pageTool: false),
         tool("browser_handoff", "Ask the user to take over the browser (to log in, solve a captcha). Blocks until they press Done or Decline; returns done or declined.",
              ["message": string("What you need the user to do.")], required: ["message"], timeoutSeconds: 0, pageTool: false),
     ]

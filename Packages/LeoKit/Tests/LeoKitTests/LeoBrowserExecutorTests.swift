@@ -307,6 +307,53 @@ struct LeoBrowserExecutorTests {
         #expect(errorCode(await run(h, "browser_wait", ["text": .string("x")])) == nil)
     }
 
+    // MARK: - Downloads
+
+    @Test func browserDownloadsListsNewestFirstWithPaths() async throws {
+        let h = harness()
+        h.tabs.downloads = [
+            LeoBrowserDownload(id: 4, name: "c.zip", sourceURL: URL(string: "http://localhost:49152/c.zip"), state: .downloading(receivedBytes: 10, expectedBytes: 40)),
+            LeoBrowserDownload(id: 3, name: "x.pdf", sourceURL: nil, state: .finished(LeoBrowserSavedDownload(path: "/ws/downloads/x 2.pdf", workspacePath: "downloads/x 2.pdf", size: 7))),
+            LeoBrowserDownload(id: 2, name: "b", sourceURL: nil, state: .saving),
+            LeoBrowserDownload(id: 1, name: "a", sourceURL: nil, state: .failed("The download failed: gone. Nothing was saved.")),
+        ]
+
+        let list = try #require(jsonList(await run(h, "browser_downloads")))
+
+        #expect(list.map { $0["id"] as? Int } == [4, 3, 2, 1])
+        #expect(list.map { $0["state"] as? String } == ["downloading", "finished", "saving", "failed"])
+        #expect(list[0]["url"] as? String == "http://localhost:5173/c.zip", "in the agent's terms")
+        #expect(list[0]["received_bytes"] as? Int == 10)
+        #expect(list[0]["expected_bytes"] as? Int == 40)
+        #expect(list[0]["path"] == nil)
+        #expect(list[1]["name"] as? String == "x 2.pdf", "the name it was saved under")
+        #expect(list[1]["path"] as? String == "/ws/downloads/x 2.pdf")
+        #expect(list[1]["workspace_path"] as? String == "downloads/x 2.pdf")
+        #expect(list[1]["size"] as? Int == 7)
+        #expect(list[3]["error"] as? String == "The download failed: gone. Nothing was saved.")
+        #expect(h.page.calls.isEmpty)
+    }
+
+    @Test func browserDownloadsIsCappedAtFifty() async throws {
+        let h = harness()
+        h.tabs.downloads = (1...60).reversed().map { LeoBrowserDownload(id: $0, name: "f\($0)", sourceURL: nil, state: .saving) }
+
+        let list = try #require(jsonList(await run(h, "browser_downloads")))
+
+        #expect(list.count == 50)
+        #expect(list.first?["id"] as? Int == 60)
+    }
+
+    @Test func browserDownloadsWorksWhileUserHasControl() async {
+        let h = harness(pageCount: 0)
+        h.control.send(.userInput)
+        #expect(texts(await run(h, "browser_downloads")) == ["[]"])
+    }
+
+    private func jsonList(_ outcome: LeoClientToolOutcome) -> [[String: Any]]? {
+        texts(outcome).first.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [[String: Any]] }
+    }
+
     @Test func theUserErrorMessagePointsAtHandoff() async {
         let h = harness()
         h.control.send(.userInput)
@@ -576,6 +623,7 @@ private final class FakeTabs: LeoBrowserTabs {
     var pages: [Int: FakePage] = [:]
     var activeID: Int?
     var opened: [String] = []
+    var downloads: [LeoBrowserDownload] = []
     private var nextID = 1
 
     init(pageCount: Int) {

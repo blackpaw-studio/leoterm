@@ -8,7 +8,8 @@ struct LeoBrowserToolsTests {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
             "browser_type", "browser_press", "browser_screenshot", "browser_wait", "browser_eval", "browser_console",
-            "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_handoff",
+            "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
+            "browser_handoff",
         ])
     }
 
@@ -34,7 +35,7 @@ struct LeoBrowserToolsTests {
             LeoBrowserTools.definitions.first { $0.name == name }?.inputSchema.objectValue?["properties"]?.objectValue ?? [:]
         }
         #expect(properties("browser_click")["tab"] != nil)
-        for name in ["browser_tabs", "browser_handoff", "browser_tab_new"] { #expect(properties(name)["tab"] == nil, "\(name)") }
+        for name in ["browser_tabs", "browser_handoff", "browser_tab_new", "browser_downloads"] { #expect(properties(name)["tab"] == nil, "\(name)") }
         func required(_ name: String) -> [LeoJSONValue] {
             guard case .array(let list) = LeoBrowserTools.definitions.first(where: { $0.name == name })?.inputSchema.objectValue?["required"] else { return [] }
             return list
@@ -79,6 +80,14 @@ struct LeoBrowserToolsTests {
             #expect(description.contains("user can watch"), "\(name)")
             #expect(description.contains("cookies"), "\(name)")
             #expect(description.contains("localhost"), "\(name)")
+        }
+    }
+
+    @Test func downloadsSaysWhereFilesLandAndThatNothingIsOverwritten() throws {
+        let tool = try #require(LeoBrowserTools.definitions.first { $0.name == "browser_downloads" })
+        #expect(tool.inputSchema.objectValue?["properties"] == .object([:]))
+        for phrase in ["downloads/", "workspace", "never overwrites", "numbered", "workspace_path", "newest first"] {
+            #expect(tool.description.contains(phrase), "\(phrase)")
         }
     }
 
