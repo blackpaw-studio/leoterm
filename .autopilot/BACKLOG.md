@@ -3201,3 +3201,9 @@ Source: autopilot polish (B-305)
 ## B-425 · Daemon localhost proxy so iPhone pages can reach an agent machine's localhost   [idea]
 Note: P3 local = remote; B-305 ships a plain localhost_unreachable explanation instead
 Source: autopilot polish (B-305)
+
+## B-426 · After Return on a new address, the bar shows the old page's URL until the new page commits   [ready (next run)]
+Type: bug
+Report: After Return on a new address, the bar shows the old page's URL until the new page commits (`LeoAgentBrowserPaneViewController.swift:162-164`); predates B-419. Safari keeps the typed address during load — Safari parity (P1).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-419)
