@@ -7,7 +7,7 @@ import LeoKit
 /// More menu (B-409) at the trailing end. Below `compactWidth` the pill shrinks to its icon so the address
 /// bar keeps its room. Drawn from `LeoAgentBrowserPaneModel`; every click goes
 /// back to it.
-final class LeoAgentBrowserToolbar: NSView {
+final class LeoAgentBrowserToolbar: NSView, NSTextFieldDelegate {
     static let rowHeight: CGFloat = 30
     /// Narrower than this, the pill drops its words.
     static let compactWidth: CGFloat = 460
@@ -41,6 +41,13 @@ final class LeoAgentBrowserToolbar: NSView {
     let giveBackButton = NSButton()
     let moreButton = LeoAgentBrowserToolbar.symbolButton("ellipsis.circle", label: "More")
 
+    /// The page's committed address, as the model last reported it.
+    private var pageURLText = ""
+    /// The user has typed in the address bar since it was focused: their text
+    /// stays until they commit it or press Escape. Until then the bar follows
+    /// the page, focused or not (B-419).
+    private var hasUserEdits = false
+
     override init(frame: NSRect) {
         super.init(frame: frame)
         build()
@@ -56,8 +63,8 @@ final class LeoAgentBrowserToolbar: NSView {
         reloadButton.toolTip = reloadLabel
         reloadButton.isEnabled = !model.isLoading
         newTabButton.isEnabled = model.tabItems.count < LeoBrowserLimits.maximumTabs
-        // Leaves the address alone while it's being edited.
-        if urlField.currentEditor() == nil { urlField.stringValue = model.urlText }
+        pageURLText = model.urlText
+        if !hasUserEdits { urlField.stringValue = pageURLText }
         urlField.toolTip = model.urlError
         urlField.textColor = model.urlError == nil ? .labelColor : .systemRed
         pill.show(model.pill)
@@ -119,6 +126,7 @@ final class LeoAgentBrowserToolbar: NSView {
         urlField.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         urlField.lineBreakMode = .byTruncatingTail
         urlField.cell?.isScrollable = true
+        urlField.delegate = self
         urlField.target = self
         urlField.action = #selector(submit(_:))
         urlField.setAccessibilityLabel("Address")
@@ -173,7 +181,26 @@ final class LeoAgentBrowserToolbar: NSView {
         guard let moreMenu else { return }
         showMenu(moreMenu, moreButton)
     }
+    /// Leaves `hasUserEdits` set: a rejected address stays to be fixed, and the
+    /// pane ends editing itself when the address is good.
     @objc private func submit(_ sender: Any?) { onSubmitURL(urlField.stringValue) }
+
+    func controlTextDidChange(_ notification: Notification) { hasUserEdits = true }
+
+    /// Focus leaving the bar ends the edit; Return doesn't, since it commits
+    /// the text and a rejected address keeps it.
+    func controlTextDidEndEditing(_ notification: Notification) {
+        let movement = notification.userInfo?["NSTextMovement"] as? Int
+        if movement != NSReturnTextMovement { hasUserEdits = false }
+    }
+
+    /// Escape drops the user's edit and shows the page's address again.
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+        guard selector == #selector(NSResponder.cancelOperation(_:)) else { return false }
+        hasUserEdits = false
+        urlField.stringValue = pageURLText
+        return true
+    }
 }
 
 /// The control pill: a compact capsule saying who is driving. Neutral while
