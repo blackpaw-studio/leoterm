@@ -2433,6 +2433,7 @@ Source: owner (/idea, 2026-10-26)
 Inbox: 20261026T232735230091Z-feeac761#1
 Done: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632 (merged in 961f5f8a7; Mac 5009, LeoKit 1898, LeoFeatures 501, iOS browser 8/8). iOS serves the browser group via HTTPS/SSE with takeover/handoff; remote localhost explained, not routed; file tools unsupported on iOS. D-917..D-924.
 Verified: not visually verified — simulator screen captures only (/Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-305-1.png)
+Reviewed: accepted 2026-11-17 — 961f5f8a7778
 
 ## B-312 · Add an iOS simulator + fixture-daemon recipe to verify.md   [idea]
 Note: iOS UI changes can't be visually verified, so fixes like B-304 ship on tests alone
