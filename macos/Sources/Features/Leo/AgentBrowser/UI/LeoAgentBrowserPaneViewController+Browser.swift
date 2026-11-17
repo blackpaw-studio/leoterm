@@ -23,10 +23,10 @@ struct LeoBrowserPaneServices {
     }
 }
 
-/// Open in Default Browser, Copy URL and Clear Site Data for This Agent…
+/// Open Location, Open in Default Browser, Copy URL and Clear Site Data for This Agent…
 /// (B-409). The Browser menu's items reach these through the responder chain
 /// while focus is anywhere in the pane, and the pane's stack claims ⌥⌘O, ⇧⌘C
-/// and ⇧⌘⌫ under the same condition, as Find and History do (D-843, D-860).
+/// and ⇧⌘⌫ (and ⌘L) under the same condition, as Find and History do (D-843, D-860).
 /// The More menu aims its items at the pane, so they work wherever focus is.
 /// None of them is input to the page, so none takes control from the agent.
 extension LeoAgentBrowserPaneViewController {
@@ -38,6 +38,7 @@ extension LeoAgentBrowserPaneViewController {
     static func browserAction(for event: NSEvent) -> Selector? {
         let modifiers = event.modifierFlags.intersection([.command, .shift, .option, .control])
         switch (event.charactersIgnoringModifiers?.lowercased(), modifiers) {
+        case ("l", [.command]): return #selector(focusAddressBar(_:))
         case ("o", [.command, .option]): return #selector(openInDefaultBrowser(_:))
         case ("c", [.command, .shift]): return #selector(copyBrowserURL(_:))
         case ("\u{7F}", [.command, .shift]), ("\u{8}", [.command, .shift]): return #selector(clearAgentSiteData(_:))
@@ -49,6 +50,11 @@ extension LeoAgentBrowserPaneViewController {
         guard ownsFindFocus(view.window?.firstResponder), let action = Self.browserAction(for: event) else { return false }
         perform(action, with: nil)
         return true
+    }
+
+    /// Open Location (⌘L): the address bar takes focus with its text selected.
+    @objc func focusAddressBar(_ sender: Any?) {
+        toolbar.focusAddress()
     }
 
     /// The pane's More menu: the Browser menu's items, aimed at this pane.
