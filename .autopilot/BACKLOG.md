@@ -3161,21 +3161,21 @@ Source: autopilot polish (B-404)
 Note: Reads as nothing happening — P2.
 Source: autopilot polish (B-404)
 
-## B-419 · Browser address field shows a stale URL while focused   [ready (next run)]
+## B-419 · Browser address field shows a stale URL while focused   [ready]
 Issue: #391
 Type: bug
 Report: Address field shows a stale URL while focused (about:blank on pages one/two) — wrong text in the address bar, P1 Safari parity. Also seen in B-407 verify: the address bar shows the previous URL, one navigation behind.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
 
-## B-420 · ⌘L doesn't select the browser address field's text   [ready (next run)]
+## B-420 · ⌘L doesn't select the browser address field's text   [ready]
 Issue: #392
 Type: bug
 Report: ⌘L does not select the address field's text — P1 keyboard-first.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
 
-## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [ready (next run)]
+## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [ready]
 Issue: #393
 Type: bug
 Report: Open browser pane collapses within ~15 s when the agent is stopped — the pane vanishes under the user.
