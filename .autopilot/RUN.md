@@ -50,6 +50,17 @@ Lane: B-419
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-421
+  Branch: autopilot-lane/B-421
+  Dispatched: 2026-11-17T16:53:52Z
+  Base: 97efeb2da678b49ec08b43db632f004a7fd399ee
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
 
 Progress:
@@ -60,3 +71,4 @@ Progress:
 - leo agent (10:03 EST): lost-dispatch bug (bridge-connect timeout under load → relaunch killed, turn marked lost) fixed in leo main PR #345 (945a27d3), unreleased. If a runner comes back lost/exit 137, re-dispatch rather than treat as a runner failure.
 - B-305 ready (fix 1, hard implementer, concurrency review). Shots are screen captures only (simulator). Calls checked against D-822..D-916: iOS platform adaptations, no contradiction.
 - B-305 landed 961f5f8a7. D-917..D-924. ≈$39.10 est.
+- Pick: B-421 light bug (pane collapse on agent stop). B-421 built before B-420 (independent; B-420 overlaps B-419's address field).
