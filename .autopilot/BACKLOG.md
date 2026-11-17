@@ -3194,7 +3194,7 @@ Done: 8979b86f9 1aa02dc52 3ea196aac (merged in 25ef6cb19; 5018 tests). A stopped
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-421-2.png
 Reviewed: accepted 2026-11-17 — 25ef6cb19052
 
-## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready (next run)]
+## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready]
 Issue: #394
 Type: bug
 Report: Hosted iOS test host crashes when launch `reconcile` calls the unimplemented `PushCleanupClient.load` test value during a test (1 of 4 runs; on main, not B-305) — flaky iOS test runs
@@ -3213,14 +3213,14 @@ Source: autopilot polish (B-305)
 Note: P3 local = remote; B-305 ships a plain localhost_unreachable explanation instead
 Source: autopilot polish (B-305)
 
-## B-426 · After Return on a new address, the bar shows the old page's URL until the new page commits   [ready (next run)]
+## B-426 · After Return on a new address, the bar shows the old page's URL until the new page commits   [ready]
 Issue: #395
 Type: bug
 Report: After Return on a new address, the bar shows the old page's URL until the new page commits (`LeoAgentBrowserPaneViewController.swift:162-164`); predates B-419. Safari keeps the typed address during load — Safari parity (P1).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-419)
 
-## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [ready (next run)]
+## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [ready]
 Issue: #396
 Type: bug
 Report: Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane — no effect in two verifier attempts (by coordinate and by element id); unconfirmed, possibly Peekaboo delivery; not caused by B-419 — P1 keyboard-first/Mac-native
