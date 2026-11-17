@@ -176,7 +176,9 @@ public enum LeoBrowserScripts {
     function emitFileInput(el, depth) {
       fileInputs.add(el);
       let line = 'button ' + quote(nameOf(el, 'button') || squash(el.getAttribute('name')) || 'Choose File');
-      if (!el.disabled) {
+      // `:disabled`, not `disabled`: a `<fieldset disabled>` disables it too.
+      const disabled = el.matches(':disabled');
+      if (!disabled) {
         const ref = `s${gen}e${refs.size + 1}`;
         refs.set(ref, el);
         line += ` [ref=${ref}]`;
@@ -185,7 +187,7 @@ public enum LeoBrowserScripts {
       if (el.multiple) line += ' [multiple]';
       const accept = squash(el.getAttribute('accept'), 100);
       if (accept) line += ` [accept=${accept}]`;
-      if (el.disabled) line += ' [disabled]';
+      if (disabled) line += ' [disabled]';
       if (el.hidden || el.closest('[aria-hidden="true"]') || !isShown(el)) line += ' [hidden]';
       const chosen = squash(Array.from(el.files || []).map(f => f.name).join(', '), 500);
       if (chosen) line += ': ' + quote(chosen);
@@ -318,7 +320,7 @@ public enum LeoBrowserScripts {
       input = inside[0] || null;
     }
     if (!input) return { error: `ref ${ref} is not a file input; pass the ref of one ([file] in the snapshot)` };
-    if (input.disabled) return { error: `The file input for ref ${ref} is disabled` };
+    if (input.matches(':disabled')) return { error: `The file input for ref ${ref} is disabled` };
     """#
 
     /// Body of an async function run in the snapshot's content world, with

@@ -51,6 +51,12 @@ struct LeoWKBrowserUploadTests {
         <div role="button" tabindex="0">Drop a file<input type="file" id="inner" hidden></div>
         <div role="button" tabindex="0">Two inputs<input type="file" hidden><input type="file" hidden></div>
         """,
+        "fieldset": recorder + """
+        <title>Fieldset</title>
+        <fieldset disabled><legend>Locked</legend>
+        <div role="button" tabindex="0">Attach contract<input type="file" id="contract" aria-label="Contract file"></div>
+        </fieldset>
+        """,
     ]
 
     private static let png = LeoBrowserUploadFile(
@@ -166,6 +172,24 @@ struct LeoWKBrowserUploadTests {
         _ = try await page.navigate(to: LeoWKFixtureServer.url("label"))
         let twoInputs = try #require(leoSnapshotRef(try await page.snapshot(), #"button "Two inputs""#))
         #expect(await page.failureCode { try await $0.fileInput(ref: twoInputs) } == "invalid_args")
+        #expect(try await page.eval("events") == "[]", "nothing was set")
+    }
+
+    /// An input disabled by its `<fieldset disabled>` is disabled to the
+    /// browser even though its own `disabled` is false: no ref, no upload.
+    @available(macOS 14, *)
+    @Test func inputInDisabledFieldsetIsDisabled() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("fieldset"))
+        let snapshot = try await page.snapshot()
+        #expect(snapshot.contains(#"button "Contract file" [file] [disabled]"#))
+        #expect(leoSnapshotRef(snapshot, #"button "Contract file""#) == nil)
+        let container = try #require(leoSnapshotRef(snapshot, #"button "Attach contract""#))
+
+        #expect(await page.failureCode { try await $0.fileInput(ref: container) } == "invalid_args")
+        #expect(await page.failureCode { try await $0.setFiles(ref: container, files: [Self.png]) } == "invalid_args")
         #expect(try await page.eval("events") == "[]", "nothing was set")
     }
 }
