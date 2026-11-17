@@ -1788,3 +1788,21 @@ Chose: Calls cancelled by a stop get their own message, "The agent stopped"; the
 Why: P2
 Commit: 8979b86f9 1aa02dc52 3ea196aac
 Veto: [ ]
+
+## D-934 · 2026-11-17 · B-422: Platform
+Chose: iOS only; the crash is in the hosted iOS LeoTests and no LeoKit code is involved
+Why: AUTONOMY (bug/flake fixes; state the platform call)
+Commit: 79271cf06 db3b550f2
+Veto: [ ]
+
+## D-935 · 2026-11-17 · B-422: Test-host-only gate
+Chose: Gate launch sends only under the XCTest host (LaunchPolicy.send, XCTestConfigurationFilePath set); PushCleanupClient, PushNotifications and AppFeature untouched, product behavior unchanged
+Why: AUTONOMY (a test-only fix is fine; don't change product behavior to hide a test crash)
+Commit: 79271cf06 db3b550f2
+Veto: [ ]
+
+## D-936 · 2026-11-17 · B-422: Gate every lifecycle send
+Chose: Gate .task and both scene-phase sends instead of stubbing each dependency; the host also reached PairedDaemonsClient.load and PushClient calls
+Why: closes all routes to unimplemented test values
+Commit: 79271cf06 db3b550f2
+Veto: [ ]
