@@ -72,3 +72,4 @@ Progress:
 - B-305 ready (fix 1, hard implementer, concurrency review). Shots are screen captures only (simulator). Calls checked against D-822..D-916: iOS platform adaptations, no contradiction.
 - B-305 landed 961f5f8a7. D-917..D-924. ≈$39.10 est.
 - Pick: B-421 light bug (pane collapse on agent stop). B-421 built before B-420 (independent; B-420 overlaps B-419's address field).
+- Dispatched B-421 d-117d1e98df4f.
