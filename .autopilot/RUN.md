@@ -28,6 +28,8 @@ Self-filed: B-409 → dropped (over cap) — LeoClearConfirmation comment wrongl
 Self-filed: B-410 → dropped (over cap) — browser_press Escape/Enter reached the terminal pane, not the page (P1 bug)
 Self-filed: B-410 → dropped (over cap) — Optionally mute camera/mic when a tab leaves the pane
 Self-filed: B-410 → dropped (over cap) — LeoHandoffBanner button flush-right in narrow panes
+Self-filed: B-412 → dropped (over cap) — drag whose page opens an alert on mousedown keeps the button held until the dialog is answered
+Self-filed: B-412 → dropped (over cap) — after Stay on Page, browser_tabs and URL field show the navigation target
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -243,7 +245,7 @@ Lane: B-412
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 370570572a151b4c57fb5efc707d1ff0314101ff
+  Reviewed-tip: 1aa7a4e9c98edefb0daeba0062c16d80c2061659
   Call: In-pane dialog bar under the permission bar; no sheet, no new sidebar state — D-890, P2
   Call: Bar buttons have no key equivalents; Return in a prompt field = OK, Escape = Cancel; alert OK only, confirm/prompt Cancel+OK, beforeunload Stay on Page / Leave Page — P1
   Call: browser_dialog {action: accept|dismiss, text?, tab?}, follows user_has_control; text only with accept on a prompt (else invalid_args) — D-759, D-762
@@ -256,6 +258,7 @@ Lane: B-412
   Call: An agent's answer applies only to a dialog it was shown; unseen ones are described via dialog_open and left pending — fix round 1
   Call: Desk, tool and executor in LeoKit; WebKit glue and bar Mac only; iOS UI deferred to B-305 (must conform to LeoBrowserTabs.dialogs) — D-879, D-900
   Call: Accepted: a call ending early on a dialog leaves its page work running and drops the result (30 s daemon timeout covers it)
+  Call: B-411's hover, select_option and drag fail with dialog_open while a dialog is pending, as click and type do — D-732/D-734
 
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
