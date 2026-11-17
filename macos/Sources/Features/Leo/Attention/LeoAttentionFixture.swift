@@ -29,9 +29,10 @@ import LeoKit
 /// Reserved `"environments"` (B-283, see `LeoEnvironmentsFixture.swift`)
 /// overlays named environments, answers their routes locally and
 /// advertises `agent_environments`. Reserved `"unread"` (agent name ->
-/// unread chat count on This Mac, B-413) overrides the row badges' counts,
-/// so the off-screen indicator's unread case can be screenshotted without
-/// driving a real chat. Reserved `"appearance"` (agent name ->
+/// unread chat count on This Mac, B-413) overrides the row badges' counts
+/// and zeroes every agent it doesn't name (an explicit 0 works too), so the
+/// off-screen indicator's unread case can be screenshotted without driving
+/// a real chat or showing real agents' badges. Reserved `"appearance"` (agent name ->
 /// the wire's `{"emoji", "color", "emoji_source", "color_source"}`)
 /// overlays agent appearance on `/state` and advertises `agent_appearance`.
 /// Only named agents change; nothing is sent anywhere.
@@ -64,8 +65,10 @@ enum LeoAttentionFixture {
         let environments: LeoEnvironmentsFixture?
         /// Agent name -> appearance, read by the app's one wire decoder.
         let appearance: [String: LeoAgentAppearance]
-        /// Agent name -> unread chat count on This Mac.
-        let unread: [String: Int]
+        /// Agent name -> unread chat count on This Mac; nil when the file has
+        /// no usable `unread` key. Present, it names every agent with any:
+        /// the rest read 0 (see `LeoChatUnreadStore.fixtureCounts`).
+        let unread: [String: Int]?
 
         private struct FixtureAppearance: Decodable, Sendable {
             let value: LeoAgentAppearance?
@@ -107,7 +110,7 @@ enum LeoAttentionFixture {
             var dispatchMoves: [LeoDispatch] = []
             var environments: LeoEnvironmentsFixture?
             var appearance: [String: LeoAgentAppearance] = [:]
-            var unread: [String: Int] = [:]
+            var unread: [String: Int]?
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
@@ -119,7 +122,8 @@ enum LeoAttentionFixture {
                 } else if key.stringValue == Self.appearanceKey {
                     appearance = LeoAttentionFixture.lenientEntries(container, key, as: FixtureAppearance.self).compactMapValues(\.value)
                 } else if key.stringValue == Self.unreadKey {
-                    unread = LeoAttentionFixture.lenientEntries(container, key, as: Int.self).filter { $0.value > 0 }
+                    // An object only; a malformed value leaves the real counts alone.
+                    unread = (try? container.decode([String: LeoLenient<Int>].self, forKey: key))?.compactMapValues(\.value).filter { $0.value >= 0 }
                 } else if key.stringValue == Self.usageKey {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
                 } else if key.stringValue == Self.actionsKey {

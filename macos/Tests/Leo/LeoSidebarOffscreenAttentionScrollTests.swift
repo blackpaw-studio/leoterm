@@ -78,6 +78,37 @@ struct LeoSidebarOffscreenAttentionScrollTests {
         #expect(await sidebar.waits { sidebar.indicator(Self.bottom) == nil }, "the indicator goes once the last row is in view")
     }
 
+    /// B-413 fix 2: the rows' click catchers read every click from an event
+    /// monitor, whatever the click hits, so a click on the capsule over a row
+    /// was a click on that row too (it attached the agent under it). Each
+    /// event goes to the catchers first, then to the capsule, as the app
+    /// dispatches them.
+    @Test func clickingTheIndicatorScrollsButSelectsAndAttachesNothing() async throws {
+        let sidebar = try await Sidebar.make(unread: ["agent-39": 1])
+        defer { sidebar.close() }
+        try #require(await sidebar.waits { sidebar.indicator(Self.bottom) != nil })
+        let pill = try #require(sidebar.indicator(Self.bottom))
+        let before = LeoSidebarViewportTracker.viewport(of: sidebar.scrollView)
+
+        sidebar.click(pill)
+
+        #expect(sidebar.attaches.isEmpty, "no attach")
+        #expect(sidebar.focusRequests.isEmpty, "no window brought forward")
+        #expect(sidebar.model.selection == nil, "nothing selected")
+        try #require(await sidebar.waits { LeoSidebarViewportTracker.viewport(of: sidebar.scrollView) != before }, "the click still scrolls")
+    }
+
+    /// B-413 fix 1: a click on the capsule leaves the terminal's keyboard
+    /// focus alone, and the capsule is a stop for Tab only with Full Keyboard
+    /// Access on; VoiceOver's press needs neither.
+    @Test(arguments: [
+        (true, NSEvent.EventType.keyDown, true), (true, .leftMouseDown, false), (true, nil, true),
+        (false, .keyDown, false), (false, .leftMouseDown, false),
+    ])
+    func theCapsuleTakesFocusOnlyFromKeyboardNavigation(fullKeyboardAccess: Bool, event: NSEvent.EventType?, takesFocus: Bool) {
+        #expect(LeoOffscreenAttentionPillView.takesFocus(fullKeyboardAccess: fullKeyboardAccess, event: event) == takesFocus)
+    }
+
     // MARK: Clearing
 
     @Test func clearingTheUnreadOrTheStateHidesTheIndicator() async throws {
@@ -201,6 +232,31 @@ struct LeoSidebarOffscreenAttentionScrollTests {
                 features: LeoDaemonFeatures(["dispatch_tree"]), featuresHost: .local
             ), for: .local
         )
+    }
+
+    private(set) var attaches: [LeoAgentRow.ID] = []
+    private(set) var focusRequests: [LeoAgentRow.ID] = []
+
+    /// A click at the centre of `pill`: down then up, each handed to every row
+    /// click catcher (the production event→click step) and then to the pill.
+    func click(_ pill: LeoOffscreenAttentionPillView) {
+        model.attachRequested = { [weak self] row, _, _ in self?.attaches.append(row.id) }
+        model.focusExistingRequested = { [weak self] row, _ in self?.focusRequests.append(row.id) }
+        let center = pill.convert(NSPoint(x: pill.bounds.midX, y: pill.bounds.midY), to: nil)
+        let catchers = Self.views(LeoRowClickCatcherView.self, in: window.contentView)
+        for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
+            guard let event = NSEvent.mouseEvent(
+                with: type, location: center, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 1
+            ) else { continue }
+            for catcher in catchers { catcher.handle(event) }
+            if type == .leftMouseDown { pill.mouseDown(with: event) } else { pill.mouseUp(with: event) }
+        }
+    }
+
+    private static func views<View: NSView>(_ type: View.Type, in view: NSView?) -> [View] {
+        guard let view else { return [] }
+        return (view as? View).map { [$0] } ?? view.subviews.flatMap { views(type, in: $0) }
     }
 
     func clearUnread(_ name: String) { unread.clear(LeoAgentID(host: .local, name: name)) }

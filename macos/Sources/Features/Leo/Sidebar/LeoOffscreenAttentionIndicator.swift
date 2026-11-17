@@ -54,7 +54,10 @@ struct LeoOffscreenAttentionPillLabel: View {
     }
 }
 
-final class LeoOffscreenAttentionPillView: NSView {
+/// Exempt from the rows' click catchers (`LeoRowClickExempt`): they read
+/// every click from an event monitor, so without this a click on the capsule
+/// over a row would be a click on that row too (it attached the agent).
+final class LeoOffscreenAttentionPillView: NSView, LeoRowClickExempt {
     private var presentation: LeoOffscreenAttention.Presentation?
     private var scroll: () -> Void = {}
     private let host = NSHostingView(rootView: AnyView(EmptyView()))
@@ -82,7 +85,20 @@ final class LeoOffscreenAttentionPillView: NSView {
 
     // MARK: Pointer and keyboard
 
-    override var acceptsFirstResponder: Bool { true }
+    /// Whether the capsule becomes first responder: only by keyboard
+    /// navigation (Tab, with Full Keyboard Access on), never from a click,
+    /// which would pull keyboard focus off the terminal.
+    static func takesFocus(fullKeyboardAccess: Bool, event: NSEvent.EventType?) -> Bool {
+        guard fullKeyboardAccess else { return false }
+        switch event {
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown: return false
+        default: return true
+        }
+    }
+
+    override var acceptsFirstResponder: Bool {
+        Self.takesFocus(fullKeyboardAccess: NSApp.isFullKeyboardAccessEnabled, event: NSApp.currentEvent?.type)
+    }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {}
