@@ -53,3 +53,4 @@ Progress:
 - B-422 ready (fix 1, general review, full suite green, mutation check reproduces). Not visually verified: no UI change. Fresh.
 - B-422 landed dcd049de7. D-934..D-936. ≈$4.52 est.
 - B-426 ready (fix 1, general review, 5026 tests). Not visually verified: no browser-pane GUI recipe in verify.md. Calls checked vs D-925..D-931: consistent (Escape during a pending load restores the typed address — treated as the loading page's address, not a D-926 contradiction). Integration stale (B-422 landed iOS files) → re-verify round 1.
+- Dispatched B-426 re-verify d-c334ea57ed5c.
