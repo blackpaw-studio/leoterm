@@ -104,6 +104,32 @@ struct LeoBrowserCommandTests {
         invalidArgs("browser_screenshot", ["full_page": .string("yes")])
     }
 
+    @Test func uploadParsesRefAndPaths() throws {
+        let one = try decode("browser_upload", ["ref": .string("e4"), "paths": .array([.string("docs/a.pdf")])])
+        #expect(one.action == .upload(ref: "e4", paths: ["docs/a.pdf"]))
+        #expect(one.tab == nil)
+        let several = try decode("browser_upload", [
+            "ref": .string("e4"), "paths": .array([.string("a.png"), .string("/ws/b.png")]), "tab": .int(2),
+        ])
+        #expect(several.action == .upload(ref: "e4", paths: ["a.png", "/ws/b.png"]))
+        #expect(several.tab == 2)
+        let most = (1...LeoBrowserCommand.maximumUploadFiles).map { LeoJSONValue.string("f\($0)") }
+        #expect(try decode("browser_upload", ["ref": .string("e1"), "paths": .array(most)]).action
+            == .upload(ref: "e1", paths: (1...20).map { "f\($0)" }))
+    }
+
+    @Test func uploadRejectsEmptyTooManyOrBlankPaths() {
+        invalidArgs("browser_upload", ["ref": .string("e1")])
+        invalidArgs("browser_upload", ["paths": .array([.string("a")])])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .array([])])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .string("a.txt")])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .array([.int(1)])])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .array([.string("")])])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .array([.string("  ")])])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .array([.string("a\u{0}b")])])
+        invalidArgs("browser_upload", ["ref": .string("e1"), "paths": .array((0...20).map { .string("f\($0)") })])
+    }
+
     @Test func waitNeedsExactlyOneConditionWithinLimits() {
         invalidArgs("browser_wait")
         invalidArgs("browser_wait", ["text": .string("a"), "ms": .int(10)])
@@ -135,6 +161,7 @@ struct LeoBrowserCommandTests {
         let mutating: Set<String> = [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_click", "browser_type",
             "browser_press", "browser_eval", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent",
+            "browser_upload",
         ]
         for tool in LeoBrowserTools.definitions.map(\.name) {
             let command = try decode(tool, LeoBrowserCommandTests.sampleArgs[tool] ?? [:])
@@ -153,5 +180,6 @@ struct LeoBrowserCommandTests {
         "browser_tab_close": ["tab": .int(1)],
         "browser_user_agent": ["user_agent": .string("Bot/1.0")],
         "browser_handoff": ["message": .string("hi")],
+        "browser_upload": ["ref": .string("e1"), "paths": .array([.string("a.txt")])],
     ]
 }

@@ -35,6 +35,8 @@ public struct LeoBrowserCommand: Equatable, Sendable {
                 ref: try reader.requiredString("ref"), text: try reader.requiredString("text", allowEmpty: true),
                 submit: try reader.bool("submit") ?? false
             ))
+        case "browser_upload":
+            self.init(tab: try reader.tab(), action: .upload(ref: try reader.requiredString("ref"), paths: try Self.uploadPaths(reader)))
         case "browser_press":
             let key = try reader.requiredString("key")
             guard let combo = LeoBrowserKeyCombo(key) else { throw LeoBrowserError.invalidArgs("Unrecognised key \(key.debugDescription)") }
@@ -69,6 +71,9 @@ public struct LeoBrowserCommand: Equatable, Sendable {
     /// The longest `browser_wait` the page honours, in milliseconds.
     public static let maximumWaitMilliseconds = 25_000
 
+    /// The most files one `browser_upload` sets.
+    public static let maximumUploadFiles = 20
+
     /// The longest user agent an override accepts, in characters.
     public static let maximumUserAgentLength = 1024
 
@@ -91,6 +96,16 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             throw LeoBrowserError.invalidArgs("user_agent must be printable ASCII")
         }
         return userAgent
+    }
+
+    /// `paths`: 1 to `maximumUploadFiles` non-blank strings without NUL.
+    /// Whether each is inside the workspace is the reader's call.
+    private static func uploadPaths(_ reader: LeoBrowserArgs) throws -> [String] {
+        guard let paths = try reader.stringArray("paths"), !paths.isEmpty else { throw LeoBrowserError.invalidArgs("paths is required: at least one workspace file") }
+        guard paths.count <= maximumUploadFiles else { throw LeoBrowserError.invalidArgs("paths takes at most \(maximumUploadFiles) files") }
+        guard paths.allSatisfy({ !$0.allSatisfy(\.isWhitespace) }) else { throw LeoBrowserError.invalidArgs("paths must not be blank") }
+        guard !paths.contains(where: { $0.contains("\0") }) else { throw LeoBrowserError.invalidArgs("paths must not contain NUL") }
+        return paths
     }
 
     private static func waitCondition(_ reader: LeoBrowserArgs) throws -> LeoBrowserAction.WaitCondition {
@@ -124,6 +139,8 @@ public enum LeoBrowserAction: Equatable, Sendable {
     case snapshot
     case click(ref: String)
     case type(ref: String, text: String, submit: Bool)
+    /// Sets workspace files, as given, on the file input for `ref`.
+    case upload(ref: String, paths: [String])
     case press(LeoBrowserKeyCombo)
     case screenshot(fullPage: Bool)
     case wait(WaitCondition)
@@ -146,7 +163,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .click, .type, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
+        case .navigate, .back, .forward, .reload, .click, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
         case .snapshot, .screenshot, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }
@@ -187,6 +204,15 @@ private struct LeoBrowserArgs {
         guard let value = values[key], value != .null else { return nil }
         guard let bool = value.boolValue else { throw LeoBrowserError.invalidArgs("\(key) must be a boolean") }
         return bool
+    }
+
+    func stringArray(_ key: String) throws -> [String]? {
+        guard let value = values[key], value != .null else { return nil }
+        let mistyped = LeoBrowserError.invalidArgs("\(key) must be an array of strings")
+        guard case .array(let items) = value else { throw mistyped }
+        let strings = items.compactMap(\.stringValue)
+        guard strings.count == items.count else { throw mistyped }
+        return strings
     }
 
     func tab() throws -> Int? { try int("tab") }

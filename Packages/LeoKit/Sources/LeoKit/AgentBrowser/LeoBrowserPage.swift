@@ -24,6 +24,16 @@ public struct LeoBrowserConsoleBatch: Equatable, Sendable {
     }
 }
 
+/// The file input a ref resolves to, as `browser_upload` needs it.
+public struct LeoBrowserFileInput: Equatable, Sendable {
+    /// Whether the input takes several files (`multiple`).
+    public let allowsMultiple: Bool
+
+    public init(allowsMultiple: Bool) {
+        self.allowsMultiple = allowsMultiple
+    }
+}
+
 /// One browser tab as the executor drives it: a page that loads URLs, reads
 /// itself and takes input. WebKit-agnostic; the Mac app conforms with a
 /// `WKWebView` adapter and tests conform with a fake.
@@ -63,6 +73,16 @@ public protocol LeoBrowserPage: AnyObject {
     /// Focuses the element for `ref` and types `text` with real key events,
     /// then presses Enter when `submit` is true. Throws `stale_ref` like `click`.
     func type(ref: String, text: String, submit: Bool) async throws
+
+    /// The file input for `ref`: the element itself, the control of a label,
+    /// or the only file input inside the element. Throws `stale_ref` like
+    /// `click`, and `invalid_args` when there is no such input or it is disabled.
+    func fileInput(ref: String) async throws -> LeoBrowserFileInput
+
+    /// Sets `files` on the file input for `ref` (resolved like `fileInput`),
+    /// replacing any it held, and fires `input` and `change` on it, as a user's
+    /// pick would. Throws like `fileInput`.
+    func setFiles(ref: String, files: [LeoBrowserUploadFile]) async throws
 
     /// Presses a key or chord on the focused element.
     func press(_ combo: LeoBrowserKeyCombo) async throws
