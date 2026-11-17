@@ -69,6 +69,17 @@ Lane: B-421
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-420
+  Branch: autopilot-lane/B-420
+  Dispatched: 2026-11-17T17:11:43Z
+  Base: 28443755573d26cdb61e58bfcff890d0fc3bb65c
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
 Finished 2: B-419 landed 075ad32a2 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
 
@@ -86,3 +97,4 @@ Progress:
 - Dispatched B-419 re-verify d-4c616368bfee.
 - B-419 re-verify ready (general delta clean, 5016 tests). Fresh.
 - B-419 landed 075ad32a2. D-925..D-928. ≈$11.23 est.
+- Pick: B-420 light bug (⌘L select-all in address field; B-419 landed, no overlap with B-421).
