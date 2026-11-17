@@ -145,4 +145,38 @@ struct LeoAgentBrowserPaneModelTests {
         #expect(model.isLoading)
         subscription.cancel()
     }
+
+    // MARK: - B-408: reopen closed tab and history
+
+    private func entry(_ offset: Int, _ path: String) -> LeoBrowserHistoryEntry {
+        LeoBrowserHistoryEntry(offset: offset, title: path, url: URL(string: "https://example.com/\(path)")!)
+    }
+
+    @Test
+    func reopenAndHistoryJumpGoThroughTheSourceAsUserInput() {
+        let model = model()
+        let back = entry(-1, "a")
+        source.canReopenClosedTab = true
+        source.fakeHistory = [.back: [back]]
+
+        #expect(model.reopenClosedTab())
+        #expect(source.control.state == .user)
+        source.control.send(.giveBack)
+        #expect(model.goToHistory(back))
+
+        #expect(source.control.state == .user)
+        #expect(source.calls == ["reopenClosedTab", "history -1"])
+    }
+
+    @Test
+    func impossibleReopenSendsNoUserInput() {
+        let model = model()
+        source.fakeHistory = [.back: [entry(-1, "a")]]
+
+        #expect(!model.reopenClosedTab())
+        #expect(!model.goToHistory(entry(-1, "gone")), "an entry the history no longer has")
+
+        #expect(source.control.state == .agent)
+        #expect(source.calls.isEmpty)
+    }
 }

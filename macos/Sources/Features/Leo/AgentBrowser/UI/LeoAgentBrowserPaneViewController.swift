@@ -66,7 +66,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         // the latest download.
         let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot, downloadSeparator, downloadStrip]
         let stack = LeoAgentBrowserPaneStack(views: rows)
-        stack.onKeyEquivalent = { [weak self] in self?.performFindKeyEquivalent($0) ?? false }
+        stack.onKeyEquivalent = { [weak self] in
+            self?.performFindKeyEquivalent($0) ?? false || self?.performHistoryKeyEquivalent($0) ?? false
+        }
         stack.orientation = .vertical
         stack.spacing = 0
         stack.alignment = .width
@@ -103,6 +105,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private func wire() {
         toolbar.onBack = { [model] in model.goBack() }
         toolbar.onForward = { [model] in model.goForward() }
+        toolbar.history = { [model] in model.history($0) }
+        toolbar.onHistory = { [model] in if !model.goToHistory($0) { NSSound.beep() } }
         toolbar.onReload = { [model] in model.reload() }
         toolbar.onNewTab = { [model] in model.newTab() }
         toolbar.onSubmitURL = { [weak self] in self?.submitURL($0) }
