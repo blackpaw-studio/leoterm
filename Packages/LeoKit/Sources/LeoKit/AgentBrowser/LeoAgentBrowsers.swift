@@ -100,7 +100,7 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
         onClosed(key)
     }
 
-    public func observe(_ handler: @escaping @MainActor (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void {
+    public func observe(_ handler: @escaping @MainActor @Sendable (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler
         return { [weak self] in self?.handlers[id] = nil }

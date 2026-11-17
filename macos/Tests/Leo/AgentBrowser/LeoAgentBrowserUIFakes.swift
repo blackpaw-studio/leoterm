@@ -141,7 +141,7 @@ import LeoKit
         handlers.values.forEach { $0(.closed(key)) }
     }
 
-    func observe(_ handler: @escaping @MainActor (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void {
+    func observe(_ handler: @escaping @MainActor @Sendable (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler
         return { [weak self] in self?.handlers[id] = nil }

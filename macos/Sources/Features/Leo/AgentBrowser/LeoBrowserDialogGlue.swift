@@ -1,7 +1,6 @@
 import LeoKit
 import WebKit
 
-
 /// A page's JavaScript dialogs (B-412): WebKit's alert, confirm and prompt
 /// panels, plus its private beforeunload one, go to the browser's dialog
 /// desk, where the user (in the pane) or the agent (`browser_dialog`)

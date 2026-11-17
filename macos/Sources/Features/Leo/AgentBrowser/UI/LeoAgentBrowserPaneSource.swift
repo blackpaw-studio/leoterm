@@ -119,7 +119,7 @@ protocol LeoAgentBrowserPresence: AnyObject {
     func browser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)?
     func openBrowser(for key: LeoAgentBrowserKey) -> (any LeoAgentBrowserPaneSource)?
     func closeBrowser(for key: LeoAgentBrowserKey)
-    func observe(_ handler: @escaping @MainActor (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void
+    func observe(_ handler: @escaping @MainActor @Sendable (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void
 }
 
 extension LeoAgentBrowserPresence {
