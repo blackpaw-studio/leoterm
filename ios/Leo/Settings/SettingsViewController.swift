@@ -6,7 +6,8 @@ import UIKitNavigation
 
 /// App settings: the notifications switch, why pushes might not arrive,
 /// a way to iOS Settings when the user turned Leo's notifications off, and
-/// the chat's live terminal default.
+/// the chat's live terminal default, and whether agents may use a browser
+/// on this iPhone (B-305).
 final class SettingsViewController: UIViewController {
     private enum Item: Hashable {
         case notifications
@@ -14,11 +15,15 @@ final class SettingsViewController: UIViewController {
         /// Chat: when a thread shows its live terminal strip.
         case liveTerminal
         case statsStyle
+        /// Settings > Agent Browser on This iPhone.
+        case agentBrowser
         /// Identified by `PushProblem.id` (a daemon ID), never its text.
         case problem(PushProblem)
     }
 
     private static let chatSection = 1
+    private static let browserSection = 3
+    private static let headers = [chatSection: String(localized: "Chat"), browserSection: String(localized: "Browser")]
 
     private let store: StoreOf<PushNotifications>
     private let app: StoreOf<AppFeature>
@@ -27,6 +32,7 @@ final class SettingsViewController: UIViewController {
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
     private var footer = ""
     private var liveTerminalMode = LiveTerminalMode.whileWorking
+    private var isAgentBrowserEnabled = true
 
     init(app: StoreOf<AppFeature>) {
         self.app = app
@@ -56,7 +62,8 @@ final class SettingsViewController: UIViewController {
             guard let self else { return }
             render(
                 isEnabled: store.isEnabled, authorization: store.authorization, problems: store.problems,
-                statsStyle: app.fleet.statsStyle, liveTerminalMode: app.liveTerminalMode
+                statsStyle: app.fleet.statsStyle, liveTerminalMode: app.liveTerminalMode,
+                isAgentBrowserEnabled: app.isAgentBrowserEnabled
             )
         }
     }
@@ -65,7 +72,7 @@ final class SettingsViewController: UIViewController {
         UICollectionViewCompositionalLayout { section, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.footerMode = .supplementary
-            if section == Self.chatSection { configuration.headerMode = .supplementary }
+            if Self.headers[section] != nil { configuration.headerMode = .supplementary }
             return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
         }
     }
@@ -98,6 +105,17 @@ final class SettingsViewController: UIViewController {
                     }
                 }
                 cell.accessories = [.popUpMenu(UIMenu(children: options))]
+            case .agentBrowser:
+                content.text = String(localized: "Agent Browser on This iPhone")
+                content.image = UIImage(systemName: "globe")
+                let toggle = UISwitch()
+                toggle.isOn = isAgentBrowserEnabled
+                toggle.accessibilityIdentifier = "settings.agentBrowser"
+                toggle.addAction(UIAction { [weak self, weak toggle] _ in
+                    guard let toggle else { return }
+                    self?.app.send(.agentBrowserToggled(toggle.isOn))
+                }, for: .valueChanged)
+                cell.accessories = [.customView(configuration: .init(customView: toggle, placement: .trailing()))]
             case .openSystemSettings:
                 content.text = String(localized: "Open iOS Settings")
                 content.textProperties.color = .tintColor
@@ -126,15 +144,16 @@ final class SettingsViewController: UIViewController {
             content.text = switch indexPath.section {
             case 0: self?.footer
             case Self.chatSection: String(localized: "A strip under a chat's header shows the agent's last few terminal lines. While working shows it only while the agent is working. Each chat can hide or show it.")
+            case Self.browserSection: String(localized: "While Leo is open, agents can browse here when no Mac running Leo takes their browser. Pages on an agent machine’s localhost can’t load on iPhone.")
             default: nil
             }
             view.contentConfiguration = content
         }
         let headerRegistration = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(
             elementKind: UICollectionView.elementKindSectionHeader
-        ) { view, _, _ in
+        ) { view, _, indexPath in
             var content = UIListContentConfiguration.header()
-            content.text = String(localized: "Chat")
+            content.text = Self.headers[indexPath.section]
             view.contentConfiguration = content
         }
         dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
@@ -149,9 +168,11 @@ final class SettingsViewController: UIViewController {
     }
 
     private func render(
-        isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle, liveTerminalMode: LiveTerminalMode
+        isEnabled: Bool, authorization: PushAuthorization?, problems: [PushProblem], statsStyle: LeoStatsStyle,
+        liveTerminalMode: LiveTerminalMode, isAgentBrowserEnabled: Bool
     ) {
         self.statsStyle = statsStyle
+        self.isAgentBrowserEnabled = isAgentBrowserEnabled
         self.liveTerminalMode = liveTerminalMode
         footer = Self.footer(isEnabled: isEnabled, authorization: authorization)
         var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
@@ -162,12 +183,14 @@ final class SettingsViewController: UIViewController {
         snapshot.appendItems([.liveTerminal])
         snapshot.appendSections([2])
         snapshot.appendItems([.statsStyle])
+        snapshot.appendSections([Self.browserSection])
+        snapshot.appendItems([.agentBrowser])
         // Off, these are daemons that haven't confirmed they stopped pushing.
         if !problems.isEmpty {
-            snapshot.appendSections([3])
+            snapshot.appendSections([Self.browserSection + 1])
             snapshot.appendItems(problems.map(Item.problem))
         }
-        snapshot.reconfigureItems([.notifications, .liveTerminal, .statsStyle])
+        snapshot.reconfigureItems([.notifications, .liveTerminal, .statsStyle, .agentBrowser])
         snapshot.reloadSections([0])
         dataSource.apply(snapshot, animatingDifferences: false)
     }

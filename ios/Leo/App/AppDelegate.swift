@@ -18,7 +18,15 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if SettingsFixture.isRequested { prepareDependencies { SettingsFixture.prepare(&$0) } }
         if MoveFixture.isRequested { prepareDependencies { MoveFixture.prepare(&$0) } }
         if ProgressFixture.isRequested { prepareDependencies { ProgressFixture.prepare(&$0) } }
+        if BrowserFixture.isRequested { prepareDependencies { BrowserFixture.prepare(&$0) } }
+        let isBrowserFixture = BrowserFixture.isRequested
+        #else
+        let isBrowserFixture = false
         #endif
+        // B-305: agents' browsers on this iPhone, over every paired daemon.
+        if !isBrowserFixture {
+            prepareDependencies { $0.clientTools = .live(runtime: AgentBrowserApp.runtime(), holdingBackground: AgentBrowserApp.holdingBackground) }
+        }
         return Store(initialState: AppFeature.State()) { AppFeature() }
     }()
 
@@ -41,6 +49,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if AppearanceFixture.isRequested || MoveFixture.isRequested { Self.store.send(.tabSelected(.agents)) }
         if AppearanceFixture.isRequested { AppearanceFixture.open(Self.store) }
         if ProgressFixture.isRequested { ProgressFixture.open(Self.store) }
+        if BrowserFixture.isRequested { BrowserFixture.open(Self.store) }
         // `-startTab agents`: launches on that tab, for screenshots.
         let arguments = ProcessInfo.processInfo.arguments
         if let flag = arguments.firstIndex(of: "-startTab"), arguments.indices.contains(flag + 1),
