@@ -47,7 +47,16 @@ import LeoKit
 
     func isBound(_ host: LeoHostID) -> Bool { clients[host] != nil }
 
+    #if DEBUG
+    /// The attention fixture's `"unread"` counts for This Mac's agents, which
+    /// win over the real ones (B-413).
+    var fixtureCounts: [String: Int] = [:]
+    func count(for agent: LeoAgentID) -> Int {
+        agent.host == .local ? fixtureCounts[agent.name] ?? counts[agent] : counts[agent]
+    }
+    #else
     func count(for agent: LeoAgentID) -> Int { counts[agent] }
+    #endif
 
     func latestAgentKind(for agent: LeoAgentID) -> LeoChatMessage.Kind? { latestKinds[agent] }
 

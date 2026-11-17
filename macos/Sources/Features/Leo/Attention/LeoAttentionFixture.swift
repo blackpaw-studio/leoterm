@@ -28,7 +28,10 @@ import LeoKit
 /// viewer moving between background and visible can be watched (B-272).
 /// Reserved `"environments"` (B-283, see `LeoEnvironmentsFixture.swift`)
 /// overlays named environments, answers their routes locally and
-/// advertises `agent_environments`. Reserved `"appearance"` (agent name ->
+/// advertises `agent_environments`. Reserved `"unread"` (agent name ->
+/// unread chat count on This Mac, B-413) overrides the row badges' counts,
+/// so the off-screen indicator's unread case can be screenshotted without
+/// driving a real chat. Reserved `"appearance"` (agent name ->
 /// the wire's `{"emoji", "color", "emoji_source", "color_source"}`)
 /// overlays agent appearance on `/state` and advertises `agent_appearance`.
 /// Only named agents change; nothing is sent anywhere.
@@ -47,6 +50,7 @@ enum LeoAttentionFixture {
         static let dispatchMovesKey = "dispatch_moves"
         static let environmentsKey = "environments"
         static let appearanceKey = "appearance"
+        static let unreadKey = "unread"
 
         let attention: [String: LeoAttentionSignal]
         let dispatches: [LeoDispatch]
@@ -60,6 +64,8 @@ enum LeoAttentionFixture {
         let environments: LeoEnvironmentsFixture?
         /// Agent name -> appearance, read by the app's one wire decoder.
         let appearance: [String: LeoAgentAppearance]
+        /// Agent name -> unread chat count on This Mac.
+        let unread: [String: Int]
 
         private struct FixtureAppearance: Decodable, Sendable {
             let value: LeoAgentAppearance?
@@ -101,6 +107,7 @@ enum LeoAttentionFixture {
             var dispatchMoves: [LeoDispatch] = []
             var environments: LeoEnvironmentsFixture?
             var appearance: [String: LeoAgentAppearance] = [:]
+            var unread: [String: Int] = [:]
             for key in container.allKeys {
                 if key.stringValue == Self.dispatchesKey {
                     // A malformed value degrades to none, never breaks the fixture.
@@ -111,6 +118,8 @@ enum LeoAttentionFixture {
                     environments = try? container.decode(LeoEnvironmentsFixture.self, forKey: key)
                 } else if key.stringValue == Self.appearanceKey {
                     appearance = LeoAttentionFixture.lenientEntries(container, key, as: FixtureAppearance.self).compactMapValues(\.value)
+                } else if key.stringValue == Self.unreadKey {
+                    unread = LeoAttentionFixture.lenientEntries(container, key, as: Int.self).filter { $0.value > 0 }
                 } else if key.stringValue == Self.usageKey {
                     usage = LeoAttentionFixture.lenientEntries(container, key, as: LeoAgentUsage.self)
                 } else if key.stringValue == Self.actionsKey {
@@ -145,6 +154,7 @@ enum LeoAttentionFixture {
             self.dispatchMoves = dispatchMoves
             self.environments = environments
             self.appearance = appearance
+            self.unread = unread
             self.dispatches = dispatches.sorted { ($0.startedAt ?? "", $0.id) < ($1.startedAt ?? "", $1.id) }
         }
     }

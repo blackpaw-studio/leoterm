@@ -378,6 +378,9 @@ import LeoKit
         self.localChatClient = localChatClient
         // Nothing is bound until a machine connects (`LeoRuntime+Machines`).
         let unread = LeoChatUnreadStore()
+        #if DEBUG
+        unread.fixtureCounts = LeoAttentionFixture.loadFile()?.unread ?? [:]
+        #endif
         self.unread = unread
         let chat = LeoChatPaneModel(
             clients: [:], recorder: LeoChatVoiceRecorder(),

@@ -55,6 +55,17 @@ struct LeoAttentionFixtureTests {
         #expect(malformed.usage.isEmpty && malformed.turns.isEmpty)
     }
 
+    /// B-413: a reserved `unread` key gives This Mac's agents unread counts;
+    /// zero, negative and malformed entries are dropped.
+    @Test func unreadKeyDecodesCountsAndDropsBadEntries() throws {
+        let json = #"{"alpha":{"state":"needs_input","revision":1},"unread":{"a":3,"b":0,"c":"x","d":-1}}"#
+        let file = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(json.utf8))
+        #expect(file.unread == ["a": 3])
+        #expect(file.attention.keys.sorted() == ["alpha"])
+        let malformed = try JSONDecoder().decode(LeoAttentionFixture.File.self, from: Data(#"{"unread":3}"#.utf8))
+        #expect(malformed.unread.isEmpty)
+    }
+
     /// B-260: a reserved `actions` key overlays `current_action` for named
     /// agents only; a malformed entry is dropped and the fixture still loads.
     @Test func actionsKeyOverlaysCurrentAction() async throws {
