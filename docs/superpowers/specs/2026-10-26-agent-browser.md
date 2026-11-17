@@ -116,7 +116,7 @@ Timeout is 30 s unless noted.
 | `browser_wait` | `text?` or `ms?` (≤ 25 000) | ok / timeout |
 | `browser_eval` | `js` | JSON-serialised result |
 | `browser_console` | `since?` | console messages captured since last call |
-| `browser_tabs` | — (no `tab`) | list `{id, url, title, active}` |
+| `browser_tabs` | — (no `tab`) | list `{id, url, title, active}`, plus `waiting_on_user: {permission, site}` while a permission request waits (B-410) |
 | `browser_tab_new` | `url?` | new tab id (becomes active) |
 | `browser_tab_select` | `tab` (required) | ok |
 | `browser_tab_close` | `tab` (required) | ok |
@@ -162,6 +162,38 @@ browser feature can be switched off in Settings, which withdraws the group.
   to the Mac panel. Chosen files are copied to a private temp folder (WebKit
   takes only local files) and removed when the browser closes; launch sweeps
   any a crash left.
+
+### Camera, microphone and location (B-410)
+
+Pages that ask for media or location ask the human, never an agent.
+
+- WebKit's media-capture request and its geolocation request (the public
+  `webView:requestGeolocationPermissionForOrigin:…` from macOS 27, and its
+  private `_webView:` twin on macOS 26 and earlier) go to one seam on the
+  browser's tabs. The site is the requesting frame's origin. WebKit's own
+  prompt is never used.
+- A request is denied at once unless its tab is the active tab, in the pane
+  that has the page (the last window shown), in a window that is ordered in,
+  not miniaturised and not occluded. Otherwise the pane shows a bar under the
+  handoff banner: "<agent> · <site> wants to use your camera | microphone |
+  camera and microphone | location", "Only you can answer. Your answer lasts
+  until this tab closes.", and **Don't Allow** / **Allow**, neither a default
+  button nor with a key equivalent. Requests queue; one shows at a time.
+- The user's answer is remembered per site (scheme, host, port) and kind for
+  the tab's life; camera-and-microphone needs both. Automatic denials and
+  withdrawn asks are not remembered. Answering is not user input: the agent
+  keeps control.
+- An ask is withdrawn (denied) when its page leaves the pane: another tab
+  becomes active, the pane hides or its window closes, the tab or browser
+  closes, the page navigates, or its content process stops. Covering or
+  minimising the window keeps it.
+- Agents: no tool answers. While a request waits, `browser_tabs` gives the tab
+  `waiting_on_user` and its snapshot starts with a "Waiting on the user" line;
+  every denial adds a `permission_denied: <origin> was denied access to …:
+  <reason>.` line to the tab's console. Sites are in the agent's (remote)
+  terms. Persisted per-site permissions and screen sharing are out of scope.
+- The app's camera, microphone and location usage strings name the agent
+  browser; the entitlements already allow all three.
 
 ### Pane UI
 
