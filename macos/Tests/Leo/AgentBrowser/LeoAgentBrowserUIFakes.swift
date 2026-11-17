@@ -74,6 +74,12 @@ import LeoKit
         return historyJumpSucceeds
     }
 
+    var pendingPermission: LeoBrowserPermissionPrompt?
+
+    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {
+        calls.append("permission \(prompt.id) \(allow ? "allow" : "deny")")
+    }
+
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler

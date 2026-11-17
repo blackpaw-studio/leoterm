@@ -29,6 +29,8 @@ import Testing
     func reopenClosedTab() -> Bool { false }
     func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] { [] }
     func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
+    var pendingPermission: LeoBrowserPermissionPrompt? { nil }
+    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {}
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
 
     /// Requests wait until cancelled, like a page load that never finishes;

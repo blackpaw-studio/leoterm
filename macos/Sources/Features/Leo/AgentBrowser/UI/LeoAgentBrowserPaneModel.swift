@@ -58,6 +58,8 @@ import LeoKit
     @Published private(set) var isLoading = false
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
+    /// The active tab's permission request waiting on the user (B-410).
+    @Published private(set) var permission: LeoBrowserPermissionPrompt?
     /// The latest download, or File-menu save (B-406), the user hasn't
     /// dismissed, or nil.
     @Published private(set) var downloadStrip: DownloadStrip?
@@ -136,6 +138,13 @@ import LeoKit
     func decline() {
         guard let handoff else { return }
         source.control.send(.decline(requestID: handoff.requestID))
+    }
+
+    /// Allow or Don't Allow on the permission bar. Answering for the page
+    /// is not driving it: the agent keeps control.
+    func answerPermission(allow: Bool) {
+        guard let permission else { return }
+        source.answerPermission(permission, allow: allow)
     }
 
     /// The strip's close button: hides this download's line (the download
@@ -244,6 +253,7 @@ import LeoKit
         set(\.isLoading, source.isLoading)
         set(\.canGoBack, source.canGoBack)
         set(\.canGoForward, source.canGoForward)
+        set(\.permission, source.pendingPermission)
     }
 
     private func refreshDownloads() {
