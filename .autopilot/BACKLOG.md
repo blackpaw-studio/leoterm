@@ -51,6 +51,7 @@ Out: Regex/case options. Mac only (iOS later with B-305 UI).
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661 (4887 tests; landed 290801942). Decisions D-842..D-850.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
+Reviewed: accepted 2026-11-17 — 290801942be8
 
 ## B-408 · Reopen closed tab and back/forward history menus in the agent browser   [done]
 Issue: #385
