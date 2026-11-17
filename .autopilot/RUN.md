@@ -133,11 +133,12 @@ Lane: B-408
   Dispatched: 2026-11-17T05:51:09Z
   Base: fbc0a72cdb1584e393c07052d8148754f06e441f
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 15fe279c54c5bf8bf4d73987f804fcd3ed9036d9
+  Tokens: 28.8M in (28M cache read), ≥164k out, 237 requests
   Call: ⌘[ / ⌘] / ⌘⇧T claimed only while focus is in the browser pane; Ghostty undo/goto_split untouched elsewhere — P1, follows D-843
   Call: History menu (Back, Forward, Reopen Closed Tab) between View and Agents, no key equivalents — P1, D-847
   Call: Every close is reopenable (user ×, agent tool, window.close()); blank tabs skipped; cap 20 per agent; stack dies with the browser — P2
@@ -155,6 +156,8 @@ Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 3: B-407 landed 290801942 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
 
 Finished 4: B-405 landed 9cf0c4069 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
+
+Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -177,3 +180,4 @@ Progress:
 - Pick: B-408 full (reopen closed tab + history menus).
 - Dispatched B-408 d-a01e72312213.
 - B-408 ready (0 fixes, general review). Shots are screen captures only (not attached). Verifier denied Screen Recording prompts and force-killed the debug app.
+- B-408 landed 346db3e91. D-860..D-868.

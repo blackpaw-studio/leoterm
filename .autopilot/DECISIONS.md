@@ -1340,3 +1340,57 @@ Chose: Upload tool and reader in LeoKit; picker Mac only, iOS picker with B-305
 Why: D-841
 Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
 Veto: [ ]
+
+## D-860 · 2026-11-17 · B-408: ⌘[ / ⌘] / ⌘⇧T claimed only while focus is in the browser pane; Ghostty undo/goto_split…
+Chose: ⌘[ / ⌘] / ⌘⇧T claimed only while focus is in the browser pane; Ghostty undo/goto_split untouched elsewhere
+Why: P1, follows D-843
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-861 · 2026-11-17 · B-408: History menu (Back, Forward, Reopen Closed Tab) between View and Agents, no key…
+Chose: History menu (Back, Forward, Reopen Closed Tab) between View and Agents, no key equivalents
+Why: P1, D-847
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-862 · 2026-11-17 · B-408: Every close is reopenable (user ×, agent tool, window.close()); blank tabs skipped; cap…
+Chose: Every close is reopenable (user ×, agent tool, window.close()); blank tabs skipped; cap 20 per agent; stack dies with the browser
+Why: P2
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-863 · 2026-11-17 · B-408: Reopened tab returns at its old index with its UA override; back history not restored
+Chose: Reopened tab returns at its old index with its UA override; back history not restored
+Why: P1
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-864 · 2026-11-17 · B-408: Reopen and history jumps count as user input and take control; impossible actions beep
+Chose: Reopen and history jumps count as user input and take control; impossible actions beep
+Why: P2
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-865 · 2026-11-17 · B-408: Press-and-hold 0.4 s, history menus show 20 entries, titles cut at 60 chars, VoiceOver…
+Chose: Press-and-hold 0.4 s, history menus show 20 entries, titles cut at 60 chars, VoiceOver show-menu
+Why: P1
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-866 · 2026-11-17 · B-408: Focus moves to the replacement page when the focused page leaves the slot
+Chose: Focus moves to the replacement page when the focused page leaves the slot
+Why: P1
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-867 · 2026-11-17 · B-408: A reopen whose URL-mapping load fails is logged and the entry is lost
+Chose: A reopen whose URL-mapping load fails is logged and the entry is lost
+Why: P2, accepted
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
+
+## D-868 · 2026-11-17 · B-408: A stale focus claim can linger if a slot isn't the winning viewer when its page is…
+Chose: A stale focus claim can linger if a slot isn't the winning viewer when its page is released
+Why: accepted edge
+Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
+Veto: [ ]
