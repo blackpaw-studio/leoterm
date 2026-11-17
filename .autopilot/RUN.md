@@ -102,3 +102,4 @@ Progress:
 - Dispatched B-420 d-62c77f54796a.
 - B-421 runner reported blocked on infra, not product: its verifier stalled on a harness permission prompt repointing the lane's GhosttyKit symlink (shared copy stale since Oct 1). Deviation from shelve: orchestrator refreshed shared/GhosttyKit.xcframework + zig-out per verify.md (old copies → ~/.Trash, ditto B-419's Nov 17 lane build; verify.md note updated) and dispatched a re-verify round at reviewed tip c0cb847 (integration also stale: B-419 landed). Error line was leo_send_dispatch refusing a permission answer, not a failed dispatch.
 - Dispatched B-421 re-verify d-c2d335bf30c7.
+- B-421 old runner retracted its diagnosis: verifier was only queued behind B-419's verify lock; the symlink prompt was a side step. Re-verify round already covers it. Shared refresh still warranted (B-305/B-419 runners both found the Oct 1 shared build lacks B-334's symbols).
