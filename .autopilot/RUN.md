@@ -48,7 +48,7 @@ Lane: B-426
 
 Lane: B-427
   Branch: autopilot-lane/B-427
-  Dispatched: 2026-11-17T21:00:09Z
+  Dispatched: 2026-11-17T21:00:40Z
   Base: 28c44ca4f6a998c4a15098e5c2d0c8b14f6969b6
   Tier: light
   State: building
@@ -71,3 +71,4 @@ Progress:
 - B-426 re-verify 1 ready (fix 1: an old load's end dropped the typed address; delta review clean, 5027 tests, window shots). Fresh.
 - B-426 landed 2e7220332. D-937..D-939. ≈$9.19 est.
 - Pick: B-427 light bug (Give Back pill after Return; B-426 landed, no overlap left).
+- Dispatched B-427 d-3481a8037c1a.
