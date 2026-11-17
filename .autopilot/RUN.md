@@ -15,5 +15,31 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-305
+  Branch: autopilot-lane/B-305
+  Dispatched: 2026-11-17T14:07:51Z
+  Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-419
+  Branch: autopilot-lane/B-419
+  Dispatched: 2026-11-17T14:07:51Z
+  Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-419, B-420, B-421. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
+- Board sync: B-404: gh issue view: dial tcp 140.82.114.6:443: i/o timeout
+- Pick: B-305 full (iOS executor, milestone 4; pick order lists it first); B-419 light bug (address field) in parallel — independent footprints (iOS app vs Mac browser pane). B-420 overlaps B-419 (address field); waits.
+- Dispatched runners via leo_dispatch implement: B-305 d-faad684af5f4, B-419 d-fcc99dfe43e6.
+- leo agent (10:03 EST): lost-dispatch bug (bridge-connect timeout under load → relaunch killed, turn marked lost) fixed in leo main PR #345 (945a27d3), unreleased. If a runner comes back lost/exit 137, re-dispatch rather than treat as a runner failure.
