@@ -39,7 +39,9 @@ protocol LeoAgentBrowserPaneSource: AnyObject {
     func reload()
     /// Loads a user-entered URL (remote terms) in the active tab, opening
     /// the port forward it needs. A failure shows in the page; it doesn't throw.
-    func navigate(to url: URL)
+    /// `onFailure` runs when the navigation could not start at all (the port
+    /// forward failed), so no load follows and nothing else reports it (B-426).
+    func navigate(to url: URL, onFailure: @escaping @MainActor () -> Void)
     /// Opens a blank tab and makes it active (the toolbar's + button).
     func openBlankTab()
     /// Whether ⌘⇧T has a closed tab to bring back and room to open it.

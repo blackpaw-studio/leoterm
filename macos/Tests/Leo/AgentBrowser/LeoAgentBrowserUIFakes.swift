@@ -53,7 +53,12 @@ import LeoKit
     func goBack() { calls.append("back") }
     func goForward() { calls.append("forward") }
     func reload() { calls.append("reload") }
-    func navigate(to url: URL) { calls.append("navigate \(url.absoluteString)") }
+    /// The failure handler of the latest `navigate`; call it to fail that navigation.
+    private(set) var failLastNavigation: (@MainActor () -> Void)?
+    func navigate(to url: URL, onFailure: @escaping @MainActor () -> Void) {
+        calls.append("navigate \(url.absoluteString)")
+        failLastNavigation = onFailure
+    }
     func openBlankTab() { calls.append("newTab") }
 
     var canReopenClosedTab = false
@@ -219,7 +224,7 @@ import LeoKit
     func goBack() {}
     func goForward() {}
     func reload() {}
-    func navigate(to url: URL) {}
+    func navigate(to url: URL, onFailure: @escaping @MainActor () -> Void) {}
     func openBlankTab() {}
     var canReopenClosedTab: Bool { false }
     func reopenClosedTab() -> Bool { false }

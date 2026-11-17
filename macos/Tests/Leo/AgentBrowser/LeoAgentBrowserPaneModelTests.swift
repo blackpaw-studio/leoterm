@@ -140,6 +140,28 @@ struct LeoAgentBrowserPaneModelTests {
     }
 
     @Test
+    func barFallsBackToThePagesURLWhenTheNavigationCannotStart() throws {
+        let model = submitWhileOnOldPage("new.example")
+        source.isLoading = false
+
+        let fail = try #require(source.failLastNavigation)
+        fail()
+
+        #expect(model.urlText == "https://old.example/")
+    }
+
+    @Test
+    func anEarlierNavigationsFailureLeavesALaterTypedAddressInTheBar() throws {
+        let model = submitWhileOnOldPage("first.example")
+        let failFirst = try #require(source.failLastNavigation)
+        model.submitURL("second.example")
+
+        failFirst()
+
+        #expect(model.urlText == "https://second.example")
+    }
+
+    @Test
     func aRefusedAddressLeavesTheBarOnThePage() {
         source.activeRemoteURL = URL(string: "https://old.example/")
         let model = model()

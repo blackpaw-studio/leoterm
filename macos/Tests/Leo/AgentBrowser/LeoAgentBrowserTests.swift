@@ -23,13 +23,16 @@ struct LeoAgentBrowserTests {
     private nonisolated static let key = LeoAgentBrowserKey(host: .remote("dionysus"), agent: "alpha")
 
     @available(macOS 14, *)
-    private func fixtureBrowser(key: LeoAgentBrowserKey = Self.key, server: LeoWKFixtureServer? = nil) -> LeoAgentBrowser {
+    private func fixtureBrowser(
+        key: LeoAgentBrowserKey = Self.key, server: LeoWKFixtureServer? = nil,
+        urlMapping: (any LeoBrowserURLMapping)? = nil
+    ) -> LeoAgentBrowser {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         configuration.applicationNameForUserAgent = LeoBrowserUserAgent.applicationName()
         configuration.setURLSchemeHandler(server ?? LeoWKFixtureServer(Self.pages), forURLScheme: LeoWKFixtureServer.scheme)
         return LeoAgentBrowser(
-            key: key, configuration: configuration, urlMapping: LeoIdentityURLMapping(),
+            key: key, configuration: configuration, urlMapping: urlMapping ?? LeoIdentityURLMapping(),
             input: LeoSyntheticInput(application: LeoWKTestHost.application),
             viewHost: LeoAgentBrowserHost(parking: LeoAgentBrowserParkingWindow(size: CGSize(width: 800, height: 600))),
             allowsURL: { url in [LeoWKFixtureServer.scheme, "about"].contains(url.scheme ?? "") }
@@ -50,6 +53,26 @@ struct LeoAgentBrowserTests {
     /// `page`'s content process until `condition` holds, as the page tests do.
     private func settle(_ page: any LeoBrowserPage, until condition: () -> Bool) async throws {
         for _ in 0..<50 where !condition() { _ = try await page.evaluate("return 0") }
+    }
+
+    private struct PortForwardFailed: Error {}
+
+    @MainActor private final class FailingURLMapping: LeoBrowserURLMapping {
+        func toLocal(_ url: URL) async throws -> URL { throw PortForwardFailed() }
+        func toRemote(_ url: URL) -> URL { url }
+    }
+
+    @available(macOS 14, *)
+    @Test func aNavigationWhoseForwardFailsReportsTheFailure() async {
+        let browser = fixtureBrowser(urlMapping: FailingURLMapping())
+        defer { browser.close() }
+
+        let failed = await withCheckedContinuation { continuation in
+            browser.navigate(to: URL(string: "http://localhost:5173")!) { continuation.resume(returning: true) }
+        }
+
+        #expect(failed)
+        #expect(!browser.isLoading)
     }
 
     @available(macOS 14, *)

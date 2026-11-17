@@ -87,12 +87,14 @@ import LeoKit
     private var stoppers: [() -> Void] = []
     /// The address the user sent, shown in the bar until that load commits (B-426).
     private var provisional: ProvisionalAddress?
+    private var submissionCount = 0
 
     /// A typed address awaiting its page, as Safari keeps it in the bar. It
     /// ends when the page commits (the address or the tab changes) or the
     /// load ends without committing, so the bar never invents a state the
     /// page didn't report.
     private struct ProvisionalAddress {
+        let id: Int
         let text: String
         /// The committed address and tab when it was sent.
         let baseURL: URL?
@@ -286,8 +288,18 @@ import LeoKit
             return
         }
         urlError = nil
-        provisional = ProvisionalAddress(text: url.absoluteString, baseURL: source.activeRemoteURL, tabID: activeTabID)
-        act { source.navigate(to: url) }
+        submissionCount += 1
+        let id = submissionCount
+        provisional = ProvisionalAddress(id: id, text: url.absoluteString, baseURL: source.activeRemoteURL, tabID: activeTabID)
+        act { source.navigate(to: url) { [weak self] in self?.navigationFailed(id) } }
+        refresh()
+    }
+
+    /// The source couldn't start submission `id`: no load will follow, so the
+    /// bar goes back to the page's address (D-928), unless a newer address took over.
+    private func navigationFailed(_ id: Int) {
+        guard provisional?.id == id else { return }
+        provisional = nil
         refresh()
     }
 
