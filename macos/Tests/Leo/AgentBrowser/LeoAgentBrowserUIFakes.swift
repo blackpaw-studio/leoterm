@@ -8,6 +8,7 @@ import LeoKit
 @MainActor final class FakeBrowserTabs: LeoBrowserTabs {
     var tabs: [LeoBrowserTabInfo] = []
     var downloads: [LeoBrowserDownload] = []
+    let dialogs = LeoBrowserDialogDesk()
     /// What `page(forTab: nil)` returns.
     var activePage: (any LeoBrowserPage)?
     private(set) var opened: [URL] = []
@@ -78,6 +79,12 @@ import LeoKit
 
     func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {
         calls.append("permission \(prompt.id) \(allow ? "allow" : "deny")")
+    }
+
+    var pendingDialog: LeoBrowserDialogPrompt?
+
+    func answerDialog(_ prompt: LeoBrowserDialogPrompt, accept: Bool, text: String?) {
+        calls.append("dialog \(prompt.id) \(accept ? "accept" : "dismiss")" + (text.map { " \($0)" } ?? ""))
     }
 
     var key = LeoAgentBrowserKey(host: .local, agent: "alpha")

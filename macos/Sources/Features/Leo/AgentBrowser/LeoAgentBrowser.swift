@@ -88,6 +88,12 @@ import WebKit
         tabSet.answerPermission(prompt, allow: allow)
     }
 
+    var pendingDialog: LeoBrowserDialogPrompt? { tabSet.pendingDialog }
+
+    func answerDialog(_ prompt: LeoBrowserDialogPrompt, accept: Bool, text: String?) {
+        tabSet.answerDialog(prompt, accept: accept, text: text)
+    }
+
     var tabs: any LeoBrowserTabs { tabSet }
     var activeView: NSView? { tabSet.activePage?.webView }
     var activeRemoteURL: URL? { tabSet.activePage?.url.map(urlMapping.toRemote) }
@@ -95,11 +101,24 @@ import WebKit
     var canGoBack: Bool { tabSet.activePage?.webView.canGoBack ?? false }
     var canGoForward: Bool { tabSet.activePage?.webView.canGoForward ?? false }
 
-    func goBack() { tabSet.activePage?.webView.goBack() }
-    func goForward() { tabSet.activePage?.webView.goForward() }
-    func reload() { tabSet.activePage?.webView.reload() }
+    // The user's own navigations dismiss the active tab's dialog first (B-412).
+    func goBack() {
+        tabSet.withdrawActiveDialog()
+        tabSet.activePage?.webView.goBack()
+    }
+
+    func goForward() {
+        tabSet.withdrawActiveDialog()
+        tabSet.activePage?.webView.goForward()
+    }
+
+    func reload() {
+        tabSet.withdrawActiveDialog()
+        tabSet.activePage?.webView.reload()
+    }
 
     func navigate(to url: URL) {
+        tabSet.withdrawActiveDialog()
         Task {
             do {
                 let local = try await urlMapping.toLocal(url)
@@ -157,6 +176,7 @@ import WebKit
               let item = webView.backForwardList.item(at: entry.offset),
               urlMapping.toRemote(item.url) == entry.url
         else { return false }
+        tabSet.withdrawActiveDialog()
         webView.go(to: item)
         return true
     }
@@ -196,8 +216,10 @@ import WebKit
 }
 
 /// An agent browser's tabs: the `LeoBrowserTabs` the executor drives, and
-/// the `WKUIDelegate` that turns a page's new windows into tabs and takes
-/// its camera, microphone and location requests to the user (B-410).
+/// the `WKUIDelegate` that turns a page's new windows into tabs, takes
+/// its camera, microphone and location requests to the user (B-410), and
+/// puts its JavaScript dialogs on the dialog desk (B-412,
+/// `LeoBrowserDialogGlue`).
 @available(macOS 14, *)
 @MainActor final class LeoAgentBrowserTabs: NSObject, LeoBrowserTabs, WKUIDelegate {
     static let blank = URL(string: "about:blank")!
@@ -218,7 +240,7 @@ import WebKit
     private let allowsURL: (URL) -> Bool
     private let input: LeoSyntheticInput
     private let viewHost: LeoAgentBrowserHost
-    private let agentName: String
+    let agentName: String
     private let filePicker: any LeoBrowserFilePicking
     let downloader: LeoWKBrowserDownloads
     /// Maps a page's URL to the agent's (remote) terms, for what the user
@@ -227,6 +249,9 @@ import WebKit
     private lazy var permissions = LeoBrowserPermissionDesk { [weak self] tab, request, denial in
         self?.note(denial, of: request, inTab: tab)
     }
+    /// The tabs' open JavaScript dialogs (B-412).
+    let dialogs = LeoBrowserDialogDesk()
+    private var stopObservingDialogs: (@MainActor () -> Void)?
     /// File choosers open per web view, answered when the tab closes.
     private var filePicks: [ObjectIdentifier: [LeoBrowserFilePick]] = [:]
     private var list: [Tab] = []
@@ -249,11 +274,20 @@ import WebKit
         self.allowsURL = allowsURL
         self.input = input
         self.viewHost = viewHost
+        super.init()
+        stopObservingDialogs = dialogs.observe { [weak self] _ in self?.onChange?() }
     }
 
     var dataStore: WKWebsiteDataStore { configuration.websiteDataStore }
 
     var activePage: LeoWKBrowserPage? { list.first { $0.id == activeID }?.page }
+
+    var activeTabID: Int? { activeID }
+
+    /// The id of the tab `webView` shows, or nil when it is no tab's.
+    func tabID(of webView: WKWebView) -> Int? {
+        list.first { $0.page.webView === webView }?.id
+    }
 
     // MARK: - LeoBrowserTabs
 
@@ -451,7 +485,7 @@ import WebKit
     }
 
     /// `site` in the agent's (remote) terms: a forwarded local port maps back.
-    private func remote(_ site: LeoBrowserSite) -> LeoBrowserSite {
+    func remote(_ site: LeoBrowserSite) -> LeoBrowserSite {
         site.url.map(toRemote).flatMap(LeoBrowserSite.init(url:)) ?? site
     }
 
@@ -463,8 +497,14 @@ import WebKit
         page.webView.uiDelegate = self
         page.webView.onUserInput = { [weak self] in self?.onUserInput?() }
         page.onDownload = { [weak self] in self?.downloader.adopt($0) }
-        page.onCommit = { [weak self] in self?.withdrawAsks(inTab: id, because: .navigated) }
-        page.onContentProcessTerminate = { [weak self] in self?.withdrawAsks(inTab: id, because: .pageStopped) }
+        page.onCommit = { [weak self] in
+            self?.withdrawAsks(inTab: id, because: .navigated)
+            self?.dialogs.withdraw(inTab: id)
+        }
+        page.onContentProcessTerminate = { [weak self] in
+            self?.withdrawAsks(inTab: id, because: .pageStopped)
+            self?.dialogs.withdraw(inTab: id)
+        }
         let notify: @Sendable (WKWebView, Any) -> Void = { [weak self] _, _ in MainActor.assumeIsolated { self?.onChange?() } }
         let observations: [NSKeyValueObservation] = [
             page.webView.observe(\.url) { notify($0, $1) },
@@ -490,6 +530,8 @@ import WebKit
         tab.page.onCommit = nil
         tab.page.onContentProcessTerminate = nil
         permissions.forget(tab: tab.id)
+        // WebKit raises if a dialog's completion handler goes unanswered.
+        dialogs.withdraw(inTab: tab.id)
         tab.page.webView.uiDelegate = nil
         filePicks.removeValue(forKey: ObjectIdentifier(tab.page.webView))?.forEach { $0.abandon() }
         tab.page.webView.onUserInput = nil

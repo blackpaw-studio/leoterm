@@ -33,6 +33,7 @@ struct LeoWKBrowserPageProtocolTests {
 
         var tabs: [LeoBrowserTabInfo] { [LeoBrowserTabInfo(id: 1, url: page.url, title: page.title, isActive: true)] }
         var downloads: [LeoBrowserDownload] { [] }
+        let dialogs = LeoBrowserDialogDesk()
         func page(forTab id: Int?) -> (any LeoBrowserPage)? { id == nil || id == 1 ? page : nil }
         func openTab(url: URL, userAgent: String?) async throws -> Int { 1 }
         func saveCapture(_ data: Data, kind: LeoBrowserCaptureKind, path: String?, defaultName: String) async throws -> LeoBrowserSavedDownload {
