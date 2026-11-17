@@ -276,7 +276,9 @@ public actor LeoBrowserDownloadSaver {
         return id
     }
 
+    /// Ignored once the fetch has ended: a progress report can arrive late.
     public func progress(_ id: Int, receivedBytes: Int64, expectedBytes: Int64?) {
+        guard case .downloading? = entries.first(where: { $0.id == id })?.state else { return }
         update(id, .downloading(receivedBytes: receivedBytes, expectedBytes: expectedBytes))
     }
 

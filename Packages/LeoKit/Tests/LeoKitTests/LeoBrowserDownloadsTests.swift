@@ -177,6 +177,16 @@ struct LeoBrowserDownloadsTests {
         #expect(log.entries.first?.state == .failed("The download failed: The network connection was lost. Nothing was saved."))
     }
 
+    @MainActor @Test func aLateProgressReportNeverRevertsAnEndedDownload() {
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { RecordingAccess() }), workspace: { "/ws" })
+        let id = log.begin(suggestedName: "a.txt", sourceURL: nil)
+        log.fail(id, reason: "gone")
+
+        log.progress(id, receivedBytes: 9, expectedBytes: 10)
+
+        #expect(log.entries.first?.state == .failed("The download failed: gone. Nothing was saved."))
+    }
+
     @MainActor @Test func theLogKeepsTheNewestEntriesOnly() {
         let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { RecordingAccess() }), workspace: { "/ws" })
         let ids = (0..<(LeoBrowserDownloads.historyLimit + 5)).map { log.begin(suggestedName: "f\($0)", sourceURL: nil) }
