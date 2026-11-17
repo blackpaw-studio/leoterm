@@ -47,6 +47,9 @@ final class LeoAgentBrowserToolbar: NSView, NSTextFieldDelegate {
     /// stays until they commit it or press Escape. Until then the bar follows
     /// the page, focused or not (B-419).
     private var hasUserEdits = false
+    /// The tab the bar showed last: another tab is another page, so an edit
+    /// doesn't follow the user there.
+    private var shownTabID: Int?
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -64,6 +67,11 @@ final class LeoAgentBrowserToolbar: NSView, NSTextFieldDelegate {
         reloadButton.isEnabled = !model.isLoading
         newTabButton.isEnabled = model.tabItems.count < LeoBrowserLimits.maximumTabs
         pageURLText = model.urlText
+        let activeTabID = model.tabItems.first(where: \.isActive)?.id
+        if activeTabID != shownTabID {
+            shownTabID = activeTabID
+            hasUserEdits = false
+        }
         if !hasUserEdits { urlField.stringValue = pageURLText }
         urlField.toolTip = model.urlError
         urlField.textColor = model.urlError == nil ? .labelColor : .systemRed
@@ -181,17 +189,23 @@ final class LeoAgentBrowserToolbar: NSView, NSTextFieldDelegate {
         guard let moreMenu else { return }
         showMenu(moreMenu, moreButton)
     }
-    /// Leaves `hasUserEdits` set: a rejected address stays to be fixed, and the
-    /// pane ends editing itself when the address is good.
+    /// The pane calls this once it accepts an address: the bar follows the page
+    /// again even while it keeps focus. A rejected address isn't committed, so
+    /// it stays to be fixed.
+    func commitEdit() { hasUserEdits = false }
+
     @objc private func submit(_ sender: Any?) { onSubmitURL(urlField.stringValue) }
 
     func controlTextDidChange(_ notification: Notification) { hasUserEdits = true }
 
-    /// Focus leaving the bar ends the edit; Return doesn't, since it commits
-    /// the text and a rejected address keeps it.
+    /// Focus leaving the bar drops an uncommitted edit and shows the page's
+    /// address again; Return doesn't, since it commits the text (the pane
+    /// calls `commitEdit` if it's good) and a rejected address keeps it.
     func controlTextDidEndEditing(_ notification: Notification) {
-        let movement = notification.userInfo?["NSTextMovement"] as? Int
-        if movement != NSReturnTextMovement { hasUserEdits = false }
+        let movement = notification.userInfo?[NSText.movementUserInfoKey] as? Int
+        guard movement != NSReturnTextMovement else { return }
+        if hasUserEdits { urlField.stringValue = pageURLText }
+        hasUserEdits = false
     }
 
     /// Escape drops the user's edit and shows the page's address again.
