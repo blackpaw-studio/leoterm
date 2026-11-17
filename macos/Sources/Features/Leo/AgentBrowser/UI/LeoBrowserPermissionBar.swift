@@ -105,15 +105,16 @@ final class LeoBrowserPermissionBar: NSView {
 
         content.setViews([textRow, buttons], in: .leading)
         content.spacing = Self.spacing
-        content.edgeInsets = Self.insets
         content.translatesAutoresizingMaskIntoConstraints = false
         addSubview(content)
-        textFillsWidth = textRow.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -(Self.insets.left + Self.insets.right))
+        // Insets as constraints, not `edgeInsets`: a vertical stack aligned
+        // .trailing ignores the right inset and puts Allow on the pane's edge.
+        textFillsWidth = textRow.widthAnchor.constraint(equalTo: content.widthAnchor)
         NSLayoutConstraint.activate([
-            content.leadingAnchor.constraint(equalTo: leadingAnchor),
-            content.trailingAnchor.constraint(equalTo: trailingAnchor),
-            content.topAnchor.constraint(equalTo: topAnchor),
-            content.bottomAnchor.constraint(equalTo: bottomAnchor),
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.insets.left),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.insets.right),
+            content.topAnchor.constraint(equalTo: topAnchor, constant: Self.insets.top),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.insets.bottom),
         ])
         arrange(wide: true)
     }

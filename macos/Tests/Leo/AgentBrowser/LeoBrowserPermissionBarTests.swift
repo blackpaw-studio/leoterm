@@ -63,6 +63,17 @@ struct LeoBrowserPermissionBarTests {
         #expect(answers == ["deny", "allow"])
     }
 
+    /// Narrow panes put the buttons under the text; they keep the trailing
+    /// inset rather than touching the pane's edge.
+    @Test(arguments: [CGFloat(460), 800])
+    func buttonsKeepTheTrailingInset(width: CGFloat) {
+        let bar = LeoBrowserPermissionBar(frame: NSRect(x: 0, y: 0, width: width, height: 80))
+        bar.show(prompt(.location))
+        bar.layoutSubtreeIfNeeded()
+        let allow = bar.convert(bar.allowButton.bounds, from: bar.allowButton)
+        #expect(abs(allow.maxX - (width - 8)) <= 1, "Allow ends at \(allow.maxX) in a \(width)-wide bar")
+    }
+
     @Test func hiddenWithoutRequest() {
         let bar = LeoBrowserPermissionBar()
         #expect(bar.isHidden)
