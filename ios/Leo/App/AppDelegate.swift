@@ -41,7 +41,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Before returning, so a tap that launched the app is delivered.
         UNUserNotificationCenter.current().delegate = self
         Self.registerChatCategories()
-        if LaunchPolicy.startsStoreAtLaunch() { Self.store.send(.task) }
+        LaunchPolicy.send(.task, to: Self.store)
         #if DEBUG
         if MachinesFixture.isRequested { MachinesFixture.openMachines(Self.store) }
         if SettingsFixture.isRequested { SettingsFixture.openMachines(Self.store) }
