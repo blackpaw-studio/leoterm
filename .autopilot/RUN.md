@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-17T00:10:08Z
 Budget: 20 items, until 2026-11-17T12:10:08Z
-Digested-through: 0
+Digested-through: 5
 Filed: 3/3 bugs, 5/5 ideas
 Self-filed: B-413 → B-414 idea — Sidebar needs-you pill overlaps the edge row's text
 Self-filed: B-413 → B-415 idea — Retake B-413 indicator shots with scratch-only rows
