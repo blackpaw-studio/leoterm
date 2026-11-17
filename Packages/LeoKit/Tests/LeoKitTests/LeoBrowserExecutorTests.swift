@@ -309,7 +309,7 @@ struct LeoBrowserExecutorTests {
     @Test func tabsShowWaitingOnUserOnlyWhilePending() async throws {
         let h = harness(pageCount: 2)
         h.tabs.waiting[2] = LeoBrowserPermissionRequest(
-            kind: .cameraAndMicrophone, site: LeoBrowserPermissionSite(scheme: "http", host: "localhost", port: 49152)
+            kind: .cameraAndMicrophone, site: LeoBrowserSite(scheme: "http", host: "localhost", port: 49152)
         )
         let waiting = try tabList(await run(h, "browser_tabs"))
         #expect(waiting[0]["waiting_on_user"] == nil)
@@ -325,7 +325,7 @@ struct LeoBrowserExecutorTests {
         h.tabs.pages[1]!.snapshotText = "button \"Join\" [e1]"
         h.tabs.pages[2]!.snapshotText = "other"
         h.tabs.waiting[1] = LeoBrowserPermissionRequest(
-            kind: .location, site: LeoBrowserPermissionSite(scheme: "https", host: "maps.example.com", port: nil)
+            kind: .location, site: LeoBrowserSite(scheme: "https", host: "maps.example.com", port: nil)
         )
 
         let lines = texts(await run(h, "browser_snapshot")).first?.components(separatedBy: "\n") ?? []

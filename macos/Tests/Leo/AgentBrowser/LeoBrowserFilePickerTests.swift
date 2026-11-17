@@ -105,9 +105,9 @@ struct LeoBrowserFilePickerTests {
     }
 
     @Test func labelsAnOriginByHostAndNonDefaultPort() {
-        #expect(LeoBrowserFilePickRequest.originLabel(host: "example.com", port: 0) == "example.com")
-        #expect(LeoBrowserFilePickRequest.originLabel(host: "localhost", port: 3000) == "localhost:3000")
-        #expect(LeoBrowserFilePickRequest.originLabel(host: "", port: 0) == "this page")
+        #expect(LeoBrowserSite(scheme: "https", host: "example.com", port: 0).label == "example.com")
+        #expect(LeoBrowserSite(scheme: "http", host: "localhost", port: 3000).label == "localhost:3000")
+        #expect(LeoBrowserSite(scheme: "about", host: "", port: 0).label == "this page")
     }
 
     @available(macOS 14, *)

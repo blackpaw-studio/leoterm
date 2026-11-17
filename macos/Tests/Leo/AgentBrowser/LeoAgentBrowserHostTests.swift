@@ -13,16 +13,17 @@ import WebKit
 struct LeoAgentBrowserHostTests {
     /// A window standing in for one showing the row's pane.
     @MainActor private final class PaneWindow {
-        let window = LeoWKTestHost.offscreenWindow(size: CGSize(width: 900, height: 700))
+        let window: NSWindow
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 900, height: 700))
         let slot = LeoAgentBrowserSlot(frame: NSRect(x: 0, y: 0, width: 900, height: 700))
 
-        init(showing source: any LeoAgentBrowserPaneSource) {
+        init(showing source: any LeoAgentBrowserPaneSource, window: NSWindow? = nil) {
+            self.window = window ?? LeoWKTestHost.offscreenWindow(size: CGSize(width: 900, height: 700))
             slot.onVisibilityChange = { [weak slot] isVisible in
                 guard let slot else { return }
                 if isVisible { source.viewHost.show(source, in: slot) } else { source.viewHost.hide(slot) }
             }
-            window.contentView?.addSubview(container)
+            self.window.contentView?.addSubview(container)
             show()
         }
 
@@ -111,6 +112,82 @@ struct LeoAgentBrowserHostTests {
         browser.tabs.selectTab(first)
         #expect(firstView.window === pane.window)
         #expect(secondView.window === host.parking)
+    }
+
+    /// A window that says it is in the Dock.
+    private final class MiniaturizedWindow: NSWindow {
+        override var isMiniaturized: Bool { true }
+    }
+
+    /// B-410: a permission prompt only counts as seen on the slot that has
+    /// the page, in a window that is ordered in and not in the Dock.
+    /// Occlusion is the system's call; test windows sit off screen, so the
+    /// test treats every window as unoccluded.
+    @Test func isOnScreenOnlyForWinningSlotInVisibleWindow() {
+        let host = LeoAgentBrowserHost(isUnoccluded: { _ in true })
+        let source = FakePaneSource(viewHost: host)
+        let page = NSView()
+        source.activeView = page
+        host.adopt(page)
+        #expect(!host.isOnScreen(page), "parked")
+
+        let first = PaneWindow(showing: source)
+        defer { first.close() }
+        #expect(host.isOnScreen(page))
+        #expect(host.isInPane(page))
+
+        let second = PaneWindow(showing: source)
+        defer { second.close() }
+        #expect(host.isOnScreen(page), "the winning slot has it")
+        second.window.orderOut(nil)
+        #expect(!host.isOnScreen(page), "ordered out")
+        #expect(host.isInPane(page), "an ordered-out window still holds the page")
+        second.leave()
+        #expect(host.isOnScreen(page), "back in the first window")
+
+        let docked = MiniaturizedWindow(
+            contentRect: LeoWKTestHost.offscreenFrame(size: CGSize(width: 900, height: 700)), styleMask: .borderless, backing: .buffered, defer: false
+        )
+        docked.isReleasedWhenClosed = false
+        docked.orderBack(nil)
+        let third = PaneWindow(showing: source, window: docked)
+        defer { third.close() }
+        #expect(!host.isOnScreen(page), "miniaturized")
+        #expect(first.slot.isShownElsewhere)
+    }
+
+    @Test func occlusionCountsAsOffScreen() {
+        var unoccluded = true
+        let host = LeoAgentBrowserHost(isUnoccluded: { _ in unoccluded })
+        let source = FakePaneSource(viewHost: host)
+        let page = NSView()
+        source.activeView = page
+        host.adopt(page)
+        let pane = PaneWindow(showing: source)
+        defer { pane.close() }
+        #expect(host.isOnScreen(page))
+        unoccluded = false
+        #expect(!host.isOnScreen(page))
+    }
+
+    @Test func placementObserversHearShowsHidesAndRefreshes() {
+        let host = LeoAgentBrowserHost()
+        let source = FakePaneSource(viewHost: host)
+        let page = NSView()
+        source.activeView = page
+        host.adopt(page)
+        var count = 0
+        let stop = host.observePlacement { count += 1 }
+        let pane = PaneWindow(showing: source)
+        defer { pane.close() }
+        #expect(count == 1)
+        host.refresh(source)
+        #expect(count == 2)
+        pane.leave()
+        #expect(count == 3)
+        stop()
+        pane.show()
+        #expect(count == 3)
     }
 
     @Test func theLastWindowShownHasThePageAndTheOthersSaySo() {

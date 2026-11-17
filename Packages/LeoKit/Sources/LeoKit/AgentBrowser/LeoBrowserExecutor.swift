@@ -222,8 +222,8 @@ public final class LeoBrowserExecutor {
     }
 
     /// A site's origin in remote terms (a forwarded local port maps back).
-    private func remoteOrigin(_ site: LeoBrowserPermissionSite) -> String {
-        site.url.map(urlMapping.toRemote).flatMap(LeoBrowserPermissionSite.init(url:))?.origin ?? site.origin
+    private func remoteOrigin(_ site: LeoBrowserSite) -> String {
+        site.url.map(urlMapping.toRemote).flatMap(LeoBrowserSite.init(url:))?.origin ?? site.origin
     }
 
     /// What a snapshot of `tab` (the active tab when nil) leads with while

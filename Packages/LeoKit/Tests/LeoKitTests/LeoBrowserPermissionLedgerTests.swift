@@ -7,9 +7,9 @@ import Testing
 /// answers, only while the tab is on screen, and an answer lasts for the
 /// tab's life, per site and kind.
 struct LeoBrowserPermissionLedgerTests {
-    private static let meet = LeoBrowserPermissionSite(scheme: "https", host: "meet.example.com", port: 8443)
+    private static let meet = LeoBrowserSite(scheme: "https", host: "meet.example.com", port: 8443)
 
-    private func request(_ kind: LeoBrowserPermissionKind, _ site: LeoBrowserPermissionSite = meet) -> LeoBrowserPermissionRequest {
+    private func request(_ kind: LeoBrowserPermissionKind, _ site: LeoBrowserSite = meet) -> LeoBrowserPermissionRequest {
         LeoBrowserPermissionRequest(kind: kind, site: site)
     }
 
@@ -38,9 +38,9 @@ struct LeoBrowserPermissionLedgerTests {
         #expect(ledger.decision(for: request(.location), isShown: true) == .deny)
         #expect(ledger.decision(for: request(.microphone), isShown: true) == .ask)
 
-        let otherHost = LeoBrowserPermissionSite(scheme: "https", host: "evil.example.com", port: 8443)
-        let otherPort = LeoBrowserPermissionSite(scheme: "https", host: "meet.example.com", port: 9443)
-        let otherScheme = LeoBrowserPermissionSite(scheme: "http", host: "meet.example.com", port: 8443)
+        let otherHost = LeoBrowserSite(scheme: "https", host: "evil.example.com", port: 8443)
+        let otherPort = LeoBrowserSite(scheme: "https", host: "meet.example.com", port: 9443)
+        let otherScheme = LeoBrowserSite(scheme: "http", host: "meet.example.com", port: 8443)
         for site in [otherHost, otherPort, otherScheme] {
             #expect(ledger.decision(for: request(.camera, site), isShown: true) == .ask)
             #expect(ledger.decision(for: request(.location, site), isShown: true) == .ask)
@@ -65,21 +65,21 @@ struct LeoBrowserPermissionLedgerTests {
     }
 
     @Test func aDefaultPortIsTheSameSiteAsNoPort() {
-        let bare = LeoBrowserPermissionSite(scheme: "HTTPS", host: "Meet.Example.com", port: nil)
-        let explicit = LeoBrowserPermissionSite(scheme: "https", host: "meet.example.com", port: 443)
+        let bare = LeoBrowserSite(scheme: "HTTPS", host: "Meet.Example.com", port: nil)
+        let explicit = LeoBrowserSite(scheme: "https", host: "meet.example.com", port: 443)
         #expect(bare == explicit)
         #expect(bare.label == "meet.example.com")
         #expect(Self.meet.label == "meet.example.com:8443")
         #expect(Self.meet.origin == "https://meet.example.com:8443")
-        #expect(LeoBrowserPermissionSite(scheme: "about", host: "", port: nil).label == "this page")
+        #expect(LeoBrowserSite(scheme: "about", host: "", port: nil).label == "this page")
     }
 
     @Test func aSiteRoundTripsThroughAURL() throws {
         let url = try #require(Self.meet.url)
         #expect(url.absoluteString == "https://meet.example.com:8443")
-        #expect(LeoBrowserPermissionSite(url: url) == Self.meet)
-        let loopback = LeoBrowserPermissionSite(scheme: "http", host: "::1", port: 5173)
+        #expect(LeoBrowserSite(url: url) == Self.meet)
+        let loopback = LeoBrowserSite(scheme: "http", host: "::1", port: 5173)
         #expect(loopback.url?.absoluteString == "http://[::1]:5173")
-        #expect(loopback.url.flatMap(LeoBrowserPermissionSite.init(url:)) == loopback)
+        #expect(loopback.url.flatMap(LeoBrowserSite.init(url:)) == loopback)
     }
 }

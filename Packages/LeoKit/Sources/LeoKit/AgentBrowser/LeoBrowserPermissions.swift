@@ -33,9 +33,10 @@ public enum LeoBrowserPermissionKind: String, Sendable, CaseIterable {
     }
 }
 
-/// The site a request came from: scheme, host and port, compared without
-/// case and with a scheme's default port the same as none.
-public struct LeoBrowserPermissionSite: Hashable, Sendable {
+/// The site a request to the user came from (a permission, a file
+/// chooser): scheme, host and port, compared without case and with a
+/// scheme's default port the same as none.
+public struct LeoBrowserSite: Hashable, Sendable {
     public let scheme: String
     /// Without IPv6 brackets.
     public let host: String
@@ -44,6 +45,8 @@ public struct LeoBrowserPermissionSite: Hashable, Sendable {
 
     private static let defaultPorts = ["http": 80, "https": 443]
 
+    /// `port` 0, as a WebKit security origin gives it, or the scheme's own
+    /// port is the default.
     public init(scheme: String, host: String, port: Int?) {
         let scheme = scheme.lowercased()
         self.scheme = scheme
@@ -78,9 +81,9 @@ public struct LeoBrowserPermissionSite: Hashable, Sendable {
 /// One page's request: what it wants, from which site.
 public struct LeoBrowserPermissionRequest: Hashable, Sendable {
     public let kind: LeoBrowserPermissionKind
-    public let site: LeoBrowserPermissionSite
+    public let site: LeoBrowserSite
 
-    public init(kind: LeoBrowserPermissionKind, site: LeoBrowserPermissionSite) {
+    public init(kind: LeoBrowserPermissionKind, site: LeoBrowserSite) {
         self.kind = kind
         self.site = site
     }
@@ -96,7 +99,7 @@ public struct LeoBrowserPermissionLedger: Equatable, Sendable {
 
     private struct Key: Hashable, Sendable {
         let kind: LeoBrowserPermissionKind
-        let site: LeoBrowserPermissionSite
+        let site: LeoBrowserSite
     }
 
     private let answers: [Key: Bool]
@@ -184,13 +187,6 @@ public enum LeoBrowserPermissionText {
 public enum LeoBrowserRequestText {
     /// What a site with no host (`about:blank`) is called.
     static let noHost = "this page"
-
-    /// `host` plus a non-default `port` (0 means the scheme's default), or
-    /// "this page" when there is no host, as for `about:blank`.
-    public static func originLabel(host: String, port: Int) -> String {
-        guard !host.isEmpty else { return noHost }
-        return port == 0 ? host : "\(host):\(port)"
-    }
 
     /// "<agent> · <origin> wants to <wants>".
     public static func message(agent: String, origin: String, wants: String) -> String {

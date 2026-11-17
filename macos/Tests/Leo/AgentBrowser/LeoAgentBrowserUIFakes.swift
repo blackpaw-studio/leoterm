@@ -33,7 +33,7 @@ import LeoKit
 @MainActor final class FakePaneSource: LeoAgentBrowserPaneSource {
     let fakeTabs = FakeBrowserTabs()
     let control = LeoBrowserControlModel()
-    let viewHost = LeoAgentBrowserHost()
+    let viewHost: LeoAgentBrowserHost
     /// Set before making a model: it observes the log it finds.
     var downloads = LeoBrowserDownloads.withoutWorkspace()
     var tabs: any LeoBrowserTabs { fakeTabs }
@@ -44,6 +44,10 @@ import LeoKit
     var canGoForward = false
     private(set) var calls: [String] = []
     private var handlers: [UUID: @MainActor () -> Void] = [:]
+
+    init(viewHost: LeoAgentBrowserHost? = nil) {
+        self.viewHost = viewHost ?? LeoAgentBrowserHost()
+    }
 
     func goBack() { calls.append("back") }
     func goForward() { calls.append("forward") }
