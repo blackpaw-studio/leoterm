@@ -22,6 +22,9 @@ Self-filed: B-408 → dropped (over cap) — Browser host re-focuses the web vie
 Self-filed: B-406 → dropped (over cap) — Full-page PNG has a ~17 px white strip on the right edge
 Self-filed: B-406 → dropped (over cap) — Workspace browser truncates file names in the middle
 Self-filed: B-406 → dropped (over cap) — Save menu items disabled with no hint outside the browser pane
+Self-filed: B-409 → dropped (dup of B-419) — Address bar keeps showing about:blank after load while focused
+Self-filed: B-409 → dropped (over cap) — Clear Site Data alert destructive button reads poorly
+Self-filed: B-409 → dropped (over cap) — LeoClearConfirmation comment wrongly claims Cancel answers Return
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -171,11 +174,19 @@ Lane: B-409
   Dispatched: 2026-11-17T06:56:17Z
   Base: 2089f6acfe74c47fdbe41e05543f641d2b3ee562
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: eda4cb7aee5a3bc7939d6f284980391b53dbeb35
+  Call: Shortcuts ⌥⌘O Open in Default Browser, ⇧⌘C Copy URL, ⇧⌘⌫ Clear Site Data…; claimed only with focus in the pane — P1
+  Call: Browser menu after History; pane More menu mirrors it without pane focus — P1
+  Call: Remote localhost opens via forwarded 127.0.0.1:<port>; unreachable machine shows a sheet, opens nothing; only http(s) with host sent — P3
+  Call: Each page keeps its remote port across a reconnect — P3
+  Call: Copy URL copies the agent-side address as text and URL; off for no page/blank — P3
+  Call: Clear removes all WebKit data types from that agent's store only, no reload; downloads/history/closed tabs/UA overrides stay; alert names agent (+machine) — P1/P2
+  Call: Clear alert: Cancel + destructive Clear Site Data; Return picks neither, Escape cancels — P1
+  Call: Mac only
 
 Lane: B-410
   Branch: autopilot-lane/B-410
