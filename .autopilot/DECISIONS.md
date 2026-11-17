@@ -1734,3 +1734,27 @@ Chose:
 Why: Platform call: both. Session, registry and loopback policy moved to LeoKit; the Mac only switched to the moved types
 Commit: 777769817 62bf31eff f2abff2eb 917ba36b8 74ed88f3e c93ac9b3d 3f932ab48 e121cb20f 57aaa0632
 Veto: [ ]
+
+## D-925 · 2026-11-17 · B-419: Platform
+Chose: Mac only: AppKit pane UI, iOS has no pane equivalent, so nothing goes in LeoKit
+Why: P1
+Commit: 521c151a4 e63df929f
+Veto: [ ]
+
+## D-926 · 2026-11-17 · B-419: Escape restores the page address
+Chose: Escape restores the page address and resumes following
+Why: P1 Safari parity
+Commit: 521c151a4 e63df929f
+Veto: [ ]
+
+## D-927 · 2026-11-17 · B-419: Blur drops an unsent edit
+Chose: Leaving the bar with an unsent edit drops the edit and shows the page URL
+Why: P1
+Commit: 521c151a4 e63df929f
+Veto: [ ]
+
+## D-928 · 2026-11-17 · B-419: Commit and tab change hand back
+Chose: Return commit and a tab change hand the bar back to the page
+Why: P1
+Commit: 521c151a4 e63df929f
+Veto: [ ]

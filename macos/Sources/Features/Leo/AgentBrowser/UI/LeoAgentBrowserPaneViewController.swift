@@ -159,6 +159,7 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private func submitURL(_ text: String) {
         model.submitURL(text)
         guard model.urlError == nil else { return }
+        toolbar.commitEdit()
         if toolbar.urlField.currentEditor() != nil { view.window?.makeFirstResponder(nil) }
         refresh()
     }

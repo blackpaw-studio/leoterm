@@ -2,13 +2,14 @@ Status: running
 Started: 2026-11-17T14:04:05Z
 Budget: 20 items, until 2026-11-18T02:04:05Z
 Digested-through: 0
-Filed: 2/3 bugs, 3/5 ideas
+Filed: 3/3 bugs, 3/5 ideas
 Self-filed: B-305 → B-422 bug — Hosted iOS test host crashes on unimplemented PushCleanupClient.load
 Self-filed: B-305 → B-423 idea — iOS address bar keeps the previous URL after a rejected localhost navigation
 Self-filed: B-305 → B-424 idea — Device check: keyboard raised when the agent focuses a field hides the iOS pill
 Self-filed: B-305 → B-425 idea — Daemon localhost proxy so iPhone pages can reach an agent machine's localhost
 Self-filed: B-419 → B-426 bug — After Return on a new address, the bar shows the old page's URL until the new page commits
 Self-filed: B-419 → dropped (dup of B-420) — Typing after clicking the bar appends to the old URL (focus doesn't select all)
+Self-filed: B-419 → B-427 bug — Takeover pill's "Give Back" click does nothing after a Return commit
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -46,11 +47,12 @@ Lane: B-419
   Dispatched: 2026-11-17T16:55:34Z
   Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 521c151a4f9b13fa63456f65d512ddde6460fb21
+  Tokens: 49.4M in (48.4M cache read), ≥142k out, 407 requests
+  Reviewed-tip: 37575206bfe3530519058523f389726af7cb6752
   Call: Mac only: AppKit pane UI, iOS has no pane equivalent, so nothing goes in LeoKit — P1
   Call: Escape restores the page address and resumes following — P1 Safari parity
   Call: Leaving the bar with an unsent edit drops the edit and shows the page URL — P1
@@ -58,8 +60,20 @@ Lane: B-419
 
 Lane: B-421
   Branch: autopilot-lane/B-421
-  Dispatched: 2026-11-17T16:53:52Z
+  Dispatched: 2026-11-17T17:13:17Z
   Base: 97efeb2da678b49ec08b43db632f004a7fd399ee
+  Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: c0cb847bd977778f62ad856a0bcbbfb95e3e994e
+  Call: A stopped agent's open browser pane and browser stay live; a restart reuses the browser; the pane doesn't yet show "stopped" — P2
+
+Lane: B-420
+  Branch: autopilot-lane/B-420
+  Dispatched: 2026-11-17T17:11:43Z
+  Base: 28443755573d26cdb61e58bfcff890d0fc3bb65c
   Tier: light
   State: building
   Fixes: 0
@@ -68,6 +82,7 @@ Lane: B-421
   Reviewed-tip: none
 
 Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
+Finished 2: B-419 landed 075ad32a2 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
 
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-419, B-420, B-421. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -81,3 +96,9 @@ Progress:
 - Dispatched B-421 d-117d1e98df4f.
 - B-419 ready (fix 1, standard implementer, general review). Integration stale (B-305 landed Mac/LeoKit changes) → re-verify round 1. Runner note: shared GhosttyKit.xcframework is stale since B-334; lanes build their own.
 - Dispatched B-419 re-verify d-4c616368bfee.
+- B-419 re-verify ready (general delta clean, 5016 tests). Fresh.
+- B-419 landed 075ad32a2. D-925..D-928. ≈$11.23 est.
+- Pick: B-420 light bug (⌘L select-all in address field; B-419 landed, no overlap with B-421).
+- Dispatched B-420 d-62c77f54796a.
+- B-421 runner reported blocked on infra, not product: its verifier stalled on a harness permission prompt repointing the lane's GhosttyKit symlink (shared copy stale since Oct 1). Deviation from shelve: orchestrator refreshed shared/GhosttyKit.xcframework + zig-out per verify.md (old copies → ~/.Trash, ditto B-419's Nov 17 lane build; verify.md note updated) and dispatched a re-verify round at reviewed tip c0cb847 (integration also stale: B-419 landed). Error line was leo_send_dispatch refusing a permission answer, not a failed dispatch.
+- Dispatched B-421 re-verify d-c2d335bf30c7.

@@ -8,7 +8,7 @@ All commands run from the worktree `~/.leo/autopilot/leoterm`. Tested 2026-09-22
 The worktree needs the Zig-built xcframework. Symlink the autopilot shared build,
 or rebuild it if `src/` changed:
 ```
-ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework   # rebuilt 2026-10-01 @ 708717ded
+ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/GhosttyKit.xcframework macos/GhosttyKit.xcframework   # rebuilt 2026-11-17 from autopilot bf40486df (B-419 lane build; last src/ commit 3d2b0d723)
 ln -s ~/.leo/agents/leoterm/.git/autopilot/shared/zig-out zig-out
 # If you edited src/ (Zig), replace the symlink with a real build:
 #   rm macos/GhosttyKit.xcframework
