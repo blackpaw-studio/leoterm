@@ -51,14 +51,16 @@ Lane: B-427
   Dispatched: 2026-11-17T21:00:40Z
   Base: 28c44ca4f6a998c4a15098e5c2d0c8b14f6969b6
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 4.32M in (4.15M cache read), ≥18.5k out, 44 requests
   Reviewed-tip: none
 
 Finished 1: B-422 landed dcd049de7 · not visually verified
 Finished 2: B-426 landed 2e7220332 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
+Finished 3: B-427 blocked
 
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-422, B-426, B-427. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -72,3 +74,4 @@ Progress:
 - B-426 landed 2e7220332. D-937..D-939. ≈$9.19 est.
 - Pick: B-427 light bug (Give Back pill after Return; B-426 landed, no overlap left).
 - Dispatched B-427 d-3481a8037c1a.
+- B-427 blocked: couldn't reproduce (Give Back works after a Return commit in toolbar tests with real mouse events). Shelved on autopilot-shelved/B-427.

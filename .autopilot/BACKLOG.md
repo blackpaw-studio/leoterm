@@ -3224,12 +3224,14 @@ Source: autopilot bug (B-419)
 Done: 4e0c561ea a0cb2acc6 792fb4298 (merged in 2e7220332; 5027 tests, lint clean). The bar keeps the typed address while the new page loads; a failed, cancelled or unstartable load falls back to the page URL. Mac only. D-937..D-939.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
 
-## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [ready]
+## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [blocked]
 Issue: #396
 Type: bug
 Report: Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane — no effect in two verifier attempts (by coordinate and by element id); unconfirmed, possibly Peekaboo delivery; not caused by B-419 — P1 keyboard-first/Mac-native
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-419)
+Question: couldn't reproduce — a toolbar test types an address, presses Return (window refusing to resign focus), then clicks Give Back with a real mouse down/up: control returns to the agent and the button hides; same without a Return commit. The unit harness has no real WKWebView, window activation or Peekaboo delivery, so a verifier click-delivery artefact fits the report; a native CGEvent click in the isolated debug app against autopilot-scratch would settle it. Reply "B-427: close" to close it, or "B-427: <more detail>" to retry. Work kept on autopilot-shelved/B-427.
+Answer:
 
 ## B-428 · Dragging in an unfocused address bar can't select part of the URL   [idea]
 Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
