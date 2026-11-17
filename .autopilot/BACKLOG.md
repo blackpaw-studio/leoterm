@@ -3,6 +3,13 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
+## B-413 · Sidebar shows when an off-screen agent needs you   [ready]
+Why: An agent needing attention, erroring, or with an unread chat badge can sit scrolled out of the sidebar's view and go unnoticed. P2 Calm, attention-driven: "needs you" must always be noticeable.
+Accept: when a row with needs-input, errored, or an unread chat badge is scrolled above or below the visible sidebar area, an indicator appears at that edge (top or bottom), and the two directions show independently (tested); clicking the indicator scrolls to the nearest such row, and VoiceOver can reach it (tested); the indicator disappears once the row scrolls into view or its state clears, and it never shows for working, finished or idle rows (tested); screenshots from the isolated debug build of top and bottom indicators, using autopilot-scratch only
+Out: Dock and notification changes; collapsed sidebar sections; the iOS app (Mac only, since iOS has the needs-you inbox)
+Source: owner (/feature, 2026-11-16)
+Inbox: 20261117T000842166210Z-f9850bf9#1
+
 ## B-404 · Agent browser downloads land in the agent's workspace   [ready]
 Why: Milestone 1 (Files through Leo); P3 Local = remote, P4 Everything through Leo. Today a download goes nowhere useful for a remote agent.
 Accept: A download started by you or an agent (WKDownload) is written to `downloads/` in that agent's workspace through the file backend, local and SFTP (tested both); a name clash gets a numbered name, never an overwrite (tested); a failed or lost-connection download is shown plainly and leaves no partial file (tested); the agent can list finished downloads with their workspace paths via a LeoKit browser tool; screenshot of a finished download from the isolated debug build
