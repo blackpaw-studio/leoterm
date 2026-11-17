@@ -76,10 +76,11 @@ Lane: B-420
   Dispatched: 2026-11-17T17:11:43Z
   Base: 28443755573d26cdb61e58bfcff890d0fc3bb65c
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 7.88M in (7.57M cache read), ≥32.8k out, 86 requests
   Reviewed-tip: 8f85b8377eade63a3bd0dcc25c3591f8ac79ddf0
   Call: Mac only: AppKit pane UI; B-305 already did the iOS tap-select — P1 keyboard-first, Safari parity
   Call: ⌘L while the field is already focused re-selects everything, as Safari does — P1
@@ -87,6 +88,7 @@ Lane: B-420
 
 Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
 Finished 2: B-419 landed 075ad32a2 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
+Finished 3: B-420 landed 6db5b0ab9 · not visually verified
 
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-419, B-420, B-421. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -108,3 +110,4 @@ Progress:
 - Dispatched B-421 re-verify d-c2d335bf30c7.
 - B-421 old runner retracted its diagnosis: verifier was only queued behind B-419's verify lock; the symlink prompt was a side step. Re-verify round already covers it. Shared refresh still warranted (B-305/B-419 runners both found the Oct 1 shared build lacks B-334's symbols).
 - B-420 ready (0 fixes, general review, 5018 tests). Not visually verified: auto-mode classifier denied the verifier's keystroke into the debug app.
+- B-420 landed 6db5b0ab9. D-929..D-931.

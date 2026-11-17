@@ -3172,12 +3172,14 @@ Source: autopilot bug (B-408)
 Done: 521c151a4 e63df929f (merged in 075ad32a2; 5016 tests). Focused address bar follows the page until the user edits; Escape/blur restore, Return/tab change hand back. D-925..D-928.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
 
-## B-420 · ⌘L doesn't select the browser address field's text   [ready]
+## B-420 · ⌘L doesn't select the browser address field's text   [done]
 Issue: #392
 Type: bug
 Report: ⌘L does not select the address field's text — P1 keyboard-first.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
+Done: c587cb529 (merged in 6db5b0ab9; 5018 tests). ⌘L and clicking into the unfocused bar select all its text. D-929..D-931.
+Verified: not visually verified — auto-mode classifier denied the verifier's keystroke into the debug app; tests cover ⌘L and click select-all
 
 ## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [ready]
 Issue: #393

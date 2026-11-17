@@ -1758,3 +1758,21 @@ Chose: Return commit and a tab change hand the bar back to the page
 Why: P1
 Commit: 521c151a4 e63df929f
 Veto: [ ]
+
+## D-929 · 2026-11-17 · B-420: Platform
+Chose: Mac only: AppKit pane UI; B-305 already did the iOS tap-select
+Why: P1 keyboard-first, Safari parity
+Commit: c587cb529
+Veto: [ ]
+
+## D-930 · 2026-11-17 · B-420: ⌘L while focused re-selects
+Chose: ⌘L while the field is already focused re-selects everything, as Safari does
+Why: P1
+Commit: c587cb529
+Veto: [ ]
+
+## D-931 · 2026-11-17 · B-420: ⌘L scope
+Chose: ⌘L claimed only with focus in the browser pane; elsewhere the Browser ▸ Open Location item is disabled
+Why: P1/P2
+Commit: c587cb529
+Veto: [ ]
