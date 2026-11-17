@@ -1472,3 +1472,52 @@ Chose: Full-page PNG is rendered from createPDF over a rect capped at viewport w
 Why: bug fix
 Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
 Veto: [ ]
+
+
+## D-882 · 2026-11-17 · B-409: Shortcuts for browser actions
+Chose: ⌥⌘O Open in Default Browser, ⇧⌘C Copy URL, ⇧⌘⌫ Clear Site Data…, claimed only with focus in the browser pane
+Why: P1 — matches the D-843/D-860 pane-focus pattern so terminal shortcuts are untouched
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-883 · 2026-11-17 · B-409: Where the actions live
+Chose: Browser menu after History (Open, Copy URL, separator, Clear Site Data for This Agent…), mirrored in the pane's More menu which works without pane focus
+Why: P1 — discoverable from the menu bar and the pane
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-884 · 2026-11-17 · B-409: Remote localhost in the default browser
+Chose: Opens through the forwarded 127.0.0.1:<port>; if the machine isn't reachable a sheet explains and nothing opens; only http(s) URLs with a host are sent, checked before and after port mapping
+Why: P3 — the Mac's browser can't reach the remote's localhost directly
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-885 · 2026-11-17 · B-409: Remote port stability
+Chose: Each page keeps its remote port across a reconnect
+Why: P3 — fix round: reconnects must not silently re-point pages
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-886 · 2026-11-17 · B-409: Copy URL contents
+Chose: Copies the address in the agent's terms, as text and as a URL; disabled for no page or blank
+Why: P3 — the agent's view of the URL is what users paste back to it
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-887 · 2026-11-17 · B-409: Clear Site Data scope
+Chose: Removes every WebKit data type from that agent's own store only, without a reload; downloads, history, closed tabs and UA overrides stay; alert names the agent and machine
+Why: P1/P2 — per-agent isolation; never touch other agents' state
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-888 · 2026-11-17 · B-409: Clear confirmation keys
+Chose: Cancel plus a destructive Clear Site Data button; Return picks neither, Escape cancels
+Why: P1 — a destructive action must never fire on a stray Return
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]
+
+## D-889 · 2026-11-17 · B-409: Platform
+Chose: Mac only
+Why: Parity rule — the iOS app has no agent browser pane yet
+Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
+Veto: [ ]

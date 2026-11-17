@@ -174,11 +174,12 @@ Lane: B-409
   Dispatched: 2026-11-17T06:56:17Z
   Base: 2089f6acfe74c47fdbe41e05543f641d2b3ee562
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: eda4cb7aee5a3bc7939d6f284980391b53dbeb35
+  Tokens: 68.5M in (67.4M cache read), ≥262k out, 397 requests
   Call: Shortcuts ⌥⌘O Open in Default Browser, ⇧⌘C Copy URL, ⇧⌘⌫ Clear Site Data…; claimed only with focus in the pane — P1
   Call: Browser menu after History; pane More menu mirrors it without pane focus — P1
   Call: Remote localhost opens via forwarded 127.0.0.1:<port>; unreachable machine shows a sheet, opens nothing; only http(s) with host sent — P3
@@ -211,6 +212,7 @@ Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 
 Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
 
+Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).

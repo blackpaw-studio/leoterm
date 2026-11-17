@@ -58,12 +58,14 @@ Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 4eb1b7a61 e583db40a d1d21bef9 5ad646332 (4932 tests; landed 346db3e91). Decisions D-860..D-868.
 Verified: not visually verified — screen captures only (B-408-1..6, screen), no window shot
 
-## B-409 · Open in Default Browser, Copy URL, and per-agent Clear Site Data   [ready]
+## B-409 · Open in Default Browser, Copy URL, and per-agent Clear Site Data   [done]
 Issue: #386
 Why: Milestone 2. Escape hatch to Safari/Chrome when a site misbehaves, and a reset when an agent's cookies go bad.
 Accept: Browser pane menu and Browser ▸ menu offer Open in Default Browser (⌘⇧O-style shortcut, decide and log), Copy URL, and Clear Site Data for This Agent… which asks first and then empties only that agent's data store (tested: other agents' cookies survive); remote-localhost URLs open via the forwarded port or explain why they can't; screenshot of the menu
 Out: Per-site data management UI. Mac only.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae (4972 Mac tests, swiftlint clean; landed 860cdc74f). Decisions D-882..D-889.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 
 ## B-410 · Camera, microphone and location prompts in the agent browser   [ready]
 Issue: #387
