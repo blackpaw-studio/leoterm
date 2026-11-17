@@ -3182,6 +3182,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-408)
 Done: c587cb529 (merged in 6db5b0ab9; 5018 tests). ⌘L and clicking into the unfocused bar select all its text. D-929..D-931.
 Verified: not visually verified — auto-mode classifier denied the verifier's keystroke into the debug app; tests cover ⌘L and click select-all
+Reviewed: accepted 2026-11-17 — 6db5b0ab9fb5
 
 ## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [done]
 Issue: #393
