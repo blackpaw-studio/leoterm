@@ -164,6 +164,10 @@ extension AppFeature.State {
         if detail?.daemon != session.daemon { detail?.daemon = session.daemon }
         let moves = moveAvailability(for: ref.daemonID)
         if detail?.moves != moves { detail?.moves = moves }
+        let supportsBrowser = session.features.contains(.clientTools)
+        if detail?.supportsBrowser != supportsBrowser { detail?.supportsBrowser = supportsBrowser }
+        // The setting went off or the daemon stopped relaying: the pane's browser is gone.
+        if detail?.showsBrowser == false, detail?.destination?.browser != nil { detail?.destination = nil }
         let clock = fleet.progressClock
         if detail?.progressClock != clock { detail?.progressClock = clock }
     }

@@ -15,7 +15,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case value(String)
         case switchEnvironment
         case command(Command)
-        case chat, terminal
+        case chat, terminal, browser
         case move(MoveRow)
         case task(String)
     }
@@ -48,6 +48,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     }
 
     @UIBindable private var store: StoreOf<AgentDetail>
+    @Dependency(\.clientTools) private var clientTools
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>!
     private var values: [String: (label: String, value: String, tint: UIColor?)] = [:]
@@ -91,6 +92,9 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
 
         navigationDestination(item: $store.scope(state: \.destination?.terminal, action: \.destination.terminal)) { store in
             TerminalViewController(store: store)
+        }
+        navigationDestination(item: $store.scope(state: \.destination?.browser, action: \.destination.browser)) { [clientTools] store in
+            AgentBrowserViewController(store: store, browser: clientTools.openBrowser(store.agent) as? LeoIOSAgentBrowser)
         }
 
         observe { [weak self] in
@@ -241,6 +245,16 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             cell.contentConfiguration = content
             cell.accessories = moved ? [] : [.disclosureIndicator()]
             cell.accessibilityIdentifier = "agent.terminal"
+
+        case .browser:
+            var content = UIListContentConfiguration.subtitleCell()
+            content.text = String(localized: "Browser")
+            content.secondaryText = String(localized: "Pages \(store.displayName) opens on this iPhone")
+            content.image = UIImage(systemName: "globe")
+            content.secondaryTextProperties.color = .secondaryLabel
+            cell.contentConfiguration = content
+            cell.accessories = [.disclosureIndicator()]
+            cell.accessibilityIdentifier = "agent.browser"
         }
     }
 
@@ -309,7 +323,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         snapshot.appendSections(Section.allCases)
         snapshot.appendItems([.header], toSection: .header)
         if agent.opensInClaude, !agent.isMoved { snapshot.appendItems([.openInClaude], toSection: .claude) }
-        snapshot.appendItems([.chat, .terminal], toSection: .live)
+        snapshot.appendItems([.chat, .terminal] + (store.showsBrowser && !agent.isMoved ? [.browser] : []), toSection: .live)
         snapshot.appendItems(agent.tasks.map { .task($0.id) }, toSection: .tasks)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
         snapshot.appendItems(environmentRows.map { .value($0.key) } + (agent.isMoved ? [] : [.switchEnvironment]), toSection: .environment)
@@ -330,7 +344,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
         let moved = store.agent?.isMoved == true
         switch dataSource.itemIdentifier(for: indexPath) {
-        case .chat, .terminal: return !moved
+        case .chat, .terminal, .browser: return !moved
         case .openInClaude: return true
         case .move: return !store.isBusy
         case .switchEnvironment, .command: return !store.isBusy
@@ -350,6 +364,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case .command(.stop): store.send(.stopButtonTapped)
         case .chat: store.send(.chatButtonTapped)
         case .terminal: store.send(.terminalButtonTapped)
+        case .browser: store.send(.browserButtonTapped)
         case .move(.moveTo): pickHost(title: String(localized: "Move To"), at: indexPath) { self.store.send(.moveRequested(.move(to: $0))) }
         case .move(.copyTo): pickHost(title: String(localized: "Copy To"), at: indexPath) { self.store.send(.moveRequested(.copy(to: $0))) }
         case .move(.duplicate): store.send(.moveRequested(.duplicate))

@@ -1,4 +1,5 @@
 import Foundation
+import LeoKit
 
 /// Asks the OS about loopback TCP ports. A seam so tests never bind a real
 /// port; `LeoLoopbackPortProber` is the real one.
@@ -73,11 +74,8 @@ struct LeoPortForwardPlanner: Sendable {
     }
 
     private static let maxPickAttempts = 8
-    private static let loopbackHosts: Set<String> = ["localhost", "127.0.0.1", "::1", "[::1]"]
-
     private static func isLoopback(_ url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
-        return loopbackHosts.contains(host)
+        LeoBrowserLoopback.isLoopback(url)
     }
 
     private static func effectivePort(of url: URL) -> Int? {

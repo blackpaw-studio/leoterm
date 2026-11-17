@@ -1,43 +1,14 @@
-import AppKit
+import Foundation
 import Testing
 
-@testable import Ghostty
 @testable import LeoKit
 
-/// A browser with no WebKit behind it, for the registry's own behaviour.
-@MainActor final class FakeBrowserModel: LeoAgentBrowserModel {
-    let fakeTabs = FakeBrowserTabs()
+/// A browser with nothing behind it, for the registry's own behaviour.
+@MainActor final class FakeRunningBrowser: LeoAgentBrowserRunning {
     let control = LeoBrowserControlModel()
-    let viewHost = LeoAgentBrowserHost()
-    let downloads = LeoBrowserDownloads.withoutWorkspace()
-    var tabs: any LeoBrowserTabs { fakeTabs }
-    var activeView: NSView?
-    var activeRemoteURL: URL?
-    var isLoading = false
-    var canGoBack = false
-    var canGoForward = false
     private(set) var executed: [String] = []
     private(set) var blankTabsOpened = 0
     private(set) var isClosed = false
-
-    func goBack() {}
-    func goForward() {}
-    func reload() {}
-    func navigate(to url: URL) {}
-    func openBlankTab() {}
-    var canReopenClosedTab: Bool { false }
-    func reopenClosedTab() -> Bool { false }
-    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] { [] }
-    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
-    var pendingPermission: LeoBrowserPermissionPrompt? { nil }
-    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {}
-    var pendingDialog: LeoBrowserDialogPrompt? { nil }
-    func answerDialog(_ prompt: LeoBrowserDialogPrompt, accept: Bool, text: String?) {}
-    var key = LeoAgentBrowserKey(host: .local, agent: "fake")
-    func externalURL() async throws -> URL? { nil }
-    var isClearingSiteData: Bool { false }
-    func clearSiteData() async {}
-    func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
 
     /// Requests wait until cancelled, like a page load that never finishes;
     /// `browser_handoff` waits on the real control model.
@@ -75,11 +46,11 @@ struct LeoAgentBrowsersTests {
     private static let dionysus = LeoHostID.remote("dionysus")
 
     private final class Made {
-        var browsers: [LeoAgentBrowserKey: FakeBrowserModel] = [:]
+        var browsers: [LeoAgentBrowserKey: FakeRunningBrowser] = [:]
         var closed: [LeoAgentBrowserKey] = []
 
-        @MainActor func browserOpened(by registry: LeoAgentBrowsers, for key: LeoAgentBrowserKey) -> FakeBrowserModel? {
-            _ = registry.openBrowser(for: key)
+        @MainActor func browserOpened(by registry: LeoAgentBrowsers, for key: LeoAgentBrowserKey) -> FakeRunningBrowser? {
+            _ = registry.openModel(for: key)
             return browsers[key]
         }
     }
@@ -88,7 +59,7 @@ struct LeoAgentBrowsersTests {
         LeoAgentBrowsers(
             makeBrowser: { key in
                 guard canMake else { return nil }
-                let browser = FakeBrowserModel()
+                let browser = FakeRunningBrowser()
                 made.browsers[key] = browser
                 return browser
             },
@@ -157,8 +128,8 @@ struct LeoAgentBrowsersTests {
         let browsers = registry(made)
         let key = LeoAgentBrowserKey(host: .local, agent: "alpha")
 
-        let first = try #require(browsers.openBrowser(for: key))
-        let second = try #require(browsers.openBrowser(for: key))
+        let first = try #require(browsers.openModel(for: key))
+        let second = try #require(browsers.openModel(for: key))
 
         #expect(first === second)
         #expect(made.browsers[key]?.blankTabsOpened == 2)
@@ -169,7 +140,7 @@ struct LeoAgentBrowsersTests {
         let made = Made()
         let browsers = registry(made)
         let key = LeoAgentBrowserKey(host: .local, agent: "alpha")
-        _ = browsers.openBrowser(for: key)
+        _ = browsers.openModel(for: key)
         var changes: [LeoAgentBrowserPresenceChange] = []
         let stop = browsers.observe { changes.append($0) }
         defer { stop() }
@@ -180,7 +151,7 @@ struct LeoAgentBrowsersTests {
         #expect(made.browsers[key]?.isClosed == true)
         #expect(changes == [.closed(key)])
         #expect(made.closed == [key])
-        #expect(browsers.browser(for: key) == nil)
+        #expect(browsers.model(for: key) == nil)
     }
 
     @Test func aListingClosesTheBrowsersOfAgentsThatStoppedOrWent() {
@@ -188,7 +159,7 @@ struct LeoAgentBrowsersTests {
         let browsers = registry(made)
         let keys = ["alpha", "beta", "gamma", "restoring", "dispatch:d1", "dispatch:d2"].map { LeoAgentBrowserKey(host: Self.dionysus, agent: $0) }
         let elsewhere = LeoAgentBrowserKey(host: .local, agent: "beta")
-        (keys + [elsewhere]).forEach { _ = browsers.openBrowser(for: $0) }
+        (keys + [elsewhere]).forEach { _ = browsers.openModel(for: $0) }
 
         browsers.agentsListed(
             on: Self.dionysus, statuses: ["alpha": .running, "beta": .stopped, "restoring": .restoring], dispatches: ["d1"]
@@ -233,7 +204,7 @@ struct LeoAgentBrowsersTests {
         let made = Made()
         let browsers = registry(made)
         let dispatch = LeoAgentBrowserKey.dispatch(host: Self.dionysus, id: "d1")
-        _ = browsers.openBrowser(for: dispatch)
+        _ = browsers.openModel(for: dispatch)
 
         browsers.agentsListed(on: Self.dionysus, statuses: [:], dispatches: nil)
 

@@ -1,4 +1,5 @@
 import AppKit
+import LeoKit
 
 /// The sheets behind the browser pane's Clear Site Data for This Agent… and
 /// Open in Default Browser (B-409). Clearing can't be undone, so Cancel is

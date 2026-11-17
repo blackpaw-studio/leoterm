@@ -141,7 +141,7 @@ import LeoKit
         handlers.values.forEach { $0(.closed(key)) }
     }
 
-    func observe(_ handler: @escaping @MainActor (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void {
+    func observe(_ handler: @escaping @MainActor @Sendable (LeoAgentBrowserPresenceChange) -> Void) -> () -> Void {
         let id = UUID()
         handlers[id] = handler
         return { [weak self] in self?.handlers[id] = nil }
@@ -198,4 +198,67 @@ import LeoKit
     func evaluate(_ js: String) async throws -> String { throw Self.unused }
     func setUserAgent(_ userAgent: String?) {}
     func consoleMessages(since: Int?) -> LeoBrowserConsoleBatch { LeoBrowserConsoleBatch(entries: [], cursor: 0) }
+}
+
+/// A browser with no WebKit behind it, for the registry's own behaviour.
+@MainActor final class FakeBrowserModel: LeoAgentBrowserModel {
+    let fakeTabs = FakeBrowserTabs()
+    let control = LeoBrowserControlModel()
+    let viewHost = LeoAgentBrowserHost()
+    let downloads = LeoBrowserDownloads.withoutWorkspace()
+    var tabs: any LeoBrowserTabs { fakeTabs }
+    var activeView: NSView?
+    var activeRemoteURL: URL?
+    var isLoading = false
+    var canGoBack = false
+    var canGoForward = false
+    private(set) var executed: [String] = []
+    private(set) var blankTabsOpened = 0
+    private(set) var isClosed = false
+
+    func goBack() {}
+    func goForward() {}
+    func reload() {}
+    func navigate(to url: URL) {}
+    func openBlankTab() {}
+    var canReopenClosedTab: Bool { false }
+    func reopenClosedTab() -> Bool { false }
+    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] { [] }
+    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
+    var pendingPermission: LeoBrowserPermissionPrompt? { nil }
+    func answerPermission(_ prompt: LeoBrowserPermissionPrompt, allow: Bool) {}
+    var pendingDialog: LeoBrowserDialogPrompt? { nil }
+    func answerDialog(_ prompt: LeoBrowserDialogPrompt, accept: Bool, text: String?) {}
+    var key = LeoAgentBrowserKey(host: .local, agent: "fake")
+    func externalURL() async throws -> URL? { nil }
+    var isClearingSiteData: Bool { false }
+    func clearSiteData() async {}
+    func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
+
+    /// Requests wait until cancelled, like a page load that never finishes;
+    /// `browser_handoff` waits on the real control model.
+    var parksRequests = false
+    private(set) var cancelledRuns: [String] = []
+    private var parked: [String: CheckedContinuation<LeoClientToolOutcome, Never>] = [:]
+
+    func execute(_ request: LeoClientToolRequest) async -> LeoClientToolOutcome {
+        executed.append(request.id)
+        guard parksRequests else { return .success([.text("ok")]) }
+        let id = request.id
+        if request.tool == "browser_handoff" {
+            let answer = await control.requestHandoff(requestID: id, message: "Log in please")
+            return answer.map { .success([.text("\($0)")]) } ?? .failure(LeoClientToolError(code: "cancelled", message: ""))
+        }
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { parked[id] = $0 }
+        } onCancel: {
+            Task { @MainActor in
+                self.cancelledRuns.append(id)
+                self.parked.removeValue(forKey: id)?.resume(returning: .failure(LeoClientToolError(code: "cancelled", message: "")))
+            }
+        }
+    }
+
+    func openBlankTabIfEmpty() { blankTabsOpened += 1 }
+    func close() { isClosed = true }
 }
