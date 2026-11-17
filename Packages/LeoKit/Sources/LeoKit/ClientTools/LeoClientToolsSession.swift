@@ -1,10 +1,9 @@
 import Foundation
-import LeoKit
 import OSLog
 
 /// The daemon's client-tools routes, as one machine's session uses them.
 /// `LeoClientToolsClient` conforms; tests conform with a fake.
-protocol LeoClientToolsProviding: AnyObject, Sendable {
+public protocol LeoClientToolsProviding: AnyObject, Sendable {
     func events() async -> AsyncStream<LeoClientToolsEvent>
     func register(group: String, tools: [LeoClientToolDefinition]) async throws -> Int
     func claim(_ requestID: String) async throws -> LeoClientToolRequest
@@ -16,30 +15,41 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
 
 /// Runs a client-tools request for an agent on a machine. The app's agent
 /// browsers (`LeoAgentBrowsers`) run every claimed `browser` request.
-@MainActor protocol LeoClientToolsExecuting: AnyObject {
+@MainActor public protocol LeoClientToolsExecuting: AnyObject {
     func execute(_ request: LeoClientToolRequest, on host: LeoHostID) async -> LeoClientToolOutcome
 }
 
 /// One machine's client-tools provider stream (C6). While the machine is
-/// connected, its daemon advertises `client_tools`, this Mac can run the
-/// browser (macOS 14) and the Settings toggle is on, the session holds a
-/// stream open, reopening it with backoff when it drops. On every hello it
-/// registers the `browser` group and recovers pending requests; it claims
-/// each request, runs it and posts the result.
+/// connected, its daemon advertises `client_tools`, this device can run the
+/// browser and the setting is on, the session holds a stream open,
+/// reopening it with backoff when it drops. On every hello it registers the
+/// `browser` group and recovers pending requests; it claims each request,
+/// runs it and posts the result.
 ///
 /// A request runs once however often it is seen: a running request whose
 /// stream dropped is re-claimed on the next stream, not rerun, and its
 /// result goes back once the claim is held again. A `cancelled` event, the
 /// session stopping or the setting turning off aborts what runs, unanswered.
-@MainActor final class LeoClientToolsSession {
-    typealias Sleep = @Sendable (Duration) async throws -> Void
+///
+/// Ownership (B-305): the daemon gives an agent's group to its first
+/// claimant. A request another connected client owns is left to it. With a
+/// `claimDelay` (iOS, the fallback provider) an unowned request is claimed
+/// only after the delay and only if nobody claimed or owned it meanwhile, so
+/// a connected Mac wins; a request this client owns is claimed at once.
+/// `suspend()` (iOS backgrounding) answers what runs `cancelled` while the
+/// stream is still open, then closes it until `resume()`.
+@MainActor public final class LeoClientToolsSession {
+    public typealias Sleep = @Sendable (Duration) async throws -> Void
 
-    private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "ClientTools")
+    private nonisolated static var logger: Logger { LeoLog.logger() }
     private static let maximumBackoff = 30
+    nonisolated static let suspendedError = LeoClientToolError(code: "cancelled", message: "The app serving this browser went to the background")
 
-    private enum Claim {
+    private enum Claim: Equatable {
         /// Not held: never claimed, or claimed on a stream that has gone.
         case released
+        /// Waiting out the claim delay on the stream with this generation.
+        case deferred(generation: Int)
         case claiming
         /// Held, claimed on the stream with this generation.
         case held(generation: Int)
@@ -56,63 +66,100 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
     private let client: any LeoClientToolsProviding
     private let executor: any LeoClientToolsExecuting
     private let isPlatformSupported: Bool
+    private let claimDelay: Duration
     private let sleep: Sleep
 
     private var isStarted = false
     private var isAdvertised = false
     private var isEnabled = true
+    private var isSuspended = false
     /// The daemon answered that it has no client tools: no retry until the
     /// session starts again or the daemon advertises the feature anew.
     private var isUnsupported = false
     private var streamTask: Task<Void, Never>?
     private var generation = 0
-    /// The generation of the open stream once it said hello.
+    /// The generation of the open stream once it said hello, and the client
+    /// id the daemon gave it.
     private var liveGeneration: Int?
+    private var clientID: String?
     private var inFlight: [String: InFlight] = [:]
     /// Requests another client holds or the daemon settled, on this stream.
     private var refused: Set<String> = []
 
-    init(
+    public init(
         host: LeoHostID, client: any LeoClientToolsProviding, executor: any LeoClientToolsExecuting,
-        isPlatformSupported: Bool, sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
+        isPlatformSupported: Bool, claimDelay: Duration = .zero, sleep: @escaping Sleep = { try await Task.sleep(for: $0) }
     ) {
         self.host = host
         self.client = client
         self.executor = executor
         self.isPlatformSupported = isPlatformSupported
+        self.claimDelay = claimDelay
         self.sleep = sleep
     }
 
     // MARK: - Lifecycle
 
     /// The machine connected.
-    func start() {
+    public func start() {
         isStarted = true
         isUnsupported = false
         reconcile()
     }
 
     /// The machine is no longer connected (or the app is quitting).
-    func stop() {
+    public func stop() {
         isStarted = false
         reconcile()
     }
 
     /// Whether the daemon advertises `client_tools`.
-    func setAdvertised(_ advertised: Bool) {
+    public func setAdvertised(_ advertised: Bool) {
         if advertised, !isAdvertised { isUnsupported = false }
         isAdvertised = advertised
         reconcile()
     }
 
     /// The "Agent browser" setting.
-    func setEnabled(_ enabled: Bool) {
+    public func setEnabled(_ enabled: Bool) {
         isEnabled = enabled
         reconcile()
     }
 
+    /// The app is going to the background: every call this session holds is
+    /// answered `cancelled` while its stream is still open (so the agent
+    /// hears now, not at its timeout), then the stream closes. Nothing is
+    /// claimed until `resume()`. Returns once the answers are sent or failed.
+    public func suspend() async {
+        guard !isSuspended else { return }
+        isSuspended = true
+        let held = liveGeneration.map { stream in inFlight.filter { $0.value.claim == .held(generation: stream) }.map(\.key) } ?? []
+        let aborted = inFlight
+        inFlight = [:]
+        refused = []
+        aborted.values.forEach { $0.run?.cancel() }
+        await withTaskGroup(of: Void.self) { group in
+            for id in held {
+                group.addTask { [client] in
+                    do {
+                        try await client.postResult(id, .failure(Self.suspendedError))
+                    } catch {
+                        Self.logger.error("clientTools: suspend answer failed id=\(id, privacy: .public) error=\(String(describing: error), privacy: .public)")
+                    }
+                }
+            }
+        }
+        reconcile()
+    }
+
+    /// The app is back: the stream reopens, registers and recovers pending.
+    public func resume() {
+        isSuspended = false
+        reconcile()
+    }
+
     private var shouldRun: Bool {
-        isStarted && isAdvertised && isEnabled && isPlatformSupported && !isUnsupported
+        isStarted && isAdvertised && isEnabled && isPlatformSupported && !isUnsupported && !isSuspended
     }
 
     private func reconcile() {
@@ -122,6 +169,7 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
             task.cancel()
             streamTask = nil
             liveGeneration = nil
+            clientID = nil
             abortAll()
         }
     }
@@ -139,7 +187,10 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
                 if case .hello = event { failures = 0 }
                 receive(event, on: current)
             }
-            if liveGeneration == current { liveGeneration = nil }
+            if liveGeneration == current {
+                liveGeneration = nil
+                clientID = nil
+            }
             guard !Task.isCancelled else { return }
             if reason == LeoClientToolsClient.unsupportedReason {
                 Self.logger.log("clientTools: daemon has no client tools host=\(String(describing: self.host), privacy: .public)")
@@ -158,8 +209,9 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
 
     private func receive(_ event: LeoClientToolsEvent, on stream: Int) {
         switch event {
-        case .hello:
+        case .hello(let id):
             liveGeneration = stream
+            clientID = id
             refused = []
             Task { await self.registerAndRecover(on: stream) }
         case .request(let request):
@@ -184,7 +236,7 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
     }
 
     /// Reconciles with the daemon's pending list: aborts what it no longer
-    /// has, claims what nobody holds, re-claims what this Mac still runs.
+    /// has, claims what nobody holds, re-claims what this client still runs.
     private func recover(on stream: Int) async {
         let known = Set(inFlight.keys)
         let listed: [LeoClientToolPending]
@@ -203,14 +255,58 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
 
     // MARK: - Requests
 
+    /// Whether the daemon has `request` with another connected client.
+    private func isOwnedElsewhere(_ request: LeoClientToolRequest) -> Bool {
+        !request.owner.isEmpty && request.owner != clientID
+    }
+
     private func consider(_ request: LeoClientToolRequest, claimedBy: String, on stream: Int) {
-        guard request.group == LeoBrowserTools.group, claimedBy.isEmpty else { return }
-        switch inFlight[request.id]?.claim {
+        guard !isSuspended, request.group == LeoBrowserTools.group, claimedBy.isEmpty, !isOwnedElsewhere(request) else { return }
+        let entry = inFlight[request.id]
+        switch entry?.claim {
         case .claiming: return
         case .held(let generation) where generation == stream: return
+        case .deferred(let generation) where generation == stream: return
         case nil where refused.contains(request.id): return
-        default: claim(request.id, on: stream)
+        default: break
         }
+        // A request this client owns or already runs is its own: no grace.
+        let isOurs = !request.owner.isEmpty || entry?.run != nil
+        if isOurs || claimDelay == .zero {
+            claim(request.id, on: stream)
+        } else {
+            deferClaim(request.id, on: stream)
+        }
+    }
+
+    /// Waits out the claim delay, then claims only if the daemon still lists
+    /// the request with nobody holding or owning it.
+    private func deferClaim(_ id: String, on stream: Int) {
+        inFlight[id, default: InFlight()].claim = .deferred(generation: stream)
+        Task {
+            do { try await sleep(claimDelay) } catch { return }
+            guard isDeferred(id, on: stream) else { return }
+            let listed: [LeoClientToolPending]
+            do {
+                listed = try await client.pending()
+            } catch {
+                Self.logger.error("clientTools: pending failed error=\(String(describing: error), privacy: .public)")
+                if isDeferred(id, on: stream) { inFlight[id] = nil }
+                return
+            }
+            guard isDeferred(id, on: stream) else { return }
+            guard let pending = listed.first(where: { $0.request.id == id }),
+                  pending.claimedBy.isEmpty, !isOwnedElsewhere(pending.request) else {
+                inFlight[id] = nil
+                refused.insert(id)
+                return
+            }
+            claim(id, on: stream)
+        }
+    }
+
+    private func isDeferred(_ id: String, on stream: Int) -> Bool {
+        !isSuspended && liveGeneration == stream && inFlight[id]?.claim == .deferred(generation: stream)
     }
 
     private func claim(_ id: String, on stream: Int) {
@@ -264,7 +360,7 @@ extension LeoClientToolsClient: LeoClientToolsProviding {}
 
     /// Posts `outcome`, and after a transient failure posts it again with
     /// the stream's backoff while the claim is still held on `stream` (the
-    /// daemon still has this Mac as the claimant). Once that stream drops,
+    /// daemon still has this client as the claimant). Once that stream drops,
     /// the request's re-claim on the next one posts it instead.
     private func post(_ id: String, _ outcome: LeoClientToolOutcome, on stream: Int) {
         Task {

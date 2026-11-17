@@ -1,7 +1,6 @@
 import Foundation
 import Testing
 
-@testable import Ghostty
 @testable import LeoKit
 
 /// A scriptable client-tools daemon: each `events()` is a new stream the
@@ -15,19 +14,28 @@ import Testing
     var claimErrors: [String: any Error] = [:]
     var pendingRequests: [LeoClientToolPending] = []
 
-    func events() async -> AsyncStream<LeoClientToolsEvent> {
+    /// Streams not yet terminated, updated the moment one ends.
+    private let openStreams = LockedCount()
+    /// For each landed result, whether a stream was still open when it was posted.
+    private(set) var postedWhileOpen: [Bool] = []
+
+    @MainActor func events() async -> AsyncStream<LeoClientToolsEvent> {
         let (stream, continuation) = AsyncStream.makeStream(of: LeoClientToolsEvent.self)
-        continuation.onTermination = { [weak self] _ in Task { @MainActor in self?.endedStreams += 1 } }
+        openStreams.add(1)
+        continuation.onTermination = { [weak self, openStreams] _ in
+            openStreams.add(-1)
+            Task { @MainActor in self?.endedStreams += 1 }
+        }
         streams.append(continuation)
         return stream
     }
 
-    func register(group: String, tools: [LeoClientToolDefinition]) async throws -> Int {
+    @MainActor func register(group: String, tools: [LeoClientToolDefinition]) async throws -> Int {
         registered.append((group, tools))
         return registered.count
     }
 
-    func claim(_ requestID: String) async throws -> LeoClientToolRequest {
+    @MainActor func claim(_ requestID: String) async throws -> LeoClientToolRequest {
         claims.append(requestID)
         if let error = claimErrors[requestID] { throw error }
         guard let request = pendingRequests.first(where: { $0.request.id == requestID })?.request else {
@@ -40,16 +48,17 @@ import Testing
     var failingPosts = 0
     private(set) var postAttempts = 0
 
-    func postResult(_ requestID: String, _ outcome: LeoClientToolOutcome) async throws {
+    @MainActor func postResult(_ requestID: String, _ outcome: LeoClientToolOutcome) async throws {
         postAttempts += 1
         if failingPosts > 0 {
             failingPosts -= 1
             throw LeoClientToolsError.other(code: nil, message: "connection reset")
         }
         results.append((requestID, outcome))
+        postedWhileOpen.append(openStreams.value > 0)
     }
 
-    func pending() async throws -> [LeoClientToolPending] { pendingRequests }
+    @MainActor func pending() async throws -> [LeoClientToolPending] { pendingRequests }
 
     /// Sends `event` on the newest stream.
     func send(_ event: LeoClientToolsEvent) { streams.last?.yield(event) }
@@ -100,8 +109,25 @@ struct LeoClientToolsSessionTests {
         )
     }
 
-    private static func request(_ id: String, tool: String = "browser_click") -> LeoClientToolRequest {
-        LeoClientToolRequest(id: id, agent: "alpha", group: "browser", tool: tool, args: .object(["ref": .string("s1e1")]), timeoutSeconds: 30)
+    /// iOS's session: unowned requests wait out `claimDelay` on `clock`.
+    private func deferringSession(_ clock: ClaimClock) -> LeoClientToolsSession {
+        LeoClientToolsSession(
+            host: .remote("dionysus"), client: client, executor: executor,
+            isPlatformSupported: true, claimDelay: .milliseconds(1500), sleep: { try await clock.sleep(for: $0) }
+        )
+    }
+
+    private static func request(_ id: String, tool: String = "browser_click", owner: String = "") -> LeoClientToolRequest {
+        LeoClientToolRequest(id: id, agent: "alpha", group: "browser", tool: tool, args: .object(["ref": .string("s1e1")]), owner: owner, timeoutSeconds: 30)
+    }
+
+    private static func pending(_ id: String, owner: String = "", claimedBy: String = "") -> LeoClientToolPending {
+        LeoClientToolPending(request: request(id, owner: owner), claimedBy: claimedBy)
+    }
+
+    private static func isCancelled(_ outcome: LeoClientToolOutcome?) -> Bool {
+        guard case .failure(let error)? = outcome else { return false }
+        return error.code == "cancelled"
     }
 
     /// Lets the session's tasks run until `condition` holds, without a clock.
@@ -290,4 +316,119 @@ struct LeoClientToolsSessionTests {
 
         #expect(client.streams.count == 1)
     }
+
+    // MARK: - B-305: suspend, resume, ownership, claim delay
+
+    @Test func suspendAnswersInFlightCancelledThenClosesStream() async {
+        let clock = ClaimClock()
+        let session = deferringSession(clock)
+        defer { session.stop() }
+        await connected(session)
+        client.pendingRequests = [Self.pending("ctr_1", owner: "ct_1"), Self.pending("ctr_2")]
+        client.send(.request(Self.request("ctr_1", owner: "ct_1")))
+        await until { executor.started == ["ctr_1"] }
+        client.send(.request(Self.request("ctr_2")))
+        await until { clock.waiting == 1 }
+
+        await session.suspend()
+
+        #expect(client.results.map(\.id) == ["ctr_1"])
+        #expect(Self.isCancelled(client.results.first?.outcome))
+        #expect(client.postedWhileOpen == [true])
+        await until { client.endedStreams == 1 }
+        await until { executor.cancelled == ["ctr_1"] }
+
+        clock.advance()
+        for _ in 0..<50 { await Task.yield() }
+        #expect(client.claims == ["ctr_1"])
+        #expect(client.streams.count == 1)
+        #expect(executor.started == ["ctr_1"])
+    }
+
+    @Test func resumeReregistersAndClaimsPending() async {
+        let session = session()
+        defer { session.stop() }
+        await connected(session)
+        await session.suspend()
+        await until { client.endedStreams == 1 }
+        client.pendingRequests = [Self.pending("ctr_9")]
+
+        session.resume()
+        await until { client.streams.count == 2 }
+        client.send(.hello(clientID: "ct_2"))
+
+        await until { client.registered.count == 2 }
+        await until { executor.started == ["ctr_9"] }
+        #expect(client.claims == ["ctr_9"])
+    }
+
+    @Test func deferredClaimYieldsToOwner() async {
+        let clock = ClaimClock()
+        let session = deferringSession(clock)
+        defer { session.stop() }
+        await connected(session)
+        client.pendingRequests = [Self.pending("ctr_1"), Self.pending("ctr_2")]
+
+        client.send(.request(Self.request("ctr_1")))
+        client.send(.request(Self.request("ctr_2")))
+        await until { clock.waiting == 2 }
+        #expect(clock.durations == [.milliseconds(1500), .milliseconds(1500)])
+        #expect(client.claims.isEmpty)
+
+        // During the grace the Mac takes ctr_2; ctr_3 is already this client's.
+        client.pendingRequests = [Self.pending("ctr_1"), Self.pending("ctr_2", owner: "ct_mac", claimedBy: "ct_mac"), Self.pending("ctr_3", owner: "ct_1")]
+        client.send(.request(Self.request("ctr_3", owner: "ct_1")))
+        await until { client.claims == ["ctr_3"] }
+
+        clock.advance()
+        await until { client.claims == ["ctr_3", "ctr_1"] }
+        for _ in 0..<50 { await Task.yield() }
+        #expect(client.claims == ["ctr_3", "ctr_1"])
+        #expect(executor.started == ["ctr_3", "ctr_1"])
+    }
+
+    @Test func skipsRequestsOwnedByAnotherClient() async {
+        let session = session()
+        defer { session.stop() }
+        await connected(session)
+        client.pendingRequests = [Self.pending("ctr_1", owner: "ct_mac")]
+
+        client.send(.request(Self.request("ctr_1", owner: "ct_mac")))
+        client.send(.gap(expected: 3, received: 5))
+        for _ in 0..<100 { await Task.yield() }
+
+        #expect(client.claims.isEmpty)
+        #expect(executor.started.isEmpty)
+    }
+}
+
+/// A clock whose sleepers wait until the test advances it.
+@MainActor final class ClaimClock {
+    private var sleepers: [CheckedContinuation<Void, any Error>] = []
+    private(set) var durations: [Duration] = []
+
+    var waiting: Int { sleepers.count }
+
+    func sleep(for duration: Duration) async throws {
+        durations.append(duration)
+        try await withCheckedThrowingContinuation { sleepers.append($0) }
+        try Task.checkCancellation()
+    }
+
+    /// Wakes every sleeper.
+    func advance() {
+        let woken = sleepers
+        sleepers = []
+        woken.forEach { $0.resume() }
+    }
+}
+
+/// A count read and written from any thread.
+final class LockedCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+
+    var value: Int { lock.withLock { count } }
+
+    func add(_ delta: Int) { lock.withLock { count += delta } }
 }
