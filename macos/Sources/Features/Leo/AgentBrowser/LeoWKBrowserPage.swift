@@ -75,6 +75,10 @@ import WebKit
 
     /// Each navigation or response this page turns into a download (B-404).
     var onDownload: (@MainActor (WKDownload) -> Void)?
+    /// After the main frame commits a new document (B-410).
+    var onCommit: (@MainActor () -> Void)?
+    /// After the page's web content process stopped (B-410).
+    var onContentProcessTerminate: (@MainActor () -> Void)?
 
     init(
         configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
@@ -634,6 +638,7 @@ extension LeoWKBrowserPage: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         generation += 1
         mainFrameBecameDownload = false
+        onCommit?()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -664,6 +669,7 @@ extension LeoWKBrowserPage: WKNavigationDelegate {
         for key in navigations.keys {
             finish(key, .failure(LeoBrowserError.navigationFailed("The page's web content process stopped.")))
         }
+        onContentProcessTerminate?()
     }
 }
 

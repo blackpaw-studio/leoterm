@@ -21,12 +21,51 @@ import AppKit
     /// Made the first time a page needs it.
     private(set) lazy var parking = makeParking()
     private let makeParking: @MainActor () -> LeoAgentBrowserParkingWindow
+    /// Whether a window is not covered, per the system (B-410).
+    private let isUnoccluded: @MainActor (NSWindow) -> Bool
     /// Slots on screen, in the order they were shown; the last one showing a
     /// browser has its page.
     private var viewers: [Viewer] = []
+    private var placementHandlers: [UUID: @MainActor () -> Void] = [:]
 
-    init(parking: @escaping @MainActor @autoclosure () -> LeoAgentBrowserParkingWindow = LeoAgentBrowserParkingWindow(size: LeoAgentBrowserHost.defaultSize)) {
+    init(
+        parking: @escaping @MainActor @autoclosure () -> LeoAgentBrowserParkingWindow = LeoAgentBrowserParkingWindow(size: LeoAgentBrowserHost.defaultSize),
+        isUnoccluded: @escaping @MainActor (NSWindow) -> Bool = { $0.occlusionState.contains(.visible) }
+    ) {
         makeParking = parking
+        self.isUnoccluded = isUnoccluded
+    }
+
+    /// Whether `view` shows in the pane that has its browser's page: the
+    /// last slot shown, whatever its window is doing.
+    func isInPane(_ view: NSView) -> Bool {
+        winningSlot(hosting: view) != nil
+    }
+
+    /// Whether the user can see `view` now: in the pane that has its page,
+    /// in a window that is ordered in, not in the Dock and not covered.
+    func isOnScreen(_ view: NSView) -> Bool {
+        guard let window = winningSlot(hosting: view)?.window else { return false }
+        return window.isVisible && !window.isMiniaturized && isUnoccluded(window)
+    }
+
+    /// Calls `handler` after any page moves between a pane and the parking
+    /// window (a pane shown or hidden, a tab switched, a page closed).
+    /// Calling the returned closure stops it.
+    func observePlacement(_ handler: @escaping @MainActor () -> Void) -> () -> Void {
+        let id = UUID()
+        placementHandlers[id] = handler
+        return { [weak self] in self?.placementHandlers[id] = nil }
+    }
+
+    private func winningSlot(hosting view: NSView) -> LeoAgentBrowserSlot? {
+        guard let slot = view.superview as? LeoAgentBrowserSlot, slot.hostedView === view, !slot.isShownElsewhere,
+              viewers.contains(where: { $0.slot === slot }) else { return nil }
+        return slot
+    }
+
+    private func placementChanged() {
+        placementHandlers.values.forEach { $0() }
     }
 
     /// A new tab's view waits in the parking window until a pane shows it.
@@ -38,6 +77,7 @@ import AppKit
     func release(_ view: NSView) {
         viewers.lazy.compactMap(\.slot).first { $0.hostedView === view }?.noteHostedViewLeaving()
         view.removeFromSuperview()
+        placementChanged()
     }
 
     /// `slot` came on screen showing `source`: it takes the page from any
@@ -46,6 +86,7 @@ import AppKit
         viewers.removeAll { $0.slot == nil || $0.slot === slot }
         viewers.append(Viewer(slot: slot, source: source))
         place(source)
+        placementChanged()
     }
 
     /// `slot` left the screen (its row was switched away, its pane hidden or
@@ -57,11 +98,13 @@ import AppKit
         slot.isShownElsewhere = false
         if let hosted = slot.hostedView { parking.park(hosted) }
         if let source { place(source) }
+        placementChanged()
     }
 
     /// `source`'s active tab changed: the slot showing it shows the new one.
     func refresh(_ source: any LeoAgentBrowserPaneSource) {
         place(source)
+        placementChanged()
     }
 
     private func place(_ source: any LeoAgentBrowserPaneSource) {

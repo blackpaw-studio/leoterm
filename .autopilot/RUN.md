@@ -25,6 +25,9 @@ Self-filed: B-406 → dropped (over cap) — Save menu items disabled with no hi
 Self-filed: B-409 → dropped (dup of B-419) — Address bar keeps showing about:blank after load while focused
 Self-filed: B-409 → dropped (over cap) — Clear Site Data alert destructive button reads poorly
 Self-filed: B-409 → dropped (over cap) — LeoClearConfirmation comment wrongly claims Cancel answers Return
+Self-filed: B-410 → dropped (over cap) — browser_press Escape/Enter reached the terminal pane, not the page (P1 bug)
+Self-filed: B-410 → dropped (over cap) — Optionally mute camera/mic when a tab leaves the pane
+Self-filed: B-410 → dropped (over cap) — LeoHandoffBanner button flush-right in narrow panes
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -194,6 +197,40 @@ Lane: B-410
   Dispatched: 2026-11-17T07:57:32Z
   Base: 4ff9c5089fa085f39fa048a9f6d8b266e244c627
   Tier: full
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: b28769882723c7ce0be70d3d7fad4cfe7d4a2f30
+  Tokens: 63.7M in (62.7M cache read), ≥262k out, 353 requests
+  Call: In-pane permission bar under the handoff banner, not a sheet or WebKit prompt — P1, P2
+  Call: Copy '<agent> · <site> wants to use your camera|microphone|camera and microphone|location', 'Only you can answer. Your answer lasts until this tab closes.'; Don't Allow / Allow with no key equivalents — P1, P3
+  Call: Auto-deny when the tab isn't active in an on-screen, unminimised, unoccluded window — AC
+  Call: Answers remembered per tab, per site (scheme/host/port), per kind; auto-denies not remembered; camera+mic allowed only if both — AC, P2
+  Call: Pending ask denied and withdrawn on tab switch, pane hide, close, navigation or process death; covering/minimising a shown ask does not withdraw — P2
+  Call: No tool answers prompts: browser_tabs waiting_on_user {permission, site}, snapshot waiting line, permission_denied console line; answering doesn't take control — P2
+  Call: No new sidebar state or notification — P2
+  Call: Geolocation delegate declared by ObjC selector (macOS 27 public + private twin for ≤26) — P1
+  Call: Camera/mic/location usage strings reworded; entitlements unchanged
+  Call: Accepted: WebKit may reuse a human-approved grant for that tab+site+kind while the tab is hidden (no capture mute on hide) — AC scope
+  Call: Mac only; ledger and agent state in LeoKit
+
+Lane: B-411
+  Branch: autopilot-lane/B-411
+  Dispatched: 2026-11-17T09:35:44Z
+  Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-412
+  Branch: autopilot-lane/B-412
+  Dispatched: 2026-11-17T10:24:49Z
+  Base: f97fcfff2fafe3c4d32dd64a43570caac38efc16
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
@@ -213,6 +250,7 @@ Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
 
 Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
+Finished 8: B-410 landed 8017ffba3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).

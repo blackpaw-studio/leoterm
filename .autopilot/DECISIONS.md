@@ -1521,3 +1521,70 @@ Chose: Mac only
 Why: Parity rule — the iOS app has no agent browser pane yet
 Commit: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae
 Veto: [ ]
+
+
+## D-890 · 2026-11-17 · B-410: Permission prompt surface
+Chose: An in-pane bar under the handoff banner, not a sheet or WebKit's own prompt
+Why: P1, P2 — an agent-triggered request must not freeze the window it shares with terminals
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-891 · 2026-11-17 · B-410: Permission prompt copy and keys
+Chose: '<agent> · <site> wants to use your camera | microphone | camera and microphone | location', detail 'Only you can answer. Your answer lasts until this tab closes.'; Don't Allow / Allow with no key equivalents
+Why: P1, P3 — Return never grants
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-892 · 2026-11-17 · B-410: Deny when not visible
+Chose: Requests are denied without asking unless the tab is active in an on-screen, unminimised, unoccluded window
+Why: AC — deny is the default when the pane isn't visible
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-893 · 2026-11-17 · B-410: Answer scope
+Chose: Remembered per tab, per site (scheme, host, port) and per kind; auto-denies and withdrawn asks not remembered; camera+mic counts as allowed only when both are
+Why: AC, P2
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-894 · 2026-11-17 · B-410: Withdrawing pending asks
+Chose: A pending ask is denied and withdrawn on tab switch, pane hide, close, navigation or content-process death; covering or minimising an already-shown ask does not withdraw it
+Why: P2 — never leave a page hanging on a prompt nobody can see
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-895 · 2026-11-17 · B-410: Agents and prompts
+Chose: No tool can answer; browser_tabs gains waiting_on_user {permission, site}, snapshots open with a waiting line, each deny writes a permission_denied console line; answering doesn't take control
+Why: D-759/D-764, D-844, P2 — pages ask the human, never an agent
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-896 · 2026-11-17 · B-410: No new attention state
+Chose: No new sidebar state or notification for a waiting prompt
+Why: P2 — never invent states
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-897 · 2026-11-17 · B-410: Geolocation delegate
+Chose: Declared by ObjC selector (public macOS 27 selector plus WebKit's private twin for macOS 26 and earlier) because the build SDK lacks it
+Why: P1 — works across supported macOS versions
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-898 · 2026-11-17 · B-410: Usage strings
+Chose: Camera/microphone/location usage strings reworded to Leo copy; entitlements unchanged
+Why: Item note
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-899 · 2026-11-17 · B-410: Hidden-tab grant reuse (accepted risk)
+Chose: WebKit may reuse a grant a human already allowed for that tab, site and kind while the tab is hidden; no capture mute on hide
+Why: AC — the answer lasts for the tab's session; muting would break background calls and geolocation has no public API. Veto if you'd rather mute capture on hide
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
+
+## D-900 · 2026-11-17 · B-410: Platform
+Chose: Mac only; ledger and agent state in LeoKit
+Why: Item Out; D-841
+Commit: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0
+Veto: [ ]
