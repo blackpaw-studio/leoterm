@@ -102,7 +102,7 @@ Lane: B-405
 
 Lane: B-406
   Branch: autopilot-lane/B-406
-  Dispatched: 2026-11-17T05:10:29Z
+  Dispatched: 2026-11-17T05:11:29Z
   Base: 641b72e22435a6fb0945fba72d1b5a100bdd2c29
   Tier: full
   State: building
@@ -132,3 +132,4 @@ Progress:
 - B-407 ready (fix 2). Integrate conflict with B-404 strip resolved. Verifier incident: a mis-focused Return started `autopilot-scratch` (scratch only; stopped again). Edit ▸ Find key-glyph gap accepted as polish (items and shortcuts both work).
 - B-407 landed 290801942. D-842..D-850.
 - Pick: B-406 full (save page as PDF/screenshot; menu + tool).
+- Dispatched B-406 d-7b7dd4233572.
