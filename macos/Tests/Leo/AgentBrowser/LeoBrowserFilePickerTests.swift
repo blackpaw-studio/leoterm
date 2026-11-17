@@ -43,7 +43,7 @@ struct LeoBrowserFilePickerTests {
             agentName: "alpha", configuration: configuration, allowsURL: { _ in true },
             input: LeoSyntheticInput(application: LeoWKTestHost.application),
             viewHost: LeoAgentBrowserHost(parking: LeoAgentBrowserParkingWindow(size: CGSize(width: 800, height: 600))),
-            filePicker: picker
+            filePicker: picker, downloader: LeoWKBrowserDownloads(log: .withoutWorkspace())
         )
     }
 

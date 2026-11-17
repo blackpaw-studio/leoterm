@@ -7,6 +7,7 @@ import LeoKit
 /// A tab set with no pages, for UI tests.
 @MainActor final class FakeBrowserTabs: LeoBrowserTabs {
     var tabs: [LeoBrowserTabInfo] = []
+    var downloads: [LeoBrowserDownload] = []
     private(set) var opened: [URL] = []
     private(set) var selected: [Int] = []
     private(set) var closed: [Int] = []
@@ -27,6 +28,8 @@ import LeoKit
     let fakeTabs = FakeBrowserTabs()
     let control = LeoBrowserControlModel()
     let viewHost = LeoAgentBrowserHost()
+    /// Set before making a model: it observes the log it finds.
+    var downloads = LeoBrowserDownloads.withoutWorkspace()
     var tabs: any LeoBrowserTabs { fakeTabs }
     var activeView: NSView?
     var activeRemoteURL: URL?

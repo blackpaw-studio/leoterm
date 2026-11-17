@@ -85,14 +85,6 @@ enum LeoFileExport {
         return error.localizedDescription
     }
 
-    /// "a.txt" -> "a 2.txt"; a name without an extension (".env",
-    /// "Makefile") gets the number at its end.
-    static func numbered(_ name: String, _ number: Int) -> String {
-        let pathExtension = (name as NSString).pathExtension
-        guard !pathExtension.isEmpty else { return "\(name) \(number)" }
-        return "\((name as NSString).deletingPathExtension) \(number).\(pathExtension)"
-    }
-
     static func requireRegularFile(_ stat: LeoFileStat, path: String) throws {
         switch stat.kind {
         case .file: return
@@ -148,7 +140,7 @@ enum LeoFileExport {
         /// is left exactly as it was.
         func publish(_ staging: String, as name: String) throws -> String {
             for number in 1...LeoFileExport.keepBothLimit {
-                let candidate = number == 1 ? name : LeoFileExport.numbered(name, number)
+                let candidate = number == 1 ? name : LeoFileName.numbered(name, number)
                 if renameatx_np(descriptor, staging, descriptor, candidate, UInt32(RENAME_EXCL)) == 0 { return candidate }
                 guard errno == EEXIST else { throw LeoLocalFileBackend.error(errno, path: shownPath) }
             }

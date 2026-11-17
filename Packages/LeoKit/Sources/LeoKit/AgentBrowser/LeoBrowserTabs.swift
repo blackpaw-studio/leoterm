@@ -31,6 +31,9 @@ public protocol LeoBrowserTabs: AnyObject {
     /// Every tab, in order, with the active one flagged.
     var tabs: [LeoBrowserTabInfo] { get }
 
+    /// This app session's downloads in the browser, newest first.
+    var downloads: [LeoBrowserDownload] { get }
+
     /// The page for `id`, or the active tab's when nil; nil when there is no such
     /// tab (or no tab at all).
     func page(forTab id: Int?) -> (any LeoBrowserPage)?

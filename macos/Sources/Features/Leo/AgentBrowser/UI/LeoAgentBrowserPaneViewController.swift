@@ -20,6 +20,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     let findBar = LeoBrowserFindBar()
     let findController: LeoBrowserFindController
     let pageSlot = LeoAgentBrowserSlot()
+    private let downloadSeparator = NSBox()
+    let downloadStrip = LeoBrowserDownloadStrip()
     private let emptyLabel = NSTextField(labelWithString: "Waiting for the agent to open a page.")
     private let headerTopInset: LeoToolbarInset?
     private var subscription: AnyCancellable?
@@ -57,9 +59,12 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         pageSlot.setAccessibilityElement(false)
         pageSlot.setContentHuggingPriority(.defaultLow, for: .vertical)
 
+        downloadSeparator.boxType = .separator
+
         // Top to bottom: the row pane's strip (installed above these), the
-        // browser's tabs, the toolbar, the handoff banner, find, the page.
-        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot]
+        // browser's tabs, the toolbar, the handoff banner, find, the page, and
+        // the latest download.
+        let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot, downloadSeparator, downloadStrip]
         let stack = LeoAgentBrowserPaneStack(views: rows)
         stack.onKeyEquivalent = { [weak self] in self?.performFindKeyEquivalent($0) ?? false }
         stack.orientation = .vertical
@@ -106,6 +111,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         banner.onDone = { [model] in model.done() }
         banner.onDecline = { [model] in model.decline() }
         banner.doneButton.isFocusInPane = { [weak self] responder in self?.isFocusOnPaneChrome(responder) ?? false }
+        downloadStrip.onDismiss = { [model] in model.dismissDownload() }
+        model.onAnnouncement = { [weak self] text in self?.announce(text) }
         pageTabBar.onSelect = { [weak self] index in
             guard let self, model.tabItems.indices.contains(index) else { return }
             model.selectTab(id: model.tabItems[index].id)
@@ -144,5 +151,15 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         pageTabBar.isHidden = model.tabItems.count < 2
         emptyLabel.isHidden = model.source.activeView != nil
         findController.pageChanged(to: model.source.activeView, isLoading: model.source.isLoading)
+        downloadStrip.show(model.downloadStrip)
+        downloadSeparator.isHidden = downloadStrip.isHidden
+    }
+
+    /// VoiceOver says a download's outcome without moving focus.
+    private func announce(_ text: String) {
+        guard let element = view.window ?? NSApp.mainWindow else { return }
+        NSAccessibility.post(element: element, notification: .announcementRequested, userInfo: [
+            .announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue,
+        ])
     }
 }

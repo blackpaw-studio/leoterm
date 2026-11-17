@@ -164,12 +164,19 @@ public struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
     /// path after publication cannot have that replacement unlinked here.
     @discardableResult
     public func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
+        try await create(at: path, from: source, staging: Self.temporarySibling(of: path))
+    }
+
+    /// `staging` must be a staging-named sibling of `path`
+    /// (`LeoFileName.stagingPath(for:)`); anything else is `.invalidPath`.
+    @discardableResult
+    public func create(at path: String, from source: any LeoFileByteSource, staging staged: String) async throws -> LeoFileStat {
         try closed.check()
         try Self.validate(path)
+        try Self.validateStaging(staged, besides: path)
         if try await statIfPresent(path, followingLinks: false) != nil {
             throw LeoFileAccessError.conflict(path: path)
         }
-        let staged = Self.temporarySibling(of: path)
         do {
             // D-355: staging bytes stay private until exclusive publication.
             try await backend.create(staged, from: source, permissions: 0o600)
@@ -203,6 +210,21 @@ public struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
             throw LeoFileAccessError.wrapping(error, path: path)
         }
         return result
+    }
+
+    /// A staging file that is already gone (published, or never created)
+    /// is fine. Any other path is refused before the backend sees it.
+    public func removeStaging(_ path: String) async throws {
+        try closed.check()
+        try Self.validate(path)
+        guard LeoFileName.isStagingName((path as NSString).lastPathComponent) else { throw LeoFileAccessError.invalidPath(path) }
+        do {
+            try await backend.remove(path)
+        } catch LeoFileAccessError.notFound {
+            return
+        } catch {
+            throw LeoFileAccessError.wrapping(error, path: path)
+        }
     }
 
     /// Walks the path's components, creating each missing one private to the
@@ -281,6 +303,13 @@ public struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         guard path.hasPrefix("/"), !path.contains("\0") else { throw LeoFileAccessError.invalidPath(path) }
     }
 
+    private static func validateStaging(_ staging: String, besides path: String) throws {
+        try validate(staging)
+        guard LeoFileName.isStagingName((staging as NSString).lastPathComponent),
+              (staging as NSString).deletingLastPathComponent == (path as NSString).deletingLastPathComponent
+        else { throw LeoFileAccessError.invalidPath(staging) }
+    }
+
     private static func isUncertain(_ error: Error) -> Bool {
         switch error as? LeoFileAccessError {
         case .disconnected, .closed: true
@@ -288,21 +317,10 @@ public struct LeoFileAccessor<Backend: LeoFileAccessBackend>: LeoFileAccess {
         }
     }
 
-    /// `.<name>.leo-<random>.tmp` beside the target, so the final rename
-    /// never crosses a filesystem boundary. The name part is capped so the
-    /// temp name stays within NAME_MAX (255 bytes) for any target name.
+    /// `LeoFileName.stagingPath(for:)`: a hidden sibling of the target.
     public static func temporarySibling(of path: String) -> String {
-        let directory = (path as NSString).deletingLastPathComponent
-        let name = (path as NSString).lastPathComponent
-        // swiftlint:disable:next optional_data_string_conversion
-        let stem = name.utf8.count <= temporaryStemLimit ? name : String(decoding: name.utf8.prefix(temporaryStemLimit), as: UTF8.self)
-        let token = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-        return (directory as NSString).appendingPathComponent(".\(stem).leo-\(token).tmp")
+        LeoFileName.stagingPath(for: path)
     }
-
-    /// 255 - 42 bytes of `.` + `.leo-<32>.tmp`, less 3 in case truncating
-    /// mid-character leaves a replacement character (3 bytes in UTF-8).
-    private static var temporaryStemLimit: Int { 210 }
 }
 
 extension LeoFileAccessor where Backend == LeoLocalFileBackend {

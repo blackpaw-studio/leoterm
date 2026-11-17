@@ -13,12 +13,14 @@ Inbox: 20261117T000842166210Z-f9850bf9#1
 Done: 57694ff39 21ec5304b (4825 tests; landed dd5910e72). Decisions D-822..D-831.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
-## B-404 · Agent browser downloads land in the agent's workspace   [ready]
+## B-404 · Agent browser downloads land in the agent's workspace   [done]
 Issue: #381
 Why: Milestone 1 (Files through Leo); P3 Local = remote, P4 Everything through Leo. Today a download goes nowhere useful for a remote agent.
 Accept: A download started by you or an agent (WKDownload) is written to `downloads/` in that agent's workspace through the file backend, local and SFTP (tested both); a name clash gets a numbered name, never an overwrite (tested); a failed or lost-connection download is shown plainly and leaves no partial file (tested); the agent can list finished downloads with their workspace paths via a LeoKit browser tool; screenshot of a finished download from the isolated debug build
 Out: Download manager window; resuming downloads; choosing a different folder. Both platforms: tool in LeoKit, Mac UI now, iOS with B-305.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850 (LeoKit 1755 + Mac 4844 tests; landed 88a18c9fb). Decisions D-832..D-841.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
 
 ## B-405 · Agent browser file uploads from the agent's workspace   [ready]
 Issue: #382
@@ -3120,3 +3122,15 @@ Source: autopilot polish (B-413)
 ## B-415 · Retake B-413 indicator shots with scratch-only rows   [idea]
 Note: B-413's top/bottom shots show real agents' names (badges zeroed; fixture can't hide rows); acceptance asked for scratch-only.
 Source: autopilot polish (B-413)
+
+## B-416 · Download failure strip wraps to two lines   [idea]
+Note: B-404's failure strip wraps, so its height differs from the success strip — P2 visual consistency.
+Source: autopilot polish (B-404)
+
+## B-417 · Download ending while the browser pane is closed shows nothing   [idea]
+Note: A download that finishes or fails with the pane closed shows no strip; only `browser_downloads` has it — P2 failures shown plainly.
+Source: autopilot polish (B-404)
+
+## B-418 · Browser pane stays blank after a navigation becomes a download   [idea]
+Note: Reads as nothing happening — P2.
+Source: autopilot polish (B-404)
