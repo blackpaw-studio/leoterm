@@ -38,8 +38,9 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
 
 /// Every agent browser in the app, one per (machine, agent) (C5). A browser
 /// is made on the agent's first browser request or when the user opens it,
-/// and goes when the agent stops or the user closes it. The agent's data
-/// store outlives it. Both apps run their claimed `browser` requests here.
+/// and goes when the agent is gone (removed, or its machine) or the user
+/// closes it. A stopped agent's browser stays where the user put it. The
+/// agent's data store outlives it. Both apps run their claimed `browser` requests here.
 @MainActor public final class LeoAgentBrowsers: LeoClientToolsExecuting {
     /// Nil when this device can't run one.
     public typealias MakeBrowser = @MainActor (LeoAgentBrowserKey) -> (any LeoAgentBrowserRunning)?
@@ -137,34 +138,45 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
         browsers.keys.filter { $0.host == host }.forEach(closeBrowser)
     }
 
-    /// The agent stopped: its browser closes.
+    /// The agent stopped: its calls still running are answered `cancelled`
+    /// (a pending handoff included) so nothing waits on it, but its browser
+    /// stays open for the user -- a pane never goes out from under them.
     public func agentStopped(_ key: LeoAgentBrowserKey) {
-        closeBrowser(for: key)
+        cancelCalls(on: key)
     }
 
     /// `host` listed its agents (`statuses` by name) and, when it reports
-    /// them, its dispatches' ids: browsers of agents that stopped or are no
-    /// longer listed close. Dispatch browsers stay when `dispatches` is nil.
+    /// them, its dispatches' ids: browsers of agents no longer listed close;
+    /// agents that stopped keep theirs (their calls are cancelled). Dispatch
+    /// browsers stay when `dispatches` is nil.
     public func agentsListed(on host: LeoHostID, statuses: [String: LeoAgentStatus], dispatches: Set<String>?) {
-        let gone = browsers.keys.filter { key in
-            guard key.host == host else { return false }
-            return !Self.isAlive(key.agent, statuses: statuses, dispatches: dispatches)
-        }
-        gone.forEach(agentStopped)
+        let onHost = browsers.keys.filter { $0.host == host }
+        onHost.filter { !Self.isListed($0.agent, statuses: statuses, dispatches: dispatches) }.forEach(closeBrowser)
+        onHost.filter { Self.isStopped($0.agent, statuses: statuses) }.forEach(agentStopped)
     }
 
     private static let dispatchPrefix = "dispatch:"
 
-    private static func isAlive(_ agent: String, statuses: [String: LeoAgentStatus], dispatches: Set<String>?) -> Bool {
+    private static func isListed(_ agent: String, statuses: [String: LeoAgentStatus], dispatches: Set<String>?) -> Bool {
         if agent.hasPrefix(dispatchPrefix) {
             guard let dispatches else { return true }
             return dispatches.contains(String(agent.dropFirst(dispatchPrefix.count)))
         }
-        guard let status = statuses[agent] else { return false }
-        return status != .stopped
+        return statuses[agent] != nil
+    }
+
+    private static func isStopped(_ agent: String, statuses: [String: LeoAgentStatus]) -> Bool {
+        statuses[agent] == .stopped
     }
 
     // MARK: - Helpers
+
+    private func cancelCalls(on key: LeoAgentBrowserKey) {
+        calls.removeValue(forKey: key)?.values.forEach { call in
+            call.run.cancel()
+            call.answer.resume(returning: .failure(Self.closedError))
+        }
+    }
 
     private func browserMaking(_ key: LeoAgentBrowserKey) -> (any LeoAgentBrowserRunning)? {
         if let browser = browsers[key] { return browser }

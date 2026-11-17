@@ -108,7 +108,7 @@ struct LeoBrowserHistoryEntry: Equatable {
 ///
 /// Contract for conformers: `observe` handlers run on the main actor after
 /// the registry changed, `.opened` once per new browser (never for a browser
-/// that already exists), `.closed` once when it goes (the agent stopped, or
+/// that already exists), `.closed` once when it goes (the agent was removed, or
 /// `closeBrowser`). `closeBrowser` for an unknown key does nothing; it keeps
 /// the agent's data store. `openBrowser` (the row's Open Browser) is the one
 /// way the UI makes a browser: it returns the existing one or makes one,
