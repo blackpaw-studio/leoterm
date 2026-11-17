@@ -67,6 +67,8 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             self.init(tab: nil, action: .downloads)
         case "browser_handoff":
             self.init(tab: nil, action: .handoff(message: try reader.requiredString("message")))
+        case "browser_dialog":
+            self.init(tab: try reader.tab(), action: try Self.dialog(reader))
         default:
             throw LeoBrowserError.invalidArgs("Unknown browser tool \(tool.debugDescription)")
         }
@@ -118,6 +120,20 @@ public struct LeoBrowserCommand: Equatable, Sendable {
         guard paths.allSatisfy({ !$0.allSatisfy(\.isWhitespace) }) else { throw LeoBrowserError.invalidArgs("paths must not be blank") }
         guard !paths.contains(where: { $0.contains("\0") }) else { throw LeoBrowserError.invalidArgs("paths must not contain NUL") }
         return paths
+    }
+
+    /// `action` accept or dismiss; `text` only with accept. Whether the
+    /// open dialog is a prompt that takes text is checked when the tool runs.
+    private static func dialog(_ reader: LeoBrowserArgs) throws -> LeoBrowserAction {
+        let accept: Bool
+        switch try reader.requiredString("action") {
+        case "accept": accept = true
+        case "dismiss": accept = false
+        case let other: throw LeoBrowserError.invalidArgs("action must be accept or dismiss, not \(other.debugDescription)")
+        }
+        let text = try reader.string("text")
+        guard text == nil || accept else { throw LeoBrowserError.invalidArgs("text goes with accept, to answer a prompt; dismiss takes none") }
+        return .dialog(accept: accept, text: text)
     }
 
     private static func waitCondition(_ reader: LeoBrowserArgs) throws -> LeoBrowserAction.WaitCondition {
@@ -173,12 +189,14 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// This app session's downloads, newest first.
     case downloads
     case handoff(message: String)
+    /// Answers the tab's JavaScript dialog (B-412); `text` answers a prompt.
+    case dialog(accept: Bool, text: String?)
 
     /// Whether the action changes the page or the tab set, and so fails with
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .click, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
+        case .navigate, .back, .forward, .reload, .click, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent, .dialog: true
         case .snapshot, .screenshot, .pdf, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }

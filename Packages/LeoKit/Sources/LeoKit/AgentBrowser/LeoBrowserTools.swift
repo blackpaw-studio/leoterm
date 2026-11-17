@@ -51,7 +51,7 @@ public enum LeoBrowserTools {
              ["js": string("JavaScript expression or statements to evaluate.")], required: ["js"]),
         tool("browser_console", "Return console messages (log, warn, error, unhandled rejections) captured in the tab since the last call.",
              ["since": integer("Message cursor from an earlier call; omit to continue from the last call.")]),
-        tool("browser_tabs", "List the browser's tabs as {id, url, title, active}. A tab whose page asked for the camera, microphone or location and waits on the user to answer also has waiting_on_user: {permission, site}. Only the user can answer, in the browser pane; no tool does. A request made while the pane isn't showing the tab is denied, and every denial shows in browser_console as permission_denied.", [:], pageTool: false),
+        tool("browser_tabs", "List the browser's tabs as {id, url, title, active}. A tab whose page asked for the camera, microphone or location and waits on the user to answer also has waiting_on_user: {permission, site}. Only the user can answer, in the browser pane; no tool does. A request made while the pane isn't showing the tab is denied, and every denial shows in browser_console as permission_denied. A tab with a JavaScript dialog open also has dialog: {kind, message, default_text, site}; answer it with browser_dialog.", [:], pageTool: false),
         tool("browser_tab_new", "Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs." + about,
              ["url": string("URL to load in the new tab."),
               "user_agent": string("Override the tab's user agent from its first load: sent on every navigation and returned by navigator.userAgent, until the tab is closed. Omit for the default Safari-accurate user agent; printable ASCII, at most 1024 characters.")],
@@ -65,6 +65,10 @@ public enum LeoBrowserTools {
              [:], pageTool: false),
         tool("browser_handoff", "Ask the user to take over the browser (to log in, solve a captcha). Blocks until they press Done or Decline; returns done or declined.",
              ["message": string("What you need the user to do.")], required: ["message"], timeoutSeconds: 0, pageTool: false),
+        tool("browser_dialog", "Answer the JavaScript dialog open in a tab: an alert, confirm or prompt, or a beforeunload \"Leave this page?\" dialog. While a dialog is open its page is paused: tools that read or act on that page fail with dialog_open, and a call during which a dialog opens returns at once saying so. accept presses OK (Leave Page on a beforeunload dialog) and dismiss presses Cancel (Stay on Page); an alert has only OK, which both press. The user sees the dialog in the browser pane and may answer it first; then this fails with dialog_handled, saying how they answered.",
+             ["action": stringEnum(["accept", "dismiss"], "accept (OK, Leave Page) or dismiss (Cancel, Stay on Page)."),
+              "text": string("Only with accept on a prompt: the answer to send. Without it the prompt's default text is sent.")],
+             required: ["action"]),
     ]
 
     private static let tabProperty = integer("Tab id from browser_tabs; defaults to the active tab.")
@@ -87,6 +91,10 @@ public enum LeoBrowserTools {
     private static func string(_ description: String) -> LeoJSONValue { property("string", description) }
     private static func integer(_ description: String) -> LeoJSONValue { property("integer", description) }
     private static func boolean(_ description: String) -> LeoJSONValue { property("boolean", description) }
+
+    private static func stringEnum(_ values: [String], _ description: String) -> LeoJSONValue {
+        .object(["type": .string("string"), "enum": .array(values.map(LeoJSONValue.string)), "description": .string(description)])
+    }
 
     private static func stringArray(_ description: String, maxItems: Int) -> LeoJSONValue {
         .object([

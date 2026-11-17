@@ -71,8 +71,8 @@ public final class LeoBrowserExecutor {
             tabs.closeTab(tab)
         case .wait(.milliseconds(let milliseconds)):
             try await sleep(.milliseconds(milliseconds))
-        case .handoff:
-            throw LeoBrowserError.invalidArgs("browser_handoff cannot be queued")
+        case .handoff, .dialog:
+            throw LeoBrowserError.invalidArgs("\(command.action) cannot be queued")
         case .navigate(let url) where command.tab == nil && tabs.tabs.isEmpty:
             return try await navigateInNewTab(url: url)
         default:
@@ -129,7 +129,7 @@ public final class LeoBrowserExecutor {
             return [consoleReport(page.consoleMessages(since: since))]
         case .setUserAgent(let userAgent):
             page.setUserAgent(userAgent)
-        case .wait(.milliseconds), .tabs, .tabNew, .tabSelect, .tabClose, .downloads, .handoff:
+        case .wait(.milliseconds), .tabs, .tabNew, .tabSelect, .tabClose, .downloads, .handoff, .dialog:
             throw LeoBrowserError.invalidArgs("\(action) is not a page action")
         }
         return [Self.ok]
