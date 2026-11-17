@@ -25,6 +25,10 @@ import Testing
     func reload() {}
     func navigate(to url: URL) {}
     func openBlankTab() {}
+    var canReopenClosedTab: Bool { false }
+    func reopenClosedTab() -> Bool { false }
+    func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] { [] }
+    func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
 
     /// Requests wait until cancelled, like a page load that never finishes;
