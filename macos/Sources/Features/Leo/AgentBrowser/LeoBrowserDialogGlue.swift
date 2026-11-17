@@ -1,23 +1,6 @@
 import LeoKit
 import WebKit
 
-/// What the pane's dialog bar shows (B-412): which agent's page asks what.
-/// The dialog's site is in the agent's (remote) terms, as the address bar
-/// shows it.
-struct LeoBrowserDialogPrompt: Equatable {
-    let agent: String
-    let dialog: LeoBrowserDialog
-
-    /// Tells this dialog from a later one in the same tab, so a click meant
-    /// for one never answers the next.
-    var id: Int { dialog.id }
-    var kind: LeoBrowserDialogKind { dialog.kind }
-
-    /// "alfred · shop.example.com says:".
-    var header: String { LeoBrowserDialogText.header(agent: agent, site: dialog.site) }
-    var message: String { LeoBrowserDialogText.message(of: dialog) }
-    var detail: String { LeoBrowserDialogText.detail(agent: agent) }
-}
 
 /// A page's JavaScript dialogs (B-412): WebKit's alert, confirm and prompt
 /// panels, plus its private beforeunload one, go to the browser's dialog

@@ -1,18 +1,6 @@
 import AppKit
 import LeoKit
 
-/// Names one agent's browser: the machine it runs on and the agent's name as
-/// the daemon knows it. A dispatch child is named `dispatch:<id>` (its
-/// `LEO_PROCESS_NAME`), so each dispatch has its own browser.
-struct LeoAgentBrowserKey: Hashable, Sendable {
-    let host: LeoHostID
-    let agent: String
-
-    static func dispatch(host: LeoHostID, id: String) -> Self {
-        Self(host: host, agent: "dispatch:\(id)")
-    }
-}
-
 /// What the browser pane needs from an agent browser. The browser model
 /// (`LeoAgentBrowser`, C5) conforms; the pane never sees WebKit types beyond
 /// the view it hosts. Everything runs on the main actor.
@@ -112,11 +100,6 @@ struct LeoBrowserHistoryEntry: Equatable {
     let url: URL
 
     var direction: LeoBrowserHistoryDirection { offset < 0 ? .back : .forward }
-}
-
-enum LeoAgentBrowserPresenceChange: Equatable {
-    case opened(LeoAgentBrowserKey)
-    case closed(LeoAgentBrowserKey)
 }
 
 /// Which agent browsers exist. The app-level registry (`LeoAgentBrowsers`,

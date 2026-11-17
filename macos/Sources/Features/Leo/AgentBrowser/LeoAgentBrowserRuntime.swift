@@ -35,6 +35,7 @@ import LeoKit
         self.makeClient = makeClient
         let browsers = LeoAgentBrowsers(
             makeBrowser: { [setting] key in setting.isEnabled ? makeBrowser?(key) : nil },
+            unavailable: LeoBrowserError(.navigationFailed, "This Mac can't run the agent browser (it needs macOS 14)"),
             onClosed: { [weak forwards] key in Task { await forwards?.release(key) } }
         )
         self.browsers = browsers
