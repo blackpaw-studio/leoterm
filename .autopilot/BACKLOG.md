@@ -3192,6 +3192,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-408)
 Done: 8979b86f9 1aa02dc52 3ea196aac (merged in 25ef6cb19; 5018 tests). A stopped agent's open browser pane stays; only a removed agent's closes; stop-cancelled calls say "The agent stopped". LeoKit, so iOS gets it too. D-932..D-933.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-421-2.png
+Reviewed: accepted 2026-11-17 — 25ef6cb19052
 
 ## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready (next run)]
 Issue: #394
