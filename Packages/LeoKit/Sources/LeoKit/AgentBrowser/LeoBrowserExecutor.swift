@@ -6,8 +6,11 @@ import Foundation
 ///
 /// Operations run one at a time in arrival order. `browser_handoff` is the
 /// exception: it waits on the user, so it neither queues behind a running
-/// operation nor blocks one. A cancelled call (the daemon's tool timeout)
-/// frees the queue even if the page never answers.
+/// operation nor blocks one. So is `browser_dialog` (B-412): the call it
+/// would queue behind may be the one its dialog paused. A cancelled call
+/// (the daemon's tool timeout) frees the queue even if the page never
+/// answers, and so does a JavaScript dialog opening while a call runs: the
+/// call returns at once, saying so, and its own late result is dropped.
 @MainActor
 public final class LeoBrowserExecutor {
     public typealias Sleeper = @MainActor (Duration) async throws -> Void
@@ -34,10 +37,19 @@ public final class LeoBrowserExecutor {
     /// Never throws: every failure is a `.failure` outcome with a code from the
     /// contract (plus `cancelled` when the daemon cancels the call).
     public func execute(tool: String, args: LeoJSONValue, requestID: String) async -> LeoClientToolOutcome {
+        withDialogNotes(await outcome(tool: tool, args: args, requestID: requestID))
+    }
+
+    private func outcome(tool: String, args: LeoJSONValue, requestID: String) async -> LeoClientToolOutcome {
         do {
             let command = try LeoBrowserCommand(tool: tool, args: args)
-            if case .handoff(let message) = command.action {
+            switch command.action {
+            case .handoff(let message):
                 return try await handoff(requestID: requestID, message: message)
+            case .dialog(let accept, let text):
+                return .success(try answerDialog(inTab: command.tab, accept: accept, text: text))
+            default:
+                break
             }
             let content = try await gate.run {
                 do { return try await self.perform(command) } catch { throw Self.classify(error, for: command.action) }
@@ -54,11 +66,23 @@ public final class LeoBrowserExecutor {
 
     // MARK: - Operations
 
+    /// Checks control and the tab's dialog, then runs the command until it
+    /// finishes or any tab opens a dialog.
     private func perform(_ command: LeoBrowserCommand) async throws -> [LeoClientToolContent] {
         if command.action.changesPage, !control.state.allowsAgentActions { throw LeoBrowserError.userHasControl }
+        if command.action.needsPage, let dialog = tabID(command.tab).flatMap(dialogs.dialog(inTab:)) {
+            dialogs.markTold(dialog.id)
+            throw LeoBrowserError(.dialogOpen, LeoBrowserDialogText.openLine(dialog, origin: remoteOrigin(dialog.site)))
+        }
+        return try await untilADialogOpens { try await self.run(command) }
+    }
+
+    private func run(_ command: LeoBrowserCommand) async throws -> [LeoClientToolContent] {
         switch command.action {
         case .tabs:
-            return [json(.array(tabs.tabs.map(tabEntry)))]
+            let list = tabs.tabs
+            list.compactMap { dialogs.dialog(inTab: $0.id)?.id }.forEach(dialogs.markTold)
+            return [json(.array(list.map(tabEntry)))]
         case .downloads:
             return [json(.array(tabs.downloads.map(downloadEntry)))]
         case .tabNew(let url, let userAgent):
@@ -188,6 +212,76 @@ public final class LeoBrowserExecutor {
         }
     }
 
+    // MARK: - Dialogs (B-412)
+
+    private var dialogs: LeoBrowserDialogDesk { tabs.dialogs }
+
+    /// `browser_dialog`: answers at once, never queued, since the call it
+    /// would wait behind may be one its dialog paused. Whoever answers
+    /// first wins; a later answer hears how it went.
+    private func answerDialog(inTab tab: Int?, accept: Bool, text: String?) throws -> [LeoClientToolContent] {
+        guard control.state.allowsAgentActions else { throw LeoBrowserError.userHasControl }
+        guard let id = tabID(tab) else { throw LeoBrowserError(.noSuchTab, "The browser has no tabs") }
+        try requireTab(id)
+        if text != nil, let dialog = dialogs.dialog(inTab: id), dialog.kind != .prompt {
+            throw LeoBrowserError.invalidArgs("text answers a prompt; tab \(id) has a \(LeoBrowserDialogText.name(dialog.kind)) open. Call again without text")
+        }
+        switch dialogs.answer(inTab: id, accept: accept, text: text, by: .agent) {
+        case .answered:
+            return [Self.ok]
+        case .alreadyHandled(let answer):
+            throw LeoBrowserError(.dialogHandled, LeoBrowserDialogText.handledMessage(answer))
+        case .noDialog:
+            throw LeoBrowserError(.noDialog, LeoBrowserDialogText.noDialog(tab: id, elsewhere: dialogs.dialogs))
+        }
+    }
+
+    /// Runs `work` until it finishes or any tab opens a dialog, whichever
+    /// comes first. A dialog pauses its page (and every page sharing its
+    /// process), so `work` may not finish until someone answers it: the
+    /// call reports the dialog instead, and `work`'s late result is dropped.
+    private func untilADialogOpens(_ work: @escaping @MainActor () async throws -> [LeoClientToolContent]) async throws -> [LeoClientToolContent] {
+        let outcome = LeoOnce<[LeoClientToolContent]>()
+        let stopObserving = dialogs.observe { [weak self] event in
+            guard case .opened(let dialog) = event, !outcome.isSettled, let self else { return }
+            dialogs.markTold(dialog.id)
+            outcome.resume(with: .success([.text(LeoBrowserDialogText.openedLine(dialog, origin: remoteOrigin(dialog.site)))]))
+        }
+        defer { stopObserving() }
+        let task = Task { @MainActor in
+            do { outcome.resume(with: .success(try await work())) } catch { outcome.resume(with: .failure(error)) }
+        }
+        return try await withTaskCancellationHandler {
+            try await outcome.value()
+        } onCancel: {
+            task.cancel()
+            Task { @MainActor in outcome.resume(with: .failure(CancellationError())) }
+        }
+    }
+
+    /// Adds what the agent hasn't heard yet: the user's answers to dialogs
+    /// it was shown. Not to a cancelled call, which nobody reads.
+    private func withDialogNotes(_ outcome: LeoClientToolOutcome) -> LeoClientToolOutcome {
+        if case .failure(let error) = outcome, error == Self.cancelledError { return outcome }
+        let notes = dialogs.takeNotes().map(LeoBrowserDialogText.handledNote)
+        guard !notes.isEmpty else { return outcome }
+        switch outcome {
+        case .success(let content):
+            return .success(content + notes.map(LeoClientToolContent.text))
+        case .failure(let error):
+            return .failure(LeoClientToolError(code: error.code, message: ([error.message] + notes).joined(separator: "\n")))
+        }
+    }
+
+    private func dialogEntry(_ dialog: LeoBrowserDialog) -> LeoJSONValue {
+        var entry: [String: LeoJSONValue] = [
+            "kind": .string(dialog.kind.rawValue), "message": .string(LeoBrowserDialogText.capped(LeoBrowserDialogText.message(of: dialog))),
+            "site": .string(remoteOrigin(dialog.site)),
+        ]
+        if let defaultText = dialog.defaultText { entry["default_text"] = .string(LeoBrowserDialogText.capped(defaultText)) }
+        return .object(entry)
+    }
+
     // MARK: - Helpers
 
     private static let ok = LeoClientToolContent.text("ok")
@@ -218,7 +312,13 @@ public final class LeoBrowserExecutor {
         if let waiting = tab.waitingPermission {
             entry["waiting_on_user"] = .object(["permission": .string(waiting.kind.rawValue), "site": .string(remoteOrigin(waiting.site))])
         }
+        if let dialog = dialogs.dialog(inTab: tab.id) { entry["dialog"] = dialogEntry(dialog) }
         return .object(entry)
+    }
+
+    /// `tab`, or the active tab's id when nil; nil with no tabs.
+    private func tabID(_ tab: Int?) -> Int? {
+        tab ?? tabs.tabs.first(where: \.isActive)?.id
     }
 
     /// A site's origin in remote terms (a forwarded local port maps back).

@@ -11,6 +11,9 @@ public final class LeoOnce<T> {
 
     public init() {}
 
+    /// Whether a result has landed.
+    public var isSettled: Bool { result != nil }
+
     /// Waits for the first result. One waiter at most.
     public func value() async throws -> T {
         if let result { return try result.get() }

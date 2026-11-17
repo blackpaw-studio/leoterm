@@ -192,6 +192,16 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// Answers the tab's JavaScript dialog (B-412); `text` answers a prompt.
     case dialog(accept: Bool, text: String?)
 
+    /// Whether the action needs the tab's page to run, so fails with
+    /// `dialog_open` while a JavaScript dialog pauses it (B-412). A
+    /// screenshot does: WebKit draws it in the page's own process.
+    public var needsPage: Bool {
+        switch self {
+        case .navigate, .back, .forward, .reload, .snapshot, .click, .type, .upload, .press, .screenshot, .pdf, .wait(.text), .eval, .setUserAgent: true
+        case .wait(.milliseconds), .console, .tabs, .tabNew, .tabSelect, .tabClose, .downloads, .handoff, .dialog: false
+        }
+    }
+
     /// Whether the action changes the page or the tab set, and so fails with
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {

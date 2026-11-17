@@ -41,10 +41,15 @@ public enum LeoBrowserDialogText {
 
     // MARK: - The agent
 
+    /// Page text for the agent, cut after `maximumAgentMessageLength` characters.
+    public static func capped(_ text: String) -> String {
+        text.count > maximumAgentMessageLength ? String(text.prefix(maximumAgentMessageLength)) + "…" : text
+    }
+
     /// Page text for the agent: capped and quoted on one line, so it never
     /// reads as Leo's own words.
     public static func quoted(_ text: String) -> String {
-        let capped = text.count > maximumAgentMessageLength ? String(text.prefix(maximumAgentMessageLength)) + "…" : text
+        let capped = capped(text)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         return (try? encoder.encode(capped)).flatMap { String(bytes: $0, encoding: .utf8) } ?? "\"\""
@@ -53,13 +58,13 @@ public enum LeoBrowserDialogText {
     /// The `dialog_open` error of a tool that needs the paused page.
     /// `origin` is in the agent's (remote) terms.
     public static func openLine(_ dialog: LeoBrowserDialog, origin: String) -> String {
-        "Tab \(dialog.tab) has \(article(dialog.kind)) \(name(dialog.kind)) open, from \(origin): \(quoted(message(of: dialog))). "
+        "Tab \(dialog.tab) has a \(name(dialog.kind)) open, from \(origin): \(quoted(message(of: dialog))). "
             + "Its page is paused until the dialog is answered, so tools that read or act on the page fail until then. " + howToAnswer(dialog)
     }
 
     /// The result of a call that ended early because a dialog opened while it ran.
     public static func openedLine(_ dialog: LeoBrowserDialog, origin: String) -> String {
-        "While this call ran, tab \(dialog.tab) opened \(article(dialog.kind)) \(name(dialog.kind)), from \(origin): \(quoted(message(of: dialog))). "
+        "While this call ran, tab \(dialog.tab) opened a \(name(dialog.kind)), from \(origin): \(quoted(message(of: dialog))). "
             + "Its page is paused until the dialog is answered. " + howToAnswer(dialog)
     }
 
@@ -83,7 +88,7 @@ public enum LeoBrowserDialogText {
 
     /// The `no_dialog` error, pointing at tabs that do have one.
     public static func noDialog(tab: Int, elsewhere: [LeoBrowserDialog]) -> String {
-        let others = elsewhere.filter { $0.tab != tab }.map { "tab \($0.tab) has \(article($0.kind)) \(name($0.kind)) open (pass tab: \($0.tab))" }
+        let others = elsewhere.filter { $0.tab != tab }.map { "tab \($0.tab) has a \(name($0.kind)) open (pass tab: \($0.tab))" }
         let hint = others.isEmpty ? "" : "; " + others.joined(separator: ", ")
         return "No JavaScript dialog is open in tab \(tab)\(hint)."
     }
@@ -91,8 +96,6 @@ public enum LeoBrowserDialogText {
     static func name(_ kind: LeoBrowserDialogKind) -> String {
         kind == .leave ? "beforeunload dialog" : "JavaScript \(kind.rawValue)"
     }
-
-    private static func article(_ kind: LeoBrowserDialogKind) -> String { kind == .alert ? "an" : "a" }
 
     private static func howToAnswer(_ dialog: LeoBrowserDialog) -> String {
         let how: String
