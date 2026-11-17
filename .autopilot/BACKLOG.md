@@ -3172,6 +3172,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-408)
 Done: 521c151a4 e63df929f (merged in 075ad32a2; 5016 tests). Focused address bar follows the page until the user edits; Escape/blur restore, Return/tab change hand back. D-925..D-928.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
+Reviewed: accepted 2026-11-17 — 075ad32a2081
 
 ## B-420 · ⌘L doesn't select the browser address field's text   [done]
 Issue: #392
