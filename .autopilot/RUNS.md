@@ -1060,3 +1060,35 @@ Merge when happy: git -C /Users/evan/.leo/agents/leoterm merge autopilot
 
 ## Run 2026-11-17T14:04:05Z
 
+🛠 leoterm autopilot — 3 fixed, 1 shipped, 0 blocked
+Fixed
+• B-419 Address bar stale URL while focused — the focused bar follows the page until you type; Escape/blur restore, Return/tab change hand back (verified: screenshot) · light
+• B-420 ⌘L select-all — ⌘L and clicking into the bar select the whole URL (not visually verified: auto-mode denied the verifier's keystroke; tests cover it) · light
+• B-421 Browser pane collapsing after agent stop — a stopped agent's pane and browser stay; stop-cancelled calls say "The agent stopped"; LeoKit, so iOS too (verified: screenshot) · light
+Shipped
+• B-305 iOS agent-browser executor — Leo iOS serves the `browser` group over HTTPS/SSE with takeover/handoff; backgrounding relinquishes cleanly (verified: simulator screen captures, not attached) · full
+• B-421 built before B-420 (independent)
+Calls I made — reply "veto D-0xx" to undo
+• D-917–D-924 B-305: Mac wins unowned requests (1.5 s grace); remote localhost explained, not routed; upload/PDF/screenshot/download "unsupported" on iOS; system find bar/picker on iOS
+• D-925–D-928 B-419: Escape restores, blur drops unsent edits, Return/tab change hand back; Mac only
+• D-929–D-931 B-420: ⌘L re-selects when focused; claimed only with focus in the browser pane
+• D-932–D-933 B-421: stopped agent keeps its browser; "The agent stopped" message
+Needs you
+• Deviation: B-421's runner reported blocked (a verify-lock wait misread as a stale-framework problem). I didn't shelve; I refreshed shared/GhosttyKit.xcframework + zig-out from B-419's Nov 17 build (old copies in ~/.Trash, verify.md updated) and re-verified.
+• Lanes left: B-058 held; B-233, B-332 unlanded; B-368 dirty. Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-180 · B-181 · B-182 · B-184 (+89 more)
+Self-filed
+• B-422 bug (from B-305) — iOS test host crashes on unimplemented PushCleanupClient.load
+• B-426 bug (from B-419) — bar shows old URL until the new page commits after Return
+• B-427 bug (from B-419) — "Give Back" click does nothing after a Return (unconfirmed)
+• B-423, B-424, B-425 ideas (from B-305) — iOS rejected-localhost URL; device keyboard check; daemon localhost proxy
+• B-428 idea (from B-420) — partial drag-select in unfocused bar · B-429 idea (from B-421) — pane doesn't say agent stopped
+• dropped (from B-419) — click-then-type appends — dup of B-420
+Next up: B-422, B-426, B-427 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$60.28 est. — B-305 ≈$39.10, B-419 ≈$11.23, B-420 ≈$2.66, B-421 ≈$7.28
+Tokens (runner + its subagents): B-305 108M in (106M cache read), ≥477k out, 581 requests · B-419 49.4M in, ≥142k out, 407 req · B-420 7.88M in, ≥32.8k out, 86 req · B-421 18.8M in, ≥78.7k out, 212 req
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board sync: 1 failure (B-404 network timeout at preflight; see RUN.md)
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
