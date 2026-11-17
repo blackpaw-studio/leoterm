@@ -202,7 +202,7 @@ Lane: B-410
 
 Lane: B-411
   Branch: autopilot-lane/B-411
-  Dispatched: pending
+  Dispatched: 2026-11-17T09:35:44Z
   Base: 8bb9e1337109eabb5055e650c5137cfc63867fe4
   Tier: full
   State: building
