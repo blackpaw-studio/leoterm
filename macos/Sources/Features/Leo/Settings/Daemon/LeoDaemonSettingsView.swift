@@ -1,7 +1,7 @@
 import LeoKit
 import SwiftUI
 
-/// The Daemon tab. The model is created when the pane mounts for a client (so
+/// The Daemon pane. The model is created when the pane mounts for a client (so
 /// a machine switch gets a fresh one), registered with the target for the
 /// unsaved-changes and reload hooks, and loads itself.
 struct LeoDaemonSettingsView: View {
@@ -19,35 +19,52 @@ struct LeoDaemonSettingsView: View {
 private struct LeoDaemonPane: View {
     @ObservedObject var target: LeoSettingsTargetModel
     @StateObject private var model: LeoDaemonSettingsModel
+    /// The target owns it, so a restart started from another pane's prompt is waited out there.
+    @ObservedObject private var service: LeoServiceSettingsModel
 
     init(target: LeoSettingsTargetModel, client: any LeoConfigClient) {
         self.target = target
+        service = target.service(using: client)
         _model = StateObject(wrappedValue: LeoDaemonSettingsModel(
             client: client, revisions: target.revisions, machineHost: target.selectedHost.displayName
         ))
     }
 
     var body: some View {
-        LeoDaemonView(model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions)
-            .task {
-                target.register(model, for: LeoDaemonSettingsView.tab)
-                await model.load()
-            }
+        LeoDaemonView(
+            model: model, machine: SpawnMachineOption.title(for: target.selectedHost), restart: target.restartActions, service: service
+        )
+        .task {
+            target.register(model, for: LeoDaemonSettingsView.tab)
+            await model.load()
+        }
+        .task { await service.load() }
+        .onAppear { service.setLogVisible(isLogVisible) }
+        .onChange(of: isLogVisible) { service.setLogVisible($0) }
+        .onDisappear { service.setLogVisible(false) }
+    }
+
+    private var isLogVisible: Bool {
+        model.isLogVisible(paneSelected: target.selectedTab == LeoDaemonSettingsView.tab)
     }
 }
 
-/// The web UI, remote client and remote hosts forms behind one segmented
+/// The service, web UI, remote client and remote hosts behind one segmented
 /// picker. A section with unsaved edits is marked, since the others hide it.
 struct LeoDaemonView: View {
     @ObservedObject var model: LeoDaemonSettingsModel
     let machine: String
     var restart = LeoConfigRestartActions.none
+    /// The machine's Service model, for the Service section.
+    var service: LeoServiceSettingsModel?
 
     var body: some View {
         VStack(spacing: 0) {
             LeoDaemonSectionPicker(model: model, web: model.web, client: model.client, hosts: model.hosts)
             Divider()
             switch model.section {
+            case .service:
+                if let service { LeoServiceView(model: service, machine: machine) }
             case .web:
                 LeoConfigSingletonView(model: model.web, machine: machine, restart: restart)
             case .client:
@@ -69,13 +86,14 @@ private struct LeoDaemonSectionPicker: View {
 
     var body: some View {
         Picker("Section", selection: $model.section) {
+            Text("Service").tag(LeoDaemonSettingsModel.Section.service)
             Text(label(web.title, dirty: web.isDirty)).tag(LeoDaemonSettingsModel.Section.web)
             Text(label(client.title, dirty: client.isDirty)).tag(LeoDaemonSettingsModel.Section.client)
             Text(label(hosts.title, dirty: hosts.hasUnsavedChanges)).tag(LeoDaemonSettingsModel.Section.hosts)
         }
         .pickerStyle(.segmented)
         .labelsHidden()
-        .padding(12)
+        .padding(LeoSettingsMetrics.groupPadding)
     }
 
     private func label(_ title: String, dirty: Bool) -> String {

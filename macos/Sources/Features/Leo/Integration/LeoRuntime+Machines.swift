@@ -17,19 +17,20 @@ typealias LeoRemoteDaemonFactory = @Sendable (_ host: LeoHostID, _ socketPath: S
 /// own feed, client and Chat client. Leo Chat follows each agent's machine:
 /// a machine's chat binds when it connects and unbinds when it drops.
 extension LeoRuntime {
-    /// Opens Leo Settings on its Machines tab, selecting `host` when given.
+    /// Agents ▸ Machines… and a remote header's Edit Machine…: the machine's
+    /// overview (the remembered machine's when `host` is nil).
     func presentMachinesSettings(selecting host: LeoHostID? = nil) {
-        settingsWindow.show(selecting: host)
+        settingsWindow.show(.machines(host))
     }
 
     /// App menu ▸ Settings… (B-397): opens the Leo Settings window as it was.
     func presentSettings() {
-        settingsWindow.show()
+        settingsWindow.show(.settings)
     }
 
-    /// Opens Leo Settings on the Appearance tab for `host`'s rules.
+    /// Edit Appearance Rules…: `host`'s Appearance pane.
     func presentAppearanceRules(for host: LeoHostID) {
-        settingsWindow.show(target: host, tab: LeoAppearanceSettingsView.tab)
+        settingsWindow.show(.appearance(host))
     }
 
     /// The registry's machines changed (launch, or Settings saved). The

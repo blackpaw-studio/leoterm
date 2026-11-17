@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 import SwiftUI
 import Testing
@@ -239,6 +240,43 @@ struct LeoSettingsSnapshots {
         try Self.write(sheet, named: "environmentsAddSheet", size: NSSize(width: 360, height: 150), to: directory)
     }
 
+    // MARK: Appearance pane
+
+    private static func appearanceModel() async -> LeoAppearanceSettingsModel {
+        let rules = [
+            LeoAppearanceRule(field: "environments", op: "contains", value: "prod", color: "red"),
+            LeoAppearanceRule(field: "name", op: "glob", value: "alfred-*", color: "pink", emoji: "🎩"),
+        ]
+        let fake = LeoFakeConfigClient(
+            schema: LeoConfigSchema(resources: []),
+            version: LeoDaemonVersionInfo(version: "0.70.0", capabilities: [LeoConfigAPI.capability, "agent_appearance"])
+        )
+        await fake.seedAppearance(agents: [LeoAppearanceFacts(name: "olympus", environments: ["prod"], template: "ops", harness: "")], rules: rules)
+        let agents = [
+            LeoAppearancePreviewAgent(name: "olympus", environments: ["prod"], template: "ops", manual: nil),
+            LeoAppearancePreviewAgent(name: "alfred-dj", environments: [], template: "assistant", manual: LeoAppearanceManual(emoji: "🎧", color: nil)),
+            LeoAppearancePreviewAgent(name: "rocket", environments: [], template: "assistant", manual: nil),
+        ]
+        let model = LeoAppearanceSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), agents: { agents })
+        await model.load()
+        return model
+    }
+
+    @Test func appearance() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = await Self.appearanceModel()
+        try Self.write(LeoAppearanceEditor(model: model), named: "appearance", size: NSSize(width: 750, height: 720), to: directory)
+    }
+
+    /// A rule selected for the bar's −, a rule added and still invalid, so Save is waiting.
+    @Test func appearanceWithASelectionAndANewRule() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let model = await Self.appearanceModel()
+        model.add()
+        model.selection = model.rows[1].id
+        try Self.write(LeoAppearanceEditor(model: model), named: "appearanceEdited", size: NSSize(width: 750, height: 720), to: directory)
+    }
+
     // MARK: Delegation pane
 
     private static func delegationModel(_ document: LeoDelegationDocument? = LeoDelegationFixtures.document()) async throws -> (LeoDelegationSettingsModel, LeoFakeConfigClient) {
@@ -433,6 +471,16 @@ struct LeoSettingsSnapshots {
         model.stop()
     }
 
+    @Test func daemonServiceSection() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let service = try await Self.serviceModel()
+        let model = try await Self.daemonModel(.service)
+        try Self.write(
+            LeoDaemonView(model: model, machine: "dionysus", service: service), named: "daemonService", size: Self.serviceSize, to: directory
+        )
+        service.stop()
+    }
+
     @Test func serviceRestartingAndAgentsSummary() async throws {
         let directory = try #require(snapshotOutputDirectory)
         let model = try await Self.serviceModel()
@@ -446,6 +494,113 @@ struct LeoSettingsSnapshots {
         _ = await agents.restartAllAgents()
         try Self.write(LeoServiceView(model: agents, machine: "dionysus"), named: "serviceAgentsSummary", size: Self.serviceSize, to: directory)
         agents.stop()
+    }
+
+    // MARK: General
+
+    @Test func general() throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let defaults = LeoInMemoryDefaults()
+        let view = LeoGeneralSettingsView(
+            statsStyle: LeoStatsStyleSetting(defaults: defaults), agentBrowser: LeoAgentBrowserSetting(defaults: defaults),
+            builtIn: LeoBuiltInPaneSettings(defaults: defaults)
+        )
+        try Self.write(view, named: "general", size: NSSize(width: 700, height: 520), to: directory)
+    }
+
+    // MARK: This Mac overview
+
+    private static let overviewSize = NSSize(width: 760, height: 620)
+
+    private static func thisMac(
+        managed: LeoManagedStatus, status: LeoMachineStatus = .connected, connection: LeoHostConnectionState? = .connected(socketPath: "/Users/evan/.leo/state/leo.sock"),
+        withService: Bool = true
+    ) async throws -> LeoThisMacOverviewContent {
+        let presentation = LeoManagedPresentation(status: managed, notice: nil)
+        let service = LeoServiceStatus(version: "v0.49.2", pid: 48_211, configPath: "/Users/evan/.leo/leo.yaml")
+        let overview = LeoThisMacOverview(
+            managed: managed, presentation: presentation, connection: connection, status: status, service: withService ? service : nil,
+            agentCount: 14, daemonVersion: "0.49.2"
+        )
+        let model = withService ? try await serviceModel() : nil
+        return LeoThisMacOverviewContent(overview: overview, service: model, perform: { _ in }, reveal: { _ in })
+    }
+
+    @Test func thisMacConnected() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        try Self.write(try await Self.thisMac(managed: .managed(version: "0.49.2")), named: "thisMacConnected", size: Self.overviewSize, to: directory)
+    }
+
+    @Test func thisMacOffline() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let view = try await Self.thisMac(
+            managed: .inactive, status: .failed("The Leo daemon socket is missing at ~/.leo/state/leo.sock"),
+            connection: .failed(message: "socket missing", hint: nil), withService: false
+        )
+        try Self.write(view, named: "thisMacOffline", size: Self.overviewSize, to: directory)
+    }
+
+    @Test func thisMacOfferToTakeOver() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let view = try await Self.thisMac(managed: .usingCLI(offerTakeover: true, isRunning: true))
+        try Self.write(view, named: "thisMacTakeover", size: Self.overviewSize, to: directory)
+    }
+
+    // MARK: Remote overview
+
+    private static func remote(
+        hosts: [LeoHostConfiguration], report: LeoConnectionTestReport? = nil
+    ) async -> LeoRemoteOverviewView {
+        let defaults = LeoInMemoryDefaults()
+        let store = LeoHostStore(defaults: defaults)
+        try? store.save(hosts)
+        let model = LeoMachinesSettingsModel(store: store, tester: SnapshotTester(report: report))
+        if report != nil { await model.testSelected() }
+        let target = LeoSettingsTargetModel(
+            clients: FakeMachineClients(), machines: { [.local] }, status: { _ in nil }, statuses: Empty().eraseToAnyPublisher(),
+            reconnect: { _ in }, initialHost: nil
+        )
+        return LeoRemoteOverviewView(model: model, target: target, registry: LeoMachineRegistry.isolatedForTesting(defaults: defaults))
+    }
+
+    private struct SnapshotTester: LeoMachineConnectionTesting {
+        let report: LeoConnectionTestReport?
+        func test(_ configuration: LeoHostConfiguration) async -> LeoConnectionTestReport { report ?? .sshFailed("not used") }
+    }
+
+    @Test func remoteOverview() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let host = LeoHostConfiguration(name: "dionysus", sshTarget: "evan@dionysus", remoteLeoPath: "~/.leo/app/bin/leo")
+        let report = LeoConnectionTestReport.success(version: "0.49.1", statsAdvertised: true, duration: 0.084)
+        try Self.write(await Self.remote(hosts: [host], report: report), named: "remoteConnected", size: Self.overviewSize, to: directory)
+    }
+
+    @Test func remoteOverviewDisabled() async throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let host = LeoHostConfiguration(name: "helios", sshTarget: "evan@helios", isEnabled: false)
+        try Self.write(await Self.remote(hosts: [host]), named: "remoteDisabled", size: Self.overviewSize, to: directory)
+    }
+
+    // MARK: Sidebar
+
+    @Test func sidebar() throws {
+        let directory = try #require(snapshotOutputDirectory)
+        let defaults = LeoInMemoryDefaults()
+        try LeoMachineRegistryTestSupport.save(
+            [LeoMachineRegistryTestSupport.host("dionysus"), LeoMachineRegistryTestSupport.host("helios", enabled: false)], to: defaults
+        )
+        let registry = LeoMachineRegistry.isolatedForTesting(defaults: defaults)
+        let model = registry.makeSettingsModel()
+        let target = LeoSettingsTargetModel(
+            clients: FakeMachineClients(), machines: { registry.machines }, status: { registry.status(for: $0) },
+            statuses: registry.machineStatuses, reconnect: { _ in }, initialHost: nil
+        )
+        let sidebar = LeoSettingsSidebarModel(
+            model: model, target: target, status: { registry.status(for: $0) }, configurations: { registry.configurations },
+            machinesChanged: Empty().eraseToAnyPublisher(), initial: .pane(.local, .defaults)
+        )
+        sidebar.toggleDisclosure(.remote(LeoMachineRegistryTestSupport.host("helios").id))
+        try Self.write(LeoSettingsSidebarView(model: sidebar, registry: registry), named: "sidebar", size: NSSize(width: 250, height: 640), to: directory)
     }
 
     // MARK: Rendering

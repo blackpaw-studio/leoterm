@@ -54,7 +54,7 @@ struct LeoDelegationAddRoleSheet: View {
             Picker("Template", selection: $template) {
                 ForEach(model.templates) { Text($0.name).tag($0.name) }
             }
-            Text(error ?? " ").font(.caption).foregroundStyle(.red).accessibilityHidden(error == nil)
+            Text(error ?? " ").font(.caption).foregroundStyle(LeoSettingsStatus.failure.color).accessibilityHidden(error == nil)
             Text("It is routed to this template in the active profile; the other profiles can route it afterwards.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             HStack {
@@ -63,7 +63,7 @@ struct LeoDelegationAddRoleSheet: View {
                 Button("Add", action: confirm).keyboardShortcut(.defaultAction).disabled(name.isEmpty || error != nil || template.isEmpty)
             }
         }
-        .padding(20)
+        .padding(LeoSettingsMetrics.sheetPadding)
         .onAppear {
             isFocused = true
             if template.isEmpty { template = model.templates.first?.name ?? "" }
@@ -92,7 +92,7 @@ struct LeoDelegationPreviewSheet: View {
             case .loading?, nil:
                 ProgressView("Checking what changes…").frame(maxWidth: .infinity, minHeight: 80)
             case .failed(_, let message)?:
-                Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red).textSelection(.enabled)
+                Label(message, systemImage: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.failure.color).textSelection(.enabled)
             case .loaded(let preview)?:
                 LeoDelegationPreviewBody(preview: preview, active: model.document?.activeProfile ?? "")
             }
@@ -103,7 +103,7 @@ struct LeoDelegationPreviewSheet: View {
                     .keyboardShortcut(.defaultAction).disabled(!isLoaded || model.isBusy)
             }
         }
-        .padding(20).frame(width: 460)
+        .padding(LeoSettingsMetrics.sheetPadding).frame(width: 460)
     }
 
     private var isLoaded: Bool {
@@ -134,7 +134,7 @@ struct LeoDelegationPreviewBody: View {
                     Text("Not routed by this profile: \(preview.missing.joined(separator: ", ")). Dispatches for those roles fail until it routes them.")
                         .fixedSize(horizontal: false, vertical: true)
                 } icon: {
-                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color)
                 }
                 .font(.callout)
             }

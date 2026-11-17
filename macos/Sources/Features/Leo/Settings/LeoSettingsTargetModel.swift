@@ -2,22 +2,27 @@ import Combine
 import Foundation
 import LeoKit
 
-/// A Settings tab. Machines edits the machine list; a config tab edits one
-/// schema resource (`templates`, `tasks`, …) on the machine the toolbar picks.
+/// A Settings page. General and Plugins are app-wide; the overview and the
+/// config tabs edit one machine, the one the sidebar selection names.
 enum LeoSettingsTab: Hashable {
-    case machines
+    /// App-wide settings (stats style, agent browser, Terminal tab).
+    case general
+    /// A machine's overview page.
+    case overview
     case config(String)
     /// Plugins live in this app, not on a machine, so the pane has no machine target.
     case plugins
 
-    /// Whether the toolbar's machine picker applies to this tab.
+    /// Whether the page edits the selected machine.
     var usesMachineTarget: Bool {
-        if case .config = self { return true }
-        return false
+        switch self {
+        case .overview, .config: true
+        case .general, .plugins: false
+        }
     }
 
-    /// The Service tab, whose model the target owns so a daemon restart can
-    /// be waited out from any pane's prompt.
+    /// The Service content, whose model the target owns so a daemon restart can
+    /// be waited out from any pane's prompt. It shows inside the Daemon pane.
     static let service = LeoSettingsTab.config("service")
 }
 
@@ -62,8 +67,8 @@ extension LeoSettingsPane {
 
     /// A switch waiting on the user's answer to "discard unsaved changes?".
     enum PendingChange: Equatable {
-        case machine(LeoHostID)
-        case tab(LeoSettingsTab)
+        /// Move to a machine (nil keeps the current one) and a tab together.
+        case selection(LeoHostID?, LeoSettingsTab)
     }
 
     @Published private(set) var selectedHost: LeoHostID
@@ -73,8 +78,11 @@ extension LeoSettingsPane {
     /// Bumped only when the selected machine changes: panes are rebuilt then,
     /// never on a refresh of the same machine.
     @Published private(set) var machineEpoch = 0
-    @Published private(set) var selectedTab: LeoSettingsTab = .machines
+    @Published private(set) var selectedTab: LeoSettingsTab = .overview
     @Published private(set) var pendingChange: PendingChange?
+    /// The selected machine's daemon version, once its config API has
+    /// answered (ready or too old); nil before that and after a switch.
+    @Published private(set) var daemonVersion: String?
     /// The revisions the app's own writes superseded on the selected machine.
     let revisions = LeoConfigRevisionTracker()
 
@@ -207,44 +215,62 @@ extension LeoSettingsPane {
 
     // MARK: Switching
 
-    /// Moves to `host` unless a pane has unsaved edits; then it asks
-    /// (`pendingChange`) and returns false.
+    /// Moves to `host` (keeping the tab) unless a pane has unsaved edits; then
+    /// it asks (`pendingChange`) and returns false.
     @discardableResult func requestSwitch(to host: LeoHostID) -> Bool {
-        guard host != selectedHost else { return true }
-        guard !hasUnsavedChanges else {
-            pendingChange = .machine(host)
-            return false
-        }
-        switchNow(to: host)
-        return true
+        requestSelection(host: host, tab: selectedTab)
     }
 
     /// Moves to `tab` unless the tab being left has unsaved edits.
     @discardableResult func requestTab(_ tab: LeoSettingsTab) -> Bool {
-        guard tab != selectedTab else { return true }
-        guard panes[selectedTab]?.pane?.hasUnsavedChanges != true else {
-            pendingChange = .tab(tab)
+        requestSelection(host: nil, tab: tab)
+    }
+
+    /// Moves the machine and the tab together, so one dirty check and one
+    /// question cover both. A nil `host` keeps the current machine. Leaving
+    /// the machine asks if any pane is dirty; staying on it asks only if the
+    /// tab being left is. Returns false while the question is pending.
+    @discardableResult func requestSelection(host: LeoHostID?, tab: LeoSettingsTab) -> Bool {
+        let newHost = host.flatMap { $0 == selectedHost ? nil : $0 }
+        guard newHost != nil || tab != selectedTab else { return true }
+        let isDirty = newHost != nil ? hasUnsavedChanges : panes[selectedTab]?.pane?.hasUnsavedChanges == true
+        guard !isDirty else {
+            pendingChange = .selection(host, tab)
             return false
         }
-        selectedTab = tab
+        apply(host: newHost, tab: tab)
         return true
     }
 
     func confirmPendingChange() {
         guard let change = pendingChange else { return }
+        confirmPendingChange(change)
+    }
+
+    /// Applies `change` as the user confirmed it. An alert's dismiss clears
+    /// `pendingChange` before its Discard button runs, so the caller passes
+    /// the change the alert showed.
+    func confirmPendingChange(_ change: PendingChange) {
         pendingChange = nil
         switch change {
-        case .machine(let host):
-            discardAllChanges()
-            switchNow(to: host)
-        case .tab(let tab):
-            panes[selectedTab]?.pane?.discardChanges()
-            selectedTab = tab
+        case .selection(let host, let tab):
+            let newHost = host.flatMap { $0 == selectedHost ? nil : $0 }
+            if newHost != nil {
+                discardAllChanges()
+            } else {
+                panes[selectedTab]?.pane?.discardChanges()
+            }
+            apply(host: newHost, tab: tab)
         }
     }
 
     func cancelPendingChange() {
         pendingChange = nil
+    }
+
+    private func apply(host: LeoHostID?, tab: LeoSettingsTab) {
+        if let host { switchNow(to: host) }
+        selectedTab = tab
     }
 
     /// Asks the registry to reconnect the selected machine; its status change
@@ -274,6 +300,7 @@ extension LeoSettingsPane {
         refreshTask = Task { [weak self] in
             let info = try? await config.versionInfo()
             guard let self, !Task.isCancelled, generation == token else { return }
+            daemonVersion = info?.version
             guard let info, LeoConfigAPI.isSupported(by: info) else {
                 availability = info.map { .tooOld($0) } ?? .disconnected(status(host))
                 return
@@ -290,6 +317,7 @@ extension LeoSettingsPane {
     private func switchNow(to host: LeoHostID) {
         selectedHost = host
         machineEpoch += 1
+        daemonVersion = nil
         serviceModel?.stop()
         serviceModel = nil
         panes[.service] = nil

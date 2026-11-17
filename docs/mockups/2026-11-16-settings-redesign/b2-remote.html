@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option B · Dionysus</title>
+<link rel="stylesheet" href="mac.css">
+</head>
+<body>
+<div class="window" style="width:820px;height:640px">
+  <div class="traffic"><span></span><span></span><span></span></div>
+  <div class="wtitle">Machines</div>
+  <nav class="tabs below" aria-label="Settings">
+    <div class="tab"><i class="ic" data-i="gear"></i>General</div>
+    <div class="tab on"><i class="ic" data-i="server"></i>Machines</div>
+    <div class="tab"><i class="ic" data-i="puzzle"></i>Plugins</div>
+  </nav>
+
+  <aside class="srclist" style="position:absolute;top:96px;left:16px;bottom:16px;width:208px">
+    <div class="items">
+      <div class="srcrow"><span class="tile" style="background:var(--accent)"><i class="ic" data-i="laptop"></i></span><span class="grow">This Mac<span class="sub">Managed · leo 0.49.2</span></span><span class="dot ok"></span></div>
+      <div class="srcrow sel"><span class="tile" style="background:var(--graphite);box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)"><i class="ic" data-i="server"></i></span><span class="grow">Dionysus<span class="sub">evan@dionysus</span></span><span class="dot ok" style="background:#fff;box-shadow:0 0 0 1.5px var(--green)"></span></div>
+      <div class="srcrow off"><span class="tile" style="background:var(--graphite);opacity:.55"><i class="ic" data-i="server"></i></span><span class="grow">Helios<span class="sub">Off</span></span><span class="dot off"></span></div>
+    </div>
+    <div class="bar"><span><i class="ic" data-i="plus" data-w="2"></i></span><span><i class="ic" data-i="minus" data-w="2"></i></span></div>
+  </aside>
+
+  <main class="content" style="top:96px;left:240px;right:16px;bottom:16px">
+    <div style="display:flex;align-items:center;gap:12px;padding:2px 4px 12px">
+      <span class="tile lg" style="background:var(--graphite);width:40px;height:40px;border-radius:10px"><i class="ic" data-i="server"></i></span>
+      <div style="flex:1"><div style="font-size:17px;line-height:21px;font-weight:600">Dionysus</div><div style="font-size:12px;color:var(--label-2)">Remote over SSH · leo 0.49.1 · 22 agents running</div></div>
+      <span class="badge ok"><span class="dot ok" style="width:6px;height:6px"></span>Connected</span>
+    </div>
+    <div style="display:flex;justify-content:center;padding-bottom:6px">
+      <div class="seg"><span>Overview</span><span class="on">Agents</span><span>Tasks</span><span>Delegation</span><span>Daemon</span></div>
+    </div>
+
+    <div class="sec-h">Templates <span class="aside">15 on Dionysus</span></div>
+    <div class="group">
+      <div class="row" style="min-height:34px"><div class="lbl">assistant</div><span class="val">opus · ~/.leo/workspace</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+      <div class="row" style="min-height:34px"><div class="lbl">claude</div><span class="val">opus · suspends after 72h</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+      <div class="row" style="min-height:34px"><div class="lbl">claude-explorer</div><span class="val">haiku · suspends after 24h</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+      <div class="row" style="min-height:34px"><div class="lbl">codex</div><span class="val">gpt-6.1-sol · codex</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+      <div class="row" style="min-height:34px"><div class="lbl">fable</div><span class="val">fable · suspends after 24h</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+      <div class="row" style="min-height:34px"><div class="lbl">local</div><span class="val">qwen3.8-27b · opencode</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:flex-end;padding:8px 0 0"><span class="btn sm" style="margin-right:auto;border:0;box-shadow:none;background:none;color:var(--accent);padding-left:10px">Show All 15</span><span class="btn">Add Template…</span></div>
+
+    <div class="sec-h" style="padding-top:8px">Defaults</div>
+    <div class="group">
+      <div class="row" style="min-height:34px"><div class="lbl">Model</div><span class="popup">opus[1m]<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+    </div>
+  </main>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

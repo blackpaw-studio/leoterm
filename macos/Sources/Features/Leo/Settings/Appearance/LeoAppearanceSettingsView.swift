@@ -62,75 +62,7 @@ private struct LeoAppearancePane: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .ready:
-            HStack(alignment: .top, spacing: 0) {
-                rules
-                Divider()
-                preview.frame(width: 240)
-            }
-        }
-    }
-
-    private var rules: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Appearance Rules").font(.headline)
-                Text("The first rule that matches sets an agent’s color or emoji, unless the agent has its own.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(12)
-            List {
-                ForEach(Array(model.rows.enumerated()), id: \.element.id) { index, row in
-                    LeoAppearanceRuleRow(
-                        number: index + 1, rule: row.rule, problem: model.problem(at: index), matchCount: model.matchCount(at: index),
-                        update: { model.update(row.id, $0) }, delete: { model.delete(row.id) }
-                    )
-                }
-                .onMove { model.move(fromOffsets: $0, toOffset: $1) }
-                if model.rows.isEmpty {
-                    Text("No rules. Agents show only the emoji and color set on them.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
-            footer.padding(12)
-        }
-    }
-
-    private var footer: some View {
-        HStack {
-            Button { model.add() } label: { Label("Add Rule", systemImage: "plus") }
-            if let error = model.saveError {
-                Text(error).font(.caption).foregroundStyle(.red).lineLimit(2)
-            }
-            Spacer()
-            Button("Revert") { model.revert() }.disabled(!model.isDirty || model.isSaving)
-            Button("Save") { Task { await model.save() } }
-                .keyboardShortcut("s")
-                .disabled(!model.canSave)
-        }
-    }
-
-    private var preview: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("Preview").font(.headline).padding(12)
-            List(model.preview) { entry in
-                HStack(spacing: 6) {
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: LeoAgentRowMetrics.emojiSpacing) {
-                            if let emoji = entry.appearance?.emoji { Text(emoji).font(.callout) }
-                            Text(entry.name).lineLimit(1)
-                        }
-                        Text(entry.source).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                    }
-                    Spacer(minLength: 0)
-                    RoundedRectangle(cornerRadius: 1.5)
-                        .fill(entry.appearance?.color?.swiftUIColor ?? .clear)
-                        .frame(width: LeoAgentRowMetrics.colorBarWidth, height: 28)
-                }
-                .accessibilityElement(children: .combine)
-            }
-            .listStyle(.inset)
+            LeoAppearanceEditor(model: model)
         }
     }
 }

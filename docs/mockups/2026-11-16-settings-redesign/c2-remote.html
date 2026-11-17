@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Option C · Delegation on Dionysus</title>
+<link rel="stylesheet" href="mac.css">
+</head>
+<body>
+<div class="window" style="width:880px;height:640px">
+  <div class="traffic"><span></span><span></span><span></span></div>
+  <div class="wtitle">Delegation</div>
+  <nav class="tabs below" aria-label="Settings">
+    <div class="tab"><i class="ic" data-i="gear"></i>General</div>
+    <div class="tab"><i class="ic" data-i="puzzle"></i>Plugins</div>
+    <div class="tab"><i class="ic" data-i="server"></i>Machines</div>
+    <div class="tab sep"></div>
+    <div class="tab"><i class="ic" data-i="doc"></i>Templates</div>
+    <div class="tab"><i class="ic" data-i="clock"></i>Tasks</div>
+    <div class="tab"><i class="ic" data-i="leaf"></i>Environments</div>
+    <div class="tab on"><i class="ic" data-i="branch"></i>Delegation</div>
+    <div class="tab"><i class="ic" data-i="palette"></i>Appearance</div>
+    <div class="tab"><i class="ic" data-i="gauge"></i>Defaults</div>
+    <div class="tab"><i class="ic" data-i="pulse"></i>Daemon</div>
+  </nav>
+  <main class="content" style="top:100px;left:24px;right:24px;bottom:16px">
+    <div class="scope">
+      <span class="k">Machine</span><span class="popup"><span class="dot ok" style="width:7px;height:7px"></span>Dionysus<i class="ic" data-i="updown" data-w="1.7"></i></span>
+      <span style="flex:1"></span>
+      <i class="ic" data-i="terminal" style="color:var(--label-2)"></i><span>Remote over SSH</span><span class="k">· leo 0.49.1</span>
+    </div>
+    <div class="menu" style="top:40px;left:62px">
+      <div class="mi"><i class="ic chk"></i><span class="dot ok" style="width:7px;height:7px"></span>This Mac<span class="k">Managed</span></div>
+      <div class="mi hi"><i class="ic chk" data-i="check" data-w="2"></i><span class="dot ok" style="width:7px;height:7px;box-shadow:0 0 0 1.5px #fff"></span>Dionysus<span class="k">evan@dionysus</span></div>
+      <div class="mi" style="color:var(--label-3)"><i class="ic chk"></i><span class="dot off" style="width:7px;height:7px"></span>Helios<span class="k" style="color:var(--label-3)">Off</span></div>
+      <div class="msep"></div>
+      <div class="mi"><i class="ic chk"></i>Add Machine…</div>
+      <div class="mi"><i class="ic chk"></i>Edit Machines…</div>
+    </div>
+    <div class="sec-f" style="padding-bottom:14px">Templates, Tasks, Environments, Delegation, Appearance, Defaults and Daemon all edit leo.yaml on the machine picked here.</div>
+
+    <div class="group">
+      <div class="row"><div class="lbl">Delegation<span class="sub">Bridged agents dispatch work by role.</span></div><span class="switch on"></span></div>
+      <div class="row"><div class="lbl">Active profile<span class="sub">Choosing another profile shows what it changes first.</span></div><span class="popup">mixed<i class="ic" data-i="updown" data-w="1.7"></i></span></div>
+    </div>
+    <div class="sec-h">Roles <span class="aside">in mixed</span></div>
+    <div class="group">
+          <div class="row" style="min-height:34px"><div class="lbl mono" style="font-size:12px">explore</div><span class="val">claude-explorer</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+          <div class="row" style="min-height:34px"><div class="lbl mono" style="font-size:12px">implement</div><span class="val">claude-implementer</span><span class="badge">high</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+          <div class="row" style="min-height:34px"><div class="lbl mono" style="font-size:12px">implement.hard</div><span class="val">claude-implementer · opus</span><span class="badge">xhigh</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+          <div class="row" style="min-height:34px"><div class="lbl mono" style="font-size:12px">implement.design</div><span class="val">claude-implementer · opus</span><span class="badge">high</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+          <div class="row" style="min-height:34px"><div class="lbl mono" style="font-size:12px">plan</div><span class="val">opus-planner</span><span class="badge">xhigh</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+          <div class="row" style="min-height:34px"><div class="lbl mono" style="font-size:12px">review</div><span class="val">claude-reviewer</span><i class="ic chev" data-i="chevR" data-w="2"></i></div>
+    </div>
+  </main>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

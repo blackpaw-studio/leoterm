@@ -17,6 +17,71 @@ enum LeoManagedStatus: Equatable, Sendable {
     case failed(message: String)
 }
 
+extension LeoManagedStatus {
+    /// The state in words, for Settings ▸ This Mac ▸ Daemon.
+    var settingsSummary: (title: String, detail: String) {
+        switch self {
+        case .inactive:
+            ("Not managed by Leo", "This build doesn’t manage the daemon.")
+        case .usingCLI(_, let isRunning):
+            ("Using the leo command", isRunning ? "The leo daemon you installed runs on this Mac." : "The leo daemon you installed isn’t running.")
+        case .settingUp:
+            ("Setting up", "Leo is installing its daemon. This takes a few seconds.")
+        case .awaitingApproval:
+            ("Waiting for approval", "Turn Leo on in System Settings ▸ General ▸ Login Items.")
+        case .managed:
+            ("Managed by Leo", "Leo.app starts this daemon at login and updates it with the app.")
+        case .updating(let version):
+            ("Updating to \(version)", "Agents finish what they’re doing first, so this can take a few minutes.")
+        case .runningOutsideJob:
+            ("Running outside Leo.app", "Leo can’t restart or update this daemon until it runs from the app.")
+        case .moveRequired:
+            ("Leo is outside Applications", "Move Leo to Applications so it can run and update its daemon.")
+        case .failed(let message):
+            ("Daemon isn’t set up", message)
+        }
+    }
+}
+
+/// An action offered on the Settings daemon section: a banner action, or the
+/// state's start action.
+enum LeoManagedSettingsAction: Equatable, Sendable {
+    case banner(LeoManagedBannerAction)
+    case start(LeoDaemonStartAction)
+
+    var title: String {
+        switch self {
+        case .banner(let action): action.title
+        case .start(let action): action.title
+        }
+    }
+}
+
+extension LeoManagedPresentation {
+    /// The state's banner actions, plus its start action while This Mac isn't
+    /// connected (as on the sidebar's offline card). A start action that a
+    /// banner button already performs isn't offered twice.
+    func settingsActions(isConnected: Bool) -> [LeoManagedSettingsAction] {
+        let bannerActions = banner?.actions ?? []
+        let banners = bannerActions.map(LeoManagedSettingsAction.banner)
+        let isDuplicate = startAction.equivalentBannerAction.map(bannerActions.contains) ?? false
+        guard !isConnected, !isDuplicate else { return banners }
+        return banners + [.start(startAction)]
+    }
+}
+
+extension LeoDaemonStartAction {
+    /// The banner action that does the same thing, if there is one.
+    fileprivate var equivalentBannerAction: LeoManagedBannerAction? {
+        switch self {
+        case .setUp: .retry
+        case .allowInLoginItems: .openLoginItems
+        case .moveToApplications: .moveToApplications
+        case .startCLIDaemon: nil
+        }
+    }
+}
+
 /// A one-off message over the status, dismissed by the user.
 struct LeoManagedNotice: Equatable, Sendable {
     let title: String

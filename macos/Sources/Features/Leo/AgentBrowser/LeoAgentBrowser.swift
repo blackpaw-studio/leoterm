@@ -26,12 +26,13 @@ import WebKit
     /// `configuration` carries the agent's data store; each tab gets its own copy.
     init(
         key: LeoAgentBrowserKey, configuration: WKWebViewConfiguration, urlMapping: any LeoBrowserURLMapping,
-        input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, allowsURL: @escaping (URL) -> Bool = LeoBrowserURLPolicy.allows
+        input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, allowsURL: @escaping (URL) -> Bool = LeoBrowserURLPolicy.allows,
+        filePicker: (any LeoBrowserFilePicking)? = nil
     ) {
         self.key = key
         self.urlMapping = urlMapping
         self.viewHost = viewHost
-        tabSet = LeoAgentBrowserTabs(configuration: configuration, allowsURL: allowsURL, input: input, viewHost: viewHost)
+        tabSet = LeoAgentBrowserTabs(agentName: key.agent, configuration: configuration, allowsURL: allowsURL, input: input, viewHost: viewHost, filePicker: filePicker ?? LeoOpenPanelFilePicker())
         super.init()
         tabSet.onUserInput = { [weak self] in self?.control.send(.userInput) }
         tabSet.onChange = { [weak self] in self?.changed() }
@@ -122,11 +123,20 @@ import WebKit
     private let allowsURL: (URL) -> Bool
     private let input: LeoSyntheticInput
     private let viewHost: LeoAgentBrowserHost
+    private let agentName: String
+    private let filePicker: any LeoBrowserFilePicking
+    /// File choosers open per web view, answered when the tab closes.
+    private var filePicks: [ObjectIdentifier: [LeoBrowserFilePick]] = [:]
     private var list: [Tab] = []
     private var activeID: Int?
     private var nextID = 1
 
-    init(configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool, input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost) {
+    init(
+        agentName: String, configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
+        input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, filePicker: any LeoBrowserFilePicking
+    ) {
+        self.agentName = agentName
+        self.filePicker = filePicker
         self.configuration = configuration
         self.allowsURL = allowsURL
         self.input = input
@@ -202,6 +212,38 @@ import WebKit
         closeTab(tab.id)
     }
 
+    /// A page's `<input type=file>` was clicked.
+    func webView(
+        _ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters,
+        initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping @MainActor @Sendable ([URL]?) -> Void
+    ) {
+        let origin = frame.securityOrigin
+        chooseFiles(
+            for: webView, origin: LeoBrowserFilePickRequest.originLabel(host: origin.host, port: origin.port),
+            allowsMultipleSelection: parameters.allowsMultipleSelection,
+            allowsDirectories: parameters.allowsDirectories, completion: completionHandler
+        )
+    }
+
+    /// Shows the chooser for `webView`. `completion` runs exactly once.
+    func chooseFiles(
+        for webView: WKWebView, origin: String, allowsMultipleSelection: Bool, allowsDirectories: Bool,
+        completion: @escaping @MainActor ([URL]?) -> Void
+    ) {
+        let key = ObjectIdentifier(webView)
+        guard list.contains(where: { $0.page.webView === webView }) else { return completion(nil) }
+        let pick = LeoBrowserFilePick { [weak self] urls in
+            self?.filePicks[key]?.removeAll { $0.isFinished }
+            completion(urls)
+        }
+        filePicks[key, default: []].append(pick)
+        let request = LeoBrowserFilePickRequest(
+            agent: agentName, origin: origin,
+            allowsMultipleSelection: allowsMultipleSelection, allowsDirectories: allowsDirectories
+        )
+        pick.attach(filePicker.present(request, completion: { pick.finish($0) }))
+    }
+
     // MARK: - Helpers
 
     private func add(_ page: LeoWKBrowserPage) -> Tab {
@@ -228,6 +270,7 @@ import WebKit
     private func tear(down tab: Tab) {
         tab.observations.forEach { $0.invalidate() }
         tab.page.webView.uiDelegate = nil
+        filePicks.removeValue(forKey: ObjectIdentifier(tab.page.webView))?.forEach { $0.abandon() }
         tab.page.webView.onUserInput = nil
         tab.page.webView.stopLoading()
         viewHost.release(tab.page.webView)
