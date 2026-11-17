@@ -50,6 +50,17 @@ Lane: B-404
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-407
+  Branch: autopilot-lane/B-407
+  Dispatched: 2026-11-17T01:46:06Z
+  Base: f1d8748307b0d94bbe67e579c7cc99f257c28564
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 Progress:
@@ -58,3 +69,4 @@ Progress:
 - Dispatched runners via leo_dispatch implement: B-413 d-79b7d16f0ad7, B-404 d-a8528e767eac.
 - B-413 ready (fix 1). INCIDENT: first verify's GUI click on the pill attached Evan's real `assistant` agent (resized its tmux to 66x28 while attached); verifier detached+quit. Root cause fixed (pill exempt from row click monitor). Flag in digest.
 - B-413 landed dd5910e72. D-822..D-831.
+- Pick: B-407 full (find bar feature). B-407 built before B-405, B-406 (independent; those share B-404's workspace file-backend footprint).
