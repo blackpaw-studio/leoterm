@@ -3163,12 +3163,14 @@ Source: autopilot polish (B-404)
 Note: Reads as nothing happening — P2.
 Source: autopilot polish (B-404)
 
-## B-419 · Browser address field shows a stale URL while focused   [ready]
+## B-419 · Browser address field shows a stale URL while focused   [done]
 Issue: #391
 Type: bug
 Report: Address field shows a stale URL while focused (about:blank on pages one/two) — wrong text in the address bar, P1 Safari parity. Also seen in B-407 verify: the address bar shows the previous URL, one navigation behind.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
+Done: 521c151a4 e63df929f (merged in 075ad32a2; 5016 tests). Focused address bar follows the page until the user edits; Escape/blur restore, Return/tab change hand back. D-925..D-928.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
 
 ## B-420 · ⌘L doesn't select the browser address field's text   [ready]
 Issue: #392

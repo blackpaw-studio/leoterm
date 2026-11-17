@@ -47,10 +47,11 @@ Lane: B-419
   Dispatched: 2026-11-17T16:55:34Z
   Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
+  Tokens: 49.4M in (48.4M cache read), ≥142k out, 407 requests
   Reviewed-tip: 37575206bfe3530519058523f389726af7cb6752
   Call: Mac only: AppKit pane UI, iOS has no pane equivalent, so nothing goes in LeoKit — P1
   Call: Escape restores the page address and resumes following — P1 Safari parity
@@ -69,6 +70,7 @@ Lane: B-421
   Reviewed-tip: none
 
 Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
+Finished 2: B-419 landed 075ad32a2 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
 
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-419, B-420, B-421. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -83,3 +85,4 @@ Progress:
 - B-419 ready (fix 1, standard implementer, general review). Integration stale (B-305 landed Mac/LeoKit changes) → re-verify round 1. Runner note: shared GhosttyKit.xcframework is stale since B-334; lanes build their own.
 - Dispatched B-419 re-verify d-4c616368bfee.
 - B-419 re-verify ready (general delta clean, 5016 tests). Fresh.
+- B-419 landed 075ad32a2. D-925..D-928. ≈$11.23 est.
