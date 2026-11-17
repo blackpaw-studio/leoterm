@@ -3194,12 +3194,14 @@ Done: 8979b86f9 1aa02dc52 3ea196aac (merged in 25ef6cb19; 5018 tests). A stopped
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-421-2.png
 Reviewed: accepted 2026-11-17 — 25ef6cb19052
 
-## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready]
+## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [done]
 Issue: #394
 Type: bug
 Report: Hosted iOS test host crashes when launch `reconcile` calls the unimplemented `PushCleanupClient.load` test value during a test (1 of 4 runs; on main, not B-305) — flaky iOS test runs
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-305)
+Done: 79271cf06 db3b550f2 (merged in dcd049de7; LeoKit 1900, LeoFeatures 501, iOS 125 + 61 UI tests). The hosted iOS test host no longer sends launch/scene-phase actions, so no unimplemented dependency runs; mutation check reproduces the crash. iOS only. D-934..D-936.
+Verified: not visually verified — no UI change (test-host-only gate)
 
 ## B-423 · iOS address bar keeps the previous URL after a rejected localhost navigation   [idea]
 Note: keeps the field consistent with the page the user is looking at (P2)

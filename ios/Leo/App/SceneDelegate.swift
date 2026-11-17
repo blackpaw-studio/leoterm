@@ -22,10 +22,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     // Event streams run only in the foreground; push covers the background.
     func sceneDidBecomeActive(_ scene: UIScene) {
-        AppDelegate.store.send(.scenePhaseChanged(isActive: true))
+        LaunchPolicy.send(.scenePhaseChanged(isActive: true), to: AppDelegate.store)
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
-        AppDelegate.store.send(.scenePhaseChanged(isActive: false))
+        LaunchPolicy.send(.scenePhaseChanged(isActive: false), to: AppDelegate.store)
     }
 }
