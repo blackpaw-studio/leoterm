@@ -371,6 +371,90 @@ public enum LeoBrowserScripts {
     return { selected: Array.from(select.selectedOptions).map(o => ({ value: o.value, label: o.label.trim() })) };
     """#
 
+    /// The start of both drag scripts: finds the elements for `startRef` and
+    /// `endRef` (returning `{stale: <the ref that is gone>}` otherwise), and
+    /// defines `centre(el)`, the middle of an element in viewport pixels, and
+    /// `sourceAt(point, fallback)`, the HTML5-draggable element (`draggable`
+    /// is true, or an image or link, which are draggable by default) that
+    /// is under `point` or holds what is, or null.
+    private static let resolveDrag = #"""
+    const state = globalThis.__leoAgent;
+    const find = r => {
+      const el = state && state.refs.get(r);
+      return el && el.isConnected ? el : null;
+    };
+    const start = find(startRef);
+    if (!start) return { stale: startRef };
+    const end = find(endRef);
+    if (!end) return { stale: endRef };
+    const centre = el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    };
+    const draggable = el => {
+      const attribute = (el.getAttribute('draggable') || '').toLowerCase();
+      if (attribute === 'true') return true;
+      if (attribute === 'false') return false;
+      return el.tagName === 'IMG' || (el.tagName === 'A' && el.hasAttribute('href'));
+    };
+    const sourceAt = (point, fallback) => {
+      for (let el = document.elementFromPoint(point.x, point.y) || fallback; el; el = el.parentElement) {
+        if (draggable(el)) return el;
+      }
+      return null;
+    };
+    """#
+
+    /// Body of an async function run in the snapshot's content world, with
+    /// arguments `startRef` and `endRef`: scrolls the start element into
+    /// view and returns `{x, y, html5}`, its centre in viewport pixels and
+    /// whether what is under it is HTML5-draggable; or `{stale: ref}` like
+    /// `locateRef`. Clears a text selection that holds the node, so a press
+    /// there cannot start dragging the text.
+    public static let dragSource = resolveDrag + #"""
+
+    start.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const point = centre(start);
+    const hit = document.elementFromPoint(point.x, point.y) || start;
+    const selection = getSelection();
+    if (selection && !selection.isCollapsed && selection.containsNode(hit, true)) selection.removeAllRanges();
+    return { x: point.x, y: point.y, html5: sourceAt(point, start) !== null };
+    """#
+
+    /// Body of an async function run in the snapshot's content world, with
+    /// arguments `startRef` and `endRef`: drags an HTML5-draggable element
+    /// as a browser does, with one shared `DataTransfer`: `dragstart` and
+    /// `drag` on the source, `dragenter` and `dragover` on what is under
+    /// the end element's centre, then `drop` there when `dragover` was
+    /// cancelled (the page accepts the drop) or else `dragleave`, and
+    /// `dragend` on the source. A cancelled `dragstart` ends the drag.
+    /// Returns `{dropped}`, or `{stale: ref}` like `locateRef`. A native
+    /// drag would start a drag session that follows the user's cursor, so
+    /// these are script events and not trusted.
+    public static let html5Drag = resolveDrag + #"""
+
+    start.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const from = centre(start);
+    const source = sourceAt(from, start);
+    if (!source) return { error: `ref ${startRef} is not draggable` };
+    const transfer = new DataTransfer();
+    const make = (type, point) => new DragEvent(type, {
+      bubbles: true, cancelable: true, composed: true, view: window, clientX: point.x, clientY: point.y,
+      screenX: window.screenX + point.x, screenY: window.screenY + point.y, dataTransfer: transfer,
+    });
+    if (!source.dispatchEvent(make('dragstart', from))) return { dropped: false };
+    source.dispatchEvent(make('drag', from));
+    end.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
+    const to = centre(end);
+    const target = document.elementFromPoint(to.x, to.y) || end;
+    target.dispatchEvent(make('dragenter', to));
+    source.dispatchEvent(make('drag', to));
+    const accepted = !target.dispatchEvent(make('dragover', to));
+    target.dispatchEvent(make(accepted ? 'drop' : 'dragleave', to));
+    source.dispatchEvent(make('dragend', to));
+    return { dropped: accepted };
+    """#
+
     /// Body of an async function run in the snapshot's content world, with
     /// arguments `ref` and `files` (`[{name, type, data}]`, `data` in
     /// base64): replaces the resolved input's files with these and fires

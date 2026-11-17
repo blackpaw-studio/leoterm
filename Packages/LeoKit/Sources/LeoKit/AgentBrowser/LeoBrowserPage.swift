@@ -96,6 +96,14 @@ public protocol LeoBrowserPage: AnyObject {
     /// several values for a single select.
     func selectOption(ref: String, values: [String]) async throws -> [LeoBrowserSelectedOption]
 
+    /// Drags the element for `startRef` onto the element for `endRef`,
+    /// scrolling the start into view. An HTML5-draggable source gets drag and
+    /// drop events and is dropped only where the page accepts a drop; any
+    /// other gets a mouse press, moves with the button down and a release.
+    /// Throws `stale_ref` for either ref before anything is sent, like
+    /// `click`; `startRef == endRef` does nothing.
+    func drag(startRef: String, endRef: String) async throws
+
     /// Focuses the element for `ref` and types `text` with real key events,
     /// then presses Enter when `submit` is true. Throws `stale_ref` like `click`.
     func type(ref: String, text: String, submit: Bool) async throws

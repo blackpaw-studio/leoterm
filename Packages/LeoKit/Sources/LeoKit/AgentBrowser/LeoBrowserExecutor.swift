@@ -109,6 +109,8 @@ public final class LeoBrowserExecutor {
             try await page.click(ref: ref)
         case .hover(let ref):
             try await page.hover(ref: ref)
+        case .drag(let startRef, let endRef):
+            try await page.drag(startRef: startRef, endRef: endRef)
         case .selectOption(let ref, let values):
             return [selectedOptions(try await page.selectOption(ref: ref, values: values))]
         case .type(let ref, let text, let submit):

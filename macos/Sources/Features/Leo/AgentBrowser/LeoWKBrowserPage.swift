@@ -175,9 +175,14 @@ import WebKit
             let x = box["x"] as? Double, let y = box["y"] as? Double,
             let width = box["width"] as? Double, let height = box["height"] as? Double
         else { throw LeoBrowserError.staleRef(ref) }
+        return viewPoint(x: x + width / 2, y: y + height / 2)
+    }
+
+    /// A point in viewport (CSS) pixels as the web view's coordinates.
+    private func viewPoint(x: Double, y: Double) -> CGPoint {
         let zoom = webView.pageZoom
-        let center = CGPoint(x: (x + width / 2) * zoom, y: (y + height / 2) * zoom)
-        return webView.isFlipped ? center : CGPoint(x: center.x, y: webView.bounds.height - center.y)
+        let point = CGPoint(x: x * zoom, y: y * zoom)
+        return webView.isFlipped ? point : CGPoint(x: point.x, y: webView.bounds.height - point.y)
     }
 
     /// Evaluates `js` in the page's own world and returns the result as JSON
@@ -329,6 +334,57 @@ import WebKit
         guard let result, result["stale"] == nil else { throw LeoBrowserError.staleRef(ref) }
         if let message = result["error"] as? String { throw LeoBrowserError.invalidArgs(message) }
         return result
+    }
+
+    // MARK: Drag
+
+    /// How many moves a pointer drag takes from the start to the end.
+    static let dragSteps = 8
+
+    /// Drags `startRef`'s element onto `endRef`'s. An HTML5-draggable source
+    /// gets script drag events: a native drag would start a drag session
+    /// that follows the user's cursor. Anything else gets a real press,
+    /// moves with the button down and a release; the button is released
+    /// even if the call is cancelled or fails part-way.
+    func drag(startRef: String, endRef: String) async throws {
+        try await driving {
+            try requireWindow()
+            let refs = ["startRef": startRef, "endRef": endRef]
+            for ref in [startRef, endRef] where Self.generation(of: ref) != generation { throw LeoBrowserError.staleRef(ref) }
+            let source = try await runOnDragRefs(LeoBrowserScripts.dragSource, refs)
+            guard
+                let x = source["x"] as? Double, let y = source["y"] as? Double, let isHTML5 = source["html5"] as? Bool
+            else { throw LeoBrowserError.staleRef(startRef) }
+            guard startRef != endRef else { return }
+            if isHTML5 {
+                _ = try await runOnDragRefs(LeoBrowserScripts.html5Drag, refs)
+            } else {
+                try await pointerDrag(from: viewPoint(x: x, y: y), endRef: endRef)
+            }
+        }
+    }
+
+    private func runOnDragRefs(_ script: String, _ refs: [String: String]) async throws -> [String: Any] {
+        let result = try await run(script, refs, in: Self.agentWorld) as? [String: Any]
+        guard let result else { throw LeoBrowserError.javaScript("The drag script returned nothing.") }
+        if let ref = result["stale"] as? String { throw LeoBrowserError.staleRef(ref) }
+        if let message = result["error"] as? String { throw LeoBrowserError.invalidArgs(message) }
+        return result
+    }
+
+    private func pointerDrag(from start: CGPoint, endRef: String) async throws {
+        var last = start
+        do {
+            try await deliver(input.mouseDown(at: start, in: webView))
+            // The end can need scrolling, so it is located once the button is down.
+            let end = try await locate(ref: endRef)
+            try await deliver(input.dragMoves(from: start, to: end, steps: Self.dragSteps, in: webView))
+            last = end
+            try await deliver(input.mouseUp(at: end, in: webView))
+        } catch {
+            input.deliverImmediately(input.mouseUp(at: last, in: webView), to: webView)
+            throw error
+        }
     }
 
     // MARK: Select options

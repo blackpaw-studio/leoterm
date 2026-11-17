@@ -93,11 +93,32 @@ extension LeoSyntheticKey {
         [mouseEvent(.leftMouseDragged, at: point, in: view)].compactMap { $0 }
     }
 
-    private func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in view: NSView) -> NSEvent? {
+    /// Presses the left button at `point`.
+    func mouseDown(at point: CGPoint, in view: NSView) -> [NSEvent] {
+        [mouseEvent(.leftMouseDown, at: point, in: view)].compactMap { $0 }
+    }
+
+    /// Moves with the left button down from `start` to `end` in `steps`
+    /// equal steps, the last at `end`.
+    func dragMoves(from start: CGPoint, to end: CGPoint, steps: Int, in view: NSView) -> [NSEvent] {
+        (1...max(steps, 1)).compactMap { step in
+            let fraction = CGFloat(step) / CGFloat(max(steps, 1))
+            let point = CGPoint(x: start.x + (end.x - start.x) * fraction, y: start.y + (end.y - start.y) * fraction)
+            return mouseEvent(.leftMouseDragged, at: point, in: view, pressure: 1)
+        }
+    }
+
+    /// Releases the left button at `point`.
+    func mouseUp(at point: CGPoint, in view: NSView) -> [NSEvent] {
+        [mouseEvent(.leftMouseUp, at: point, in: view)].compactMap { $0 }
+    }
+
+    private func mouseEvent(_ type: NSEvent.EventType, at point: CGPoint, in view: NSView, pressure: Float? = nil) -> NSEvent? {
         NSEvent.mouseEvent(
             with: type, location: view.convert(point, to: nil), modifierFlags: [], timestamp: nextTimestamp(),
             windowNumber: view.window?.windowNumber ?? 0, context: nil, eventNumber: nextEventNumber(),
-            clickCount: type == .mouseMoved || type == .leftMouseDragged ? 0 : 1, pressure: type == .leftMouseDown ? 1 : 0)
+            clickCount: type == .mouseMoved || type == .leftMouseDragged ? 0 : 1,
+            pressure: pressure ?? (type == .leftMouseDown ? 1 : 0))
     }
 
     /// Down and up for `key`; nil when it names no key.
@@ -131,6 +152,18 @@ extension LeoSyntheticKey {
             dispatch(event, to: view)
             try await settle()
             try Task.checkCancellation()
+        }
+    }
+
+    /// Hands `events` to `view` at once, ignoring cancellation and without
+    /// waiting for the page: for the release that must follow a press even
+    /// when the call that pressed it was cancelled or failed.
+    func deliverImmediately(_ events: [NSEvent], to view: NSView) {
+        for event in events {
+            let stamp = Stamp(event)
+            pending[stamp] = WeakView(view)
+            dispatch(event, to: view)
+            pending[stamp] = nil
         }
     }
 

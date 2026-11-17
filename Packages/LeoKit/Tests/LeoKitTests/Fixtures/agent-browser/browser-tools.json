@@ -150,6 +150,32 @@
     "timeout_s" : 30
   },
   {
+    "description" : "Leo app browser: Drag one element onto another, by refs from the latest snapshot: press on the start element, move to the end element and let go, for sortable lists, sliders, drag handles and drop zones. The start element is scrolled into view. An HTML5 draggable one (draggable=\"true\", a link or an image) gets the drag events (dragstart, drag, dragenter, dragover, then drop only when the page accepts the drop by cancelling dragover, else dragleave, and dragend); any other element gets real mouse events (pointerdown, mousedown, several moves, then pointerup and mouseup) from its centre to the other's centre; their `buttons` reads 0, because the browser takes it from the physical mouse. Never drops files.",
+    "input_schema" : {
+      "properties" : {
+        "end_ref" : {
+          "description" : "Element ref from browser_snapshot: where to drop it.",
+          "type" : "string"
+        },
+        "start_ref" : {
+          "description" : "Element ref from browser_snapshot: what to pick up.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "start_ref",
+        "end_ref"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_drag",
+    "timeout_s" : 30
+  },
+  {
     "description" : "Leo app browser: Type text into an element by ref from the latest snapshot.",
     "input_schema" : {
       "properties" : {

@@ -193,4 +193,145 @@ struct LeoWKBrowserPointerTests {
         #expect(await page.failureCode { try await $0.selectOption(ref: "s999e1", values: ["a"]) } == "stale_ref")
         #expect(try await events(page).isEmpty)
     }
+
+    // MARK: Drag
+
+    /// Draggables log `type:id:trusted` for the drag events; the drop target
+    /// reads back what `dragstart` stored.
+    private static let dragRecorder = """
+    <script>
+    window.events = [];
+    for (const type of ['dragstart', 'drag', 'dragenter', 'dragover', 'dragleave', 'drop', 'dragend']) {
+      document.addEventListener(type, e => {
+        events.push(type + ':' + e.target.id + ':' + e.isTrusted);
+        if (type === 'dragstart') e.dataTransfer.setData('text/plain', 'card-7');
+        if (type === 'dragover' && e.target.closest('#accepting')) e.preventDefault();
+        if (type === 'drop') window.dropped = e.dataTransfer.getData('text/plain');
+      }, true);
+    }
+    </script>
+    <style>
+    div { position: absolute; width: 120px; height: 60px }
+    #card { left: 20px; top: 20px; background: #acf } #accepting { left: 300px; top: 20px; background: #cfa }
+    #refusing { left: 300px; top: 200px; background: #fca }
+    </style>
+    """
+
+    private static let dragPages = [
+        "drag": dragRecorder + """
+        <title>Drag</title>
+        <div id="card" draggable="true" role="button" tabindex="0">Card</div>
+        <div id="accepting" role="button" tabindex="0"><span id="inner">Drop here</span></div>
+        <div id="refusing" role="button" tabindex="0">Not here</div>
+        """,
+        "pointer": """
+        <title>Pointer</title>
+        <script>
+        window.log = [];
+        for (const type of ['pointerdown', 'mousedown', 'pointermove', 'mousemove', 'pointerup', 'mouseup'])
+          document.addEventListener(type, e => log.push([type, e.target.id, e.isTrusted, e.buttons].join(':')), true);
+        </script>
+        <style>
+        div { position: absolute; width: 120px; height: 60px }
+        #thumb { left: 20px; top: 300px; background: #ccc } #track { left: 300px; top: 300px; background: #eee }
+        </style>
+        <div id="thumb" role="button" tabindex="0">Thumb</div><div id="track" role="button" tabindex="0">Track</div>
+        """,
+    ]
+
+    private func dragEvents(_ page: LeoWKBrowserPage) async throws -> [String] {
+        let json = try await page.eval("window.events")
+        return try JSONDecoder().decode([String].self, from: Data(json.utf8))
+    }
+
+    @available(macOS 14, *)
+    @Test func html5DragDropsDataOnATargetThatAcceptsIt() async throws {
+        let fixture = LeoWKPageFixture(Self.dragPages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("drag"))
+        let snapshot = try await page.snapshot()
+        let card = try #require(leoSnapshotRef(snapshot, #"button "Card""#))
+        let target = try #require(leoSnapshotRef(snapshot, #"button "Drop here""#))
+
+        try await page.drag(startRef: card, endRef: target)
+
+        let events = try await dragEvents(page)
+        #expect(events == [
+            "dragstart:card:false", "drag:card:false", "dragenter:accepting:false", "drag:card:false", "dragover:accepting:false",
+            "drop:accepting:false", "dragend:card:false",
+        ], "\(events)")
+        #expect(try await page.eval("window.dropped") == #""card-7""#, "the drop reads what dragstart stored")
+    }
+
+    @available(macOS 14, *)
+    @Test func html5DragOntoATargetThatRefusesSendsNoDrop() async throws {
+        let fixture = LeoWKPageFixture(Self.dragPages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("drag"))
+        let snapshot = try await page.snapshot()
+        let card = try #require(leoSnapshotRef(snapshot, #"button "Card""#))
+        let refusing = try #require(leoSnapshotRef(snapshot, #"button "Not here""#))
+
+        try await page.drag(startRef: card, endRef: refusing)
+
+        let events = try await dragEvents(page)
+        #expect(!events.contains { $0.hasPrefix("drop:") }, "\(events)")
+        #expect(events.contains("dragleave:refusing:false") && events.last == "dragend:card:false", "\(events)")
+    }
+
+    @available(macOS 14, *)
+    @Test func pointerDragPressesMovesAndReleasesOnTheTarget() async throws {
+        let fixture = LeoWKPageFixture(Self.dragPages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("pointer"))
+        let snapshot = try await page.snapshot()
+        let thumb = try #require(leoSnapshotRef(snapshot, #"button "Thumb""#))
+        let track = try #require(leoSnapshotRef(snapshot, #"button "Track""#))
+
+        try await page.drag(startRef: thumb, endRef: track)
+
+        let json = try await page.eval("window.log")
+        let log = try JSONDecoder().decode([String].self, from: Data(json.utf8)).map { $0.split(separator: ":", omittingEmptySubsequences: false).map(String.init) }
+        #expect(log.allSatisfy { $0[2] == "true" }, "every event is trusted: \(log)")
+        #expect(log.first?[0] == "pointerdown" && log.first?[1] == "thumb", "\(log)")
+        // WebKit reports `buttons` from the hardware, which no synthesized event can change, so it reads 0 here.
+        let order = log.map { $0[0] }
+        let down = try #require(order.firstIndex(of: "pointerdown"))
+        let up = try #require(order.firstIndex(of: "pointerup"))
+        let moves = order[down..<up].filter { $0 == "pointermove" }
+        #expect(moves.count >= LeoWKBrowserPage.dragSteps / 2, "moves between the press and the release: \(log)")
+        #expect(log.last?[0] == "mouseup" && log.last?[1] == "track", "released over the target: \(log)")
+        #expect(log.contains { $0[0] == "pointerup" && $0[1] == "track" })
+    }
+
+    @available(macOS 14, *)
+    @Test func dragRejectsStaleRefsBeforeSendingAnything() async throws {
+        let fixture = LeoWKPageFixture(Self.dragPages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("pointer"))
+        let snapshot = try await page.snapshot()
+        let thumb = try #require(leoSnapshotRef(snapshot, #"button "Thumb""#))
+        let track = try #require(leoSnapshotRef(snapshot, #"button "Track""#))
+        _ = try await page.eval("document.getElementById('track').remove()")
+
+        #expect(await page.failureCode { try await $0.drag(startRef: thumb, endRef: track) } == "stale_ref", "a detached end")
+        #expect(await page.failureCode { try await $0.drag(startRef: thumb, endRef: "s999e1") } == "stale_ref", "an old end")
+        #expect(await page.failureCode { try await $0.drag(startRef: "s999e1", endRef: thumb) } == "stale_ref", "an old start")
+        #expect(try await page.eval("window.log.length") == "0", "no pointerdown for a stale end ref")
+    }
+
+    @available(macOS 14, *)
+    @Test func draggingAnElementOntoItselfDoesNothing() async throws {
+        let fixture = LeoWKPageFixture(Self.dragPages)
+        defer { fixture.close() }
+        let page = fixture.page
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("pointer"))
+        let thumb = try #require(leoSnapshotRef(try await page.snapshot(), #"button "Thumb""#))
+        try await page.drag(startRef: thumb, endRef: thumb)
+        #expect(try await page.eval("window.log.length") == "0")
+    }
 }

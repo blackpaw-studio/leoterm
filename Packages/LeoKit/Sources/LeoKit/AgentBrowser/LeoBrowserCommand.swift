@@ -34,6 +34,8 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             self.init(tab: try reader.tab(), action: .hover(ref: try reader.requiredString("ref")))
         case "browser_select_option":
             self.init(tab: try reader.tab(), action: .selectOption(ref: try reader.requiredString("ref"), values: try Self.selectValues(reader)))
+        case "browser_drag":
+            self.init(tab: try reader.tab(), action: .drag(startRef: try reader.requiredString("start_ref"), endRef: try reader.requiredString("end_ref")))
         case "browser_type":
             self.init(tab: try reader.tab(), action: .type(
                 ref: try reader.requiredString("ref"), text: try reader.requiredString("text", allowEmpty: true),
@@ -172,6 +174,9 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// Selects the options of the `<select>` for `ref` whose value or label
     /// is each of `values`.
     case selectOption(ref: String, values: [String])
+    /// Presses on the element for `startRef`, moves to the element for
+    /// `endRef` and releases.
+    case drag(startRef: String, endRef: String)
     case type(ref: String, text: String, submit: Bool)
     /// Sets workspace files, as given, on the file input for `ref`.
     case upload(ref: String, paths: [String])
@@ -200,7 +205,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// `user_has_control` while the user has the browser. Reads still work.
     public var changesPage: Bool {
         switch self {
-        case .navigate, .back, .forward, .reload, .click, .hover, .selectOption, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
+        case .navigate, .back, .forward, .reload, .click, .hover, .selectOption, .drag, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
         case .snapshot, .screenshot, .pdf, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }

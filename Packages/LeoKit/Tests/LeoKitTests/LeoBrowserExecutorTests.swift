@@ -111,6 +111,12 @@ struct LeoBrowserExecutorTests {
         #expect(h.page.calls == ["hover e1"])
     }
 
+    @Test func dragMapsToAPageCallAndReportsOk() async {
+        let h = harness()
+        #expect(texts(await run(h, "browser_drag", ["start_ref": .string("e1"), "end_ref": .string("e2")])) == ["ok"])
+        #expect(h.page.calls == ["drag e1 e2"])
+    }
+
     @Test func selectOptionPassesTheValuesAndReportsWhatGotSelected() async {
         let h = harness()
         h.page.selectResult = [LeoBrowserSelectedOption(value: "b", label: "Beta"), LeoBrowserSelectedOption(value: "c", label: "Gamma")]
@@ -126,6 +132,7 @@ struct LeoBrowserExecutorTests {
         for (tool, args) in [
             ("browser_hover", ["ref": LeoJSONValue.string("e9")]),
             ("browser_select_option", ["ref": .string("e9"), "values": .array([.string("a")])]),
+            ("browser_drag", ["start_ref": .string("e9"), "end_ref": .string("e2")]),
         ] {
             let outcome = await run(h, tool, args)
             #expect(errorCode(outcome) == "stale_ref", "\(tool)")
@@ -400,6 +407,7 @@ struct LeoBrowserExecutorTests {
             ("browser_navigate", ["url": .string("https://a.test/")]), ("browser_back", [:]), ("browser_forward", [:]),
             ("browser_reload", [:]), ("browser_click", ["ref": .string("e1")]), ("browser_hover", ["ref": .string("e1")]),
             ("browser_select_option", ["ref": .string("e1"), "values": .array([.string("a")])]),
+            ("browser_drag", ["start_ref": .string("e1"), "end_ref": .string("e2")]),
             ("browser_type", ["ref": .string("e1"), "text": .string("x")]), ("browser_press", ["key": .string("Enter")]),
             ("browser_eval", ["js": .string("1")]), ("browser_tab_new", [:]), ("browser_tab_select", ["tab": .int(1)]),
             ("browser_tab_close", ["tab": .int(1)]), ("browser_user_agent", ["user_agent": .string("x")]),
@@ -804,6 +812,8 @@ private final class FakePage: LeoBrowserPage {
 
     func click(ref: String) async throws { try record("click \(ref)") }
     func hover(ref: String) async throws { try record("hover \(ref)") }
+
+    func drag(startRef: String, endRef: String) async throws { try record("drag \(startRef) \(endRef)") }
 
     var selectResult: [LeoBrowserSelectedOption] = []
 
