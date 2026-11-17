@@ -31,6 +31,7 @@ Out: Drag-and-drop upload onto the page; directory uploads. Both platforms: tool
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962 (4907 tests; landed 9cf0c4069). Decisions D-851..D-859.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
+Reviewed: accepted 2026-11-17 — 9cf0c406997c
 
 ## B-406 · Save a browser page as PDF or full-page screenshot into the workspace   [done]
 Issue: #383
