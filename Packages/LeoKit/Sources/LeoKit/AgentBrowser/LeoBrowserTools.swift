@@ -51,7 +51,7 @@ public enum LeoBrowserTools {
              ["js": string("JavaScript expression or statements to evaluate.")], required: ["js"]),
         tool("browser_console", "Return console messages (log, warn, error, unhandled rejections) captured in the tab since the last call.",
              ["since": integer("Message cursor from an earlier call; omit to continue from the last call.")]),
-        tool("browser_tabs", "List the browser's tabs as {id, url, title, active}.", [:], pageTool: false),
+        tool("browser_tabs", "List the browser's tabs as {id, url, title, active}. A tab whose page asked for the camera, microphone or location and waits on the user to answer also has waiting_on_user: {permission, site}. Only the user can answer, in the browser pane; no tool does. A request made while the pane isn't showing the tab is denied, and every denial shows in browser_console as permission_denied.", [:], pageTool: false),
         tool("browser_tab_new", "Open a new tab, optionally at a URL; it becomes the active tab. A browser holds at most 10 tabs." + about,
              ["url": string("URL to load in the new tab."),
               "user_agent": string("Override the tab's user agent from its first load: sent on every navigation and returned by navigator.userAgent, until the tab is closed. Omit for the default Safari-accurate user agent; printable ASCII, at most 1024 characters.")],

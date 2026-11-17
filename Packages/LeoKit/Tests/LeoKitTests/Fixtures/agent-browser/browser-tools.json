@@ -281,7 +281,7 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Leo app browser: List the browser's tabs as {id, url, title, active}.",
+    "description" : "Leo app browser: List the browser's tabs as {id, url, title, active}. A tab whose page asked for the camera, microphone or location and waits on the user to answer also has waiting_on_user: {permission, site}. Only the user can answer, in the browser pane; no tool does. A request made while the pane isn't showing the tab is denied, and every denial shows in browser_console as permission_denied.",
     "input_schema" : {
       "properties" : {
 
