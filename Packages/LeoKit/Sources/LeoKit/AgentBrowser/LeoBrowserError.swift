@@ -12,6 +12,10 @@ public struct LeoBrowserError: Error, Equatable, Sendable {
         case jsError = "js_error"
         case invalidArgs = "invalid_args"
         case noSuchTab = "no_such_tab"
+        /// `browser_upload`: a path names nothing in the workspace.
+        case noSuchFile = "no_such_file"
+        /// `browser_upload`: the workspace couldn't be read (permission, a lost connection).
+        case fileError = "file_error"
         /// A capture couldn't be written into the workspace.
         case saveFailed = "save_failed"
     }

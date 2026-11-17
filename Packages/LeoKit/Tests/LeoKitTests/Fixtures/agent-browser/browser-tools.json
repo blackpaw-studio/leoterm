@@ -128,6 +128,37 @@
     "timeout_s" : 30
   },
   {
+    "description" : "Leo app browser: Upload files from your workspace into a file input (<input type=file>), as if the user had picked them, by ref from the latest snapshot; the page gets its input and change events. File inputs show in the snapshot as button \"…\" [file], with [multiple] when they take several files and [hidden] when the site hides them behind its own button; refs work either way. Use this instead of browser_click on a file input, which opens a file picker for the user. At most 20 files and 25 MB in all; no folders. Returns each file's name, size and workspace_path.",
+    "input_schema" : {
+      "properties" : {
+        "paths" : {
+          "description" : "Files to upload: relative to your workspace, or absolute inside it. More than one only when the input is [multiple].",
+          "items" : {
+            "type" : "string"
+          },
+          "maxItems" : 20,
+          "minItems" : 1,
+          "type" : "array"
+        },
+        "ref" : {
+          "description" : "Element ref from browser_snapshot: the file input, its label, or an element holding exactly one file input.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "ref",
+        "paths"
+      ],
+      "type" : "object"
+    },
+    "name" : "browser_upload",
+    "timeout_s" : 120
+  },
+  {
     "description" : "Leo app browser: Press a key or chord, such as Enter, Escape, Tab, ArrowDown or Meta+a.",
     "input_schema" : {
       "properties" : {

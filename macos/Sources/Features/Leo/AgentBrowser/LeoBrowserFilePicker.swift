@@ -32,6 +32,15 @@ struct LeoBrowserFilePickRequest: Equatable {
         _ request: LeoBrowserFilePickRequest,
         completion: @escaping @MainActor ([URL]?) -> Void
     ) -> any LeoBrowserFilePickSession
+
+    /// The browser closed: release whatever the picker keeps for its picks
+    /// (the workspace picker's local copies). Pending choosers are already
+    /// dismissed.
+    func close()
+}
+
+extension LeoBrowserFilePicking {
+    func close() {}
 }
 
 @MainActor protocol LeoBrowserFilePickSession {

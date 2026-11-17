@@ -22,12 +22,14 @@ Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850 (LeoKit 1755 + Mac 4844 tests; landed 88a18c9fb). Decisions D-832..D-841.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
 
-## B-405 · Agent browser file uploads from the agent's workspace   [ready]
+## B-405 · Agent browser file uploads from the agent's workspace   [done]
 Issue: #382
 Why: Milestone 1 + 3. A page's file input should pick from where the agent's files live, not the Mac's disk.
 Accept: A page's `<input type=file>` opens a picker rooted at the agent's workspace (local and SFTP, tested both) with Finder files as a secondary choice; an agent can set a file input from workspace paths via a new browser tool (multiple files when the input allows; missing path is a clear error, tested); screenshot of the picker from the isolated debug build
 Out: Drag-and-drop upload onto the page; directory uploads. Both platforms: tool in LeoKit, Mac picker now.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962 (4907 tests; landed 9cf0c4069). Decisions D-851..D-859.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
 
 ## B-406 · Save a browser page as PDF or full-page screenshot into the workspace   [ready]
 Issue: #383

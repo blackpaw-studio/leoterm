@@ -144,6 +144,8 @@ import LeoKit
     func snapshot() async throws -> String { throw Self.unused }
     func click(ref: String) async throws { throw Self.unused }
     func type(ref: String, text: String, submit: Bool) async throws { throw Self.unused }
+    func fileInput(ref: String) async throws -> LeoBrowserFileInput { throw Self.unused }
+    func setFiles(ref: String, files: [LeoBrowserUploadFile]) async throws { throw Self.unused }
     func press(_ combo: LeoBrowserKeyCombo) async throws { throw Self.unused }
     func waitForText(_ text: String, timeoutMilliseconds: Int) async throws { throw Self.unused }
     func evaluate(_ js: String) async throws -> String { throw Self.unused }

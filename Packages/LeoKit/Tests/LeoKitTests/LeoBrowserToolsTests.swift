@@ -7,15 +7,31 @@ struct LeoBrowserToolsTests {
     @Test func declaresEveryToolInTheSpecTable() {
         #expect(LeoBrowserTools.definitions.map(\.name) == [
             "browser_navigate", "browser_back", "browser_forward", "browser_reload", "browser_snapshot", "browser_click",
-            "browser_type", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
+            "browser_type", "browser_upload", "browser_press", "browser_screenshot", "browser_pdf", "browser_wait", "browser_eval", "browser_console",
             "browser_tabs", "browser_tab_new", "browser_tab_select", "browser_tab_close", "browser_user_agent", "browser_downloads",
             "browser_handoff",
         ])
     }
 
-    @Test func handoffHasNoTimeoutAndEveryOtherToolThirtySeconds() {
+    @Test func handoffHasNoTimeoutUploadTwoMinutesAndEveryOtherToolThirtySeconds() {
+        let expected = ["browser_handoff": 0, "browser_upload": 120]
         for tool in LeoBrowserTools.definitions {
-            #expect(tool.timeoutSeconds == (tool.name == "browser_handoff" ? 0 : 30), "\(tool.name)")
+            #expect(tool.timeoutSeconds == expected[tool.name, default: 30], "\(tool.name)")
+        }
+    }
+
+    @Test func uploadTakesARefAndAListOfWorkspacePaths() throws {
+        let tool = try #require(LeoBrowserTools.definitions.first { $0.name == "browser_upload" })
+        let schema = try #require(tool.inputSchema.objectValue)
+        #expect(schema["required"] == .array([.string("ref"), .string("paths")]))
+        let paths = try #require(schema["properties"]?.objectValue?["paths"]?.objectValue)
+        #expect(paths["type"] == .string("array"))
+        #expect(paths["items"] == .object(["type": .string("string")]))
+        #expect(paths["minItems"] == .int(1))
+        #expect(paths["maxItems"] == .int(20))
+        #expect(schema["properties"]?.objectValue?["tab"] != nil)
+        for phrase in ["workspace", "[file]", "multiple", "25 MB", "browser_click"] {
+            #expect(tool.description.contains(phrase), "\(phrase)")
         }
     }
 
@@ -118,7 +134,7 @@ struct LeoBrowserToolsTests {
         #expect(error.clientToolError == LeoClientToolError(code: "user_has_control", message: error.message))
         #expect(error.message.contains("browser_handoff"))
         #expect(LeoBrowserError.Code.allCases.map(\.rawValue).sorted() == [
-            "invalid_args", "js_error", "navigation_failed", "no_such_tab", "save_failed", "scheme_not_allowed", "stale_ref",
+            "file_error", "invalid_args", "js_error", "navigation_failed", "no_such_file", "no_such_tab", "save_failed", "scheme_not_allowed", "stale_ref",
             "tab_limit", "timeout", "user_has_control",
         ])
     }

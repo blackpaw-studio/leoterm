@@ -1286,3 +1286,57 @@ Chose: Whitespace and nbsp collapse to one space, <br> counts as a break
 Why: P1
 Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
 Veto: [ ]
+
+## D-851 · 2026-11-17 · B-405: browser_upload is a new tool and fails with user_has_control while the user drives
+Chose: browser_upload is a new tool and fails with user_has_control while the user drives
+Why: D-732/D-734/D-764
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-852 · 2026-11-17 · B-405: Upload paths are workspace-relative or absolute inside the workspace; outside is…
+Chose: Upload paths are workspace-relative or absolute inside the workspace; outside is invalid_args
+Why: P3, P4
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-853 · 2026-11-17 · B-405: Upload limits 20 files / 25 MB / 120 s; missing path is no_such_file; folder is…
+Chose: Upload limits 20 files / 25 MB / 120 s; missing path is no_such_file; folder is invalid_args
+Why: P2
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-854 · 2026-11-17 · B-405: browser_upload result shape {name,size,workspace_path} with no absolute path, matching…
+Chose: browser_upload result shape {name,size,workspace_path} with no absolute path, matching browser_downloads
+Why: D-835
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-855 · 2026-11-17 · B-405: Snapshot marks file inputs [file] [multiple] [accept] [disabled] [hidden], including…
+Chose: Snapshot marks file inputs [file] [multiple] [accept] [disabled] [hidden], including hidden inputs
+Why: Done #3
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-856 · 2026-11-17 · B-405: Picker is a standalone "Choose from Workspace" panel rooted at the workspace; "Choose…
+Chose: Picker is a standalone "Choose from Workspace" panel rooted at the workspace; "Choose from Mac…" is secondary; folder inputs and agents with no workspace go straight to Finder
+Why: P1, P2
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-857 · 2026-11-17 · B-405: Chosen files are copied to a per-app temp folder, removed on browser close and swept at…
+Chose: Chosen files are copied to a per-app temp folder, removed on browser close and swept at launch, the same for local and SFTP
+Why: P3, D-834
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-858 · 2026-11-17 · B-405: Added a file_error code for permission errors and lost connections; an agent with no…
+Chose: Added a file_error code for permission errors and lost connections; an agent with no workspace gets no_such_file with a clear message
+Why: P2
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]
+
+## D-859 · 2026-11-17 · B-405: Upload tool and reader in LeoKit; picker Mac only, iOS picker with B-305
+Chose: Upload tool and reader in LeoKit; picker Mac only, iOS picker with B-305
+Why: D-841
+Commit: 7c59a30c0 f71a7cab5 f2f359424 cbd7623e4 340397e04 c17d54bed 76a1d3962
+Veto: [ ]

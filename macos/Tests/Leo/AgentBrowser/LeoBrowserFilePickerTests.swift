@@ -36,7 +36,7 @@ struct LeoBrowserFilePickerTests {
     }
 
     @available(macOS 14, *)
-    private func makeTabs(_ picker: FakePicker) -> LeoAgentBrowserTabs {
+    private func makeTabs(_ picker: any LeoBrowserFilePicking) -> LeoAgentBrowserTabs {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         return LeoAgentBrowserTabs(
@@ -54,6 +54,21 @@ struct LeoBrowserFilePickerTests {
     ) throws {
         let webView = try #require((tabs.page(forTab: tab) as? LeoWKBrowserPage)?.webView)
         tabs.chooseFiles(for: webView, origin: origin, allowsMultipleSelection: multiple, allowsDirectories: directories) { results.urls.append($0) }
+    }
+
+    @MainActor private final class RecordingPresenter: LeoBrowserUploadPanelPresenting {
+        private(set) var shown: [LeoBrowserWorkspacePick] = []
+        private(set) var dismissed = 0
+
+        func show(_ pick: LeoBrowserWorkspacePick) -> any LeoBrowserUploadPanelHandle {
+            shown.append(pick)
+            return Handle(presenter: self)
+        }
+
+        private struct Handle: LeoBrowserUploadPanelHandle {
+            let presenter: RecordingPresenter
+            func dismiss() { presenter.dismissed += 1 }
+        }
     }
 
     @MainActor private final class ResultBox {
@@ -135,5 +150,33 @@ struct LeoBrowserFilePickerTests {
         #expect(results.urls.count == 1)
         #expect(results.urls[0] == nil)
         #expect(picker.dismissCount == 1)
+    }
+
+    @available(macOS 14, *)
+    @Test func closingTheTabAbandonsTheWorkspacePickerAndAnswersOnce() async throws {
+        let workspace = FileManager.default.temporaryDirectory.appendingPathComponent("leo-pick-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workspace) }
+        let presenter = RecordingPresenter()
+        let mac = FakePicker()
+        let picker = LeoBrowserWorkspaceFilePicker(
+            host: .local, agent: "alpha", workspace: { workspace.path }, makeAccess: { _ in LeoFileAccessor.local() },
+            fallback: mac, presenter: presenter, stagingRoot: workspace.appendingPathComponent("staging")
+        )
+        let tabs = makeTabs(picker)
+        let tab = try await tabs.openTab(url: LeoAgentBrowserTabs.blank)
+        let results = ResultBox()
+        try choose(tabs, on: tab, results)
+        let pick = try #require(presenter.shown.first)
+
+        tabs.closeTab(tab)
+        pick.cancel()
+        pick.chooseFromMac()
+
+        #expect(results.urls.count == 1)
+        #expect(results.urls.first == .some(nil))
+        #expect(presenter.dismissed == 1)
+        #expect(pick.isFinished)
+        #expect(mac.requests.isEmpty, "a closed tab never hands over to the Mac panel")
     }
 }

@@ -53,7 +53,10 @@ public enum LeoBrowserScripts {
     /// role, accessible name and value per element, and gives each
     /// interactive element a ref (`s<gen>e<n>`) kept in a world-local map,
     /// so the page's own DOM and scripts never see it. A new snapshot or
-    /// document drops the previous refs. Returns `{text, truncated}`.
+    /// document drops the previous refs. File inputs are listed as
+    /// `button "…" [file]` wherever they are, hidden ones (marked
+    /// `[hidden]`) included; any the walk didn't reach (under a hidden or
+    /// content-named ancestor) are added at the end. Returns `{text, truncated}`.
     public static let snapshot = #"""
     const refs = new Map();
     globalThis.__leoAgent = { gen, refs };
@@ -166,6 +169,31 @@ public enum LeoBrowserScripts {
       return true;
     }
 
+    // File inputs are listed even when hidden: sites hide them behind their
+    // own button, and browser_upload sets files on them directly.
+    const isFileInput = el => el.tagName === 'INPUT' && el.type === 'file';
+    const fileInputs = new Set();
+    function emitFileInput(el, depth) {
+      fileInputs.add(el);
+      let line = 'button ' + quote(nameOf(el, 'button') || squash(el.getAttribute('name')) || 'Choose File');
+      // `:disabled`, not `disabled`: a `<fieldset disabled>` disables it too.
+      const disabled = el.matches(':disabled');
+      if (!disabled) {
+        const ref = `s${gen}e${refs.size + 1}`;
+        refs.set(ref, el);
+        line += ` [ref=${ref}]`;
+      }
+      line += ' [file]';
+      if (el.multiple) line += ' [multiple]';
+      const accept = squash(el.getAttribute('accept'), 100);
+      if (accept) line += ` [accept=${accept}]`;
+      if (disabled) line += ' [disabled]';
+      if (el.hidden || el.closest('[aria-hidden="true"]') || !isShown(el)) line += ' [hidden]';
+      const chosen = squash(Array.from(el.files || []).map(f => f.name).join(', '), 500);
+      if (chosen) line += ': ' + quote(chosen);
+      return emit(depth, line);
+    }
+
     const childrenOf = el => {
       if (el.shadowRoot) return el.shadowRoot.childNodes;
       if (el.tagName === 'SLOT') {
@@ -186,6 +214,10 @@ public enum LeoBrowserScripts {
         if (child.nodeType !== Node.ELEMENT_NODE) continue;
         const el = child;
         if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'HEAD'].includes(el.tagName)) continue;
+        if (isFileInput(el)) {
+          if (!emitFileInput(el, depth)) return;
+          continue;
+        }
         if (el.hidden || el.getAttribute('aria-hidden') === 'true') continue;
         if (getComputedStyle(el).display === 'none') continue;
         const role = roleOf(el);
@@ -212,6 +244,9 @@ public enum LeoBrowserScripts {
     }
     if (document.title) emit(0, 'document ' + quote(squash(document.title)));
     if (document.body) walk(childrenOf(document.body), 0);
+    for (const el of document.querySelectorAll('input[type="file" i]')) {
+      if (!fileInputs.has(el) && !emitFileInput(el, 0)) break;
+    }
     return { text: lines.join('\n'), truncated };
     """#
 
@@ -262,6 +297,59 @@ public enum LeoBrowserScripts {
     el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'instant' });
     const r = el.getBoundingClientRect();
     return { x: r.left, y: r.top, width: r.width, height: r.height };
+    """#
+
+    /// Resolves `ref` to the file input `browser_upload` acts on: the element
+    /// itself, a label's control, or the only file input inside it. Returns
+    /// `{stale: true}` like `locateRef`, or `{error: message}`.
+    private static let resolveFileInput = #"""
+    const state = globalThis.__leoAgent;
+    const el = state && state.refs.get(ref);
+    if (!el || !el.isConnected) return { stale: true };
+    const isFile = n => !!n && n.tagName === 'INPUT' && n.type === 'file';
+    let input = null;
+    if (isFile(el)) {
+      input = el;
+    } else if (el.tagName === 'LABEL' && isFile(el.control)) {
+      input = el.control;
+    } else {
+      const inside = el.querySelectorAll('input[type="file" i]');
+      if (inside.length > 1) {
+        return { error: `ref ${ref} holds ${inside.length} file inputs; pass the ref of one ([file] in the snapshot)` };
+      }
+      input = inside[0] || null;
+    }
+    if (!input) return { error: `ref ${ref} is not a file input; pass the ref of one ([file] in the snapshot)` };
+    if (input.matches(':disabled')) return { error: `The file input for ref ${ref} is disabled` };
+    """#
+
+    /// Body of an async function run in the snapshot's content world, with
+    /// argument `ref`: `{multiple}` for the file input `ref` resolves to.
+    public static let fileInput = resolveFileInput + #"""
+
+    return { multiple: input.multiple };
+    """#
+
+    /// Body of an async function run in the snapshot's content world, with
+    /// arguments `ref` and `files` (`[{name, type, data}]`, `data` in
+    /// base64): replaces the resolved input's files with these and fires
+    /// `input` then `change`, as a user's pick does. Built in Leo's world,
+    /// so a page that replaces `File` or `DataTransfer` can't interfere.
+    public static let setFiles = resolveFileInput + #"""
+
+    const decode = data => {
+      if (typeof Uint8Array.fromBase64 === 'function') return Uint8Array.fromBase64(data);
+      const text = atob(data);
+      const bytes = new Uint8Array(text.length);
+      for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+      return bytes;
+    };
+    const transfer = new DataTransfer();
+    for (const file of files) transfer.items.add(new File([decode(file.data)], file.name, { type: file.type }));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    return { count: input.files.length };
     """#
 
     /// Body of an async function run in the snapshot's content world, with

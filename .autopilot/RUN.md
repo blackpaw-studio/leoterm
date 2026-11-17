@@ -12,6 +12,8 @@ Self-filed: B-407 → dropped (over cap) — Edit ▸ Find items show no ⌘F/�
 Self-filed: B-407 → dropped (over cap) — Find match inside an overflow:auto box doesn't scroll into view
 Self-filed: B-407 → dropped (over cap) — Hide Find Bar stays enabled with no bar up
 Self-filed: B-407 → dropped (over cap) — Browser address bar shows the previous URL, one navigation behind
+Self-filed: B-405 → dropped (over cap) — Upload picker header says "a file" for a multiple input
+Self-filed: B-405 → dropped (over cap) — Agent browser_click on a file input still opens the picker
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -94,6 +96,38 @@ Lane: B-405
   Dispatched: 2026-11-17T02:22:28Z
   Base: 2d3139ab68c7d824a6895f3854211d823fec400f
   Tier: full
+  State: landed
+  Fixes: 1
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: fe8616f1124456209561d53a44b9a247956292d7
+  Tokens: 83.3M in (82M cache read), ≥299k out, 499 requests
+  Call: browser_upload is a new tool and fails with user_has_control while the user drives — D-732/D-734/D-764
+  Call: Upload paths are workspace-relative or absolute inside the workspace; outside is invalid_args — P3, P4
+  Call: Upload limits 20 files / 25 MB / 120 s; missing path is no_such_file; folder is invalid_args — P2
+  Call: browser_upload result shape {name,size,workspace_path} with no absolute path, matching browser_downloads — D-835
+  Call: Snapshot marks file inputs [file] [multiple] [accept] [disabled] [hidden], including hidden inputs — Done #3
+  Call: Picker is a standalone "Choose from Workspace" panel rooted at the workspace; "Choose from Mac…" is secondary; folder inputs and agents with no workspace go straight to Finder — P1, P2
+  Call: Chosen files are copied to a per-app temp folder, removed on browser close and swept at launch, the same for local and SFTP — P3, D-834
+  Call: Added a file_error code for permission errors and lost connections; an agent with no workspace gets no_such_file with a clear message — P2
+  Call: Upload tool and reader in LeoKit; picker Mac only, iOS picker with B-305 — D-841
+
+Lane: B-406
+  Branch: autopilot-lane/B-406
+  Dispatched: 2026-11-17T05:11:29Z
+  Base: 641b72e22435a6fb0945fba72d1b5a100bdd2c29
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-408
+  Branch: autopilot-lane/B-408
+  Dispatched: 2026-11-17T05:51:09Z
+  Base: fbc0a72cdb1584e393c07052d8148754f06e441f
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
@@ -105,6 +139,8 @@ Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
 
 Finished 3: B-407 landed 290801942 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
+
+Finished 4: B-405 landed 9cf0c4069 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
 
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -120,3 +156,9 @@ Progress:
 - Dispatched B-405 d-2c841ad94d65.
 - B-407 ready (fix 2). Integrate conflict with B-404 strip resolved. Verifier incident: a mis-focused Return started `autopilot-scratch` (scratch only; stopped again). Edit ▸ Find key-glyph gap accepted as polish (items and shortcuts both work).
 - B-407 landed 290801942. D-842..D-850.
+- Pick: B-406 full (save page as PDF/screenshot; menu + tool).
+- Dispatched B-406 d-7b7dd4233572.
+- B-405 ready (fix 1, hard implementer, security review). Picker buttons not GUI-driven (Peekaboo clicks didn't register); SFTP covered by tests only.
+- B-405 landed 9cf0c4069. D-851..D-859.
+- Pick: B-408 full (reopen closed tab + history menus).
+- Dispatched B-408 d-a01e72312213.

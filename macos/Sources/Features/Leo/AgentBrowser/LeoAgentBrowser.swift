@@ -20,23 +20,30 @@ import WebKit
     let viewHost: LeoAgentBrowserHost
     private let tabSet: LeoAgentBrowserTabs
     private let urlMapping: any LeoBrowserURLMapping
-    private lazy var executor = LeoBrowserExecutor(tabs: tabSet, urlMapping: urlMapping, control: control)
+    private let uploads: LeoBrowserUploadReader
+    private let filePicker: any LeoBrowserFilePicking
+    private lazy var executor = LeoBrowserExecutor(tabs: tabSet, urlMapping: urlMapping, control: control, uploads: uploads)
     private var handlers: [UUID: @MainActor () -> Void] = [:]
 
     /// `configuration` carries the agent's data store; each tab gets its own copy.
     /// `downloads` saves finished downloads into the agent's workspace; by
-    /// default there is none, so a download fails plainly.
+    /// default there is none, so a download fails plainly. `uploads` reads
+    /// the workspace files `browser_upload` names; by default there is none.
     init(
         key: LeoAgentBrowserKey, configuration: WKWebViewConfiguration, urlMapping: any LeoBrowserURLMapping,
         input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, allowsURL: @escaping (URL) -> Bool = LeoBrowserURLPolicy.allows,
-        filePicker: (any LeoBrowserFilePicking)? = nil, downloads: LeoWKBrowserDownloads? = nil
+        filePicker: (any LeoBrowserFilePicking)? = nil, downloads: LeoWKBrowserDownloads? = nil,
+        uploads: LeoBrowserUploadReader = .noWorkspace
     ) {
         self.key = key
+        self.uploads = uploads
         self.urlMapping = urlMapping
         self.viewHost = viewHost
+        let filePicker = filePicker ?? LeoOpenPanelFilePicker()
+        self.filePicker = filePicker
         tabSet = LeoAgentBrowserTabs(
             agentName: key.agent, configuration: configuration, allowsURL: allowsURL, input: input, viewHost: viewHost,
-            filePicker: filePicker ?? LeoOpenPanelFilePicker(), downloader: downloads ?? LeoWKBrowserDownloads(log: .withoutWorkspace())
+            filePicker: filePicker, downloader: downloads ?? LeoWKBrowserDownloads(log: .withoutWorkspace())
         )
         super.init()
         tabSet.onUserInput = { [weak self] in self?.control.send(.userInput) }
@@ -58,11 +65,13 @@ import WebKit
         if tabSet.tabs.isEmpty { openBlankTab() }
     }
 
-    /// Closes every tab, stopping downloads still fetching. The data store
-    /// stays for the agent's next browser.
+    /// Closes every tab, stopping downloads still fetching and dismissing
+    /// file choosers, then removes the local copies of files chosen for
+    /// upload. The data store stays for the agent's next browser.
     func close() {
         tabSet.closeAll()
         tabSet.downloader.cancelAll()
+        filePicker.close()
         handlers = [:]
     }
 
@@ -314,6 +323,10 @@ import WebKit
     var userAgentApplicationName: String = LeoBrowserUserAgent.applicationName()
     /// Each browser's download log: where its downloads are saved.
     var makeDownloads: (LeoAgentBrowserKey) -> LeoBrowserDownloads = { _ in .withoutWorkspace() }
+    /// Where each browser's `browser_upload` reads files from.
+    var makeUploads: (LeoAgentBrowserKey) -> LeoBrowserUploadReader = { _ in .noWorkspace }
+    /// Each browser's chooser for a page's `<input type=file>`; nil for the Mac's open panel.
+    var makeFilePicker: (LeoAgentBrowserKey) -> (any LeoBrowserFilePicking)? = { _ in nil }
 
     func make(_ key: LeoAgentBrowserKey) -> LeoAgentBrowser {
         let configuration = WKWebViewConfiguration()
@@ -323,7 +336,7 @@ import WebKit
         )
         return LeoAgentBrowser(
             key: key, configuration: configuration, urlMapping: urlMapping(key), input: input, viewHost: viewHost,
-            downloads: LeoWKBrowserDownloads(log: makeDownloads(key))
+            filePicker: makeFilePicker(key), downloads: LeoWKBrowserDownloads(log: makeDownloads(key)), uploads: makeUploads(key)
         )
     }
 }
