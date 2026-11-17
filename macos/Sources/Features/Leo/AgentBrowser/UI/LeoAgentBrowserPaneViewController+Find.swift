@@ -87,7 +87,8 @@ extension LeoAgentBrowserPaneViewController: NSMenuItemValidation {
     }
 
     func validateMenuItem(_ item: NSMenuItem) -> Bool {
-        item.action == #selector(findHide(_:)) ? findController.isShown : true
+        if let action = item.action, Self.saveActions.contains(action) { return canSavePage && saveSheet == nil }
+        return item.action == #selector(findHide(_:)) ? findController.isShown : true
     }
 
     private func stepFind(_ direction: LeoFindDirection) {
