@@ -3,6 +3,60 @@
 Ranked. Statuses: `ready`, `ready (next run)`, `blocked`, `deferred`, `done`, `idea`, `dropped`.
 Source roadmap: `docs/leo/roadmap.md` on `main` (not edited by autopilot).
 
+## B-404 · Agent browser downloads land in the agent's workspace   [ready]
+Why: Milestone 1 (Files through Leo); P3 Local = remote, P4 Everything through Leo. Today a download goes nowhere useful for a remote agent.
+Accept: A download started by you or an agent (WKDownload) is written to `downloads/` in that agent's workspace through the file backend, local and SFTP (tested both); a name clash gets a numbered name, never an overwrite (tested); a failed or lost-connection download is shown plainly and leaves no partial file (tested); the agent can list finished downloads with their workspace paths via a LeoKit browser tool; screenshot of a finished download from the isolated debug build
+Out: Download manager window; resuming downloads; choosing a different folder. Both platforms: tool in LeoKit, Mac UI now, iOS with B-305.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-405 · Agent browser file uploads from the agent's workspace   [ready]
+Why: Milestone 1 + 3. A page's file input should pick from where the agent's files live, not the Mac's disk.
+Accept: A page's `<input type=file>` opens a picker rooted at the agent's workspace (local and SFTP, tested both) with Finder files as a secondary choice; an agent can set a file input from workspace paths via a new browser tool (multiple files when the input allows; missing path is a clear error, tested); screenshot of the picker from the isolated debug build
+Out: Drag-and-drop upload onto the page; directory uploads. Both platforms: tool in LeoKit, Mac picker now.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-406 · Save a browser page as PDF or full-page screenshot into the workspace   [ready]
+Why: Milestone 1. Lets you and agents keep a page (receipts, docs, rendered UI) next to the work.
+Accept: File ▸ Save Page as PDF… and Save Full-Page Screenshot… write into the agent's workspace (local and SFTP, tested); `browser_screenshot` gains a full-page option and both can target a workspace path; no silent overwrite (tested); screenshot of the menu and a saved file in the workspace browser
+Out: Printing to a printer; web archives. Both platforms: tool in LeoKit, Mac menu now.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-407 · Find in page in the agent browser (⌘F, ⌘G, ⌘⇧G)   [ready]
+Why: Milestone 2 (Everyday browsing); P1 keyboard-first.
+Accept: ⌘F in a focused browser pane shows a HIG find bar that highlights matches with a count; ⌘G/⌘⇧G step through them; Esc closes it; Edit ▸ Find items match; ⌘F still finds in the terminal or editor when those are focused (tested); screenshot from the isolated debug build
+Out: Regex/case options. Mac only (iOS later with B-305 UI).
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-408 · Reopen closed tab and back/forward history menus in the agent browser   [ready]
+Why: Milestone 2. Closing an agent's tab by accident shouldn't lose it.
+Accept: ⌘⇧T reopens the most recently closed browser tab for that agent with its URL (per agent, tested); long-press or right-click on Back/Forward shows that tab's history and jumps to an entry (tested); History menu items exist; screenshot of the history menu
+Out: Persistent history across app restarts; a global history window. Mac only.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-409 · Open in Default Browser, Copy URL, and per-agent Clear Site Data   [ready]
+Why: Milestone 2. Escape hatch to Safari/Chrome when a site misbehaves, and a reset when an agent's cookies go bad.
+Accept: Browser pane menu and Browser ▸ menu offer Open in Default Browser (⌘⇧O-style shortcut, decide and log), Copy URL, and Clear Site Data for This Agent… which asks first and then empties only that agent's data store (tested: other agents' cookies survive); remote-localhost URLs open via the forwarded port or explain why they can't; screenshot of the menu
+Out: Per-site data management UI. Mac only.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-410 · Camera, microphone and location prompts in the agent browser   [ready]
+Why: Milestone 2. Pages that ask for media or location should ask you, never an agent.
+Accept: WKUIDelegate media-capture and geolocation requests show a Mac prompt naming the agent and site; the answer lasts for that tab's session; agents cannot grant permissions and get a clear error/state if a page is waiting on one (tested); deny is the default when the pane isn't visible (tested); screenshot of the prompt
+Out: Persisted per-site permissions; screen sharing. Mac only.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-411 · Agent browser tools: hover, select option, drag   [ready]
+Why: Milestone 3 (Agent tool parity) — the common Playwright actions agents still miss.
+Accept: New `browser_hover`, `browser_select_option` (by value or label, multi-select) and `browser_drag` (element to element) tools in LeoKit, addressed the same way as `browser_click` (snapshot refs); each dispatches real-looking events (tested against fixture pages); errors for stale/missing refs match existing tools; descriptions follow the B-307 wording
+Out: Coordinate-based mouse paths; keyboard chords beyond `browser_press`. Both platforms via LeoKit.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
+## B-412 · Agents see and answer JavaScript dialogs in the agent browser   [ready]
+Why: Milestone 3. An alert/confirm/prompt currently blocks or is answered for the agent invisibly.
+Accept: A pending alert/confirm/prompt shows in the pane for you and is reported in the next tool result for the agent; a new `browser_dialog` tool accepts/dismisses with optional prompt text (tested); whoever answers first wins and the other side sees it was handled (tested); beforeunload dialogs are covered; screenshot of a pending dialog
+Out: Auth (HTTP basic) dialogs. Both platforms: logic in LeoKit, Mac UI now.
+Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+
 ## B-067 · Terminals row scrolls into view when created or selected   [done]
 Issue: #71
 Why: the section sits under a long agent list (~40 agents); a new or selected Terminals row stays off-screen — seen in B-057 verify
@@ -2323,7 +2377,9 @@ Inbox: 20261024T234539423483Z-b13bef15#1
 Note: the "Leo tmux terminfo" script phase is skipped as up to date after "Resources" re-syncs `terminfo/`, so tmux256ColorEntryIsBundled and tmux256ColorEntryUsesTheLegacyFormat fail on a stale build (CI/test-infra only; no user-visible effect)
 Source: autopilot polish (B-157)
 
-## B-305 · iOS agent-browser executor — serve the `browser` client-tools group…   [idea]
+## B-305 · iOS agent-browser executor — serve the `browser` client-tools group…   [ready]
+Why: Milestone 4 ("Agent Browser, for real"): Mac/iOS parity for the browser tool group. Rank after B-404–B-412 so iOS picks up their LeoKit tools.
+Accept: Leo iOS declares and serves the `browser` client-tools group from a WKWebView pane with a per-agent data store and takeover/handoff UI, reusing LeoKit's browser tools (including B-404–B-412 where they exist); backgrounding relinquishes claims cleanly (tested); remote-localhost has a working route or a plain explanation; tests plus a simulator screenshot
 Note: iOS agent-browser executor — serve the `browser` client-tools group from Leo iOS (WKWebView pane, per-agent data store, takeover/handoff UI) using LeoKit's LeoBrowserTools/LeoBrowserExecutor/ClientTools client; Mac shipped 04d50cd80, spec docs/superpowers/specs/2026-10-26-agent-browser.md (plan F5). iOS differences: backgrounding suspends the executor (relinquish claims), touch input, no ssh port forward (needs another route to remote localhost)
 Source: owner (/idea, 2026-10-26)
 Inbox: 20261026T232735230091Z-feeac761#1

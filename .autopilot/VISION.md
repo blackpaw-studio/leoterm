@@ -38,10 +38,30 @@ Reference point: Orca (onorca.dev) — an agent workspace, but Leo-native.
 - A full IDE: the file pane is a capable viewer/editor (syntax highlight,
   save, diff), not LSP/refactors/build tooling. Agents do the heavy editing.
 - Non-Mac platforms (no GTK/Windows port of Leo features).
-- Not now, but wanted later: mobile companion app, embedded browser, GitHub
+- Browser dev tools (Web Inspector, network/console panes), password
+  autofill, extensions, and content blocking are out of the browser milestone.
+- Not now, but wanted later: mobile companion app, GitHub
   integration. Don't build them this milestone; don't design them out.
 
-## Done — current milestone ("Sidebar navigation", from 2026-09-28)
+## Done — current milestone ("Agent Browser, for real", from 2026-11-16)
+The agent browser pane gains the parts of a real browser that matter when you
+and your agents share it. Tool logic lives in LeoKit so iOS gets it with its
+executor; pane UI is Mac first.
+1. Files through Leo: downloads land in the agent's workspace, file uploads
+   pick from the workspace, and a page saves as PDF or full-page screenshot
+   into the workspace. Identical locally and over SSH (SFTP); nothing ever
+   silently overwrites.
+2. Everyday browsing: find in page, reopen closed tab, back/forward history
+   menus, Open in Default Browser, per-agent Clear Site Data, and
+   camera/mic/location prompts that ask you. Each has a shortcut and a menu
+   item.
+3. Agent tool parity: agents can hover, select options, drag, answer JS
+   dialogs and upload files, so a normal login/form flow never needs
+   Playwright MCP.
+4. Leo iOS serves the `browser` client-tools group (B-305).
+5. Each flow has tests plus a screenshot from the isolated debug build.
+
+## Done — previous milestone ("Sidebar navigation", from 2026-09-28)
 1. The window has no tab bar. Clicking a sidebar row, or its keyboard
    equivalents, shows that agent in the window's single content area, and
    there is one sidebar per window.
@@ -56,7 +76,7 @@ Reference point: Orca (onorca.dev) — an agent workspace, but Leo-native.
    affordances are removed or remapped, with each call logged.
 6. Each flow has tests plus a screenshot from the isolated debug build.
 
-## Done — previous milestone ("Attention + Files", complete bar B-014 deferred)
+## Done — earlier milestone ("Attention + Files", complete bar B-014 deferred)
 1. Sidebar shows working / needs-input / finished / errored per agent (per
    the approved attention spec), with a Dock count and ⌃⌥⌘J jump-to-next.
    Legacy daemons show Working only.
