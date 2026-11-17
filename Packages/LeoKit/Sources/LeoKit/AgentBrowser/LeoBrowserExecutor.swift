@@ -16,13 +16,16 @@ public final class LeoBrowserExecutor {
     private let urlMapping: any LeoBrowserURLMapping
     private let control: LeoBrowserControlModel
     private let sleep: Sleeper
+    private let uploads: LeoBrowserUploadReader
     private let gate = LeoBrowserSerialGate()
 
     public init(
         tabs: any LeoBrowserTabs, urlMapping: any LeoBrowserURLMapping, control: LeoBrowserControlModel,
+        uploads: LeoBrowserUploadReader = .noWorkspace,
         sleep: @escaping Sleeper = { try await Task.sleep(for: $0) }
     ) {
         self.tabs = tabs
+        self.uploads = uploads
         self.urlMapping = urlMapping
         self.control = control
         self.sleep = sleep
@@ -106,6 +109,8 @@ public final class LeoBrowserExecutor {
             try await page.click(ref: ref)
         case .type(let ref, let text, let submit):
             try await page.type(ref: ref, text: text, submit: submit)
+        case .upload(let ref, let paths):
+            return [try await upload(ref: ref, paths: paths, on: page)]
         case .press(let combo):
             try await page.press(combo)
         case .screenshot(let fullPage):
@@ -131,6 +136,21 @@ public final class LeoBrowserExecutor {
         if let remote { local = try await urlMapping.toLocal(remote) }
         let id = try await tabs.openTab(url: local, userAgent: userAgent)
         return [json(.object(["tab": .int(id)]))]
+    }
+
+    /// Checks the input before reading a byte; reading can be slow over SFTP,
+    /// so control is checked again before the files are set.
+    private func upload(ref: String, paths: [String], on page: any LeoBrowserPage) async throws -> LeoClientToolContent {
+        let input = try await page.fileInput(ref: ref)
+        guard paths.count == 1 || input.allowsMultiple else {
+            throw LeoBrowserError.invalidArgs("ref \(ref) is a file input that takes one file; pass one path")
+        }
+        let files = try await uploads.read(paths)
+        guard control.state.allowsAgentActions else { throw LeoBrowserError.userHasControl }
+        try await page.setFiles(ref: ref, files: files)
+        return json(.object(["files": .array(files.map { file in
+            .object(["name": .string(file.name), "size": .int(file.data.count), "workspace_path": .string(file.workspacePath)])
+        })]))
     }
 
     private func handoff(requestID: String, message: String) async throws -> LeoClientToolOutcome {

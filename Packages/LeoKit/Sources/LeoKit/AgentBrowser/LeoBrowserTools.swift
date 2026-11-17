@@ -10,6 +10,9 @@ public enum LeoBrowserTools {
     /// on the user (0 = no timeout).
     public static let defaultTimeoutSeconds = 30
 
+    /// `browser_upload` reads workspace files, over SFTP on a remote machine.
+    public static let uploadTimeoutSeconds = 120
+
     /// Leads every description so these tools are never mistaken for another
     /// browser tool set (e.g. Playwright MCP's `browser_*`) in the same agent.
     static let descriptionPrefix = "Leo app browser: "
@@ -30,6 +33,11 @@ public enum LeoBrowserTools {
         tool("browser_type", "Type text into an element by ref from the latest snapshot.",
              ["ref": string("Element ref from browser_snapshot."), "text": string("Text to type."),
               "submit": boolean("Press Enter after typing.")], required: ["ref", "text"]),
+        tool("browser_upload", "Upload files from your workspace into a file input (<input type=file>), as if the user had picked them, by ref from the latest snapshot; the page gets its input and change events. File inputs show in the snapshot as button \"…\" [file], with [multiple] when they take several files and [hidden] when the site hides them behind its own button; refs work either way. Use this instead of browser_click on a file input, which opens a file picker for the user. At most \(LeoBrowserCommand.maximumUploadFiles) files and \(LeoBrowserUploadReader.defaultMaximumTotalBytes / (1024 * 1024)) MB in all; no folders. Returns each file's name, size and workspace_path.",
+             ["ref": string("Element ref from browser_snapshot: the file input, its label, or an element holding exactly one file input."),
+              "paths": stringArray("Files to upload: relative to your workspace, or absolute inside it. More than one only when the input is [multiple].",
+                                   maxItems: LeoBrowserCommand.maximumUploadFiles)],
+             required: ["ref", "paths"], timeoutSeconds: uploadTimeoutSeconds),
         tool("browser_press", "Press a key or chord, such as Enter, Escape, Tab, ArrowDown or Meta+a.",
              ["key": string("A key, optionally prefixed by modifiers joined with +: Shift, Control, Alt, Meta.")], required: ["key"]),
         tool("browser_screenshot", "Take a PNG screenshot of the tab, at most 1600 px wide.",
@@ -72,6 +80,13 @@ public enum LeoBrowserTools {
     private static func string(_ description: String) -> LeoJSONValue { property("string", description) }
     private static func integer(_ description: String) -> LeoJSONValue { property("integer", description) }
     private static func boolean(_ description: String) -> LeoJSONValue { property("boolean", description) }
+
+    private static func stringArray(_ description: String, maxItems: Int) -> LeoJSONValue {
+        .object([
+            "type": .string("array"), "items": .object(["type": .string("string")]), "minItems": .int(1), "maxItems": .int(maxItems),
+            "description": .string(description),
+        ])
+    }
 
     private static func property(_ type: String, _ description: String) -> LeoJSONValue {
         .object(["type": .string(type), "description": .string(description)])

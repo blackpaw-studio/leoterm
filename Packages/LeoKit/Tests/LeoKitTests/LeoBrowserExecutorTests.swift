@@ -17,12 +17,14 @@ struct LeoBrowserExecutorTests {
         var page: FakePage { tabs.pages[tabs.activeID!]! }
     }
 
-    private func harness(pageCount: Int = 1) -> Harness {
+    private func harness(pageCount: Int = 1, uploads: LeoBrowserUploadReader = .noWorkspace, control: LeoBrowserControlModel? = nil) -> Harness {
+        let control = control ?? LeoBrowserControlModel()
         let tabs = FakeTabs(pageCount: pageCount)
-        let control = LeoBrowserControlModel()
         let mapping = FakeMapping()
         let sleeps = SleepLog()
-        let executor = LeoBrowserExecutor(tabs: tabs, urlMapping: mapping, control: control, sleep: { sleeps.durations.append($0) })
+        let executor = LeoBrowserExecutor(
+            tabs: tabs, urlMapping: mapping, control: control, uploads: uploads, sleep: { sleeps.durations.append($0) }
+        )
         return Harness(executor: executor, tabs: tabs, control: control, mapping: mapping, sleeps: sleeps)
     }
 
@@ -286,6 +288,7 @@ struct LeoBrowserExecutorTests {
             ("browser_type", ["ref": .string("e1"), "text": .string("x")]), ("browser_press", ["key": .string("Enter")]),
             ("browser_eval", ["js": .string("1")]), ("browser_tab_new", [:]), ("browser_tab_select", ["tab": .int(1)]),
             ("browser_tab_close", ["tab": .int(1)]), ("browser_user_agent", ["user_agent": .string("x")]),
+            ("browser_upload", ["ref": .string("e1"), "paths": .array([.string("a.txt")])]),
         ]
         for (tool, args) in calls {
             let outcome = await run(h, tool, args)
@@ -362,6 +365,110 @@ struct LeoBrowserExecutorTests {
         h.control.send(.userInput)
         guard case .failure(let error) = await run(h, "browser_click", ["ref": .string("e1")]) else { Issue.record("expected failure"); return }
         #expect(error.message.contains("browser_handoff"))
+    }
+
+    // MARK: - Uploads
+
+    private func upload(_ harness: Harness, ref: String = "e3", _ paths: [String]) async -> LeoClientToolOutcome {
+        await run(harness, "browser_upload", ["ref": .string(ref), "paths": .array(paths.map(LeoJSONValue.string))])
+    }
+
+    @Test func uploadSetsFilesOnTheReferencedInput() async throws {
+        let workspace = try LeoUploadSandbox()
+        defer { workspace.remove() }
+        try workspace.file("docs/a.pdf", "%PDF")
+        try workspace.file("b.png", "PNG!")
+        let h = harness(uploads: workspace.reader())
+        h.page.fileInputResult = LeoBrowserFileInput(allowsMultiple: true)
+
+        let outcome = await upload(h, ["docs/a.pdf", workspace.root + "/b.png"])
+
+        #expect(h.page.calls == ["fileInput e3", "setFiles e3 a.pdf,b.png"])
+        #expect(h.page.uploaded.map(\.mimeType) == ["application/pdf", "image/png"])
+        #expect(h.page.uploaded.map(\.data) == [Data("%PDF".utf8), Data("PNG!".utf8)])
+        let files = try #require(json(outcome)["files"] as? [[String: Any]])
+        #expect(files.map { $0["name"] as? String } == ["a.pdf", "b.png"])
+        #expect(files.map { $0["size"] as? Int } == [4, 4])
+        #expect(files.map { $0["workspace_path"] as? String } == ["docs/a.pdf", "b.png"])
+    }
+
+    @Test func uploadFailsWithUserHasControlWhileUserDrives() async throws {
+        let workspace = try LeoUploadSandbox()
+        defer { workspace.remove() }
+        try workspace.file("a.txt", "a")
+        let opened = LeoAccessCounter()
+        let h = harness(uploads: workspace.reader(counting: opened))
+        h.control.send(.userInput)
+
+        #expect(errorCode(await upload(h, ["a.txt"])) == "user_has_control")
+        #expect(h.page.calls.isEmpty)
+        #expect(opened.count == 0)
+    }
+
+    /// The read can take a while over SFTP; a user who takes the browser
+    /// meanwhile keeps it, and the input is left alone.
+    @Test func aUserTakingControlWhileFilesAreReadSetsNothing() async throws {
+        let workspace = try LeoUploadSandbox()
+        defer { workspace.remove() }
+        try workspace.file("a.txt", "a")
+        let control = LeoBrowserControlModel()
+        let reader = LeoBrowserUploadReader(
+            makeAccess: {
+                await MainActor.run { control.send(.userInput) }
+                return LeoFileAccessor.local()
+            },
+            workspace: { workspace.root }
+        )
+        let h = harness(uploads: reader, control: control)
+
+        #expect(errorCode(await upload(h, ["a.txt"])) == "user_has_control")
+        #expect(h.page.calls == ["fileInput e3"])
+    }
+
+    @Test func severalFilesOnASingleInputIsInvalidArgsBeforeReading() async throws {
+        let workspace = try LeoUploadSandbox()
+        defer { workspace.remove() }
+        let opened = LeoAccessCounter()
+        let h = harness(uploads: workspace.reader(counting: opened))
+        h.page.fileInputResult = LeoBrowserFileInput(allowsMultiple: false)
+
+        let outcome = await upload(h, ["a.txt", "b.txt"])
+
+        guard case .failure(let error) = outcome else { Issue.record("expected failure"); return }
+        #expect(error.code == "invalid_args")
+        #expect(error.message.contains("one file"))
+        #expect(h.page.calls == ["fileInput e3"])
+        #expect(opened.count == 0)
+    }
+
+    @Test func missingPathIsNoSuchFile() async throws {
+        let workspace = try LeoUploadSandbox()
+        defer { workspace.remove() }
+        let h = harness(uploads: workspace.reader())
+
+        guard case .failure(let error) = await upload(h, ["reports/q3.pdf"]) else { Issue.record("expected failure"); return }
+
+        #expect(error.code == "no_such_file")
+        #expect(error.message == "No file at reports/q3.pdf in the workspace")
+        #expect(h.page.calls == ["fileInput e3"], "nothing set on the input")
+    }
+
+    @Test func aBrowserWithNoWorkspaceSaysSo() async {
+        let h = harness()
+        guard case .failure(let error) = await upload(h, ["a.txt"]) else { Issue.record("expected failure"); return }
+        #expect(error.code == "no_such_file")
+        #expect(error.message.contains("no workspace"))
+    }
+
+    @Test func aStaleRefFailsBeforeReading() async throws {
+        let workspace = try LeoUploadSandbox()
+        defer { workspace.remove() }
+        let opened = LeoAccessCounter()
+        let h = harness(uploads: workspace.reader(counting: opened))
+        h.page.error = LeoBrowserError.staleRef("e3")
+
+        #expect(errorCode(await upload(h, ["a.txt"])) == "stale_ref")
+        #expect(opened.count == 0)
     }
 
     // MARK: - Handoff
@@ -580,6 +687,19 @@ private final class FakePage: LeoBrowserPage {
     }
 
     func click(ref: String) async throws { try record("click \(ref)") }
+
+    var fileInputResult = LeoBrowserFileInput(allowsMultiple: false)
+    var uploaded: [LeoBrowserUploadFile] = []
+
+    func fileInput(ref: String) async throws -> LeoBrowserFileInput {
+        try record("fileInput \(ref)")
+        return fileInputResult
+    }
+
+    func setFiles(ref: String, files: [LeoBrowserUploadFile]) async throws {
+        try record("setFiles \(ref) \(files.map(\.name).joined(separator: ","))")
+        uploaded = files
+    }
     func type(ref: String, text: String, submit: Bool) async throws { try record("type \(ref) \(text) submit=\(submit)") }
 
     func press(_ combo: LeoBrowserKeyCombo) async throws {

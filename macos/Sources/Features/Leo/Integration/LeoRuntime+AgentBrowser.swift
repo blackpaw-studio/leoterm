@@ -9,7 +9,8 @@ import LeoKit
 /// registering there would hand it real agents' browser calls.
 extension LeoRuntime {
     /// `workspace` is the agent's workspace path as its daemon reports it
-    /// (nil for a dispatch, which has none): where its downloads land.
+    /// (nil for a dispatch, which has none): where its downloads land and
+    /// its uploads come from.
     static func makeAgentBrowsers(
         machines: LeoMachineRegistry, defaults: UserDefaults, poster: any LeoNotificationPosting,
         notificationsEnabled: @escaping () -> Bool, displayName: @escaping (LeoAgentRow.ID) -> String? = { _ in nil },
@@ -31,18 +32,21 @@ extension LeoRuntime {
     }
 
     /// Nil before macOS 14, or when `NSApp` is not the Leo application.
-    /// Sweeps what an earlier run left in the download staging folder.
+    /// Sweeps what an earlier run left in the download and upload staging folders.
     private static func makeWebKitBrowser(
         machines: LeoMachineRegistry, forwards: LeoMachinePortForwards, workspace: @escaping @MainActor (LeoAgentBrowserKey) -> String?
     ) -> LeoAgentBrowsers.MakeBrowser? {
         guard #available(macOS 14, *), let application = NSApp as? LeoApplication else { return nil }
         LeoWKBrowserDownloads.sweep()
+        LeoBrowserWorkspaceFilePicker.sweep()
         let factory = LeoAgentBrowserFactory(
             machineID: { [weak machines] host in browserMachineID(host, configuration: machines?.configuration(for: host)) },
             urlMapping: { key in forwards.mapping(for: key) },
             input: LeoSyntheticInput(application: application),
             viewHost: LeoAgentBrowserHost(),
-            makeDownloads: { key in browserDownloads(for: key, machines: machines, workspace: workspace) }
+            makeDownloads: { key in browserDownloads(for: key, machines: machines, workspace: workspace) },
+            makeUploads: { key in browserUploads(for: key, machines: machines, workspace: workspace) },
+            makeFilePicker: { key in browserFilePicker(for: key, machines: machines, workspace: workspace) }
         )
         return { factory.make($0) }
     }
@@ -60,6 +64,37 @@ extension LeoRuntime {
             }
         })
         return LeoBrowserDownloads(saver: saver, workspace: { workspace(key) })
+    }
+
+    /// `browser_upload`'s files, read through `key`'s machine's file access
+    /// (local or SFTP over its tunnel) from the agent's workspace as it is
+    /// when each call runs.
+    static func browserUploads(
+        for key: LeoAgentBrowserKey, machines: LeoMachineRegistry, workspace: @escaping @MainActor (LeoAgentBrowserKey) -> String?
+    ) -> LeoBrowserUploadReader {
+        LeoBrowserUploadReader(
+            makeAccess: { [weak machines] in
+                try await MainActor.run {
+                    guard let machines else { throw LeoFileAccessError.disconnected }
+                    return try machines.makeFileAccess(for: key.host)
+                }
+            },
+            workspace: { workspace(key) }
+        )
+    }
+
+    /// A page's file chooser rooted at the agent's workspace on its machine,
+    /// with the Mac's open panel as the second choice.
+    static func browserFilePicker(
+        for key: LeoAgentBrowserKey, machines: LeoMachineRegistry, workspace: @escaping @MainActor (LeoAgentBrowserKey) -> String?
+    ) -> any LeoBrowserFilePicking {
+        LeoBrowserWorkspaceFilePicker(
+            host: key.host, agent: key.agent, workspace: { workspace(key) },
+            makeAccess: { [weak machines] host in
+                guard let machines else { throw LeoFileAccessError.disconnected }
+                return try machines.makeFileAccess(for: host)
+            }
+        )
     }
 
     /// The machine part of an agent's data store name: stable across
