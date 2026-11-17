@@ -127,6 +127,12 @@ import LeoKit
         content.spacing = 10
         content.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 16, right: 20)
         content.setHuggingPriority(.defaultLow, for: .vertical)
+        // Text rows span the panel, so they start at its leading margin
+        // instead of hugging their text at the trailing edge.
+        let insets = content.edgeInsets.left + content.edgeInsets.right
+        for row in [headerStack, errorLabel] as [NSView] {
+            row.widthAnchor.constraint(equalTo: content.widthAnchor, constant: -insets).isActive = true
+        }
         return content
     }
 
