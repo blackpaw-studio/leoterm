@@ -3181,3 +3181,21 @@ Type: bug
 Report: Open browser pane collapses within ~15 s when the agent is stopped — the pane vanishes under the user.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
+
+## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready (next run)]
+Type: bug
+Report: Hosted iOS test host crashes when launch `reconcile` calls the unimplemented `PushCleanupClient.load` test value during a test (1 of 4 runs; on main, not B-305) — flaky iOS test runs
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-305)
+
+## B-423 · iOS address bar keeps the previous URL after a rejected localhost navigation   [idea]
+Note: keeps the field consistent with the page the user is looking at (P2)
+Source: autopilot polish (B-305)
+
+## B-424 · Device check: keyboard raised when the agent focuses a field hides the iOS pill   [idea]
+Note: typing handoff clarity (P2); verified only in the simulator
+Source: autopilot polish (B-305)
+
+## B-425 · Daemon localhost proxy so iPhone pages can reach an agent machine's localhost   [idea]
+Note: P3 local = remote; B-305 ships a plain localhost_unreachable explanation instead
+Source: autopilot polish (B-305)
