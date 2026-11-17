@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import PDFKit
 import Testing
 import WebKit
 
@@ -315,6 +316,27 @@ struct LeoWKBrowserPageTests {
         #expect(CGImageSourceGetType(source) as String? == "public.png")
         #expect(image.width <= 1_600)
         #expect(Double(image.height) / Double(image.width) > 600.0 / 2_000.0 * 4)
+    }
+
+    /// Like Safari's Export as PDF: one page as tall as the document, not
+    /// the viewport and not paginated for printing.
+    @available(macOS 14, *)
+    @Test func pdfIsOnePageCoveringWholeScrollHeight() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        fixture.window.setContentSize(CGSize(width: 800, height: 600))
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("tall"))
+        let scrollHeight = try #require(Double(try await page.eval("document.documentElement.scrollHeight")))
+        let scrollWidth = try #require(Double(try await page.eval("document.documentElement.scrollWidth")))
+
+        let data = try await page.pdf()
+
+        let document = try #require(PDFDocument(data: data))
+        #expect(document.pageCount == 1)
+        let bounds = try #require(document.page(at: 0)).bounds(for: .mediaBox)
+        #expect(bounds.height >= scrollHeight, "page \(bounds) for a \(scrollHeight) pt tall document")
+        #expect(bounds.width >= scrollWidth, "page \(bounds) for a \(scrollWidth) pt wide document")
     }
 
     @available(macOS 14, *)

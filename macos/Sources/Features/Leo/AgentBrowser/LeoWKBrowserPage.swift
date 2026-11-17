@@ -231,6 +231,16 @@ import WebKit
         return try Self.png(image, maxWidth: Self.maxScreenshotWidth)
     }
 
+    /// The whole document as one continuous PDF page, as Safari's Export
+    /// as PDF makes it: not the viewport, and not paginated for printing.
+    func pdf() async throws -> Data {
+        do {
+            return try await webView.pdf(configuration: WKPDFConfiguration())
+        } catch {
+            throw LeoBrowserError.javaScript("The PDF couldn’t be made: \(error.localizedDescription)")
+        }
+    }
+
     /// With `text`, waits until the page's text contains it, for up to
     /// `ms` (default 25 s); without, just waits `ms`.
     func wait(for text: String?, ms: Int?) async throws {

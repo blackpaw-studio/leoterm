@@ -35,6 +35,9 @@ struct LeoWKBrowserPageProtocolTests {
         var downloads: [LeoBrowserDownload] { [] }
         func page(forTab id: Int?) -> (any LeoBrowserPage)? { id == nil || id == 1 ? page : nil }
         func openTab(url: URL, userAgent: String?) async throws -> Int { 1 }
+        func saveCapture(_ data: Data, kind: LeoBrowserCaptureKind, path: String?, defaultName: String) async throws -> LeoBrowserSavedDownload {
+            throw LeoBrowserError(.saveFailed, "OneTab saves nothing.")
+        }
         func selectTab(_ id: Int) {}
         func closeTab(_ id: Int) {}
     }
