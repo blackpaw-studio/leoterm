@@ -12,6 +12,8 @@ public struct LeoBrowserError: Error, Equatable, Sendable {
         case jsError = "js_error"
         case invalidArgs = "invalid_args"
         case noSuchTab = "no_such_tab"
+        /// A capture couldn't be written into the workspace.
+        case saveFailed = "save_failed"
     }
 
     public let code: Code

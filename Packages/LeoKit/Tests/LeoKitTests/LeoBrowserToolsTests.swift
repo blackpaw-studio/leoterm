@@ -102,7 +102,7 @@ struct LeoBrowserToolsTests {
         #expect(error.clientToolError == LeoClientToolError(code: "user_has_control", message: error.message))
         #expect(error.message.contains("browser_handoff"))
         #expect(LeoBrowserError.Code.allCases.map(\.rawValue).sorted() == [
-            "invalid_args", "js_error", "navigation_failed", "no_such_tab", "scheme_not_allowed", "stale_ref",
+            "invalid_args", "js_error", "navigation_failed", "no_such_tab", "save_failed", "scheme_not_allowed", "stale_ref",
             "tab_limit", "timeout", "user_has_control",
         ])
     }
