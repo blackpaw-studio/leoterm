@@ -334,14 +334,17 @@ struct LeoBrowserExecutorTests {
         #expect(h.page.calls.isEmpty)
     }
 
-    @Test func browserDownloadsIsCappedAtFifty() async throws {
+    /// The log caps its history (ended downloads only); the tool lists all
+    /// it keeps, so a download in progress is never hidden.
+    @Test func browserDownloadsListsEveryKeptDownload() async throws {
         let h = harness()
         h.tabs.downloads = (1...60).reversed().map { LeoBrowserDownload(id: $0, name: "f\($0)", sourceURL: nil, state: .saving) }
 
         let list = try #require(jsonList(await run(h, "browser_downloads")))
 
-        #expect(list.count == 50)
+        #expect(list.count == 60)
         #expect(list.first?["id"] as? Int == 60)
+        #expect(list.last?["id"] as? Int == 1)
     }
 
     @Test func browserDownloadsWorksWhileUserHasControl() async {

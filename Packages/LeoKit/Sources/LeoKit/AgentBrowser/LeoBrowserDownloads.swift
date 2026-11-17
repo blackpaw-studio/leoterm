@@ -240,7 +240,8 @@ public actor LeoBrowserDownloadSaver {
 /// browser reports each step, and finished downloads are saved into the
 /// agent's workspace here. Not persisted.
 @MainActor public final class LeoBrowserDownloads {
-    /// The most entries kept; older ones drop off.
+    /// The most ended downloads kept; the oldest drop off when a new one
+    /// starts. A download still fetching or saving is never dropped.
     public static let historyLimit = 50
 
     public private(set) var entries: [LeoBrowserDownload] = []
@@ -271,7 +272,7 @@ public actor LeoBrowserDownloadSaver {
             id: id, name: LeoBrowserDownloadName.sanitized(suggestedName), sourceURL: sourceURL,
             state: .downloading(receivedBytes: 0, expectedBytes: nil)
         )
-        entries = Array(([entry] + entries).prefix(Self.historyLimit))
+        entries = Self.trimmed([entry] + entries)
         changed()
         return id
     }
@@ -319,6 +320,20 @@ public actor LeoBrowserDownloadSaver {
     private static func sentence(_ text: String) -> String {
         guard let last = text.last else { return "unknown error." }
         return ".!?…".contains(last) ? text : text + "."
+    }
+
+    /// Every active download, then the newest ended ones up to the limit.
+    private static func trimmed(_ entries: [LeoBrowserDownload]) -> [LeoBrowserDownload] {
+        let room = max(historyLimit - entries.filter(isActive).count, 0)
+        let keptEnded = Set(entries.filter { !isActive($0) }.prefix(room).map(\.id))
+        return entries.filter { isActive($0) || keptEnded.contains($0.id) }
+    }
+
+    private static func isActive(_ download: LeoBrowserDownload) -> Bool {
+        switch download.state {
+        case .downloading, .saving: true
+        case .finished, .failed: false
+        }
     }
 
     private func update(_ id: Int, _ state: LeoBrowserDownload.State) {

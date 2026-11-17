@@ -187,13 +187,40 @@ struct LeoBrowserDownloadsTests {
         #expect(log.entries.first?.state == .failed("The download failed: gone. Nothing was saved."))
     }
 
+    /// The history cap drops ended downloads only: a slow one outlives any
+    /// number of newer ones and is still saved and listed when it finishes.
+    @MainActor @Test func aSlowDownloadIsNeverDroppedByNewerOnes() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { sandbox.root })
+        let slow = log.begin(suggestedName: "slow.txt", sourceURL: nil)
+        for index in 0..<LeoBrowserDownloads.historyLimit {
+            log.fail(log.begin(suggestedName: "f\(index)", sourceURL: nil), reason: "gone")
+        }
+        let file = try sandbox.file("tmp-slow", "slow")
+
+        await log.complete(slow, file: URL(fileURLWithPath: file))
+
+        #expect(try sandbox.contents("downloads/slow.txt") == "slow")
+        guard case .finished(let saved)? = log.entries.first(where: { $0.id == slow })?.state else {
+            Issue.record("the slow download is not listed as finished: \(log.entries.map(\.id))")
+            return
+        }
+        #expect(saved.workspacePath == "downloads/slow.txt")
+        #expect(!FileManager.default.fileExists(atPath: file))
+    }
+
     @MainActor @Test func theLogKeepsTheNewestEntriesOnly() {
         let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { RecordingAccess() }), workspace: { "/ws" })
-        let ids = (0..<(LeoBrowserDownloads.historyLimit + 5)).map { log.begin(suggestedName: "f\($0)", sourceURL: nil) }
+        let ids = (0..<(LeoBrowserDownloads.historyLimit + 5)).map { index in
+            let id = log.begin(suggestedName: "f\(index)", sourceURL: nil)
+            log.fail(id, reason: "gone")
+            return id
+        }
 
         #expect(log.entries.count == LeoBrowserDownloads.historyLimit)
         #expect(log.entries.first?.id == ids.last)
-        log.fail(ids[0], reason: "gone")
+        log.progress(ids[0], receivedBytes: 1, expectedBytes: 2)
         #expect(log.entries.count == LeoBrowserDownloads.historyLimit, "an update to a dropped entry is ignored")
     }
 }

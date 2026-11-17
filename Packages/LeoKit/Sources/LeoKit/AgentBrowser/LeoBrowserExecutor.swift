@@ -57,7 +57,7 @@ public final class LeoBrowserExecutor {
         case .tabs:
             return [json(.array(tabs.tabs.map(tabEntry)))]
         case .downloads:
-            return [json(.array(tabs.downloads.prefix(LeoBrowserDownloads.historyLimit).map(downloadEntry)))]
+            return [json(.array(tabs.downloads.map(downloadEntry)))]
         case .tabNew(let url, let userAgent):
             return try await openTab(url: url, userAgent: userAgent)
         case .tabSelect(let tab):
