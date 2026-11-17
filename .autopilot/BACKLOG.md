@@ -3120,3 +3120,15 @@ Source: autopilot polish (B-413)
 ## B-415 · Retake B-413 indicator shots with scratch-only rows   [idea]
 Note: B-413's top/bottom shots show real agents' names (badges zeroed; fixture can't hide rows); acceptance asked for scratch-only.
 Source: autopilot polish (B-413)
+
+## B-416 · Download failure strip wraps to two lines   [idea]
+Note: B-404's failure strip wraps, so its height differs from the success strip — P2 visual consistency.
+Source: autopilot polish (B-404)
+
+## B-417 · Download ending while the browser pane is closed shows nothing   [idea]
+Note: A download that finishes or fails with the pane closed shows no strip; only `browser_downloads` has it — P2 failures shown plainly.
+Source: autopilot polish (B-404)
+
+## B-418 · Browser pane stays blank after a navigation becomes a download   [idea]
+Note: Reads as nothing happening — P2.
+Source: autopilot polish (B-404)

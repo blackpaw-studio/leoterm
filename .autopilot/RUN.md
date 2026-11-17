@@ -2,9 +2,12 @@ Status: running
 Started: 2026-11-17T00:10:08Z
 Budget: 20 items, until 2026-11-17T12:10:08Z
 Digested-through: 0
-Filed: 0/3 bugs, 2/5 ideas
+Filed: 0/3 bugs, 5/5 ideas
 Self-filed: B-413 → B-414 idea — Sidebar needs-you pill overlaps the edge row's text
 Self-filed: B-413 → B-415 idea — Retake B-413 indicator shots with scratch-only rows
+Self-filed: B-404 → B-416 idea — Download failure strip wraps to two lines
+Self-filed: B-404 → B-417 idea — Download ending while the browser pane is closed shows nothing
+Self-filed: B-404 → B-418 idea — Browser pane stays blank after a navigation becomes a download
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -44,11 +47,21 @@ Lane: B-404
   Dispatched: 2026-11-17T00:13:40Z
   Base: 1a9361eecbb9960c562f109facd6bdebbe74108e
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 0b5e9bc034ad07b8aa371a78b7bb3ea09f527ee4
+  Call: Saved name is the suggested name with `/`, `\` and control characters turned into `_`, leading dots stripped, capped at 200 bytes with the extension kept, `download` as fallback — P3
+  Call: Name clash gets "name 2.ext", "name 3.ext", up to 100, then a plain failure; never overwrites — P2
+  Call: Fetch to a private local temp folder, then publish atomically into `<workspace>/downloads/` through the file backend; a failure or lost connection leaves nothing behind — P3
+  Call: `browser_downloads` is a new read-only tool listing kept downloads (absolute path and `workspace_path`, newest first, 50 ended entries kept); works while the user drives — D-759/D-762/D-764
+  Call: A navigation that becomes a download returns navigate's normal ok — D-759
+  Call: Pane strip: "Saved “x” to downloads/" hides after 5 s; failures say "Nothing was saved." and stay until dismissed; one VoiceOver announcement per outcome; close button at the trailing edge — P2
+  Call: Closing a tab cancels its downloads; triggers are attachment responses, types WebKit can't show, `<a download>` to non-file URLs, and attachments inside frames — P4
+  Call: Download tests use a loopback HTTP server, because WebKit custom-scheme handlers never produce downloads — test infrastructure
+  Call: `removeStaging` added to the `LeoFileAccess` protocol, and `numbered` moved into LeoKit `LeoFileName` — implementation approach
+  Call: Logic and tool in LeoKit (both platforms); WKDownload glue and strip Mac only; iOS comes with B-305 — parity rule
 
 Lane: B-407
   Branch: autopilot-lane/B-407
@@ -71,3 +84,4 @@ Progress:
 - B-413 landed dd5910e72. D-822..D-831.
 - Pick: B-407 full (find bar feature). B-407 built before B-405, B-406 (independent; those share B-404's workspace file-backend footprint).
 - Dispatched B-407 d-97db0ebeb9a4.
+- B-404 ready (fix 1, hard implementer, security review clean).
