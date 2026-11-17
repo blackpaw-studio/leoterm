@@ -369,7 +369,7 @@ final class LeoSFTPRenameLossRelay: LeoSFTPLaunching, @unchecked Sendable {
         shutdown(relay, SHUT_RDWR)
     }
 
-    private static func spawn(_ group: DispatchGroup, _ body: @escaping @Sendable () -> Void) {
+    static func spawn(_ group: DispatchGroup, _ body: @escaping @Sendable () -> Void) {
         group.enter()
         Thread {
             body()
@@ -378,18 +378,18 @@ final class LeoSFTPRenameLossRelay: LeoSFTPLaunching, @unchecked Sendable {
     }
 
     /// One whole frame (length prefix included), or nil at EOF.
-    private static func readFrame(_ descriptor: Int32) -> [UInt8]? {
+    static func readFrame(_ descriptor: Int32) -> [UInt8]? {
         guard let header = readExactly(4, from: descriptor) else { return nil }
         let length = header.reduce(0) { $0 << 8 | Int($1) }
         guard length > 0, let body = readExactly(length, from: descriptor) else { return nil }
         return header + body
     }
 
-    private static func requestID(_ frame: [UInt8]) -> UInt32 {
+    static func requestID(_ frame: [UInt8]) -> UInt32 {
         frame[5..<9].reduce(0) { $0 << 8 | UInt32($1) }
     }
 
-    private static func readExactly(_ count: Int, from descriptor: Int32) -> [UInt8]? {
+    static func readExactly(_ count: Int, from descriptor: Int32) -> [UInt8]? {
         var bytes = [UInt8](repeating: 0, count: count)
         var offset = 0
         while offset < count {
@@ -401,7 +401,7 @@ final class LeoSFTPRenameLossRelay: LeoSFTPLaunching, @unchecked Sendable {
         return bytes
     }
 
-    private static func writeAll(_ bytes: [UInt8], to descriptor: Int32) -> Bool {
+    static func writeAll(_ bytes: [UInt8], to descriptor: Int32) -> Bool {
         var offset = 0
         while offset < bytes.count {
             let written = bytes.withUnsafeBytes { Darwin.write(descriptor, $0.baseAddress! + offset, bytes.count - offset) }
@@ -412,3 +412,67 @@ final class LeoSFTPRenameLossRelay: LeoSFTPLaunching, @unchecked Sendable {
         return true
     }
 }
+
+/// The real `/usr/libexec/sftp-server` behind a relay that cuts the client
+/// off, as a dropped ControlMaster would, when the request after
+/// `writesBeforeCut` WRITEs (type 6) arrives: the server has opened the
+/// staging file and written part of it. Frame-driven, so no timing is involved.
+final class LeoSFTPWriteLossRelay: LeoSFTPLaunching, @unchecked Sendable {
+    private static let writeType: UInt8 = 6
+
+    private let writesBeforeCut: Int
+    private let base = LeoSFTPTestServer.launcher()
+    private let lock = NSLock()
+    private var writeCount = 0
+    private var didCut = false
+
+    init(writesBeforeCut: Int) {
+        self.writesBeforeCut = writesBeforeCut
+    }
+
+    var cut: Bool { lock.withLock { didCut } }
+
+    func launch() throws -> LeoSFTPChannel {
+        let server = try base.launch()
+        var ends: [Int32] = [0, 0]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &ends) == 0 else {
+            server.terminate()
+            throw LeoFileAccessError.unavailable(reason: "socketpair failed")
+        }
+        let (client, relay) = (ends[0], ends[1])
+        _ = fcntl(relay, F_SETNOSIGPIPE, 1)
+        let group = DispatchGroup()
+        LeoSFTPRenameLossRelay.spawn(group) { [self] in relayRequests(from: relay, to: server.toServer.fileDescriptor) }
+        LeoSFTPRenameLossRelay.spawn(group) {
+            while let frame = LeoSFTPRenameLossRelay.readFrame(server.fromServer.fileDescriptor) {
+                guard LeoSFTPRenameLossRelay.writeAll(frame, to: relay) else { break }
+            }
+            shutdown(relay, SHUT_RDWR)
+        }
+        group.notify(queue: .global()) { Darwin.close(relay) }
+        return LeoSFTPChannel(
+            fromServer: FileHandle(fileDescriptor: client, closeOnDealloc: true),
+            toServer: FileHandle(fileDescriptor: dup(client), closeOnDealloc: true),
+            stop: {
+                shutdown(relay, SHUT_RDWR)
+                server.terminate()
+            }
+        )
+    }
+
+    private func relayRequests(from relay: Int32, to server: Int32) {
+        while let frame = LeoSFTPRenameLossRelay.readFrame(relay) {
+            let shouldCut = lock.withLock {
+                if writeCount >= writesBeforeCut { didCut = true }
+                if frame[4] == Self.writeType { writeCount += 1 }
+                return didCut
+            }
+            if shouldCut {
+                shutdown(relay, SHUT_RDWR)
+                return
+            }
+            guard LeoSFTPRenameLossRelay.writeAll(frame, to: server) else { return }
+        }
+    }
+}
+
