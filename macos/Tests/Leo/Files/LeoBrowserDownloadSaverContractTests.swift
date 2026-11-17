@@ -44,6 +44,37 @@ struct LeoBrowserDownloadSaverContractTests {
         #expect(try sandbox.names(in: "downloads") == ["x 2.pdf", "x 3.pdf", "x.pdf"])
     }
 
+    /// A page capture (B-406) at a nested path: each missing folder level is
+    /// made and the file lands whole, the same locally and over SFTP.
+    @MainActor @Test(arguments: kinds)
+    func savesCaptureIntoNestedFolder(_ kind: LeoFileBackendKind) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        let payload = leoPatternData(count: 2 * kind.writeChunkSize + 5)
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { kind.makeAccess() }), workspace: { sandbox.root })
+
+        let saved = try await log.saveCapture(payload, kind: .pdf, path: "reports/q3/", defaultName: "Docs.pdf")
+
+        #expect(saved.path == sandbox.path("reports/q3/Docs.pdf"))
+        #expect(saved.workspacePath == "reports/q3/Docs.pdf")
+        #expect(try Data(contentsOf: URL(fileURLWithPath: saved.path)) == payload)
+        #expect(try sandbox.names(in: "reports/q3") == ["Docs.pdf"])
+    }
+
+    @MainActor @Test(arguments: kinds)
+    func captureClashNeverOverwrites(_ kind: LeoFileBackendKind) async throws {
+        let sandbox = try LeoFileSandbox()
+        defer { sandbox.cleanUp() }
+        try sandbox.file("page.png", "old")
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { kind.makeAccess() }), workspace: { sandbox.root })
+
+        let saved = try await log.saveCapture(Data("new".utf8), kind: .png, path: sandbox.path("page.png"), defaultName: "x.png")
+
+        #expect(saved.workspacePath == "page 2.png")
+        #expect(try sandbox.contents("page.png") == "old")
+        #expect(try sandbox.contents("page 2.png") == "new")
+    }
+
     /// The connection dies mid-write: the save fails as a lost connection,
     /// nothing is at the target, and the next save -- on a fresh connection
     /// -- removes the leftover staging, so `downloads/` holds only the new file.

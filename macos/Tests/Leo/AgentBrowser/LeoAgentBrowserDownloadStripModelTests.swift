@@ -140,5 +140,69 @@ struct LeoAgentBrowserDownloadStripModelTests {
         await drainMainQueue()
         #expect(pane.downloadStrip.isHidden)
     }
-}
 
+    // MARK: - File-menu saves (B-406)
+
+    @Test func aMenuSaveShowsSavingThenSavedAndGoesAfterItsTime() {
+        let model = model()
+        var said: [String] = []
+        model.onAnnouncement = { said.append($0) }
+
+        let id = model.beginCapture(name: "Docs.pdf")
+        #expect(model.downloadStrip == .init(id: id, kind: .saving, text: "Saving “Docs.pdf”…", progress: nil))
+
+        let saved = LeoBrowserSavedDownload(path: "/ws/reports/Docs 2.pdf", workspacePath: "reports/Docs 2.pdf", size: 3)
+        model.finishCapture(id, name: "Docs.pdf", outcome: .success(saved))
+        #expect(model.downloadStrip == .init(id: id, kind: .finished, text: "Saved “Docs 2.pdf” to reports/", progress: nil))
+        #expect(said == ["Saved “Docs 2.pdf” to reports/"])
+        #expect(schedule.delays == [LeoAgentBrowserPaneModel.finishedDownloadDuration])
+
+        schedule.runAll()
+        #expect(model.downloadStrip == nil)
+    }
+
+    @Test func aSaveIntoTheWorkspaceItselfSaysSo() {
+        let model = model()
+        let id = model.beginCapture(name: "a.pdf")
+        model.finishCapture(id, name: "a.pdf", outcome: .success(LeoBrowserSavedDownload(path: "/ws/a.pdf", workspacePath: "a.pdf", size: 1)))
+        #expect(model.downloadStrip?.text == "Saved “a.pdf” to the workspace")
+    }
+
+    @Test func aFailedSaveStaysUntilDismissed() {
+        let model = model()
+        let id = model.beginCapture(name: "a.pdf")
+        model.finishCapture(id, name: "a.pdf", outcome: .failure(LeoBrowserError(.jsError, "The PDF couldn’t be made: gone.")))
+
+        #expect(model.downloadStrip?.kind == .failed)
+        #expect(model.downloadStrip?.text == "Couldn’t save “a.pdf”. The PDF couldn’t be made: gone. Nothing was saved.")
+        schedule.runAll()
+        #expect(model.downloadStrip?.kind == .failed)
+        model.dismissDownload()
+        #expect(model.downloadStrip == nil)
+    }
+
+    @Test func aDismissedSavingLineStillReportsItsOutcome() {
+        let model = model()
+        let id = model.beginCapture(name: "a.pdf")
+        model.dismissDownload()
+        #expect(model.downloadStrip == nil)
+
+        model.finishCapture(id, name: "a.pdf", outcome: .failure(LeoBrowserError(.saveFailed, "The connection to the machine was lost. Nothing was saved.")))
+        #expect(model.downloadStrip?.text == "Couldn’t save “a.pdf”. The connection to the machine was lost. Nothing was saved.")
+    }
+
+    @Test func aNewerDownloadTakesTheStripFromASave() async throws {
+        let (log, workspace) = try savingLog()
+        defer { workspace.cleanUp() }
+        source.downloads = log
+        let model = model()
+        let older = log.begin(suggestedName: "old.bin", sourceURL: nil)
+
+        let id = model.beginCapture(name: "a.pdf")
+        log.progress(older, receivedBytes: 1, expectedBytes: 2)
+        #expect(model.downloadStrip?.id == id, "an older download's progress doesn't take the line")
+
+        log.begin(suggestedName: "new.bin", sourceURL: nil)
+        #expect(model.downloadStrip?.text == "Downloading “new.bin”…")
+    }
+}

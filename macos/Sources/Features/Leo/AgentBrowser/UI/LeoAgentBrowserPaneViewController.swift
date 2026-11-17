@@ -26,6 +26,10 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private let headerTopInset: LeoToolbarInset?
     private var subscription: AnyCancellable?
     private var insetSubscription: AnyCancellable?
+    /// The File-menu save sheet while it is up (B-406).
+    var saveSheet: LeoBrowserSaveSheet?
+    /// The latest File-menu save, while it runs.
+    var pendingSave: Task<Void, Never>?
 
     /// Binds right away: a collapsed split item's view isn't loaded until it is shown.
     init(source: any LeoAgentBrowserPaneSource, headerTopInset: LeoToolbarInset? = nil, finder: any LeoPageFinding = LeoWKPageFinder()) {
@@ -66,8 +70,9 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         // the latest download.
         let rows: [NSView] = [pageTabBar, toolbar, separator, banner, findBar, pageSlot, downloadSeparator, downloadStrip]
         let stack = LeoAgentBrowserPaneStack(views: rows)
-        stack.onKeyEquivalent = { [weak self] in
-            self?.performFindKeyEquivalent($0) ?? false || self?.performHistoryKeyEquivalent($0) ?? false
+        stack.onKeyEquivalent = { [weak self] event in
+            guard let self else { return false }
+            return performFindKeyEquivalent(event) || performHistoryKeyEquivalent(event) || performSaveKeyEquivalent(event)
         }
         stack.orientation = .vertical
         stack.spacing = 0

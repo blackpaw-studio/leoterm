@@ -258,6 +258,20 @@
                                     <action selector="revealLeoEditorFile:" target="-1" id="Leo-Editor-Reveal-Action"/>
                                 </connections>
                             </menuItem>
+                            <!-- MARK: Leo: agent browser captures into the workspace (B-406) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-Browser-Save-Separator"/>
+                            <menuItem title="Save Page as PDF…" keyEquivalent="S" id="Leo-Browser-SavePDF">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" command="YES"/>
+                                <connections>
+                                    <action selector="savePageAsPDF:" target="-1" id="Leo-Browser-SavePDF-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Save Full-Page Screenshot…" keyEquivalent="S" id="Leo-Browser-SaveScreenshot">
+                                <modifierMask key="keyEquivalentModifierMask" shift="YES" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="saveFullPageScreenshot:" target="-1" id="Leo-Browser-SaveScreenshot-Action"/>
+                                </connections>
+                            </menuItem>
                         </items>
                     </menu>
                 </menuItem>

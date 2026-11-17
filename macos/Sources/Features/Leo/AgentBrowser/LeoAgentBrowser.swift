@@ -238,6 +238,10 @@ import WebKit
         return tab.id
     }
 
+    func saveCapture(_ data: Data, kind: LeoBrowserCaptureKind, path: String?, defaultName: String) async throws -> LeoBrowserSavedDownload {
+        try await downloader.log.saveCapture(data, kind: kind, path: path, defaultName: defaultName)
+    }
+
     func selectTab(_ id: Int) {
         guard activeID != id, list.contains(where: { $0.id == id }) else { return }
         activeID = id

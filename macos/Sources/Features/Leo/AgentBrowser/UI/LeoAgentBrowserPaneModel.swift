@@ -58,7 +58,8 @@ import LeoKit
     @Published private(set) var isLoading = false
     @Published private(set) var canGoBack = false
     @Published private(set) var canGoForward = false
-    /// The latest download the user hasn't dismissed, or nil.
+    /// The latest download, or File-menu save (B-406), the user hasn't
+    /// dismissed, or nil.
     @Published private(set) var downloadStrip: DownloadStrip?
     /// Says each download's outcome once, for VoiceOver.
     var onAnnouncement: (@MainActor (String) -> Void)?
@@ -67,7 +68,19 @@ import LeoKit
     /// Saved files whose line has had its time.
     private var expiredDownloads: Set<Int>
     private var announcedDownloads: Set<Int>
+    /// The latest File-menu save, while its line shows.
+    private var capture: Capture?
+    /// Saves count down from -1, so they never share an id with a download.
+    private var nextCaptureID = -1
     private var stoppers: [() -> Void] = []
+
+    /// A File-menu save's line. It shows until a download newer than the
+    /// save starts, it is dismissed, or (once saved) its time is up.
+    private struct Capture {
+        let strip: DownloadStrip
+        /// The newest download when the save began.
+        let newestDownloadAtStart: Int
+    }
 
     /// Downloads that ended before the pane opened are not announced, and
     /// only their failures show.
@@ -126,11 +139,56 @@ import LeoKit
     }
 
     /// The strip's close button: hides this download's line (the download
-    /// itself carries on).
+    /// itself carries on), or the save's.
     func dismissDownload() {
         guard let id = downloadStrip?.id else { return }
-        dismissedDownloads.insert(id)
+        if id == capture?.strip.id { capture = nil } else { dismissedDownloads.insert(id) }
         refreshDownloads()
+    }
+
+    // MARK: - File-menu saves (B-406)
+
+    /// A File-menu save started; its line says so until `finishCapture`.
+    /// `name` is the file name asked for (the saved one may be numbered).
+    func beginCapture(name: String) -> Int {
+        let id = nextCaptureID
+        nextCaptureID -= 1
+        show(DownloadStrip(id: id, kind: .saving, text: "Saving “\(name)”…", progress: nil))
+        return id
+    }
+
+    /// The save ended: its line names the file as saved and goes after a
+    /// while, or says why nothing was saved and stays. Said once for VoiceOver.
+    func finishCapture(_ id: Int, name: String, outcome: Result<LeoBrowserSavedDownload, LeoBrowserError>) {
+        // Only the newest save reports; a dismissed "Saving…" line still
+        // gets its outcome.
+        guard id == nextCaptureID + 1 else { return }
+        let strip: DownloadStrip
+        switch outcome {
+        case .success(let saved):
+            strip = DownloadStrip(id: id, kind: .finished, text: "Saved “\(saved.name)” to \(Self.place(of: saved))", progress: nil)
+            schedule(Self.finishedDownloadDuration) { [weak self] in
+                guard self?.capture?.strip.id == id else { return }
+                self?.capture = nil
+                self?.refreshDownloads()
+            }
+        case .failure(let error):
+            let reason = error.code == .saveFailed ? error.message : "\(error.message) Nothing was saved."
+            strip = DownloadStrip(id: id, kind: .failed, text: "Couldn’t save “\(name)”. \(reason)", progress: nil)
+        }
+        show(strip)
+        onAnnouncement?(strip.text)
+    }
+
+    private func show(_ strip: DownloadStrip) {
+        capture = Capture(strip: strip, newestDownloadAtStart: capture?.newestDownloadAtStart ?? (source.downloads.entries.map(\.id).max() ?? 0))
+        refreshDownloads()
+    }
+
+    /// The saved file's folder, workspace-relative ("reports/q3/"), or "the workspace".
+    private static func place(of saved: LeoBrowserSavedDownload) -> String {
+        let folder = (saved.workspacePath as NSString).deletingLastPathComponent
+        return folder.isEmpty ? "the workspace" : folder + "/"
     }
 
     func goBack() { act { source.goBack() } }
@@ -200,7 +258,12 @@ import LeoKit
             }
         }
         let visible = entries.first { !dismissedDownloads.contains($0.id) && !expiredDownloads.contains($0.id) }
-        set(\.downloadStrip, visible.map(Self.strip(for:)))
+        if let capture, entries.allSatisfy({ $0.id <= capture.newestDownloadAtStart }) {
+            set(\.downloadStrip, capture.strip)
+        } else {
+            capture = nil
+            set(\.downloadStrip, visible.map(Self.strip(for:)))
+        }
     }
 
     private func expire(_ id: Int) {

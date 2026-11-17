@@ -90,6 +90,10 @@ public protocol LeoBrowserPage: AnyObject {
     /// PNG data, at most 1600 px wide; `fullPage` captures the whole scroll height.
     func screenshot(fullPage: Bool) async throws -> Data
 
+    /// The whole document as a PDF of one continuous page (like Safari's
+    /// Export as PDF), not paginated for printing. A read: no input events.
+    func pdf() async throws -> Data
+
     /// Returns once `text` appears in the page's visible text; throws `timeout`
     /// after `timeoutMilliseconds`.
     func waitForText(_ text: String, timeoutMilliseconds: Int) async throws

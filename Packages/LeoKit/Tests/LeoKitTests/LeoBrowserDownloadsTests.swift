@@ -127,6 +127,149 @@ struct LeoBrowserDownloadsTests {
         }
     }
 
+    @Test func savesIntoAGivenNestedFolderCreatingEachLevel() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let saver = LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() })
+
+        let saved = try await saver.save(Data("png".utf8), suggestedName: "a.png", workspace: sandbox.root, folder: "shots/today")
+
+        #expect(saved.path == sandbox.root + "/shots/today/a.png")
+        #expect(saved.workspacePath == "shots/today/a.png")
+        #expect(try sandbox.contents("shots/today/a.png") == "png")
+    }
+
+    @Test func savesIntoTheWorkspaceItselfForAnEmptyFolder() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let saver = LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() })
+
+        let saved = try await saver.save(Data("pdf".utf8), suggestedName: "a.pdf", workspace: sandbox.root, folder: "")
+
+        #expect(saved.path == sandbox.root + "/a.pdf")
+        #expect(saved.workspacePath == "a.pdf")
+    }
+
+    @Test(arguments: ["..", "a/../..", "/etc", "a//b", "./a"])
+    func aFolderThatCouldLeaveTheWorkspaceIsRefused(folder: String) async throws {
+        let access = RecordingAccess()
+        let saver = LeoBrowserDownloadSaver(makeAccess: { access })
+
+        await #expect(throws: LeoBrowserDownloadSaveError.self) {
+            try await saver.save(Data("x".utf8), suggestedName: "x.pdf", workspace: "/ws", folder: folder)
+        }
+        #expect(!access.calls.contains { $0.hasPrefix("create") || $0.hasPrefix("mkdir") })
+    }
+
+    @Test func messagesNameTheFolderTheyAreAbout() {
+        #expect(LeoBrowserDownloadSaveError.noFreeName("a.png").message(in: "shots") == "Too many files named “a.png” are already in shots/.")
+        #expect(LeoBrowserDownloadSaveError.noFreeName("a.png").message(in: "") == "Too many files named “a.png” are already in the workspace.")
+        #expect(LeoBrowserDownloadSaveError.uncertain.message(in: "shots/today").contains("check shots/today/ before"))
+        #expect(LeoBrowserDownloadSaveError.noFreeName("x").message == "Too many files named “x” are already in downloads/.")
+    }
+
+    // MARK: - Captures
+
+    @MainActor @Test func captureSavesIntoNestedFolderCreatingIt() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { sandbox.root })
+
+        let saved = try await log.saveCapture(Data("%PDF".utf8), kind: .pdf, path: "reports/q3/", defaultName: "Docs.pdf")
+
+        #expect(saved.workspacePath == "reports/q3/Docs.pdf")
+        #expect(saved.path == sandbox.root + "/reports/q3/Docs.pdf")
+        #expect(try sandbox.contents("reports/q3/Docs.pdf") == "%PDF")
+        #expect(log.entries.isEmpty, "a capture is not a download")
+    }
+
+    @MainActor @Test func captureWithoutPathGoesToDownloadsUnderTheDefaultName() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { sandbox.root })
+
+        let saved = try await log.saveCapture(Data("png".utf8), kind: .png, path: nil, defaultName: "Docs.png")
+
+        #expect(saved.workspacePath == "downloads/Docs.png")
+    }
+
+    @MainActor @Test func captureAtAnAbsolutePathInsideTheWorkspace() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { sandbox.root })
+
+        let saved = try await log.saveCapture(Data("png".utf8), kind: .png, path: sandbox.root + "/shots/a", defaultName: "Docs.png")
+
+        #expect(saved.workspacePath == "shots/a.png")
+    }
+
+    @MainActor @Test func captureClashGetsNumberedNameNeverOverwrites() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        try sandbox.file("page.pdf", "old")
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { sandbox.root })
+
+        let saved = try await log.saveCapture(Data("new".utf8), kind: .pdf, path: "page.pdf", defaultName: "x.pdf")
+
+        #expect(saved.workspacePath == "page 2.pdf")
+        #expect(saved.name == "page 2.pdf")
+        #expect(try sandbox.contents("page.pdf") == "old")
+        #expect(try sandbox.contents("page 2.pdf") == "new")
+    }
+
+    @MainActor @Test func captureWithoutWorkspaceFails() async throws {
+        let access = RecordingAccess()
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { access }), workspace: { nil })
+
+        await #expect(throws: LeoBrowserError(.saveFailed, LeoBrowserDownloadSaveError.noWorkspace.message + " Nothing was saved.")) {
+            try await log.saveCapture(Data("x".utf8), kind: .pdf, path: nil, defaultName: "x.pdf")
+        }
+        #expect(access.calls.isEmpty)
+    }
+
+    @MainActor @Test func captureAtAnInvalidPathIsInvalidArgsAndTouchesNothing() async throws {
+        let access = RecordingAccess()
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { access }), workspace: { "/ws" })
+
+        for path in ["../x.pdf", "/elsewhere/x.pdf", "x.png"] {
+            do {
+                _ = try await log.saveCapture(Data("x".utf8), kind: .pdf, path: path, defaultName: "x.pdf")
+                Issue.record("\(path) saved")
+            } catch let error as LeoBrowserError {
+                #expect(error.code == .invalidArgs, "\(path)")
+            }
+        }
+        #expect(access.calls.isEmpty)
+    }
+
+    @MainActor @Test func aCaptureSaveFailureNamesItsFolder() async throws {
+        let access = RecordingAccess(createError: .indeterminate(path: "/ws/shots/x.pdf"))
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { access }), workspace: { "/ws" })
+
+        await #expect(throws: LeoBrowserError(.saveFailed, LeoBrowserDownloadSaveError.uncertain.message(in: "shots"))) {
+            try await log.saveCapture(Data("x".utf8), kind: .pdf, path: "shots/", defaultName: "x.pdf")
+        }
+    }
+
+    @MainActor @Test func aTypedCapturePathIsCheckedAgainstTheWorkspace() {
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { RecordingAccess() }), workspace: { "/ws" })
+        #expect(log.captureProblem(with: "/ws/a.pdf", kind: .pdf) == nil)
+        #expect(log.captureProblem(with: "/elsewhere/a.pdf", kind: .pdf) == "The path is outside the workspace (/ws).")
+        #expect(log.captureProblem(with: "a.pdf", kind: .png) == "The path must end in .png.")
+    }
+
+    @MainActor @Test func downloadsStillLandInDownloadsFolder() async throws {
+        let sandbox = try Sandbox()
+        defer { sandbox.remove() }
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { sandbox.root })
+        _ = try await log.saveCapture(Data("png".utf8), kind: .png, path: "shots/", defaultName: "a.png")
+        let id = log.begin(suggestedName: "b.txt", sourceURL: nil)
+
+        await log.complete(id, file: URL(fileURLWithPath: try sandbox.file("tmp-b", "b")))
+
+        #expect(try sandbox.contents("downloads/b.txt") == "b")
+    }
+
     // MARK: - Log
 
     @MainActor @Test func theLogRecordsProgressSavingAndTheSavedPathNewestFirst() async throws {

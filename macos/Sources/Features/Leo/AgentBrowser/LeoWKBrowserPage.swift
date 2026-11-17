@@ -208,15 +208,8 @@ import WebKit
     /// The viewport, or with `fullPage` the whole document, as a PNG at
     /// most `maxScreenshotWidth` pixels wide.
     func screenshot(fullPage: Bool) async throws -> Data {
+        if fullPage { return try await fullPageScreenshot() }
         let configuration = WKSnapshotConfiguration()
-        if fullPage {
-            let size = try await run("return [scrollX, scrollY, document.documentElement.scrollHeight]", [:], in: Self.agentWorld) as? [Double]
-            guard let size, size.count == 3 else { throw LeoBrowserError.javaScript("Could not measure the page.") }
-            let zoom = webView.pageZoom
-            configuration.rect = CGRect(
-                x: -size[0] * zoom, y: -size[1] * zoom,
-                width: webView.bounds.width, height: min(size[2], Self.maxFullPageHeight) * zoom)
-        }
         let scale = webView.window?.backingScaleFactor ?? 2
         configuration.snapshotWidth = NSNumber(value: min(webView.bounds.width, Double(Self.maxScreenshotWidth) / scale))
         let image: NSImage = try await withCheckedThrowingContinuation { continuation in
@@ -229,6 +222,73 @@ import WebKit
             }
         }
         return try Self.png(image, maxWidth: Self.maxScreenshotWidth)
+    }
+
+    /// `takeSnapshot` paints only what is on screen: a rect taller than the
+    /// viewport came back blank below it. So the whole page comes from its
+    /// PDF, which WebKit renders in full, drawn at the screen's scale: at most
+    /// `maxScreenshotWidth` pixels wide, and the top `maxFullPageHeight`
+    /// points of a taller page.
+    private func fullPageScreenshot() async throws -> Data {
+        let data = try await screenshotPDF()
+        guard let provider = CGDataProvider(data: data as CFData), let document = CGPDFDocument(provider) else {
+            throw LeoBrowserError.javaScript("Could not render the page.")
+        }
+        // WebKit splits a PDF taller than 14,400 pt (the PDF page limit) into
+        // pages; they are stacked back into one image.
+        let pages = (0..<document.numberOfPages).compactMap { document.page(at: $0 + 1) }
+        let boxes = pages.map { $0.getBoxRect(.mediaBox) }
+        let width = boxes.map(\.width).max() ?? 0
+        let height = min(boxes.reduce(0) { $0 + $1.height }, Self.maxFullPageHeight)
+        guard width > 0, height > 0 else { throw LeoBrowserError.javaScript("The page is empty.") }
+        let scale = min(webView.window?.backingScaleFactor ?? 2, Double(Self.maxScreenshotWidth) / width)
+        guard
+            let context = CGContext(
+                data: nil, width: max(1, Int((width * scale).rounded(.down))), height: max(1, Int((height * scale).rounded())),
+                bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        else { throw LeoBrowserError.javaScript("Could not render the page.") }
+        context.setFillColor(.white)
+        context.fill(CGRect(x: 0, y: 0, width: context.width, height: context.height))
+        context.scaleBy(x: scale, y: scale)
+        // PDF space runs bottom-up: each page's top sits where the last one ended.
+        var top = height
+        for (page, box) in zip(pages, boxes) where top > 0 {
+            context.saveGState()
+            context.translateBy(x: -box.minX, y: top - box.maxY)
+            context.drawPDFPage(page)
+            context.restoreGState()
+            top -= box.height
+        }
+        guard let image = context.makeImage() else { throw LeoBrowserError.javaScript("Could not render the page.") }
+        return try Self.png(image, maxWidth: Self.maxScreenshotWidth)
+    }
+
+    /// The whole document as one continuous PDF page, as Safari's Export
+    /// as PDF makes it: not the viewport, and not paginated for printing.
+    func pdf() async throws -> Data {
+        try await pdf(WKPDFConfiguration())
+    }
+
+    /// The PDF a full-page screenshot is drawn from: only the region the
+    /// screenshot keeps (the viewport's width, the top `maxFullPageHeight`
+    /// points of the document), so a very long page is never rendered whole.
+    /// The rect is in document coordinates, whatever the scroll position.
+    func screenshotPDF() async throws -> Data {
+        let height = try await run("return document.documentElement.scrollHeight", [:], in: Self.agentWorld) as? Double
+        guard let height else { throw LeoBrowserError.javaScript("Could not measure the page.") }
+        let configuration = WKPDFConfiguration()
+        configuration.rect = CGRect(
+            x: 0, y: 0, width: webView.bounds.width, height: min(height, Self.maxFullPageHeight) * webView.pageZoom)
+        return try await pdf(configuration)
+    }
+
+    private func pdf(_ configuration: WKPDFConfiguration) async throws -> Data {
+        do {
+            return try await webView.pdf(configuration: configuration)
+        } catch {
+            throw LeoBrowserError.javaScript("The PDF couldn’t be made: \(error.localizedDescription)")
+        }
     }
 
     /// With `text`, waits until the page's text contains it, for up to
@@ -368,6 +428,10 @@ import WebKit
         guard let source = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             throw LeoBrowserError.javaScript("The screenshot had no bitmap.")
         }
+        return try png(source, maxWidth: maxWidth)
+    }
+
+    static func png(_ source: CGImage, maxWidth: Int) throws -> Data {
         let scale = min(1, Double(maxWidth) / Double(source.width))
         let width = Int((Double(source.width) * scale).rounded(.down))
         let height = max(1, Int((Double(source.height) * scale).rounded()))
