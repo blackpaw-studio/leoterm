@@ -151,7 +151,7 @@ Lane: B-408
 
 Lane: B-409
   Branch: autopilot-lane/B-409
-  Dispatched: 2026-11-17T06:55:14Z
+  Dispatched: 2026-11-17T06:56:17Z
   Base: 2089f6acfe74c47fdbe41e05543f641d2b3ee562
   Tier: full
   State: building
@@ -193,3 +193,4 @@ Progress:
 - B-408 ready (0 fixes, general review). Shots are screen captures only (not attached). Verifier denied Screen Recording prompts and force-killed the debug app.
 - B-408 landed 346db3e91. D-860..D-868.
 - Pick: B-409 full (menu actions + data store clearing).
+- Dispatched B-409 d-d470908db7cd. Interim digest 1 posted (items 1–5).
