@@ -94,6 +94,26 @@ struct LeoMachinePortForwardsTests {
         #expect(connections.runners.last?.opens.map(\.remote) == [5173])
     }
 
+    /// A page loaded over a dropped connection still names the remote port
+    /// it came from, even when its forward had to take another local port:
+    /// the local port is never taken for the remote one.
+    @Test func aPageKeepsItsRemoteAddressAcrossAReconnect() async throws {
+        let connections = Connections()
+        connections.busy = [5173]
+        let machines = machines(connections)
+        machines.connected(Self.remote)
+        let mapping = machines.mapping(for: Self.alice)
+        let local = try await mapping.toLocal(url("http://localhost:5173/app?x=1"))
+        #expect(local == (try url("http://localhost:49200/app?x=1")))
+
+        await machines.disconnected(Self.remote)?.value
+        machines.connected(Self.remote)
+
+        #expect(mapping.toRemote(local) == (try url("http://localhost:5173/app?x=1")))
+        _ = try await mapping.toLocal(mapping.toRemote(local))
+        #expect(connections.runners.last?.opens.map(\.remote) == [5173, 5173])
+    }
+
     @Test func aForwardStaysUntilTheLastBrowserHoldingItCloses() async throws {
         let connections = Connections()
         let machines = machines(connections)

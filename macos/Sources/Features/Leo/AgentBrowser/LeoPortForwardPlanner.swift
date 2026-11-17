@@ -56,15 +56,20 @@ struct LeoPortForwardPlanner: Sendable {
     /// Remote-terms URL → the URL the web view loads. `mapping` is
     /// remote port → local port.
     func toLocal(_ url: URL, using mapping: [Int: Int]) -> URL {
-        guard isRemote, Self.isLoopback(url), let port = Self.effectivePort(of: url), let local = mapping[port] else { return url }
-        return Self.rewrite(url, port: local)
+        isRemote ? Self.remap(url, using: mapping) : url
     }
 
     /// The web view's URL → remote terms. `mapping` is local port → remote
     /// port.
     func toRemote(_ url: URL, using mapping: [Int: Int]) -> URL {
-        guard isRemote, Self.isLoopback(url), let port = Self.effectivePort(of: url), let remote = mapping[port] else { return url }
-        return Self.rewrite(url, port: remote)
+        isRemote ? Self.remap(url, using: mapping) : url
+    }
+
+    /// `url` with its loopback port swapped for the one `mapping` gives it;
+    /// anything else as given.
+    static func remap(_ url: URL, using mapping: [Int: Int]) -> URL {
+        guard isLoopback(url), let port = effectivePort(of: url), let mapped = mapping[port] else { return url }
+        return rewrite(url, port: mapped)
     }
 
     private static let maxPickAttempts = 8

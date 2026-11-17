@@ -64,6 +64,12 @@ import LeoKit
 @MainActor private final class LeoForwardedURLMapping: LeoBrowserURLMapping {
     private let key: LeoAgentBrowserKey
     private weak var owner: LeoMachinePortForwards?
+    /// Local port → the remote port it was handed out for, kept across
+    /// reconnects. A page loaded over a dropped connection still names the
+    /// remote address it came from, so its address bar, Copy URL, reopen
+    /// and Open in Default Browser never take its old local port (another
+    /// one when the remote's was busy here) for a remote one.
+    private var remotePorts: [Int: Int] = [:]
 
     init(key: LeoAgentBrowserKey, owner: LeoMachinePortForwards) {
         self.key = key
@@ -76,14 +82,18 @@ import LeoKit
             throw LeoBrowserError(.navigationFailed, "\(key.host.displayName) is not connected, so port \(port) on it can't be reached")
         }
         do {
-            return try await forwards.acquire(url, browser: key.agent)
+            let local = try await forwards.acquire(url, browser: key.agent)
+            if let localPort = LeoPortForwardPlanner.loopbackPort(of: local) { remotePorts[localPort] = port }
+            return local
         } catch let error as LeoPortForwardError {
             throw LeoBrowserError(.navigationFailed, "Could not forward port \(port) from \(key.host.displayName): \(Self.describe(error))")
         }
     }
 
+    /// Only ports this browser was handed map back. Any other loopback
+    /// address is the remote's own, never another browser's forward.
     func toRemote(_ url: URL) -> URL {
-        owner?.forwards(for: key.host)?.toRemote(url) ?? url
+        LeoPortForwardPlanner.remap(url, using: remotePorts)
     }
 
     private static func describe(_ error: LeoPortForwardError) -> String {

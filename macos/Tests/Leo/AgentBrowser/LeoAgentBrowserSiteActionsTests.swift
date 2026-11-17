@@ -40,6 +40,11 @@ struct LeoAgentBrowserSiteActionsTests {
         }
     }
 
+    /// Each connection's forward runner, in the order they came up.
+    private final class Runners {
+        var made: [FakeForwardRunner] = []
+    }
+
     @available(macOS 14, *)
     private func browser(key: LeoAgentBrowserKey = Self.key, mapping: any LeoBrowserURLMapping) -> LeoAgentBrowser {
         let configuration = WKWebViewConfiguration()
@@ -98,6 +103,38 @@ struct LeoAgentBrowserSiteActionsTests {
             #expect(error.message.contains("\(server.port)"))
         }
         withExtendedLifetime(forwards) {}
+    }
+
+    /// The page's forward took another local port (the remote's was busy
+    /// here), then the machine reconnected: Open forwards the remote port
+    /// the page came from, never its old local port.
+    @available(macOS 14, *)
+    @Test func externalURLForwardsThePagesRemotePortAfterAReconnect() async throws {
+        let server = try LeoHTTPFixtureServer(pages: ["x": "<title>X</title>"])
+        defer { server.stop() }
+        let runners = Runners()
+        let forwards = LeoMachinePortForwards { _ in
+            let runner = FakeForwardRunner()
+            runners.made.append(runner)
+            let prober = FakePortProber(busy: [5173], picks: [Int(server.port)])
+            return LeoPortForwards(
+                planner: LeoPortForwardPlanner(isRemote: true, prober: prober),
+                controlPath: "/tmp/cm", makeMux: { _ in runner }, makeProcess: { runner }
+            )
+        }
+        forwards.connected(Self.key.host)
+        let mapping = forwards.mapping(for: Self.key)
+        let browser = browser(mapping: mapping)
+        defer { browser.close() }
+        let local = try await mapping.toLocal(try #require(URL(string: "http://127.0.0.1:5173/x?q=1")))
+        _ = try await browser.tabs.openTab(url: local)
+
+        await forwards.disconnected(Self.key.host)?.value
+        forwards.connected(Self.key.host)
+        let url = try await browser.externalURL()
+
+        #expect(url == local)
+        #expect(runners.made.last?.opens.map(\.remote) == [5173])
     }
 
     @available(macOS 14, *)
