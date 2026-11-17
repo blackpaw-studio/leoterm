@@ -21,6 +21,7 @@ Out: Download manager window; resuming downloads; choosing a different folder. B
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850 (LeoKit 1755 + Mac 4844 tests; landed 88a18c9fb). Decisions D-832..D-841.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
+Reviewed: accepted 2026-11-17 — 88a18c9fb629
 
 ## B-405 · Agent browser file uploads from the agent's workspace   [done]
 Issue: #382
