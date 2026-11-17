@@ -3215,12 +3215,14 @@ Source: autopilot polish (B-305)
 Note: P3 local = remote; B-305 ships a plain localhost_unreachable explanation instead
 Source: autopilot polish (B-305)
 
-## B-426 · After Return on a new address, the bar shows the old page's URL until the new page commits   [ready]
+## B-426 · After Return on a new address, the bar shows the old page's URL until the new page commits   [done]
 Issue: #395
 Type: bug
 Report: After Return on a new address, the bar shows the old page's URL until the new page commits (`LeoAgentBrowserPaneViewController.swift:162-164`); predates B-419. Safari keeps the typed address during load — Safari parity (P1).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-419)
+Done: 4e0c561ea a0cb2acc6 792fb4298 (merged in 2e7220332; 5027 tests, lint clean). The bar keeps the typed address while the new page loads; a failed, cancelled or unstartable load falls back to the page URL. Mac only. D-937..D-939.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
 
 ## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [ready]
 Issue: #396

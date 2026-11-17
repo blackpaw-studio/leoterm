@@ -40,12 +40,14 @@ Lane: B-426
   Fixes: 2
   Wip: none
   Reverifies: 1
+  Tokens: 31.2M in (30.2M cache read), ≥112k out, 310 requests
   Reviewed-tip: 792fb42988b412da31b2d5496819909b3aa5b307
   Call: Mac only: AppKit pane UI, nothing in LeoKit — D-925 / AUTONOMY
   Call: After Return the bar shows the typed address while the page loads, then follows the page again — P1 Safari parity, D-928
   Call: A failed or cancelled load, or a navigation that can't start, drops the typed address and shows the page URL — P2, D-928
 
 Finished 1: B-422 landed dcd049de7 · not visually verified
+Finished 2: B-426 landed 2e7220332 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
 
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-422, B-426, B-427. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -56,3 +58,4 @@ Progress:
 - B-426 ready (fix 1, general review, 5026 tests). Not visually verified: no browser-pane GUI recipe in verify.md. Calls checked vs D-925..D-931: consistent (Escape during a pending load restores the typed address — treated as the loading page's address, not a D-926 contradiction). Integration stale (B-422 landed iOS files) → re-verify round 1.
 - Dispatched B-426 re-verify d-c334ea57ed5c.
 - B-426 re-verify 1 ready (fix 1: an old load's end dropped the typed address; delta review clean, 5027 tests, window shots). Fresh.
+- B-426 landed 2e7220332. D-937..D-939. ≈$9.19 est.

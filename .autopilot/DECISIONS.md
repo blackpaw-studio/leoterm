@@ -1806,3 +1806,21 @@ Chose: Gate .task and both scene-phase sends instead of stubbing each dependency
 Why: closes all routes to unimplemented test values
 Commit: 79271cf06 db3b550f2
 Veto: [ ]
+
+## D-937 · 2026-11-17 · B-426: Platform
+Chose: Mac only: AppKit pane UI, nothing in LeoKit
+Why: D-925 / AUTONOMY
+Commit: 4e0c561ea a0cb2acc6 792fb4298
+Veto: [ ]
+
+## D-938 · 2026-11-17 · B-426: Typed address during load
+Chose: After Return the bar shows the typed address while the page loads, then follows the page again; only a load that starts after the send ends it
+Why: P1 Safari parity, D-928
+Commit: 4e0c561ea a0cb2acc6 792fb4298
+Veto: [ ]
+
+## D-939 · 2026-11-17 · B-426: Failed load falls back
+Chose: A failed or cancelled load, or a navigation that can't start, drops the typed address and shows the page URL
+Why: P2, D-928
+Commit: 4e0c561ea a0cb2acc6 792fb4298
+Veto: [ ]
