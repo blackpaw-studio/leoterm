@@ -96,11 +96,12 @@ Lane: B-405
   Dispatched: 2026-11-17T02:22:28Z
   Base: 2d3139ab68c7d824a6895f3854211d823fec400f
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: fe8616f1124456209561d53a44b9a247956292d7
+  Tokens: 83.3M in (82M cache read), ≥299k out, 499 requests
   Call: browser_upload is a new tool and fails with user_has_control while the user drives — D-732/D-734/D-764
   Call: Upload paths are workspace-relative or absolute inside the workspace; outside is invalid_args — P3, P4
   Call: Upload limits 20 files / 25 MB / 120 s; missing path is no_such_file; folder is invalid_args — P2
@@ -128,6 +129,8 @@ Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/
 
 Finished 3: B-407 landed 290801942 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
 
+Finished 4: B-405 landed 9cf0c4069 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-405-1.png
+
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
@@ -145,3 +148,4 @@ Progress:
 - Pick: B-406 full (save page as PDF/screenshot; menu + tool).
 - Dispatched B-406 d-7b7dd4233572.
 - B-405 ready (fix 1, hard implementer, security review). Picker buttons not GUI-driven (Peekaboo clicks didn't register); SFTP covered by tests only.
+- B-405 landed 9cf0c4069. D-851..D-859.
