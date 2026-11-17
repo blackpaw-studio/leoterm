@@ -29,6 +29,10 @@ import Testing
     func reopenClosedTab() -> Bool { false }
     func history(_ direction: LeoBrowserHistoryDirection) -> [LeoBrowserHistoryEntry] { [] }
     func goToHistory(_ entry: LeoBrowserHistoryEntry) -> Bool { false }
+    var key = LeoAgentBrowserKey(host: .local, agent: "fake")
+    func externalURL() async throws -> URL? { nil }
+    var isClearingSiteData: Bool { false }
+    func clearSiteData() async {}
     func observe(_ handler: @escaping @MainActor () -> Void) -> () -> Void { {} }
 
     /// Requests wait until cancelled, like a page load that never finishes;

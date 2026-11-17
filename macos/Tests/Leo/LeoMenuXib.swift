@@ -44,8 +44,8 @@ enum LeoMenuXib {
     /// loads them (checked with ibtool + NSNib, B-076): no modifierMask
     /// element is ⌘, an empty `<modifierMask/>` is no modifiers at all.
     static func shortcuts(in document: XMLDocument) throws -> [MenuShortcut] {
-        try document.nodes(forXPath: "//menuItem[@keyEquivalent]").compactMap { node in
-            guard let item = node as? XMLElement, let key = item.attribute(forName: "keyEquivalent")?.stringValue, !key.isEmpty else { return nil }
+        try document.nodes(forXPath: "//menuItem").compactMap { node in
+            guard let item = node as? XMLElement, let key = keyEquivalent(of: item), !key.isEmpty else { return nil }
             let mask = item.elements(forName: "modifierMask").first
             func has(_ name: String) -> Bool { mask?.attribute(forName: name)?.stringValue == "YES" }
             let flags: NSEvent.ModifierFlags = mask == nil ? .command : [
@@ -55,6 +55,18 @@ enum LeoMenuXib {
             let action = item.elements(forName: "connections").first?.elements(forName: "action").first?.attribute(forName: "selector")?.stringValue
             return MenuShortcut(title: item.attribute(forName: "title")?.stringValue ?? "", action: action, shortcut: shortcut(key, flags))
         }
+    }
+
+    /// The item's key equivalent: its attribute, or the base64 `<string>`
+    /// IB writes for a key XML can't hold, such as ⌫ (U+0008, B-409).
+    private static func keyEquivalent(of item: XMLElement) -> String? {
+        if let key = item.attribute(forName: "keyEquivalent")?.stringValue { return key }
+        guard let element = item.elements(forName: "string").first(where: { $0.attribute(forName: "key")?.stringValue == "keyEquivalent" }),
+              let text = element.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines)
+        else { return nil }
+        guard element.attribute(forName: "base64-UTF8")?.stringValue == "YES" else { return text }
+        let padded = text.padding(toLength: (text.count + 3) / 4 * 4, withPad: "=", startingAt: 0)
+        return Data(base64Encoded: padded).flatMap { String(data: $0, encoding: .utf8) }
     }
 
     /// Every item in `menu` (submenus included) with a key equivalent,
@@ -76,8 +88,10 @@ enum LeoMenuXib {
     /// `== .command` comparison.
     private static func shortcut(_ key: String, _ flags: NSEvent.ModifierFlags) -> String {
         let shift = flags.contains(.shift) || key != key.lowercased()
+        // Backspace and Delete are the same ⌫ key.
+        let name = ["\u{8}", "\u{7F}"].contains(key) ? "⌫" : key.lowercased()
         return (flags.contains(.control) ? "⌃" : "") + (flags.contains(.option) ? "⌥" : "")
-            + (shift ? "⇧" : "") + (flags.contains(.command) ? "⌘" : "") + key.lowercased()
+            + (shift ? "⇧" : "") + (flags.contains(.command) ? "⌘" : "") + name
     }
 
     /// The items in `items` that break "only `owner` holds ⌘`key`": anyone
