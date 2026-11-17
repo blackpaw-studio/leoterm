@@ -52,6 +52,20 @@ public protocol LeoFileAccess: Sendable {
     @discardableResult
     func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat
 
+    /// `create`, staging the bytes at `staging`, a name from
+    /// `LeoFileName.stagingPath(for: path)`, so a caller whose connection is
+    /// lost mid-create knows which leftover to remove later
+    /// (`removeStaging`). Anything but a staging-named sibling of `path` is
+    /// `.invalidPath`.
+    @discardableResult
+    func create(at path: String, from source: any LeoFileByteSource, staging: String) async throws -> LeoFileStat
+
+    /// Removes a staging file a create left behind (one whose connection
+    /// was lost, so its backend couldn't clean up). Refuses, as
+    /// `.invalidPath`, any path whose name `LeoFileName.isStagingName`
+    /// rejects; an already-absent staging file is not an error.
+    func removeStaging(_ path: String) async throws
+
     /// `mkdir -p`: makes `path` and any missing parents, each private to the
     /// user (0700). Already-present directories (symlinks to one included)
     /// are left untouched; anything else in the way fails.
@@ -70,6 +84,14 @@ extension LeoFileAccess {
     /// `LeoFileAccessor`'s exclusive implementation.
     public func create(at path: String, from source: any LeoFileByteSource) async throws -> LeoFileStat {
         throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating files")
+    }
+
+    public func create(at path: String, from source: any LeoFileByteSource, staging: String) async throws -> LeoFileStat {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support creating files")
+    }
+
+    public func removeStaging(_ path: String) async throws {
+        throw LeoFileAccessError.unavailable(reason: "This file connection doesn’t support removing files")
     }
 
     public func ensureDirectory(_ path: String) async throws {

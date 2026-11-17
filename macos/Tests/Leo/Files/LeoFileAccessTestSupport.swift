@@ -272,6 +272,20 @@ final class LeoRecordingByteSource: LeoFileByteSource, @unchecked Sendable {
     }
 }
 
+/// Serves `prefix`, then fails any read at or past `failAt`, like a file
+/// that vanished mid-upload.
+struct LeoFailingByteSource: LeoFileByteSource {
+    struct Failure: Error {}
+
+    let prefix: Data
+    let failAt: UInt64
+
+    func read(at offset: UInt64, upTo count: Int) throws -> Data {
+        guard offset < failAt else { throw Failure() }
+        return try prefix.read(at: offset, upTo: min(count, Int(failAt - offset)))
+    }
+}
+
 /// The real `/usr/libexec/sftp-server` behind a frame relay that loses the
 /// first RENAME (type 18) at a chosen point, then cuts the client off as a
 /// dropped ControlMaster would. Frame-driven, so no timing is involved.

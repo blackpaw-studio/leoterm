@@ -27,6 +27,75 @@ struct LeoFileAccessWriteContractTests {
         }
     }
 
+    /// The source fails after its first chunk: no destination and no hidden
+    /// staging sibling may be left behind.
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func createRemovesStagingWhenSourceFailsMidStream(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let source = LeoFailingByteSource(prefix: leoPatternData(count: kind.writeChunkSize), failAt: UInt64(kind.writeChunkSize))
+
+            await #expect(throws: (any Error).self) {
+                try await access.create(at: sandbox.path("half.bin"), from: source)
+            }
+
+            #expect(try sandbox.names().isEmpty)
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func createPublishesThroughTheNamedStaging(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let path = sandbox.path("x.pdf")
+            let staging = LeoFileName.stagingPath(for: path)
+
+            try await access.create(at: path, from: Data("pdf".utf8), staging: staging)
+
+            #expect(try sandbox.contents("x.pdf") == "pdf")
+            #expect(try sandbox.names() == ["x.pdf"])
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func createRefusesAStagingThatIsNotAHiddenSibling(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            try sandbox.directory("other")
+            let path = sandbox.path("x.pdf")
+            for staging in [sandbox.path("y.pdf"), LeoFileName.stagingPath(for: sandbox.path("other/x.pdf"))] {
+                await #expect(throws: LeoFileAccessError.invalidPath(staging)) {
+                    try await access.create(at: path, from: Data("pdf".utf8), staging: staging)
+                }
+            }
+            #expect(try sandbox.names() == ["other"])
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func removeStagingRemovesALeftoverAndIgnoresAMissingOne(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let staging = LeoFileName.stagingPath(for: sandbox.path("x.pdf"))
+            try sandbox.file((staging as NSString).lastPathComponent, "partial")
+
+            try await access.removeStaging(staging)
+            try await access.removeStaging(staging)
+
+            #expect(try sandbox.names().isEmpty)
+        }
+    }
+
+    @Test(arguments: LeoFileBackendKind.allCases)
+    func removeStagingRefusesNonStagingNames(_ kind: LeoFileBackendKind) async throws {
+        try await withLeoFileSandbox(kind) { sandbox, access in
+            let destination = try sandbox.file("x.pdf", "keep me")
+            let lookalike = try sandbox.file(".x.pdf.leo-1234.tmp", "keep me too")
+
+            for path in [destination, lookalike, "relative/.x.pdf.leo-\(String(repeating: "a", count: 32)).tmp"] {
+                await #expect(throws: LeoFileAccessError.invalidPath(path)) { try await access.removeStaging(path) }
+            }
+
+            #expect(try sandbox.names() == [".x.pdf.leo-1234.tmp", "x.pdf"])
+        }
+    }
+
     @Test(arguments: LeoFileBackendKind.allCases)
     func createStreamsAMultiChunkSourceExactly(_ kind: LeoFileBackendKind) async throws {
         try await withLeoFileSandbox(kind) { sandbox, access in
