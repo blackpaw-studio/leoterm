@@ -49,7 +49,9 @@ final class AgentBrowserBar: UIView {
         buttons.alignment = .center
         [heading, message, detail].forEach { $0.adjustsFontForContentSizeCategory = true }
 
-        let titleRow = UIStackView(arrangedSubviews: [symbol, heading])
+        // The spacer takes the row's slack, so a bar with no heading keeps
+        // its symbol at its natural size instead of stretching it.
+        let titleRow = UIStackView(arrangedSubviews: [symbol, heading, UIView()])
         titleRow.spacing = 6
         titleRow.alignment = .firstBaseline
         let trailing = UIStackView(arrangedSubviews: [UIView(), buttons])

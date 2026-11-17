@@ -15,8 +15,10 @@ import UIKit
 ///   asks for a handoff, so the banner shows.
 /// - `localhost`: the address bar is given `localhost:5173`, so the pane
 ///   says why it can't load.
+/// - `address`: the address bar is given text that isn't an address, so
+///   the pane shows its headingless bar.
 /// - `dialog`: the page asks `confirm()`, so the dialog bar shows.
-/// - `control`: zeus types, then the user takes control (Give Back shows).
+/// - `control`: the user takes control (Give Back shows).
 enum BrowserFixture {
     static let environmentKey = "LEO_BROWSER_FIXTURE"
     static var isRequested: Bool { ProcessInfo.processInfo.environment[environmentKey] != nil }
@@ -84,6 +86,8 @@ enum BrowserFixture {
         switch scenario {
         case "localhost":
             browser.navigate(to: "localhost:5173")
+        case "address":
+            browser.navigate(to: "not an address")
         case "dialog":
             _ = try? await browser.activeWebView?.evaluateJavaScript("setTimeout(() => confirm('Discard the items in your cart?'), 100); 0")
         case "control":

@@ -351,6 +351,11 @@ final class AgentBrowserViewController: UIViewController, UITextFieldDelegate {
         return true
     }
 
+    /// Tapping the address selects it all, as in Safari, so typing replaces it.
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        Task { @MainActor in textField.selectAll(nil) }
+    }
+
     func textFieldDidEndEditing(_ textField: UITextField) {
         render()
     }

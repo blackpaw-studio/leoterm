@@ -54,7 +54,9 @@ final class LeoBrowserE2ETests: XCTestCase {
 
         address.tap()
         address.typeText("localhost:5173\n")
-        XCTAssertTrue(app.otherElements["browser.refusal"].waitForExistence(timeout: 10), "no explanation for localhost")
+        // The typed address replaces the page's, so the pane explains localhost.
+        let explanation = app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "localhost, which Leo on iPhone can't reach")).firstMatch
+        XCTAssertTrue(explanation.waitForExistence(timeout: 10), "no explanation for localhost")
         settle()
         capture("localhost")
     }
