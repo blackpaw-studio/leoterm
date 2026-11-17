@@ -197,11 +197,12 @@ Lane: B-410
   Dispatched: 2026-11-17T07:57:32Z
   Base: 4ff9c5089fa085f39fa048a9f6d8b266e244c627
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: b28769882723c7ce0be70d3d7fad4cfe7d4a2f30
+  Tokens: 63.7M in (62.7M cache read), ≥262k out, 353 requests
   Call: In-pane permission bar under the handoff banner, not a sheet or WebKit prompt — P1, P2
   Call: Copy '<agent> · <site> wants to use your camera|microphone|camera and microphone|location', 'Only you can answer. Your answer lasts until this tab closes.'; Don't Allow / Allow with no key equivalents — P1, P3
   Call: Auto-deny when the tab isn't active in an on-screen, unminimised, unoccluded window — AC
@@ -238,6 +239,7 @@ Finished 5: B-408 landed 346db3e91 · screen capture, not attached
 Finished 6: B-406 landed aecf8c1ca · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-406-4.png
 
 Finished 7: B-409 landed 860cdc74f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
+Finished 8: B-410 landed 8017ffba3 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).

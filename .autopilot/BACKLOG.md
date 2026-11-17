@@ -67,12 +67,14 @@ Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae (4972 Mac tests, swiftlint clean; landed 860cdc74f). Decisions D-882..D-889.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
 
-## B-410 · Camera, microphone and location prompts in the agent browser   [ready]
+## B-410 · Camera, microphone and location prompts in the agent browser   [done]
 Issue: #387
 Why: Milestone 2. Pages that ask for media or location should ask you, never an agent.
 Accept: WKUIDelegate media-capture and geolocation requests show a Mac prompt naming the agent and site; the answer lasts for that tab's session; agents cannot grant permissions and get a clear error/state if a page is waiting on one (tested); deny is the default when the pane isn't visible (tested); screenshot of the prompt
 Out: Persisted per-site permissions; screen sharing. Mac only.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: 931400cc2 47a9d3dab 27af451fa cf33195e8 5f68ac1c0 (4998 Mac tests, swiftlint clean; landed 8017ffba3). Decisions D-890..D-900.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-410-1.png
 
 ## B-411 · Agent browser tools: hover, select option, drag   [ready]
 Issue: #388
