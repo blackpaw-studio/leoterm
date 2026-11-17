@@ -39,8 +39,8 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
 /// Every agent browser in the app, one per (machine, agent) (C5). A browser
 /// is made on the agent's first browser request or when the user opens it,
 /// and goes when the agent is gone (removed, or its machine) or the user
-/// closes it. A stopped agent's browser stays where the user put it. The
-/// agent's data store outlives it. Both apps run their claimed `browser` requests here.
+/// closes it; a stopped agent's browser stays. The agent's data store
+/// outlives it. Both apps run their claimed `browser` requests here.
 @MainActor public final class LeoAgentBrowsers: LeoClientToolsExecuting {
     /// Nil when this device can't run one.
     public typealias MakeBrowser = @MainActor (LeoAgentBrowserKey) -> (any LeoAgentBrowserRunning)?
@@ -53,6 +53,7 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
     }
 
     private static let closedError = LeoClientToolError(code: "cancelled", message: "The agent's browser was closed")
+    private static let stoppedError = LeoClientToolError(code: "cancelled", message: "The agent stopped")
 
     private let makeBrowser: MakeBrowser
     private let unavailable: LeoBrowserError
@@ -92,10 +93,7 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
     /// `cancelled` -- a pending handoff included -- so no agent is left waiting.
     public func closeBrowser(for key: LeoAgentBrowserKey) {
         guard let browser = browsers.removeValue(forKey: key) else { return }
-        calls.removeValue(forKey: key)?.values.forEach { call in
-            call.run.cancel()
-            call.answer.resume(returning: .failure(Self.closedError))
-        }
+        cancelCalls(on: key, because: Self.closedError)
         browser.close()
         notify(.closed(key))
         onClosed(key)
@@ -142,7 +140,7 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
     /// (a pending handoff included) so nothing waits on it, but its browser
     /// stays open for the user -- a pane never goes out from under them.
     public func agentStopped(_ key: LeoAgentBrowserKey) {
-        cancelCalls(on: key)
+        cancelCalls(on: key, because: Self.stoppedError)
     }
 
     /// `host` listed its agents (`statuses` by name) and, when it reports
@@ -171,10 +169,10 @@ public enum LeoAgentBrowserPresenceChange: Equatable, Sendable {
 
     // MARK: - Helpers
 
-    private func cancelCalls(on key: LeoAgentBrowserKey) {
+    private func cancelCalls(on key: LeoAgentBrowserKey, because error: LeoClientToolError) {
         calls.removeValue(forKey: key)?.values.forEach { call in
             call.run.cancel()
-            call.answer.resume(returning: .failure(Self.closedError))
+            call.answer.resume(returning: .failure(error))
         }
     }
 

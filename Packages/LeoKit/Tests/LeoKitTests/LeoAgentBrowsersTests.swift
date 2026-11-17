@@ -92,6 +92,11 @@ struct LeoAgentBrowsersTests {
         return error.code
     }
 
+    private static func message(of outcome: LeoClientToolOutcome?) -> String? {
+        guard case .failure(let error)? = outcome else { return nil }
+        return error.message
+    }
+
     @Test func theFirstRequestMakesTheBrowserAndLaterOnesReuseIt() async throws {
         let made = Made()
         let browsers = registry(made)
@@ -199,6 +204,7 @@ struct LeoAgentBrowsersTests {
 
         await until { answer.outcome != nil }
         #expect(Self.code(of: answer.outcome) == "cancelled")
+        #expect(Self.message(of: answer.outcome) == "The agent stopped")
         await until { browser.cancelledRuns == ["ctr_1"] }
         #expect(browsers.model(for: key) != nil)
         #expect(browser.isClosed == false)
@@ -217,6 +223,7 @@ struct LeoAgentBrowsersTests {
 
         await until { answer.outcome != nil }
         #expect(Self.code(of: answer.outcome) == "cancelled")
+        #expect(Self.message(of: answer.outcome) == "The agent's browser was closed")
         await until { browser.cancelledRuns == ["ctr_1"] }
     }
 
