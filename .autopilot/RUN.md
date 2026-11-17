@@ -2,7 +2,7 @@ Status: running
 Started: 2026-11-17T14:04:05Z
 Budget: 20 items, until 2026-11-18T02:04:05Z
 Digested-through: 0
-Filed: 3/3 bugs, 4/5 ideas
+Filed: 3/3 bugs, 5/5 ideas
 Self-filed: B-305 → B-422 bug — Hosted iOS test host crashes on unimplemented PushCleanupClient.load
 Self-filed: B-305 → B-423 idea — iOS address bar keeps the previous URL after a rejected localhost navigation
 Self-filed: B-305 → B-424 idea — Device check: keyboard raised when the agent focuses a field hides the iOS pill
@@ -11,6 +11,7 @@ Self-filed: B-419 → B-426 bug — After Return on a new address, the bar shows
 Self-filed: B-419 → dropped (dup of B-420) — Typing after clicking the bar appends to the old URL (focus doesn't select all)
 Self-filed: B-419 → B-427 bug — Takeover pill's "Give Back" click does nothing after a Return commit
 Self-filed: B-420 → B-428 idea — Dragging in an unfocused address bar can't select part of the URL
+Self-filed: B-421 → B-429 idea — Stopped agent's open browser pane doesn't say the agent stopped
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -61,15 +62,16 @@ Lane: B-419
 
 Lane: B-421
   Branch: autopilot-lane/B-421
-  Dispatched: 2026-11-17T17:13:17Z
+  Dispatched: 2026-11-17T18:08:44Z
   Base: 97efeb2da678b49ec08b43db632f004a7fd399ee
   Tier: light
   State: verifying
-  Fixes: 0
+  Fixes: 2
   Wip: none
-  Reverifies: 1
-  Reviewed-tip: c0cb847bd977778f62ad856a0bcbbfb95e3e994e
+  Reverifies: 2
+  Reviewed-tip: 8979b86f9a96961febadedf33d3794352ffe42f7
   Call: A stopped agent's open browser pane and browser stay live; a restart reuses the browser; the pane doesn't yet show "stopped" — P2
+  Call: Calls cancelled by a stop get their own message, "The agent stopped"; the close path keeps "The agent's browser was closed" — P2
 
 Lane: B-420
   Branch: autopilot-lane/B-420
@@ -111,3 +113,4 @@ Progress:
 - B-421 old runner retracted its diagnosis: verifier was only queued behind B-419's verify lock; the symlink prompt was a side step. Re-verify round already covers it. Shared refresh still warranted (B-305/B-419 runners both found the Oct 1 shared build lacks B-334's symbols).
 - B-420 ready (0 fixes, general review, 5018 tests). Not visually verified: auto-mode classifier denied the verifier's keystroke into the debug app.
 - B-420 landed 6db5b0ab9. D-929..D-931.
+- B-421 ready (fix rounds 2, general delta clean, 5016 tests, window shots). Integration stale (B-420 landed toolbar/menu changes) → re-verify round 2.

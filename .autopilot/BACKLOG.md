@@ -3221,3 +3221,7 @@ Source: autopilot bug (B-419)
 ## B-428 · Dragging in an unfocused address bar can't select part of the URL   [idea]
 Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
 Source: autopilot polish (B-420)
+
+## B-429 · Stopped agent's open browser pane doesn't say the agent stopped   [idea]
+Note: the pane stays calm but shows only the Idle pill, not why it's idle (P2)
+Source: autopilot polish (B-421)
