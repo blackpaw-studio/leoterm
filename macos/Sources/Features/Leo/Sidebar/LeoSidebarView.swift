@@ -263,7 +263,8 @@ struct LeoSidebarView: View {
         // itself, so each row's tag is `Optional(id)`): the table then
         // never toggles the selected row off on ⌘-click, which here opens
         // a new window (B-048, D-104). `nil` still shows no selection.
-        ScrollViewReader { proxy in
+        let offscreen = offscreenAttention(machines: machines)
+        return ScrollViewReader { proxy in
             List<LeoSidebarItemID?, _>(selection: selectionBinding) {
                 ForEach(topLevelBlocks(machines: machines)) { block in
                     switch block {
@@ -276,6 +277,7 @@ struct LeoSidebarView: View {
             }
             .listStyle(.sidebar)
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
+            .leoShowsOffscreenAttention(offscreen.candidates, mirroredRowCount: offscreen.rowCount, proxy: proxy)
             .leoRevealsTerminalRow(
                 terminals.selection, isListed: showsTerminals, listsAgents: !model.rows.isEmpty, scheduler: revealScheduler, proxy: proxy
             )
@@ -320,12 +322,12 @@ struct LeoSidebarView: View {
             section: machine, style: statsStyle, hostName: Self.hostName, now: Date()
         )
         Section(header: machineHeader(machine.host, presentation)) {
-            if presentation.isOffline {
-                offlineCard(machine.host, presentation)
-            } else if machine.connectivity == .loading {
-                machineNote("Loading agents…", showsProgress: true)
-            } else if !model.isMachineFolded(machine) {
-                machineRows(machine)
+            switch listContent(of: machine) {
+            case .offline: offlineCard(machine.host, presentation)
+            case .loading: machineNote("Loading agents…", showsProgress: true)
+            case .noAgents: machineNote("No agents", showsProgress: false)
+            case .groups: machineRows(machine)
+            case .folded, .empty: EmptyView()
             }
         }
     }
@@ -355,15 +357,11 @@ struct LeoSidebarView: View {
     }
 
     /// A machine's own sections (Needs You, Pinned, then the groups), each
-    /// under a small title row, or a note when it has no agents.
+    /// under a small title row.
     @ViewBuilder private func machineRows(_ machine: LeoMachineSection) -> some View {
-        if machine.sections.isEmpty {
-            if !LeoSidebarLayout.isFiltering(model.query) { machineNote("No agents", showsProgress: false) }
-        } else {
-            ForEach(machine.sections) { section in
-                subsectionHeader(section, host: machine.host)
-                agentRows(section)
-            }
+        ForEach(machine.sections) { section in
+            subsectionHeader(section, host: machine.host)
+            agentRows(section)
         }
     }
 
