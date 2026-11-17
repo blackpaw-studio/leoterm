@@ -16,6 +16,8 @@ public struct LeoBrowserError: Error, Equatable, Sendable {
         case noSuchFile = "no_such_file"
         /// `browser_upload`: the workspace couldn't be read (permission, a lost connection).
         case fileError = "file_error"
+        /// A capture couldn't be written into the workspace.
+        case saveFailed = "save_failed"
     }
 
     public let code: Code

@@ -113,6 +113,91 @@ struct LeoBrowserExecutorTests {
         #expect(h.page.calls == ["screenshot full=true"])
     }
 
+    // MARK: - Captures
+
+    @Test func screenshotWithPathSavesPNGAndReturnsWorkspacePath() async throws {
+        let h = harness()
+        h.page.screenshotData = Data([0x89, 0x50, 0x4E, 0x47])
+        h.page.currentTitle = "Docs"
+        h.tabs.captureResult = LeoBrowserSavedDownload(path: "/ws/shots/a 2.png", workspacePath: "shots/a 2.png", size: 4)
+
+        let outcome = await run(h, "browser_screenshot", ["full_page": .bool(true), "path": .string("shots/a.png")])
+
+        guard case .success(let content) = outcome else { Issue.record("expected success, got \(outcome)"); return }
+        #expect(!content.contains { if case .image = $0 { true } else { false } }, "a saved screenshot is not also returned inline")
+        #expect(json(outcome) as NSDictionary == ["path": "/ws/shots/a 2.png", "workspace_path": "shots/a 2.png", "size": 4])
+        #expect(h.page.calls == ["screenshot full=true"])
+        #expect(h.tabs.captures == [FakeTabs.Capture(data: Data([0x89, 0x50, 0x4E, 0x47]), kind: .png, path: "shots/a.png", defaultName: "Docs.png")])
+    }
+
+    @Test func pdfDefaultsToDownloadsNamedAfterTitle() async throws {
+        let h = harness()
+        h.page.pdfData = Data("%PDF".utf8)
+        h.page.currentTitle = "Quarterly: Q3"
+
+        let outcome = await run(h, "browser_pdf")
+
+        #expect(h.page.calls == ["pdf"])
+        #expect(h.tabs.captures == [FakeTabs.Capture(data: Data("%PDF".utf8), kind: .pdf, path: nil, defaultName: "Quarterly: Q3.pdf")])
+        #expect(json(outcome)["workspace_path"] as? String == "downloads/Quarterly: Q3.pdf")
+    }
+
+    @Test func anUntitledPageIsNamedAfterItsRemoteHost() async throws {
+        let h = harness()
+        h.page.currentURL = URL(string: "http://devbox.test:49152/app")
+
+        _ = await run(h, "browser_pdf", ["path": .string("out/")])
+
+        #expect(h.tabs.captures.first?.defaultName == "devbox.test.pdf")
+        #expect(h.tabs.captures.first?.path == "out/")
+    }
+
+    @Test func pdfOfAGivenTab() async throws {
+        let h = harness(pageCount: 2)
+        _ = await run(h, "browser_pdf", ["tab": .int(2)])
+        #expect(h.tabs.pages[2]?.calls == ["pdf"])
+        #expect(h.tabs.pages[1]?.calls == [])
+    }
+
+    @Test func capturesWorkWhileUserHasControl() async {
+        let h = harness()
+        h.control.send(.userInput)
+
+        #expect(errorCode(await run(h, "browser_pdf")) == nil)
+        #expect(errorCode(await run(h, "browser_screenshot", ["path": .string("a.png")])) == nil)
+        #expect(h.tabs.captures.count == 2)
+        #expect(h.control.state.allowsAgentActions == false, "a capture never takes control back")
+    }
+
+    @Test func saveFailureReturnsSaveFailedWithMessage() async {
+        let h = harness()
+        h.tabs.captureError = LeoBrowserError(.saveFailed, "The connection to the machine was lost. Nothing was saved.")
+
+        let outcome = await run(h, "browser_pdf")
+
+        guard case .failure(let error) = outcome else { Issue.record("expected failure, got \(outcome)"); return }
+        #expect(error == LeoClientToolError(code: "save_failed", message: "The connection to the machine was lost. Nothing was saved."))
+    }
+
+    @Test func anInvalidPathFromTheSaveIsInvalidArgs() async {
+        let h = harness()
+        h.tabs.captureError = LeoBrowserError.invalidArgs("path \"/elsewhere/a.pdf\" is outside the workspace")
+        #expect(errorCode(await run(h, "browser_pdf", ["path": .string("/elsewhere/a.pdf")])) == "invalid_args")
+    }
+
+    @Test func anUnexpectedSaveErrorIsSaveFailedNotJSError() async {
+        let h = harness()
+        h.tabs.captureError = CocoaError(.fileWriteUnknown)
+        #expect(errorCode(await run(h, "browser_screenshot", ["path": .string("a.png")])) == "save_failed")
+    }
+
+    @Test func aBadPathIsRefusedBeforeThePageIsCaptured() async {
+        let h = harness()
+        #expect(errorCode(await run(h, "browser_pdf", ["path": .string("../a.pdf")])) == "invalid_args")
+        #expect(h.page.calls.isEmpty)
+        #expect(h.tabs.captures.isEmpty)
+    }
+
     @Test func evalReturnsTheSerialisedResult() async {
         let h = harness()
         h.page.evalResult = "{\"a\":1}"
@@ -656,6 +741,7 @@ private final class FakePage: LeoBrowserPage {
     var currentTitle = ""
     var snapshotText = ""
     var screenshotData = Data()
+    var pdfData = Data()
     var evalResult = "null"
     var console = LeoBrowserConsoleBatch(entries: [], cursor: 0)
     var error: (any Error)?
@@ -713,6 +799,11 @@ private final class FakePage: LeoBrowserPage {
         return screenshotData
     }
 
+    func pdf() async throws -> Data {
+        try record("pdf")
+        return pdfData
+    }
+
     func waitForText(_ text: String, timeoutMilliseconds: Int) async throws { try record("waitForText \(text) \(timeoutMilliseconds)") }
 
     func evaluate(_ js: String) async throws -> String {
@@ -743,10 +834,21 @@ private final class FakePage: LeoBrowserPage {
 
 @MainActor
 private final class FakeTabs: LeoBrowserTabs {
+    struct Capture: Equatable {
+        let data: Data
+        let kind: LeoBrowserCaptureKind
+        let path: String?
+        let defaultName: String
+    }
+
     var pages: [Int: FakePage] = [:]
     var activeID: Int?
     var opened: [String] = []
     var downloads: [LeoBrowserDownload] = []
+    var captures: [Capture] = []
+    /// What `saveCapture` returns; by default, saved where asked under `/ws`.
+    var captureResult: LeoBrowserSavedDownload?
+    var captureError: (any Error)?
     private var nextID = 1
 
     init(pageCount: Int) {
@@ -773,6 +875,13 @@ private final class FakeTabs: LeoBrowserTabs {
         pages[id]?.userAgent = userAgent
         activeID = id
         return id
+    }
+
+    func saveCapture(_ data: Data, kind: LeoBrowserCaptureKind, path: String?, defaultName: String) async throws -> LeoBrowserSavedDownload {
+        captures.append(Capture(data: data, kind: kind, path: path, defaultName: defaultName))
+        if let captureError { throw captureError }
+        let workspacePath = path ?? "downloads/" + defaultName
+        return captureResult ?? LeoBrowserSavedDownload(path: "/ws/" + workspacePath, workspacePath: workspacePath, size: UInt64(data.count))
     }
 
     func selectTab(_ id: Int) { activeID = id }

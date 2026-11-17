@@ -40,8 +40,11 @@ public enum LeoBrowserTools {
              required: ["ref", "paths"], timeoutSeconds: uploadTimeoutSeconds),
         tool("browser_press", "Press a key or chord, such as Enter, Escape, Tab, ArrowDown or Meta+a.",
              ["key": string("A key, optionally prefixed by modifiers joined with +: Shift, Control, Alt, Meta.")], required: ["key"]),
-        tool("browser_screenshot", "Take a PNG screenshot of the tab, at most 1600 px wide.",
-             ["full_page": boolean("Capture the whole scrollable page instead of the viewport.")]),
+        tool("browser_screenshot", "Take a PNG screenshot of the tab, at most 1600 px wide. It is returned as an image, or, with path, saved into your workspace and reported as {path, workspace_path, size}.",
+             ["full_page": boolean("Capture the whole scrollable page instead of the viewport."),
+              "path": string("Save the PNG here instead of returning the image: relative to your workspace, or absolute inside it. " + capturePathRules("png"))]),
+        tool("browser_pdf", "Save the tab as a PDF in your workspace: one continuous page of the whole document, like Safari's Export as PDF, not paginated for printing. Never overwrites a file: a name that is taken gets a numbered one (\"page 2.pdf\"). Returns the absolute path, the workspace_path and the size in bytes.",
+             ["path": string("Where to save it: relative to your workspace, or absolute inside it. " + capturePathRules("pdf") + " Defaults to \(LeoBrowserCapturePath.defaultFolder)/<page title>.pdf.")]),
         tool("browser_wait", "Wait until text appears on the page, or for a fixed time. Pass exactly one of text or ms.",
              ["text": string("Wait until this text appears."), "ms": integer("Wait this many milliseconds, at most 25000.")]),
         tool("browser_eval", "Evaluate JavaScript in the page and return the JSON-serialised result.",
@@ -65,6 +68,10 @@ public enum LeoBrowserTools {
     ]
 
     private static let tabProperty = integer("Tab id from browser_tabs; defaults to the active tab.")
+
+    private static func capturePathRules(_ pathExtension: String) -> String {
+        "A trailing / saves into that folder under the page title; missing folders are created and .\(pathExtension) is added if missing. Never overwrites: a name that is taken gets a numbered one."
+    }
 
     private static func tool(
         _ name: String, _ description: String, _ properties: [String: LeoJSONValue], required: [String] = [],

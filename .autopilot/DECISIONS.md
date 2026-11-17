@@ -1394,3 +1394,81 @@ Chose: A stale focus claim can linger if a slot isn't the winning viewer when it
 Why: accepted edge
 Commit: 4eb1b7a61 e583db40a d1d21bef9 5ad646332
 Veto: [ ]
+
+## D-869 · 2026-11-17 · B-406: New `browser_pdf` tool, plus `path` on `browser_screenshot` (`full_page` already existed)
+Chose: New `browser_pdf` tool, plus `path` on `browser_screenshot` (`full_page` already existed)
+Why: item, D-759
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-870 · 2026-11-17 · B-406: Saved PDF is one continuous page of the whole document, not paginated for printing…
+Chose: Saved PDF is one continuous page of the whole document, not paginated for printing (WebKit splits past 14,400 pt)
+Why: P1, item Out
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-871 · 2026-11-17 · B-406: Default capture target `downloads/<title>.pdf|.png`, falling back to host name, then…
+Chose: Default capture target `downloads/<title>.pdf|.png`, falling back to host name, then `page`
+Why: D-832, D-834, P3
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-872 · 2026-11-17 · B-406: A capture name clash gets a numbered name and the real name is reported; nothing is…
+Chose: A capture name clash gets a numbered name and the real name is reported; nothing is overwritten
+Why: D-833, P2
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-873 · 2026-11-17 · B-406: Capture path rules: workspace-relative or absolute inside the workspace; trailing `/`…
+Chose: Capture path rules: workspace-relative or absolute inside the workspace; trailing `/` means default name; missing folders created; missing extension appended; wrong extension, `..` or outside path is `invalid_args`
+Why: P3
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-874 · 2026-11-17 · B-406: A screenshot with `path` returns the saved path, not the image
+Chose: A screenshot with `path` returns the saved path, not the image
+Why: P2
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-875 · 2026-11-17 · B-406: Captures are reads: they work while the user drives
+Chose: Captures are reads: they work while the user drives
+Why: D-844, D-835
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-876 · 2026-11-17 · B-406: Save Page as PDF… ⇧⌘S, Save Full-Page Screenshot… ⌥⇧⌘S; enabled only with focus in the…
+Chose: Save Page as PDF… ⇧⌘S, Save Full-Page Screenshot… ⌥⇧⌘S; enabled only with focus in the browser pane and a page loaded
+Why: P1, D-843
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-877 · 2026-11-17 · B-406: Save uses a one-field workspace path sheet, because NSSavePanel can't browse SFTP
+Chose: Save uses a one-field workspace path sheet, because NSSavePanel can't browse SFTP
+Why: P3
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-878 · 2026-11-17 · B-406: Saved strip shown for menu saves only, with D-837 copy
+Chose: Saved strip shown for menu saves only, with D-837 copy
+Why: P2
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-879 · 2026-11-17 · B-406: Capture tool and logic in LeoKit (both platforms); menu/sheet/WebKit Mac only, iOS with…
+Chose: Capture tool and logic in LeoKit (both platforms); menu/sheet/WebKit Mac only, iOS with B-305
+Why: D-841
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-880 · 2026-11-17 · B-406: Capture path details: empty path is invalid_args; a real extension is 1–8 ASCII…
+Chose: Capture path details: empty path is invalid_args; a real extension is 1–8 ASCII letters/digits; default name never doubles an extension; `/ws/` saves the default name at the workspace root, `/ws` is rejected; save errors become `save_failed`; menu items disabled on about:blank and while the sheet is up
+Why: implementer
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]
+
+## D-881 · 2026-11-17 · B-406: Full-page PNG is rendered from createPDF over a rect capped at viewport width ×…
+Chose: Full-page PNG is rendered from createPDF over a rect capped at viewport width × min(scrollHeight, 16,384 pt), replacing takeSnapshot (blank below the viewport)
+Why: bug fix
+Commit: 4700533e3 5811a2892 1b238241d ddffab505 2a0a0914b 6f356bbd8 c8405bd39
+Veto: [ ]

@@ -42,7 +42,11 @@ public struct LeoBrowserCommand: Equatable, Sendable {
             guard let combo = LeoBrowserKeyCombo(key) else { throw LeoBrowserError.invalidArgs("Unrecognised key \(key.debugDescription)") }
             self.init(tab: try reader.tab(), action: .press(combo))
         case "browser_screenshot":
-            self.init(tab: try reader.tab(), action: .screenshot(fullPage: try reader.bool("full_page") ?? false))
+            self.init(tab: try reader.tab(), action: .screenshot(
+                fullPage: try reader.bool("full_page") ?? false, path: try Self.capturePath(reader, kind: .png)
+            ))
+        case "browser_pdf":
+            self.init(tab: try reader.tab(), action: .pdf(path: try Self.capturePath(reader, kind: .pdf)))
         case "browser_wait":
             self.init(tab: try reader.tab(), action: .wait(try Self.waitCondition(reader)))
         case "browser_eval":
@@ -98,6 +102,14 @@ public struct LeoBrowserCommand: Equatable, Sendable {
         return userAgent
     }
 
+    /// The optional `path` of a capture, its form checked here so a bad one
+    /// fails before the page is captured; the workspace check comes at save.
+    private static func capturePath(_ reader: LeoBrowserArgs, kind: LeoBrowserCaptureKind) throws -> String? {
+        guard let path = try reader.string("path") else { return nil }
+        try LeoBrowserCapturePath.validate(path, kind: kind)
+        return path
+    }
+
     /// `paths`: 1 to `maximumUploadFiles` non-blank strings without NUL.
     /// Whether each is inside the workspace is the reader's call.
     private static func uploadPaths(_ reader: LeoBrowserArgs) throws -> [String] {
@@ -142,7 +154,10 @@ public enum LeoBrowserAction: Equatable, Sendable {
     /// Sets workspace files, as given, on the file input for `ref`.
     case upload(ref: String, paths: [String])
     case press(LeoBrowserKeyCombo)
-    case screenshot(fullPage: Bool)
+    /// With a `path`, the PNG is saved into the workspace instead of returned.
+    case screenshot(fullPage: Bool, path: String?)
+    /// The whole page as one continuous PDF page, saved into the workspace.
+    case pdf(path: String?)
     case wait(WaitCondition)
     case eval(js: String)
     /// `since` is a message cursor from an earlier call; nil means everything
@@ -164,7 +179,7 @@ public enum LeoBrowserAction: Equatable, Sendable {
     public var changesPage: Bool {
         switch self {
         case .navigate, .back, .forward, .reload, .click, .type, .upload, .press, .eval, .tabNew, .tabSelect, .tabClose, .setUserAgent: true
-        case .snapshot, .screenshot, .wait, .console, .tabs, .downloads, .handoff: false
+        case .snapshot, .screenshot, .pdf, .wait, .console, .tabs, .downloads, .handoff: false
         }
     }
 }

@@ -66,13 +66,19 @@ public enum LeoBrowserDownloadName {
     /// whitespace is trimmed; an empty result is `download`. Over-long
     /// names are cut on a character boundary, keeping a short extension.
     public static func sanitized(_ suggested: String) -> String {
+        sanitized(suggested, fallback: fallback)
+    }
+
+    /// `sanitized`, with `fallback` (which may be empty) for a name that
+    /// has nothing left.
+    public static func sanitized(_ suggested: String, fallback: String) -> String {
         let replaced = String(String.UnicodeScalarView(suggested.unicodeScalars.map { scalar in
             isUnsafe(scalar) ? "_" : scalar
         }))
         let trimmed = replaced.trimmingCharacters(in: .whitespaces)
         let visible = String(trimmed.drop { $0 == "." }).trimmingCharacters(in: .whitespaces)
-        let name = visible.isEmpty ? fallback : visible
-        return LeoFileName.isSafeComponent(name) ? cut(name) : fallback
+        guard !visible.isEmpty, LeoFileName.isSafeComponent(visible) else { return fallback }
+        return cut(visible)
     }
 
     private static func isUnsafe(_ scalar: Unicode.Scalar) -> Bool {
@@ -115,13 +121,18 @@ public enum LeoBrowserDownloadSaveError: Error, Equatable, Sendable {
     case unreadable
     case file(LeoFileAccessError)
 
-    /// One sentence, in the app's words.
-    public var message: String {
-        switch self {
+    /// One sentence, in the app's words, about a save into `downloads/`.
+    public var message: String { message(in: LeoBrowserDownloadSaver.folderName) }
+
+    /// One sentence about a save into `folder` (workspace-relative; empty
+    /// for the workspace itself).
+    public func message(in folder: String) -> String {
+        let place = folder.isEmpty ? "the workspace" : folder + "/"
+        return switch self {
         case .noWorkspace: "This agent has no workspace to save downloads in."
-        case .noFreeName(let name): "Too many files named “\(name)” are already in \(LeoBrowserDownloadSaver.folderName)/."
+        case .noFreeName(let name): "Too many files named “\(name)” are already in \(place)."
         case .lostConnection: "The connection to the machine was lost."
-        case .uncertain: "The connection was lost while saving; check \(LeoBrowserDownloadSaver.folderName)/ before trying again."
+        case .uncertain: "The connection was lost while saving; check \(place) before trying again."
         case .unreadable: "The downloaded file couldn’t be read back."
         case .file(let error): error.localizedDescription
         }
@@ -166,12 +177,20 @@ public actor LeoBrowserDownloadSaver {
     }
 
     /// Saves `source` as `suggestedName` (sanitised), or the first free
-    /// numbered name, in `<workspace>/downloads/`, creating that folder.
-    public func save(_ source: any LeoFileByteSource, suggestedName: String, workspace: String?) async throws -> LeoBrowserSavedDownload {
+    /// numbered name, in `<workspace>/<folder>/`, creating each missing
+    /// level of `folder` (workspace-relative, `/`-separated; empty for the
+    /// workspace itself). A folder with an empty, `.` or `..` component, or
+    /// an absolute one, is refused before anything is touched.
+    public func save(
+        _ source: any LeoFileByteSource, suggestedName: String, workspace: String?, folder: String = folderName
+    ) async throws -> LeoBrowserSavedDownload {
         guard let workspace, workspace.hasPrefix("/"), !workspace.contains("\0") else { throw LeoBrowserDownloadSaveError.noWorkspace }
+        guard Self.isInsideFolder(folder) else { throw LeoBrowserDownloadSaveError.file(.invalidPath(folder)) }
         let access = try await mapped { try await makeAccess() }
         do {
-            let saved = try await save(source, as: LeoBrowserDownloadName.sanitized(suggestedName), in: workspace, access: access)
+            let saved = try await save(
+                source, as: LeoBrowserDownloadName.sanitized(suggestedName), in: workspace, folder: folder, access: access
+            )
             await access.close()
             return saved
         } catch {
@@ -180,23 +199,31 @@ public actor LeoBrowserDownloadSaver {
         }
     }
 
-    private func save(_ source: any LeoFileByteSource, as name: String, in workspace: String, access: any LeoFileAccess) async throws -> LeoBrowserSavedDownload {
+    private func save(
+        _ source: any LeoFileByteSource, as name: String, in workspace: String, folder: String, access: any LeoFileAccess
+    ) async throws -> LeoBrowserSavedDownload {
         await removeLeftovers(with: access)
-        let folder = (workspace as NSString).appendingPathComponent(Self.folderName)
+        let directory = folder.isEmpty ? workspace : (workspace as NSString).appendingPathComponent(folder)
         let taken = try await mapped {
             guard try await access.stat(workspace).kind == .directory else { throw LeoFileAccessError.notADirectory(path: workspace) }
-            try await access.ensureDirectory(folder)
-            return Set(try await access.list(folder).map(\.name))
+            try await access.ensureDirectory(directory)
+            return Set(try await access.list(directory).map(\.name))
         }
         for number in 1...Self.numberedNameLimit {
             let candidate = number == 1 ? name : LeoFileName.numbered(name, number)
             guard !taken.contains(candidate) else { continue }
-            let path = (folder as NSString).appendingPathComponent(candidate)
+            let path = (directory as NSString).appendingPathComponent(candidate)
             if let stat = try await create(path, from: source, access: access) {
-                return LeoBrowserSavedDownload(path: path, workspacePath: Self.folderName + "/" + candidate, size: stat.size)
+                let workspacePath = folder.isEmpty ? candidate : folder + "/" + candidate
+                return LeoBrowserSavedDownload(path: path, workspacePath: workspacePath, size: stat.size)
             }
         }
         throw LeoBrowserDownloadSaveError.noFreeName(name)
+    }
+
+    /// Empty, or relative components that are each one safe name.
+    private static func isInsideFolder(_ folder: String) -> Bool {
+        folder.isEmpty || folder.split(separator: "/", omittingEmptySubsequences: false).allSatisfy { LeoFileName.isSafeComponent(String($0)) }
     }
 
     /// The created file's stat, or nil when the name turned out to be taken.
@@ -304,6 +331,38 @@ public actor LeoBrowserDownloadSaver {
             update(id, .failed("\(LeoSFTPServerText.sanitized(error.localizedDescription)) \(Self.nothingSaved)"))
         }
         removeFile(file)
+    }
+
+    /// Saves a page capture (`browser_pdf`, `browser_screenshot` with a
+    /// path, or the Mac File menu) through the same saver as downloads, so
+    /// it never overwrites and never leaves a partial file. `path` follows
+    /// `LeoBrowserCapturePath` (nil for `downloads/<defaultName>`). Not
+    /// listed with the downloads. Throws `invalid_args` for a bad path and
+    /// `save_failed` with a sentence that says whether anything was saved.
+    public func saveCapture(
+        _ data: Data, kind: LeoBrowserCaptureKind, path: String?, defaultName: String
+    ) async throws -> LeoBrowserSavedDownload {
+        guard let workspace = workspace() else { throw Self.saveFailed(.noWorkspace, folder: LeoBrowserCapturePath.defaultFolder) }
+        let target = try LeoBrowserCapturePath.resolve(path, workspace: workspace, kind: kind, defaultName: defaultName)
+        do {
+            return try await saver.save(data, suggestedName: target.name, workspace: workspace, folder: target.folder)
+        } catch let error as LeoBrowserDownloadSaveError {
+            throw Self.saveFailed(error, folder: target.folder)
+        } catch {
+            throw LeoBrowserError(.saveFailed, "\(LeoSFTPServerText.sanitized(error.localizedDescription)) \(Self.nothingSaved)")
+        }
+    }
+
+    /// What is wrong with a capture path the user typed, checked as
+    /// `saveCapture` will (against the workspace when there is one), as a
+    /// sentence; nil when it is fine.
+    public func captureProblem(with path: String, kind: LeoBrowserCaptureKind) -> String? {
+        LeoBrowserCapturePath.problem(with: path, kind: kind, workspace: workspace())
+    }
+
+    private static func saveFailed(_ error: LeoBrowserDownloadSaveError, folder: String) -> LeoBrowserError {
+        let message = error.message(in: folder)
+        return LeoBrowserError(.saveFailed, error.mayHaveSaved ? message : "\(message) \(nothingSaved)")
     }
 
     /// Handlers run after every change; the returned closure removes one.

@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import PDFKit
 import Testing
 import WebKit
 
@@ -28,6 +29,11 @@ struct LeoWKBrowserPageTests {
         "other": "<title>Other</title><p>Elsewhere</p>",
         "long": (0..<3_000).map { "<p>Paragraph \($0) with some filler text in it</p>" }.joined(),
         "tall": #"<body style="margin:0"><div style="height:3000px;background:#3366cc"></div></body>"#,
+        // Beige page, red block in its last 600 px: far below an 800x600 viewport.
+        // Taller than the full-page cap (16,384): blue top, red just above
+        // the cap, green below it.
+        "huge": #"<body style="margin:0;background:#f5f0e6"><div style="height:300px;background:#0000ff"></div><div style="height:15784px"></div><div style="height:300px;background:#ff0000"></div><div style="height:3616px;background:#00ff00"></div></body>"#,
+        "marked": #"<body style="margin:0;background:#f5f0e6"><div style="height:2400px"></div><div style="height:600px;background:#ff0000"></div></body>"#,
         "console": """
         <script>
         console.log('hello', {a: 1});
@@ -315,6 +321,93 @@ struct LeoWKBrowserPageTests {
         #expect(CGImageSourceGetType(source) as String? == "public.png")
         #expect(image.width <= 1_600)
         #expect(Double(image.height) / Double(image.width) > 600.0 / 2_000.0 * 4)
+    }
+
+    /// WebKit only paints what is on screen, so a snapshot of a rect taller
+    /// than the viewport came back blank below it; the low part of the page
+    /// must be there in the PNG.
+    @available(macOS 14, *)
+    @Test func fullPageScreenshotPaintsBelowTheViewport() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        _ = try await fixture.page.navigate(to: LeoWKFixtureServer.url("marked"))
+
+        let png = try await fixture.page.screenshot(fullPage: true)
+
+        let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        #expect(image.width <= 1_600)
+        #expect(Double(image.height) / Double(image.width) > 3.5, "\(image.width)x\(image.height) for a 3000 pt page")
+        let top = try #require(Self.pixel(image, atHeightFraction: 0.05))
+        let bottom = try #require(Self.pixel(image, atHeightFraction: 0.95))
+        #expect(top.red > 230 && top.green > 225 && top.blue > 210, "top is the beige page: \(top)")
+        #expect(bottom.red > 200 && bottom.green < 60 && bottom.blue < 60, "the red block near the bottom is painted: \(bottom)")
+    }
+
+    /// A page taller than the cap renders only the capped region for its
+    /// screenshot, so a very long page can't exhaust memory; the PNG still
+    /// starts at the top of the document when the page is scrolled.
+    @available(macOS 14, *)
+    @Test func fullPageScreenshotRendersOnlyTheCappedRegion() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        _ = try await fixture.page.navigate(to: LeoWKFixtureServer.url("huge"))
+        _ = try await fixture.page.eval("window.scrollTo(0, 9000); scrollY")
+
+        // WebKit pages a PDF at 14,400 pt; together the pages cover only the cap.
+        let pdf = try #require(PDFDocument(data: try await fixture.page.screenshotPDF()))
+        let boxes = (0..<pdf.pageCount).compactMap { pdf.page(at: $0)?.bounds(for: .mediaBox) }
+        let rendered = boxes.reduce(0) { $0 + $1.height }
+        #expect(abs(rendered - LeoWKBrowserPage.maxFullPageHeight) < 1, "the screenshot's PDF pages are \(boxes)")
+        #expect(boxes.allSatisfy { $0.width <= 800 })
+
+        let png = try await fixture.page.screenshot(fullPage: true)
+        let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+        let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+        let top = try #require(Self.pixel(image, atHeightFraction: 0.005))
+        let bottom = try #require(Self.pixel(image, atHeightFraction: 0.999))
+        #expect(top.blue > 200 && top.red < 60, "the document's top, though scrolled: \(top)")
+        #expect(bottom.red > 200 && bottom.green < 60, "the last capped points are the red block: \(bottom), image \(image.width)x\(image.height)")
+        #expect(Double(image.height) / Double(image.width) > 16_000.0 / 800, "\(image.width)x\(image.height)")
+    }
+
+    /// The colour in the middle of the row `fraction` of the way down.
+    private static func pixel(_ image: CGImage, atHeightFraction fraction: Double) -> (red: UInt8, green: UInt8, blue: UInt8)? {
+        let width = image.width, height = image.height
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let drawn = bytes.withUnsafeMutableBytes { buffer -> Bool in
+            guard let context = CGContext(
+                data: buffer.baseAddress, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+            return true
+        }
+        guard drawn else { return nil }
+        // Bitmap memory runs top row first.
+        let offset = (Int(Double(height - 1) * fraction) * width + width / 2) * 4
+        return (bytes[offset], bytes[offset + 1], bytes[offset + 2])
+    }
+
+    /// Like Safari's Export as PDF: one page as tall as the document, not
+    /// the viewport and not paginated for printing.
+    @available(macOS 14, *)
+    @Test func pdfIsOnePageCoveringWholeScrollHeight() async throws {
+        let fixture = LeoWKPageFixture(Self.pages)
+        defer { fixture.close() }
+        let page = fixture.page
+        fixture.window.setContentSize(CGSize(width: 800, height: 600))
+        _ = try await page.navigate(to: LeoWKFixtureServer.url("tall"))
+        let scrollHeight = try #require(Double(try await page.eval("document.documentElement.scrollHeight")))
+        let scrollWidth = try #require(Double(try await page.eval("document.documentElement.scrollWidth")))
+
+        let data = try await page.pdf()
+
+        let document = try #require(PDFDocument(data: data))
+        #expect(document.pageCount == 1)
+        let bounds = try #require(document.page(at: 0)).bounds(for: .mediaBox)
+        #expect(bounds.height >= scrollHeight, "page \(bounds) for a \(scrollHeight) pt tall document")
+        #expect(bounds.width >= scrollWidth, "page \(bounds) for a \(scrollWidth) pt wide document")
     }
 
     @available(macOS 14, *)

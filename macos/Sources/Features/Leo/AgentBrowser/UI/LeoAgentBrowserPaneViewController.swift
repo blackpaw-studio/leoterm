@@ -26,6 +26,10 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
     private let headerTopInset: LeoToolbarInset?
     private var subscription: AnyCancellable?
     private var insetSubscription: AnyCancellable?
+    /// The File-menu save sheet while it is up (B-406).
+    var saveSheet: LeoBrowserSaveSheet?
+    /// The latest File-menu save, while it runs.
+    var pendingSave: Task<Void, Never>?
     /// What Open, Copy and Clear reach outside the pane (B-409).
     let services: LeoBrowserPaneServices
     /// Clear Site Data's confirmation is up.
@@ -78,7 +82,8 @@ final class LeoAgentBrowserPaneViewController: NSViewController {
         let stack = LeoAgentBrowserPaneStack(views: rows)
         stack.onKeyEquivalent = { [weak self] event in
             guard let self else { return false }
-            return performFindKeyEquivalent(event) || performHistoryKeyEquivalent(event) || performBrowserKeyEquivalent(event)
+            return performFindKeyEquivalent(event) || performHistoryKeyEquivalent(event) || performSaveKeyEquivalent(event)
+                || performBrowserKeyEquivalent(event)
         }
         stack.orientation = .vertical
         stack.spacing = 0

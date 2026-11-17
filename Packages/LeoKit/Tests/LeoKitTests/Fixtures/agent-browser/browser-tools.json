@@ -180,12 +180,16 @@
     "timeout_s" : 30
   },
   {
-    "description" : "Leo app browser: Take a PNG screenshot of the tab, at most 1600 px wide.",
+    "description" : "Leo app browser: Take a PNG screenshot of the tab, at most 1600 px wide. It is returned as an image, or, with path, saved into your workspace and reported as {path, workspace_path, size}.",
     "input_schema" : {
       "properties" : {
         "full_page" : {
           "description" : "Capture the whole scrollable page instead of the viewport.",
           "type" : "boolean"
+        },
+        "path" : {
+          "description" : "Save the PNG here instead of returning the image: relative to your workspace, or absolute inside it. A trailing \/ saves into that folder under the page title; missing folders are created and .png is added if missing. Never overwrites: a name that is taken gets a numbered one.",
+          "type" : "string"
         },
         "tab" : {
           "description" : "Tab id from browser_tabs; defaults to the active tab.",
@@ -195,6 +199,24 @@
       "type" : "object"
     },
     "name" : "browser_screenshot",
+    "timeout_s" : 30
+  },
+  {
+    "description" : "Leo app browser: Save the tab as a PDF in your workspace: one continuous page of the whole document, like Safari's Export as PDF, not paginated for printing. Never overwrites a file: a name that is taken gets a numbered one (\"page 2.pdf\"). Returns the absolute path, the workspace_path and the size in bytes.",
+    "input_schema" : {
+      "properties" : {
+        "path" : {
+          "description" : "Where to save it: relative to your workspace, or absolute inside it. A trailing \/ saves into that folder under the page title; missing folders are created and .pdf is added if missing. Never overwrites: a name that is taken gets a numbered one. Defaults to downloads\/<page title>.pdf.",
+          "type" : "string"
+        },
+        "tab" : {
+          "description" : "Tab id from browser_tabs; defaults to the active tab.",
+          "type" : "integer"
+        }
+      },
+      "type" : "object"
+    },
+    "name" : "browser_pdf",
     "timeout_s" : 30
   },
   {
