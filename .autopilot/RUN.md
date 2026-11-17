@@ -73,11 +73,12 @@ Lane: B-407
   Dispatched: 2026-11-17T01:47:05Z
   Base: f1d8748307b0d94bbe67e579c7cc99f257c28564
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 0
   Reviewed-tip: 9a4c38661cc8379e9aad202ee2e825245c740381
+  Tokens: 87M in (85.7M cache read), ≥293k out, 557 requests
   Call: Safari-style find bar above the page, count "2 of 12" / "No matches" / "1000+" — P1
   Call: ⌘F/⌘G/⌘⇧G claimed whenever focus is anywhere in the browser pane (page, URL field, find field); terminal and editor paths untouched — P1
   Call: Finding is reading: no user-input event, no agent takeover — P2
@@ -103,6 +104,8 @@ Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/
 
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
 
+Finished 3: B-407 landed 290801942 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
+
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
@@ -116,3 +119,4 @@ Progress:
 - Pick: B-405 full (uploads; new tool + picker).
 - Dispatched B-405 d-2c841ad94d65.
 - B-407 ready (fix 2). Integrate conflict with B-404 strip resolved. Verifier incident: a mis-focused Return started `autopilot-scratch` (scratch only; stopped again). Edit ▸ Find key-glyph gap accepted as polish (items and shortcuts both work).
+- B-407 landed 290801942. D-842..D-850.

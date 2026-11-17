@@ -36,12 +36,14 @@ Accept: File ▸ Save Page as PDF… and Save Full-Page Screenshot… write into
 Out: Printing to a printer; web archives. Both platforms: tool in LeoKit, Mac menu now.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 
-## B-407 · Find in page in the agent browser (⌘F, ⌘G, ⌘⇧G)   [ready]
+## B-407 · Find in page in the agent browser (⌘F, ⌘G, ⌘⇧G)   [done]
 Issue: #384
 Why: Milestone 2 (Everyday browsing); P1 keyboard-first.
 Accept: ⌘F in a focused browser pane shows a HIG find bar that highlights matches with a count; ⌘G/⌘⇧G step through them; Esc closes it; Edit ▸ Find items match; ⌘F still finds in the terminal or editor when those are focused (tested); screenshot from the isolated debug build
 Out: Regex/case options. Mac only (iOS later with B-305 UI).
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
+Done: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661 (4887 tests; landed 290801942). Decisions D-842..D-850.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-407-17.png
 
 ## B-408 · Reopen closed tab and back/forward history menus in the agent browser   [ready]
 Issue: #385

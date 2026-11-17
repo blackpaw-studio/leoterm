@@ -1232,3 +1232,57 @@ Chose: Logic and tool in LeoKit (both platforms); WKDownload glue and strip Mac 
 Why: parity rule
 Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
 Veto: [ ]
+
+## D-842 · 2026-11-17 · B-407: Safari-style find bar above the page, count "2 of 12" / "No matches" / "1000+"
+Chose: Safari-style find bar above the page, count "2 of 12" / "No matches" / "1000+"
+Why: P1
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-843 · 2026-11-17 · B-407: ⌘F/⌘G/⌘⇧G claimed whenever focus is anywhere in the browser pane (page, URL field, find…
+Chose: ⌘F/⌘G/⌘⇧G claimed whenever focus is anywhere in the browser pane (page, URL field, find field); terminal and editor paths untouched
+Why: P1
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-844 · 2026-11-17 · B-407: Finding is reading: no user-input event, no agent takeover
+Chose: Finding is reading: no user-input event, no agent takeover
+Why: P2
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-845 · 2026-11-17 · B-407: Esc in the find field closes the bar, clears highlights, returns focus to the page
+Chose: Esc in the find field closes the bar, clears highlights, returns focus to the page
+Why: P1
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-846 · 2026-11-17 · B-407: Bar stays open across tab switches and page loads and re-searches; ⌘G with no query…
+Chose: Bar stays open across tab switches and page loads and re-searches; ⌘G with no query opens the bar
+Why: P2
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-847 · 2026-11-17 · B-407: Case-insensitive, no options; Edit ▸ Find shows no key equivalents, same as terminal…
+Chose: Case-insensitive, no options; Edit ▸ Find shows no key equivalents, same as terminal and editor
+Why: P1 / item Out
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-848 · 2026-11-17 · B-407: Query is kept after Esc (result and highlights cleared); reopening searches it again
+Chose: Query is kept after Esc (result and highlights cleared); reopening searches it again
+Why: P2
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-849 · 2026-11-17 · B-407: Reveal scrolls the page only, not inner overflow:auto containers
+Chose: Reveal scrolls the page only, not inner overflow:auto containers
+Why: scope (accepted gap)
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
+
+## D-850 · 2026-11-17 · B-407: Whitespace and nbsp collapse to one space, <br> counts as a break
+Chose: Whitespace and nbsp collapse to one space, <br> counts as a break
+Why: P1
+Commit: c30891669 c8d1164aa bd5aac2b3 691561f32 408f62fe3 9a4c38661
+Veto: [ ]
