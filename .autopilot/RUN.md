@@ -43,7 +43,7 @@ Lane: B-305
 
 Lane: B-419
   Branch: autopilot-lane/B-419
-  Dispatched: 2026-11-17T14:07:51Z
+  Dispatched: 2026-11-17T16:55:34Z
   Base: 25f86d23516a1cde24a21643f1cda05e20ba8bb1
   Tier: light
   State: verifying
@@ -80,3 +80,4 @@ Progress:
 - Pick: B-421 light bug (pane collapse on agent stop). B-421 built before B-420 (independent; B-420 overlaps B-419's address field).
 - Dispatched B-421 d-117d1e98df4f.
 - B-419 ready (fix 1, standard implementer, general review). Integration stale (B-305 landed Mac/LeoKit changes) → re-verify round 1. Runner note: shared GhosttyKit.xcframework is stale since B-334; lanes build their own.
+- Dispatched B-419 re-verify d-4c616368bfee.
