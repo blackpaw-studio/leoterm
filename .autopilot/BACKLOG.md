@@ -3224,6 +3224,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-419)
 Done: 4e0c561ea a0cb2acc6 792fb4298 (merged in 2e7220332; 5027 tests, lint clean). The bar keeps the typed address while the new page loads; a failed, cancelled or unstartable load falls back to the page URL. Mac only. D-937..D-939.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
+Reviewed: accepted 2026-11-17 — 2e7220332033
 
 ## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [blocked]
 Issue: #396
