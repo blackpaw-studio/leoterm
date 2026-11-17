@@ -91,6 +91,14 @@ struct LeoBrowserCapturePathTests {
         #expect(long.hasSuffix(".pdf"))
     }
 
+    @Test func theProblemIsASentenceForTheSaveSheet() {
+        #expect(LeoBrowserCapturePath.problem(with: "a.png", kind: .pdf, workspace: "/ws") == "The path must end in .pdf.")
+        #expect(LeoBrowserCapturePath.problem(with: "", kind: .pdf, workspace: "/ws") == "The path is empty.")
+        #expect(LeoBrowserCapturePath.problem(with: "/etc/a.pdf", kind: .pdf, workspace: "/ws") == "The path is outside the workspace (/ws).")
+        #expect(LeoBrowserCapturePath.problem(with: "/etc/a.pdf", kind: .pdf, workspace: nil) == nil, "no workspace yet: the form only")
+        #expect(LeoBrowserCapturePath.problem(with: "downloads/a", kind: .pdf, workspace: "/ws") == nil)
+    }
+
     @Test func theNameIsMadeSafeAsADownloadsIs() throws {
         #expect(try resolve("shots/ a\\b.pdf").name == "a_b.pdf")
         #expect(try resolve(".hidden.pdf").name == "hidden.pdf")

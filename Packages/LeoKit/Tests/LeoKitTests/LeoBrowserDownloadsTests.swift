@@ -251,6 +251,13 @@ struct LeoBrowserDownloadsTests {
         }
     }
 
+    @MainActor @Test func aTypedCapturePathIsCheckedAgainstTheWorkspace() {
+        let log = LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { RecordingAccess() }), workspace: { "/ws" })
+        #expect(log.captureProblem(with: "/ws/a.pdf", kind: .pdf) == nil)
+        #expect(log.captureProblem(with: "/elsewhere/a.pdf", kind: .pdf) == "The path is outside the workspace (/ws).")
+        #expect(log.captureProblem(with: "a.pdf", kind: .png) == "The path must end in .png.")
+    }
+
     @MainActor @Test func downloadsStillLandInDownloadsFolder() async throws {
         let sandbox = try Sandbox()
         defer { sandbox.remove() }

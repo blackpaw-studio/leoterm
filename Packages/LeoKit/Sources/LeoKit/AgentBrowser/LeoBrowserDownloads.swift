@@ -353,6 +353,13 @@ public actor LeoBrowserDownloadSaver {
         }
     }
 
+    /// What is wrong with a capture path the user typed, checked as
+    /// `saveCapture` will (against the workspace when there is one), as a
+    /// sentence; nil when it is fine.
+    public func captureProblem(with path: String, kind: LeoBrowserCaptureKind) -> String? {
+        LeoBrowserCapturePath.problem(with: path, kind: kind, workspace: workspace())
+    }
+
     private static func saveFailed(_ error: LeoBrowserDownloadSaveError, folder: String) -> LeoBrowserError {
         let message = error.message(in: folder)
         return LeoBrowserError(.saveFailed, error.mayHaveSaved ? message : "\(message) \(nothingSaved)")

@@ -56,11 +56,9 @@ public enum LeoBrowserCapturePath {
 
     /// Checks what can be checked without the workspace: the relative form
     /// and the extension. An absolute path passes here and is checked
-    /// against the workspace by `resolve`.
+    /// against the workspace by `resolve`. Throws `invalid_args`.
     public static func validate(_ path: String, kind: LeoBrowserCaptureKind) throws {
-        let relative = path.hasPrefix("/") ? String(path.drop { $0 == "/" }) : path
-        guard path.hasPrefix("/") || !path.isEmpty else { throw invalid(path, "must not be empty; omit it for the default") }
-        _ = try target(relative: relative, kind: kind, defaultName: kind.pathExtension, shown: path)
+        do { _ = try checkedForm(path, kind: kind) } catch { throw error.browserError }
     }
 
     /// Resolves `path` (nil for `downloads/<defaultName>`) against the
@@ -69,31 +67,71 @@ public enum LeoBrowserCapturePath {
         _ path: String?, workspace: String, kind: LeoBrowserCaptureKind, defaultName: String
     ) throws -> LeoBrowserCaptureTarget {
         guard let path else { return LeoBrowserCaptureTarget(folder: defaultFolder, name: defaultName) }
+        do {
+            return try resolved(path, workspace: workspace, kind: kind, defaultName: defaultName)
+        } catch {
+            throw error.browserError
+        }
+    }
+
+    /// What is wrong with `path`, as a sentence for the person typing it
+    /// ("The path must end in .pdf."), or nil when it is fine. Without a
+    /// workspace only the form is checked.
+    public static func problem(with path: String, kind: LeoBrowserCaptureKind, workspace: String?) -> String? {
+        do {
+            if let workspace {
+                _ = try resolved(path, workspace: workspace, kind: kind, defaultName: "page." + kind.pathExtension)
+            } else {
+                _ = try checkedForm(path, kind: kind)
+            }
+            return nil
+        } catch {
+            return "The path \(error.problem)."
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// What is wrong with a path; `invalid_args` for the agent.
+    private struct Problem: Error {
+        let path: String
+        let problem: String
+
+        var browserError: LeoBrowserError {
+            .invalidArgs("path \(LeoSFTPServerText.isolated(path).debugDescription) \(problem)")
+        }
+    }
+
+    private static func checkedForm(_ path: String, kind: LeoBrowserCaptureKind) throws(Problem) -> LeoBrowserCaptureTarget {
+        guard !path.isEmpty else { throw Problem(path: path, problem: "is empty") }
+        let relative = path.hasPrefix("/") ? String(path.drop { $0 == "/" }) : path
+        return try target(relative: relative, kind: kind, defaultName: "page." + kind.pathExtension, shown: path)
+    }
+
+    private static func resolved(
+        _ path: String, workspace: String, kind: LeoBrowserCaptureKind, defaultName: String
+    ) throws(Problem) -> LeoBrowserCaptureTarget {
         guard path.hasPrefix("/") else {
-            guard !path.isEmpty else { throw invalid(path, "must not be empty; omit it for the default") }
+            guard !path.isEmpty else { throw Problem(path: path, problem: "is empty") }
             return try target(relative: path, kind: kind, defaultName: defaultName, shown: path)
         }
         let root = workspace.count > 1 && workspace.hasSuffix("/") ? String(workspace.dropLast()) : workspace
         let prefix = root == "/" ? "/" : root + "/"
-        guard path.hasPrefix(prefix) else {
-            throw invalid(path, "is outside the workspace (\(root)); give a path relative to it")
-        }
+        guard path.hasPrefix(prefix) else { throw Problem(path: path, problem: "is outside the workspace (\(root))") }
         return try target(relative: String(path.dropFirst(prefix.count)), kind: kind, defaultName: defaultName, shown: path)
     }
-
-    // MARK: - Helpers
 
     /// `relative` has the workspace (and its `/`) removed; empty is the
     /// workspace itself, which takes the default name like a trailing `/`.
     private static func target(
         relative: String, kind: LeoBrowserCaptureKind, defaultName: String, shown: String
-    ) throws -> LeoBrowserCaptureTarget {
+    ) throws(Problem) -> LeoBrowserCaptureTarget {
         guard !relative.isEmpty else { return LeoBrowserCaptureTarget(folder: "", name: defaultName) }
         let isFolder = relative.hasSuffix("/")
         let parts = (isFolder ? String(relative.dropLast()) : relative)
             .split(separator: "/", omittingEmptySubsequences: false).map(String.init)
         for part in parts where !LeoFileName.isSafeComponent(part) {
-            throw invalid(shown, componentProblem(part))
+            throw Problem(path: shown, problem: componentProblem(part))
         }
         let folders = isFolder ? parts : Array(parts.dropLast())
         let name = isFolder ? defaultName : try fileName(parts[parts.count - 1], kind: kind, shown: shown)
@@ -108,11 +146,11 @@ public enum LeoBrowserCapturePath {
         }
     }
 
-    private static func fileName(_ raw: String, kind: LeoBrowserCaptureKind, shown: String) throws -> String {
-        guard !LeoFileName.isStagingName(raw) else { throw invalid(shown, "is a name Leo reserves") }
+    private static func fileName(_ raw: String, kind: LeoBrowserCaptureKind, shown: String) throws(Problem) -> String {
+        guard !LeoFileName.isStagingName(raw) else { throw Problem(path: shown, problem: "is a name Leo reserves") }
         if hasExtension(raw, kind) { return LeoBrowserDownloadName.sanitized(raw) }
         let pathExtension = (raw as NSString).pathExtension
-        if isRealExtension(pathExtension) { throw invalid(shown, "must end in .\(kind.pathExtension)") }
+        if isRealExtension(pathExtension) { throw Problem(path: shown, problem: "must end in .\(kind.pathExtension)") }
         return LeoBrowserDownloadName.sanitized(raw + "." + kind.pathExtension)
     }
 
@@ -124,9 +162,5 @@ public enum LeoBrowserCapturePath {
         (1...maximumExtensionLength).contains(text.count) && text.unicodeScalars.allSatisfy {
             ("a"..."z").contains($0) || ("A"..."Z").contains($0) || ("0"..."9").contains($0)
         }
-    }
-
-    private static func invalid(_ path: String, _ problem: String) -> LeoBrowserError {
-        .invalidArgs("path \(LeoSFTPServerText.isolated(path).debugDescription) \(problem)")
     }
 }
