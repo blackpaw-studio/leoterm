@@ -16,7 +16,8 @@ import AppKit
         alert.messageText = "Clear site data for “\(key.agent)”\(machine)?"
         alert.informativeText = "Removes cookies, caches and website storage from this agent’s browser. "
             + "Other agents keep theirs. Open pages stay as they are until they reload."
-        // The first button is the default (Return); Escape also picks Cancel.
+        // Cancel first: AppKit gives it Escape. Clear never takes Return, so
+        // a stray Return can't clear.
         alert.addButton(withTitle: cancelTitle)
         let clear = alert.addButton(withTitle: clearTitle)
         clear.hasDestructiveAction = true

@@ -7,7 +7,8 @@ import Testing
 /// B-409: Clear Site Data asks first, names whose data goes, and Cancel is
 /// the safe default.
 @MainActor struct LeoClearSiteDataConfirmationTests {
-    /// NSAlert makes its first button the default (Return).
+    /// Cancel comes first; AppKit gives a Cancel button Escape, and Clear
+    /// never answers Return, so a stray Return can't clear.
     @Test func alertNamesTheAgentDefaultsToCancelAndClearIsDestructive() {
         let alert = LeoClearSiteDataConfirmation.makeAlert(agent: LeoAgentBrowserKey(host: .local, agent: "alpha"))
 
@@ -15,6 +16,7 @@ import Testing
         #expect(alert.informativeText.contains("Other agents keep theirs"))
         #expect(alert.buttons.map(\.title) == ["Cancel", "Clear Site Data"])
         #expect(alert.buttons.map(\.hasDestructiveAction) == [false, true])
+        #expect(alert.buttons.last?.keyEquivalent != "\r", "Return never picks Clear")
     }
 
     @Test func aRemoteAgentsAlertNamesItsMachine() {
