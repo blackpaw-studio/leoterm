@@ -180,6 +180,9 @@ import LeoKit
     func reload() async throws { throw Self.unused }
     func snapshot() async throws -> String { throw Self.unused }
     func click(ref: String) async throws { throw Self.unused }
+    func hover(ref: String) async throws { throw Self.unused }
+    func drag(startRef: String, endRef: String) async throws { throw Self.unused }
+    func selectOption(ref: String, values: [String]) async throws -> [LeoBrowserSelectedOption] { throw Self.unused }
     func type(ref: String, text: String, submit: Bool) async throws { throw Self.unused }
     func fileInput(ref: String) async throws -> LeoBrowserFileInput { throw Self.unused }
     func setFiles(ref: String, files: [LeoBrowserUploadFile]) async throws { throw Self.unused }

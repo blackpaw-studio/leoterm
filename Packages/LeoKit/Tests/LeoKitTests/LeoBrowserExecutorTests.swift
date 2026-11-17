@@ -105,6 +105,42 @@ struct LeoBrowserExecutorTests {
         #expect(h.page.calls == ["click e1", "type e2 hi submit=true", "press meta+a"])
     }
 
+    @Test func hoverMapsToAPageCallAndReportsOk() async {
+        let h = harness()
+        #expect(texts(await run(h, "browser_hover", ["ref": .string("e1")])) == ["ok"])
+        #expect(h.page.calls == ["hover e1"])
+    }
+
+    @Test func dragMapsToAPageCallAndReportsOk() async {
+        let h = harness()
+        #expect(texts(await run(h, "browser_drag", ["start_ref": .string("e1"), "end_ref": .string("e2")])) == ["ok"])
+        #expect(h.page.calls == ["drag e1 e2"])
+    }
+
+    @Test func selectOptionPassesTheValuesAndReportsWhatGotSelected() async {
+        let h = harness()
+        h.page.selectResult = [LeoBrowserSelectedOption(value: "b", label: "Beta"), LeoBrowserSelectedOption(value: "c", label: "Gamma")]
+        let outcome = await run(h, "browser_select_option", ["ref": .string("e2"), "values": .array([.string("b"), .string("Gamma")])])
+        #expect(h.page.calls == ["select e2 b,Gamma"])
+        let selected = json(outcome)["selected"] as? [[String: String]]
+        #expect(selected == [["value": "b", "label": "Beta"], ["value": "c", "label": "Gamma"]])
+    }
+
+    @Test func aStaleRefFromAPointerToolComesBackAsStaleRef() async {
+        let h = harness()
+        h.page.error = LeoBrowserError.staleRef("e9")
+        for (tool, args) in [
+            ("browser_hover", ["ref": LeoJSONValue.string("e9")]),
+            ("browser_select_option", ["ref": .string("e9"), "values": .array([.string("a")])]),
+            ("browser_drag", ["start_ref": .string("e9"), "end_ref": .string("e2")]),
+        ] {
+            let outcome = await run(h, tool, args)
+            #expect(errorCode(outcome) == "stale_ref", "\(tool)")
+            guard case .failure(let error) = outcome else { continue }
+            #expect(error.message == LeoBrowserError.staleRef("e9").message, "\(tool)")
+        }
+    }
+
     @Test func screenshotReturnsAPNGImageBlock() async throws {
         let h = harness()
         h.page.screenshotData = Data([0x89, 0x50, 0x4E, 0x47])
@@ -408,7 +444,9 @@ struct LeoBrowserExecutorTests {
         h.control.send(.userInput)
         let calls: [(String, [String: LeoJSONValue])] = [
             ("browser_navigate", ["url": .string("https://a.test/")]), ("browser_back", [:]), ("browser_forward", [:]),
-            ("browser_reload", [:]), ("browser_click", ["ref": .string("e1")]),
+            ("browser_reload", [:]), ("browser_click", ["ref": .string("e1")]), ("browser_hover", ["ref": .string("e1")]),
+            ("browser_select_option", ["ref": .string("e1"), "values": .array([.string("a")])]),
+            ("browser_drag", ["start_ref": .string("e1"), "end_ref": .string("e2")]),
             ("browser_type", ["ref": .string("e1"), "text": .string("x")]), ("browser_press", ["key": .string("Enter")]),
             ("browser_eval", ["js": .string("1")]), ("browser_tab_new", [:]), ("browser_tab_select", ["tab": .int(1)]),
             ("browser_tab_close", ["tab": .int(1)]), ("browser_user_agent", ["user_agent": .string("x")]),
@@ -812,6 +850,16 @@ private final class FakePage: LeoBrowserPage {
     }
 
     func click(ref: String) async throws { try record("click \(ref)") }
+    func hover(ref: String) async throws { try record("hover \(ref)") }
+
+    func drag(startRef: String, endRef: String) async throws { try record("drag \(startRef) \(endRef)") }
+
+    var selectResult: [LeoBrowserSelectedOption] = []
+
+    func selectOption(ref: String, values: [String]) async throws -> [LeoBrowserSelectedOption] {
+        try record("select \(ref) \(values.joined(separator: ","))")
+        return selectResult
+    }
 
     var fileInputResult = LeoBrowserFileInput(allowsMultiple: false)
     var uploaded: [LeoBrowserUploadFile] = []
