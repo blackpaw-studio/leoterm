@@ -3207,3 +3207,9 @@ Type: bug
 Report: After Return on a new address, the bar shows the old page's URL until the new page commits (`LeoAgentBrowserPaneViewController.swift:162-164`); predates B-419. Safari keeps the typed address during load — Safari parity (P1).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-419)
+
+## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [ready (next run)]
+Type: bug
+Report: Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane — no effect in two verifier attempts (by coordinate and by element id); unconfirmed, possibly Peekaboo delivery; not caused by B-419 — P1 keyboard-first/Mac-native
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-419)

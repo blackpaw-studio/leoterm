@@ -2,13 +2,14 @@ Status: running
 Started: 2026-11-17T14:04:05Z
 Budget: 20 items, until 2026-11-18T02:04:05Z
 Digested-through: 0
-Filed: 2/3 bugs, 3/5 ideas
+Filed: 3/3 bugs, 3/5 ideas
 Self-filed: B-305 → B-422 bug — Hosted iOS test host crashes on unimplemented PushCleanupClient.load
 Self-filed: B-305 → B-423 idea — iOS address bar keeps the previous URL after a rejected localhost navigation
 Self-filed: B-305 → B-424 idea — Device check: keyboard raised when the agent focuses a field hides the iOS pill
 Self-filed: B-305 → B-425 idea — Daemon localhost proxy so iPhone pages can reach an agent machine's localhost
 Self-filed: B-419 → B-426 bug — After Return on a new address, the bar shows the old page's URL until the new page commits
 Self-filed: B-419 → dropped (dup of B-420) — Typing after clicking the bar appends to the old URL (focus doesn't select all)
+Self-filed: B-419 → B-427 bug — Takeover pill's "Give Back" click does nothing after a Return commit
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -50,7 +51,7 @@ Lane: B-419
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 521c151a4f9b13fa63456f65d512ddde6460fb21
+  Reviewed-tip: 37575206bfe3530519058523f389726af7cb6752
   Call: Mac only: AppKit pane UI, iOS has no pane equivalent, so nothing goes in LeoKit — P1
   Call: Escape restores the page address and resumes following — P1 Safari parity
   Call: Leaving the bar with an unsent edit drops the edit and shows the page URL — P1
@@ -81,3 +82,4 @@ Progress:
 - Dispatched B-421 d-117d1e98df4f.
 - B-419 ready (fix 1, standard implementer, general review). Integration stale (B-305 landed Mac/LeoKit changes) → re-verify round 1. Runner note: shared GhosttyKit.xcframework is stale since B-334; lanes build their own.
 - Dispatched B-419 re-verify d-4c616368bfee.
+- B-419 re-verify ready (general delta clean, 5016 tests). Fresh.
