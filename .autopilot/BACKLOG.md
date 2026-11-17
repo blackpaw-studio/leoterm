@@ -71,6 +71,7 @@ Out: Per-site data management UI. Mac only.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: af07a367d 59dc7311a c1b389c48 e3b9744fb a4af0d86c eda4cb7ae (4972 Mac tests, swiftlint clean; landed 860cdc74f). Decisions D-882..D-889.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-409-7.png
+Reviewed: accepted 2026-11-17 — 860cdc74f982
 
 ## B-410 · Camera, microphone and location prompts in the agent browser   [done]
 Issue: #387
