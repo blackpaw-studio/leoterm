@@ -56,6 +56,8 @@ public final class LeoBrowserExecutor {
         switch command.action {
         case .tabs:
             return [json(.array(tabs.tabs.map(tabEntry)))]
+        case .downloads:
+            return [json(.array(tabs.downloads.map(downloadEntry)))]
         case .tabNew(let url, let userAgent):
             return try await openTab(url: url, userAgent: userAgent)
         case .tabSelect(let tab):
@@ -116,7 +118,7 @@ public final class LeoBrowserExecutor {
             return [consoleReport(page.consoleMessages(since: since))]
         case .setUserAgent(let userAgent):
             page.setUserAgent(userAgent)
-        case .wait(.milliseconds), .tabs, .tabNew, .tabSelect, .tabClose, .handoff:
+        case .wait(.milliseconds), .tabs, .tabNew, .tabSelect, .tabClose, .downloads, .handoff:
             throw LeoBrowserError.invalidArgs("\(action) is not a page action")
         }
         return [Self.ok]
@@ -166,6 +168,29 @@ public final class LeoBrowserExecutor {
         .object([
             "id": .int(tab.id), "url": .string(remoteString(tab.url)), "title": .string(tab.title), "active": .bool(tab.isActive),
         ])
+    }
+
+    /// A finished download is named as saved (numbered after a clash).
+    private func downloadEntry(_ download: LeoBrowserDownload) -> LeoJSONValue {
+        var entry: [String: LeoJSONValue] = ["id": .int(download.id), "name": .string(download.name), "url": .string(remoteString(download.sourceURL))]
+        switch download.state {
+        case .downloading(let received, let expected):
+            entry["state"] = .string("downloading")
+            entry["received_bytes"] = .int(Int(clamping: received))
+            if let expected { entry["expected_bytes"] = .int(Int(clamping: expected)) }
+        case .saving:
+            entry["state"] = .string("saving")
+        case .finished(let saved):
+            entry["state"] = .string("finished")
+            entry["name"] = .string(saved.name)
+            entry["path"] = .string(saved.path)
+            entry["workspace_path"] = .string(saved.workspacePath)
+            entry["size"] = .int(Int(clamping: saved.size))
+        case .failed(let message):
+            entry["state"] = .string("failed")
+            entry["error"] = .string(message)
+        }
+        return .object(entry)
     }
 
     private func consoleReport(_ batch: LeoBrowserConsoleBatch) -> LeoClientToolContent {

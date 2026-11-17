@@ -69,6 +69,12 @@ import WebKit
     /// view's own title catches up.
     private var lastLocation: Location?
     private var titleObservation: NSKeyValueObservation?
+    /// A main-frame response was turned into a download: the navigation
+    /// it ends with WebKit's "frame load interrupted" succeeded.
+    private var mainFrameBecameDownload = false
+
+    /// Each navigation or response this page turns into a download (B-404).
+    var onDownload: (@MainActor (WKDownload) -> Void)?
 
     init(
         configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
@@ -412,8 +418,42 @@ extension LeoBrowserError {
 
 @available(macOS 14, *)
 extension LeoWKBrowserPage: WKNavigationDelegate {
+    /// WebKit's `WebKitErrorFrameLoadInterruptedByPolicyChange` (legacy
+    /// `WebKitErrorDomain`, not `WKErrorDomain`): what a navigation that
+    /// became a download ends with.
+    static let frameLoadInterruptedDomain = "WebKitErrorDomain"
+    static let frameLoadInterruptedCode = 102
+
+    /// An `<a download>` link downloads (never a local file); everything
+    /// else follows `navigationPolicy`.
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
-        navigationPolicy(for: navigationAction.request.url, isSubframe: navigationAction.targetFrame?.isMainFrame == false)
+        if navigationAction.shouldPerformDownload {
+            guard let url = navigationAction.request.url, !url.isFileURL else { return .cancel }
+            return .download
+        }
+        return navigationPolicy(for: navigationAction.request.url, isSubframe: navigationAction.targetFrame?.isMainFrame == false)
+    }
+
+    /// An attachment, or anything the browser can't show, downloads -- in a
+    /// subframe too, which is how many sites start a download.
+    func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse) async -> WKNavigationResponsePolicy {
+        guard Self.isDownload(navigationResponse.response, canShowMIMEType: navigationResponse.canShowMIMEType) else { return .allow }
+        if navigationResponse.isForMainFrame { mainFrameBecameDownload = true }
+        return .download
+    }
+
+    static func isDownload(_ response: URLResponse, canShowMIMEType: Bool) -> Bool {
+        let disposition = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Disposition") ?? ""
+        let type = disposition.split(separator: ";", maxSplits: 1).first?.trimmingCharacters(in: .whitespaces).lowercased()
+        return type == "attachment" || !canShowMIMEType
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        onDownload?(download)
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        onDownload?(download)
     }
 
     /// What a navigation to `url` gets in a subframe, or else in the main
@@ -427,18 +467,31 @@ extension LeoWKBrowserPage: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         generation += 1
+        mainFrameBecameDownload = false
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        mainFrameBecameDownload = false
         finish(ObjectIdentifier(navigation), .success(()))
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
-        finish(ObjectIdentifier(navigation), .failure(LeoBrowserError.navigationFailed(error.localizedDescription)))
+        finish(ObjectIdentifier(navigation), outcome(of: error))
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
-        finish(ObjectIdentifier(navigation), .failure(LeoBrowserError.navigationFailed(error.localizedDescription)))
+        finish(ObjectIdentifier(navigation), outcome(of: error))
+    }
+
+    /// A load the page itself turned into a download succeeded (the page
+    /// stays where it was); any other failure, a real 102 included, fails.
+    private func outcome(of error: any Error) -> Result<Void, any Error> {
+        let error = error as NSError
+        if mainFrameBecameDownload, error.domain == Self.frameLoadInterruptedDomain, error.code == Self.frameLoadInterruptedCode {
+            mainFrameBecameDownload = false
+            return .success(())
+        }
+        return .failure(LeoBrowserError.navigationFailed(error.localizedDescription))
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {

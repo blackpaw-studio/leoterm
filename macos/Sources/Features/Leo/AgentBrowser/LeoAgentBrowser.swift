@@ -24,21 +24,29 @@ import WebKit
     private var handlers: [UUID: @MainActor () -> Void] = [:]
 
     /// `configuration` carries the agent's data store; each tab gets its own copy.
+    /// `downloads` saves finished downloads into the agent's workspace; by
+    /// default there is none, so a download fails plainly.
     init(
         key: LeoAgentBrowserKey, configuration: WKWebViewConfiguration, urlMapping: any LeoBrowserURLMapping,
         input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, allowsURL: @escaping (URL) -> Bool = LeoBrowserURLPolicy.allows,
-        filePicker: (any LeoBrowserFilePicking)? = nil
+        filePicker: (any LeoBrowserFilePicking)? = nil, downloads: LeoWKBrowserDownloads? = nil
     ) {
         self.key = key
         self.urlMapping = urlMapping
         self.viewHost = viewHost
-        tabSet = LeoAgentBrowserTabs(agentName: key.agent, configuration: configuration, allowsURL: allowsURL, input: input, viewHost: viewHost, filePicker: filePicker ?? LeoOpenPanelFilePicker())
+        tabSet = LeoAgentBrowserTabs(
+            agentName: key.agent, configuration: configuration, allowsURL: allowsURL, input: input, viewHost: viewHost,
+            filePicker: filePicker ?? LeoOpenPanelFilePicker(), downloader: downloads ?? LeoWKBrowserDownloads(log: .withoutWorkspace())
+        )
         super.init()
         tabSet.onUserInput = { [weak self] in self?.control.send(.userInput) }
         tabSet.onChange = { [weak self] in self?.changed() }
     }
 
     var dataStore: WKWebsiteDataStore { tabSet.dataStore }
+
+    /// This session's downloads, for the pane's strip.
+    var downloads: LeoBrowserDownloads { tabSet.downloader.log }
 
     // MARK: - LeoAgentBrowserModel
 
@@ -50,9 +58,11 @@ import WebKit
         if tabSet.tabs.isEmpty { openBlankTab() }
     }
 
-    /// Closes every tab. The data store stays for the agent's next browser.
+    /// Closes every tab, stopping downloads still fetching. The data store
+    /// stays for the agent's next browser.
     func close() {
         tabSet.closeAll()
+        tabSet.downloader.cancelAll()
         handlers = [:]
     }
 
@@ -125,6 +135,7 @@ import WebKit
     private let viewHost: LeoAgentBrowserHost
     private let agentName: String
     private let filePicker: any LeoBrowserFilePicking
+    let downloader: LeoWKBrowserDownloads
     /// File choosers open per web view, answered when the tab closes.
     private var filePicks: [ObjectIdentifier: [LeoBrowserFilePick]] = [:]
     private var list: [Tab] = []
@@ -133,10 +144,12 @@ import WebKit
 
     init(
         agentName: String, configuration: WKWebViewConfiguration, allowsURL: @escaping (URL) -> Bool,
-        input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, filePicker: any LeoBrowserFilePicking
+        input: LeoSyntheticInput, viewHost: LeoAgentBrowserHost, filePicker: any LeoBrowserFilePicking,
+        downloader: LeoWKBrowserDownloads
     ) {
         self.agentName = agentName
         self.filePicker = filePicker
+        self.downloader = downloader
         self.configuration = configuration
         self.allowsURL = allowsURL
         self.input = input
@@ -152,6 +165,8 @@ import WebKit
     var tabs: [LeoBrowserTabInfo] {
         list.map { LeoBrowserTabInfo(id: $0.id, url: $0.page.url, title: $0.page.title, isActive: $0.id == activeID) }
     }
+
+    var downloads: [LeoBrowserDownload] { downloader.log.entries }
 
     func page(forTab id: Int?) -> (any LeoBrowserPage)? {
         list.first { $0.id == (id ?? activeID) }?.page
@@ -251,6 +266,7 @@ import WebKit
         nextID += 1
         page.webView.uiDelegate = self
         page.webView.onUserInput = { [weak self] in self?.onUserInput?() }
+        page.onDownload = { [weak self] in self?.downloader.adopt($0) }
         let notify: @Sendable (WKWebView, Any) -> Void = { [weak self] _, _ in MainActor.assumeIsolated { self?.onChange?() } }
         let observations: [NSKeyValueObservation] = [
             page.webView.observe(\.url) { notify($0, $1) },
@@ -267,8 +283,11 @@ import WebKit
         return tab
     }
 
+    /// Closing a tab stops its downloads' fetch; a save under way finishes.
     private func tear(down tab: Tab) {
         tab.observations.forEach { $0.invalidate() }
+        downloader.cancel(for: tab.page.webView)
+        tab.page.onDownload = nil
         tab.page.webView.uiDelegate = nil
         filePicks.removeValue(forKey: ObjectIdentifier(tab.page.webView))?.forEach { $0.abandon() }
         tab.page.webView.onUserInput = nil
@@ -289,6 +308,8 @@ import WebKit
     /// The `Version/x Safari/…` tail of the user agent; sites that gate on
     /// the Safari version (chase.com) reject a bare WebKit one.
     var userAgentApplicationName: String = LeoBrowserUserAgent.applicationName()
+    /// Each browser's download log: where its downloads are saved.
+    var makeDownloads: (LeoAgentBrowserKey) -> LeoBrowserDownloads = { _ in .withoutWorkspace() }
 
     func make(_ key: LeoAgentBrowserKey) -> LeoAgentBrowser {
         let configuration = WKWebViewConfiguration()
@@ -296,6 +317,17 @@ import WebKit
         configuration.websiteDataStore = WKWebsiteDataStore(
             forIdentifier: LeoBrowserStoreID.identifier(machineID: machineID(key.host), agent: key.agent)
         )
-        return LeoAgentBrowser(key: key, configuration: configuration, urlMapping: urlMapping(key), input: input, viewHost: viewHost)
+        return LeoAgentBrowser(
+            key: key, configuration: configuration, urlMapping: urlMapping(key), input: input, viewHost: viewHost,
+            downloads: LeoWKBrowserDownloads(log: makeDownloads(key))
+        )
+    }
+}
+
+extension LeoBrowserDownloads {
+    /// A log for a browser with nowhere to save: every finished download
+    /// fails plainly with "no workspace".
+    static func withoutWorkspace() -> LeoBrowserDownloads {
+        LeoBrowserDownloads(saver: LeoBrowserDownloadSaver(makeAccess: { LeoFileAccessor.local() }), workspace: { nil })
     }
 }

@@ -114,3 +114,132 @@ func leoSnapshotRef(_ snapshot: String, _ prefix: String) -> String? {
     guard let line, let range = line.range(of: #"\[ref=(s\d+e\d+)\]"#, options: .regularExpression) else { return nil }
     return String(line[range].dropFirst("[ref=".count).dropLast())
 }
+
+/// A file the HTTP fixture server sends.
+struct LeoWKFixtureFile {
+    var data: Data
+    var mimeType = "application/octet-stream"
+    /// Sent as `Content-Disposition: attachment; filename="…"` when set.
+    var attachmentName: String?
+    /// Sends half the bytes, then holds the connection until
+    /// `failHeldLoads()` drops it mid-body.
+    var failsMidway = false
+}
+
+/// A loopback HTTP/1.0 server for tests WebKit's custom-scheme handlers
+/// can't serve (downloads): `pages` as HTML, `files` with their headers, at
+/// `http://127.0.0.1:<port>/<name>`. One thread per connection.
+final class LeoHTTPFixtureServer: @unchecked Sendable {
+    let port: UInt16
+    private let pages: [String: String]
+    private let files: [String: LeoWKFixtureFile]
+    private let listener: Int32
+    private let lock = NSLock()
+    private var held: [Int32] = []
+
+    init(pages: [String: String], files: [String: LeoWKFixtureFile] = [:]) throws {
+        self.pages = pages
+        self.files = files
+        let descriptor = socket(AF_INET, SOCK_STREAM, 0)
+        guard descriptor >= 0 else { throw URLError(.cannotConnectToHost) }
+        var address = sockaddr_in()
+        address.sin_family = sa_family_t(AF_INET)
+        address.sin_addr.s_addr = inet_addr("127.0.0.1")
+        address.sin_port = 0
+        var length = socklen_t(MemoryLayout<sockaddr_in>.size)
+        let bound = withUnsafeMutablePointer(to: &address) { pointer in
+            pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) { generic in
+                bind(descriptor, generic, length) == 0 && listen(descriptor, 16) == 0 && getsockname(descriptor, generic, &length) == 0
+            }
+        }
+        guard bound else {
+            Darwin.close(descriptor)
+            throw URLError(.cannotConnectToHost)
+        }
+        listener = descriptor
+        port = UInt16(bigEndian: address.sin_port)
+        Thread { [self] in acceptLoop() }.start()
+    }
+
+    func url(_ name: String) -> URL {
+        URL(string: "http://127.0.0.1:\(port)/\(name)")!
+    }
+
+    /// Drops every held connection mid-body.
+    func failHeldLoads() {
+        let connections = lock.withLock {
+            defer { held = [] }
+            return held
+        }
+        connections.forEach { Darwin.close($0) }
+    }
+
+    func stop() {
+        shutdown(listener, SHUT_RDWR)
+        Darwin.close(listener)
+        failHeldLoads()
+    }
+
+    private func acceptLoop() {
+        while true {
+            let connection = accept(listener, nil, nil)
+            guard connection >= 0 else { return }
+            _ = fcntl(connection, F_SETNOSIGPIPE, 1)
+            Thread { [self] in serve(connection) }.start()
+        }
+    }
+
+    private func serve(_ connection: Int32) {
+        guard let name = Self.requestedName(connection) else {
+            Darwin.close(connection)
+            return
+        }
+        if let file = files[name] {
+            var headers = "Content-Type: \(file.mimeType)\r\nContent-Length: \(file.data.count)\r\n"
+            if let attachment = file.attachmentName { headers += "Content-Disposition: attachment; filename=\"\(attachment)\"\r\n" }
+            let body = file.failsMidway ? file.data.prefix(file.data.count / 2) : file.data
+            Self.write(Data("HTTP/1.0 200 OK\r\n\(headers)\r\n".utf8) + body, to: connection)
+            guard file.failsMidway else {
+                Darwin.close(connection)
+                return
+            }
+            lock.withLock { held.append(connection) }
+            return
+        }
+        guard let html = pages[name] else {
+            Self.write(Data("HTTP/1.0 404 Not Found\r\nContent-Length: 0\r\n\r\n".utf8), to: connection)
+            Darwin.close(connection)
+            return
+        }
+        let body = Data(html.utf8)
+        Self.write(Data("HTTP/1.0 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: \(body.count)\r\n\r\n".utf8) + body, to: connection)
+        Darwin.close(connection)
+    }
+
+    /// The last path component of the request line's target.
+    private static func requestedName(_ connection: Int32) -> String? {
+        var request = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while request.range(of: Data("\r\n\r\n".utf8)) == nil, request.count < 65_536 {
+            let count = read(connection, &buffer, buffer.count)
+            guard count > 0 else { return nil }
+            request.append(contentsOf: buffer[0..<count])
+        }
+        guard let line = String(data: request, encoding: .utf8)?.split(separator: "\r\n").first else { return nil }
+        let parts = line.split(separator: " ")
+        guard parts.count >= 2 else { return nil }
+        return String(parts[1].split(separator: "?").first ?? "").split(separator: "/").last.map(String.init) ?? ""
+    }
+
+    private static func write(_ data: Data, to connection: Int32) {
+        data.withUnsafeBytes { buffer in
+            var offset = 0
+            while offset < buffer.count {
+                let written = Darwin.write(connection, buffer.baseAddress! + offset, buffer.count - offset)
+                if written < 0, errno == EINTR { continue }
+                guard written > 0 else { return }
+                offset += written
+            }
+        }
+    }
+}
