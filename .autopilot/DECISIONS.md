@@ -1776,3 +1776,15 @@ Chose: ⌘L claimed only with focus in the browser pane; elsewhere the Browser �
 Why: P1/P2
 Commit: c587cb529
 Veto: [ ]
+
+## D-932 · 2026-11-17 · B-421: Stopped agent keeps its browser
+Chose: A stopped agent's open browser pane and browser stay live; a restart reuses the browser; the pane doesn't yet show "stopped"
+Why: P2
+Commit: 8979b86f9 1aa02dc52 3ea196aac
+Veto: [ ]
+
+## D-933 · 2026-11-17 · B-421: Stop-cancel message
+Chose: Calls cancelled by a stop get their own message, "The agent stopped"; the close path keeps "The agent's browser was closed"
+Why: P2
+Commit: 8979b86f9 1aa02dc52 3ea196aac
+Veto: [ ]

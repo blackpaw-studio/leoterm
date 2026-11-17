@@ -65,10 +65,11 @@ Lane: B-421
   Dispatched: 2026-11-17T18:08:44Z
   Base: 97efeb2da678b49ec08b43db632f004a7fd399ee
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 2
   Wip: none
   Reverifies: 2
+  Tokens: 18.8M in (17.9M cache read), ≥78.7k out, 212 requests
   Reviewed-tip: f54532504d4438bad3d13f8f093e356c7ffbf6af
   Call: A stopped agent's open browser pane and browser stay live; a restart reuses the browser; the pane doesn't yet show "stopped" — P2
   Call: Calls cancelled by a stop get their own message, "The agent stopped"; the close path keeps "The agent's browser was closed" — P2
@@ -91,6 +92,7 @@ Lane: B-420
 Finished 1: B-305 landed 961f5f8a7 · screen capture, not attached
 Finished 2: B-419 landed 075ad32a2 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-419-1.png
 Finished 3: B-420 landed 6db5b0ab9 · not visually verified
+Finished 4: B-421 landed 25ef6cb19 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-421-1.png
 
 Progress:
 - Preflight: no open bump/leo-* PR. main already merged. Inbox empty. Promoted B-419, B-420, B-421. Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
@@ -116,3 +118,4 @@ Progress:
 - B-421 ready (fix rounds 2, general delta clean, 5016 tests, window shots). Integration stale (B-420 landed toolbar/menu changes) → re-verify round 2.
 - Dispatched B-421 re-verify 2 d-f147f2e424a6.
 - B-421 re-verify 2 ready (delta clean, 5018 tests, GUI unchanged).
+- B-421 landed 25ef6cb19. D-932..D-933.

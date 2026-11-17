@@ -3181,12 +3181,14 @@ Source: autopilot bug (B-408)
 Done: c587cb529 (merged in 6db5b0ab9; 5018 tests). ⌘L and clicking into the unfocused bar select all its text. D-929..D-931.
 Verified: not visually verified — auto-mode classifier denied the verifier's keystroke into the debug app; tests cover ⌘L and click select-all
 
-## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [ready]
+## B-421 · Open browser pane collapses ~15 s after autopilot-scratch stops   [done]
 Issue: #393
 Type: bug
 Report: Open browser pane collapses within ~15 s when the agent is stopped — the pane vanishes under the user.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-408)
+Done: 8979b86f9 1aa02dc52 3ea196aac (merged in 25ef6cb19; 5018 tests). A stopped agent's open browser pane stays; only a removed agent's closes; stop-cancelled calls say "The agent stopped". LeoKit, so iOS gets it too. D-932..D-933.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-421-2.png
 
 ## B-422 · Hosted iOS test host crashes on unimplemented PushCleanupClient.load   [ready (next run)]
 Type: bug
