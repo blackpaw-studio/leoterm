@@ -61,6 +61,7 @@ Out: Persistent history across app restarts; a global history window. Mac only.
 Source: owner (milestone "Agent Browser, for real", 2026-11-16)
 Done: 4eb1b7a61 e583db40a d1d21bef9 5ad646332 (4932 tests; landed 346db3e91). Decisions D-860..D-868.
 Verified: not visually verified — screen captures only (B-408-1..6, screen), no window shot
+Reviewed: accepted 2026-11-17 — 346db3e91603
 
 ## B-409 · Open in Default Browser, Copy URL, and per-agent Clear Site Data   [done]
 Issue: #386
