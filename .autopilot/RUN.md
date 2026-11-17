@@ -149,6 +149,17 @@ Lane: B-408
   Call: A reopen whose URL-mapping load fails is logged and the entry is lost — P2, accepted
   Call: A stale focus claim can linger if a slot isn't the winning viewer when its page is released — accepted edge
 
+Lane: B-409
+  Branch: autopilot-lane/B-409
+  Dispatched: 2026-11-17T06:55:14Z
+  Base: 2089f6acfe74c47fdbe41e05543f641d2b3ee562
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
 Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
@@ -181,3 +192,4 @@ Progress:
 - Dispatched B-408 d-a01e72312213.
 - B-408 ready (0 fixes, general review). Shots are screen captures only (not attached). Verifier denied Screen Recording prompts and force-killed the debug app.
 - B-408 landed 346db3e91. D-860..D-868.
+- Pick: B-409 full (menu actions + data store clearing).
