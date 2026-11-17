@@ -47,11 +47,12 @@ Lane: B-404
   Dispatched: 2026-11-17T00:13:40Z
   Base: 1a9361eecbb9960c562f109facd6bdebbe74108e
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: 0b5e9bc034ad07b8aa371a78b7bb3ea09f527ee4
+  Tokens: 67.8M in (66.6M cache read), ≥272k out, 411 requests
   Call: Saved name is the suggested name with `/`, `\` and control characters turned into `_`, leading dots stripped, capped at 200 bytes with the extension kept, `download` as fallback — P3
   Call: Name clash gets "name 2.ext", "name 3.ext", up to 100, then a plain failure; never overwrites — P2
   Call: Fetch to a private local temp folder, then publish atomically into `<workspace>/downloads/` through the file backend; a failure or lost connection leaves nothing behind — P3
@@ -76,6 +77,8 @@ Lane: B-407
 
 Finished 1: B-413 landed dd5910e72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-413-1.png
 
+Finished 2: B-404 landed 88a18c9fb · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-404-2.png
+
 Progress:
 - Preflight: no open bump/leo-* PR. Merged main. Inbox applied: B-413 (sidebar off-screen attention). Lanes B-233, B-332 unlanded with no block (left in place); B-368 landed lane (stale).
 - Pick: B-413 full (new sidebar feature, owner-added); B-404 full (new feature, file backend) in parallel — independent footprints (sidebar vs browser pane).
@@ -85,3 +88,4 @@ Progress:
 - Pick: B-407 full (find bar feature). B-407 built before B-405, B-406 (independent; those share B-404's workspace file-backend footprint).
 - Dispatched B-407 d-97db0ebeb9a4.
 - B-404 ready (fix 1, hard implementer, security review clean).
+- B-404 landed 88a18c9fb. D-832..D-841.

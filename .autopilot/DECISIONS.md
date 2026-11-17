@@ -1172,3 +1172,63 @@ Chose: DEBUG-only `unread` fixture key: unnamed local agents read 0 when it's pr
 Why: verification tooling
 Commit: 57694ff39 21ec5304b
 Veto: [ ]
+
+## D-832 · 2026-11-16 · B-404: Saved name is the suggested name with `/`, `\` and control characters turned into `_`,…
+Chose: Saved name is the suggested name with `/`, `\` and control characters turned into `_`, leading dots stripped, capped at 200 bytes with the extension kept, `download` as fallback
+Why: P3
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-833 · 2026-11-16 · B-404: Name clash gets "name 2.ext", "name 3.ext", up to 100, then a plain failure; never…
+Chose: Name clash gets "name 2.ext", "name 3.ext", up to 100, then a plain failure; never overwrites
+Why: P2
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-834 · 2026-11-16 · B-404: Fetch to a private local temp folder, then publish atomically into…
+Chose: Fetch to a private local temp folder, then publish atomically into `<workspace>/downloads/` through the file backend; a failure or lost connection leaves nothing behind
+Why: P3
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-835 · 2026-11-16 · B-404: `browser_downloads` is a new read-only tool listing kept downloads (absolute path and…
+Chose: `browser_downloads` is a new read-only tool listing kept downloads (absolute path and `workspace_path`, newest first, 50 ended entries kept); works while the user drives
+Why: D-759/D-762/D-764
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-836 · 2026-11-16 · B-404: A navigation that becomes a download returns navigate's normal ok
+Chose: A navigation that becomes a download returns navigate's normal ok
+Why: D-759
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-837 · 2026-11-16 · B-404: Pane strip: "Saved “x” to downloads/" hides after 5 s; failures say "Nothing was…
+Chose: Pane strip: "Saved “x” to downloads/" hides after 5 s; failures say "Nothing was saved." and stay until dismissed; one VoiceOver announcement per outcome; close button at the trailing edge
+Why: P2
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-838 · 2026-11-16 · B-404: Closing a tab cancels its downloads; triggers are attachment responses, types WebKit…
+Chose: Closing a tab cancels its downloads; triggers are attachment responses, types WebKit can't show, `<a download>` to non-file URLs, and attachments inside frames
+Why: P4
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-839 · 2026-11-16 · B-404: Download tests use a loopback HTTP server, because WebKit custom-scheme handlers never…
+Chose: Download tests use a loopback HTTP server, because WebKit custom-scheme handlers never produce downloads
+Why: test infrastructure
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-840 · 2026-11-16 · B-404: `removeStaging` added to the `LeoFileAccess` protocol, and `numbered` moved into LeoKit…
+Chose: `removeStaging` added to the `LeoFileAccess` protocol, and `numbered` moved into LeoKit `LeoFileName`
+Why: implementation approach
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
+
+## D-841 · 2026-11-16 · B-404: Logic and tool in LeoKit (both platforms); WKDownload glue and strip Mac only; iOS…
+Chose: Logic and tool in LeoKit (both platforms); WKDownload glue and strip Mac only; iOS comes with B-305
+Why: parity rule
+Commit: 366b7c95a 13fe98425 cab873156 c71cdb762 56253d4e1 084a4b586 fb7765301 512cc89ce a11e8b850
+Veto: [ ]
