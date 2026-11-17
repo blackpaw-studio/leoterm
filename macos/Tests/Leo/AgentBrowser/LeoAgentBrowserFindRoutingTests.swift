@@ -201,4 +201,30 @@ struct LeoAgentBrowserFindRoutingTests {
         #expect(!pane.ownsFindFocus(editor))
         #expect(!pane.ownsFindFocus(nil))
     }
+
+    @Test func theFieldsClearButtonClearsTheQuery() async throws {
+        #expect(window.makeFirstResponder(page))
+        _ = press("f")
+        await typeInFindField("ap")
+        #expect(pane.findController.query == "ap")
+
+        pane.findBar.field.stringValue = ""
+        _ = pane.findBar.field.sendAction(pane.findBar.field.action, to: pane.findBar.field.target)
+        await pane.findController.settled()
+
+        #expect(pane.findController.query == "")
+        #expect(finder.calls.last == "search:")
+    }
+
+    @Test func closingTheBarWithNoPageTakesFocusOutOfTheHiddenField() {
+        source.activeView = nil
+        #expect(window.makeFirstResponder(pane.toolbar.urlField))
+        _ = press("f")
+        #expect((window.firstResponder as? NSText)?.delegate === pane.findBar.field)
+
+        pane.findHide(nil)
+
+        #expect((window.firstResponder as? NSText)?.delegate !== pane.findBar.field)
+        #expect(pane.findBar.isHidden)
+    }
 }

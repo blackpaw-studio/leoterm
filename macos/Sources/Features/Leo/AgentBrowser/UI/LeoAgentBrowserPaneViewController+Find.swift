@@ -73,8 +73,11 @@ extension LeoAgentBrowserPaneViewController: NSMenuItemValidation {
     /// Esc, Done and Edit ▸ Hide Find Bar: the marks go and focus returns to
     /// the page when it was in the bar.
     @objc func findHide(_ sender: Any?) {
-        if ownsFindBarFocus, let page = model.source.activeView {
-            view.window?.makeFirstResponder(page)
+        if ownsFindBarFocus, let window = view.window {
+            // No page to give focus to: the pane's own view, or nothing, so
+            // the hidden field doesn't keep it.
+            let target = model.source.activeView ?? view
+            if !window.makeFirstResponder(target) { window.makeFirstResponder(nil) }
         }
         findController.hide()
     }

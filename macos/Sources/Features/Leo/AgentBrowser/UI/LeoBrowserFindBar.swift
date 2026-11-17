@@ -76,6 +76,12 @@ final class LeoBrowserFindBar: NSView, NSSearchFieldDelegate {
         field.controlSize = .small
         field.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
         field.sendsSearchStringImmediately = true
+        // The clear button sets the field to "" without a text-change notice;
+        // the action reaches the same path. Return never gets here (see
+        // `control(_:textView:doCommandBy:)`), and the controller ignores a
+        // query it already has.
+        field.target = self
+        field.action = #selector(fieldChanged(_:))
         field.setAccessibilityLabel("Find in page")
         field.widthAnchor.constraint(equalToConstant: Self.fieldWidth).isActive = true
 
@@ -126,6 +132,10 @@ final class LeoBrowserFindBar: NSView, NSSearchFieldDelegate {
             separator.trailingAnchor.constraint(equalTo: trailingAnchor),
             separator.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
+    }
+
+    @objc private func fieldChanged(_ sender: NSSearchField) {
+        onQueryChange(sender.stringValue)
     }
 
     @objc private func stepped(_ sender: NSSegmentedControl) {
