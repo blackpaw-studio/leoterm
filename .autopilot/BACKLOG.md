@@ -3202,6 +3202,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-305)
 Done: 79271cf06 db3b550f2 (merged in dcd049de7; LeoKit 1900, LeoFeatures 501, iOS 125 + 61 UI tests). The hosted iOS test host no longer sends launch/scene-phase actions, so no unimplemented dependency runs; mutation check reproduces the crash. iOS only. D-934..D-936.
 Verified: not visually verified — no UI change (test-host-only gate)
+Reviewed: accepted 2026-11-17 — dcd049de7abb
 
 ## B-423 · iOS address bar keeps the previous URL after a rejected localhost navigation   [idea]
 Note: keeps the field consistent with the page the user is looking at (P2)
