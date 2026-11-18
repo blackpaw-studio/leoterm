@@ -59,6 +59,9 @@ import LeoKit
     private var lastRead: String?
     /// Why the recording in progress won't be sent, if the agent can't take it.
     private var recordingRefusal: String?
+    /// The refusal now shown as the notice, so only it is withdrawn (on an
+    /// agent switch, or once the agent can take a message), never another error.
+    private var refusalNotice: String?
 
     init(
         clients: [LeoHostID: any LeoChatClient], recorder: any LeoChatVoiceRecording, attachmentDirectory: URL,
@@ -118,6 +121,7 @@ import LeoKit
     func show(_ agent: LeoAgentID?) async {
         guard agent != self.agent else { return }
         self.agent = agent
+        withdrawRefusalNotice()
         timeline = LeoChatTimeline()
         answering = []
         loadError = nil
@@ -173,6 +177,17 @@ import LeoKit
     func dismissNotice() { notice = nil }
 
     func showNotice(_ text: String) { notice = text }
+
+    /// The composer's current refusal changed (the agent's status moved):
+    /// once it is nil, a "wasn't sent" notice is no longer true.
+    func sendRefusalChanged(to refusal: String?) {
+        if refusal == nil { withdrawRefusalNotice() }
+    }
+
+    private func withdrawRefusalNotice() {
+        if notice == refusalNotice { notice = nil }
+        refusalNotice = nil
+    }
 
     private func loadNewest() async {
         guard let agent else { return }
@@ -503,6 +518,7 @@ import LeoKit
         guard clients[agent.host] != nil, sending[agent] == nil, let outgoing = draft(for: agent).outgoing else { return }
         if let refusal {
             notice = refusal
+            refusalNotice = refusal
             return
         }
         sending[agent] = outgoing

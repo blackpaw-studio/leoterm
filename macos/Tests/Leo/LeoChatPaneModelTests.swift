@@ -657,6 +657,45 @@ struct LeoChatPaneModelTests {
         #expect(!model.isSending(Self.alpha))
     }
 
+    @Test func aRefusalDoesNotFollowTheSelectionToAnotherAgent() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("hello")
+        await model.send(refusal: "alpha isn\u{2019}t running")
+        #expect(model.notice == "alpha isn\u{2019}t running")
+        await model.show(Self.beta)
+        #expect(model.notice == nil)
+    }
+
+    @Test func switchingAgentsKeepsAnUnrelatedNotice() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.showNotice("Couldn\u{2019}t attach")
+        await model.show(Self.beta)
+        #expect(model.notice == "Couldn\u{2019}t attach")
+    }
+
+    @Test func aRefusalNoticeClearsOnceTheAgentCanTakeMessages() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("hello")
+        await model.send(refusal: "alpha isn\u{2019}t running")
+        model.sendRefusalChanged(to: "alpha is still starting")
+        #expect(model.notice == "alpha isn\u{2019}t running")
+        model.sendRefusalChanged(to: nil)
+        #expect(model.notice == nil)
+    }
+
+    @Test func aStatusChangeLeavesAnUnrelatedNoticeAlone() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("hello")
+        await model.send(refusal: "alpha isn\u{2019}t running")
+        model.showNotice("Couldn\u{2019}t attach")
+        model.sendRefusalChanged(to: nil)
+        #expect(model.notice == "Couldn\u{2019}t attach")
+    }
+
     @Test func aSendWithoutARefusalStillSendsAndClearsTheNotice() async {
         let model = make()
         await model.show(Self.alpha)

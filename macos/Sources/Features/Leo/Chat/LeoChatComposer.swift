@@ -39,6 +39,7 @@ struct LeoChatComposer: View {
         .background(LeoChatPasteMonitor(isActive: isTextFocused) { chat.attachPaste(to: agent) })
         .onAppear(perform: takeFocus)
         .onChange(of: focusRequest) { _ in takeFocus() }
+        .onChange(of: refusal) { chat.sendRefusalChanged(to: $0) }
     }
 
     private func takeFocus() {
@@ -86,7 +87,7 @@ struct LeoChatComposer: View {
             } else {
                 Image(systemName: "arrow.up.circle.fill")
                     .imageScale(.large)
-                    .foregroundStyle(chat.canSend ? Color.accentColor : Color.secondary.opacity(0.5))
+                    .foregroundStyle(chat.canSend && refusal == nil ? Color.accentColor : Color.secondary.opacity(0.5))
             }
         }
         .buttonStyle(.borderless)
