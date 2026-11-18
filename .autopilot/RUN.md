@@ -227,10 +227,11 @@ Lane: B-299
   Dispatched: 2026-11-18T09:54:22Z
   Base: e0f97344e9faf83d7eb72be34784944e4f7c3cf6
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 64.4M in (63.1M cache read), ≥329k out, 383 requests
   Reviewed-tip: 96b8357d78d3b2e1155d541d4217822e825c3d75
   Call: Daemon row replaces Service on iOS; Service becomes its first section — Mac/iOS parity (matches the Mac merge in settings-sidebar step 8)
   Call: Delegation on the phone drills down (profiles → roles → cell editor sheet) instead of a grid — parity rule: shared logic, layout fits the screen
@@ -309,3 +310,5 @@ Finished 13: B-182 landed 58e41019f · not visually verified
 Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
 - B-302 overlaps open B-299 (iOS Settings); waits.
 - B-299 ready (hard implementer, concurrency full review: 4 polish, 3 accepted risks; LeoKit 1939, Mac 5047, iOS 125 + 13 screen tests; 11 simulator screen captures). LeoSettingsE2ETests all skipped (no pairing payload). Unchecked: tab bar may cover last rows of Delegation/Defaults (not filed: its own re-check). Fresh.
+- B-299 landed 995a7eb77. D-984..D-988.
+Finished 15: B-299 landed 995a7eb77 · screen capture, not attached

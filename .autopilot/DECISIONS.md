@@ -2100,3 +2100,33 @@ Chose: Open Ghostty Config kept and not renamed
 Why: item Out
 Commit: 32fe5cb62
 Veto: [ ]
+
+## D-984 · 2026-11-18 · B-299: Daemon row replaces Service on iOS; Service becomes its first section
+Chose: Daemon row replaces Service on iOS; Service becomes its first section
+Why: Mac/iOS parity (matches the Mac merge in settings-sidebar step 8)
+Commit: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
+Veto: [ ]
+
+## D-985 · 2026-11-18 · B-299: Delegation on the phone drills down (profiles → roles → cell editor sh…
+Chose: Delegation on the phone drills down (profiles → roles → cell editor sheet) instead of a grid
+Why: parity rule: shared logic, layout fits the screen
+Commit: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
+Veto: [ ]
+
+## D-986 · 2026-11-18 · B-299: iOS Settings row order follows the Mac sidebar minus Appearance (B-319…
+Chose: iOS Settings row order follows the Mac sidebar minus Appearance (B-319)
+Why: parity, P3
+Commit: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
+Veto: [ ]
+
+## D-987 · 2026-11-18 · B-299: "Edit on the web" uses public_urls[0], then the paired baseURL, then n…
+Chose: "Edit on the web" uses public_urls[0], then the paired baseURL, then nothing
+Why: P3
+Commit: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
+Veto: [ ]
+
+## D-988 · 2026-11-18 · B-299: Rename, copy and delete are swipe actions, held while edits are unsave…
+Chose: Rename, copy and delete are swipe actions, held while edits are unsaved; edit sheets close only on Cancel or Save; hidden agents is one name per line; Add Role defaults to the first template
+Why: reversible UI calls
+Commit: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
+Veto: [ ]

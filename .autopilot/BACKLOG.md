@@ -3389,7 +3389,7 @@ Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty 
 Done: 32fe5cb62
 Verified: not visually verified — this host (macOS 27) renders no menu icons; LeoSettingsMenuIconTests + peekaboo menu list, full suite 5047 green
 
-## B-299 · iOS Settings gets the Defaults, Delegation and Daemon panes   [ready]
+## B-299 · iOS Settings gets the Defaults, Delegation and Daemon panes   [done]
 Issue: #408
 Why: iPhone Settings lacks the Defaults, Delegation and Daemon panes, so the phone can't manage delegation or see daemon state (Mac/iOS parity).
 Accept: iOS Settings lists Defaults, Delegation and Daemon panes; each reads and writes through the same LeoKit model the Mac uses; tests plus a simulator screenshot.
@@ -3398,6 +3398,8 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#6
 Note: iOS Settings: add the Defaults, Delegation and Daemon panes (deferred from the 2026-10-24 iOS Settings spec)
 Inbox: 20261024T234538588365Z-c9abba09#1
+Done: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
+Verified: screen capture — iOS simulator screens of Defaults, Daemon, Web UI, Hosts, Delegation (light/dark), /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-299-1.png … B-299-11.png
 
 ## B-302 · iOS task prompt editor sits inside the safe area   [ready]
 Issue: #409
