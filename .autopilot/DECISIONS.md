@@ -1824,3 +1824,87 @@ Chose: A failed or cancelled load, or a navigation that can't start, drops the t
 Why: P2, D-928
 Commit: 4e0c561ea a0cb2acc6 792fb4298
 Veto: [ ]
+
+## D-940 · 2026-11-17 · Answer to B-311:…
+Context: B-311 (LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess…) blocked question
+Chose: retry — land the fix from 893d72b3b, re-enable the test, and verify it on hosted CI (not Dionysus's key-window skip).
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-941 · 2026-11-17 · Answer to B-321: ios/LeoFeatures/Package.resolved on main is stale;…
+Context: B-321 (ios/LeoFeatures/Package.resolved on main is stale; swift test…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-942 · 2026-11-17 · Answer to B-324: Move, copy, and duplicate agents from the Mac and iOS…
+Context: B-324 (Move, copy, and duplicate agents from the Mac and iOS apps) blocked question
+Chose: done — the agent move UI shipped in leo-v0.28.0 and the bundled leo 0.84.1 has the move route; verify a live move once and mark it done.
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-943 · 2026-11-17 · Answer to B-317: Key-window tests all skip on Dionysus while system…
+Context: B-317 (Key-window tests all skip on Dionysus while system prompts hold the foreground) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-944 · 2026-11-17 · Answer to B-338: iOS UI test…
+Context: B-338 (iOS UI test…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-945 · 2026-11-17 · Answer to B-344: Sometimes when I switch to an agent with the chat…
+Context: B-344 (Sometimes when I switch to an agent with the chat open, the chat…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-946 · 2026-11-17 · Answer to B-367: Sometimes when you message the agent in the chat, it…
+Context: B-367 (Sometimes when you message the agent in the chat, it doesn't respond…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-947 · 2026-11-17 · Answer to B-373: the update button on macos overflows now. not good.…
+Context: B-373 (the update button on macos overflows now. not good. [Image #4] (Image…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-948 · 2026-11-17 · Answer to B-374: when i switch to an agent thats stopped to view the…
+Context: B-374 (when i switch to an agent thats stopped to view the chat, it auto…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-949 · 2026-11-17 · Answer to B-375: the task dismiss buttons in the popover from the…
+Context: B-375 (the task dismiss buttons in the popover from the toolbar dont work) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-950 · 2026-11-17 · Answer to B-393: an agent with running tasks shouldnt show as finished…
+Context: B-393 (an agent with running tasks shouldnt show as finished in the sidebar) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-951 · 2026-11-17 · Answer to B-427: Takeover pill's "Give Back" click does nothing after…
+Context: B-427 (Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)

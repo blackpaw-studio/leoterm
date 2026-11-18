@@ -667,13 +667,14 @@ Question: Final fix limit reached. Remaining blockers: reject NUL anywhere in so
 Answer: finish from autopilot-shelved/B-232 (reject NUL in source URLs, bound/stream source buffering, transport-level lost-RENAME coverage; triage the focus/palette suite failures separately if they're unrelated)
 Done: e1b8cf49f d4dae18b5 2727c952a 965ef9196 ed680acb4 38bc36047 77e21483f
 
-## B-132 · Focused-surface report ordering on split open   [blocked]
+## B-132 · Focused-surface report ordering on split open   [dropped]
 Issue: #136
 Why: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Accept: focusedSurface didSet posts .leoFocusedSurfaceDidChange before register(), so a brief nil focus report is possible (GhosttyAttachContentHost.swift:470, same in fillPlaceholder); move the assignment after register
 Source: autopilot polish (B-087)
 Question: Shared focus/palette verification failures predate B-132: same three failures on older default-main 3dadd1e42, fixtureless lane, and full lane; new ordering tests pass, both reviews clean. Work kept on autopilot-shelved/B-132 (815c1719d). I’d pick diagnosing shared AppKit focus scheduling first, using B-136/B-230 as related leads, then re-verifying this lane.
 Answer:
+Dropped: 2026-11-17 — shelved polish; ordering fix never landed and nothing user-visible depends on it
 
 
 ## B-133 · Close-confirm polish   [done]
@@ -1119,10 +1120,11 @@ Verified: not visually verified — test evidence only, see B-309
 Issue: #292
 Type: bug
 Report: LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess fails deterministically in the full injected macOS suite (CI mode) since the agent-browser merge (04d50cd80) but passes alone and with every merge-added suite; disabled in 812e5a9c4 on fix/ci-after-agent-browser. Findings so far: ⌃C reaches the focused surface, LeoApplication doesn't absorb it, shell alive in the tty foreground pgrp with ISIG on, its INT trap never fires. Unchecked: inherited ignored/blocked SIGINT from an earlier suite. Merge adds no signal-handling code. Root-cause, fix, re-enable the test, and verify ⌃C in a terminal row of the real app.
+Update (2026-11-17): retry — land the fix from 893d72b3b, re-enable the test, and verify it on hosted CI (not Dionysus's key-window skip).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-10-26)
 Inbox: 20261027T012438668718Z-50f1c1ad#1
-Question: couldn't reproduce — the re-enabled test skips on Dionysus ("needs a key window") in the full suite (3779 passed); a key-free probe at the same suite position found main-thread mask 0x0, default SIGINT, shell blocked=0 pending=0, so the blocked-SIGINT theory has no support; a standalone WKWebView + key-send check leaked no signal state. Next lead: LeoAgentInputDeliveryTests.resentKeysNeverReachTheAppOrItsWindows (bbf1b5094) adds local key monitors via LeoApplication.routeResentKeys. Commit 893d72b3b re-enables the test with a signal-state diagnostic (one keyed run names the branch; do not merge it as is); unapplied mask-theory test + childPreExec diff are in b311-unapplied/. Reply "B-311: close" to close it, or "B-311: <more detail>" to retry (e.g. once the Dionysus prompts are cleared, or with a CI run of 893d72b3b). Work kept on autopilot-shelved/B-311.
+Question: Needs owner to do: push the B-311 fix (893d72b3b, test re-enabled) to a branch so hosted CI runs the full macOS suite — autopilot cannot push. Reply "B-311: <CI result or next step>" once it has run.
 Answer:
 
 ## B-158 · Document LeoMenuXib's ignored modifier flags   [done]
@@ -1256,7 +1258,7 @@ Inbox: 20261027T235417179362Z-401b1112#1
 Done: bc69fb4d1
 Verified: not visually verified — no UI change intended; 10/10 LeoSettingsScreensTests pass on the iPhone 17 Pro sim (7 failed before), full iOS + LeoKit + LeoFeatures suites pass
 
-## B-321 · ios/LeoFeatures/Package.resolved on main is stale; swift test…   [blocked]
+## B-321 · ios/LeoFeatures/Package.resolved on main is stale; swift test…   [done]
 Issue: #297
 Type: bug
 Report: ios/LeoFeatures/Package.resolved on main is stale; swift test re-resolves it and adds swift-argument-parser. Commit the resolved file.
@@ -1264,7 +1266,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-27)
 Inbox: 20261027T235417232930Z-5234bb5c#1
 Question: couldn't reproduce — in ios/LeoFeatures, `swift package resolve` and the full `swift test` (346 tests) leave the committed Package.resolved unchanged, and a from-scratch re-resolve gives the same originHash and pins. The observed rewrite (adds swift-argument-parser, swaps swift-issue-reporting for xctest-dynamic-overlay) looks like a different dependency graph, probably the Xcode app project (ios/project.yml), not SwiftPM in ios/LeoFeatures. Reply "B-321: close" to close it, or "B-321: <exact command, working directory and Xcode/swift versions where the file got rewritten>" to retry. Work kept on autopilot-shelved/B-321.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-322 · Mac test host connects to the production leo daemon socket during…   [done]
 Issue: #298
@@ -1276,13 +1279,13 @@ Inbox: 20261027T235417266137Z-9e9ee6e4#1
 Done: 2f2454a5c e17978ce2
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png (no UI change; shows the debug app still reaches its daemon); 5 new LeoLocalDaemonIsolationTests + full suite 3834 pass
 
-## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [blocked]
+## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [ready]
 Issue: #299
 Why: Leo's new agent move/copy lets an agent hand off or fork between hosts; doing it from the app keeps that work in Leo ("Everything through Leo", "Local = remote"). Both platforms: request/response and moved_to state live in LeoKit, only UI glue per app.
 Accept: Mac — an agent row's context menu and the Agent menu offer Move to ▸ <host>, Copy to ▸ <host>, and Duplicate (copy to the agent's own host), each with a menu item and shortcut per HIG; iOS — the same three actions from the agent row's context menu / swipe and the agent detail screen (UIKit + TCA); each action calls the daemon's move route (mode move/copy, to, optional name) through the existing client, shows the daemon's own error text on failure, and offers Force only when the daemon refuses because the agent is mid-turn; a moved agent's row shows its moved_to host as dormant and can't be started or attached, and a copy appears as a new row once the daemon reports it; LeoKit tests cover the request shape, the mid-turn refusal → Force path, and moved_to decoding; TCA reducer tests on iOS; shots from the isolated Mac debug build and the iOS simulator against a fake daemon.
 Out: renaming the copy or choosing its branch beyond an optional name field; progress streaming beyond the daemon's response; any daemon changes.
 Question: Needs owner to do: blocked until leo's feat/agent-move ships in a daemon release (the move route and moved_to field must be on main). Reply "B-324: done" once it's done.
-Answer:
+Answer: done — the agent move UI shipped in leo-v0.28.0 and the bundled leo 0.84.1 has the move route; verify a live move once and mark it done.
 Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
 
@@ -1408,13 +1411,14 @@ Question: runner timed out after 3h — build mode, mid fix round: two delta rev
 Answer: punt — not sure we need it; don't resume. Keep the held lane/branch autopilot-lane/B-058 as-is; park the item.
 Parked: Evan, 2026-09-30 (D-212). Held lane autopilot-lane/B-058 kept as-is. "/feature B-058" to revive.
 
-## B-175 · Window renders inactive right after Undo New Split   [blocked]
+## B-175 · Window renders inactive right after Undo New Split   [dropped]
 Issue: #179
 Why: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Accept: B-108-5: grey traffic lights after Edit ▸ Undo New Split; possible key-window blip
 Source: autopilot polish (B-108)
 Question: couldn't reproduce — 5 Edit ▸ Undo New Split runs and 3 redos on the isolated debug build (menu clicks via Peekaboo) showed no key/main change during undo (NSLog on becomeKey/resignKey/becomeMain/resignMain), coloured traffic lights, and the window key and frontmost; the undo path only moves the first responder. The grey in the B-108 shot was most likely environmental (app not frontmost, or a capture during the agent palette's key handoff). A real-mouse Edit-menu path wasn't tested. Reply "B-175: close" to close it, or "B-175: <exact steps where you saw it>" to retry. Work kept on autopilot-shelved/B-175.
 Answer:
+Dropped: 2026-11-17 — couldn't reproduce after 5 undos and 3 redos; low-value polish
 
 ## B-060 · One sidebar per window, shared by all its tabs   [dropped]
 Dropped: superseded before it was built, since tabs are removed (D-098, D-101). Recorded so the queued inbox line is skipped.
@@ -1814,26 +1818,21 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-180 · Terminals row context menu shows key equivalents   [idea]
+## B-180 · Terminals row context menu shows key equivalents   [dropped]
 Issue: #184
 Why: B-177 review: menu items show no ⌘D, ⇧⌘D, ⌘W hints (P1); add display-only ones if SwiftUI's contextMenu supports them
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — cosmetic; main-menu shortcuts already synced
 
-## B-181 · Rename Terminal sheet hangs from the title bar   [idea]
+## B-181 · Rename Terminal sheet hangs from the title bar   [dropped]
 Issue: #185
 Why: B-177 verify: the Rename sheet appears centred in the window rather than attached as a sheet from the title bar (HIG)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
-
-## B-182 · Clearing a custom name after restore restores the live title   [idea]
-Issue: #186
-Why: B-177 review: after a restore, clearing a custom name brings back the saved name, not the live title, until the shell sends a new OSC title (decode sets titleFromTerminal = title)
-Accept: fixed or explicitly dismissed with a reason; suite green
-Source: autopilot polish (B-177)
-Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — sheet placement polish only
 
 ## B-183 · Clearing a row name can drop a just-arrived OSC title   [done]
 Issue: #187
@@ -1843,33 +1842,37 @@ Source: autopilot polish (B-177)
 Done: f310bee07
 Verified: not visually verified — 75 ms coalescing race; integration test through the real SurfaceView and sidebar label failed before the fix; full suite 3872 pass
 
-## B-184 · Drive row-menu Split in GUI verification   [idea]
+## B-184 · Drive row-menu Split in GUI verification   [dropped]
 Issue: #188
 Why: B-177 verify: menu Split wasn't driven in the GUI (it opens the palette with real agents listed); tests cover it — find a safe GUI path (e.g. filter to autopilot-scratch)
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-177)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — verification note; tests cover row-menu Split
 
-## B-185 · Keep the "may have been created" warning across a same-host retry   [idea]
+## B-185 · Keep the "may have been created" warning across a same-host retry   [dropped]
 Issue: #189
 Why: B-176 review: add .removeDuplicates() on the selectedHost stream — retry() re-selects the same host, which clears the warning
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — obsolete; LeoHostSelection deleted in a87b3b0db
 
-## B-186 · Late spawn result message wording   [idea]
+## B-186 · Late spawn result message wording   [dropped]
 Issue: #190
 Why: B-176 review: reword to "Connection changed; the agent was created on X" (a same-host retry also bumps the generation, and the daemon reported success); prefix late spawn errors with the host's name
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — wording nit
 
-## B-187 · "Not connected to X yet" after a failed tunnel   [idea]
+## B-187 · "Not connected to X yet" after a failed tunnel   [dropped]
 Issue: #191
 Why: B-176 review: drop "yet" when the tunnel has failed for good; pass daemonHost: .local explicitly at LeoRuntime.swift:246
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — wording nit
 
 ## B-188 · LeoAgentActions.spawn enforces the expected host itself   [done]
 Issue: #192
@@ -1878,19 +1881,21 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Done: no code change — already satisfied: LeoAgentActions.spawn(_:on:) resolves the target host's daemon via clients.daemon(for: host) and refuses with "Not connected to <host> yet"; a87b3b0db deleted LeoHostSelection, so a selected/expected mismatch can't happen (D-300; LeoAgentActionsTests, LeoWorktreeSpawnTests)
 
-## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [idea]
+## B-189 · Stricter owner/repo and branch validation in the New Agent sheet   [dropped]
 Issue: #193
 Why: B-176 review: ownerRepo per segment ([A-Za-z0-9._-], no leading "-", not "."/"..") — real fix belongs in leo's ValidateRepo (ask the leo agent); catch more invalid branch names inline ("feat/.x", "a.lock/b", bare "@")
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — duplicates the daemon's repo validation; SpawnValidation already requires owner/repo
 
-## B-190 · New Agent in Worktree sheet layout   [idea]
+## B-190 · New Agent in Worktree sheet layout   [dropped]
 Issue: #194
 Why: B-176 verify: Host and Repository rows are tight and the branch hint sits under the label column
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-176)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — layout nit, no clipping evidence
 
 ## B-191 · anEmptyNameRestoresTheLiveTitle flakes under load   [dropped]
 Issue: #195
@@ -2048,19 +2053,21 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-127)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-213 · Check for Updates… while the permission question is pending: polish   [idea]
+## B-213 · Check for Updates… while the permission question is pending: polish   [dropped]
 Issue: #217
 Why: B-128 verify/review: with every terminal window minimized it opens a new window instead of restoring one; it opens the window but not the popover, so a second click on the pill is needed; docs/leo/ci.md's B-128 bullet should mention it opens a window
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — rare minimised-window edge case
 
-## B-214 · Permission popover says Ghostty, not Leo   [idea]
+## B-214 · Permission popover says Ghostty, not Leo   [dropped]
 Issue: #218
 Why: B-128 verify: the popover body says "Ghostty can automatically check…"; branding copy
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-128)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — duplicate of B-218
 
 ## B-215 · Release-side guard for SUAllowsAutomaticUpdates   [dropped]
 Issue: #219
@@ -2069,12 +2076,13 @@ Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-216 · Debug update-found alert shows a live-looking Install Update button   [idea]
+## B-216 · Debug update-found alert shows a live-looking Install Update button   [dropped]
 Issue: #220
 Why: B-129 verify: Sparkle's Debug update alert still shows Install Update (gated to dismiss by B-115); relabel or disable it in Debug
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-129)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — debug-only alert
 
 ## B-217 · About tests: real About-window check and shared menu walker   [dropped]
 Issue: #221
@@ -2082,13 +2090,6 @@ Why: B-130 review: theAboutWindowNamesLeo only checks AboutView.appName == "Leo"
 Accept: fixed or explicitly dismissed with a reason; suite green
 Source: autopilot polish (B-130)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
-
-## B-218 · Leo branding sweep: remaining Ghostty strings   [idea]
-Issue: #222
-Why: B-130 review: MainMenu.xib Hide Ghostty / Quit Ghostty / Make Ghostty the Default Terminal / Ghostty Help; About window links (ghostty.org, ghostty-org/ghostty, commit link to the wrong repo), tagline and "Ghostty Application Icon" a11y label; AppDelegate.swift:1478/1514 "Quit Ghostty?", :625 "Allow Ghostty to execute…", UntrustedURLAlert.swift:39, UpdatePopoverView.swift:62, TerminalCommandPalette.swift:99 "Update Ghostty and Restart", ErrorView.swift:13, TerminalView.swift:267 debug banner, default "👻 Ghostty" titles in TitlebarTabs{Tahoe,Ventura}TerminalWindow. Decide which upstream strings to rename (keep upstream merges cheap)
-Accept: fixed or explicitly dismissed with a reason; suite green
-Source: autopilot polish (B-130)
-Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
 ## B-223 · Bundled ghostty CLI test: isolate cwd and profile output   [dropped]
 Issue: #227
@@ -2104,12 +2105,13 @@ Accept: B-220 review: readDataToEndOfFile/waitUntilExit have no deadline, so a h
 Source: autopilot polish (B-220)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [idea]
+## B-225 · Check release signing with the Contents/MacOS/ghostty symlink   [dropped]
 Issue: #229
 Why: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Accept: B-220 verify: release signing and notarization with a symlink in Contents/MacOS are untested (ad-hoc codesign --deep --strict passes); watch the next CI release build or add a CI codesign --verify --strict check
 Source: autopilot polish (B-220)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — release signing exercised by every release since B-220
 
 ## B-226 · CI script-tests guard: tighten the step match   [dropped]
 Issue: #230
@@ -2133,12 +2135,13 @@ Accept: B-221 review: run-tests.sh:43 runs `bash "$t"` from PATH, so Homebrew ba
 Source: autopilot polish (B-221)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [idea]
+## B-229 · sparkle-key-check: missing-key detection without PlistBuddy wording   [dropped]
 Issue: #233
 Why: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Accept: B-222 review: sparkle-key-check.sh's missing-key detection matches PlistBuddy's English `":SUPublicEDKey", Does Not Exist` text; if macOS changes it the script falls back to the generic "could not read" error (accurate but less specific) — consider `plutil -extract` or an exit-code-based check
 Source: autopilot polish (B-222)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — fallback message already accurate
 
 ## B-230 · Focus tests: tear down the palette presentation on failure   [dropped]
 Issue: #234
@@ -2154,13 +2157,14 @@ Accept: B-131 review: `let sidebar = LeoSidebarModel()` in presentPaletteForRequ
 Source: autopilot polish (B-131)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-236 · Upload error filenames in right-to-left text   [idea]
+## B-236 · Upload error filenames in right-to-left text   [dropped]
 Issue: #241
 Why: B-232 final review: isolate RTL filenames in the upload error message.
 Accept: Once B-232 is landed, improve this upload-error presentation with verification.
 Requires: B-232 done (do not build before the feature lands).
 Source: autopilot polish (B-232)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — error text already sanitized and isolated (B-020)
 
 ## B-237 · Terminal upload errors truncate after four lines   [idea]
 Issue: #242
@@ -2205,26 +2209,29 @@ Accept: the comment describes the earliest layout pass accurately and uses an em
 Source: autopilot polish (B-139)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-243 · One terminal-room formula for the sidebar restore cap   [idea]
+## B-243 · One terminal-room formula for the sidebar restore cap   [dropped]
 Issue: #248
 Why: restoreSidebarWidth's floor cap uses the terminal frame width while sidebarSqueezesTerminal/makeRoom use LeoSidebarSplitMetrics.terminalWidth; they agree after layout, but D-058 now has two formulas
 Accept: the restore cap and sidebarSqueezesTerminal/makeRoom share one terminal-room computation; behaviour unchanged, tests still green
 Source: autopilot polish (B-140)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — internal refactor, no behaviour change
 
-## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [idea]
+## B-244 · Reset with a narrow default and a side pane shouldn't look like it hides the sidebar   [dropped]
 Issue: #249
 Why: when the default size is narrow and a side pane is open, Reset Window Size triggers the transient floor-collapse (D-059), which reads as the command hiding the sidebar
 Accept: Reset Window Size with a narrow default and a side pane open leaves the sidebar visible (or the collapse is clearly the floor rule, not the command); covered by a test
 Source: autopilot polish (B-140)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — speculative; Reset collapse is the documented floor (D-059)
 
-## B-245 · Reset Window Size fills the screen with a wide default   [idea]
+## B-245 · Reset Window Size fills the screen with a wide default   [dropped]
 Issue: #250
 Why: a 160-col default plus the 420 pt sidebar caps at the 1680 pt screen width, which looks less like a "default" size
 Accept: decide and implement how Reset sizes a window whose default plus sidebar exceeds the screen (e.g. leave a margin); covered by a test
 Source: autopilot polish (B-140)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — capping Reset at screen width is intended
 
 ## B-246 · Non-vacuous final check in aWindowNotYetPresentedReadsNotShownWhileTheAppIsHidden   [dropped]
 Issue: #251
@@ -2247,12 +2254,13 @@ Accept: the line is split to the file's usual width; swiftlint clean
 Source: autopilot polish (B-142)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-249 · Build LeoAgentPalettePanel lazily   [idea]
+## B-249 · Build LeoAgentPalettePanel lazily   [dropped]
 Issue: #254
 Why: the palette panel is built up front (defer:false), so every window carries a hidden 640x140 window-server window at the origin
 Accept: the palette panel's window-server window is created only when the palette first opens; palette behaviour and tests unchanged
 Source: autopilot polish (B-142)
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Dropped: 2026-11-17 — invisible to the user
 
 ## B-250 · verify.md note: the 500x500 window at (0,550) is macOS's TUINSWindow   [dropped]
 Issue: #255
@@ -2261,52 +2269,63 @@ Accept: verify.md has a one-line note so window listings ignore it
 Source: autopilot polish (B-142)
 Dropped: 2026-10-08 — triage 2026-10-07 — duplicate, test/wording follow-up, or speculative hardening
 
-## B-251 · Per-agent turn preview + usage (leo PR #226)   [idea]
+## B-251 · Per-agent turn preview + usage (leo PR #226)   [dropped]
 Source: Evan (/idea, 2026-10-07)
 Note: Show per-agent turn preview + usage (tokens/cost/context %) from Leo /api/v1 agent_turn_completed + Agent.usage (leo PR #226, spec leo docs/specs/2026-10-06-bridge-observe.md; gate on SSE hello features)
 Inbox: 20261007T131748905880Z-2eef5846#1
+Dropped: 2026-11-17 — duplicate of B-259 (done)
 
-## B-252 · Show attention.reason (permission/question/elicitation + tool detail) in badges and notifications (leo PR #226)   [idea]
+## B-252 · Show attention.reason (permission/question/elicitation + tool detail) in badges and notifications (leo PR #226)   [dropped]
 Source: Evan (/idea, 2026-10-07)
 Inbox: 20261007T131749012401Z-0896fd7f#1
+Dropped: 2026-11-17 — duplicate of B-258 (done)
 
-## B-253 · Use attention.outstanding + dispatch tree (leo PR #226)   [idea]
+## B-253 · Use attention.outstanding + dispatch tree (leo PR #226)   [dropped]
 Source: Evan (/idea, 2026-10-07)
 Note: Use attention.outstanding + Snapshot.dispatches[] (parent_dispatch_id tree) from leo PR #226 — daemon contract that unblocks B-051 (agent stays working while children run); show dispatch tree
 Inbox: 20261007T131749105290Z-fd83296d#1
+Dropped: 2026-11-17 — duplicate of B-257 (done)
 
-## B-254 · Live current tool display from current_action kind "tool" (leo PR #226)   [idea]
+## B-254 · Live current tool display from current_action kind "tool" (leo PR #226)   [dropped]
 Source: Evan (/idea, 2026-10-07)
 Inbox: 20261007T131749201355Z-00f58ead#1
+Dropped: 2026-11-17 — duplicate of B-260 (done)
 
-## B-255 · Compaction indicator from agent_compaction events + context % (leo PR #226)   [idea]
+## B-255 · Compaction indicator from agent_compaction events + context % (leo PR #226)   [dropped]
 Source: Evan (/idea, 2026-10-07)
 Inbox: 20261007T131749300167Z-ace5895b#1
+Dropped: 2026-11-17 — duplicate of B-261 (done)
 
-## B-256 · Send-prompt box + interrupt/compact/clear buttons (leo PR #226)   [idea]
+## B-256 · Send-prompt box + interrupt/compact/clear buttons (leo PR #226)   [dropped]
 Source: Evan (/idea, 2026-10-07)
 Note: Send-prompt box + interrupt/compact/clear buttons via operator-only POST /api/v1/agents/{name}/{message,interrupt,compact,clear} (leo PR #226), no tmux typing
 Inbox: 20261007T131749391262Z-60e7c4eb#1
+Dropped: 2026-11-17 — duplicate of B-262 (done)
 
-## B-263 · Index dispatch children once per tree projection   [idea]
+## B-263 · Index dispatch children once per tree projection   [dropped]
 Note: Tree projection is O(n^2) per agent; use a parent→children index built once per projection
 Source: autopilot polish (B-257)
+Dropped: 2026-11-17 — projection already indexes parents once
 
-## B-264 · Dispatch tombstone cap survives heavy churn   [idea]
+## B-264 · Dispatch tombstone cap survives heavy churn   [dropped]
 Note: the 256 ended-id cap can be evicted by heavy churn, so a stale baseline could briefly bring back an ended id
 Source: autopilot polish (B-257)
+Dropped: 2026-11-17 — speculative eviction edge
 
-## B-265 · Tighten fetchCount bound in dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone   [idea]
+## B-265 · Tighten fetchCount bound in dispatchAndSeqOnlyEventsLeaveThePendingActivityWindowAlone   [dropped]
 Note: assert == +1 so a lost metadata refresh is caught
 Source: autopilot polish (B-257)
+Dropped: 2026-11-17 — test tightening with no behaviour at stake
 
-## B-266 · Clicking a dispatch row reveals or jumps to the dispatch   [idea]
+## B-266 · Clicking a dispatch row reveals or jumps to the dispatch   [dropped]
 Note: clicking a dispatch row currently does nothing
 Source: autopilot polish (B-257)
+Dropped: 2026-11-17 — dispatch rows already open on click
 
-## B-267 · Clearer depth indent for dispatch rows   [idea]
+## B-267 · Clearer depth indent for dispatch rows   [dropped]
 Note: the depth indent and ↳ glyph are low-contrast and subtle; a larger step or guide line would read better
 Source: autopilot polish (B-257)
+Dropped: 2026-11-17 — cosmetic indent
 
 ## B-268 · Same-state needs_input with a newer revision re-notifies   [done]
 Issue: #262
@@ -2338,13 +2357,15 @@ Source: autopilot polish (B-272)
 Note: Dropped files land as mode 0600 where the sources were 0644 — a local drop doesn't keep the usual file mode
 Source: autopilot polish (B-232)
 
-## B-281 · Name-clash toast covers terminal text until dismissed   [idea]
+## B-281 · Name-clash toast covers terminal text until dismissed   [dropped]
 Note: Name-clash toast sits over terminal text and persists until dismissed — covers prompt text after a clash
 Source: autopilot polish (B-232)
+Dropped: 2026-11-17 — cosmetic toast placement
 
-## B-282 · Workspace browser middle-truncates long file names   [idea]
+## B-282 · Workspace browser middle-truncates long file names   [dropped]
 Note: Workspace browser truncates long names in the middle ("b232-v…ma.txt") — hard to tell similar dropped files apart
 Source: autopilot polish (B-232)
+Dropped: 2026-11-17 — cosmetic truncation
 
 ## B-284 · Agents ▸ New Agent… menu item opens no sheet   [done]
 Issue: #273
@@ -2368,21 +2389,24 @@ Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/sho
 Note: a row-level `set` error clears after about 2 s (seen on the fixture; pre-existing action-error lifetime or fixture refresh, unconfirmed) — the daemon's message can vanish before it's read; P2
 Source: autopilot polish (B-283)
 
-## B-289 · Rendered/Raw toggle crowds the file pane header at ~800 px   [idea]
+## B-289 · Rendered/Raw toggle crowds the file pane header at ~800 px   [dropped]
 Note: the header path/name truncates to "…" at narrower widths
 Source: autopilot polish (B-278)
+Dropped: 2026-11-17 — narrow-width header polish
 
-## B-290 · Rendered Markdown spacing around tables and nested lists   [idea]
+## B-290 · Rendered Markdown spacing around tables and nested lists   [dropped]
 Note: no visible gap between a table and a following code block, or before a nested list/table
 Source: autopilot polish (B-278)
+Dropped: 2026-11-17 — Markdown spacing polish
 
 ## B-291 · Can't Preview offers Download for remote files but it is untested live   [idea]
 Note: only Show in Finder was exercised in the GUI; remote Download path is test-only (P3)
 Source: autopilot polish (B-278)
 
-## B-292 · Rendered Markdown hard line breaks show as a space   [idea]
+## B-292 · Rendered Markdown hard line breaks show as a space   [dropped]
 Note: fidelity: two-space/backslash line breaks render as a space
 Source: autopilot polish (B-278)
+Dropped: 2026-11-17 — hard breaks already map to newlines
 
 ## B-293 · Check the state view's layout when an empty sidebar list sits under it   [idea]
 Note: In Loading/Failed/No Agents with a filter hiding terminals, B-148 keeps an empty list mounted under the state view; nobody checked whether it shifts the state view's layout (P6: sidebar renders predictably).
@@ -2400,11 +2424,6 @@ Source: autopilot polish (B-149)
 Note: settledTable in LeoSidebarRowSpacingTests and LeoSidebarCommandClickTests, and HeaderProbe.settledHeader in LeoSidePaneTitlebarStyleTests (B-153 review), still poll with Task.sleep; B-150 replaced the same poll in the scroll tests with run-loop turn counting (B-099 turn-counting decision).
 Source: autopilot polish (B-150)
 
-## B-299 · iOS Settings: add the Defaults, Delegation and Daemon panes   [idea]
-Note: iOS Settings: add the Defaults, Delegation and Daemon panes (deferred from the 2026-10-24 iOS Settings spec)
-Source: owner (/idea, 2026-10-25)
-Inbox: 20261024T234538588365Z-c9abba09#1
-
 ## B-300 · iOS Settings: persist unsaved drafts across app termination   [idea]
 Note: iOS Settings: persist unsaved drafts across app termination (accepted risk in the 2026-10-24 spec)
 Source: owner (/idea, 2026-10-25)
@@ -2414,11 +2433,6 @@ Inbox: 20261024T234538849925Z-41e5f2aa#1
 Note: iOS Settings: port the Mac prompt-file choose/create picker to iOS Tasks (iOS edits prompt_file as a plain form field today)
 Source: owner (/idea, 2026-10-25)
 Inbox: 20261024T234539191498Z-19a9386a#1
-
-## B-302 · iOS Settings: the task prompt editor's bottom edge clips above the home indicator   [idea]
-Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
-Source: owner (/idea, 2026-10-25)
-Inbox: 20261024T234539423483Z-b13bef15#1
 
 ## B-303 · Incremental builds can drop the bundled tmux-256color terminfo   [idea]
 Note: the "Leo tmux terminfo" script phase is skipped as up to date after "Resources" re-syncs `terminfo/`, so tmux256ColorEntryIsBundled and tmux256ColorEntryUsesTheLegacyFormat fail on a stale build (CI/test-infra only; no user-visible effect)
@@ -2439,30 +2453,35 @@ Reviewed: accepted 2026-11-17 — 961f5f8a7778
 Note: iOS UI changes can't be visually verified, so fixes like B-304 ship on tests alone
 Source: autopilot polish (B-304)
 
-## B-313 · Update iOS Machines meters in place instead of rebuilding the row's meter line   [idea]
+## B-313 · Update iOS Machines meters in place instead of rebuilding the row's meter line   [dropped]
 Note: less churn on each stats refresh on a busy host
 Source: autopilot polish (B-304)
+Dropped: 2026-11-17 — no measured problem
 
-## B-314 · Full Leo-browser explanation on browser_tabs and browser_snapshot too   [idea]
+## B-314 · Full Leo-browser explanation on browser_tabs and browser_snapshot too   [dropped]
 Note: an agent whose first call is one of those sees the shared/cookies/remote-localhost context (Everything through Leo)
 Source: autopilot polish (B-307)
+Dropped: 2026-11-17 — tool-description polish
 
-## B-315 · Consider renaming Leo browser tools to leo_browser_*   [idea]
+## B-315 · Consider renaming Leo browser tools to leo_browser_*   [dropped]
 Note: removes any remaining Playwright ambiguity; changes the client-tools wire contract and needs the leo daemon side — revisit only if confusion persists
 Source: autopilot polish (B-307)
+Dropped: 2026-11-17 — speculative wire-contract rename
 
-## B-316 · Check a 100% Rings stat: "100" may sit tight against the stroke   [idea]
+## B-316 · Check a 100% Rings stat: "100" may sit tight against the stroke   [dropped]
 Note: B-309 shrank the ring hole from 17.5pt to 15pt; unchecked by eye (no screenshot)
 Source: autopilot polish (B-309)
+Dropped: 2026-11-17 — low-value visual check
 
-## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [blocked]
+## B-317 · Key-window tests all skip on Dionysus while system prompts hold the foreground   [done]
 Issue: #293
 Type: bug
 Report: Key-window tests all skip on Dionysus while system prompts hold the foreground — ⌃C and other key-window tests skip on the CI runner host while a modal UserNotificationCenter alert and universalAccessAuthWarn hold the foreground, so CI never exercises them (found in B-311).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-311)
 Question: couldn't reproduce — a full macOS suite on Dionysus with both universalAccessAuthWarn and UserNotificationCenter up ran 3873/3873, and every .requiresActiveHost test ran (the test host re-activates itself every 20 ms); forcing Finder frontmost first still passed. The skip likely shows only on the CI runner. Reply "B-317: close", or "B-317: <focus-gate-skip: lines from a CI runner log>" to retry, or "B-317: decouple" to let the ⌃C/Return tests send events to the first responder without a key window (changes what they assert; palette/resentKeys tests would still need a key window).
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-319 · iOS Agent Appearance rules editor (deferred iOS half of agent…   [idea]
 Note: iOS Agent Appearance rules editor (deferred iOS half of agent appearance; Mac has Settings > Agent Appearance; spec docs/superpowers/specs/2026-10-27-agent-appearance.md, daemon routes GET/PUT /appearance/rules in leo v0.64.0)
@@ -2487,9 +2506,10 @@ Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/sho
 Note: B-059 gave the Mac ⌃⇥/⌃⇧⇥, ⌘1–⌘9 and Window-menu row switching; iPad with a hardware keyboard has none (UIKeyCommand). Mac+iOS rule: the iOS half was deferred.
 Source: autopilot polish (B-059)
 
-## B-327 · Remove the stale LeoHostSelection comment and dead LeoDaemonClient.spawn(_:host:)   [idea]
+## B-327 · Remove the stale LeoHostSelection comment and dead LeoDaemonClient.spawn(_:host:)   [dropped]
 Note: LeoDaemonClient.swift:48 comment points to the deleted LeoHostSelection; the spawn(_:host:) overload (:19/:70) has no callers — dead code, no user-visible effect
 Source: autopilot polish (B-188)
+Dropped: 2026-11-17 — dead-code cleanup with no user effect
 
 ## B-328 · Mac Rename, Delete and New Agent sheets don't close via SwiftUI…   [done]
 Issue: #302
@@ -2561,19 +2581,16 @@ Source: autopilot bug (B-325)
 Done: 8b05121bb, 3d2b0d723, 79e5696fe, fe9df3739
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-334-1.png (Paste ⌘V default; B-334-2.png no shortcut with super+v rebound; Copy by tests only)
 
-## B-335 · Set Environments and Switch menu parents stay enabled for a pending agent row   [idea]
-Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
-Source: autopilot polish (B-329)
-
 ## B-336 · Make the focused split pane easier to spot   [idea]
 Note: B-333 verify: the focused-pane cue is only a hollow vs bar cursor — legible but faint; matters for knowing which split gets keystrokes (Keyboard-first)
 Source: autopilot polish (B-333)
 
-## B-337 · Clip the subagent chevron's click area to the name line   [idea]
+## B-337 · Clip the subagent chevron's click area to the name line   [dropped]
 Note: B-331 verify: the chevron click-exclusion strip is full row height, so the trailing 23pt of a row with dispatches (including the detail line) no longer selects or attaches on click (Mac-native)
 Source: autopilot polish (B-331)
+Dropped: 2026-11-17 — superseded by B-345
 
-## B-338 · iOS UI test…   [blocked]
+## B-338 · iOS UI test…   [done]
 Issue: #309
 Type: bug
 Report: iOS UI test LeoMoveTests.testDuplicateAsksForAnOptionalNameThenAddsTheCopy fails on main CI since 0b240ddbe (agent-move UI merge, 2026-10-28) and again on ac11050ab (Leo iOS CI run 41202201931). Assertion at ios/LeoUITests/LeoMoveTests.swift:119: after Duplicate… → name "twin" → Copy, cell "agent.twin" never appears within 10s. Unknown whether Duplicate is actually broken in the app or the test/fixture is wrong; it passed in the chat-first branch's local full-scheme run after fixture fix 24b91fcc2. Find out which and fix; CI should be green.
@@ -2581,7 +2598,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-10-31)
 Inbox: 20261031T131808467645Z-783e5176#1
 Question: couldn't reproduce — testDuplicateAsksForAnOptionalNameThenAddsTheCopy passes locally (iPhone 17 Pro, Xcode 26.5) and the whole LeoMoveTests class passes 10/10; it also passes on hosted-runner CI (run 41953539577, 2026-11-05) and the last four main runs are green. No defect found in the app path or fixture; the reported failures came from the old self-hosted runner and look environmental (slow simulator vs the 10s wait), unproven. Reply "B-338: close" to close it, or "B-338: <more detail>" to retry. Work kept on autopilot-shelved/B-338.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-339 · Managed daemon ships with its web API off. On a Mac where Leo.app…   [done]
 Issue: #319
@@ -2624,7 +2642,7 @@ Inbox: 20261104T122228255636Z-50f002b2#1
 Done: 56ccb4ab0, a82a2ec8e, 1422127bc
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-343-1.png (iOS sim screen capture; 300×3000 and 400×4000 images give near-full-width bubbles; Mac chat not visually verified)
 
-## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [blocked]
+## B-344 · Sometimes when I switch to an agent with the chat open, the chat…   [done]
 Issue: #323
 Type: bug
 Report: Sometimes when I switch to an agent with the chat open, the chat messages don't appear until I try scrolling the chat view.
@@ -2632,7 +2650,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-05)
 Inbox: 20261104T154513337291Z-78d24f9d#1
 Question: couldn't reproduce — five Swift Testing cases drove the real LeoChatThreadView in an NSWindow (60 messages per agent, real LeoChatPaneModel, fake client): alpha→bravo switches with the page landing in the same pass or after the empty thread rendered, alpha at bottom or scrolled up, and a fresh remount — all pass, and the scroll-pin reset reads correct. Remaining suspect: SwiftUI `proxy.scrollTo` inside `onPreferenceChange` over a LazyVStack that just swapped content; not covered: full LeoChatPane in a visible key window, uneven-height rows (image/ask-card), live messages arriving mid-switch. Reply "B-344: close" to close it, or "B-344: <more detail>" (does the thread have images or ask cards? were messages arriving during the switch?) to retry. Work kept on autopilot-shelved/B-344.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-345 · Sometimes it requires two clicks on the agent in the sidebar to…   [done]
 Issue: #324
@@ -2734,10 +2753,6 @@ Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/sho
 Note: B-334 review: key tables aren't consulted, so Edit ▸ Copy/Paste can still show ⌘C/⌘V while a key table rebinds them (Keyboard-first: no shortcut beats a wrong one)
 Source: autopilot polish (B-334)
 
-## B-351 · Show the full move error without hovering   [idea]
-Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
-Source: autopilot polish (B-340)
-
 ## B-352 · Word job failures plainly instead of "<code>: " prefixes   [idea]
 Note: B-340 review: other agent-move job failures still show a "<code>: " prefix on the daemon message (e.g. branch_diverged); failures should read plainly
 Source: autopilot polish (B-340)
@@ -2755,9 +2770,10 @@ Verified: not visually verified — no non-live remote host for a GUI paste; per
 Note: B-346 review: image/file-chip attachments now accept first mouse, so a first click into an inactive window opens the attachment instead of just activating the window (Mac-native)
 Source: autopilot polish (B-346)
 
-## B-357 · Hide the status bar in the iOS image viewer   [idea]
+## B-357 · Hide the status bar in the iOS image viewer   [dropped]
 Note: B-342 review: the clock and the "3 of 4" pill overlap the image edge; set modalPresentationCapturesStatusBarAppearance for a Photos-like full-screen feel
 Source: autopilot polish (B-342)
+Dropped: 2026-11-17 — already done; image viewer hides the status bar
 
 ## B-358 · Reset-zoom titlebar accessory likely sits low in the unified toolbar   [done]
 Issue: #334
@@ -2768,21 +2784,24 @@ Source: autopilot bug (B-349)
 Done: 2596f13ca
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-358-1.png
 
-## B-359 · Show the update pill in the toolbar's » overflow menu at narrow widths   [idea]
+## B-359 · Show the update pill in the toolbar's » overflow menu at narrow widths   [dropped]
 Note: at ≤640 pt the pill drops out and isn't in the overflow menu, so a narrow window has no visible update entry point (app menu still works) — P2
 Source: autopilot polish (B-349)
+Dropped: 2026-11-17 — edge case; update still reachable from the app menu
 
-## B-360 · Update popover shows a blank "Version:" line   [idea]
+## B-360 · Update popover shows a blank "Version:" line   [dropped]
 Note: seen under the debug update fixture; probably a fixture artifact, worth confirming with a real appcast — P1 polish
 Source: autopilot polish (B-349)
+Dropped: 2026-11-17 — fixture artifact, no real-appcast repro
 
 ## B-361 · Activity capsule title truncates at moderate window widths   [idea]
 Note: the capsule showed "B353 verify b…" and no elapsed text at the verifier's window width; it should keep the elapsed time visible and truncate the title later — P1 first-party feel
 Source: autopilot polish (B-353)
 
-## B-362 · Done task bar is thin and low-contrast in light mode   [idea]
+## B-362 · Done task bar is thin and low-contrast in light mode   [dropped]
 Note: after B-354 softened the done green (0.55 opacity), the light-mode bar reads faint; fine as calm ambient status, strengthen only if wanted — P2
 Source: autopilot polish (B-354)
+Dropped: 2026-11-17 — opacity chosen on purpose to calm the bar (B-354)
 
 ## B-363 · On iOS, tasks from one agent show in the chat of other agents. A task…   [done]
 Issue: #338
@@ -2825,7 +2844,7 @@ Inbox: 20261108T012952605012Z-96d7a589#1
 Done: 3d87c55b0
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-366-1.png (re-verify: AboutView unchanged since; full suite 4210 green)
 
-## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [blocked]
+## B-367 · Sometimes when you message the agent in the chat, it doesn't respond…   [done]
 Issue: #342
 Type: bug
 Report: Sometimes when you message the agent in the chat, it doesn't respond in the chat, which is fine on desktop, but on iOS that means I don't see it unless I peek into what the terminal looks like. When a message is sent in chat (desktop app or iOS), make sure it gets replied to in chat if necessary. I don't know if there are any situations where we'd want to break that rule. If this is a change that needs to go into the daemon, message the leo agent to make the change.
@@ -2836,7 +2855,8 @@ Inbox: 20261108T173642828275Z-d4a6f986#1
 Attachments: .autopilot/bugs/B-367/Voice_note.m4a
 Update (2026-11-08): leo agent reports the root cause is in the daemon (hooks from agents without the bridge mod dropped by the session gate after /clear) and fixed in blackpaw-studio/leo PR #327 (CI green); no app change needed.
 Question: couldn't reproduce — isolated leo 0.82.2 (includes #327) with an unbridged autopilot-scratch: chat message via POST /api/v1/chat/<agent>/messages, simulated /clear, second message; both replies reached chat history and the daemon logged "chat: capture … posted" twice; the app only reads the chat history route, so no app change. Hooks/transcript were simulated (no real Claude turn). Evidence: /private/tmp/claude-501/leoe2e367/. Reply "B-367: close" to close it, or "B-367: <more detail>" to retry. Work kept on autopilot-shelved/B-367.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-376 · agent browser can't load hyatt.com (every page blank with an empty…   [done]
 Issue: #349
@@ -2862,15 +2882,11 @@ Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/sho
 Note: the debug app parses the flag as Ghostty config and opens a "Configuration Errors" dialog during verify; fix the launch line in verify.md — verify infrastructure, not a product bug
 Source: autopilot polish (B-365)
 
-## B-371 · Composer stays enabled for a stopped agent; typed message is neither queued nor refused   [idea]
-Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
-Source: autopilot polish (B-369)
-
 ## B-372 · Toolbar pill reads "Idle" for a stopped agent   [idea]
 Note: B-369 verifier observation, unconfirmed whether it predates B-369 — P2 never invent a state the daemon didn't report
 Source: autopilot polish (B-369)
 
-## B-373 · the update button on macos overflows now. not good. [Image #4] (Image…   [blocked]
+## B-373 · the update button on macos overflows now. not good. [Image #4] (Image…   [done]
 Issue: #346
 Type: bug
 Report: the update button on macos overflows now. not good. [Image #4] [Image #5]
@@ -2879,9 +2895,10 @@ Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T135506634887Z-bb368b80#1
 Attachments: .autopilot/bugs/B-373/leo-paste-20261109-135455-137.png, .autopilot/bugs/B-373/leo-paste-20261109-135457-164.png
 Question: couldn't reproduce — the reproducing test never failed. Reading the screenshots as .leoUpdate folding into the toolbar overflow chevron, it asserted toolbar.visibleItems contains .leoUpdate with the real UpdatePill in a titled window with sidebar split and title/subtitle, sweeping widths 800–1700 pt, Chat beside the terminal and not, short and ~75-char pill states: 92/92 passed. The harness lacks the real LeoActivityCapsule, reset-zoom item, sidebar toggle/traffic lights and real macOS 26 chrome. Unconfirmed lead: with Chat beside the terminal, sideBySideFarSideReserve (56) may leave too little room for the pill and trailing groups; needs a GUI check in the debug app with a forced update state. Non-reproducing test diff kept at /private/tmp/claude-501/-Users-evan--leo-agents-leoterm--git-autopilot-lanes-B-373/80c932e0-43bd-49d9-931f-6aff9cf6ad63/scratchpad/b373-nonrepro-test.diff. Reply "B-373: close", or "B-373: <more detail>" (window width, pill text, Chat beside the terminal or not) to retry. Work kept on autopilot-shelved/B-373.
-Answer: 
+Answer: close
+Done: closed — not reproducible (owner)
 
-## B-374 · when i switch to an agent thats stopped to view the chat, it auto…   [blocked]
+## B-374 · when i switch to an agent thats stopped to view the chat, it auto…   [done]
 Issue: #347
 Type: bug
 Report: when i switch to an agent thats stopped to view the chat, it auto switches back to the last agent
@@ -2889,7 +2906,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T140334166280Z-ab1265a0#1
 Question: couldn't reproduce — the implementer traced every path that writes the sidebar selection after a click on a stopped row and found none that snaps it back. The click path (rowClicked → selectAgentRow, then chatRequested → showChat) is correct; the only other writer is receiveAttachLinks → selectFocusedRow (Sidebar/LeoSidebarModel+AttachLinks.swift:109, the B-006 follow-focus rule). Best guess, unconfirmed: the previous agent's terminal stays in the window beside or under the chat, and a late focus report on it moves the selection back. Not tried: a GUI repro (host load was over 40) or focus tracing. Useful detail: window width, whether the previous agent was running with its terminal showing, click vs ⌃⇥/⌘N. Reply "B-374: close" to close it, "B-374: <more detail>" to retry, or "B-374: trace" to allow a debug-only focus/selection trace. Work kept on autopilot-shelved/B-374.
-Answer: 
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-377 · browser_eval (LeoWKBrowserPage.swift:180) runs its input as a function…   [done]
 Issue: #350
@@ -2910,7 +2928,7 @@ Source: autopilot bug (B-358)
 Done: f2c68564b
 Verified: not visually verified — no UI change (test-only diff)
 
-## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [blocked]
+## B-375 · the task dismiss buttons in the popover from the toolbar dont work   [done]
 Issue: #348
 Type: bug
 Report: the task dismiss buttons in the popover from the toolbar dont work
@@ -2918,7 +2936,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-09)
 Inbox: 20261109T193908985898Z-13120181#1
 Question: couldn't reproduce — a test sending dismissTask(host:.local, agent:"alpha", id:"build") through a stub daemon passed, and the dismiss path (popover button → LeoAgentActions.dismissTask → DELETE /agents/{name}/tasks/{id}) reads correct. Unconfirmed suspects: (1) the toolbar popover is never key, so the Dismiss link may swallow the first click; (2) the daemon returns 409 for source:auto tasks and dismissTask silently swallows 409/404. Which tasks show a dead Dismiss (auto vs agent-reported), does a second click work, and does the sidebar popover fail too? Reply "B-375: close" to close it, or "B-375: <more detail>" to retry. Work kept on autopilot-shelved/B-375.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-378 · closingTheWindowFreesItsHiddenShells is flaky — failed in the…   [done]
 Issue: #352
@@ -2963,18 +2982,6 @@ Inbox: 20261110T014539393786Z-e99d4b80#1
 Done: 87e56dcee, 0654c9b32
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-381-1.png
 
-## B-382 · Show Tasks item in the agent row's context menu   [idea]
-Note: When an error or env warning takes line 2, an indeterminate task has no mouse route to Tasks (only VoiceOver) — VISION 1
-Source: autopilot polish (B-381)
-
-## B-383 · iOS tasks-row parity: static pie, no indeterminate spinner   [idea]
-Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS half deferred)
-Source: autopilot polish (B-381)
-
-## B-384 · Toolbar task capsule still spins beside Stalled… and for indeterminate tasks   [idea]
-Note: VISION 2 calm; seen in B-381-15.png
-Source: autopilot polish (B-381)
-
 ## B-385 · Agent browser blocked by Chase as an unsupported browser — the sign-in…   [done]
 Issue: #357
 Type: bug
@@ -3015,10 +3022,6 @@ Inbox: 20261110T145137764251Z-b5f85f6c#1
 Done: 3010fcffe 5967f05c0 (4251 tests, lint clean). New `browser_user_agent` tool and optional `user_agent` on `browser_tab_new`; empty clears; printable ASCII ≤1024; popups inherit. Decisions D-759..D-765.
 Verified: not visually verified — the override is set only by an agent tool call; header-level tests cover it
 
-## B-388 · LeoTemplateListTests/manualRefreshRefetchesEveryLoadedMachinesList flaky under load   [idea]
-Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
-Source: autopilot polish (B-387)
-
 ## B-390 · i dont like that the status text subtitle on the sidebar rows taps to…   [done]
 Issue: #361
 Type: bug
@@ -3043,7 +3046,7 @@ Verified: not visually verified — queue/cancellation logic, no UI change
 Note: Agents get WebKit's opaque "Completion handler for function call is no longer reachable" js_error (~15 s) for a hung eval over HTTP; a clearer error would let the agent recover (VISION 4).
 Source: autopilot polish (B-391)
 
-## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [blocked]
+## B-393 · an agent with running tasks shouldnt show as finished in the sidebar   [done]
 Issue: #367
 Type: bug
 Report: an agent with running tasks shouldnt show as finished in the sidebar
@@ -3052,7 +3055,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-14)
 Inbox: 20261113T000249679434Z-b97787b4#1
 Question: couldn't reproduce on bundled leo 0.82.4 — isolated daemon with autopilot-scratch: 0.82.3 reports finished after turn.complete with pending.tasks=1 (red); 0.82.4 holds working with outstanding.tasks=1 across polls, a later turn.start clears it, clean and wakeups-only turn.complete give finished. A LeoKit test replaying the 0.82.4 payloads badges Working through the hold (passed first run, not committed). Evidence: /private/tmp/claude-501/b393-evidence/. Reply "B-393: close" to close it, or "B-393: <more detail>" to retry. Work kept on autopilot-shelved/B-393-2.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
 ## B-394 · Agent toolbar Browser badge — count of tabs the agent opened since you…   [idea]
 Note: Agent toolbar Browser badge — count of tabs the agent opened since you last viewed its browser (needs tab origin field, popup origin inheritance, per-agent seen counter; NSItemBadge is macOS 26+)
@@ -3104,10 +3108,6 @@ Inbox: 20261115T014420705040Z-2fa283e5#1
 Done: 5dc991b4d 7109883b5 (merged in 99a818f53). The toolbar's leading sidebar.left toggle is always present, hides/shows the sidebar via the ⌘⇧L path, and its tooltip/label/enabled state follow the menu through one helper. Gaps: hidden-titlebar shots look identical (agent windows ignore macos-titlebar-style); the disabled toggle looks as bright as enabled by eye (AX reports disabled). Decisions D-804..D-808.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-398-1.png
 
-## B-400 · Gear icon belongs on Settings…, not Open Ghostty Config   [idea]
-Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
-Source: autopilot polish (B-397)
-
 ## B-401 · when you relaunch all the finished agents in the sidebar revert back…   [done]
 Issue: #374
 Type: bug
@@ -3148,13 +3148,15 @@ Reviewed: accepted 2026-11-15 — eb013d44fa3c
 Note: The B-413 edge pill covers part of the row nearest the edge (e.g. "leave-fa…") — P1.
 Source: autopilot polish (B-413)
 
-## B-415 · Retake B-413 indicator shots with scratch-only rows   [idea]
+## B-415 · Retake B-413 indicator shots with scratch-only rows   [dropped]
 Note: B-413's top/bottom shots show real agents' names (badges zeroed; fixture can't hide rows); acceptance asked for scratch-only.
 Source: autopilot polish (B-413)
+Dropped: 2026-11-17 — screenshot chore, no product value
 
-## B-416 · Download failure strip wraps to two lines   [idea]
+## B-416 · Download failure strip wraps to two lines   [dropped]
 Note: B-404's failure strip wraps, so its height differs from the success strip — P2 visual consistency.
 Source: autopilot polish (B-404)
+Dropped: 2026-11-17 — cosmetic strip height
 
 ## B-417 · Download ending while the browser pane is closed shows nothing   [idea]
 Note: A download that finishes or fails with the pane closed shows no strip; only `browser_downloads` has it — P2 failures shown plainly.
@@ -3226,23 +3228,144 @@ Done: 4e0c561ea a0cb2acc6 792fb4298 (merged in 2e7220332; 5027 tests, lint clean
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-426-1.png
 Reviewed: accepted 2026-11-17 — 2e7220332033
 
-## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [blocked]
+## B-427 · Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane   [done]
 Issue: #396
 Type: bug
 Report: Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane — no effect in two verifier attempts (by coordinate and by element id); unconfirmed, possibly Peekaboo delivery; not caused by B-419 — P1 keyboard-first/Mac-native
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-419)
 Question: couldn't reproduce — a toolbar test types an address, presses Return (window refusing to resign focus), then clicks Give Back with a real mouse down/up: control returns to the agent and the button hides; same without a Return commit. The unit harness has no real WKWebView, window activation or Peekaboo delivery, so a verifier click-delivery artefact fits the report; a native CGEvent click in the isolated debug app against autopilot-scratch would settle it. Reply "B-427: close" to close it, or "B-427: <more detail>" to retry. Work kept on autopilot-shelved/B-427.
-Answer:
+Answer: close
+Done: closed — not reproducible (owner)
 
-## B-428 · Dragging in an unfocused address bar can't select part of the URL   [idea]
-Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
-Source: autopilot polish (B-420)
-
-## B-429 · Stopped agent's open browser pane doesn't say the agent stopped   [idea]
+## B-429 · Stopped agent's open browser pane doesn't say the agent stopped   [dropped]
 Note: the pane stays calm but shows only the Idle pill, not why it's idle (P2)
 Source: autopilot polish (B-421)
+Dropped: 2026-11-17 — duplicate of B-372
 
 ## B-430 · Address field keeps its text selected after Return   [idea]
 Note: the bar looks mid-edit after a navigation starts (P1 Safari parity)
 Source: autopilot polish (B-426)
+
+## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [ready]
+Type: bug
+Report: CI flake — Leo CI test-macos "Unit tests" hangs until the 900s timeout; last test started was attachmentResponseDownloadsIntoWorkspace() in the browser downloads tests (likely the known WKWebView hang). Hit main 8d9248096 (run 44201642042) and the leo-v0.36.1 release run 44201644337 (passed on rerun). Fix at cause so it can't block releases.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-17)
+Inbox: 20261118T020458680192Z-72eeed98#1
+
+## B-432 · CI flake — Leo iOS CI "App tests":…   [ready]
+Type: bug
+Report: CI flake — Leo iOS CI "App tests": theAgentsTypingClicksAndPicksChangeThePageLikeAUsers() failed after 32.7s with 1 issue, alongside an RBSAssertionErrorDomain Code=2 "Specified target process … does not exist" log. Hit main 8d9248096 (run 44201641773); passed on 8d20e6250. Fix at cause so it can't keep main red.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-17)
+Inbox: 20261118T020458768349Z-88087e88#1
+
+## B-218 · Remove remaining Ghostty branding from user-facing strings   [ready]
+Why: Shipped Leo still says "Quit Ghostty?" and "Update Ghostty and Restart"; Ghostty branding in a Leo app is immediately noticeable.
+Accept: No "Ghostty" in any Leo dialog, menu, palette entry, About text or accessibility label; a grep of user-facing strings in macos/Sources/App and Features/Leo is clean; tests pass.
+Out: Bundle IDs, the ghostty CLI name, internal identifiers, upstream-only code paths the user never sees, the Open Ghostty Config item (B-400).
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#61
+Issue: #222
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+
+## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [ready]
+Why: Text typed to a stopped agent vanishes silently, which is a trust failure in the chat.
+Accept: The composer for a stopped agent is disabled or says why; sending shows an explicit refusal; the stopped-chat path has a test.
+Out: Starting the agent from the composer.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#56
+Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
+
+## B-388 · Fix the LeoTemplateListTests refetch flake under load   [ready]
+Why: manualRefreshRefetchesEveryLoadedMachinesList fails on a loaded host (1 s awaitCondition default on a network-ordered refetch), producing noisy CI reruns.
+Accept: The test passes in repeated runs at load average above 30; its assertions are unchanged; the wait is injected or given a longer bound, never a sleep.
+Out: Other flaky tests.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#51
+Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
+
+## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [ready]
+Why: The toolbar capsule still spins for indeterminate tasks and beside Stalled…, against the calm direction set in B-381.
+Accept: The toolbar capsule shows no spinner for indeterminate or stalled tasks; determinate tasks keep the static pie; a presentation test covers each case.
+Out: Changing the done or failed styles.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#46
+Note: VISION 2 calm; seen in B-381-15.png
+
+## B-383 · iOS task rows drop the spinner (B-381 parity)   [ready]
+Why: iOS keeps the indeterminate spinner Evan removed on Mac in B-381, breaking Mac/iOS parity.
+Accept: Indeterminate iOS task rows show no spinner; determinate rows show a static pie; a test covers both styles.
+Out: Mac changes (done in B-381).
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#41
+Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS half deferred)
+
+## B-382 · Show Tasks in the agent row's context menu   [ready]
+Why: Show Tasks exists only as an accessibility action, so mouse users have no route to the Tasks popover from the row.
+Accept: The agent row context menu has Show Tasks when a task exists; it opens the same popover as the accessibility action; a test covers the menu item's presence.
+Out: Reworking the row's error line.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#36
+Note: When an error or env warning takes line 2, an indeterminate task has no mouse route to Tasks (only VoiceOver) — VISION 1
+
+## B-351 · Agent move errors readable without hovering   [ready]
+Why: A refused move's reason is unreadable at normal sidebar width unless you hover.
+Accept: A move error shows in full at default sidebar width without hover, wrapping to at most two lines; the tooltip stays; a view test covers a long message.
+Out: Rewording daemon error text (B-352).
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#31
+Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
+
+## B-428 · Drag-select part of the URL in an unfocused address bar   [ready]
+Why: Safari lets you drag-select part of the URL; here the first drag can't, because an unfocused mouseDown selects all and swallows the drag.
+Accept: Dragging in an unfocused address bar selects a partial range; a click without drag still selects all; a test covers both.
+Out: Changing ⌘L behaviour (B-420).
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#26
+Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
+
+## B-335 · Set Environments and Switch menu parents disabled for a pending agent…   [ready]
+Note: Set Environments and Switch menu parents disabled for a pending agent row
+Why: The same AppKit submenu-parent quirk B-329 fixed for Set Template is still open for these two parents on a pending row.
+Accept: Set Environments and Switch to are disabled for a pending row, matching Set Template; the parents carry an action the window validates; a unit test fails before the fix.
+Out: Changing which environments are offered.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#21
+Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
+
+## B-182 · Clearing a restored custom terminal name brings back the live title   [ready]
+Why: After a restart, clearing a custom name brings back the stale saved title instead of the live one.
+Accept: A renamed terminal restored after restart, then cleared, shows the live OSC title at once; a restored user name still displays; a test covers decode-then-clear.
+Out: Changing the saved-state format.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#16
+Issue: #186
+Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+
+## B-400 · Gear icon on Settings…, not Open Ghostty Config   [ready]
+Why: The gear sits on the Ghostty config item instead of Settings…, against the first-party convention.
+Accept: The gear icon is on Settings…; Open Ghostty Config has no gear; a test or screenshot confirms both.
+Out: Removing or renaming the Ghostty config item.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#11
+Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
+
+## B-299 · iOS Settings gets the Defaults, Delegation and Daemon panes   [ready]
+Why: iPhone Settings lacks the Defaults, Delegation and Daemon panes, so the phone can't manage delegation or see daemon state (Mac/iOS parity).
+Accept: iOS Settings lists Defaults, Delegation and Daemon panes; each reads and writes through the same LeoKit model the Mac uses; tests plus a simulator screenshot.
+Out: Agent Appearance rules (B-319); draft persistence (B-300); prompt-file picker (B-301).
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#6
+Note: iOS Settings: add the Defaults, Delegation and Daemon panes (deferred from the 2026-10-24 iOS Settings spec)
+Inbox: 20261024T234538588365Z-c9abba09#1
+
+## B-302 · iOS task prompt editor sits inside the safe area   [ready]
+Why: The task prompt editor's bottom edge clips above the home indicator on every iPhone; the one fix attempt broke a UI test and was reverted.
+Accept: On an iPhone simulator the prompt editor's bottom edge sits inside the safe area with no clipping; the UI test that broke last time passes; simulator screenshot inspected at native pixels.
+Out: Other Settings panes; keyboard handling changes.
+Source: owner (/feature, 2026-11-17)
+Inbox: 20261118T021310552058Z-d91db23d#1
+Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
+Inbox: 20261024T234539423483Z-b13bef15#1
