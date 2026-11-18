@@ -2,12 +2,13 @@ import Foundation
 import Testing
 
 /// Polls until `condition` holds, then returns. The timeout is only a failure ceiling: a passing
-/// test returns as soon as the condition is true. The first spins only yield (work another task is
+/// test returns as soon as the condition is true, so it is generous: suites run concurrently and a
+/// loaded runner stretches waits well past what an idle machine needs. The first spins only yield (work another task is
 /// about to finish usually lands within a few turns, with no wait); after that it sleeps 1 ms
 /// between polls, because a held write or snapshot apply can come from another thread, which
 /// `Task.yield` doesn't wait for. The condition runs on the caller's actor.
 func settle(
-    timeout: TimeInterval = 10,
+    timeout: TimeInterval = 120,
     message: String = "Condition was not satisfied",
     isolation: isolated (any Actor)? = #isolation,
     _ condition: () async -> Bool
