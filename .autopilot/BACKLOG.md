@@ -3361,6 +3361,7 @@ Inbox: 20261118T021310552058Z-d91db23d#26
 Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
 Done: 2f41ff8a9
 Verified: not visually verified — browser pane needs a scratch daemon with a stub claude; synthetic NSEvent tests, full suite 5042 green
+Reviewed: accepted 2026-11-18 — 580e44c0788b
 
 ## B-335 · Set Environments and Switch menu parents disabled for a pending agent…   [done]
 Issue: #406
