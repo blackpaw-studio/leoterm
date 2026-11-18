@@ -1313,7 +1313,7 @@ private enum GhosttyAttachContentHostError: Error, LocalizedError {
         case .noTerminalWindow: "No terminal window is available"
         case .surfaceUnavailable: "The new terminal surface is unavailable"
         case .splitSourceUnavailable: "The surface to split from is no longer available"
-        case .cannotOpenSplit: "Ghostty could not open a new split"
+        case .cannotOpenSplit: "Leo could not open a new split"
         case .placeholderNotEmpty: "The window is not an empty placeholder"
         case .placeholderUnavailable: "The placeholder surface is unavailable"
         case .attachNotShown: "The agent's terminal is no longer on screen"
