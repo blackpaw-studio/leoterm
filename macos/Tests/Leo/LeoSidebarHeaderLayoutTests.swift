@@ -23,6 +23,10 @@ struct LeoSidebarHeaderLayoutTests {
         let title = try #require(await frames.settled(.title), "\(frames)")
 
         #expect(title.minY >= 8, "the Agents title sits \(title.minY) pt below the titlebar")
+        #expect(
+            LeoSidebarChromeMetrics.topInset == LeoSidebarChromeMetrics.itemSpacing,
+            "the gap under the titlebar matches the rhythm between rows"
+        )
     }
 
     @Test func newAgentButtonClearsTheTitlebarWithStandardSpacing() async throws {
@@ -88,10 +92,10 @@ struct LeoSidebarHeaderLayoutTests {
     }
 
     /// One connectivity per width: a connected daemon (rows listed) at the
-    /// default width, a failed one (no rows) at the minimum. The footer needs
+    /// default width, a loading one (no rows, its own sidebar row) at the minimum. The footer needs
     /// no daemon state, so it holds its place in all of them (B-113).
     private static let footerCases: [(CGFloat, LeoConnectivity)] = [
-        (defaultWidth, .connected), (minimumSidebarWidth, .failed(message: "x")),
+        (defaultWidth, .connected), (minimumSidebarWidth, .loading),
     ]
 
     /// B-065: the footer button bar sits below the list, inside the
