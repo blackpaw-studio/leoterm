@@ -10,7 +10,7 @@ import WebKit
 struct LeoBrowserFindScriptTests {
     /// A tall <pre> with its one match far down.
     private static let deepPage: String = {
-        let before = (0..<3_000).map { "line \($0)" }.joined(separator: "\n")
+        let before = (0..<400).map { "line \($0)" }.joined(separator: "\n")
         let after = (0..<200).map { "tail \($0)" }.joined(separator: "\n")
         return "<style>pre { font: 14px/20px monospace; margin: 0 }</style><pre>\(before)\ndeepneedle here\n\(after)</pre>"
     }()

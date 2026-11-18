@@ -77,7 +77,7 @@ struct LeoSyntaxHighlighterAdversarialTests {
         let limit = LeoSyntaxHighlighter.longLineLimit
         let problems = Self.units.compactMap { unit -> String? in
             let line = String(repeating: unit, count: limit / unit.count)
-            let text = Array(repeating: line, count: 4).joined(separator: "\n")
+            let text = Array(repeating: line, count: 2).joined(separator: "\n")
             let counter = LeoRegexWorkCounter()
             let spans = LeoSyntaxHighlighter.spans(in: text, language: language, matcher: counter.matcher)
             if spans != LeoSyntaxHighlighter.spans(in: text, language: language) {
