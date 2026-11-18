@@ -3323,6 +3323,7 @@ Inbox: 20261118T021310552058Z-d91db23d#41
 Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS half deferred)
 Done: c6d394aaa d661e76ff
 Verified: not visually verified — no fixture for a live indeterminate task; iOS LeoTests 125 + LeoKit 1900 green
+Reviewed: accepted 2026-11-18 — 82075531ae38
 
 ## B-382 · Show Tasks in the agent row's context menu   [done]
 Issue: #403
