@@ -17,18 +17,18 @@ struct AgentCellTests {
         return cell
     }
 
-    @Test func reconfigureKeepsTheIndicatorInPlaceSoTheSpinnerKeepsTurning() throws {
+    @Test func reconfigureKeepsTheIndicatorInPlace() throws {
         let cell = AgentCell()
-        cell.setAccessories(badge: nil, indicator: .progress(fraction: nil))
+        cell.setAccessories(badge: nil, indicator: .progress(fraction: 0.25))
         let host = try #require(laidOut(cell).taskIndicator.superview)
-        cell.setAccessories(badge: nil, indicator: .progress(fraction: nil))
+        cell.setAccessories(badge: nil, indicator: .progress(fraction: 0.25))
         cell.setAccessories(badge: nil, indicator: .progress(fraction: 0.5))
         #expect(laidOut(cell).taskIndicator.superview === host)
     }
 
     @Test func indicatorGoesAwayWhenTheTaskDoes() {
         let cell = AgentCell()
-        cell.setAccessories(badge: nil, indicator: .progress(fraction: nil))
+        cell.setAccessories(badge: nil, indicator: .progress(fraction: 0.5))
         _ = laidOut(cell)
         cell.setAccessories(badge: nil, indicator: nil)
         #expect(laidOut(cell).taskIndicator.superview == nil)
@@ -139,12 +139,12 @@ struct AgentCellTests {
         #expect(lines == 0)
     }
 
-    @Test func applyingAnUnchangedIndicatorLeavesTheSpinnerAlone() throws {
+    @Test func indeterminateTaskShowsNoIndicatorAndDeterminateShowsAStaticPie() throws {
+        #expect(LeoTaskIndicator.progress(fraction: nil).shownOnRow == nil)
+        #expect(LeoTaskIndicator.progress(fraction: 0.5).shownOnRow == .progress(fraction: 0.5))
         let view = TaskIndicatorView()
-        view.apply(.progress(fraction: nil))
-        let spinner = try #require(view.subviews.compactMap { $0 as? UIActivityIndicatorView }.first)
-        let before = spinner.layer.animationKeys()
-        view.apply(.progress(fraction: nil))
-        #expect(spinner.layer.animationKeys() == before)
+        view.apply(.progress(fraction: 0.5))
+        #expect(view.subviews.allSatisfy { !($0 is UIActivityIndicatorView) })
+        #expect(view.layer.sublayers?.contains { $0 is CAShapeLayer && !$0.isHidden } == true)
     }
 }

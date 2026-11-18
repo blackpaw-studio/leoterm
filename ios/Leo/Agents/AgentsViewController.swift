@@ -87,7 +87,7 @@ final class AgentsViewController: UIViewController, UICollectionViewDelegate {
             content.secondaryTextProperties.numberOfLines = cell.detailLineLimit(hasTask: progress != nil)
             content.textToSecondaryTextVerticalPadding = 3
             cell.contentConfiguration = content
-            cell.setAccessories(badge: agent.priority.needsAttention ? .init(text: badge.label, tint: badge.tint) : nil, indicator: progress?.indicator)
+            cell.setAccessories(badge: agent.priority.needsAttention ? .init(text: badge.label, tint: badge.tint) : nil, indicator: progress?.indicator?.shownOnRow)
             cell.accessibilityIdentifier = "agent.\(agent.name)"
             let spoken = [style.bar?.displayName, progress?.spokenValue].compactMap { $0 }
             cell.accessibilityValue = spoken.isEmpty ? nil : spoken.joined(separator: ", ")
