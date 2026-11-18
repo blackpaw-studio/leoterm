@@ -166,14 +166,16 @@ Lane: B-428
 
 Lane: B-351
   Branch: autopilot-lane/B-351
-  Dispatched: 2026-11-18T07:17:04Z
+  Dispatched: 2026-11-18T08:15:33Z
   Base: c3edc651e19931e4ee05bf63536f75c773495d9d
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 9b525498a5acd96a33f2b6153ad883ea22e01ba5
+  Call: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396 — Mac/iOS parity rule
+  Call: Move errors wrap to two lines, then truncate; the tooltip is unchanged — P2 Calm
 
 Lane: B-335
   Branch: autopilot-lane/B-335
@@ -236,3 +238,4 @@ Finished 9: B-382 landed c69660e66 · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 10: B-428 landed 580e44c07 · not visually verified
 - Interim digest 2 posted (items 6–10).
 - Pick: B-335 light (row menu submenu-parent enablement; independent of B-351's error line). Dispatched d-3bfa9172408b.
+- B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
