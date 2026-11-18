@@ -3377,6 +3377,7 @@ Issue: #186
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 Done: 96ec8d240
 Verified: not visually verified — restart-restore needs a relaunch with saved state, which the isolated launch ignores; decode-then-clear test red before fix, full suite 5046 green
+Reviewed: accepted 2026-11-18 — 58e41019f5bb
 
 ## B-400 · Gear icon on Settings…, not Open Ghostty Config   [done]
 Issue: #407
