@@ -26,7 +26,6 @@ struct LeoActivityCapsule: View {
     @ObservedObject var terminals: LeoWindowTerminals
     let actions: LeoAgentActions
     @State private var showsPopover = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The agent whose tasks show: the actionable row, unless a terminal row is selected.
     private var row: LeoAgentRow? { terminals.selection == nil ? model.actionableSelection : nil }
@@ -98,17 +97,17 @@ struct LeoActivityCapsule: View {
 
     @ViewBuilder private func glyph(_ glyph: LeoActivityCapsulePresentation.Glyph) -> some View {
         switch glyph {
-        case .spinner:
-            if reduceMotion {
-                Image(systemName: "circle.dotted").foregroundStyle(Color.accentColor)
-            } else {
-                ProgressView().controlSize(.small).scaleEffect(0.8).frame(width: 14, height: 14)
-            }
+        case .pie(let fraction): pie(fraction, ring: .secondary, fill: .primary)
+        case .stalledPie(let fraction): pie(fraction ?? 0, ring: .quaternary, fill: .tertiary)
         case .succeeded: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
         case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
         case .cancelled: Image(systemName: "slash.circle").foregroundStyle(.secondary)
         case .dot(let state): Circle().fill(Self.dotTint(state)).frame(width: 8, height: 8).frame(width: 14, height: 14)
         }
+    }
+
+    private func pie(_ fraction: Double, ring: some ShapeStyle, fill: some ShapeStyle) -> some View {
+        LeoTaskIndicatorView.Pie(fraction: fraction, ring: AnyShapeStyle(ring), fill: AnyShapeStyle(fill)).frame(width: 14, height: 14)
     }
 
     /// The idle dot's tint by state; no agent is muted.

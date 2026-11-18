@@ -100,9 +100,27 @@ struct LeoActivityCapsulePresentationTests {
     }
 
     @Test func glyphFollowsPrimaryState() {
-        #expect(Self.make([Self.task("a")]).glyph == .spinner)
+        #expect(Self.make([Self.task("a", percent: 40)]).glyph == .pie(0.4))
         #expect(Self.make([Self.task("a", state: .succeeded)]).glyph == .succeeded)
         #expect(Self.make([Self.task("a", state: .cancelled)]).glyph == .cancelled)
+    }
+
+    @Test func aDeterminateTaskDrawsAStaticPieAtItsFraction() {
+        #expect(Self.make([Self.task("a", percent: 0)]).glyph == .pie(0))
+        #expect(Self.make([Self.task("a", percent: 100)]).glyph == .pie(1))
+    }
+
+    @Test func anIndeterminateTaskDrawsNoSpinnerJustTheStaticWorkingDot() {
+        #expect(Self.make([Self.task("a", percent: nil)]).glyph == .dot(.working))
+    }
+
+    @Test func aStalledTaskDrawsAMutedStillPieNotASpinner() {
+        let determinate = LeoAgentTask(
+            id: "a", title: "a", mode: .determinate, percent: 30, state: .running, stale: true, startedAt: Self.t0, updatedAt: Self.t0)
+        let indeterminate = LeoAgentTask(
+            id: "b", title: "b", mode: .indeterminate, state: .running, stale: true, startedAt: Self.t0, updatedAt: Self.t0)
+        #expect(Self.make([determinate]).glyph == .stalledPie(0.3))
+        #expect(Self.make([indeterminate]).glyph == .stalledPie(nil))
     }
 
     @Test func barIsDeterminateOrIndeterminate() {

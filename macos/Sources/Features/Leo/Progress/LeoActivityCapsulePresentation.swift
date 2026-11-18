@@ -9,7 +9,11 @@ struct LeoActivityCapsulePresentation: Equatable {
     enum TextRole: Equatable { case title, status }
 
     enum Glyph: Equatable {
-        case spinner, succeeded, failed, cancelled
+        case succeeded, failed, cancelled
+        /// A running task with a percent: a static pie (0...1), never animated.
+        case pie(Double)
+        /// A stale running task: the same pie muted, or an empty one (nil).
+        case stalledPie(Double?)
         /// A static dot tinted by the agent's state (nil: no agent, muted).
         case dot(AgentState?)
     }
@@ -114,7 +118,7 @@ struct LeoActivityCapsulePresentation: Equatable {
         isVisible = true
         kind = .tasks
         isEnabled = true
-        glyph = Glyph(primary.state)
+        glyph = Glyph(primary)
         title = primary.title
         statusText = status
         bar = .init(primary)
@@ -159,9 +163,14 @@ struct LeoActivityCapsulePresentation: Equatable {
 }
 
 extension LeoActivityCapsulePresentation.Glyph {
-    fileprivate init(_ state: LeoAgentTask.State) {
-        switch state {
-        case .running: self = .spinner
+    /// Only "needs you" earns motion (VISION 2): a running task is a still
+    /// pie, a muted one when stalled, or the static working dot when its
+    /// progress is unknown.
+    fileprivate init(_ task: LeoAgentTask) {
+        switch LeoAgentRowPresentation.Progress.Kind(task) {
+        case .determinate(let percent): self = .pie(min(max(percent, 0), 100) / 100)
+        case .stale(let percent): self = .stalledPie(percent.map { min(max($0, 0), 100) / 100 })
+        case .indeterminate: self = .dot(.working)
         case .succeeded: self = .succeeded
         case .failed: self = .failed
         case .cancelled: self = .cancelled
