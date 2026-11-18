@@ -93,6 +93,13 @@ struct LeoFakeConfigClientTests {
         #expect(try await fake.document("defaults").revision == result.revision)
     }
 
+    @Test func aMissingIfMatchIsRevisionRequired() async throws {
+        let fake = try Self.fake()
+        await #expect(throws: LeoConfigError.revisionRequired) {
+            _ = try await fake.update("web", name: nil, patch: [:], ifMatch: "")
+        }
+    }
+
     @Test func anExternalChangeMakesTheHeldRevisionStale() async throws {
         let fake = try Self.fake()
         let held = try await fake.document("web").revision

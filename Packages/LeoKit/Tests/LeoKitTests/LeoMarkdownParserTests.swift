@@ -114,8 +114,8 @@ import Testing
             #expect(blocks.count == count)
             return runs.min() ?? .zero
         }
-        let small = timeParse(2_000)
-        let large = timeParse(8_000)
+        let small = timeParse(3_000)
+        let large = timeParse(12_000)
         #expect(large < small * 8)
     }
 
