@@ -2016,3 +2016,27 @@ Chose: Stalled task shows the row's muted still pie (empty pie when there's no p
 Why: VISION 2 calm
 Commit: 426e744ec
 Veto: [ ]
+
+## D-970 · 2026-11-18 · B-382: Show Tasks sits right after "Open in New Window" in the agent row cont…
+Chose: Show Tasks sits right after "Open in New Window" in the agent row context menu
+Why: P1 (every action has a menu item, HIG)
+Commit: 137053a69
+Veto: [ ]
+
+## D-971 · 2026-11-18 · B-382: Show Tasks is hidden, not disabled, when there is no task (sidesteps t…
+Chose: Show Tasks is hidden, not disabled, when there is no task (sidesteps the B-329/B-335 menu-enablement quirks)
+Why: P1
+Commit: 137053a69
+Veto: [ ]
+
+## D-972 · 2026-11-18 · B-382: Show Tasks is shown even when an error or warning takes line 2, and fo…
+Chose: Show Tasks is shown even when an error or warning takes line 2, and for indeterminate tasks
+Why: item Note, VISION 1
+Commit: 137053a69
+Veto: [ ]
+
+## D-973 · 2026-11-18 · B-382: Mac only (iOS has its own fleet task panel, Fleet+TaskPanel.swift)
+Chose: Mac only (iOS has its own fleet task panel, Fleet+TaskPanel.swift)
+Why: Mac/iOS parity rule
+Commit: 137053a69
+Veto: [ ]

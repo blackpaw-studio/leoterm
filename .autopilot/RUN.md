@@ -140,10 +140,11 @@ Lane: B-382
   Dispatched: 2026-11-18T06:34:31Z
   Base: a657fde4535a6874bbc339e8176599036b4ffdeb
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 7.56M in (7.27M cache read), ≥26.7k out, 86 requests
   Reviewed-tip: b92753564bf562968d3fa050969e55838a1b4e6b
   Call: Show Tasks sits right after "Open in New Window" in the agent row context menu — P1 (every action has a menu item, HIG)
   Call: Show Tasks is hidden, not disabled, when there is no task (sidesteps the B-329/B-335 menu-enablement quirks) — P1
@@ -203,3 +204,5 @@ Finished 7: B-383 landed 82075531a · not visually verified
 Finished 8: B-384 landed 3ca216725 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-384-1.png
 - Pick: B-428 light (address bar drag-select; B-428 built before B-351 (independent; B-351 shares the sidebar row with open B-382)). Dispatched d-6bb022028a69.
 - B-382 ready (general full, 5041 tests, window shot). Calls vs D-745/D-766/D-770: consistent. Fresh. Verifier saw a "Configuration Errors" dialog from verify.md's launch args (-ApplePersistenceIgnoreState YES), not this change.
+- B-382 landed c69660e66. D-970..D-973.
+Finished 9: B-382 landed c69660e66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png

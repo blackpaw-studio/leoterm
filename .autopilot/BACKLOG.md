@@ -3322,7 +3322,7 @@ Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS 
 Done: c6d394aaa d661e76ff
 Verified: not visually verified — no fixture for a live indeterminate task; iOS LeoTests 125 + LeoKit 1900 green
 
-## B-382 · Show Tasks in the agent row's context menu   [ready]
+## B-382 · Show Tasks in the agent row's context menu   [done]
 Issue: #403
 Why: Show Tasks exists only as an accessibility action, so mouse users have no route to the Tasks popover from the row.
 Accept: The agent row context menu has Show Tasks when a task exists; it opens the same popover as the accessibility action; a test covers the menu item's presence.
@@ -3330,6 +3330,8 @@ Out: Reworking the row's error line.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#36
 Note: When an error or env warning takes line 2, an indeterminate task has no mouse route to Tasks (only VoiceOver) — VISION 1
+Done: 137053a69
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png
 
 ## B-351 · Agent move errors readable without hovering   [ready]
 Issue: #404
