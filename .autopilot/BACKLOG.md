@@ -3402,6 +3402,7 @@ Note: iOS Settings: add the Defaults, Delegation and Daemon panes (deferred from
 Inbox: 20261024T234538588365Z-c9abba09#1
 Done: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
 Verified: screen capture — iOS simulator screens of Defaults, Daemon, Web UI, Hosts, Delegation (light/dark), /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-299-1.png … B-299-11.png
+Reviewed: accepted 2026-11-18 — 995a7eb77497
 
 ## B-302 · iOS task prompt editor sits inside the safe area   [done]
 Issue: #409
