@@ -2,10 +2,11 @@ Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
 Digested-through: 5
-Filed: 0/3 bugs, 2/5 ideas
+Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
 Self-filed: B-371 → B-434 idea — iOS composer still sends to a stopped agent (starts it, no Start bar)
+Self-filed: B-384 → B-435 idea — Task popover and header strip (LeoTaskDetailRow) still spin for indeterminate tasks
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -106,14 +107,14 @@ Lane: B-388
 
 Lane: B-384
   Branch: autopilot-lane/B-384
-  Dispatched: 2026-11-18T06:28:15Z
+  Dispatched: 2026-11-18T06:44:02Z
   Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
   Tier: light
   State: verifying
   Fixes: 0
   Wip: none
-  Reverifies: 1
-  Reviewed-tip: 73b4c18ce53298a12deab6eba3fdc39de18044a1
+  Reverifies: 2
+  Reviewed-tip: aa0161fc23623536d498e97e978b94dff15e8af0
   Call: Mac only (iOS task-row spinner is B-383) — AGENTS.md parity rule, D-743
   Call: Indeterminate capsule task shows the static working dot, not a spinner or an empty slot — VISION 2 calm
   Call: Stalled task shows the row's muted still pie (empty pie when there's no percent) — VISION 2 calm
@@ -132,6 +133,17 @@ Lane: B-383
   Call: iOS only; Mac done in B-381, no LeoKit change since the Mac filters in its own presentation — AGENTS.md platform rule, D-743
   Call: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnRow filter); determinate shows a static pie — P2 calm, D-744
   Call: Other iOS spinners (agent-detail action row, pairing, chat image) left alone — D-748
+
+Lane: B-382
+  Branch: autopilot-lane/B-382
+  Dispatched: 2026-11-18T06:34:31Z
+  Base: a657fde4535a6874bbc339e8176599036b4ffdeb
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
 
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
@@ -167,3 +179,7 @@ Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-383 ready (fix 1, general full + delta, iOS LeoTests 125 + LeoKit 1900 green, not visually verified: no live indeterminate-task fixture). Calls consistent with D-743..D-748. Fresh. Unchecked: VoiceOver spokenValue may still read an indeterminate task.
 - B-383 landed 82075531a. D-964..D-966.
 Finished 7: B-383 landed 82075531a · not visually verified
+- Pick: B-382 light (row context menu Show Tasks; B-351 skipped ahead? no — B-382 is next in order). Dispatched d-8c459759d9aa.
+- B-384 re-verify 1 ready (general delta, 5040 tests). Stale again (B-383 landed, iOS-only files) → re-verify round 2; no new lane opens until it lands. Polish "eyeball muted-pie contrast" not filed (its own re-check).
+- Dispatched B-384 re-verify 2 d-b4f5fd176179.
+- B-384 re-verify 2 ready (general delta, 5040 tests, 3 window shots: determinate/indeterminate/stalled). Fresh.

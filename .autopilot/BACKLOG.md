@@ -3402,3 +3402,7 @@ Source: autopilot polish (B-218)
 ## B-434 · iOS composer still sends to a stopped agent (starts it, no Start bar)   [idea]
 Note: decide whether iOS needs a Start bar before any refusal (Mac refuses since B-371) — P2 honest state, parity
 Source: autopilot polish (B-371)
+
+## B-435 · Task popover and header strip still spin for indeterminate tasks   [idea]
+Note: LeoTaskDetailRow (LeoTaskListView.swift:40) still shows a ProgressView spinner for indeterminate tasks — P2 calm, same direction as B-381/B-384
+Source: autopilot polish (B-384)
