@@ -3301,6 +3301,7 @@ Inbox: 20261118T021310552058Z-d91db23d#51
 Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
 Done: 0b7288ddb
 Verified: not visually verified — test-support change only; full suite 5029 green
+Reviewed: accepted 2026-11-18 — dd1f3def2b38
 
 ## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [done]
 Issue: #401
