@@ -3277,6 +3277,7 @@ Issue: #222
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 Done: 6d81f197a 84fcfc5f1
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
+Reviewed: accepted 2026-11-18 — 4be252b4fc79
 
 ## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [done]
 Issue: #399
