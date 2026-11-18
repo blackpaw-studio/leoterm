@@ -1980,3 +1980,21 @@ Chose: Composer for a stopped agent: send arrow disabled, placeholder "Start <na
 Why: P2
 Commit: 86e6a05e4 17b5ef323
 Veto: [ ]
+
+## D-964 · 2026-11-18 · B-383: iOS only; Mac done in B-381, no LeoKit change since the Mac filters in…
+Chose: iOS only; Mac done in B-381, no LeoKit change since the Mac filters in its own presentation
+Why: AGENTS.md platform rule, D-743
+Commit: c6d394aaa d661e76ff
+Veto: [ ]
+
+## D-965 · 2026-11-18 · B-383: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnR…
+Chose: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnRow filter); determinate shows a static pie
+Why: P2 calm, D-744
+Commit: c6d394aaa d661e76ff
+Veto: [ ]
+
+## D-966 · 2026-11-18 · B-383: Other iOS spinners (agent-detail action row, pairing, chat image) left…
+Chose: Other iOS spinners (agent-detail action row, pairing, chat image) left alone
+Why: D-748
+Commit: c6d394aaa d661e76ff
+Veto: [ ]

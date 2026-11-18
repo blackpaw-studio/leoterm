@@ -123,10 +123,11 @@ Lane: B-383
   Dispatched: 2026-11-18T05:57:38Z
   Base: 2baee02e635552aa1ca156ab675a5424d64126fd
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
+  Tokens: 6.75M in (6.39M cache read), ≥28.6k out, 80 requests
   Reviewed-tip: d661e76ff620f8d1dffb01116341026af8c616e5
   Call: iOS only; Mac done in B-381, no LeoKit change since the Mac filters in its own presentation — AGENTS.md platform rule, D-743
   Call: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnRow filter); determinate shows a static pie — P2 calm, D-744
@@ -164,3 +165,5 @@ Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-384 ready (general full, 5032 tests, not visually verified: no capsule fixture for running/stalled tasks). Calls vs D-743..D-748: consistent. Integration stale (B-371 landed) → re-verify round 1.
 - Dispatched B-384 re-verify d-abd342466908.
 - B-383 ready (fix 1, general full + delta, iOS LeoTests 125 + LeoKit 1900 green, not visually verified: no live indeterminate-task fixture). Calls consistent with D-743..D-748. Fresh. Unchecked: VoiceOver spokenValue may still read an indeterminate task.
+- B-383 landed 82075531a. D-964..D-966.
+Finished 7: B-383 landed 82075531a · not visually verified
