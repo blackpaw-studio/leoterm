@@ -2,17 +2,16 @@ import LeoKit
 import UIKit
 
 /// The Agents list's small circular task indicator (trailing accessory):
-/// the system spinner when indeterminate, a pie for a determinate task
-/// (UIKit has no circular determinate view), the same pie muted for a stale
-/// task, and a red glyph for a failure. Under Reduce Motion the spinner
-/// shows its spokes without turning.
+/// a static pie for a determinate task (UIKit has no circular determinate
+/// view), the same pie muted for a stale task, and a red glyph for a failure.
+/// An indeterminate task has no indicator (B-381 parity: the row keeps its
+/// trailing time); see `LeoTaskIndicator.shownOnRow`.
 final class TaskIndicatorView: UIView {
     static let size: CGFloat = 20
     private static let ringWidth: CGFloat = 1.5
     private static let wedgeInset: CGFloat = 3.5
     private static let mutedAlpha: CGFloat = 0.45
 
-    private let spinner = UIActivityIndicatorView(style: .medium)
     private let ring = CAShapeLayer()
     private let wedge = CAShapeLayer()
     private let glyph = UIImageView(image: UIImage(systemName: "exclamationmark.circle.fill"))
@@ -21,29 +20,22 @@ final class TaskIndicatorView: UIView {
     override init(frame: CGRect) {
         super.init(frame: CGRect(x: 0, y: 0, width: Self.size, height: Self.size))
         isAccessibilityElement = false
-        spinner.hidesWhenStopped = false
-        spinner.frame = bounds
         glyph.tintColor = .systemRed
         glyph.contentMode = .scaleAspectFit
         glyph.frame = bounds
         ring.fillColor = nil
         ring.lineWidth = Self.ringWidth
         wedge.strokeColor = nil
-        for view in [spinner, glyph] { addSubview(view) }
+        addSubview(glyph)
         for layer in [ring, wedge] { self.layer.addSublayer(layer) }
-        NotificationCenter.default.addObserver(
-            self, selector: #selector(reduceMotionChanged), name: UIAccessibility.reduceMotionStatusDidChangeNotification, object: nil)
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    @objc private func reduceMotionChanged() { refreshSpinner() }
-
     override var intrinsicContentSize: CGSize { CGSize(width: Self.size, height: Self.size) }
 
-    /// Idempotent: the Agents list reapplies every second, and an unchanged
-    /// indicator must not touch the spinner (it would restart its turn).
+    /// Idempotent: the Agents list reapplies every second.
     func apply(_ indicator: LeoTaskIndicator) {
         guard indicator != self.indicator else { return }
         self.indicator = indicator
@@ -51,36 +43,25 @@ final class TaskIndicatorView: UIView {
     }
 
     private func render(_ indicator: LeoTaskIndicator) {
-        let isSpinner: Bool
         let fraction: Double?
         var isMuted = false
         switch indicator {
         case .progress(let value):
             fraction = value
-            isSpinner = value == nil
         case .stalled(let value):
             fraction = value ?? 0
-            isSpinner = false
             isMuted = true
         case .failed:
             fraction = nil
-            isSpinner = false
         }
         let isGlyph: Bool = if case .failed = indicator { true } else { false }
-        spinner.isHidden = !isSpinner
         glyph.isHidden = !isGlyph
-        ring.isHidden = isSpinner || isGlyph
+        ring.isHidden = isGlyph
         wedge.isHidden = ring.isHidden
         layer.opacity = 1
-        refreshSpinner()
         if let fraction, !ring.isHidden {
             ringAndWedge(fraction: fraction, isMuted: isMuted)
         }
-    }
-
-    private func refreshSpinner() {
-        guard !spinner.isHidden else { return spinner.stopAnimating() }
-        if UIAccessibility.isReduceMotionEnabled { spinner.stopAnimating() } else { spinner.startAnimating() }
     }
 
     private func ringAndWedge(fraction: Double, isMuted: Bool) {
@@ -105,5 +86,14 @@ final class TaskIndicatorView: UIView {
     override func traitCollectionDidChange(_ previous: UITraitCollection?) {
         super.traitCollectionDidChange(previous)
         if let indicator { render(indicator) }
+    }
+}
+
+extension LeoTaskIndicator {
+    /// What an iOS row draws: an indeterminate task shows nothing (no
+    /// spinner, matching the Mac row from B-381); everything else as is.
+    var shownOnRow: LeoTaskIndicator? {
+        if case .progress(nil) = self { return nil }
+        return self
     }
 }

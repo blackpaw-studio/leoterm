@@ -3309,7 +3309,7 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#46
 Note: VISION 2 calm; seen in B-381-15.png
 
-## B-383 · iOS task rows drop the spinner (B-381 parity)   [ready]
+## B-383 · iOS task rows drop the spinner (B-381 parity)   [done]
 Issue: #402
 Why: iOS keeps the indeterminate spinner Evan removed on Mac in B-381, breaking Mac/iOS parity.
 Accept: Indeterminate iOS task rows show no spinner; determinate rows show a static pie; a test covers both styles.
@@ -3317,6 +3317,8 @@ Out: Mac changes (done in B-381).
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#41
 Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS half deferred)
+Done: c6d394aaa d661e76ff
+Verified: not visually verified — no fixture for a live indeterminate task; iOS LeoTests 125 + LeoKit 1900 green
 
 ## B-382 · Show Tasks in the agent row's context menu   [ready]
 Issue: #403
@@ -3400,3 +3402,7 @@ Source: autopilot polish (B-218)
 ## B-434 · iOS composer still sends to a stopped agent (starts it, no Start bar)   [idea]
 Note: decide whether iOS needs a Start bar before any refusal (Mac refuses since B-371) — P2 honest state, parity
 Source: autopilot polish (B-371)
+
+## B-435 · Task popover and header strip still spin for indeterminate tasks   [idea]
+Note: LeoTaskDetailRow (LeoTaskListView.swift:40) still shows a ProgressView spinner for indeterminate tasks — P2 calm, same direction as B-381/B-384
+Source: autopilot polish (B-384)
