@@ -3248,6 +3248,7 @@ Note: the bar looks mid-edit after a navigation starts (P1 Safari parity)
 Source: autopilot polish (B-426)
 
 ## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [ready]
+Issue: #397
 Type: bug
 Report: CI flake — Leo CI test-macos "Unit tests" hangs until the 900s timeout; last test started was attachmentResponseDownloadsIntoWorkspace() in the browser downloads tests (likely the known WKWebView hang). Hit main 8d9248096 (run 44201642042) and the leo-v0.36.1 release run 44201644337 (passed on rerun). Fix at cause so it can't block releases.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3255,6 +3256,7 @@ Source: owner (/issue, 2026-11-17)
 Inbox: 20261118T020458680192Z-72eeed98#1
 
 ## B-432 · CI flake — Leo iOS CI "App tests":…   [ready]
+Issue: #398
 Type: bug
 Report: CI flake — Leo iOS CI "App tests": theAgentsTypingClicksAndPicksChangeThePageLikeAUsers() failed after 32.7s with 1 issue, alongside an RBSAssertionErrorDomain Code=2 "Specified target process … does not exist" log. Hit main 8d9248096 (run 44201641773); passed on 8d20e6250. Fix at cause so it can't keep main red.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3271,6 +3273,7 @@ Issue: #222
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
 ## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [ready]
+Issue: #399
 Why: Text typed to a stopped agent vanishes silently, which is a trust failure in the chat.
 Accept: The composer for a stopped agent is disabled or says why; sending shows an explicit refusal; the stopped-chat path has a test.
 Out: Starting the agent from the composer.
@@ -3279,6 +3282,7 @@ Inbox: 20261118T021310552058Z-d91db23d#56
 Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
 
 ## B-388 · Fix the LeoTemplateListTests refetch flake under load   [ready]
+Issue: #400
 Why: manualRefreshRefetchesEveryLoadedMachinesList fails on a loaded host (1 s awaitCondition default on a network-ordered refetch), producing noisy CI reruns.
 Accept: The test passes in repeated runs at load average above 30; its assertions are unchanged; the wait is injected or given a longer bound, never a sleep.
 Out: Other flaky tests.
@@ -3287,6 +3291,7 @@ Inbox: 20261118T021310552058Z-d91db23d#51
 Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
 
 ## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [ready]
+Issue: #401
 Why: The toolbar capsule still spins for indeterminate tasks and beside Stalled…, against the calm direction set in B-381.
 Accept: The toolbar capsule shows no spinner for indeterminate or stalled tasks; determinate tasks keep the static pie; a presentation test covers each case.
 Out: Changing the done or failed styles.
@@ -3295,6 +3300,7 @@ Inbox: 20261118T021310552058Z-d91db23d#46
 Note: VISION 2 calm; seen in B-381-15.png
 
 ## B-383 · iOS task rows drop the spinner (B-381 parity)   [ready]
+Issue: #402
 Why: iOS keeps the indeterminate spinner Evan removed on Mac in B-381, breaking Mac/iOS parity.
 Accept: Indeterminate iOS task rows show no spinner; determinate rows show a static pie; a test covers both styles.
 Out: Mac changes (done in B-381).
@@ -3303,6 +3309,7 @@ Inbox: 20261118T021310552058Z-d91db23d#41
 Note: Keeps iOS consistent with the Mac change in B-381 (repo Mac/iOS rule; iOS half deferred)
 
 ## B-382 · Show Tasks in the agent row's context menu   [ready]
+Issue: #403
 Why: Show Tasks exists only as an accessibility action, so mouse users have no route to the Tasks popover from the row.
 Accept: The agent row context menu has Show Tasks when a task exists; it opens the same popover as the accessibility action; a test covers the menu item's presence.
 Out: Reworking the row's error line.
@@ -3311,6 +3318,7 @@ Inbox: 20261118T021310552058Z-d91db23d#36
 Note: When an error or env warning takes line 2, an indeterminate task has no mouse route to Tasks (only VoiceOver) — VISION 1
 
 ## B-351 · Agent move errors readable without hovering   [ready]
+Issue: #404
 Why: A refused move's reason is unreadable at normal sidebar width unless you hover.
 Accept: A move error shows in full at default sidebar width without hover, wrapping to at most two lines; the tooltip stays; a view test covers a long message.
 Out: Rewording daemon error text (B-352).
@@ -3319,6 +3327,7 @@ Inbox: 20261118T021310552058Z-d91db23d#31
 Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
 
 ## B-428 · Drag-select part of the URL in an unfocused address bar   [ready]
+Issue: #405
 Why: Safari lets you drag-select part of the URL; here the first drag can't, because an unfocused mouseDown selects all and swallows the drag.
 Accept: Dragging in an unfocused address bar selects a partial range; a click without drag still selects all; a test covers both.
 Out: Changing ⌘L behaviour (B-420).
@@ -3327,6 +3336,7 @@ Inbox: 20261118T021310552058Z-d91db23d#26
 Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
 
 ## B-335 · Set Environments and Switch menu parents disabled for a pending agent…   [ready]
+Issue: #406
 Note: Set Environments and Switch menu parents disabled for a pending agent row
 Why: The same AppKit submenu-parent quirk B-329 fixed for Set Template is still open for these two parents on a pending row.
 Accept: Set Environments and Switch to are disabled for a pending row, matching Set Template; the parents carry an action the window validates; a unit test fails before the fix.
@@ -3345,6 +3355,7 @@ Issue: #186
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
 
 ## B-400 · Gear icon on Settings…, not Open Ghostty Config   [ready]
+Issue: #407
 Why: The gear sits on the Ghostty config item instead of Settings…, against the first-party convention.
 Accept: The gear icon is on Settings…; Open Ghostty Config has no gear; a test or screenshot confirms both.
 Out: Removing or renaming the Ghostty config item.
@@ -3353,6 +3364,7 @@ Inbox: 20261118T021310552058Z-d91db23d#11
 Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
 
 ## B-299 · iOS Settings gets the Defaults, Delegation and Daemon panes   [ready]
+Issue: #408
 Why: iPhone Settings lacks the Defaults, Delegation and Daemon panes, so the phone can't manage delegation or see daemon state (Mac/iOS parity).
 Accept: iOS Settings lists Defaults, Delegation and Daemon panes; each reads and writes through the same LeoKit model the Mac uses; tests plus a simulator screenshot.
 Out: Agent Appearance rules (B-319); draft persistence (B-300); prompt-file picker (B-301).
@@ -3362,6 +3374,7 @@ Note: iOS Settings: add the Defaults, Delegation and Daemon panes (deferred from
 Inbox: 20261024T234538588365Z-c9abba09#1
 
 ## B-302 · iOS task prompt editor sits inside the safe area   [ready]
+Issue: #409
 Why: The task prompt editor's bottom edge clips above the home indicator on every iPhone; the one fix attempt broke a UI test and was reverted.
 Accept: On an iPhone simulator the prompt editor's bottom edge sits inside the safe area with no clipping; the UI test that broke last time passes; simulator screenshot inspected at native pixels.
 Out: Other Settings panes; keyboard handling changes.
