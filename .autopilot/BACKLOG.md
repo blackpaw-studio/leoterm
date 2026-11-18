@@ -3312,6 +3312,7 @@ Inbox: 20261118T021310552058Z-d91db23d#46
 Note: VISION 2 calm; seen in B-381-15.png
 Done: 426e744ec
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-384-1.png
+Reviewed: accepted 2026-11-18 — 3ca216725378
 
 ## B-383 · iOS task rows drop the spinner (B-381 parity)   [done]
 Issue: #402
