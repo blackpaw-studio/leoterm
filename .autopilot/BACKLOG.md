@@ -3334,6 +3334,7 @@ Inbox: 20261118T021310552058Z-d91db23d#36
 Note: When an error or env warning takes line 2, an indeterminate task has no mouse route to Tasks (only VoiceOver) — VISION 1
 Done: 137053a69
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png
+Reviewed: accepted 2026-11-18 — c69660e66140
 
 ## B-351 · Agent move errors readable without hovering   [done]
 Issue: #404
