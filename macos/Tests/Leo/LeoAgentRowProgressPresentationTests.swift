@@ -166,6 +166,22 @@ struct LeoAgentRowProgressPresentationTests {
         #expect(!presentation([], activity: .working).symbolOpensTasks)
     }
 
+    /// B-382: the context menu's "Show Tasks" is present exactly when the row
+    /// has a task (the VoiceOver action's condition), so a mouse user reaches
+    /// Tasks even when an error takes line 2 or the task has no indicator.
+    @Test func contextMenuOffersShowTasksOnlyWithATask() {
+        func showTasks(_ tasks: [LeoAgentTask], error: String? = nil) -> Bool {
+            let p = presentation(tasks, error: error)
+            return LeoRowActionAvailability(status: .running, isPending: false, hasTasks: p.task != nil).showTasks
+        }
+        for (index, tasks) in Self.everyTaskSet.enumerated() where index != 0 {
+            #expect(showTasks(tasks))
+            #expect(showTasks(tasks, error: "boom"))
+        }
+        #expect(!showTasks([]))
+        #expect(!LeoRowActionAvailability(status: .running, isPending: false).showTasks)
+    }
+
     @Test func workingSymbolSpinsWithNoIndicator() {
         #expect(presentation([], activity: .working).symbolRotates)
         #expect(presentation([Self.task(state: .succeeded)], activity: .working).symbolRotates)
