@@ -203,6 +203,17 @@ Lane: B-182
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-400
+  Branch: autopilot-lane/B-400
+  Dispatched: 2026-11-18T09:33:29Z
+  Base: 0862df82c174c1ba61f0356eb5902e27e67fcb57
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -262,3 +273,4 @@ Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git
 - B-335 ready (general full, 5045 tests, xib test red before fix; not visually verified: pending row needs spawned agents). Fresh.
 - B-335 landed fdb5bbdb6. D-978..D-978.
 Finished 12: B-335 landed fdb5bbdb6 · not visually verified
+- Pick: B-400 light (app menu gear icon; independent of B-182). Dispatched d-7abc4327a3ad.
