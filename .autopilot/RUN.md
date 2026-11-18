@@ -159,3 +159,4 @@ Finished 5: B-388 landed dd1f3def2 · not visually verified
 Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-371-1.png
 - Pick: B-383 light (iOS task-row spinner; independent of B-384's Mac capsule). Dispatched d-eb495c0a2ed1.
 - B-384 ready (general full, 5032 tests, not visually verified: no capsule fixture for running/stalled tasks). Calls vs D-743..D-748: consistent. Integration stale (B-371 landed) → re-verify round 1.
+- Dispatched B-384 re-verify d-abd342466908.
