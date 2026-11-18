@@ -1926,3 +1926,15 @@ Chose: Mac only; no "Ghostty" string in ios/ or Packages/
 Why: Mac/iOS parity rule
 Commit: 6d81f197a 84fcfc5f1
 Veto: [ ]
+
+## D-955 · 2026-11-18 · B-388: Platform
+Chose: Mac test target only (macos/Tests/Leo); LeoKit's helper already defaults to 10 s and iOS is unaffected
+Why: AUTONOMY: flake fixes are agent-decides
+Commit: 0b7288ddb
+Veto: [ ]
+
+## D-956 · 2026-11-18 · B-388: Wait bound
+Chose: Raise the Mac awaitCondition default bound from 1 s to 10 s for all callers, no sleeps, assertions unchanged
+Why: AUTONOMY: fix at the cause
+Commit: 0b7288ddb
+Veto: [ ]

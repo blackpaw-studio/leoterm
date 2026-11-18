@@ -3287,7 +3287,7 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#56
 Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
 
-## B-388 · Fix the LeoTemplateListTests refetch flake under load   [ready]
+## B-388 · Fix the LeoTemplateListTests refetch flake under load   [done]
 Issue: #400
 Why: manualRefreshRefetchesEveryLoadedMachinesList fails on a loaded host (1 s awaitCondition default on a network-ordered refetch), producing noisy CI reruns.
 Accept: The test passes in repeated runs at load average above 30; its assertions are unchanged; the wait is injected or given a longer bound, never a sleep.
@@ -3295,6 +3295,8 @@ Out: Other flaky tests.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#51
 Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
+Done: 0b7288ddb
+Verified: not visually verified — test-support change only; full suite 5029 green
 
 ## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [ready]
 Issue: #401

@@ -86,10 +86,11 @@ Lane: B-388
   Dispatched: 2026-11-18T04:05:54Z
   Base: 8a7820117a218fc1cad37e3f095f07ada2505264
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 6.47M in (6.2M cache read), ≥20k out, 75 requests
   Reviewed-tip: a1970295a30120ccaf48f4bb0aebba849bb95818
   Call: Mac test target only (macos/Tests/Leo); LeoKit's helper already defaults to 10 s and iOS is unaffected — AUTONOMY: flake fixes are agent-decides
   Call: Raise the Mac awaitCondition default bound to 10 s, no sleeps, assertions unchanged — AUTONOMY: fix at the cause
@@ -113,3 +114,5 @@ Finished 3: B-431 blocked
 Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
 - Pick: B-388 light (test flake fix). Dispatched d-6be9d413e408.
 - B-388 ready (general full review, full suite 5029 green, not visually verified: test-only). Acceptance partly unmeasured: no repeated series at load >30 (targeted run passed at load 72–114). Fresh.
+- B-388 landed dd1f3def2. D-955..D-956.
+Finished 5: B-388 landed dd1f3def2 · not visually verified
