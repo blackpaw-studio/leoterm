@@ -2046,3 +2046,21 @@ Chose: Mac only: AppKit address bar in the browser pane
 Why: D-925/D-929
 Commit: 2f41ff8a9
 Veto: [ ]
+
+## D-975 · 2026-11-18 · B-351: Mac only: iOS already shows a refusal as an alert (D-779), and its sta…
+Chose: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396
+Why: Mac/iOS parity rule
+Commit: 235b7835b
+Veto: [ ]
+
+## D-976 · 2026-11-18 · B-351: Move errors wrap to two lines, then truncate; the tooltip is unchanged
+Chose: Move errors wrap to two lines, then truncate; the tooltip is unchanged
+Why: P2 Calm
+Commit: 235b7835b
+Veto: [ ]
+
+## D-977 · 2026-11-18 · B-351: Only the .error detail wraps, to at most two lines; other details stay…
+Chose: Only the .error detail wraps, to at most two lines; other details stay one line at a fixed height, so only an error can make a row grow
+Why: P2 Calm, P6
+Commit: 235b7835b
+Veto: [ ]

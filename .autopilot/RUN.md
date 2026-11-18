@@ -169,10 +169,11 @@ Lane: B-351
   Dispatched: 2026-11-18T08:15:33Z
   Base: c3edc651e19931e4ee05bf63536f75c773495d9d
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 1
+  Tokens: 15.7M in (15.2M cache read), ≥52k out, 170 requests
   Reviewed-tip: 14b99543ae9a45ca0565a9d5f32ac6561f2e6ac5
   Call: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396 — Mac/iOS parity rule
   Call: Move errors wrap to two lines, then truncate; the tooltip is unchanged — P2 Calm
@@ -242,3 +243,5 @@ Finished 10: B-428 landed 580e44c07 · not visually verified
 - B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
 - Dispatched B-351 re-verify d-c384f97f449f.
 - B-351 re-verify 1 ready (general delta, 5043 tests; GUI unchanged since first verify's window shot). Fresh.
+- B-351 landed e5155196e. D-975..D-977.
+Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
