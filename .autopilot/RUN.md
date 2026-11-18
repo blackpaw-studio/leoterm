@@ -110,10 +110,11 @@ Lane: B-384
   Dispatched: 2026-11-18T06:44:02Z
   Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 2
+  Tokens: 14.9M in (14.3M cache read), ≥58.3k out, 176 requests
   Reviewed-tip: aa0161fc23623536d498e97e978b94dff15e8af0
   Call: Mac only (iOS task-row spinner is B-383) — AGENTS.md parity rule, D-743
   Call: Indeterminate capsule task shows the static working dot, not a spinner or an empty slot — VISION 2 calm
@@ -183,3 +184,5 @@ Finished 7: B-383 landed 82075531a · not visually verified
 - B-384 re-verify 1 ready (general delta, 5040 tests). Stale again (B-383 landed, iOS-only files) → re-verify round 2; no new lane opens until it lands. Polish "eyeball muted-pie contrast" not filed (its own re-check).
 - Dispatched B-384 re-verify 2 d-b4f5fd176179.
 - B-384 re-verify 2 ready (general delta, 5040 tests, 3 window shots: determinate/indeterminate/stalled). Fresh.
+- B-384 landed 3ca216725. D-967..D-969.
+Finished 8: B-384 landed 3ca216725 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-384-1.png

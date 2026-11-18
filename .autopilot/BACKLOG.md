@@ -3300,7 +3300,7 @@ Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
 Done: 0b7288ddb
 Verified: not visually verified — test-support change only; full suite 5029 green
 
-## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [ready]
+## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [done]
 Issue: #401
 Why: The toolbar capsule still spins for indeterminate tasks and beside Stalled…, against the calm direction set in B-381.
 Accept: The toolbar capsule shows no spinner for indeterminate or stalled tasks; determinate tasks keep the static pie; a presentation test covers each case.
@@ -3308,6 +3308,8 @@ Out: Changing the done or failed styles.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#46
 Note: VISION 2 calm; seen in B-381-15.png
+Done: 426e744ec
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-384-1.png
 
 ## B-383 · iOS task rows drop the spinner (B-381 parity)   [done]
 Issue: #402

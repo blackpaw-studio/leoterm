@@ -1998,3 +1998,21 @@ Chose: Other iOS spinners (agent-detail action row, pairing, chat image) left al
 Why: D-748
 Commit: c6d394aaa d661e76ff
 Veto: [ ]
+
+## D-967 · 2026-11-18 · B-384: Mac only (iOS task-row spinner is B-383)
+Chose: Mac only (iOS task-row spinner is B-383)
+Why: AGENTS.md parity rule, D-743
+Commit: 426e744ec
+Veto: [ ]
+
+## D-968 · 2026-11-18 · B-384: Indeterminate capsule task shows the static working dot, not a spinner…
+Chose: Indeterminate capsule task shows the static working dot, not a spinner or an empty slot
+Why: VISION 2 calm
+Commit: 426e744ec
+Veto: [ ]
+
+## D-969 · 2026-11-18 · B-384: Stalled task shows the row's muted still pie (empty pie when there's n…
+Chose: Stalled task shows the row's muted still pie (empty pie when there's no percent)
+Why: VISION 2 calm
+Commit: 426e744ec
+Veto: [ ]
