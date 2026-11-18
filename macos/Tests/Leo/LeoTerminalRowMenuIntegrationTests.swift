@@ -330,17 +330,17 @@ import Testing
 
     // MARK: Close
 
-    /// Close on a busy shown row asks as ⌘W does, naming it; Cancel keeps it.
-    /// (A hidden busy row asks through the same path: its confirm and close
-    /// are `closeFromMenuOnAHiddenBusyRowClosesOnceConfirmed`.)
-    @Test(.timeLimit(.minutes(1)))
-    func closeFromMenuOnABusyRowAsks() async throws {
+    /// Close on a busy row asks as ⌘W does, naming it; Cancel keeps it. A
+    /// hidden row asks through Leo's own `confirmCloseAsync` path.
+    @Test(.timeLimit(.minutes(1)), arguments: ["shown", "hidden"])
+    func closeFromMenuOnABusyRowAsks(_ state: String) async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
         let window = try #require(fixture.controller.window)
         let busy = try newShell(fixture, running: Self.standIn)
         let busyView = try #require(fixture.view(busy))
         try #require(await eventually { busyView.needsConfirmQuit }, "its process is running")
+        let other = state == "hidden" ? try newShell(fixture, running: Self.standIn) : nil
         // A sheet reliably attaches only to a window on screen.
         window.orderFront(nil)
         let sheets = SheetWatch()
@@ -355,7 +355,7 @@ import Testing
         await drainMainQueue()
         #expect(fixture.terminals.contains(busy.surfaceID), "cancelled: the row stays")
         #expect(fixture.host.isOpen(busy))
-        #expect(fixture.host.isShown(busy))
+        #expect(fixture.host.isShown(busy) == (other == nil))
     }
 
     /// Confirmed, a hidden busy row closes; what the window shows stays.

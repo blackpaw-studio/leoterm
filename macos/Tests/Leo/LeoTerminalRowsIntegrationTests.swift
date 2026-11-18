@@ -398,6 +398,7 @@ import Testing
         #expect(fixture.shown().map(\.id) == [neighbour?.surfaceID].compactMap { $0 })
         await drainMainQueue()
         #expect(!fixture.closes.windowClosed)
+        #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
     }
 
     /// `exit` reaches the row a turn late (from inside libghostty's
@@ -1177,6 +1178,9 @@ import Testing
         #expect(fixture.host.isShown(busy))
         await drainMainQueue()
         #expect(busyView.view != nil, "not freed yet (the host's pool may hold it either way)")
+        // processExited is set off the main queue when the child dies, so a
+        // drained main queue proves nothing: give a wrongly-killed child time.
+        try? await Task.sleep(for: .milliseconds(150))
         #expect(busyView.view?.processExited == false, "its shell still runs")
         #expect(!fixture.events.events.contains(.closed(busy)), "its row never closed")
         #expect(fixture.terminals.rows.map(\.id) == rows)
