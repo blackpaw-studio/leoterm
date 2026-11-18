@@ -173,17 +173,24 @@ struct LeoAgentRowContent: View {
         }
     }
 
+    /// An error is the one detail that wraps (B-351): a refused action's
+    /// reason must read at normal sidebar width without hovering. Two lines at
+    /// most, then it truncates; the tooltip carries the full text. Every other
+    /// detail is one fixed-height line, so a tool starting never moves rows.
     private func detailLine(_ presentation: LeoAgentRowPresentation) -> some View {
-        HStack(spacing: 4) {
+        let lines = presentation.detail.maxLines
+        return HStack(alignment: .top, spacing: 4) {
             Text(presentation.detail.text)
                 .font(.caption)
                 .foregroundStyle(presentation.detailInk.style(isSelected: isSelected))
-                .lineLimit(1)
+                .lineLimit(lines)
                 .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: lines > 1)
                 .help(presentation.detail.text)
             Spacer(minLength: 0)
         }
-        .frame(height: LeoAgentRowMetrics.detailLineHeight, alignment: .leading)
+        .frame(minHeight: LeoAgentRowMetrics.detailLineHeight, alignment: .topLeading)
+        .frame(height: lines > 1 ? nil : LeoAgentRowMetrics.detailLineHeight, alignment: .topLeading)
     }
 
     /// With a task, the spinning symbol opens the Tasks popover, as the
