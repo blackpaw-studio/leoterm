@@ -1938,3 +1938,45 @@ Chose: Raise the Mac awaitCondition default bound from 1 s to 10 s for all calle
 Why: AUTONOMY: fix at the cause
 Commit: 0b7288ddb
 Veto: [ ]
+
+## D-957 · 2026-11-18 · B-371: Refuse on the client; never let the daemon auto-start from the compose…
+Chose: Refuse on the client; never let the daemon auto-start from the composer (the daemon starts a stopped agent on POST)
+Why: P2, D-724, item Out
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]
+
+## D-958 · 2026-11-18 · B-371: Typing stays enabled; only send is gated and the draft is kept with a …
+Chose: Typing stays enabled; only send is gated and the draft is kept with a notice
+Why: P1
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]
+
+## D-959 · 2026-11-18 · B-371: `.starting` sends; `.stopped`/`.unknown` refuse "isn't running"; `.res…
+Chose: `.starting` sends; `.stopped`/`.unknown` refuse "isn't running"; `.restoring` refuses "still starting"
+Why: P2
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]
+
+## D-960 · 2026-11-18 · B-371: Mac only; iOS untouched (its send starts the agent and it has no Start…
+Chose: Mac only; iOS untouched (its send starts the agent and it has no Start bar, D-723)
+Why: Mac/iOS rule
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]
+
+## D-961 · 2026-11-18 · B-371: Refusal notice withdrawn on agent switch and once the agent becomes se…
+Chose: Refusal notice withdrawn on agent switch and once the agent becomes sendable
+Why: P2
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]
+
+## D-962 · 2026-11-18 · B-371: Send arrow dimmed while refused
+Chose: Send arrow dimmed while refused
+Why: P1/HIG
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]
+
+## D-963 · 2026-11-18 · B-371: Composer for a stopped agent: send arrow disabled, placeholder "Start …
+Chose: Composer for a stopped agent: send arrow disabled, placeholder "Start <name> to send a message"; Return shows a warning banner and keeps the draft
+Why: P2
+Commit: 86e6a05e4 17b5ef323
+Veto: [ ]

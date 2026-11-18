@@ -8,6 +8,7 @@ struct LeoChatComposer: View {
     @ObservedObject var chat: LeoChatPaneModel
     let agent: LeoAgentID
     let agentName: String
+    let agentStatus: LeoAgentStatus
     /// Bumped when something asks for the text field's focus.
     let focusRequest: Int
     /// Consumes a pending focus request (true once per request).
@@ -20,6 +21,8 @@ struct LeoChatComposer: View {
 
     private var draft: LeoChatComposerDraft { chat.draft(for: agent) }
     private var isSending: Bool { chat.isSending(agent) }
+    /// Why a send would be refused now (the agent isn't running), if it would.
+    private var refusal: String? { LeoChatSendGate.refusal(for: agentStatus, agentName: agentName) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -36,6 +39,7 @@ struct LeoChatComposer: View {
         .background(LeoChatPasteMonitor(isActive: isTextFocused) { chat.attachPaste(to: agent) })
         .onAppear(perform: takeFocus)
         .onChange(of: focusRequest) { _ in takeFocus() }
+        .onChange(of: refusal) { chat.sendRefusalChanged(to: $0) }
     }
 
     private func takeFocus() {
@@ -49,13 +53,13 @@ struct LeoChatComposer: View {
     private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             fieldButton("paperclip", "Attach Files…", label: "Attach Files", action: pickFiles)
-            TextField("Message \(agentName)", text: Binding(get: { draft.text }, set: { chat.setText($0) }), axis: .vertical)
+            TextField(refusal == nil ? "Message \(agentName)" : "Start \(agentName) to send a message", text: Binding(get: { draft.text }, set: { chat.setText($0) }), axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
                 .focused($isTextFocused)
                 .onSubmit(send)
                 .padding(.vertical, 2)
-            fieldButton("mic", "Record a Voice Note", label: "Record a Voice Note") { Task { await chat.toggleRecording() } }
+            fieldButton("mic", "Record a Voice Note", label: "Record a Voice Note") { Task { await chat.toggleRecording(refusal: refusal) } }
                 .disabled(isSending || chat.recording == .requesting)
             sendButton
         }
@@ -83,12 +87,12 @@ struct LeoChatComposer: View {
             } else {
                 Image(systemName: "arrow.up.circle.fill")
                     .imageScale(.large)
-                    .foregroundStyle(chat.canSend ? Color.accentColor : Color.secondary.opacity(0.5))
+                    .foregroundStyle(chat.canSend && refusal == nil ? Color.accentColor : Color.secondary.opacity(0.5))
             }
         }
         .buttonStyle(.borderless)
-        .disabled(!chat.canSend)
-        .help("Send (Return)")
+        .disabled(!chat.canSend || refusal != nil)
+        .help(refusal == nil ? "Send (Return)" : "Start \(agentName) to send")
         .accessibilityLabel("Send")
     }
 
@@ -104,7 +108,7 @@ struct LeoChatComposer: View {
             Spacer()
             Button("Cancel") { chat.cancelRecording() }
                 .keyboardShortcut(.cancelAction)
-            Button { Task { await chat.toggleRecording() } } label: { Label("Send", systemImage: "stop.circle.fill") }
+            Button { Task { await chat.toggleRecording(refusal: refusal) } } label: { Label("Send", systemImage: "stop.circle.fill") }
                 .buttonStyle(.borderedProminent)
                 .tint(.red)
                 .help("Stop and Send")
@@ -151,7 +155,8 @@ struct LeoChatComposer: View {
 
     private func send() {
         guard chat.canSend else { return }
-        Task { await chat.send() }
+        let refusal = refusal
+        Task { await chat.send(refusal: refusal) }
     }
 
     private func pickFiles() {
