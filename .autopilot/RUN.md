@@ -190,6 +190,17 @@ Lane: B-335
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-182
+  Branch: autopilot-lane/B-182
+  Dispatched: 2026-11-18T08:49:33Z
+  Base: f5a652f100d9f11ef4f4ad2d8450a80fc69909bf
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -245,3 +256,4 @@ Finished 10: B-428 landed 580e44c07 · not visually verified
 - B-351 re-verify 1 ready (general delta, 5043 tests; GUI unchanged since first verify's window shot). Fresh.
 - B-351 landed e5155196e. D-975..D-977.
 Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
+- Pick: B-182 light (restored terminal name clear → live title; independent of B-335). Dispatched d-c33141168cbe.
