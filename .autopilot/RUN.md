@@ -239,6 +239,17 @@ Lane: B-299
   Call: "Edit on the web" uses public_urls[0], then the paired baseURL, then nothing — P3
   Call: Rename, copy and delete are swipe actions, held while edits are unsaved; edit sheets close only on Cancel or Save; hidden agents is one name per line; Add Role defaults to the first template — reversible UI calls
 
+Lane: B-302
+  Branch: autopilot-lane/B-302
+  Dispatched: 2026-11-18T12:14:55Z
+  Base: 34bda63a90d2e6682a43b9f78c590bd59750cb89
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -313,3 +324,4 @@ Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
 - B-299 landed 995a7eb77. D-984..D-988.
 Finished 15: B-299 landed 995a7eb77 · screen capture, not attached
 - Interim digest 3 posted (items 11–15).
+- Pick: B-302 light (iOS prompt editor safe area; B-299 landed). Dispatched d-d1a350966d21.
