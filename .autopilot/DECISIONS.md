@@ -2082,3 +2082,21 @@ Chose: After clearing a restored name, show 👻 until the terminal sends a titl
 Why: never invent a state
 Commit: 96ec8d240
 Veto: [ ]
+
+## D-981 · 2026-11-18 · B-400: Open Ghostty Config gets a doc.text icon instead of none, since macOS …
+Chose: Open Ghostty Config gets a doc.text icon instead of none, since macOS 26 menus show icons throughout
+Why: P1
+Commit: 32fe5cb62
+Veto: [ ]
+
+## D-982 · 2026-11-18 · B-400: Mac only, because iOS has no app menu
+Chose: Mac only, because iOS has no app menu
+Why: D-795, D-954
+Commit: 32fe5cb62
+Veto: [ ]
+
+## D-983 · 2026-11-18 · B-400: Open Ghostty Config kept and not renamed
+Chose: Open Ghostty Config kept and not renamed
+Why: item Out
+Commit: 32fe5cb62
+Veto: [ ]

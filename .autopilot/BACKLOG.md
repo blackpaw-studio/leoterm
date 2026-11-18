@@ -3378,7 +3378,7 @@ Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; p
 Done: 96ec8d240
 Verified: not visually verified — restart-restore needs a relaunch with saved state, which the isolated launch ignores; decode-then-clear test red before fix, full suite 5046 green
 
-## B-400 · Gear icon on Settings…, not Open Ghostty Config   [ready]
+## B-400 · Gear icon on Settings…, not Open Ghostty Config   [done]
 Issue: #407
 Why: The gear sits on the Ghostty config item instead of Settings…, against the first-party convention.
 Accept: The gear icon is on Settings…; Open Ghostty Config has no gear; a test or screenshot confirms both.
@@ -3386,6 +3386,8 @@ Out: Removing or renaming the Ghostty config item.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#11
 Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
+Done: 32fe5cb62
+Verified: not visually verified — this host (macOS 27) renders no menu icons; LeoSettingsMenuIconTests + peekaboo menu list, full suite 5047 green
 
 ## B-299 · iOS Settings gets the Defaults, Delegation and Daemon panes   [ready]
 Issue: #408
