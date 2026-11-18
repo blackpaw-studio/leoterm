@@ -197,11 +197,13 @@ Lane: B-182
   Dispatched: 2026-11-18T08:49:33Z
   Base: f5a652f100d9f11ef4f4ad2d8450a80fc69909bf
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a79e2901a72949bb69b93e3989020acd9b2a3acd
+  Call: Mac only (iOS shows no terminal names) — Mac/iOS parity rule
+  Call: After clearing a restored name, show 👻 until the terminal sends a title, matching Ghostty's startup fallback — never invent a state
 
 Lane: B-400
   Branch: autopilot-lane/B-400
@@ -274,3 +276,4 @@ Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git
 - B-335 landed fdb5bbdb6. D-978..D-978.
 Finished 12: B-335 landed fdb5bbdb6 · not visually verified
 - Pick: B-400 light (app menu gear icon; independent of B-182). Dispatched d-7abc4327a3ad.
+- B-182 ready (general full after one review retry — first reviewer 'turn 1 lost'; 5046 tests; decode-then-clear test red before fix; not visually verified: restart-restore needs relaunch with saved state). Fresh.
