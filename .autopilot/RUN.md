@@ -133,6 +133,17 @@ Lane: B-383
   Call: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnRow filter); determinate shows a static pie — P2 calm, D-744
   Call: Other iOS spinners (agent-detail action row, pairing, chat image) left alone — D-748
 
+Lane: B-382
+  Branch: autopilot-lane/B-382
+  Dispatched: 2026-11-18T06:34:31Z
+  Base: a657fde4535a6874bbc339e8176599036b4ffdeb
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -167,3 +178,4 @@ Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-383 ready (fix 1, general full + delta, iOS LeoTests 125 + LeoKit 1900 green, not visually verified: no live indeterminate-task fixture). Calls consistent with D-743..D-748. Fresh. Unchecked: VoiceOver spokenValue may still read an indeterminate task.
 - B-383 landed 82075531a. D-964..D-966.
 Finished 7: B-383 landed 82075531a · not visually verified
+- Pick: B-382 light (row context menu Show Tasks; B-351 skipped ahead? no — B-382 is next in order). Dispatched d-8c459759d9aa.
