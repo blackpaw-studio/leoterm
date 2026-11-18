@@ -74,7 +74,6 @@ struct LeoSidebarTitlebarStyleTests {
         #expect(fixture.window.toolbarStyle == .unified, "\(style)")
     }
 
-
     /// The header's inset under the toolbar's bottom edge
     /// (`contentLayoutRect`), whatever height the toolbar has.
     /// `.hostOnly`: hosted macos-26 places the header differently, AppKit layout rather than ours.
