@@ -65,8 +65,7 @@ import Testing
         let app = try #require(ghostty.app)
         controller = startScreen
             ? Controller(ghostty, withSurfaceTree: .init(), leoIsPlaceholder: true)
-            : Controller(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil)))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
+            : Controller(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: .leoStandIn(command: Self.standIn))))
         let registry = LeoWindowSessionRegistry()
         origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         session = try #require(controller.leoSession)
@@ -100,8 +99,18 @@ import Testing
 
     /// A new terminal row, as ⌘T makes one. `command` stands in for what
     /// its shell runs; `waiting`: once it ends, Ghostty waits for a key.
+    /// A plain row runs the stand-in, not the login shell: nothing that wants a row asserts what a
+    /// shell does, and a login shell's startup is the slowest part of a fixture. `newLoginShellRow`
+    /// and the splits (`pickerSplit`, `split`) keep the real shell for the tests that need one.
     func newRow(running command: String? = nil, waiting: Bool = false) throws -> AttachmentHandle {
-        try host.showInContent(command: "", workingDirectory: nil, origin: origin, requestID: request(running: command, waiting: waiting))
+        try host.showInContent(
+            command: "", workingDirectory: nil, origin: origin, requestID: request(running: command ?? Self.standIn, waiting: waiting))
+    }
+
+    /// A new terminal row running the user's login shell: for a test that waits for its prompt
+    /// (`needsConfirmQuit` turning false), which the stand-in never reaches.
+    func newLoginShellRow() throws -> AttachmentHandle {
+        try host.showInContent(command: "", workingDirectory: nil, origin: origin, requestID: UUID())
     }
 
     func attachAgent() throws -> AttachmentHandle {

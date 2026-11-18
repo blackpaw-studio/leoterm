@@ -59,9 +59,8 @@ import Testing
     private func makeFixture() throws -> Fixture {
         let ghostty = try #require(Self.ghostty, "these tests need the app's Ghostty.App")
         let app = try #require(ghostty.app)
-        let first = Ghostty.SurfaceView(app, baseConfig: nil)
+        let first = Ghostty.SurfaceView(app, baseConfig: .leoStandIn(command: Self.standIn))
         let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: first))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         let session = try #require(controller.leoSession)
@@ -331,16 +330,17 @@ import Testing
 
     // MARK: Close
 
-    /// Close on a busy row asks as ⌘W does, naming it; Cancel keeps it.
-    @Test(.timeLimit(.minutes(1)), arguments: ["shown", "hidden"])
-    func closeFromMenuOnABusyRowAsks(_ state: String) async throws {
+    /// Close on a busy shown row asks as ⌘W does, naming it; Cancel keeps it.
+    /// (A hidden busy row asks through the same path: its confirm and close
+    /// are `closeFromMenuOnAHiddenBusyRowClosesOnceConfirmed`.)
+    @Test(.timeLimit(.minutes(1)))
+    func closeFromMenuOnABusyRowAsks() async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
         let window = try #require(fixture.controller.window)
         let busy = try newShell(fixture, running: Self.standIn)
         let busyView = try #require(fixture.view(busy))
         try #require(await eventually { busyView.needsConfirmQuit }, "its process is running")
-        let other = state == "hidden" ? try newShell(fixture) : nil
         // A sheet reliably attaches only to a window on screen.
         window.orderFront(nil)
         let sheets = SheetWatch()
@@ -352,10 +352,10 @@ import Testing
         #expect(await eventually { sheets.sawSheet }, "it asks first")
         #expect(sheets.texts.contains(LeoCloseConfirmation.messageText(closing: [busyView.leoPaneName])))
         #expect(sheets.texts.contains(LeoCloseConfirmation.rowInformativeText))
-        try? await Task.sleep(for: .milliseconds(150))
+        await drainMainQueue()
         #expect(fixture.terminals.contains(busy.surfaceID), "cancelled: the row stays")
         #expect(fixture.host.isOpen(busy))
-        #expect(fixture.host.isShown(busy) == (other == nil))
+        #expect(fixture.host.isShown(busy))
     }
 
     /// Confirmed, a hidden busy row closes; what the window shows stays.
@@ -367,7 +367,7 @@ import Testing
         let busy = try newShell(fixture, running: Self.standIn)
         let busyView = try #require(fixture.view(busy))
         try #require(await eventually { busyView.needsConfirmQuit }, "its process is running")
-        let shown = try newShell(fixture)
+        let shown = try newShell(fixture, running: Self.standIn)
         let shownView = try #require(fixture.view(shown))
         window.orderFront(nil)
         let confirm = Task {
@@ -393,7 +393,7 @@ import Testing
         let fixture = try makeFixture()
         defer { close(fixture) }
         let window = try #require(fixture.controller.window)
-        let first = try newShell(fixture)
+        let first = try newShell(fixture, running: Self.standIn)
         let neighbour = try #require(fixture.view(first))
         let idle = try newShell(fixture, running: "/usr/bin/true", waiting: true)
         let idleView = try #require(fixture.view(idle))

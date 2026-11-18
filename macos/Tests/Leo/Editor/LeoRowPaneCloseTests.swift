@@ -12,6 +12,7 @@ import Testing
 @MainActor @Suite(.serialized) struct LeoRowPaneCloseTests {
     @MainActor private struct Fixture {
         let host: GhosttyAttachContentHost
+        let configs: LeoRequestConfigStore
         let controller: TerminalController
         /// Where requests are routed from (the host's registry entry).
         let origin: LeoWindowID
@@ -30,19 +31,22 @@ import Testing
     private func makeFixture() throws -> Fixture {
         let ghostty = try #require((NSApp.delegate as? AppDelegate)?.ghostty, "these tests need the app's Ghostty.App")
         let app = try #require(ghostty.app)
-        let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil)))
+        let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: .leoStandIn())))
         let registry = LeoWindowSessionRegistry()
         let origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         let session = try #require(controller.leoSession)
-        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) { .init(isActive: false, keyWindow: nil) }
+        let configs = LeoRequestConfigStore()
+        let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: configs) { .init(isActive: false, keyWindow: nil) }
         // What `LeoRuntime` wires for the app's own sessions.
         let sessionID = session.id
         session.terminals.closeRequested = { [weak host] in host?.closeTerminal(AttachmentHandle(surfaceID: $0, windowID: sessionID)) }
-        return Fixture(host: host, controller: controller, origin: origin, session: session)
+        return Fixture(host: host, configs: configs, controller: controller, origin: origin, session: session)
     }
 
     private func newShell(_ fixture: Fixture) throws -> AttachmentHandle {
-        let shell = try fixture.host.showInContent(command: "", workingDirectory: nil, origin: fixture.origin, requestID: UUID())
+        let requestID = UUID()
+        fixture.configs.set(.leoStandIn(), for: requestID)
+        let shell = try fixture.host.showInContent(command: "", workingDirectory: nil, origin: fixture.origin, requestID: requestID)
         fixture.panes.activate(.terminal(shell.surfaceID))
         return shell
     }

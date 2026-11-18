@@ -38,9 +38,8 @@ import Testing
     /// A hidden window already showing one plain surface (not a handle).
     private func makeFixture() -> Fixture? {
         guard let ghostty = Self.ghostty, let app = ghostty.app else { return nil }
-        let first = Ghostty.SurfaceView(app, baseConfig: nil)
+        let first = Ghostty.SurfaceView(app, baseConfig: .leoStandIn())
         let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: first))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
         let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
@@ -95,7 +94,7 @@ import Testing
         guard let fixture = makeFixture(), let app = Self.ghostty?.app else { return }
         defer { close(fixture) }
         let first = try #require(fixture.controller.surfaceTree.first)
-        let second = Ghostty.SurfaceView(app, baseConfig: nil)
+        let second = Ghostty.SurfaceView(app, baseConfig: .leoStandIn())
         fixture.controller.surfaceTree = try fixture.controller.surfaceTree.inserting(view: second, at: first, direction: .right)
         try #require(Array(fixture.controller.surfaceTree).count == 2)
 

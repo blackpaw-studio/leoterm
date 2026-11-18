@@ -54,7 +54,6 @@ import Testing
         let app = try #require(ghostty.app)
         let first = Ghostty.SurfaceView(app, baseConfig: Self.standInConfig())
         let controller = ConfirmRecordingController(ghostty, withSurfaceTree: SplitTree(view: first))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         let session = try #require(controller.leoSession)
@@ -124,7 +123,7 @@ import Testing
         #expect(await eventually { !fixture.controller.asked.isEmpty })
         #expect(fixture.controller.asked.map(\.messageText) == ["Close “build”?"])
         #expect(fixture.controller.asked.first?.informativeText == LeoCloseConfirmation.paneInformativeText)
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(fixture.shown().map(\.id) == [row.surfaceID, split.surfaceID], "Cancel keeps both panes")
     }
 
@@ -185,7 +184,7 @@ import Testing
         #expect(await eventually { fixture.shown().map(\.id) == [row.surfaceID] })
 
         fixture.controller.closeSurface(staleNode, withConfirmation: true)
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(fixture.controller.asked.isEmpty)
     }
 
