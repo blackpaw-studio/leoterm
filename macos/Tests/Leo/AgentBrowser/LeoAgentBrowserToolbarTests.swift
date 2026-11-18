@@ -277,9 +277,8 @@ struct LeoAgentBrowserToolbarTests {
         #expect(field.stringValue == "example.org")
     }
 
-    /// B-420: clicking into an unfocused bar selects it all; a click into a
-    /// focused bar still places the caret.
-    @Test func clickingIntoAnUnfocusedAddressBarSelectsAllText() async throws {
+    /// An unfocused address bar in a key window, laid out.
+    private func unfocusedAddressField() async throws -> (field: LeoAddressField, window: KeyWindow) {
         let source = FakePaneSource()
         source.activeRemoteURL = URL(string: "https://example.com/one")
         let pane = LeoAgentBrowserPaneViewController(source: source)
@@ -287,14 +286,40 @@ struct LeoAgentBrowserToolbarTests {
         let window = Self.window(showing: pane.view)
         source.changed()
         await drainMainQueue()
-        let field = pane.toolbar.urlField
-        let click = NSEvent.mouseEvent(
-            with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber, context: nil,
-            eventNumber: 0, clickCount: 1, pressure: 1)!
+        pane.view.layoutSubtreeIfNeeded()
+        return (pane.toolbar.urlField, window)
+    }
 
-        field.mouseDown(with: click)
+    /// A left-mouse event at `point` (field coordinates), as the window gets it.
+    private static func mouse(_ type: NSEvent.EventType, at point: NSPoint, in field: NSView, window: NSWindow) -> NSEvent {
+        NSEvent.mouseEvent(
+            with: type, location: field.convert(point, to: nil), modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
+            context: nil, eventNumber: 0, clickCount: 1, pressure: 1)!
+    }
+
+    @Test func clickingIntoAnUnfocusedAddressBarSelectsAllText() async throws {
+        let (field, window) = try await unfocusedAddressField()
+        let point = NSPoint(x: 20, y: field.bounds.midY)
+        // The mouse-up is already queued, so super's drag tracking ends at once.
+        NSApp.postEvent(Self.mouse(.leftMouseUp, at: point, in: field, window: window), atStart: false)
+
+        field.mouseDown(with: Self.mouse(.leftMouseDown, at: point, in: field, window: window))
 
         let editor = try #require(field.currentEditor() as? NSTextView)
         #expect(editor.selectedRange == NSRange(location: 0, length: field.stringValue.utf16.count))
+    }
+
+    @Test func draggingInAnUnfocusedAddressBarSelectsOnlyThePartDraggedOver() async throws {
+        let (field, window) = try await unfocusedAddressField()
+        let start = NSPoint(x: 20, y: field.bounds.midY)
+        let end = NSPoint(x: 60, y: field.bounds.midY)
+        NSApp.postEvent(Self.mouse(.leftMouseDragged, at: end, in: field, window: window), atStart: false)
+        NSApp.postEvent(Self.mouse(.leftMouseUp, at: end, in: field, window: window), atStart: false)
+
+        field.mouseDown(with: Self.mouse(.leftMouseDown, at: start, in: field, window: window))
+
+        let editor = try #require(field.currentEditor() as? NSTextView)
+        #expect(editor.selectedRange.length > 0)
+        #expect(editor.selectedRange.length < field.stringValue.utf16.count)
     }
 }
