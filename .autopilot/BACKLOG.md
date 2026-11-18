@@ -1279,13 +1279,13 @@ Inbox: 20261027T235417266137Z-9e9ee6e4#1
 Done: 2f2454a5c e17978ce2
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png (no UI change; shows the debug app still reaches its daemon); 5 new LeoLocalDaemonIsolationTests + full suite 3834 pass
 
-## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [ready]
+## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [blocked]
 Issue: #299
 Why: Leo's new agent move/copy lets an agent hand off or fork between hosts; doing it from the app keeps that work in Leo ("Everything through Leo", "Local = remote"). Both platforms: request/response and moved_to state live in LeoKit, only UI glue per app.
 Accept: Mac — an agent row's context menu and the Agent menu offer Move to ▸ <host>, Copy to ▸ <host>, and Duplicate (copy to the agent's own host), each with a menu item and shortcut per HIG; iOS — the same three actions from the agent row's context menu / swipe and the agent detail screen (UIKit + TCA); each action calls the daemon's move route (mode move/copy, to, optional name) through the existing client, shows the daemon's own error text on failure, and offers Force only when the daemon refuses because the agent is mid-turn; a moved agent's row shows its moved_to host as dormant and can't be started or attached, and a copy appears as a new row once the daemon reports it; LeoKit tests cover the request shape, the mid-turn refusal → Force path, and moved_to decoding; TCA reducer tests on iOS; shots from the isolated Mac debug build and the iOS simulator against a fake daemon.
 Out: renaming the copy or choosing its branch beyond an optional name field; progress streaming beyond the daemon's response; any daemon changes.
-Question: Needs owner to do: blocked until leo's feat/agent-move ships in a daemon release (the move route and moved_to field must be on main). Reply "B-324: done" once it's done.
-Answer: done — the agent move UI shipped in leo-v0.28.0 and the bundled leo 0.84.1 has the move route; verify a live move once and mark it done.
+Question: A live cross-host Move needs a destination host running leo, and the only reachable ones are your real daemons (stop list). Make the one live check a live Duplicate plus the daemon's own refusal of a Move to a `.invalid` host, leaving cross-host success to the tests and the leo-v0.28.0 shots? I'd pick yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing. Work kept on autopilot-shelved/B-324.
+Answer:
 Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
 

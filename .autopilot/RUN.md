@@ -3,6 +3,7 @@ Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
 Digested-through: 0
 Filed: 0/3 bugs, 0/5 ideas
+Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -20,11 +21,12 @@ Lane: B-324
   Dispatched: 2026-11-18T02:20:50Z
   Base: 0d5f7905144bee64282629117d65a23a915c7063
   Tier: full
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+  Call: A moved row opened in a new window shows its chat, like a plain click on a non-running row (B-369), instead of a Start prompt — VISION 2, 6
 
 Lane: B-431
   Branch: autopilot-lane/B-431
@@ -41,3 +43,5 @@ Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
 - Dispatched runners via leo_dispatch implement: B-324 d-50c4c1aa6949, B-431 d-6a406081d874.
+- B-324 blocked: planner audit says 13/14 criteria met; one Mac new-window gap; live cross-host Move needs a second leo host (only Evan's real daemons) → asks to accept live Duplicate + daemon Move refusal instead. Shelved on autopilot-shelved/B-324. Polish bug dropped as dup of B-324's own gap.
+Finished 1: B-324 blocked
