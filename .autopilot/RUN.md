@@ -45,11 +45,13 @@ Lane: B-432
   Dispatched: 2026-11-18T02:28:13Z
   Base: a9176ea11fb746ed8d62c9f4e5d5b350c609690d
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 3.04M in (2.9M cache read), ≥11.9k out, 35 requests
   Reviewed-tip: none
+  Call: iOS only; LeoKit isn't involved — AUTONOMY (state the platform call)
 
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
@@ -59,3 +61,5 @@ Progress:
 - B-324 ≈$2.07 est.
 - Pick: B-432 light bug (iOS CI App-tests flake; independent of B-431). Dispatched d-2d336b519884.
 Finished 1: B-324 blocked
+- B-432 blocked: couldn't reproduce (8/8 alone, 125/125 full bundle ×5 incl. fresh-erased sim; ~4 s vs 32.7 s in CI). CI log: first WebKit use timed out at the 28 s navigation deadline on a cold WebContent/Networking start. Shelved on autopilot-shelved/B-432.
+Finished 2: B-432 blocked

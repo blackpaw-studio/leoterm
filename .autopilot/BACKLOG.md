@@ -3255,12 +3255,14 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-17)
 Inbox: 20261118T020458680192Z-72eeed98#1
 
-## B-432 · CI flake — Leo iOS CI "App tests":…   [ready]
+## B-432 · CI flake — Leo iOS CI "App tests":…   [blocked]
 Issue: #398
 Type: bug
 Report: CI flake — Leo iOS CI "App tests": theAgentsTypingClicksAndPicksChangeThePageLikeAUsers() failed after 32.7s with 1 issue, alongside an RBSAssertionErrorDomain Code=2 "Specified target process … does not exist" log. Hit main 8d9248096 (run 44201641773); passed on 8d20e6250. Fix at cause so it can't keep main red.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-17)
+Question: couldn't reproduce — LeoIOSBrowserTests alone (8/8) and the full LeoTests bundle (125/125) passed 3× on a warm iOS 26.5 simulator and 2× on a freshly erased one; the target test took ~4.1 s vs 32.7 s in CI. CI log (run 44201641773): it failed at its first await, host.openPage("form") (LeoIOSBrowserTests.swift:29), hitting LeoIOSBrowserPage.load's 28 s navigation deadline as the first WebKit user in the process ("WebContent process took 3.12 seconds to launch", "Failed to resolve host network app id … com.apple.WebKit.Networking"); the RBSAssertion lines are teardown noise. Likely a cold WebKit process start on the hosted simulator; a retry would need that run's leo-ios-xcresult artifact. Reply "B-432: close" to close it, or "B-432: <more detail>" to retry. Work kept on autopilot-shelved/B-432.
+Answer:
 Inbox: 20261118T020458768349Z-88087e88#1
 
 ## B-218 · Remove remaining Ghostty branding from user-facing strings   [ready]
