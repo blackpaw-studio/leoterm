@@ -215,7 +215,7 @@ Lane: B-400
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 24b47094fc484b6c545459c04b9e8448b594c7d2
+  Reviewed-tip: 9e09dd00c43f92b1a8f4bc09091b4a905a6b3f4c
   Call: Open Ghostty Config gets a doc.text icon instead of none, since macOS 26 menus show icons throughout — P1
   Call: Mac only, because iOS has no app menu — D-795, D-954
   Call: Open Ghostty Config kept and not renamed — item Out
@@ -297,3 +297,4 @@ Finished 13: B-182 landed 58e41019f · not visually verified
 - Pick: B-299 full (iOS Settings panes, new screens; independent of B-400). Dispatched d-9f12c0db4314.
 - B-400 ready (general full, 5046 tests; not visually verified: App menu capture failed; peekaboo menu list + LeoSettingsMenuIconTests). Stale (B-182 landed) → re-verify round 1.
 - Dispatched B-400 re-verify d-cd578b8035aa.
+- B-400 re-verify 1 ready (general delta, 5047 tests; not visually verified: this host (macOS 27) renders no menu icons at all; screen captures only). Fresh.
