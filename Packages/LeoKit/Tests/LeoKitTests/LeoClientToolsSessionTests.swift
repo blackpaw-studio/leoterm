@@ -145,7 +145,7 @@ struct LeoClientToolsSessionTests {
 
     /// Lets the session's tasks run until `condition` holds, without a clock.
     private func until(_ condition: () -> Bool, sourceLocation: SourceLocation = #_sourceLocation) async {
-        for _ in 0..<1_000 where !condition() { await Task.yield() }
+        await awaitCondition { condition() }
         #expect(condition(), sourceLocation: sourceLocation)
     }
 

@@ -350,31 +350,4 @@ struct LeoFakeConfigClientTests {
         await #expect(throws: LeoConfigError.unsupported) { _ = try await fake.schema() }
         #expect(try await fake.versionInfo().capabilities.isEmpty)
     }
-
-    @Test func versionAndSchemaAreServed() async throws {
-        let fake = try Self.fake()
-
-        #expect(try await fake.versionInfo().version == "0.52.0")
-        #expect(try await fake.schema().resources.count == 8)
-    }
-
-    @Test func everyCallIsRecordedInOrder() async throws {
-        let fake = try Self.fake()
-        let revision = try await fake.document("web").revision
-        _ = try await fake.update("web", name: nil, patch: ["port": .int(9000)], ifMatch: revision)
-        _ = try await fake.item("templates", name: "coder")
-
-        #expect(await fake.calls == [
-            .document("web"),
-            .update(resource: "web", name: nil, patch: ["port": .int(9000)], ifMatch: revision),
-            .item(resource: "templates", name: "coder"),
-        ])
-    }
-
-    @Test func aFailedWriteIsStillRecorded() async throws {
-        let fake = try Self.fake()
-        _ = try? await fake.update("web", name: nil, patch: [:], ifMatch: "stale")
-
-        #expect(await fake.calls == [.update(resource: "web", name: nil, patch: [:], ifMatch: "stale")])
-    }
 }

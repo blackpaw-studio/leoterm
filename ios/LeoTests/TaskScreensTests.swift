@@ -45,10 +45,6 @@ struct TaskScreensTests {
         return Rig(store: store, navigation: navigation, list: list, fake: fake, window: window)
     }
 
-    private static func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1_000 where !condition() { try? await Task.sleep(for: .milliseconds(5)) }
-    }
-
     private static func openPrompt(_ rig: Rig) async {
         await settle { rig.store.collection.core.phase == .loaded }
         rig.store.send(.collection(.rowTapped("heartbeat")))
@@ -70,7 +66,7 @@ struct TaskScreensTests {
 
     @Test func eachRowHasItsEnabledSwitch() async throws {
         let rig = try Self.rig()
-        await Self.settle { enabledSwitch(for: "heartbeat", in: rig) != nil }
+        await settle { enabledSwitch(for: "heartbeat", in: rig) != nil }
 
         #expect(enabledSwitch(for: "heartbeat", in: rig)?.isOn == true)
         #expect(enabledSwitch(for: "nightly", in: rig)?.isOn == false)
@@ -78,12 +74,12 @@ struct TaskScreensTests {
 
     @Test func flippingASwitchWritesEnabledAlone() async throws {
         let rig = try Self.rig()
-        await Self.settle { enabledSwitch(for: "nightly", in: rig) != nil }
+        await settle { enabledSwitch(for: "nightly", in: rig) != nil }
         let toggle = try #require(enabledSwitch(for: "nightly", in: rig))
 
         toggle.isOn = true
         toggle.sendActions(for: .valueChanged)
-        await Self.settle { rig.store.toggleInFlightIsIdle && rig.store.collection.core.items.first { $0.name == "nightly" }?.values["enabled"]?.boolValue == true }
+        await settle { rig.store.toggleInFlightIsIdle && rig.store.collection.core.items.first { $0.name == "nightly" }?.values["enabled"]?.boolValue == true }
 
         let updates = await rig.fake.calls.filter { if case .update = $0 { true } else { false } }
         guard case .update(_, "nightly", let patch, _)? = updates.first else {
@@ -105,7 +101,7 @@ struct TaskScreensTests {
         await Self.openPrompt(rig)
         let prompt = try #require(rig.navigation.topViewController as? TaskPromptViewController)
         rig.store.send(.promptTextChanged("typed"))
-        await Self.settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
+        await settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
 
         // The system back button stays: nothing hides it or stands in for it.
         #expect(!prompt.navigationItem.hidesBackButton)
@@ -115,13 +111,13 @@ struct TaskScreensTests {
         #expect(rig.list.navigationItem.backBarButtonItem is NoHistoryBackBarButtonItem)
         let backAction = try #require(prompt.navigationItem.backAction)
         backAction.performWithSender(nil, target: nil)
-        await Self.settle { rig.store.promptLeave != nil }
+        await settle { rig.store.promptLeave != nil }
 
         #expect(rig.store.promptLeave != nil)
         #expect(rig.navigation.topViewController === prompt)
 
         // On iPad the question is a popover, pointing at the back button.
-        await Self.settle { prompt.presentedViewController is UIAlertController }
+        await settle { prompt.presentedViewController is UIAlertController }
         let dialog = try #require(prompt.presentedViewController as? UIAlertController)
         #expect(dialog.popoverPresentationController?.sourceView === rig.navigation.navigationBar)
     }
@@ -133,7 +129,7 @@ struct TaskScreensTests {
         rig.store.send(.promptTextChanged("typed"))
 
         rig.navigation.popViewController(animated: false)
-        await Self.settle { rig.navigation.topViewController is TaskPromptViewController }
+        await settle { rig.navigation.topViewController is TaskPromptViewController }
 
         #expect(rig.navigation.topViewController === prompt)
         #expect(rig.store.prompt.text == "typed")
@@ -144,10 +140,10 @@ struct TaskScreensTests {
         await Self.openPrompt(rig)
         rig.store.send(.promptTextChanged("typed"))
         rig.store.send(.promptBackTapped)
-        await Self.settle { rig.store.promptLeave != nil }
+        await settle { rig.store.promptLeave != nil }
 
         rig.store.send(.promptLeave(.presented(.discard)))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
 
         #expect(rig.navigation.topViewController is ConfigItemViewController)
         #expect(rig.store.prompt.phase == .idle)

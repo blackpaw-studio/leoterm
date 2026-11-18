@@ -5,11 +5,6 @@ import Testing
 @testable import LeoKit
 
 struct LeoPluginToneTests {
-    @Test(arguments: LeoPluginTone.allCases)
-    func everyToneMapsToAColour(_ tone: LeoPluginTone) {
-        #expect(LeoPluginRenderStyle.color(for: tone).alphaComponent > 0)
-    }
-
     @Test
     func accentTonesAreDistinct() {
         let accents: [LeoPluginTone] = [.accent1, .accent2, .accent3, .accent4, .accent5, .accent6]

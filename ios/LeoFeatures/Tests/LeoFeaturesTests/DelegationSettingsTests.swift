@@ -40,7 +40,7 @@ struct DelegationSettingsTests {
     }
 
     private static func untilHeld(_ fake: LeoFakeConfigClient) async {
-        while await fake.heldWriteCount == 0 { await Task.yield() }
+        await settle { await fake.heldWriteCount > 0 }
     }
 
     @Test func notConfiguredShowsEmptyState() async throws {

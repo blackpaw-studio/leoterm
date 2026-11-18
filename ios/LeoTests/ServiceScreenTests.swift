@@ -50,10 +50,6 @@ struct ServiceScreenTests {
         return Rig(store: store, navigation: navigation, fake: fake, window: window)
     }
 
-    private static func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1_000 where !condition() { try? await Task.sleep(for: .milliseconds(5)) }
-    }
-
     private static func openService(_ rig: Rig) async {
         rig.store.send(.rowTapped(.daemon))
         await settle { rig.navigation.topViewController is DaemonViewController }
@@ -66,10 +62,10 @@ struct ServiceScreenTests {
         await Self.openService(rig)
         let screen = try #require(rig.navigation.topViewController as? ServiceViewController)
 
-        await Self.settle { rig.store.destination?.daemon?.destination?.service?.status != .idle && rig.store.destination?.daemon?.destination?.service?.logText == "daemon started\n" }
+        await settle { rig.store.destination?.daemon?.destination?.service?.status != .idle && rig.store.destination?.daemon?.destination?.service?.logText == "daemon started\n" }
 
         #expect(rig.store.destination?.daemon?.destination?.service?.logText == "daemon started\n")
-        await Self.settle {
+        await settle {
             screen.view.layoutIfNeeded()
             return screen.view.findLabel(text: "v0.59.0")
         }
@@ -82,7 +78,7 @@ struct ServiceScreenTests {
         await Self.openService(rig)
 
         rig.store.send(.restart(.requested(.agents)))
-        await Self.settle { rig.navigation.presentedViewController is UIAlertController }
+        await settle { rig.navigation.presentedViewController is UIAlertController }
 
         let alert = try #require(rig.navigation.presentedViewController as? UIAlertController)
         #expect(alert.title == "Restart all agents on test?")
@@ -92,11 +88,11 @@ struct ServiceScreenTests {
     @Test func leavingTheServiceScreenStopsTheLogLoop() async throws {
         let rig = try await Self.rig()
         await Self.openService(rig)
-        await Self.settle { rig.store.destination?.daemon?.destination?.service?.isVisible == true }
+        await settle { rig.store.destination?.daemon?.destination?.service?.isVisible == true }
         #expect(rig.store.destination?.daemon?.destination?.service?.isVisible == true)
 
         rig.navigation.popViewController(animated: false)
-        await Self.settle { rig.store.destination?.daemon?.destination?.service?.isVisible != true }
+        await settle { rig.store.destination?.daemon?.destination?.service?.isVisible != true }
 
         #expect(rig.store.destination?.daemon?.destination?.service?.isVisible != true)
     }

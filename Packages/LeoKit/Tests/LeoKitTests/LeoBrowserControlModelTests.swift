@@ -5,11 +5,7 @@ import Testing
 @MainActor
 struct LeoBrowserControlModelTests {
     private func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1000 {
-            if condition() { return }
-            await Task.yield()
-        }
-        Issue.record("condition never held")
+        await awaitCondition(message: "condition never held") { condition() }
     }
 
     @Test func aRedeliveredHandoffForTheSameRequestJoinsTheFirstAndBothGetTheAnswer() async {

@@ -66,6 +66,7 @@
 		6AD426790811463F508E8740 /* ConfigBanners.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8CB022F0DC686D52A30AFFA /* ConfigBanners.swift */; };
 		6B3F6C3A8FDF1D872BB68026 /* AttachmentPickerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
+		6DE00E67AA520465482EBB49 /* LeoPolling.swift in Sources */ = {isa = PBXBuildFile; fileRef = E436CDEC33A74B3075E044FE /* LeoPolling.swift */; };
 		6F18F0E5564F090690F5D3EA /* ServiceViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814B887B4D27ECED43048979 /* ServiceViewController.swift */; };
 		6F30D471A3E498B502EE95B7 /* MachinesFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E33C69E01DC3265B930EAB6 /* MachinesFixture.swift */; };
 		70A1ECB27926EC7013123D11 /* ChatMarkdownViewerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5AA713B8C7C1978B376E206 /* ChatMarkdownViewerTests.swift */; };
@@ -314,6 +315,7 @@
 		D9F7D132D3B67A3EEBB2210E /* ChatsSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatsSplitViewController.swift; sourceTree = "<group>"; };
 		DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentPickerDelegate.swift; sourceTree = "<group>"; };
 		DFC021149432C7906B5CD914 /* DelegationProfileViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegationProfileViewController.swift; sourceTree = "<group>"; };
+		E436CDEC33A74B3075E044FE /* LeoPolling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoPolling.swift; sourceTree = "<group>"; };
 		E46D47BEF0F4ED0DB6E612C6 /* StripEmulator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StripEmulator.swift; sourceTree = "<group>"; };
 		E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPresentationTests.swift; sourceTree = "<group>"; };
 		E80E49AC6DF9D2AF1C449A51 /* MachinesHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MachinesHost.swift; sourceTree = "<group>"; };
@@ -465,6 +467,7 @@
 				A367FE1B657DE5E681571E6F /* KeyValueRowsTests.swift */,
 				40693F2B1417AC5A86C38BBA /* LaunchPolicyTests.swift */,
 				1B56BE8D340E5B21C286BEA8 /* LeoIOSBrowserTests.swift */,
+				E436CDEC33A74B3075E044FE /* LeoPolling.swift */,
 				E80E49AC6DF9D2AF1C449A51 /* MachinesHost.swift */,
 				6FE85C9DD0A3B8FC29B35A3E /* MachinesListTests.swift */,
 				87880F7124F477F0FE7D9C94 /* SchemaFormCellTests.swift */,
@@ -912,6 +915,7 @@
 				6789F4305E1CE53DF0968B75 /* KeyValueRowsTests.swift in Sources */,
 				EAF6C6A202480812F4F22E7D /* LaunchPolicyTests.swift in Sources */,
 				E30C2494BA45B309CA10BD07 /* LeoIOSBrowserTests.swift in Sources */,
+				6DE00E67AA520465482EBB49 /* LeoPolling.swift in Sources */,
 				C96E52A4D4AFAA0580A242AE /* MachinesHost.swift in Sources */,
 				BDFED519168F9FB44E185FE1 /* MachinesListTests.swift in Sources */,
 				AC0BFDF8CC92DE3B580B7EAC /* SchemaFormCellTests.swift in Sources */,

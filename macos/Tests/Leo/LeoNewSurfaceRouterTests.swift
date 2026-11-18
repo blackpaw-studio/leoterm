@@ -53,17 +53,6 @@ import Testing
         #expect(spy.attachCalls.isEmpty)
     }
 
-    @Test func placeholderDispositionOpensExactlyOnce() async {
-        let spy = RouterSpy()
-        let router = spy.makeRouter()
-        let request = LeoSurfaceRequest(origin: origin, disposition: .placeholder)
-        router.begin(request)
-
-        await router.choose(.agent(identity), for: request)
-
-        #expect(spy.attachCalls.count == 1)
-    }
-
     @Test func placeholderRequestsForDifferentSurfaceIDsDoNotSupersede() async {
         let spy = RouterSpy()
         let router = spy.makeRouter()

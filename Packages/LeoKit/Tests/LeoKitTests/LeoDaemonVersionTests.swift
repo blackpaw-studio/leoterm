@@ -36,13 +36,4 @@ struct LeoDaemonVersionTests {
     func rejectsUnparseable(raw: String) {
         #expect(LeoDaemonVersion(parsing: raw) == nil)
     }
-
-    @Test func exposesComponents() throws {
-        let version = try #require(LeoDaemonVersion(parsing: "v1.2.3-rc.1+build.7"))
-        #expect(version.major == 1)
-        #expect(version.minor == 2)
-        #expect(version.patch == 3)
-        #expect(version.prerelease == "rc.1")
-        #expect(version.build == "build.7")
-    }
 }

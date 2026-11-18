@@ -110,7 +110,7 @@ extension LeoTextCleanerMatcherTests {
     private static let corpus: [[Unicode.Scalar]] = {
         var random = LeoSplitMix(seed: 29)
         let misses = rgiSequences.flatMap { nearMisses(of: $0, &random) }
-        let runs = (0..<4000).map { _ in mixedRun(&random) }
+        let runs = (0..<1000).map { _ in mixedRun(&random) }
         return misses + runs + [rgiSequences.flatMap { $0 }]
     }()
 

@@ -205,6 +205,5 @@ struct ImmediateTestClock: Clock {
 
 /// Polls `condition` across scheduler turns (no wall-clock wait).
 func waitUntil(_ condition: () -> Bool) async throws {
-    for _ in 0..<10_000 where !condition() { await Task.yield() }
-    #expect(condition())
+    await awaitCondition { condition() }
 }

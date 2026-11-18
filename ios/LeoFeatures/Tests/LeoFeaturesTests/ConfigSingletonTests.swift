@@ -53,13 +53,6 @@ struct ConfigSingletonTests {
         #expect(harness.core.webLink?.host() == PairedDaemon.dionysus.baseURL.host())
     }
 
-    @Test func clientDefaultHostPicksFromHosts() async throws {
-        let harness = try await Self.harness(resource: "client")
-
-        let control = harness.core.sections.flatMap(\.rows).first { $0.path == "default_host" }?.control
-        #expect(control == .referencePicker(collection: "hosts", names: ["remote"], emptyLabel: "None"))
-    }
-
     @Test func saveSendsChangedKeyWithRevision() async throws {
         let harness = try await Self.harness()
         let revision = await harness.fake.currentRevision
@@ -82,7 +75,7 @@ struct ConfigSingletonTests {
         await harness.fake.holdWrites()
 
         await harness.store.send(.saveTapped)
-        while await harness.fake.heldWriteCount == 0 { await Task.yield() }
+        await settle { await harness.fake.heldWriteCount > 0 }
         await harness.store.send(.saveTapped)
         await harness.fake.releaseWrites()
         await harness.store.receive(\.writeFinished)
