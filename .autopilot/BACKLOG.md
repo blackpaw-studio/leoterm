@@ -3367,6 +3367,7 @@ Inbox: 20261118T021310552058Z-d91db23d#21
 Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
 Done: 7d9914654
 Verified: not visually verified — a pending row needs spawned agents; xib action-binding test (red before fix) + pending-row enablement test, full suite 5045 green
+Reviewed: accepted 2026-11-18 — fdb5bbdb665f
 
 ## B-182 · Clearing a restored custom terminal name brings back the live title   [done]
 Why: After a restart, clearing a custom name brings back the stale saved title instead of the live one.
