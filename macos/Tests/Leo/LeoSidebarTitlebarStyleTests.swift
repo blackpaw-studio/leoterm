@@ -23,25 +23,48 @@ struct LeoSidebarTitlebarStyleTests {
     /// the row's height is the button's, so the title is centred in it.
     private static let rowTolerance: CGFloat = 6
 
+    /// One window per style, checked for everything read-only about its chrome.
+    /// (Each window costs a real show and layout; the checks share it.)
+    ///
+    /// B-349: the update pill used to hang in a titlebar accessory under the
+    /// unified toolbar, off its row; it is a toolbar item now, and neither
+    /// the accessory nor the corner overlay shows a second copy.
+    /// B-358: the reset-zoom button was a `.right` titlebar accessory too; it
+    /// is a toolbar item that shows while a split is zoomed.
+    /// The glass sidebar runs to the window's top edge, under the traffic
+    /// lights; the toolbar's real inset is what the header takes.
     @Test(arguments: TitlebarStyle.allCases)
-    func everyStyleOpensALeoAgentWindow(_ style: TitlebarStyle) async throws {
-        let fixture = try await StyledWindowFixture.make(style)
-        defer { fixture.close() }
-
-        #expect(fixture.window is LeoAgentTerminalWindow, "\(style): \(type(of: fixture.window))")
-        #expect(fixture.window.toolbar != nil, "\(style): no toolbar")
-    }
-
-    @Test(arguments: TitlebarStyle.allCases)
-    func theToolbarHoldsTheAgentItemsWithTheCapsuleCentred(_ style: TitlebarStyle) async throws {
+    func theChromeOfEveryStyleIsLaidOutRight(_ style: TitlebarStyle) async throws {
         let fixture = try await StyledWindowFixture.make(style)
         defer { fixture.close() }
         let toolbar = try #require(fixture.window.toolbar, "\(style): no toolbar")
+        #expect(fixture.window is LeoAgentTerminalWindow, "\(style): \(type(of: fixture.window))")
 
-        #expect(
-            toolbar.items.map(\.itemIdentifier) == LeoAgentToolbar.itemOrder,
-            "\(style): \(toolbar.items.map(\.itemIdentifier.rawValue))")
+        // Window buttons: all three show and none overlaps the header.
+        #expect(fixture.visibleWindowButtons.count == 3, "\(style): \(fixture.visibleWindowButtons)")
+        for (kind, button) in fixture.visibleWindowButtons {
+            #expect(!button.intersects(fixture.header), "\(style): the \(kind) button \(button) overlaps the header; \(fixture.diagnostics)")
+        }
+        #expect(fixture.splitTop == fixture.windowTop, "\(style): \(fixture.diagnostics)")
+
+        // Update pill and reset zoom are toolbar items, not titlebar accessories (B-349, B-358).
+        let window = try #require(fixture.window as? TerminalWindow)
+        let updateAccessories = window.titlebarAccessoryViewControllers.filter {
+            $0.view is NonDraggableHostingView<TerminalWindow.UpdateAccessoryView>
+        }
+        #expect(updateAccessories.isEmpty, "\(style): the update pill is still a titlebar accessory")
+        #expect(!fixture.controller.updateOverlayIsVisible, "\(style): the update pill also shows as a corner overlay")
+        let zoomAccessories = window.titlebarAccessoryViewControllers.filter {
+            $0.view is NSHostingView<TerminalWindow.ResetZoomAccessoryView>
+        }
+        #expect(zoomAccessories.isEmpty, "\(style): reset zoom is still a titlebar accessory")
+        let identifiers = toolbar.items.map(\.itemIdentifier)
+        #expect(identifiers == LeoAgentToolbar.itemOrder, "\(style): \(identifiers.map(\.rawValue))")
+        #expect(identifiers.contains(.leoUpdate), "\(style): \(identifiers.map(\.rawValue))")
+        #expect(identifiers.contains(.leoResetZoom), "\(style): \(identifiers.map(\.rawValue))")
+
         // The trailing groups (toggles, labelled switch, Interrupt, "⋯") need a wide window to leave the capsule centred.
+        // Last: it resizes the window.
         fixture.window.setContentSize(NSSize(width: 1500, height: fixture.window.contentLayoutRect.height))
         for _ in 0 ..< 100 where toolbar.centeredItemIdentifiers != [.leoActivity] {
             try? await Task.sleep(for: .milliseconds(20))
@@ -51,68 +74,6 @@ struct LeoSidebarTitlebarStyleTests {
         #expect(fixture.window.toolbarStyle == .unified, "\(style)")
     }
 
-    /// B-349: the update pill used to hang in a titlebar accessory under the
-    /// unified toolbar, off its row; it is a toolbar item now, and neither
-    /// the accessory nor the corner overlay shows a second copy.
-    @Test(arguments: TitlebarStyle.allCases)
-    func theUpdatePillIsAToolbarItemNotATitlebarAccessory(_ style: TitlebarStyle) async throws {
-        let fixture = try await StyledWindowFixture.make(style)
-        defer { fixture.close() }
-        let window = try #require(fixture.window as? TerminalWindow)
-
-        let accessories = window.titlebarAccessoryViewControllers.filter {
-            $0.view is NonDraggableHostingView<TerminalWindow.UpdateAccessoryView>
-        }
-        #expect(accessories.isEmpty, "\(style): the update pill is still a titlebar accessory")
-        #expect(!fixture.controller.updateOverlayIsVisible, "\(style): the update pill also shows as a corner overlay")
-        let identifiers = fixture.window.toolbar?.items.map(\.itemIdentifier) ?? []
-        #expect(identifiers.contains(.leoUpdate), "\(style): \(identifiers.map(\.rawValue))")
-    }
-
-    /// B-358: the reset-zoom button was a `.right` titlebar accessory, which
-    /// hangs under the unified toolbar off its row (as the update pill did,
-    /// B-349). It is a toolbar item that shows while a split is zoomed.
-    @Test(arguments: TitlebarStyle.allCases)
-    func resetZoomIsAToolbarItemNotATitlebarAccessory(_ style: TitlebarStyle) async throws {
-        let fixture = try await StyledWindowFixture.make(style)
-        defer { fixture.close() }
-        let window = try #require(fixture.window as? TerminalWindow)
-
-        let accessories = window.titlebarAccessoryViewControllers.filter {
-            $0.view is NSHostingView<TerminalWindow.ResetZoomAccessoryView>
-        }
-        #expect(accessories.isEmpty, "\(style): reset zoom is still a titlebar accessory")
-        let identifiers = fixture.window.toolbar?.items.map(\.itemIdentifier) ?? []
-        #expect(identifiers.contains(.leoResetZoom), "\(style): \(identifiers.map(\.rawValue))")
-    }
-
-    @Test(arguments: TitlebarStyle.allCases)
-    func allThreeWindowButtonsAreVisible(_ style: TitlebarStyle) async throws {
-        let fixture = try await StyledWindowFixture.make(style)
-        defer { fixture.close() }
-
-        #expect(fixture.visibleWindowButtons.count == 3, "\(style): \(fixture.visibleWindowButtons)")
-    }
-
-    @Test(arguments: TitlebarStyle.allCases)
-    func theWindowButtonsNeverOverlapTheSidebarHeader(_ style: TitlebarStyle) async throws {
-        let fixture = try await StyledWindowFixture.make(style)
-        defer { fixture.close() }
-
-        for (kind, button) in fixture.visibleWindowButtons {
-            #expect(!button.intersects(fixture.header), "\(style): the \(kind) button \(button) overlaps the header; \(fixture.diagnostics)")
-        }
-    }
-
-    /// The glass sidebar runs to the window's top edge, under the traffic
-    /// lights; the toolbar's real inset is what the header takes.
-    @Test(arguments: TitlebarStyle.allCases)
-    func theSplitRunsToTheWindowTop(_ style: TitlebarStyle) async throws {
-        let fixture = try await StyledWindowFixture.make(style)
-        defer { fixture.close() }
-
-        #expect(fixture.splitTop == fixture.windowTop, "\(style): \(fixture.diagnostics)")
-    }
 
     /// The header's inset under the toolbar's bottom edge
     /// (`contentLayoutRect`), whatever height the toolbar has.
@@ -325,7 +286,19 @@ struct StyledWindowFixture {
 /// a temporary file (never the user's config).
 @MainActor
 private enum StyleConfig {
+    /// One app per (style, decorations): loading a config and building the
+    /// app is the expensive part and the apps are never mutated.
+    private static var cache: [String: Ghostty.App] = [:]
+
     static func app(for style: TitlebarStyle, decorations: Bool = true) throws -> Ghostty.App {
+        let key = "\(style)-\(decorations)"
+        if let cached = cache[key] { return cached }
+        let app = try build(style, decorations: decorations)
+        cache[key] = app
+        return app
+    }
+
+    private static func build(_ style: TitlebarStyle, decorations: Bool) throws -> Ghostty.App {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("leo-b074-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
