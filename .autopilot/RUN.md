@@ -2,9 +2,10 @@ Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
 Digested-through: 5
-Filed: 0/3 bugs, 1/5 ideas
+Filed: 0/3 bugs, 2/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
+Self-filed: B-371 → B-434 idea — iOS composer still sends to a stopped agent (starts it, no Start bar)
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -72,14 +73,20 @@ Lane: B-218
 
 Lane: B-371
   Branch: autopilot-lane/B-371
-  Dispatched: 2026-11-18T02:54:06Z
+  Dispatched: 2026-11-18T05:31:25Z
   Base: 9721a21fae384b70dfb50af0a7043717b015cd36
   Tier: full
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 86e6a05e40e55cf5421314f0aba8d4cfa348d43b
+  Call: Refuse on the client; never let the daemon auto-start from the composer (the daemon starts a stopped agent on POST) — P2, D-724, item Out
+  Call: Typing stays enabled; only send is gated and the draft is kept with a notice — P1
+  Call: `.starting` sends; `.stopped`/`.unknown` refuse "isn't running"; `.restoring` refuses "still starting" — P2
+  Call: Mac only; iOS untouched (its send starts the agent and it has no Start bar, D-723) — Mac/iOS rule
+  Call: Refusal notice withdrawn on agent switch and once the agent becomes sendable — P2
+  Call: Send arrow dimmed while refused — P1/HIG
 
 Lane: B-388
   Branch: autopilot-lane/B-388
@@ -94,6 +101,17 @@ Lane: B-388
   Reviewed-tip: a1970295a30120ccaf48f4bb0aebba849bb95818
   Call: Mac test target only (macos/Tests/Leo); LeoKit's helper already defaults to 10 s and iOS is unaffected — AUTONOMY: flake fixes are agent-decides
   Call: Raise the Mac awaitCondition default bound to 10 s, no sleeps, assertions unchanged — AUTONOMY: fix at the cause
+
+Lane: B-384
+  Branch: autopilot-lane/B-384
+  Dispatched: 2026-11-18T05:15:12Z
+  Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
 
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
@@ -116,3 +134,7 @@ Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-388 ready (general full review, full suite 5029 green, not visually verified: test-only). Acceptance partly unmeasured: no repeated series at load >30 (targeted run passed at load 72–114). Fresh.
 - B-388 landed dd1f3def2. D-955..D-956.
 Finished 5: B-388 landed dd1f3def2 · not visually verified
+- Interim digest 1 posted (items 1–5).
+- Pick: B-384 light (Mac toolbar capsule spinner). Dispatched d-c5112f76f5b7.
+- B-371 ready (fix 1, general full + delta, 5035 tests, window shots). Calls vs D-723..D-726, D-948: consistent. Integration stale (B-218, B-388 landed) → re-verify round 1. Note: a "Leo quit unexpectedly" dialog appeared during its verify; debug app survived, cause unconfirmed.
+- Dispatched B-371 re-verify d-b2aa58412a71.

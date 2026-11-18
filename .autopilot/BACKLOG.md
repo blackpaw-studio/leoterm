@@ -3394,3 +3394,7 @@ Inbox: 20261024T234539423483Z-b13bef15#1
 ## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
 Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
 Source: autopilot polish (B-218)
+
+## B-434 · iOS composer still sends to a stopped agent (starts it, no Start bar)   [idea]
+Note: decide whether iOS needs a Start bar before any refusal (Mac refuses since B-371) — P2 honest state, parity
+Source: autopilot polish (B-371)
