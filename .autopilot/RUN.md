@@ -245,10 +245,11 @@ Lane: B-302
   Dispatched: 2026-11-18T12:14:55Z
   Base: 34bda63a90d2e6682a43b9f78c590bd59750cb89
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 10.5M in (10.1M cache read), ≥33.8k out, 111 requests
   Reviewed-tip: 3b4d693f6f1d76772447d41b52799148cf2e7cab
   Call: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBottomSafeArea = false, as in SchemaFormHost.swift) so the editor runs to the screen edge and UITextView insets clear the home indicator — AUTONOMY bug fix
 
@@ -328,3 +329,5 @@ Finished 15: B-299 landed 995a7eb77 · screen capture, not attached
 - Interim digest 3 posted (items 11–15).
 - Pick: B-302 light (iOS prompt editor safe area; B-299 landed). Dispatched d-d1a350966d21.
 - B-302 ready (general full; new frame assertion red before fix; iOS 177 + Mac 5047 green; 2 simulator screen captures at native pixels). Verifier saw light-mode Save greyed vs dark enabled (not checked whether pre-existing). Fresh.
+- B-302 landed 90615b86c. D-989..D-989.
+Finished 16: B-302 landed 90615b86c · screen capture, not attached

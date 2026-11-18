@@ -2130,3 +2130,9 @@ Chose: Rename, copy and delete are swipe actions, held while edits are unsaved; 
 Why: reversible UI calls
 Commit: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
 Veto: [ ]
+
+## D-989 · 2026-11-18 · B-302: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBotto…
+Chose: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBottomSafeArea = false, as in SchemaFormHost.swift) so the editor runs to the screen edge and UITextView insets clear the home indicator
+Why: AUTONOMY bug fix
+Commit: 2a7b603a4
+Veto: [ ]

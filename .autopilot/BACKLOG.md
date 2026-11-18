@@ -3401,7 +3401,7 @@ Inbox: 20261024T234538588365Z-c9abba09#1
 Done: b8b247cc8 91009b306 a9a4226ab e70af7f08 8d04f4ae7 766a75cc1 afd5efabb 49f5844bf
 Verified: screen capture — iOS simulator screens of Defaults, Daemon, Web UI, Hosts, Delegation (light/dark), /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-299-1.png … B-299-11.png
 
-## B-302 · iOS task prompt editor sits inside the safe area   [ready]
+## B-302 · iOS task prompt editor sits inside the safe area   [done]
 Issue: #409
 Why: The task prompt editor's bottom edge clips above the home indicator on every iPhone; the one fix attempt broke a UI test and was reverted.
 Accept: On an iPhone simulator the prompt editor's bottom edge sits inside the safe area with no clipping; the UI test that broke last time passes; simulator screenshot inspected at native pixels.
@@ -3410,7 +3410,8 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#1
 Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
 Inbox: 20261024T234539423483Z-b13bef15#1
-
+Done: 2a7b603a4
+Verified: screen capture — iOS simulator at native pixels, /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-302-1.png, B-302-2.png
 
 ## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [ready (next run)]
 Type: bug
