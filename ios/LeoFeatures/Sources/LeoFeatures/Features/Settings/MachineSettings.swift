@@ -21,8 +21,9 @@ public struct MachineLink: Equatable, Sendable {
     }
 }
 
-/// One machine's settings: the rows that open its Templates, Environments,
-/// and later Tasks and Service panes. The machine is implied by the
+/// One machine's settings: the rows that open its panes, in the Mac
+/// sidebar's order (Templates, Tasks, Environments, Delegation, Defaults,
+/// Daemon). The machine is implied by the
 /// navigation path that got here. An open pane is never dismissed by a
 /// connection change: a disconnect keeps it and its draft, and a reconnect
 /// tells it to read again.
@@ -33,21 +34,28 @@ public struct MachineSettings {
         case templates(ConfigCollection)
         case environments(ConfigCollection)
         case tasks(TaskSettings)
-        case service(ServiceSettings)
+        case delegation(DelegationSettings)
+        case defaults(ConfigSingleton)
+        case daemon(DaemonSettings)
     }
 
+    /// In the Mac Settings sidebar's order.
     public enum Row: String, CaseIterable, Equatable, Sendable {
         case templates
-        case environments
         case tasks
-        case service
+        case environments
+        case delegation
+        case defaults
+        case daemon
 
         public var title: String {
             switch self {
             case .templates: String(localized: "Templates")
-            case .environments: String(localized: "Environments")
             case .tasks: String(localized: "Tasks")
-            case .service: String(localized: "Service")
+            case .environments: String(localized: "Environments")
+            case .delegation: String(localized: "Delegation")
+            case .defaults: String(localized: "Defaults")
+            case .daemon: String(localized: "Daemon")
             }
         }
     }
@@ -125,23 +133,30 @@ public struct MachineSettings {
 
             case .destination(.presented(.templates(.delegate(.restart(let kind))))),
                  .destination(.presented(.environments(.delegate(.restart(let kind))))),
-                 .destination(.presented(.tasks(.delegate(.restart(let kind))))):
+                 .destination(.presented(.tasks(.delegate(.restart(let kind))))),
+                 .destination(.presented(.delegation(.delegate(.restart(let kind))))),
+                 .destination(.presented(.defaults(.delegate(.restart(let kind))))),
+                 .destination(.presented(.daemon(.delegate(.restart(let kind))))):
                 return .send(.restart(.requested(kind)))
+
+            case .destination(.presented(.defaults(.delegate(.leave)))):
+                state.destination = nil
+                return .none
 
             case .destination:
                 return .none
 
             case .restart(.delegate(.finished)):
-                guard case .service? = state.destination else { return .none }
-                return .send(.destination(.presented(.service(.refreshRequested))))
+                guard case .daemon? = state.destination else { return .none }
+                return .send(.destination(.presented(.daemon(.machine(.restartFinished)))))
 
             case .restart:
                 return .none
 
             case .scenePhaseChanged(let isActive):
                 let restart: Effect<Action> = .send(.restart(.scenePhaseChanged(isActive: isActive)))
-                guard case .service? = state.destination else { return restart }
-                return .merge(restart, .send(.destination(.presented(.service(.machine(.scenePhaseChanged(isActive: isActive)))))))
+                guard case .daemon? = state.destination else { return restart }
+                return .merge(restart, .send(.destination(.presented(.daemon(.machine(.scenePhaseChanged(isActive: isActive)))))))
 
             case .linkUpdated(let link):
                 let wasConnected = state.link.connection.isConnected
@@ -166,7 +181,9 @@ public struct MachineSettings {
                 case .templates: .templates(ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection))
                 case .environments: .environments(ConfigCollection.State(resource: row.rawValue, daemon: daemon, connection: connection))
                 case .tasks: .tasks(TaskSettings.State(daemon: daemon, connection: connection))
-                case .service: .service(ServiceSettings.State(daemon: daemon, connection: connection))
+                case .delegation: .delegation(DelegationSettings.State(daemon: daemon, connection: connection))
+                case .defaults: .defaults(ConfigSingleton.State(resource: row.rawValue, daemon: daemon, connection: connection))
+                case .daemon: .daemon(DaemonSettings.State(daemon: daemon, connection: connection))
                 }
                 return .none
             }
@@ -180,7 +197,9 @@ public struct MachineSettings {
         case .templates?: .send(.destination(.presented(.templates(.machine(.connectionChanged(isConnected))))))
         case .environments?: .send(.destination(.presented(.environments(.machine(.connectionChanged(isConnected))))))
         case .tasks?: .send(.destination(.presented(.tasks(.collection(.machine(.connectionChanged(isConnected)))))))
-        case .service?: .send(.destination(.presented(.service(.machine(.connectionChanged(isConnected))))))
+        case .delegation?: .send(.destination(.presented(.delegation(.machine(.connectionChanged(isConnected))))))
+        case .defaults?: .send(.destination(.presented(.defaults(.machine(.connectionChanged(isConnected))))))
+        case .daemon?: .send(.destination(.presented(.daemon(.machine(.connectionChanged(isConnected))))))
         case nil: .none
         }
     }

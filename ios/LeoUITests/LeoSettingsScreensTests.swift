@@ -131,7 +131,10 @@ final class LeoSettingsScreensTests: XCTestCase {
 
     func testServiceAndItsRestart() {
         openMachine("Dionysus")
-        app.cells["machine.config.service"].tap()
+        app.cells["machine.config.daemon"].tap()
+        XCTAssertTrue(app.cells["daemon.section.service"].waitForExistence(timeout: 10))
+        capture("daemon")
+        app.cells["daemon.section.service"].tap()
         XCTAssertTrue(app.cells["service.action.restartDaemon"].waitForExistence(timeout: 10))
         capture("service")
 
@@ -143,6 +146,70 @@ final class LeoSettingsScreensTests: XCTestCase {
         dialog.buttons.matching(NSPredicate(format: "label != 'Cancel'")).firstMatch.tap()
         XCTAssertTrue(app.staticTexts["config.banner.restarting"].waitForExistence(timeout: 10))
         capture("service-restarting")
+    }
+
+    func testDefaultsForm() {
+        openMachine("Dionysus")
+        app.cells["machine.config.defaults"].tap()
+        XCTAssertTrue(app.cells["config.field.model"].waitForExistence(timeout: 10), "Defaults never loaded")
+        capture("defaults")
+    }
+
+    func testDaemonForms() {
+        openMachine("Dionysus")
+        app.cells["machine.config.daemon"].tap()
+        for (section, field) in [("web", "config.field.port"), ("client", "config.field.default_host")] {
+            app.cells["daemon.section.\(section)"].tap()
+            XCTAssertTrue(app.cells[field].waitForExistence(timeout: 10), "\(section) never loaded")
+            capture("daemon-\(section)")
+            backOut()
+        }
+        app.cells["daemon.section.hosts"].tap()
+        XCTAssertTrue(app.cells["config.row.hestia"].waitForExistence(timeout: 10), "hosts never loaded")
+        capture("daemon-hosts")
+    }
+
+    func testDelegationScreensAndSheets() {
+        openMachine("Dionysus")
+        app.cells["machine.config.delegation"].tap()
+        XCTAssertTrue(app.cells["delegation.profile.frugal"].waitForExistence(timeout: 10), "delegation never loaded")
+        capture("delegation")
+        app.collectionViews["delegation.list"].swipeUp()
+        capture("delegation-lower")
+        app.collectionViews["delegation.list"].swipeDown()
+
+        app.cells["delegation.hiddenAgents"].tap()
+        XCTAssertTrue(app.textViews["delegation.hiddenAgents.text"].waitForExistence(timeout: 5))
+        capture("delegation-hidden-agents")
+        app.navigationBars.buttons["Cancel"].tap()
+
+        app.cells["delegation.role.review"].tap()
+        XCTAssertTrue(app.textViews["delegation.useFor.text"].waitForExistence(timeout: 5))
+        capture("delegation-use-for")
+        app.navigationBars.buttons["Cancel"].tap()
+
+        app.cells["delegation.addRole"].tap()
+        XCTAssertTrue(app.buttons["config.name.choice"].waitForExistence(timeout: 5))
+        capture("delegation-add-role")
+        app.navigationBars.buttons["Cancel"].tap()
+
+        // Tapping Add Role scrolled the list to reach it.
+        app.collectionViews["delegation.list"].swipeDown()
+        app.cells["delegation.profile.frugal"].tap()
+        XCTAssertTrue(app.cells["delegation.cell.implement"].waitForExistence(timeout: 5))
+        capture("delegation-profile")
+
+        app.cells["delegation.cell.implement"].tap()
+        XCTAssertTrue(app.buttons["delegation.cell.template"].waitForExistence(timeout: 5))
+        capture("delegation-cell")
+        app.navigationBars.buttons["Cancel"].tap()
+
+        app.buttons["delegation.activate"].tap()
+        XCTAssertTrue(app.staticTexts["delegation.preview.body"].waitForExistence(timeout: 5))
+        let body = app.staticTexts["delegation.preview.body"]
+        let loaded = NSPredicate(format: "label BEGINSWITH 'Compared' OR label BEGINSWITH 'Routing'")
+        XCTAssertEqual(XCTWaiter.wait(for: [expectation(for: loaded, evaluatedWith: body)], timeout: 10), .completed, "the preview never loaded")
+        capture("delegation-activate")
     }
 
     // MARK: driving

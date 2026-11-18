@@ -55,7 +55,9 @@ struct ServiceScreenTests {
     }
 
     private static func openService(_ rig: Rig) async {
-        rig.store.send(.rowTapped(.service))
+        rig.store.send(.rowTapped(.daemon))
+        await settle { rig.navigation.topViewController is DaemonViewController }
+        rig.store.send(.destination(.presented(.daemon(.sectionTapped(.service)))))
         await settle { rig.navigation.topViewController is ServiceViewController }
     }
 
@@ -64,9 +66,9 @@ struct ServiceScreenTests {
         await Self.openService(rig)
         let screen = try #require(rig.navigation.topViewController as? ServiceViewController)
 
-        await Self.settle { rig.store.destination?.service?.status != .idle && rig.store.destination?.service?.logText == "daemon started\n" }
+        await Self.settle { rig.store.destination?.daemon?.destination?.service?.status != .idle && rig.store.destination?.daemon?.destination?.service?.logText == "daemon started\n" }
 
-        #expect(rig.store.destination?.service?.logText == "daemon started\n")
+        #expect(rig.store.destination?.daemon?.destination?.service?.logText == "daemon started\n")
         await Self.settle {
             screen.view.layoutIfNeeded()
             return screen.view.findLabel(text: "v0.59.0")
@@ -90,13 +92,13 @@ struct ServiceScreenTests {
     @Test func leavingTheServiceScreenStopsTheLogLoop() async throws {
         let rig = try await Self.rig()
         await Self.openService(rig)
-        await Self.settle { rig.store.destination?.service?.isVisible == true }
-        #expect(rig.store.destination?.service?.isVisible == true)
+        await Self.settle { rig.store.destination?.daemon?.destination?.service?.isVisible == true }
+        #expect(rig.store.destination?.daemon?.destination?.service?.isVisible == true)
 
         rig.navigation.popViewController(animated: false)
-        await Self.settle { rig.store.destination?.service?.isVisible != true }
+        await Self.settle { rig.store.destination?.daemon?.destination?.service?.isVisible != true }
 
-        #expect(rig.store.destination?.service?.isVisible != true)
+        #expect(rig.store.destination?.daemon?.destination?.service?.isVisible != true)
     }
 }
 

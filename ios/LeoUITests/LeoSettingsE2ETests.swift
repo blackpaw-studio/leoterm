@@ -145,7 +145,8 @@ final class LeoSettingsE2ETests: XCTestCase {
 
     func testServiceLogRunsAndARestartIsWaitedOut() throws {
         try pairAndOpenMachine()
-        app.cells["machine.config.service"].tap()
+        app.cells["machine.config.daemon"].tap()
+        app.cells["daemon.section.service"].tap()
         let log = app.textViews["service.log"]
         XCTAssertTrue(log.waitForExistence(timeout: 20))
         try eventually("the log tail has text") { (log.value as? String)?.isEmpty == false }

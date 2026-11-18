@@ -80,46 +80,95 @@ final class ConfigBannerStack: UIStackView {
     }
 }
 
-/// The banners a collection pane's state calls for, wired to its store.
+/// What a config screen's state says, for its banners.
+struct ConfigBannerInput {
+    var isMachineConnected = true
+    var isDirty = false
+    var hasConflict = false
+    var restartPrompt: LeoConfigRestartRequired?
+    var warning: String?
+    var errorMessage: String?
+}
+
+/// What a config screen's banner buttons send.
+struct ConfigBannerActions {
+    var reload: () -> Void = {}
+    var overwrite: () -> Void = {}
+    var restart: (MachineRestart.Kind) -> Void = { _ in }
+    var dismissRestart: () -> Void = {}
+    var dismissError: () -> Void = {}
+}
+
+/// The banners a config screen's state calls for, wired to its store.
 @MainActor
 enum ConfigBanners {
     static func banners(_ store: StoreOf<ConfigCollection>, restart: StoreOf<MachineRestart>? = nil) -> [ConfigBanner] {
-        let state = store.state
-        let core = state.core
+        let core = store.core
+        let input = ConfigBannerInput(
+            isMachineConnected: store.isMachineConnected, isDirty: core.isDirty, hasConflict: core.conflict != nil,
+            restartPrompt: core.restartPrompt, warning: core.warning, errorMessage: core.errorMessage
+        )
+        return banners(input, restart: restart, actions: ConfigBannerActions(
+            reload: { store.send(.reloadTapped) }, overwrite: { store.send(.overwriteTapped) },
+            restart: { store.send(.restartBannerTapped($0)) }, dismissRestart: { store.send(.dismissRestartBanner) },
+            dismissError: { store.send(.dismissErrorTapped) }
+        ))
+    }
+
+    static func banners(_ store: StoreOf<ConfigSingleton>, restart: StoreOf<MachineRestart>? = nil) -> [ConfigBanner] {
+        let core = store.core
+        let input = ConfigBannerInput(
+            isMachineConnected: store.isMachineConnected, isDirty: core.isDirty, hasConflict: core.conflict != nil,
+            restartPrompt: core.restartPrompt, warning: core.warning, errorMessage: core.errorMessage
+        )
+        return banners(input, restart: restart, actions: ConfigBannerActions(
+            reload: { store.send(.reloadTapped) }, overwrite: { store.send(.overwriteTapped) },
+            restart: { store.send(.restartBannerTapped($0)) }, dismissRestart: { store.send(.dismissRestartBanner) },
+            dismissError: { store.send(.dismissErrorTapped) }
+        ))
+    }
+
+    static func banners(_ store: StoreOf<DelegationSettings>, restart: StoreOf<MachineRestart>? = nil) -> [ConfigBanner] {
+        let core = store.core
+        let input = ConfigBannerInput(
+            isMachineConnected: store.isMachineConnected, isDirty: core.hasUnsavedChanges, hasConflict: core.conflict != nil,
+            restartPrompt: core.restartPrompt, warning: core.warning, errorMessage: core.errorMessage
+        )
+        return banners(input, restart: restart, actions: ConfigBannerActions(
+            reload: { store.send(.reloadTapped) }, overwrite: { store.send(.overwriteTapped) },
+            restart: { store.send(.restartBannerTapped($0)) }, dismissRestart: { store.send(.dismissRestartBanner) },
+            dismissError: { store.send(.dismissErrorTapped) }
+        ))
+    }
+
+    static func banners(_ input: ConfigBannerInput, restart: StoreOf<MachineRestart>?, actions: ConfigBannerActions) -> [ConfigBanner] {
         var banners: [ConfigBanner] = []
         if let restart, restart.isRestarting {
             let text = restart.isWaitingOnAgents ? MachineRestart.State.waitingOnAgentsText : "Restarting leo on \(restart.machine)…"
             banners.append(ConfigBanner(id: "restarting", style: .info, text: text))
         }
-        if !state.isMachineConnected {
-            let text = core.isDirty ? "Disconnected — your edits are kept." : "Disconnected."
+        if !input.isMachineConnected {
+            let text = input.isDirty ? "Disconnected — your edits are kept." : "Disconnected."
             banners.append(ConfigBanner(id: "disconnected", style: .warning, text: text))
         }
-        if core.conflict != nil {
+        if input.hasConflict {
             banners.append(ConfigBanner(
                 id: "conflict", style: .warning, text: "This changed on the machine since you opened it.",
-                actions: [
-                    .init(title: "Reload") { store.send(.reloadTapped) },
-                    .init(title: "Overwrite") { store.send(.overwriteTapped) },
-                ]
+                actions: [.init(title: "Reload", handler: actions.reload), .init(title: "Overwrite", handler: actions.overwrite)]
             ))
         }
-        if let restart = core.restartPrompt {
-            var actions: [ConfigBanner.Action] = []
-            if restart.service { actions.append(.init(title: "Restart leo") { store.send(.restartBannerTapped(.daemon)) }) }
-            if restart.agents { actions.append(.init(title: "Restart Agents") { store.send(.restartBannerTapped(.agents)) }) }
-            actions.append(.init(title: "Later") { store.send(.dismissRestartBanner) })
-            banners.append(ConfigBanner(id: "restart", style: .info, text: restartText(restart), actions: actions))
+        if let restart = input.restartPrompt {
+            var buttons: [ConfigBanner.Action] = []
+            if restart.service { buttons.append(.init(title: "Restart leo") { actions.restart(.daemon) }) }
+            if restart.agents { buttons.append(.init(title: "Restart Agents") { actions.restart(.agents) }) }
+            buttons.append(.init(title: "Later", handler: actions.dismissRestart))
+            banners.append(ConfigBanner(id: "restart", style: .info, text: restartText(restart), actions: buttons))
         }
-        if let warning = core.warning {
-            banners.append(ConfigBanner(
-                id: "warning", style: .warning, text: warning, actions: [.init(title: "Dismiss") { store.send(.dismissErrorTapped) }]
-            ))
+        if let warning = input.warning {
+            banners.append(ConfigBanner(id: "warning", style: .warning, text: warning, actions: [.init(title: "Dismiss", handler: actions.dismissError)]))
         }
-        if let message = core.errorMessage {
-            banners.append(ConfigBanner(
-                id: "error", style: .error, text: message, actions: [.init(title: "Dismiss") { store.send(.dismissErrorTapped) }]
-            ))
+        if let message = input.errorMessage {
+            banners.append(ConfigBanner(id: "error", style: .error, text: message, actions: [.init(title: "Dismiss", handler: actions.dismissError)]))
         }
         return banners
     }

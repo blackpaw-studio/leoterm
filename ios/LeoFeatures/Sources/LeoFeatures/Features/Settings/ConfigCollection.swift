@@ -30,6 +30,9 @@ public struct ConfigCollection {
         @Presents public var alert: AlertState<Action.Alert>?
         @Presents public var leaveDialog: ConfirmationDialogState<Action.Leave>?
         @Presents public var nameEntry: NameEntry.State?
+        /// A sentence the delete question adds for an item, by name (Hosts
+        /// says the default host setting stays as it was).
+        public var deleteNotes: [String: String] = [:]
 
         public init(resource: String, daemon: PairedDaemon, connection: DaemonConnection) {
             core = LeoConfigCollectionState(
@@ -237,7 +240,7 @@ public struct ConfigCollection {
             state.nameEntry = nil
         case .deleteTapped(let name):
             guard state.core.allows(.delete) else { return .none }
-            state.alert = Self.deleteAlert(name)
+            state.alert = Self.deleteAlert(name, note: state.deleteNotes[name])
         case .alert(.presented(.confirmDelete(let name))):
             return delete(&state, name)
         default:
@@ -262,14 +265,14 @@ public struct ConfigCollection {
         }
     }
 
-    private static func deleteAlert(_ name: String) -> AlertState<Action.Alert> {
+    private static func deleteAlert(_ name: String, note: String?) -> AlertState<Action.Alert> {
         AlertState {
             TextState("Delete “\(name)”?")
         } actions: {
             ButtonState(role: .destructive, action: .confirmDelete(name)) { TextState("Delete") }
             ButtonState(role: .cancel) { TextState("Cancel") }
         } message: {
-            TextState("This can’t be undone.")
+            TextState(note.map { "\($0) This can’t be undone." } ?? "This can’t be undone.")
         }
     }
 

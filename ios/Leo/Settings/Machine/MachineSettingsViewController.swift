@@ -5,7 +5,7 @@ import UIKit
 import UIKitNavigation
 
 /// One machine: its info card, then the Configuration rows that open its
-/// Templates, Environments and Tasks. A machine that is down shows its status and a
+/// panes, in the Mac Settings sidebar's order. A machine that is down shows its status and a
 /// Reconnect; one whose daemon is too old says what it requires.
 final class MachineSettingsViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int { case info, configuration }
@@ -62,8 +62,14 @@ final class MachineSettingsViewController: UIViewController, UICollectionViewDel
         navigationDestination(item: $store.scope(state: \.destination?.tasks, action: \.destination.tasks)) { [weak self] store in
             TasksViewController(store: store, restart: self?.restartStore)
         }
-        navigationDestination(item: $store.scope(state: \.destination?.service, action: \.destination.service)) { [weak self] store in
-            ServiceViewController(store: store, restart: self?.restartStore ?? Store(initialState: MachineRestart.State(machine: "")) { MachineRestart() })
+        navigationDestination(item: $store.scope(state: \.destination?.delegation, action: \.destination.delegation)) { [weak self] store in
+            DelegationViewController(store: store, restart: self?.restartStore)
+        }
+        navigationDestination(item: $store.scope(state: \.destination?.defaults, action: \.destination.defaults)) { [weak self] store in
+            ConfigSingletonViewController(store: store, restart: self?.restartStore)
+        }
+        navigationDestination(item: $store.scope(state: \.destination?.daemon, action: \.destination.daemon)) { [weak self] store in
+            DaemonViewController(store: store, restart: self?.restartStore ?? Store(initialState: MachineRestart.State(machine: "")) { MachineRestart() })
         }
         bindRestartAlert()
 
@@ -76,7 +82,7 @@ final class MachineSettingsViewController: UIViewController, UICollectionViewDel
     private var restartStore: StoreOf<MachineRestart> { store.scope(state: \.restart, action: \.restart) }
 
     /// The restart's questions and answers are asked of whichever screen is
-    /// showing (a config form, the Service screen), so they are presented
+    /// showing (a config form, the Service screen under Daemon), so they are presented
     /// from the navigation controller, not from this screen, which a pane
     /// may be covering.
     private func bindRestartAlert() {
@@ -181,7 +187,9 @@ extension MachineSettings.Row {
         case .templates: "doc.on.doc"
         case .environments: "square.stack.3d.up"
         case .tasks: "checklist"
-        case .service: "server.rack"
+        case .delegation: "arrow.triangle.branch"
+        case .defaults: "slider.horizontal.3"
+        case .daemon: "gearshape.2"
         }
     }
 }

@@ -6,7 +6,8 @@ import UIKit
 
 /// Two scripted machines for the settings screenshots (`-settingsFixture`):
 /// Dionysus on leo 0.59.0 with the config API, backed by an in-memory daemon
-/// seeded with templates, environments, tasks and a service; and leo-vm on
+/// seeded with templates, environments, tasks, defaults, the daemon's web UI,
+/// remote client and hosts, a delegation block and a service; and leo-vm on
 /// 0.58.0, which shows the "Requires" note. No daemon is needed.
 ///
 /// `-settingsFixtureWrite conflict|invalid` makes Dionysus refuse its next
@@ -140,6 +141,65 @@ enum SettingsFixture {
         ),
     ]
 
+    private static let singletons = [
+        "defaults": LeoConfigItem(
+            name: "",
+            values: [
+                "harness": .string(""), "model": .string("sonnet"), "max_turns": .int(40), "idle_suspend_after": .string("2h"),
+                "environments": list("base"),
+                "push": .object(["chat": .bool(true), "errored": .bool(true), "finished": .bool(false), "needs_input": .bool(true)]),
+            ],
+            effectiveHarness: "claude"
+        ),
+        "web": LeoConfigItem(name: "", values: [
+            "enabled": .bool(true), "bind": .string("0.0.0.0"), "port": .int(8370),
+            "public_urls": list("https://leo.dionysus.lan"), "allowed_hosts": list("dionysus.lan"), "trusted_proxies": list(),
+        ]),
+        "client": LeoConfigItem(name: "", values: ["default_host": .string("hestia")]),
+    ]
+
+    private static let hosts = [
+        LeoConfigItem(name: "hestia", values: ["ssh": .string("evan@hestia.lan"), "ssh_args": list(), "leo_path": .string(""), "tmux_path": .string("")]),
+        LeoConfigItem(name: "leo-vm", values: [
+            "ssh": .string("admin@192.168.64.7"), "ssh_args": list("-p", "2222"), "leo_path": .string("/opt/leo/bin/leo"), "tmux_path": .string(""),
+        ]),
+    ]
+
+    private static let delegation = LeoDelegationDocument(
+        revision: "sha256:fixture-delegation", enabled: true, activeProfile: "balanced",
+        hideNativeAgents: ["Explore", "Plan", "general-purpose"], hideNativeAgentsIsDefault: true,
+        templates: [
+            LeoDelegationTemplate(name: "coder", model: "opus"), LeoDelegationTemplate(name: "reviewer", model: "sonnet"),
+            LeoDelegationTemplate(name: "scout", model: "gpt-5"),
+        ],
+        roles: [
+            LeoDelegationRole(name: "implement", useFor: "Writing and changing code against a plan"),
+            LeoDelegationRole(name: "review", useFor: "Reading a diff and reporting what is wrong with it"),
+            LeoDelegationRole(name: "explore", useFor: "Finding where things live in a codebase"),
+        ],
+        profiles: [
+            LeoDelegationProfile(name: "balanced", active: true, roles: [
+                "implement": LeoDelegationCell(template: "coder", effort: "high", inheritedModel: "opus"),
+                "review": LeoDelegationCell(template: "reviewer", inheritedModel: "sonnet"),
+                "explore": LeoDelegationCell(template: "scout", inheritedModel: "gpt-5"),
+            ]),
+            LeoDelegationProfile(name: "frugal", roles: [
+                "implement": LeoDelegationCell(template: "reviewer", inheritedModel: "sonnet"),
+                "review": LeoDelegationCell(template: "reviewer", model: "haiku", inheritedModel: "sonnet"),
+            ]),
+        ],
+        recentConsults: [
+            LeoDelegationConsult(
+                id: "c-2", role: "review", profile: "balanced", template: "reviewer", model: "sonnet", status: "finished",
+                startedAt: Date().addingTimeInterval(-1_500)
+            ),
+            LeoDelegationConsult(
+                id: "c-1", role: "implement", profile: "balanced", template: "coder", model: "opus", effort: "high", status: "finished",
+                startedAt: Date().addingTimeInterval(-5_400)
+            ),
+        ]
+    )
+
     private static func runs(_ task: String, exits: [Int?]) -> [LeoTaskRun] {
         exits.enumerated().map { index, exit in
             LeoTaskRun(
@@ -158,7 +218,8 @@ enum SettingsFixture {
         """
         let client = LeoFakeConfigClient(
             schema: schema(),
-            collections: ["templates": templates, "environments": environments, "tasks": tasks],
+            singletons: singletons,
+            collections: ["templates": templates, "environments": environments, "tasks": tasks, "hosts": hosts],
             tasks: LeoFakeTaskData(
                 runs: ["heartbeat": runs("heartbeat", exits: [0, 0, 1, 0]), "nightly": runs("nightly", exits: [0, nil])],
                 logs: ["heartbeat-0.log": log, "heartbeat-1.log": log, "heartbeat-2.log": "agent coder: exited with status 1\n", "heartbeat-3.log": log],
@@ -168,6 +229,7 @@ enum SettingsFixture {
                     "prompts/weekly.md": "Write the weekly report from the task history.\n",
                 ]
             ),
+            delegation: delegation,
             version: LeoDaemonVersionInfo(version: "0.59.0", capabilities: [LeoConfigAPI.capability])
         )
         Task {

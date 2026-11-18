@@ -10,6 +10,7 @@ final class NameEntryViewController: UIViewController {
     private let errorLabel = UILabel()
     private let scheduleField = UITextField()
     private let scheduleLabel = UILabel()
+    private let choice = UIButton(configuration: .gray())
     private let submit: UIBarButtonItem
 
     init(store: StoreOf<NameEntry>) {
@@ -76,7 +77,7 @@ final class NameEntryViewController: UIViewController {
         scheduleLabel.adjustsFontForContentSizeCategory = true
         scheduleLabel.numberOfLines = 0
 
-        let stack = UIStackView(arrangedSubviews: [field, errorLabel, scheduleField, scheduleLabel])
+        let stack = UIStackView(arrangedSubviews: [field, errorLabel, scheduleField, scheduleLabel] + choiceViews())
         stack.axis = .vertical
         stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -92,7 +93,39 @@ final class NameEntryViewController: UIViewController {
             errorLabel.text = store.error
             errorLabel.isHidden = store.error == nil
             renderSchedule()
+            renderChoice()
         }
+    }
+
+    /// A new role picks its template beside its name.
+    private func choiceViews() -> [UIView] {
+        guard !store.choices.isEmpty else { return [] }
+        let caption = UILabel()
+        caption.text = String(localized: "Template")
+        caption.font = .preferredFont(forTextStyle: .footnote)
+        caption.textColor = .secondaryLabel
+        choice.showsMenuAsPrimaryAction = true
+        choice.configuration?.image = UIImage(systemName: "chevron.up.chevron.down")
+        choice.configuration?.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(textStyle: .footnote)
+        choice.configuration?.imagePlacement = .trailing
+        choice.configuration?.imagePadding = 6
+        choice.contentHorizontalAlignment = .leading
+        choice.accessibilityIdentifier = "config.name.choice"
+        let note = UILabel()
+        note.text = String(localized: "It is routed to this template in the active profile; the other profiles can route it afterwards.")
+        note.font = .preferredFont(forTextStyle: .footnote)
+        note.textColor = .secondaryLabel
+        note.numberOfLines = 0
+        return [caption, choice, note]
+    }
+
+    private func renderChoice() {
+        guard !store.choices.isEmpty else { return }
+        let current = store.choice
+        choice.configuration?.title = current ?? String(localized: "Choose…")
+        choice.menu = UIMenu(children: store.choices.map { name in
+            UIAction(title: name, state: name == current ? .on : .off) { [store] _ in store.send(.choiceChanged(name)) }
+        })
     }
 
     /// The reading of the schedule, or what is wrong with it.

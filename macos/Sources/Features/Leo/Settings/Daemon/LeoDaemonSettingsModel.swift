@@ -10,14 +10,10 @@ import LeoKit
 ///
 /// The client's `default_host` picks from the hosts, and follows them as they
 /// are added and deleted. The daemon doesn't treat it as a foreign key:
-/// deleting the default host leaves the setting as it was.
+/// deleting the default host leaves the setting as it was. Those rules, and
+/// the section order, are LeoKit's (`LeoDaemonPane`), shared with iOS.
 @MainActor final class LeoDaemonSettingsModel: ObservableObject, LeoSettingsPane {
-    enum Section: CaseIterable, Hashable {
-        case service, web, client, hosts
-    }
-
-    static let hostsKey = "hosts"
-    static let defaultHostKey = "default_host"
+    typealias Section = LeoDaemonPane.Section
 
     let web: LeoConfigSingletonModel
     let client: LeoConfigSingletonModel
@@ -27,15 +23,15 @@ import LeoKit
     private var subscriptions: Set<AnyCancellable> = []
 
     init(client daemon: any LeoConfigClient, revisions: LeoConfigRevisionTracker, machineHost: String? = nil) {
-        web = LeoConfigSingletonModel(resource: "web", client: daemon, revisions: revisions, machineHost: machineHost)
+        web = LeoConfigSingletonModel(resource: LeoDaemonPane.webKey, client: daemon, revisions: revisions, machineHost: machineHost)
         client = LeoConfigSingletonModel(
-            resource: "client", client: daemon, revisions: revisions, machineHost: machineHost,
-            resourceTransform: { $0.referencing(Self.defaultHostKey, to: Self.hostsKey, emptyLabel: "None") }
+            resource: LeoDaemonPane.clientKey, client: daemon, revisions: revisions, machineHost: machineHost,
+            resourceTransform: LeoDaemonPane.clientResource
         )
-        hosts = LeoConfigCollectionModel(resource: Self.hostsKey, client: daemon, revisions: revisions, machineHost: machineHost)
+        hosts = LeoConfigCollectionModel(resource: LeoDaemonPane.hostsKey, client: daemon, revisions: revisions, machineHost: machineHost)
         let client = client
         hosts.$state.map(\.items).removeDuplicates()
-            .sink { items in client.setReferences([Self.hostsKey: items.map(\.name)]) }
+            .sink { items in client.setReferences(LeoDaemonPane.hostReferences(items)) }
             .store(in: &subscriptions)
     }
 
@@ -74,7 +70,6 @@ import LeoKit
     /// What deleting `host` also means, when it is more than removing the
     /// host: the client's default host is left naming it.
     func deleteNote(forHost host: String) -> String? {
-        guard client.draft?.document.values[Self.defaultHostKey]?.stringValue == host else { return nil }
-        return "It is the default host. The default host setting stays set to it until you change it."
+        LeoDaemonPane.deleteNote(forHost: host, client: client.draft)
     }
 }

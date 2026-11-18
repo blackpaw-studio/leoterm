@@ -24,10 +24,16 @@ public struct NameEntry {
         public var schedule = ""
         public var scheduleError: String?
         public var schedulePreview: LeoCronPreviewResult?
+        /// What the new item is made from (a role's template): the sheet
+        /// offers these beside the name. Empty when there is nothing to pick.
+        public let choices: [String]
+        public var choice: String?
 
-        public init(kind: Kind, requiresSchedule: Bool = false) {
+        public init(kind: Kind, requiresSchedule: Bool = false, choices: [String] = []) {
             self.kind = kind
             self.requiresSchedule = requiresSchedule
+            self.choices = choices
+            choice = choices.first
             switch kind {
             case .add: text = ""
             case .rename(let name): text = name
@@ -39,6 +45,7 @@ public struct NameEntry {
     public enum Action {
         case textChanged(String)
         case scheduleChanged(String)
+        case choiceChanged(String)
         case submitTapped
         case cancelTapped
     }
@@ -54,6 +61,9 @@ public struct NameEntry {
                 state.schedule = text
                 state.scheduleError = nil
                 state.schedulePreview = nil
+            case .choiceChanged(let choice):
+                guard state.choices.contains(choice) else { break }
+                state.choice = choice
             case .submitTapped, .cancelTapped:
                 break
             }

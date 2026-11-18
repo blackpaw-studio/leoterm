@@ -183,7 +183,11 @@ struct AppFeatureTests {
     }
 
     @Test func backgroundForwardsToServicePane() async {
-        let initial = Self.machineOpen { _, connection in .service(ServiceSettings.State(daemon: .dionysus, connection: connection)) }
+        let initial = Self.machineOpen { _, connection in
+            var daemon = DaemonSettings.State(daemon: .dionysus, connection: connection)
+            daemon.destination = .service(ServiceSettings.State(daemon: .dionysus, connection: connection))
+            return .daemon(daemon)
+        }
         let store = TestStore(initialState: initial) {
             AppFeature()
         } withDependencies: {
@@ -194,12 +198,12 @@ struct AppFeatureTests {
 
         await store.send(.scenePhaseChanged(isActive: false))
         await store.receive(\.daemons.machine.presented.scenePhaseChanged)
-        await store.receive(\.daemons.machine.presented.destination.presented.service.machine.scenePhaseChanged)
-        #expect(store.state.daemons.machine?.destination?.service?.isActive == false)
+        await store.receive(\.daemons.machine.presented.destination.presented.daemon.destination.presented.service.machine.scenePhaseChanged)
+        #expect(store.state.daemons.machine?.destination?.daemon?.destination?.service?.isActive == false)
 
         await store.send(.scenePhaseChanged(isActive: true))
-        await store.receive(\.daemons.machine.presented.destination.presented.service.machine.scenePhaseChanged)
-        #expect(store.state.daemons.machine?.destination?.service?.isActive == true)
+        await store.receive(\.daemons.machine.presented.destination.presented.daemon.destination.presented.service.machine.scenePhaseChanged)
+        #expect(store.state.daemons.machine?.destination?.daemon?.destination?.service?.isActive == true)
     }
 
     @Test func foregroundReconnectRebasesOpenDraft() async throws {
