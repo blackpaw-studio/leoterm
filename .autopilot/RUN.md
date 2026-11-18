@@ -184,11 +184,12 @@ Lane: B-335
   Dispatched: 2026-11-18T08:11:41Z
   Base: d3d6a40d14c4ceaec300f6ff027fff9c98c48066
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: c54aa16d4cc8cebc6f7f322eab63becdfa5ed461
+  Call: Mac only: AppKit menu parents get an action the window validates, following B-329's Set Template pattern — P1 Mac-native
 
 Lane: B-182
   Branch: autopilot-lane/B-182
@@ -257,3 +258,4 @@ Finished 10: B-428 landed 580e44c07 · not visually verified
 - B-351 landed e5155196e. D-975..D-977.
 Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
 - Pick: B-182 light (restored terminal name clear → live title; independent of B-335). Dispatched d-c33141168cbe.
+- B-335 ready (general full, 5045 tests, xib test red before fix; not visually verified: pending row needs spawned agents). Fresh.
