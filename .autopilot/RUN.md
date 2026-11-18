@@ -123,11 +123,14 @@ Lane: B-383
   Dispatched: 2026-11-18T05:57:38Z
   Base: 2baee02e635552aa1ca156ab675a5424d64126fd
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: d661e76ff620f8d1dffb01116341026af8c616e5
+  Call: iOS only; Mac done in B-381, no LeoKit change since the Mac filters in its own presentation — AGENTS.md platform rule, D-743
+  Call: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnRow filter); determinate shows a static pie — P2 calm, D-744
+  Call: Other iOS spinners (agent-detail action row, pairing, chat image) left alone — D-748
 
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
@@ -160,3 +163,4 @@ Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/
 - Pick: B-383 light (iOS task-row spinner; independent of B-384's Mac capsule). Dispatched d-eb495c0a2ed1.
 - B-384 ready (general full, 5032 tests, not visually verified: no capsule fixture for running/stalled tasks). Calls vs D-743..D-748: consistent. Integration stale (B-371 landed) → re-verify round 1.
 - Dispatched B-384 re-verify d-abd342466908.
+- B-383 ready (fix 1, general full + delta, iOS LeoTests 125 + LeoKit 1900 green, not visually verified: no live indeterminate-task fixture). Calls consistent with D-743..D-748. Fresh. Unchecked: VoiceOver spokenValue may still read an indeterminate task.
