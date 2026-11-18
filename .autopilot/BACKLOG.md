@@ -3415,6 +3415,7 @@ Note: iOS Settings: the task prompt editor's bottom edge clips above the home in
 Inbox: 20261024T234539423483Z-b13bef15#1
 Done: 2a7b603a4
 Verified: screen capture — iOS simulator at native pixels, /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-302-1.png, B-302-2.png
+Reviewed: accepted 2026-11-18 — 90615b86c62d
 
 ## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [ready (next run)]
 Issue: #410
