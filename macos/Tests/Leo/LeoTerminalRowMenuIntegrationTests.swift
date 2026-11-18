@@ -309,6 +309,26 @@ import Testing
         #expect(restored.title == "build", "it still sticks")
     }
 
+    /// B-182: a restored custom name hides no live title (the save keeps only
+    /// the name), so clearing it must not bring the name back as if it were
+    /// the terminal's own: the row falls back to the default at once, and the
+    /// terminal's titles land from then on.
+    @Test func clearingARestoredCustomTitleShowsTheLiveTitle() async throws {
+        let fixture = try makeFixture()
+        defer { close(fixture) }
+        let shell = try newShell(fixture, running: Self.standIn)
+        let view = try #require(fixture.view(shell))
+        fixture.terminals.rename(shell.surfaceID, to: "build")
+        #expect(await eventually { fixture.label(shell) == "build" })
+        let restored = try JSONDecoder().decode(Ghostty.SurfaceView.self, from: try JSONEncoder().encode(view))
+        try #require(restored.title == "build" && restored.leoTitleIsUserSet)
+
+        restored.leoSetUserTitle("")
+
+        #expect(!restored.leoTitleIsUserSet)
+        #expect(restored.title != "build", "the saved name is not the terminal's title")
+    }
+
     // MARK: Close
 
     /// Close on a busy row asks as ⌘W does, naming it; Cancel keeps it.

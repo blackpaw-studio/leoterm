@@ -2070,3 +2070,15 @@ Chose: Mac only: AppKit menu parents get an action the window validates, followi
 Why: P1 Mac-native
 Commit: 7d9914654
 Veto: [ ]
+
+## D-979 · 2026-11-18 · B-182: Mac only (iOS shows no terminal names)
+Chose: Mac only (iOS shows no terminal names)
+Why: Mac/iOS parity rule
+Commit: 96ec8d240
+Veto: [ ]
+
+## D-980 · 2026-11-18 · B-182: After clearing a restored name, show 👻 until the terminal sends a titl…
+Chose: After clearing a restored name, show 👻 until the terminal sends a title, matching Ghostty's startup fallback
+Why: never invent a state
+Commit: 96ec8d240
+Veto: [ ]

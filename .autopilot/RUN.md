@@ -197,17 +197,34 @@ Lane: B-182
   Dispatched: 2026-11-18T08:49:33Z
   Base: f5a652f100d9f11ef4f4ad2d8450a80fc69909bf
   Tier: light
-  State: building
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Tokens: 8.61M in (8.26M cache read), ≥32.7k out, 94 requests
+  Reviewed-tip: a79e2901a72949bb69b93e3989020acd9b2a3acd
+  Call: Mac only (iOS shows no terminal names) — Mac/iOS parity rule
+  Call: After clearing a restored name, show 👻 until the terminal sends a title, matching Ghostty's startup fallback — never invent a state
 
 Lane: B-400
   Branch: autopilot-lane/B-400
-  Dispatched: 2026-11-18T09:33:29Z
+  Dispatched: 2026-11-18T10:23:00Z
   Base: 0862df82c174c1ba61f0356eb5902e27e67fcb57
   Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: 24b47094fc484b6c545459c04b9e8448b594c7d2
+  Call: Open Ghostty Config gets a doc.text icon instead of none, since macOS 26 menus show icons throughout — P1
+  Call: Mac only, because iOS has no app menu — D-795, D-954
+  Call: Open Ghostty Config kept and not renamed — item Out
+
+Lane: B-299
+  Branch: autopilot-lane/B-299
+  Dispatched: 2026-11-18T09:54:22Z
+  Base: e0f97344e9faf83d7eb72be34784944e4f7c3cf6
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
@@ -274,3 +291,9 @@ Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git
 - B-335 landed fdb5bbdb6. D-978..D-978.
 Finished 12: B-335 landed fdb5bbdb6 · not visually verified
 - Pick: B-400 light (app menu gear icon; independent of B-182). Dispatched d-7abc4327a3ad.
+- B-182 ready (general full after one review retry — first reviewer 'turn 1 lost'; 5046 tests; decode-then-clear test red before fix; not visually verified: restart-restore needs relaunch with saved state). Fresh.
+- B-182 landed 58e41019f. D-979..D-980.
+Finished 13: B-182 landed 58e41019f · not visually verified
+- Pick: B-299 full (iOS Settings panes, new screens; independent of B-400). Dispatched d-9f12c0db4314.
+- B-400 ready (general full, 5046 tests; not visually verified: App menu capture failed; peekaboo menu list + LeoSettingsMenuIconTests). Stale (B-182 landed) → re-verify round 1.
+- Dispatched B-400 re-verify d-cd578b8035aa.

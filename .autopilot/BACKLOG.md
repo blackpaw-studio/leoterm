@@ -3367,7 +3367,7 @@ Note: Mac-native enable/disable — same AppKit submenu-parent-without-action qu
 Done: 7d9914654
 Verified: not visually verified — a pending row needs spawned agents; xib action-binding test (red before fix) + pending-row enablement test, full suite 5045 green
 
-## B-182 · Clearing a restored custom terminal name brings back the live title   [ready]
+## B-182 · Clearing a restored custom terminal name brings back the live title   [done]
 Why: After a restart, clearing a custom name brings back the stale saved title instead of the live one.
 Accept: A renamed terminal restored after restart, then cleared, shows the live OSC title at once; a restored user name still displays; a test covers decode-then-clear.
 Out: Changing the saved-state format.
@@ -3375,6 +3375,8 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#16
 Issue: #186
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Done: 96ec8d240
+Verified: not visually verified — restart-restore needs a relaunch with saved state, which the isolated launch ignores; decode-then-clear test red before fix, full suite 5046 green
 
 ## B-400 · Gear icon on Settings…, not Open Ghostty Config   [ready]
 Issue: #407

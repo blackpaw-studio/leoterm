@@ -655,7 +655,9 @@ extension Ghostty {
                 // pending and newer than prevTitle; it lands on its own
                 // now the name is gone (B-183), so don't replace it.
                 guard titleChangeTimer?.isValid != true else { return }
-                setTitle(prevTitle)
+                // MARK: Leo (B-182) -- no terminal title known (a restored
+                // name hides none): the default, until it sends one.
+                if prevTitle.isEmpty { title = "👻" } else { setTitle(prevTitle) }
                 return
             }
             // Set the title and prevent it from being changed automatically
@@ -1942,8 +1944,12 @@ extension Ghostty {
             if let title = savedTitle {
                 self.title = title
                 // If this was a user-set title, we need to prevent it from being overwritten
+                // MARK: Leo (B-182) -- the save keeps only the name, not the
+                // terminal's own title under it, so none is known yet (empty,
+                // as the comment on `titleFromTerminal` allows): clearing the
+                // name must not bring the name back as the terminal's.
                 if isUserSetTitle {
-                    self.titleFromTerminal = title
+                    self.titleFromTerminal = ""
                 }
             }
         }
