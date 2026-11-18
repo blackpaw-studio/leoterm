@@ -296,3 +296,4 @@ Finished 12: B-335 landed fdb5bbdb6 · not visually verified
 Finished 13: B-182 landed 58e41019f · not visually verified
 - Pick: B-299 full (iOS Settings panes, new screens; independent of B-400). Dispatched d-9f12c0db4314.
 - B-400 ready (general full, 5046 tests; not visually verified: App menu capture failed; peekaboo menu list + LeoSettingsMenuIconTests). Stale (B-182 landed) → re-verify round 1.
+- Dispatched B-400 re-verify d-cd578b8035aa.
