@@ -34,10 +34,11 @@ Lane: B-431
   Dispatched: 2026-11-18T02:20:50Z
   Base: 0d5f7905144bee64282629117d65a23a915c7063
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 7.35M in (7.15M cache read), ≥25.6k out, 69 requests
   Reviewed-tip: none
 
 Lane: B-432
@@ -75,3 +76,5 @@ Finished 1: B-324 blocked
 - B-432 blocked: couldn't reproduce (8/8 alone, 125/125 full bundle ×5 incl. fresh-erased sim; ~4 s vs 32.7 s in CI). CI log: first WebKit use timed out at the 28 s navigation deadline on a cold WebContent/Networking start. Shelved on autopilot-shelved/B-432.
 Finished 2: B-432 blocked
 - Pick: B-218 light (copy: Ghostty branding in user-facing strings). Dispatched d-01be07a9d7a0.
+- B-431 blocked: couldn't reproduce (download tests 25× isolated, all pass ~12 s; full single-host runs timed out elsewhere under load 125–180). Shelved on autopilot-shelved/B-431.
+Finished 3: B-431 blocked
