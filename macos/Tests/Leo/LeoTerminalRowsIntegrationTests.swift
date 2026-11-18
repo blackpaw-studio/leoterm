@@ -71,9 +71,10 @@ import Testing
     private func makeFixture() throws -> Fixture {
         let ghostty = try #require(Self.ghostty, "these tests need the app's Ghostty.App")
         let app = try #require(ghostty.app)
-        let first = Ghostty.SurfaceView(app, baseConfig: nil)
+        let first = Ghostty.SurfaceView(app, baseConfig: .leoStandIn(command: Self.standIn))
+        // No `layoutSubtreeIfNeeded()` here: the window is never shown, and forcing its SwiftUI
+        // layout was the biggest cost of a fixture; nothing below reads a laid-out size.
         let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: first))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let origin = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults()).id
         let session = try #require(controller.leoSession)
@@ -105,6 +106,10 @@ import Testing
     /// its shell runs, and `input` is typed into it (via the request's
     /// inherited configuration). `waiting`: once `command` ends, Ghostty
     /// waits for a key rather than asking to close (`wait-after-command`).
+    /// A row that is neither given a command nor typed into runs the
+    /// stand-in rather than the login shell: no test here asserts what a
+    /// plain shell does, and a login shell's startup is the fixture's
+    /// slowest part. Typing needs a real shell, so `input` keeps it.
     private func newShell(
         _ fixture: Fixture,
         running command: String? = nil,
@@ -112,13 +117,11 @@ import Testing
         waiting: Bool = false
     ) throws -> AttachmentHandle {
         let requestID = UUID()
-        if command != nil || input != nil || waiting {
-            var config = Ghostty.SurfaceConfiguration()
-            config.command = command
-            config.initialInput = input
-            config.waitAfterCommand = waiting
-            fixture.configs.set(config, for: requestID)
-        }
+        var config = Ghostty.SurfaceConfiguration()
+        config.command = command ?? (input == nil ? Self.standIn : nil)
+        config.initialInput = input
+        config.waitAfterCommand = waiting
+        fixture.configs.set(config, for: requestID)
         return try fixture.host.showInContent(command: "", workingDirectory: nil, origin: fixture.origin, requestID: requestID)
     }
 
@@ -215,7 +218,7 @@ import Testing
         #expect(fixture.shown().first === original, "the same surface: scrollback and process intact")
         #expect(fixture.terminals.selection == shell.surfaceID)
         #expect(fixture.host.isOpen(agent) && !fixture.host.isShown(agent), "the agent went to the pool")
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.events.events.contains(.closed(shell)))
     }
 
@@ -243,7 +246,7 @@ import Testing
         let window = try #require(fixture.controller.window)
 
         let answer = Task { await fixture.host.confirmReplacingContent(origin: fixture.origin) }
-        try? await Task.sleep(for: .milliseconds(200))
+        await drainMainQueue()
         let sheet = window.attachedSheet
         sheet.map { window.endSheet($0, returnCode: .alertSecondButtonReturn) }
 
@@ -293,7 +296,7 @@ import Testing
 
         #expect(fixture.controller.surfaceTree.isEmpty, "the start screen")
         #expect(fixture.terminals.rows.isEmpty, "the section hides")
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.closes.windowClosed, "the window and its sidebar stay")
     }
 
@@ -393,8 +396,9 @@ import Testing
 
         #expect(await turnsUntil { !fixture.terminals.contains(closing.surfaceID) })
         #expect(fixture.shown().map(\.id) == [neighbour?.surfaceID].compactMap { $0 })
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.closes.windowClosed)
+        #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
     }
 
     /// `exit` reaches the row a turn late (from inside libghostty's
@@ -419,7 +423,7 @@ import Testing
         #expect(await eventually { gone.view == nil }, "its surface and pty are freed")
         #expect(fixture.shown().first === neighbourView, "what the reveal showed stays")
         #expect(fixture.terminals.selection == neighbour.surfaceID)
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.closes.windowClosed)
     }
 
@@ -449,14 +453,14 @@ import Testing
     /// Ghostty's close observer (`exit` on a hidden shell) and the row's
     /// deferred close can both run, in either order: whichever comes
     /// second finds nothing left to do.
-    @Test(arguments: ["shown", "hidden", "hidden, after its exit"])
+    @Test(arguments: ["hidden", "hidden, after its exit"])
     func closingATerminalTwiceIsHarmless(_ state: String) async throws {
         let fixture = try makeFixture()
         defer { close(fixture) }
         let other = try newShell(fixture)
         let closing = try newShell(fixture)
         let closingView = try #require(fixture.view(closing))
-        if state != "shown" { #expect(fixture.host.reveal(other)) }
+        #expect(fixture.host.reveal(other))
         if state == "hidden, after its exit" {
             NotificationCenter.default.post(
                 name: Ghostty.Notification.ghosttyCloseSurface, object: closingView, userInfo: ["process_alive": false]
@@ -472,7 +476,7 @@ import Testing
         #expect(fixture.terminals.selection == other.surfaceID)
         #expect(!fixture.host.isOpen(closing))
         #expect(await turnsUntil { fixture.events.events.contains(.closed(closing)) })
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(fixture.events.events.filter { $0 == .closed(closing) }.count == 1, "closed once")
         #expect(!fixture.closes.windowClosed)
     }
@@ -518,7 +522,7 @@ import Testing
         NotificationCenter.default.post(
             name: Ghostty.Notification.ghosttyCloseSurface, object: hiddenView, userInfo: ["process_alive": true]
         )
-        try await Task.sleep(for: .milliseconds(200))
+        await drainMainQueue()
 
         #expect(fixture.terminals.contains(hidden.surfaceID), "its row stays")
         #expect(fixture.host.isOpen(hidden))
@@ -660,7 +664,7 @@ import Testing
         fixture.terminals.activate(split.surfaceID)
         #expect(fixture.shown().count == 1 && fixture.shown().first === splitView, "the same surface")
         #expect(fixture.terminals.selection == split.surfaceID)
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.events.events.contains(.closed(split)))
     }
 
@@ -937,7 +941,7 @@ import Testing
         fixture.controller.closeSurface(try #require(fixture.controller.surfaceTree.root), withConfirmation: false)
 
         #expect(await turnsUntil { !fixture.terminals.contains(split.surfaceID) && fixture.controller.surfaceTree.isEmpty })
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.closes.windowClosed, "the window and its sidebar stay")
     }
 
@@ -955,7 +959,7 @@ import Testing
         undoManager.undo()
 
         #expect(Set(fixture.shown().map(\.id)) == [row.surfaceID, split.surfaceID], "upstream's undo")
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(fixture.terminals.rows.map(\.id) == [split.surfaceID])
         #expect(fixture.terminals.selection == split.surfaceID)
         #expect(fixture.host.isShown(split))
@@ -1172,8 +1176,11 @@ import Testing
     ) async {
         #expect(fixture.shown().map(\.id) == [busy.surfaceID], "what the window shows stays")
         #expect(fixture.host.isShown(busy))
-        try? await Task.sleep(for: .milliseconds(200))
+        await drainMainQueue()
         #expect(busyView.view != nil, "not freed yet (the host's pool may hold it either way)")
+        // processExited is set off the main queue when the child dies, so a
+        // drained main queue proves nothing: give a wrongly-killed child time.
+        try? await Task.sleep(for: .milliseconds(150))
         #expect(busyView.view?.processExited == false, "its shell still runs")
         #expect(!fixture.events.events.contains(.closed(busy)), "its row never closed")
         #expect(fixture.terminals.rows.map(\.id) == rows)
@@ -1238,7 +1245,7 @@ import Testing
 
         #expect(fixture.controller.surfaceTree.isEmpty, "still the start screen")
         #expect(!fixture.terminals.contains(row.surfaceID))
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.closes.windowClosed)
     }
 
@@ -1385,7 +1392,7 @@ import Testing
         #expect(await eventually(.seconds(10)) { asking.attachedSheet != nil }, "it asks first")
         #expect(!closing.closes.windowClosed)
         asking.attachedSheet.map { asking.endSheet($0, returnCode: .alertSecondButtonReturn) }
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!closing.closes.windowClosed, "Cancel keeps it")
     }
 

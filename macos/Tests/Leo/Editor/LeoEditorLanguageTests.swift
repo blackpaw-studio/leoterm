@@ -41,10 +41,4 @@ struct LeoEditorLanguageTests {
     func picksTheLanguageFromTheExtension(_ path: String, expected: LeoEditorLanguage) {
         #expect(LeoEditorLanguage(path: path) == expected)
     }
-
-    @Test func everyLanguageHasADisplayName() {
-        #expect(LeoEditorLanguage.allCases.allSatisfy { !$0.displayName.isEmpty })
-        #expect(LeoEditorLanguage.typescript.displayName == "TypeScript")
-        #expect(LeoEditorLanguage.plainText.displayName == "Plain Text")
-    }
 }

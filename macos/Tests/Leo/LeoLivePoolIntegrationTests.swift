@@ -54,9 +54,8 @@ import Testing
     private func makeFixture() throws -> Fixture {
         let ghostty = try #require(Self.ghostty, "these tests need the app's Ghostty.App")
         let app = try #require(ghostty.app)
-        let first = Ghostty.SurfaceView(app, baseConfig: nil)
+        let first = Ghostty.SurfaceView(app, baseConfig: .leoStandIn(command: Self.standIn))
         let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: first))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
         let registry = LeoWindowSessionRegistry()
         let session = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
         let host = GhosttyAttachContentHost(registry: registry, requestConfigStore: LeoRequestConfigStore()) {
@@ -105,7 +104,7 @@ import Testing
         #expect(fixture.shown().first === original, "the same Ghostty.SurfaceView: scrollback and view state intact")
         #expect(fixture.controller.focusedSurface === original)
         #expect(fixture.host.isOpen(second) && !fixture.host.isShown(second), "what it replaced is hidden in turn")
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(!fixture.events.events.contains(.closed(first)))
         #expect(!fixture.events.events.contains(.closed(second)))
     }
@@ -163,7 +162,7 @@ import Testing
 
         window.setContentSize(NSSize(width: window.frame.width + 300, height: window.frame.height + 200))
         window.contentView?.layoutSubtreeIfNeeded()
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
 
         let after = try #require(view.surfaceSize)
         #expect(after.columns == before.columns && after.rows == before.rows)
@@ -193,7 +192,7 @@ import Testing
         _ = try attach(fixture, tracker)
 
         #expect(fixture.host.isOpen(shell), "B-057: its row brings it back")
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         #expect(tracker.isAlive(shell))
         #expect(fixture.host.hiddenSurfaces(in: shell.windowID).map(\.id) == [shell.surfaceID])
     }
@@ -243,7 +242,7 @@ import Testing
         weak var shell: Ghostty.SurfaceView?
         do {
             let agentView = try #require(tracker.view(agent))
-            let view = Ghostty.SurfaceView(app, baseConfig: nil)
+            let view = Ghostty.SurfaceView(app, baseConfig: .leoStandIn())
             shell = view
             fixture.controller.surfaceTree = try fixture.controller.surfaceTree.inserting(view: view, at: agentView, direction: .right)
         }
@@ -272,7 +271,7 @@ import Testing
         fixture.controller.window?.close()
 
         #expect(await eventually { handles.allSatisfy { fixture.events.events.contains(.closed($0)) } })
-        try? await Task.sleep(for: .milliseconds(100))
+        await drainMainQueue()
         for handle in handles {
             #expect(fixture.events.events.filter { $0 == .closed(handle) }.count == 1)
         }
@@ -417,7 +416,7 @@ import Testing
 
         init() throws {
             let app = try #require(LeoLivePoolIntegrationTests.ghostty?.app, "these tests need the app's Ghostty.App")
-            let shell = Ghostty.SurfaceView(app, baseConfig: nil)
+            let shell = Ghostty.SurfaceView(app, baseConfig: .leoStandIn())
             let letGo = LetGoLog()
             let exit = ExitFlag()
             self.shell = shell
@@ -461,8 +460,8 @@ import Testing
 
         init(handsOn: Bool = true) throws {
             let app = try #require(LeoLivePoolIntegrationTests.ghostty?.app, "these tests need the app's Ghostty.App")
-            let row = Ghostty.SurfaceView(app, baseConfig: nil)
-            let split = Ghostty.SurfaceView(app, baseConfig: nil)
+            let row = Ghostty.SurfaceView(app, baseConfig: .leoStandIn())
+            let split = Ghostty.SurfaceView(app, baseConfig: .leoStandIn())
             let state = LayoutState(row: row.id)
             let letGo = LetGoLog()
             self.letGo = letGo

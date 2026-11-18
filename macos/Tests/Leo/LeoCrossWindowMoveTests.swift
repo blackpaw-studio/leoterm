@@ -80,8 +80,8 @@ import Testing
 
     private func makeWindow(_ ghostty: Ghostty.App, registry: LeoWindowSessionRegistry, host: GhosttyAttachContentHost) throws -> Window {
         let app = try #require(ghostty.app)
-        let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: Ghostty.SurfaceView(app, baseConfig: nil)))
-        controller.window?.contentView?.layoutSubtreeIfNeeded()
+        let first = Ghostty.SurfaceView(app, baseConfig: .leoStandIn(command: Self.standIn))
+        let controller = TerminalController(ghostty, withSurfaceTree: SplitTree(view: first))
         let routing = registry.makeSession(window: controller.window, controller: controller, defaults: LeoInMemoryDefaults())
         let session = try #require(controller.leoSession)
         // What `LeoRuntime` wires for the app's own sessions.
@@ -108,11 +108,8 @@ import Testing
     /// for what its shell runs.
     private func newShell(_ fixture: Fixture, in window: Window, running command: String? = nil) throws -> AttachmentHandle {
         let requestID = UUID()
-        if let command {
-            var config = Ghostty.SurfaceConfiguration()
-            config.command = command
-            fixture.configs.set(config, for: requestID)
-        }
+        // A plain row runs the stand-in, not the login shell: nothing here asserts what a shell does.
+        fixture.configs.set(.leoStandIn(command: command ?? Self.standIn), for: requestID)
         return try fixture.host.showInContent(command: "", workingDirectory: nil, origin: window.origin, requestID: requestID)
     }
 
@@ -209,6 +206,15 @@ import Testing
     /// `limit` times: counts turns, not time (D-178).
     private func turns(limit: Int = 50, until condition: () -> Bool) async -> Bool {
         for _ in 0 ..< limit where !condition() { await nextTurn() }
+        return condition()
+    }
+
+    /// Polls `condition` for up to `timeout` of wall time: for what waits on a timer.
+    private func eventually(_ timeout: Duration = .seconds(10), _ condition: () -> Bool) async -> Bool {
+        let deadline = ContinuousClock.now + timeout
+        while !condition(), ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
         return condition()
     }
 
@@ -420,7 +426,9 @@ import Testing
         #expect(!fixture.events.events.contains(.closed(row)) && !fixture.events.events.contains(.closed(fixture.b.handle(row.surfaceID))))
         // Whether it reads focused can't be seen here: these windows are
         // never key, so each focus change marks their panes unfocused.
-        let refocused = await turns {
+        // `Ghostty.moveFocus` retries on timers while a view isn't in its window yet, so this waits
+        // on wall time, not turns: a run of main-queue hops can end before the first retry fires.
+        let refocused = await eventually {
             fixture.a.controller.window?.firstResponder === pane.view && fixture.b.controller.window?.firstResponder === qPane.view
         }
         #expect(refocused, "focus back on it in A, and on Q in B")

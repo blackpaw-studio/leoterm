@@ -102,7 +102,7 @@ import Testing
     @Test(.hostOnly) func windowCloseAsksForABusyHiddenSplitPane() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
-        let row = try fixture.newRow()
+        let row = try fixture.newLoginShellRow()
         let rowView = try #require(fixture.view(row))
         try #require(await fixture.eventually(.seconds(15)) { !rowView.needsConfirmQuit }, "the row's shell reached its prompt")
         let busy = try fixture.pickerSplit(beside: row, running: Fixture.standIn)
