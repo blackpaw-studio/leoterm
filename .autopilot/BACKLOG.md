@@ -3344,6 +3344,7 @@ Inbox: 20261118T021310552058Z-d91db23d#31
 Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
 Done: 235b7835b
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
+Reviewed: accepted 2026-11-18 — e5155196e25f
 
 ## B-428 · Drag-select part of the URL in an unfocused address bar   [done]
 Issue: #405
