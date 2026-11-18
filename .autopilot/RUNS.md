@@ -1120,3 +1120,46 @@ Tokens (runner + its subagents): B-422 15.4M in (14.9M cache read), ≥55.1k out
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-18
+🛠 leoterm autopilot — 13 shipped, 3 blocked
+Shipped
+• B-218 Ghostty branding out of user-facing strings — "Leo" in alerts, palette, a11y, titles (verified: screenshot) · light
+• B-388 LeoTemplateListTests flake — Mac test wait 1 s→10 s (not visually verified) · light
+• B-371 Composer refuses sends to a stopped agent, keeps the draft (verified: screenshot) · full
+• B-383 iOS task rows drop the spinner (not visually verified) · light
+• B-384 Toolbar capsule: static dot / muted pie, no spinner (verified: screenshot) · light
+• B-382 Show Tasks in the row context menu (verified: screenshot) · light
+• B-428 Drag-select part of the URL in an unfocused address bar (not visually verified) · light
+• B-428 built before B-351 (independent)
+• B-351 Move errors wrap to two lines (verified: screenshot) · light
+• B-335 Set Environments / Switch to disabled for pending rows (not visually verified) · light
+• B-182 Clearing a restored terminal name shows the live title (not visually verified) · light
+• B-400 Gear on Settings…, doc icon on Open Ghostty Config (screen capture, not attached) · light
+• B-299 iOS Settings: Defaults, Delegation, Daemon panes on shared LeoKit models (screen capture, not attached) · full
+• B-302 iOS task prompt editor clear of the home indicator (screen capture, not attached) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-952–954 B-218 · D-955–956 B-388 · D-957–963 B-371 · D-964–966 B-383 · D-967–969 B-384 · D-970–973 B-382 · D-974 B-428 · D-975–977 B-351 · D-978 B-335 · D-979–980 B-182 · D-981–983 B-400 · D-984–988 B-299 · D-989 B-302
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• B-324 Live check = Duplicate + daemon's Move refusal (no second leo host) and fix the new-window Start prompt? I'd pick yes ("B-324: go"). Shelved on autopilot-shelved/B-324.
+• B-431 macOS CI download-test hang — couldn't reproduce; "close" or retry with per-test limits + unbuffered output. autopilot-shelved/B-431.
+• B-432 iOS CI WebKit flake — couldn't reproduce (cold WebKit start in CI?); "close" or send the xcresult. autopilot-shelved/B-432.
+• B-311 needs you to push the fix so hosted CI runs it.
+• B-351 cap: the fixture refusal still truncates its last words at 2 lines (tooltip has it).
+• B-299: tab bar may hide the last Delegation/Defaults rows (unchecked); E2E settings tests skipped (no pairing).
+• Lanes left: B-058 held; B-233, B-332 unlanded; B-368 landed but dirty. Untracked-left: default.profraw, scratchpad/.
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-237 · B-276 · B-277 · B-280 (+34 more)
+Self-filed
+• B-437 bug (from B-302) — iOS prompt editor side edges ignore the safe area in landscape
+• B-433 idea (from B-218) — Ghostty.sdef still says Ghostty
+• B-434 idea (from B-371) — iOS composer still sends to a stopped agent
+• B-435 idea (from B-384) — Task popover/header still spin
+• B-436 idea (from B-299) — iOS Make Active preview styling
+• dropped (from B-324) — new-window Start prompt — dup of B-324
+Next up: B-437 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$75.86 est. — B-299 ≈$24.32, B-371 ≈$10.11, the rest $1–6 each
+Interim updates: 3 posted, through item 15
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
