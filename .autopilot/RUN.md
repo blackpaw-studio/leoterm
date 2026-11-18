@@ -106,14 +106,17 @@ Lane: B-388
 
 Lane: B-384
   Branch: autopilot-lane/B-384
-  Dispatched: 2026-11-18T05:15:12Z
+  Dispatched: 2026-11-18T06:28:15Z
   Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 73b4c18ce53298a12deab6eba3fdc39de18044a1
+  Call: Mac only (iOS task-row spinner is B-383) — AGENTS.md parity rule, D-743
+  Call: Indeterminate capsule task shows the static working dot, not a spinner or an empty slot — VISION 2 calm
+  Call: Stalled task shows the row's muted still pie (empty pie when there's no percent) — VISION 2 calm
 
 Lane: B-383
   Branch: autopilot-lane/B-383
@@ -155,3 +158,4 @@ Finished 5: B-388 landed dd1f3def2 · not visually verified
 - B-371 landed 4a8cda645. D-957..D-963.
 Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-371-1.png
 - Pick: B-383 light (iOS task-row spinner; independent of B-384's Mac capsule). Dispatched d-eb495c0a2ed1.
+- B-384 ready (general full, 5032 tests, not visually verified: no capsule fixture for running/stalled tasks). Calls vs D-743..D-748: consistent. Integration stale (B-371 landed) → re-verify round 1.
