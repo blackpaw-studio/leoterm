@@ -2,11 +2,12 @@ Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
 Digested-through: 15
-Filed: 0/3 bugs, 4/5 ideas
+Filed: 1/3 bugs, 4/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
 Self-filed: B-371 → B-434 idea — iOS composer still sends to a stopped agent (starts it, no Start bar)
 Self-filed: B-384 → B-435 idea — Task popover and header strip (LeoTaskDetailRow) still spin for indeterminate tasks
+Self-filed: B-302 → B-437 bug — iOS task prompt editor side edges ignore the safe area in landscape
 Self-filed: B-299 → B-436 idea — iOS Make Active preview is plain paragraphs with no emphasis on changed roles
 Untracked-left: default.profraw scratchpad/
 
@@ -244,11 +245,12 @@ Lane: B-302
   Dispatched: 2026-11-18T12:14:55Z
   Base: 34bda63a90d2e6682a43b9f78c590bd59750cb89
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 3b4d693f6f1d76772447d41b52799148cf2e7cab
+  Call: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBottomSafeArea = false, as in SchemaFormHost.swift) so the editor runs to the screen edge and UITextView insets clear the home indicator — AUTONOMY bug fix
 
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
@@ -325,3 +327,4 @@ Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
 Finished 15: B-299 landed 995a7eb77 · screen capture, not attached
 - Interim digest 3 posted (items 11–15).
 - Pick: B-302 light (iOS prompt editor safe area; B-299 landed). Dispatched d-d1a350966d21.
+- B-302 ready (general full; new frame assertion red before fix; iOS 177 + Mac 5047 green; 2 simulator screen captures at native pixels). Verifier saw light-mode Save greyed vs dark enabled (not checked whether pre-existing). Fresh.

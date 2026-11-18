@@ -3411,6 +3411,12 @@ Inbox: 20261118T021310552058Z-d91db23d#1
 Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
 Inbox: 20261024T234539423483Z-b13bef15#1
 
+
+## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [ready (next run)]
+Type: bug
+Report: iOS task prompt editor side edges ignore the safe area in landscape — TaskPromptViewController.swift:63-64 pins leading/trailing to the view, so in iPhone landscape the text may sit under the notch or Dynamic Island (inferred from code, not run)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-302)
 ## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
 Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
 Source: autopilot polish (B-218)
