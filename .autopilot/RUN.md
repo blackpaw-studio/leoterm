@@ -239,3 +239,4 @@ Finished 10: B-428 landed 580e44c07 · not visually verified
 - Interim digest 2 posted (items 6–10).
 - Pick: B-335 light (row menu submenu-parent enablement; independent of B-351's error line). Dispatched d-3bfa9172408b.
 - B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
+- Dispatched B-351 re-verify d-c384f97f449f.
