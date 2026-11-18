@@ -33,8 +33,12 @@ struct LeoRowActionAvailability {
     let move: Bool
     let copy: Bool
     let duplicate: Bool
+    /// B-382: the row lists a task, so "Show Tasks" opens its popover (the
+    /// VoiceOver action's condition).
+    let showTasks: Bool
 
-    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil, movedTo: String? = nil) {
+    init(status: LeoAgentStatus, isPending: Bool, repo: String? = nil, movedTo: String? = nil, hasTasks: Bool = false) {
+        showTasks = hasTasks
         newWorktree = SpawnValidation.ownerRepo(repo) != nil
         isMoved = movedTo != nil
         let editable = !isPending && (status == .stopped || status == .running)
@@ -108,7 +112,9 @@ struct LeoAgentRowView: View {
     @State private var showingAppearance = false
 
     private var availability: LeoRowActionAvailability {
-        LeoRowActionAvailability(status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo, movedTo: row.movedTo)
+        LeoRowActionAvailability(
+            status: row.status, isPending: actions.pendingActions.contains(row.id), repo: row.repo, movedTo: row.movedTo,
+            hasTasks: task != nil)
     }
 
     /// The row's task summary, for the VoiceOver value and action.
@@ -162,6 +168,11 @@ struct LeoAgentRowView: View {
         }.disabled(!availability.attach)
         // D-104: ⌘-click's new window, for the mouse user who doesn't know it.
         Button("Open in New Window") { attach(row, .newWindow) }.disabled(!availability.attach)
+        // B-382: the mouse route to the Tasks popover for every task set,
+        // including a row whose line 2 an error or warning has taken.
+        if availability.showTasks {
+            Button(TaskAccessibility.actionName) { showingTasks = true }
+        }
         Button("New Agent in Worktree…", action: newWorktreeAgent).disabled(!availability.newWorktree)
         Button("Start") { actions.start(row) }.disabled(!availability.start)
         Button("Stop") { actions.stop(row) }.disabled(!availability.stop)
