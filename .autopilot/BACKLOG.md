@@ -3386,3 +3386,7 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#1
 Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
 Inbox: 20261024T234539423483Z-b13bef15#1
+
+## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
+Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
+Source: autopilot polish (B-218)

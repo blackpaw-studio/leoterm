@@ -2,8 +2,9 @@ Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 0/3 bugs, 1/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
+Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -59,11 +60,14 @@ Lane: B-218
   Dispatched: 2026-11-18T02:44:48Z
   Base: fd620fa06078e8115e1e353b8f7779aaae993cd2
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 84fcfc5f1344684191609dfa8ef4389e0a80c698
+  Call: Product name is the literal "Leo" in alerts, palette, popovers, accessibility labels and window titles — P1
+  Call: Kept the 👻 prefix in default window titles ("👻 Leo") — P1
+  Call: Platform: Mac only; no "Ghostty" string in ios/ or Packages/ — Mac/iOS parity rule
 
 Lane: B-371
   Branch: autopilot-lane/B-371
@@ -90,3 +94,4 @@ Finished 2: B-432 blocked
 - B-431 blocked: couldn't reproduce (download tests 25× isolated, all pass ~12 s; full single-host runs timed out elsewhere under load 125–180). Shelved on autopilot-shelved/B-431.
 Finished 3: B-431 blocked
 - Pick: B-371 full (composer behavior, parity call; B-388 waits). Dispatched d-273e47e89288.
+- B-218 ready (fix 1, general full + delta review, window shot). Calls vs D-793/D-801: consistent. Fresh. Full suite had one unrelated flake per run under load (LeoTitleIntegrationTests known flaky; LeoMachineStatsPollerTests reconnect) — re-run at merge gate.
