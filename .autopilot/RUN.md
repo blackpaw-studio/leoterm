@@ -156,11 +156,12 @@ Lane: B-428
   Dispatched: 2026-11-18T07:04:55Z
   Base: 53ad53212034dcc6242300e663e5731d645059e7
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 5cdaa3ed4c0ed74cbaf72dbe8e76e6070f6ba8a4
+  Call: Mac only: AppKit address bar in the browser pane — D-925/D-929
 
 Lane: B-351
   Branch: autopilot-lane/B-351
@@ -218,3 +219,4 @@ Finished 8: B-384 landed 3ca216725 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-382 landed c69660e66. D-970..D-973.
 Finished 9: B-382 landed c69660e66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png
 - Pick: B-351 light (sidebar row move error wraps to two lines). Dispatched d-24c84ce977b0.
+- B-428 ready (general full, 5042 tests, not visually verified: browser pane needs a scratch daemon; tests post synthetic NSEvents). Fresh.
