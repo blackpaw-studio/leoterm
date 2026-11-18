@@ -31,7 +31,7 @@ class TerminalController: BaseTerminalController, TabGroupCloseCoordinator.Contr
     /// production reads `NSApp.isHidden`.
     var leoAppIsHidden: @MainActor () -> Bool = { NSApp.isHidden }
     /// B-070: the title a new window loads with -- the config's `title`,
-    /// else the nib's "👻 Ghostty" -- which a start screen reads.
+    /// else the nib's "👻 Leo" -- which a start screen reads.
     ///
     /// Captured once, in `windowDidLoad` (B-081): a config reload that
     /// changes `title` doesn't reach an open window's start screen, only
