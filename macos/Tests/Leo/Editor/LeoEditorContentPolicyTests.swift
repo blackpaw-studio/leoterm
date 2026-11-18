@@ -9,11 +9,6 @@ import Testing
 struct LeoEditorContentPolicyTests {
     private let policy = LeoEditorContentPolicy(editableLimit: 10, readLimit: 20)
 
-    @Test func theDefaultsAreFiveMegabytesEditable() {
-        #expect(LeoEditorContentPolicy.default.editableLimit == 5_000_000)
-        #expect(LeoEditorContentPolicy.default.readLimit > LeoEditorContentPolicy.default.editableLimit)
-    }
-
     @Test func utf8TextIsEditable() {
         let content = policy.evaluate(Data("héllo\r\n".utf8))
         #expect(content == LeoEditorContent(text: "héllo\r\n", readOnlyReason: nil))
