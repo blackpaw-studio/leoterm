@@ -376,7 +376,7 @@ struct ConfigCollectionTests {
 
     /// Waits until the fake daemon is sitting on a write.
     private static func untilHeld(_ fake: LeoFakeConfigClient) async {
-        for _ in 0..<1_000 where await fake.heldWriteCount == 0 { try? await Task.sleep(for: .milliseconds(5)) }
+        await settle { await fake.heldWriteCount > 0 }
     }
 
     /// Save on `coder` goes out and is held; the user discards, opens `reviewer`, and `reviewer` has one edit of its own.

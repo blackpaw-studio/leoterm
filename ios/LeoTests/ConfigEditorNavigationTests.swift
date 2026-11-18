@@ -42,35 +42,31 @@ struct ConfigEditorNavigationTests {
     }
 
     /// Waits for effects that finish on another thread; returns as soon as `condition` holds.
-    private static func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1_000 where !condition() { try? await Task.sleep(for: .milliseconds(5)) }
-    }
-
     @Test func openingAnItemPushesItsEditorAndClosingItPopsBack() async throws {
         let rig = try Self.rig()
-        await Self.settle { rig.store.core.phase == .loaded }
+        await settle { rig.store.core.phase == .loaded }
 
         rig.store.send(.rowTapped("coder"))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
         #expect(rig.navigation.topViewController is ConfigItemViewController)
 
         rig.store.send(.backTapped)
-        await Self.settle { rig.navigation.topViewController is ConfigCollectionViewController }
+        await settle { rig.navigation.topViewController is ConfigCollectionViewController }
         #expect(rig.navigation.topViewController is ConfigCollectionViewController)
     }
 
     @Test func backWithUnsavedEditsAsksAndKeepsTheEditorOnScreen() async throws {
         let rig = try Self.rig()
-        await Self.settle { rig.store.core.phase == .loaded }
+        await settle { rig.store.core.phase == .loaded }
         rig.store.send(.rowTapped("coder"))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
         let editor = try #require(rig.navigation.topViewController as? ConfigItemViewController)
         rig.store.send(.field("model", .string("sonnet")))
-        await Self.settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
+        await settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
 
         let backAction = try #require(editor.navigationItem.backAction)
         backAction.performWithSender(nil, target: nil)
-        await Self.settle { rig.store.leaveDialog != nil }
+        await settle { rig.store.leaveDialog != nil }
 
         #expect(rig.store.leaveDialog != nil)
         #expect(rig.navigation.topViewController === editor)
@@ -79,15 +75,15 @@ struct ConfigEditorNavigationTests {
 
     @Test func discardingFromTheQuestionPopsBackWithTheEditsGone() async throws {
         let rig = try Self.rig()
-        await Self.settle { rig.store.core.phase == .loaded }
+        await settle { rig.store.core.phase == .loaded }
         rig.store.send(.rowTapped("coder"))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
         rig.store.send(.field("model", .string("sonnet")))
         rig.store.send(.backTapped)
-        await Self.settle { rig.store.leaveDialog != nil }
+        await settle { rig.store.leaveDialog != nil }
 
         rig.store.send(.leaveDialog(.presented(.discard)))
-        await Self.settle { rig.navigation.topViewController is ConfigCollectionViewController }
+        await settle { rig.navigation.topViewController is ConfigCollectionViewController }
 
         #expect(rig.navigation.topViewController is ConfigCollectionViewController)
         #expect(rig.store.core.selection == nil)
@@ -96,14 +92,14 @@ struct ConfigEditorNavigationTests {
 
     @Test func aDirtyEditorKeepsTheSystemBackButtonAndItsBackActionAsks() async throws {
         let rig = try Self.rig()
-        await Self.settle { rig.store.core.phase == .loaded }
+        await settle { rig.store.core.phase == .loaded }
         let list = try #require(rig.navigation.topViewController as? ConfigCollectionViewController)
         rig.store.send(.rowTapped("coder"))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
         let editor = try #require(rig.navigation.topViewController as? ConfigItemViewController)
 
         rig.store.send(.field("model", .string("sonnet")))
-        await Self.settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
+        await settle { rig.navigation.interactivePopGestureRecognizer?.isEnabled == false }
 
         // One back button: the system's. Nothing hides it or stands in for it.
         #expect(!editor.navigationItem.hidesBackButton)
@@ -113,44 +109,44 @@ struct ConfigEditorNavigationTests {
         #expect(back.menu == nil)
         let backAction = try #require(editor.navigationItem.backAction)
         backAction.performWithSender(nil, target: nil)
-        await Self.settle { rig.store.leaveDialog != nil }
+        await settle { rig.store.leaveDialog != nil }
         #expect(rig.store.leaveDialog != nil)
         #expect(rig.navigation.topViewController === editor)
 
         // On iPad the question is a popover, pointing at the back button.
-        await Self.settle { editor.presentedViewController is UIAlertController }
+        await settle { editor.presentedViewController is UIAlertController }
         let dialog = try #require(editor.presentedViewController as? UIAlertController)
         #expect(dialog.popoverPresentationController?.sourceView === rig.navigation.navigationBar)
     }
 
     @Test func anEditorPoppedWhileDirtyComesBackWithItsEdits() async throws {
         let rig = try Self.rig()
-        await Self.settle { rig.store.core.phase == .loaded }
+        await settle { rig.store.core.phase == .loaded }
         rig.store.send(.rowTapped("coder"))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
         let editor = try #require(rig.navigation.topViewController as? ConfigItemViewController)
         rig.store.send(.field("model", .string("sonnet")))
 
         rig.navigation.popViewController(animated: false)
-        await Self.settle { rig.navigation.topViewController === editor }
+        await settle { rig.navigation.topViewController === editor }
 
         #expect(rig.navigation.topViewController === editor)
         #expect(rig.store.core.selection == "coder")
         #expect(rig.store.core.isDirty)
         #expect(rig.store.leaveDialog == nil)
         rig.store.send(.backTapped)
-        await Self.settle { rig.store.leaveDialog != nil }
+        await settle { rig.store.leaveDialog != nil }
         #expect(rig.store.leaveDialog != nil)
     }
 
     @Test func anEditorPoppedWhileCleanClosesTheItem() async throws {
         let rig = try Self.rig()
-        await Self.settle { rig.store.core.phase == .loaded }
+        await settle { rig.store.core.phase == .loaded }
         rig.store.send(.rowTapped("coder"))
-        await Self.settle { rig.navigation.topViewController is ConfigItemViewController }
+        await settle { rig.navigation.topViewController is ConfigItemViewController }
 
         rig.navigation.popViewController(animated: false)
-        await Self.settle { rig.store.core.selection == nil }
+        await settle { rig.store.core.selection == nil }
 
         #expect(rig.store.core.selection == nil)
         #expect(rig.navigation.topViewController is ConfigCollectionViewController)

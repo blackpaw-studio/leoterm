@@ -38,10 +38,6 @@ struct ChatImageViewerTests {
         return window
     }
 
-    private static func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1_000 where !condition() { try? await Task.sleep(for: .milliseconds(5)) }
-    }
-
     private static func viewer(
         _ ids: [String], start: Int, files: [String: File], need: @escaping (LeoChatAttachment) -> Void = { _ in }
     ) -> ChatImageViewerController {
@@ -140,7 +136,7 @@ struct ChatImageViewerTests {
         #expect(host.presentedViewController === viewer)
 
         viewer.closeButton.sendActions(for: .primaryActionTriggered)
-        await Self.settle { host.presentedViewController == nil }
+        await settle { host.presentedViewController == nil }
 
         #expect(host.presentedViewController == nil)
     }
@@ -160,7 +156,7 @@ struct ChatImageViewerTests {
         let viewer = ChatImageViewerController.present(
             from: host, gallery: Self.gallery(["a"], start: 0), file: { _ in .loading }, need: { _ in }, animated: false
         )
-        await Self.settle { viewer.viewIfLoaded?.window != nil }
+        await settle { viewer.viewIfLoaded?.window != nil }
 
         #expect(host.disappearCount == 0)
     }

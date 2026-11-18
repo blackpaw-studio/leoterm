@@ -29,10 +29,6 @@ struct DialogAnchorTests {
         return window
     }
 
-    private static func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1_000 where !condition() { try? await Task.sleep(for: .milliseconds(5)) }
-    }
-
     @Test func aSheetCanPointAtABarButton() {
         let item = UIBarButtonItem(title: "Save")
 
@@ -75,7 +71,7 @@ struct DialogAnchorTests {
         let window = Self.window(for: navigation)
         navigation.pushViewController(prompt, animated: false)
 
-        await Self.settle { navigation.presentedViewController is UIAlertController }
+        await settle { navigation.presentedViewController is UIAlertController }
 
         let dialog = try #require(navigation.presentedViewController as? UIAlertController)
         #expect(dialog.popoverPresentationController?.barButtonItem === prompt.navigationItem.rightBarButtonItems?.first)

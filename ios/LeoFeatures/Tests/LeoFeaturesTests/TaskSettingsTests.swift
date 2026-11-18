@@ -462,12 +462,3 @@ struct TaskSettingsTests {
         #expect(await harness.promptSaves().isEmpty)
     }
 }
-
-/// Polls `condition` with short sleeps: a held write is reached from another
-/// thread, which `Task.yield` doesn't wait for.
-@MainActor
-func settle(_ condition: () async -> Bool) async {
-    for _ in 0..<400 where !(await condition()) {
-        try? await Task.sleep(for: .milliseconds(5))
-    }
-}
