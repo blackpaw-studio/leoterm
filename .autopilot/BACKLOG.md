@@ -3342,7 +3342,7 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#31
 Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
 
-## B-428 · Drag-select part of the URL in an unfocused address bar   [ready]
+## B-428 · Drag-select part of the URL in an unfocused address bar   [done]
 Issue: #405
 Why: Safari lets you drag-select part of the URL; here the first drag can't, because an unfocused mouseDown selects all and swallows the drag.
 Accept: Dragging in an unfocused address bar selects a partial range; a click without drag still selects all; a test covers both.
@@ -3350,6 +3350,8 @@ Out: Changing ⌘L behaviour (B-420).
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#26
 Note: the first click selects everything and skips `super` (`LeoAgentBrowserToolbar.swift:303`); Safari lets that drag partially select — P1 Safari parity
+Done: 2f41ff8a9
+Verified: not visually verified — browser pane needs a scratch daemon with a stub claude; synthetic NSEvent tests, full suite 5042 green
 
 ## B-335 · Set Environments and Switch menu parents disabled for a pending agent…   [ready]
 Issue: #406
