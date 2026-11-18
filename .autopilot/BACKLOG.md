@@ -3278,7 +3278,7 @@ Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; p
 Done: 6d81f197a 84fcfc5f1
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
 
-## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [ready]
+## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [done]
 Issue: #399
 Why: Text typed to a stopped agent vanishes silently, which is a trust failure in the chat.
 Accept: The composer for a stopped agent is disabled or says why; sending shows an explicit refusal; the stopped-chat path has a test.
@@ -3286,6 +3286,8 @@ Out: Starting the agent from the composer.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#56
 Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
+Done: 86e6a05e4 17b5ef323
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-371-1.png
 
 ## B-388 · Fix the LeoTemplateListTests refetch flake under load   [done]
 Issue: #400

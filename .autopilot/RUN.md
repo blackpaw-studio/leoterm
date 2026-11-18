@@ -76,10 +76,11 @@ Lane: B-371
   Dispatched: 2026-11-18T05:31:25Z
   Base: 9721a21fae384b70dfb50af0a7043717b015cd36
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
+  Tokens: 39.9M in (38.9M cache read), ≥139k out, 362 requests
   Reviewed-tip: 7997dbb8ed64f02be8c92aed89b47c47590cbd77
   Call: Refuse on the client; never let the daemon auto-start from the composer (the daemon starts a stopped agent on POST) — P2, D-724, item Out
   Call: Typing stays enabled; only send is gated and the draft is kept with a notice — P1
@@ -140,3 +141,5 @@ Finished 5: B-388 landed dd1f3def2 · not visually verified
 - B-371 ready (fix 1, general full + delta, 5035 tests, window shots). Calls vs D-723..D-726, D-948: consistent. Integration stale (B-218, B-388 landed) → re-verify round 1. Note: a "Leo quit unexpectedly" dialog appeared during its verify; debug app survived, cause unconfirmed.
 - Dispatched B-371 re-verify d-b2aa58412a71.
 - B-371 re-verify 1 ready (general delta, 5037 tests, window shot). Fresh.
+- B-371 landed 4a8cda645. D-957..D-963.
+Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-371-1.png
