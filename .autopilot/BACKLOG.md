@@ -3420,3 +3420,7 @@ Source: autopilot polish (B-371)
 ## B-435 · Task popover and header strip still spin for indeterminate tasks   [idea]
 Note: LeoTaskDetailRow (LeoTaskListView.swift:40) still shows a ProgressView spinner for indeterminate tasks — P2 calm, same direction as B-381/B-384
 Source: autopilot polish (B-384)
+
+## B-436 · iOS Make Active preview is plain paragraphs with no emphasis on changed roles   [idea]
+Note: clearer confirmation before switching delegation profile on iOS; also move the preview wording and effort-level list into LeoKit (duplicated on iOS)
+Source: autopilot polish (B-299)

@@ -2,11 +2,12 @@ Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
 Digested-through: 10
-Filed: 0/3 bugs, 3/5 ideas
+Filed: 0/3 bugs, 4/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
 Self-filed: B-371 → B-434 idea — iOS composer still sends to a stopped agent (starts it, no Start bar)
 Self-filed: B-384 → B-435 idea — Task popover and header strip (LeoTaskDetailRow) still spin for indeterminate tasks
+Self-filed: B-299 → B-436 idea — iOS Make Active preview is plain paragraphs with no emphasis on changed roles
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -226,11 +227,16 @@ Lane: B-299
   Dispatched: 2026-11-18T09:54:22Z
   Base: e0f97344e9faf83d7eb72be34784944e4f7c3cf6
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 96b8357d78d3b2e1155d541d4217822e825c3d75
+  Call: Daemon row replaces Service on iOS; Service becomes its first section — Mac/iOS parity (matches the Mac merge in settings-sidebar step 8)
+  Call: Delegation on the phone drills down (profiles → roles → cell editor sheet) instead of a grid — parity rule: shared logic, layout fits the screen
+  Call: iOS Settings row order follows the Mac sidebar minus Appearance (B-319) — parity, P3
+  Call: "Edit on the web" uses public_urls[0], then the paired baseURL, then nothing — P3
+  Call: Rename, copy and delete are swipe actions, held while edits are unsaved; edit sheets close only on Cancel or Save; hidden agents is one name per line; Add Role defaults to the first template — reversible UI calls
 
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
@@ -302,3 +308,4 @@ Finished 13: B-182 landed 58e41019f · not visually verified
 - B-400 landed 9c9070a2f. D-981..D-983.
 Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
 - B-302 overlaps open B-299 (iOS Settings); waits.
+- B-299 ready (hard implementer, concurrency full review: 4 polish, 3 accepted risks; LeoKit 1939, Mac 5047, iOS 125 + 13 screen tests; 11 simulator screen captures). LeoSettingsE2ETests all skipped (no pairing payload). Unchecked: tab bar may cover last rows of Delegation/Defaults (not filed: its own re-check). Fresh.
