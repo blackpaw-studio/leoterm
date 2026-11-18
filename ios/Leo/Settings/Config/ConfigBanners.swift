@@ -128,6 +128,19 @@ enum ConfigBanners {
         ))
     }
 
+    static func banners(_ store: StoreOf<DelegationSettings>, restart: StoreOf<MachineRestart>? = nil) -> [ConfigBanner] {
+        let core = store.core
+        let input = ConfigBannerInput(
+            isMachineConnected: store.isMachineConnected, isDirty: core.hasUnsavedChanges, hasConflict: core.conflict != nil,
+            restartPrompt: core.restartPrompt, warning: core.warning, errorMessage: core.errorMessage
+        )
+        return banners(input, restart: restart, actions: ConfigBannerActions(
+            reload: { store.send(.reloadTapped) }, overwrite: { store.send(.overwriteTapped) },
+            restart: { store.send(.restartBannerTapped($0)) }, dismissRestart: { store.send(.dismissRestartBanner) },
+            dismissError: { store.send(.dismissErrorTapped) }
+        ))
+    }
+
     static func banners(_ input: ConfigBannerInput, restart: StoreOf<MachineRestart>?, actions: ConfigBannerActions) -> [ConfigBanner] {
         var banners: [ConfigBanner] = []
         if let restart, restart.isRestarting {
