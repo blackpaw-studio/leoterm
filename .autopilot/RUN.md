@@ -114,7 +114,7 @@ Lane: B-384
   Fixes: 0
   Wip: none
   Reverifies: 2
-  Reviewed-tip: 929d8f00cdd8002daa853a73c4588f6a161a7a22
+  Reviewed-tip: aa0161fc23623536d498e97e978b94dff15e8af0
   Call: Mac only (iOS task-row spinner is B-383) — AGENTS.md parity rule, D-743
   Call: Indeterminate capsule task shows the static working dot, not a spinner or an empty slot — VISION 2 calm
   Call: Stalled task shows the row's muted still pie (empty pie when there's no percent) — VISION 2 calm
@@ -182,3 +182,4 @@ Finished 7: B-383 landed 82075531a · not visually verified
 - Pick: B-382 light (row context menu Show Tasks; B-351 skipped ahead? no — B-382 is next in order). Dispatched d-8c459759d9aa.
 - B-384 re-verify 1 ready (general delta, 5040 tests). Stale again (B-383 landed, iOS-only files) → re-verify round 2; no new lane opens until it lands. Polish "eyeball muted-pie contrast" not filed (its own re-check).
 - Dispatched B-384 re-verify 2 d-b4f5fd176179.
+- B-384 re-verify 2 ready (general delta, 5040 tests, 3 window shots: determinate/indeterminate/stalled). Fresh.
