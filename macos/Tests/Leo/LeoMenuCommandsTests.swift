@@ -52,6 +52,21 @@ struct LeoMenuCommandsTests {
         #expect(try LeoMenuXib.titles(forAction: "setTemplateForSelectedLeoAgent:") == ["Set Template"])
     }
 
+    /// B-335: same AppKit quirk as B-329 for the two environment submenu parents.
+    @Test func theSetEnvironmentsAndSwitchParentsHaveActionsToValidate() throws {
+        #expect(try LeoMenuXib.titles(forAction: "setEnvironmentsForSelectedLeoAgent:") == ["Set Environments"])
+        #expect(try LeoMenuXib.titles(forAction: "switchEnvironmentForSelectedLeoAgent:") == ["Switch to"])
+    }
+
+    @Test func environmentParentsAreDisabledForAPendingRowLikeSetTemplate() {
+        let pending = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: LeoRowActionAvailability(status: .running, isPending: true))
+        #expect(!LeoMenuCommands.canSetEnvironments(pending) && !LeoMenuCommands.canSwitchEnvironment(pending))
+        let live = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: LeoRowActionAvailability(status: .running, isPending: false))
+        #expect(LeoMenuCommands.canSetEnvironments(live) && LeoMenuCommands.canSwitchEnvironment(live))
+        let none = LeoMenuCommands.AgentContext(hasLeoSession: true, availability: nil)
+        #expect(!LeoMenuCommands.canSetEnvironments(none) && !LeoMenuCommands.canSwitchEnvironment(none))
+    }
+
     @Test @MainActor func setTemplateItemIsFoundByIdentifierNotTitle() {
         let item = NSMenuItem(title: "Set Template", action: nil, keyEquivalent: "")
         item.identifier = LeoAgentsMenuController.setTemplateItemIdentifier

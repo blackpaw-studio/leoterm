@@ -87,6 +87,11 @@ extension TerminalController {
     /// is always enabled, whatever its `isEnabled`).
     @IBAction func setTemplateForSelectedLeoAgent(_ sender: Any?) {}
 
+    /// Agents ▸ Set Environments and Switch to parents (B-335): same reason as
+    /// Set Template, a submenu parent needs an action for AppKit to validate it.
+    @IBAction func setEnvironmentsForSelectedLeoAgent(_ sender: Any?) {}
+    @IBAction func switchEnvironmentForSelectedLeoAgent(_ sender: Any?) {}
+
     @IBAction func jumpToNextLeoAgentNeedingAttention(_ sender: Any?) {
         guard let leoSession, let runtime = leoRuntime else { return }
         runtime.jumpToNextNeedingAttention(from: leoSession)
@@ -124,6 +129,8 @@ extension TerminalController {
     func validateLeoRenameMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canRename(selectedLeoAgentContext) }
     func validateLeoViewLogsMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canViewLogs(selectedLeoAgentContext) }
     func validateLeoSetTemplateMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canSetTemplate(selectedLeoAgentContext) }
+    func validateLeoSetEnvironmentsMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canSetEnvironments(selectedLeoAgentContext) }
+    func validateLeoSwitchEnvironmentMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canSwitchEnvironment(selectedLeoAgentContext) }
     func validateLeoDeleteMenuItem(_ item: NSMenuItem) -> Bool { LeoMenuCommands.canDelete(selectedLeoAgentContext) }
     func validateLeoDuplicateMenuItem(_ item: NSMenuItem) -> Bool { validateLeoMoveMenuItem(item, LeoMenuCommands.canDuplicate) }
     func validateLeoMoveMenuItem(_ item: NSMenuItem, _ can: (LeoMenuCommands.AgentContext) -> Bool) -> Bool {
@@ -335,7 +342,7 @@ extension TerminalController {
         let actions = runtime.actions
         for (item, _, _) in targets {
             item.isHidden = false
-            item.isEnabled = LeoMenuCommands.canSetTemplate(controller.selectedLeoAgentContext)
+            item.isEnabled = LeoMenuCommands.canSetEnvironments(controller.selectedLeoAgentContext)
         }
         let fill = { [weak self, weak controller] (catalog: LeoEnvironmentCatalogState) in
             guard let self else { return }

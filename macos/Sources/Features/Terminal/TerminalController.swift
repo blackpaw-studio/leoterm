@@ -2161,6 +2161,12 @@ extension TerminalController {
         case #selector(setTemplateForSelectedLeoAgent(_:)):
             return validateLeoSetTemplateMenuItem(item)
 
+        case #selector(setEnvironmentsForSelectedLeoAgent(_:)):
+            return validateLeoSetEnvironmentsMenuItem(item)
+
+        case #selector(switchEnvironmentForSelectedLeoAgent(_:)):
+            return validateLeoSwitchEnvironmentMenuItem(item)
+
         case #selector(deleteSelectedLeoAgent(_:)):
             return validateLeoDeleteMenuItem(item)
 

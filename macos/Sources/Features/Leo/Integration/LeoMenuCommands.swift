@@ -59,6 +59,9 @@ enum LeoMenuCommands {
     static func canStop(_ context: AgentContext) -> Bool { enabled(context) { $0.stop } }
     static func canRestart(_ context: AgentContext) -> Bool { enabled(context) { $0.restart } }
     static func canSetTemplate(_ context: AgentContext) -> Bool { enabled(context) { $0.setTemplate } }
+    /// B-335: the two environment submenu parents follow Set Template.
+    static func canSetEnvironments(_ context: AgentContext) -> Bool { canSetTemplate(context) }
+    static func canSwitchEnvironment(_ context: AgentContext) -> Bool { canSetTemplate(context) }
     static func canRename(_ context: AgentContext) -> Bool { enabled(context) { $0.rename } }
     static func canViewLogs(_ context: AgentContext) -> Bool { enabled(context) { $0.logs } }
     static func canDelete(_ context: AgentContext) -> Bool { enabled(context) { $0.delete } }
