@@ -24,6 +24,25 @@ struct LeoSettingsMenuTests {
     }
 }
 
+@MainActor struct LeoSettingsMenuIconTests {
+    private func symbolImage(_ name: String) throws -> NSImage {
+        try #require(NSImage(systemSymbolName: name, accessibilityDescription: nil))
+    }
+
+    @Test func theGearSitsOnSettingsAndNotOnOpenGhosttyConfig() throws {
+        guard #available(macOS 26, *) else { return }  // icons are only set on macOS 26+
+        let settings = NSMenuItem(title: "Settings…", action: nil, keyEquivalent: ",")
+        let openConfig = NSMenuItem(title: "Open Ghostty Config", action: nil, keyEquivalent: "")
+
+        LeoSettingsMenuIcons.apply(settings: settings, openConfig: openConfig)
+
+        let gear = try symbolImage("gear")
+        let settingsImage = try #require(settings.image)
+        #expect(settingsImage.tiffRepresentation == gear.tiffRepresentation)
+        #expect(openConfig.image?.tiffRepresentation != gear.tiffRepresentation)
+    }
+}
+
 private final class Recorder: NSObject {
     var fired: [String] = []
     @objc func settings(_ sender: Any?) { fired.append("settings") }
