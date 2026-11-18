@@ -3355,7 +3355,7 @@ Note: the first click selects everything and skips `super` (`LeoAgentBrowserTool
 Done: 2f41ff8a9
 Verified: not visually verified — browser pane needs a scratch daemon with a stub claude; synthetic NSEvent tests, full suite 5042 green
 
-## B-335 · Set Environments and Switch menu parents disabled for a pending agent…   [ready]
+## B-335 · Set Environments and Switch menu parents disabled for a pending agent…   [done]
 Issue: #406
 Note: Set Environments and Switch menu parents disabled for a pending agent row
 Why: The same AppKit submenu-parent quirk B-329 fixed for Set Template is still open for these two parents on a pending row.
@@ -3364,6 +3364,8 @@ Out: Changing which environments are offered.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#21
 Note: Mac-native enable/disable — same AppKit submenu-parent-without-action quirk B-329 fixed for Set Template
+Done: 7d9914654
+Verified: not visually verified — a pending row needs spawned agents; xib action-binding test (red before fix) + pending-row enablement test, full suite 5045 green
 
 ## B-182 · Clearing a restored custom terminal name brings back the live title   [ready]
 Why: After a restart, clearing a custom name brings back the stale saved title instead of the live one.

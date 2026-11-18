@@ -2064,3 +2064,9 @@ Chose: Only the .error detail wraps, to at most two lines; other details stay on
 Why: P2 Calm, P6
 Commit: 235b7835b
 Veto: [ ]
+
+## D-978 · 2026-11-18 · B-335: Mac only: AppKit menu parents get an action the window validates, foll…
+Chose: Mac only: AppKit menu parents get an action the window validates, following B-329's Set Template pattern
+Why: P1 Mac-native
+Commit: 7d9914654
+Veto: [ ]
