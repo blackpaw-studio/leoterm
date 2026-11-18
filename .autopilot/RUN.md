@@ -301,3 +301,4 @@ Finished 13: B-182 landed 58e41019f · not visually verified
 - B-400 re-verify 1 ready (general delta, 5047 tests; not visually verified: this host (macOS 27) renders no menu icons at all; screen captures only). Fresh.
 - B-400 landed 9c9070a2f. D-981..D-983.
 Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
+- B-302 overlaps open B-299 (iOS Settings); waits.
