@@ -681,6 +681,9 @@ CA
                             </menuItem>
                             <menuItem title="Set Environments" hidden="YES" identifier="leo.agents.setEnvironments" id="Leo-Agents-SetEnvironments">
                                 <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="setEnvironmentsForSelectedLeoAgent:" target="-1" id="Leo-Agents-SetEnvironments-Action"/>
+                                </connections>
                                 <menu key="submenu" title="Set Environments" id="Leo-Agents-SetEnvironments-Menu">
                                     <items>
                                         <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SetEnvironments-Placeholder"/>
@@ -689,6 +692,9 @@ CA
                             </menuItem>
                             <menuItem title="Switch to" hidden="YES" identifier="leo.agents.switchEnvironment" id="Leo-Agents-SwitchEnvironment">
                                 <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="switchEnvironmentForSelectedLeoAgent:" target="-1" id="Leo-Agents-SwitchEnvironment-Action"/>
+                                </connections>
                                 <menu key="submenu" title="Switch to" id="Leo-Agents-SwitchEnvironment-Menu">
                                     <items>
                                         <menuItem title="No Agent Selected" enabled="NO" id="Leo-Agents-SwitchEnvironment-Placeholder"/>
