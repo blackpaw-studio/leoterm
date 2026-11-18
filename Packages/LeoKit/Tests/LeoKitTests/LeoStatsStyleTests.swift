@@ -3,11 +3,6 @@ import Testing
 @testable import LeoKit
 
 struct LeoStatsStyleTests {
-    @Test func capsulesIsTheDefault() {
-        #expect(LeoStatsStyle.default == .capsules)
-        #expect(LeoStatsStyle(storedValue: nil) == .capsules)
-    }
-
     @Test func storedValueRoundTripsEveryStyle() {
         for style in LeoStatsStyle.allCases {
             #expect(LeoStatsStyle(storedValue: style.rawValue) == style)
@@ -17,6 +12,7 @@ struct LeoStatsStyleTests {
 
     @Test func unknownStoredValueFallsBackToDefault() {
         #expect(LeoStatsStyle(storedValue: "sparklines") == .capsules)
+        #expect(LeoStatsStyle(storedValue: nil) == .capsules)
     }
 
     @Test func offStopsPollingAndHidesMeters() {

@@ -64,11 +64,7 @@ struct LeoBrowserExecutorDialogTests {
 
     /// Spins the main actor until `condition` holds (bounded, no wall-clock sleep).
     private func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1000 {
-            if condition() { return }
-            await Task.yield()
-        }
-        Issue.record("condition never held")
+        await awaitCondition(message: "condition never held") { condition() }
     }
 
     // MARK: - While a dialog is open

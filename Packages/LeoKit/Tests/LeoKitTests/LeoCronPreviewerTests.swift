@@ -100,7 +100,7 @@ struct LeoCronPreviewerTests {
         func start(_ expression: String) async -> Task<LeoCronPreviewResult?, Never> {
             let before = await sleeper.pending
             let task = Task { await previewer.preview(expression) }
-            while await sleeper.pending == before { await Task.yield() }
+            await awaitCondition { await sleeper.pending != before }
             return task
         }
     }
@@ -169,7 +169,7 @@ struct LeoCronPreviewerTests {
         await rig.fetches.hold("0 3 * * *")
         let slow = await rig.start("0 3 * * *")
         await rig.sleeper.advance(by: .milliseconds(400))
-        while await rig.fetches.expressions.isEmpty { await Task.yield() }
+        await awaitCondition { await !rig.fetches.expressions.isEmpty }
 
         let newer = await rig.start("1 3 * * *")
         await rig.fetches.release("0 3 * * *")

@@ -800,13 +800,9 @@ struct LeoBrowserExecutorTests {
         #expect(outcomes["a"].flatMap(errorCode) == "cancelled")
     }
 
-    /// Spins the main actor until `condition` holds (bounded, no wall-clock sleep).
+    /// Spins the main actor until `condition` holds (deadline-bounded).
     private func settle(_ condition: @MainActor () -> Bool) async {
-        for _ in 0..<1000 {
-            if condition() { return }
-            await Task.yield()
-        }
-        Issue.record("condition never held")
+        await awaitCondition(message: "condition never held") { condition() }
     }
 }
 

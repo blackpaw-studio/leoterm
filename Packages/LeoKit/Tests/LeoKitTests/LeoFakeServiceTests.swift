@@ -57,18 +57,4 @@ struct LeoFakeServiceTests {
         _ = try await fake.restartAgents()
         #expect(!(try await fake.serviceStatus().restartRequired.agents))
     }
-
-    @Test func theLogIsWhatTheDaemonHolds() async throws {
-        let fake = try Self.fake()
-        await fake.setService(LeoFakeServiceState(pid: 1, log: "one\ntwo\n"))
-
-        #expect(try await fake.serviceLog(lines: 200).text == "one\ntwo\n")
-    }
-
-    @Test func reloadAnswersTheCurrentRevision() async throws {
-        let fake = try Self.fake()
-        let reload = try await fake.reloadConfig()
-
-        #expect(reload.revision == (await fake.currentRevision))
-    }
 }

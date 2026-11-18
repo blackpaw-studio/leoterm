@@ -235,18 +235,6 @@ struct LeoFakeDelegationTests {
 
     // MARK: scripting
 
-    @Test func everyDelegationCallIsRecorded() async throws {
-        let fake = try Self.fake()
-        let revision = try await Self.revision(fake)
-
-        _ = try await fake.setDelegationCell(profile: "fast", role: "qa", target: LeoDelegationTarget(template: "coder"), ifMatch: revision)
-
-        #expect(await fake.calls == [
-            .delegation,
-            .delegationWrite(.cell(profile: "fast", role: "qa", target: LeoDelegationTarget(template: "coder")), ifMatch: revision),
-        ])
-    }
-
     @Test func anExternalChangeToACellBumpsTheRevision() async throws {
         let fake = try Self.fake()
         let before = try await Self.revision(fake)

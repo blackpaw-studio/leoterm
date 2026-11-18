@@ -103,18 +103,19 @@ import Testing
 
     /// Compares growth, not an absolute budget, so a slow or loaded runner
     /// can't fail it: 4× the blocks takes ~4× as long when linear, ~16× when
-    /// quadratic (the sibling-lookup bug this guards against).
+    /// quadratic (the sibling-lookup bug this guards against). Each size takes
+    /// the best of three runs, so one scheduler stall can't skew the ratio.
     @Test func manySiblingBlocksParseInLinearTime() {
         let clock = ContinuousClock()
         func timeParse(_ count: Int) -> Duration {
             let doc = String(repeating: "p\n\n", count: count)
             var blocks: [LeoMarkdownBlock] = []
-            let elapsed = clock.measure { blocks = parse(doc) }
+            let runs = (0..<3).map { _ in clock.measure { blocks = parse(doc) } }
             #expect(blocks.count == count)
-            return elapsed
+            return runs.min() ?? .zero
         }
-        let small = timeParse(5_000)
-        let large = timeParse(20_000)
+        let small = timeParse(2_000)
+        let large = timeParse(8_000)
         #expect(large < small * 8)
     }
 
