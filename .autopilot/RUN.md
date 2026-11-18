@@ -80,13 +80,14 @@ Lane: B-371
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 86e6a05e40e55cf5421314f0aba8d4cfa348d43b
+  Reviewed-tip: 7997dbb8ed64f02be8c92aed89b47c47590cbd77
   Call: Refuse on the client; never let the daemon auto-start from the composer (the daemon starts a stopped agent on POST) — P2, D-724, item Out
   Call: Typing stays enabled; only send is gated and the draft is kept with a notice — P1
   Call: `.starting` sends; `.stopped`/`.unknown` refuse "isn't running"; `.restoring` refuses "still starting" — P2
   Call: Mac only; iOS untouched (its send starts the agent and it has no Start bar, D-723) — Mac/iOS rule
   Call: Refusal notice withdrawn on agent switch and once the agent becomes sendable — P2
   Call: Send arrow dimmed while refused — P1/HIG
+  Call: Composer for a stopped agent: send arrow disabled, placeholder "Start <name> to send a message"; Return shows a warning banner and keeps the draft — P2
 
 Lane: B-388
   Branch: autopilot-lane/B-388
@@ -138,3 +139,4 @@ Finished 5: B-388 landed dd1f3def2 · not visually verified
 - Pick: B-384 light (Mac toolbar capsule spinner). Dispatched d-c5112f76f5b7.
 - B-371 ready (fix 1, general full + delta, 5035 tests, window shots). Calls vs D-723..D-726, D-948: consistent. Integration stale (B-218, B-388 landed) → re-verify round 1. Note: a "Leo quit unexpectedly" dialog appeared during its verify; debug app survived, cause unconfirmed.
 - Dispatched B-371 re-verify d-b2aa58412a71.
+- B-371 re-verify 1 ready (general delta, 5037 tests, window shot). Fresh.
