@@ -208,9 +208,24 @@ Lane: B-182
 
 Lane: B-400
   Branch: autopilot-lane/B-400
-  Dispatched: 2026-11-18T09:33:29Z
+  Dispatched: 2026-11-18T10:23:00Z
   Base: 0862df82c174c1ba61f0356eb5902e27e67fcb57
   Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Tokens: 11.1M in (10.6M cache read), ≥43.1k out, 132 requests
+  Reviewed-tip: 9e09dd00c43f92b1a8f4bc09091b4a905a6b3f4c
+  Call: Open Ghostty Config gets a doc.text icon instead of none, since macOS 26 menus show icons throughout — P1
+  Call: Mac only, because iOS has no app menu — D-795, D-954
+  Call: Open Ghostty Config kept and not renamed — item Out
+
+Lane: B-299
+  Branch: autopilot-lane/B-299
+  Dispatched: 2026-11-18T09:54:22Z
+  Base: e0f97344e9faf83d7eb72be34784944e4f7c3cf6
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
@@ -280,3 +295,10 @@ Finished 12: B-335 landed fdb5bbdb6 · not visually verified
 - B-182 ready (general full after one review retry — first reviewer 'turn 1 lost'; 5046 tests; decode-then-clear test red before fix; not visually verified: restart-restore needs relaunch with saved state). Fresh.
 - B-182 landed 58e41019f. D-979..D-980.
 Finished 13: B-182 landed 58e41019f · not visually verified
+- Pick: B-299 full (iOS Settings panes, new screens; independent of B-400). Dispatched d-9f12c0db4314.
+- B-400 ready (general full, 5046 tests; not visually verified: App menu capture failed; peekaboo menu list + LeoSettingsMenuIconTests). Stale (B-182 landed) → re-verify round 1.
+- Dispatched B-400 re-verify d-cd578b8035aa.
+- B-400 re-verify 1 ready (general delta, 5047 tests; not visually verified: this host (macOS 27) renders no menu icons at all; screen captures only). Fresh.
+- B-400 landed 9c9070a2f. D-981..D-983.
+Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
+- B-302 overlaps open B-299 (iOS Settings); waits.
