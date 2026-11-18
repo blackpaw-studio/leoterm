@@ -81,6 +81,17 @@ Lane: B-371
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-388
+  Branch: autopilot-lane/B-388
+  Dispatched: 2026-11-18T04:05:54Z
+  Base: 8a7820117a218fc1cad37e3f095f07ada2505264
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -98,3 +109,4 @@ Finished 3: B-431 blocked
 - B-218 ready (fix 1, general full + delta review, window shot). Calls vs D-793/D-801: consistent. Fresh. Full suite had one unrelated flake per run under load (LeoTitleIntegrationTests known flaky; LeoMachineStatsPollerTests reconnect) — re-run at merge gate.
 - B-218 landed 4be252b4f. D-952..D-954. Filed B-433 idea (Ghostty.sdef).
 Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
+- Pick: B-388 light (test flake fix). Dispatched d-6be9d413e408.
