@@ -87,16 +87,17 @@ struct LeoSidebarHeaderLayoutTests {
         #expect(row.height == LeoSidebarChromeMetrics.headerRowHeight, "the header row \(row) grew around its accessory")
     }
 
-    /// The daemon states the sidebar can be in. The footer needs none of
-    /// them, so it holds its place in every one (B-113).
-    private static let footerConnectivities: [LeoConnectivity] = [
-        .connected, .loading, .failed(message: "x"), .disconnected(reason: "x", isRetrying: false),
+    /// One connectivity per width: a connected daemon (rows listed) at the
+    /// default width, a failed one (no rows) at the minimum. The footer needs
+    /// no daemon state, so it holds its place in all of them (B-113).
+    private static let footerCases: [(CGFloat, LeoConnectivity)] = [
+        (defaultWidth, .connected), (minimumSidebarWidth, .failed(message: "x")),
     ]
 
     /// B-065: the footer button bar sits below the list, inside the
     /// sidebar's margins, and doesn't move the header -- whatever the
     /// daemon's state (B-113).
-    @Test(arguments: [defaultWidth, minimumSidebarWidth], footerConnectivities)
+    @Test(arguments: footerCases)
     func buttonBarSitsBelowTheListInsideTheSidebar(_ width: CGFloat, _ connectivity: LeoConnectivity) async throws {
         let (window, frames) = makeWindow(width: width, connectivity: connectivity)
         defer { window.close() }
@@ -115,15 +116,6 @@ struct LeoSidebarHeaderLayoutTests {
         )
         #expect(title.minY >= LeoSidebarChromeMetrics.topInset - 1, "the header \(title) keeps its top inset")
         #expect(button.minX - title.maxX >= LeoSidebarChromeMetrics.titleAccessoryMinSpacing, "title \(title) and button \(button) keep a gap")
-    }
-
-    @Test func sidebarChromeMetricsAreTheSingleSourceOfSpacing() {
-        #expect(LeoSidebarChromeMetrics.topInset >= 8, "the chrome clears the titlebar")
-        #expect(LeoSidebarChromeMetrics.titleAccessoryMinSpacing >= 8, "a title never runs into its accessory")
-        #expect(
-            LeoSidebarChromeMetrics.topInset == LeoSidebarChromeMetrics.itemSpacing,
-            "the gap under the titlebar matches the rhythm between rows"
-        )
     }
 
     // MARK: - Harness

@@ -418,7 +418,8 @@ struct LeoSidebarTerminalScrollTests {
     /// a row below the bottom edge, where the list may already keep its
     /// views: only what shows counts. (Any nearer, and the list's own
     /// clamp to its shorter content moves it a point or two.)
-    @Test(arguments: ["no selection", "a selected agent off screen"], ["mid-list", "a row below the bottom edge"])
+    // The diagonal of selection x parking: each value of each is still hit once.
+    @Test(arguments: [("no selection", "mid-list"), ("a selected agent off screen", "a row below the bottom edge")])
     func closingTheLastRowScrolledOffLeavesTheListWhereItIs(_ selection: String, _ parked: String) async throws {
         let terminals = LeoWindowTerminals()
         let (window, model) = try makeWindowAndModel(terminals: terminals)

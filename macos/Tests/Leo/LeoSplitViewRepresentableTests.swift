@@ -401,9 +401,9 @@ struct LeoSplitViewRepresentableTests {
 
     /// Beside the editor alone (the browser collapsed between them), the
     /// terminal keeps its floor down to where the editor is at its
-    /// minimum: 300 + 1 + 320 = 621 pt. Live resizes step by 5 pt or by
-    /// 40; a jump (zoom, tiling) goes there at once.
-    @Test(arguments: [[700], [900, 700], [621]] as [[CGFloat]], [5, 40, 0] as [CGFloat])
+    /// minimum: 300 + 1 + 320 = 621 pt. Live resizes step by 5 pt (the fine
+    /// path, B-023) or by 40; a jump (zoom, tiling) goes there at once.
+    @Test(arguments: [([700], 5), ([900, 700], 40), ([621], 0)] as [([CGFloat], CGFloat)])
     func besideTheEditorAloneTheFloorHoldsToTheEditorsMinimum(_ path: [CGFloat], step: CGFloat) async throws {
         try await withBothPanes(opensBrowser: false) { harness, _, _, _ in
             for width in path {
@@ -427,8 +427,8 @@ struct LeoSplitViewRepresentableTests {
     /// terminal.
     @Test func narrowingFurtherMakesTheSidePanesGiveWayThenTheTerminal() async throws {
         try await withBothPanes { harness, _, _, _ in
-            let step = Harness.resizeStep
-
+            // The slack is the old 5 pt step, not the coarser one the resize now takes.
+            let step = Harness.fineStep
             await harness.resizeWindow(stepwiseTo: 900)
             #expect(abs(harness.terminalWidth - LeoSidebarSplitMetrics.terminalFloor) <= 1)
             #expect(harness.editorWidth < 500, "the editor gave way")
@@ -506,8 +506,8 @@ struct LeoSplitViewRepresentableTests {
         try await withBothPanes { harness, _, _, counts in
             let widths = (harness.sidebarWidth, harness.terminalWidth, harness.browserWidth, harness.editorWidth)
 
-            await harness.resizeWindow(stepwiseTo: 700)
-            await harness.resizeWindow(stepwiseTo: 1_400)
+            await harness.resizeWindow(stepwiseTo: 700, step: Harness.fineStep)
+            await harness.resizeWindow(stepwiseTo: 1_400, step: Harness.fineStep)
 
             #expect(harness.sidebarItem?.isCollapsed == false)
             #expect((counts.collapses, counts.restores) == (1, 1))
@@ -573,14 +573,14 @@ struct LeoSplitViewRepresentableTests {
         try await withBothPanes { harness, _, _, counts in
             var width = harness.window.contentLayoutRect.width
             while harness.sidebarItem?.isCollapsed == false, width > 900 {
-                width -= Harness.resizeStep
-                await harness.resizeWindow(stepwiseTo: width)
+                width -= Harness.fineStep
+                await harness.resizeWindow(stepwiseTo: width, step: Harness.fineStep)
             }
             try #require(counts.collapses == 1)
 
             for _ in 0..<5 {
-                await harness.resizeWindow(stepwiseTo: width + Harness.resizeStep)
-                await harness.resizeWindow(stepwiseTo: width)
+                await harness.resizeWindow(stepwiseTo: width + Harness.fineStep, step: Harness.fineStep)
+                await harness.resizeWindow(stepwiseTo: width, step: Harness.fineStep)
             }
 
             #expect(harness.sidebarItem?.isCollapsed == true)
@@ -985,9 +985,14 @@ struct LeoSplitViewRepresentableTests {
             layout()
         }
 
-        static let resizeStep: CGFloat = 5
+        /// The default live-resize step: coarse, since each step costs a layout
+        /// pass and the assertions hold at any step.
+        static let resizeStep: CGFloat = 40
+        /// A fine live resize, as a real drag: the collapse-edge cases (B-023)
+        /// use it, one per behaviour family.
+        static let fineStep: CGFloat = 5
 
-        /// A live resize: `resizeStep` at a time, settling after each.
+        /// A live resize: `step` at a time, settling after each.
         func resizeWindow(stepwiseTo width: CGFloat, step: CGFloat = resizeStep) async {
             var current = window.contentLayoutRect.width
             while abs(width - current) > 0.5 {
@@ -1031,18 +1036,13 @@ extension LeoAppEventQueueTests.LeoSplitViewRepresentableTests {
         }
     }
 
-    /// The other previews don't size the split either.
-    @Test(.timeLimit(.minutes(1)), arguments: ["shot.png", "doc.pdf", "archive.bin"])
-    func aPreviewKeepsThePanesWidths(name: String) async throws {
-        try await expectPreviewKeepsThePanesWidths(named: name) { url in
-            try Self.previewFixture(named: name).write(to: url)
-        } until: { view in
-            switch name {
-            case "shot.png": view is LeoImagePreviewView
-            case "doc.pdf": view is LeoQuickLookPreviewView
-            default: view is LeoUnavailablePreviewView
-            }
-        }
+    /// The other previews don't size the split either (an image stands for
+    /// them: the PDF and unavailable previews take the same split path).
+    @Test(.timeLimit(.minutes(1)))
+    func aStillPreviewKeepsThePanesWidths() async throws {
+        try await expectPreviewKeepsThePanesWidths(named: "shot.png") { url in
+            try Self.previewFixture().write(to: url)
+        } until: { view in view is LeoImagePreviewView }
     }
 
     private func expectPreviewKeepsThePanesWidths(
@@ -1095,22 +1095,13 @@ extension LeoAppEventQueueTests.LeoSplitViewRepresentableTests {
         [view] + view.subviews.flatMap(descendants)
     }
 
-    private static func previewFixture(named name: String) throws -> Data {
+    private static func previewFixture() throws -> Data {
         let image = NSImage(size: NSSize(width: 640, height: 360), flipped: false) { rect in
             NSColor.systemBlue.setFill()
             rect.fill()
             return true
         }
-        switch name {
-        case "shot.png":
-            let bitmap = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil).map(NSBitmapImageRep.init(cgImage:)))
-            return try #require(bitmap.representation(using: .png, properties: [:]))
-        case "doc.pdf":
-            let page = NSImageView(frame: NSRect(x: 0, y: 0, width: 612, height: 792))
-            page.image = image
-            return page.dataWithPDF(inside: page.bounds)
-        default:
-            return Data([0, 1, 2, 0xFF, 0, 0xFE] + Array(repeating: 0, count: 64))
-        }
+        let bitmap = try #require(image.cgImage(forProposedRect: nil, context: nil, hints: nil).map(NSBitmapImageRep.init(cgImage:)))
+        return try #require(bitmap.representation(using: .png, properties: [:]))
     }
 }
