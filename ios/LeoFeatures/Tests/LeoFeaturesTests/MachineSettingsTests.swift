@@ -29,10 +29,13 @@ struct MachineSettingsTests {
         return store
     }
 
-    @Test func rowsNeedConfigAPI() {
+    static let macOrder: [MachineSettings.Row] = [.templates, .tasks, .environments, .delegation, .defaults, .daemon]
+
+    @Test func rowsInMacOrder() {
         let state = MachineSettings.State(link: Self.link())
 
-        #expect(state.availability == .rows([.templates, .environments, .tasks, .service]))
+        #expect(state.availability == .rows(Self.macOrder))
+        #expect(MachineSettings.Row.defaults.title == "Defaults")
     }
 
     @Test func oldDaemonShowsRequires() {
@@ -75,7 +78,7 @@ struct MachineSettingsTests {
         await store.send(.linkUpdated(Self.link(.reconnecting(attempt: 1, reason: "dropped"), features: [])))
 
         #expect(store.state.destination?.templates != nil)
-        #expect(store.state.availability == .rows([.templates, .environments, .tasks, .service]))
+        #expect(store.state.availability == .rows(Self.macOrder))
         await store.receive(\.destination.presented.templates.machine.connectionChanged)
     }
 
@@ -127,21 +130,126 @@ struct MachineSettingsTests {
         #expect(store.state.restart.machine == PairedDaemon.dionysus.name)
     }
 
-    @Test func theServiceRowOpensTheServicePane() async throws {
+    // MARK: delegation
+
+    @Test func theDelegationRowOpensDelegation() async throws {
         let store = try Self.store(MachineSettings.State(link: Self.link()))
 
-        await store.send(.rowTapped(.service))
+        await store.send(.rowTapped(.delegation))
 
-        #expect(store.state.destination?.service != nil)
+        #expect(store.state.destination?.delegation != nil)
+        #expect(MachineSettings.Row.delegation.title == "Delegation")
     }
 
-    @Test func aFinishedRestartRefreshesAnOpenServicePane() async throws {
+    @Test func delegationRestartAsksTheMachine() async throws {
         let store = try Self.store(MachineSettings.State(link: Self.link()))
-        await store.send(.rowTapped(.service))
+        await store.send(.rowTapped(.delegation))
+
+        await store.send(.destination(.presented(.delegation(.delegate(.restart(.agents))))))
+
+        await store.receive(\.restart.requested, .agents)
+    }
+
+    @Test func connectionForwardsToDelegation() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.delegation))
+
+        await store.send(.linkUpdated(Self.link(.offline, features: [])))
+
+        await store.receive(\.destination.presented.delegation.machine.connectionChanged, false)
+        #expect(store.state.destination?.delegation?.isMachineConnected == false)
+    }
+
+    // MARK: daemon
+
+    @Test func daemonOpensOnServiceFirst() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+
+        await store.send(.rowTapped(.daemon))
+
+        let daemon = try #require(store.state.destination?.daemon)
+        #expect(daemon.sections.first == .service)
+        #expect(daemon.destination == nil)
+        #expect(MachineSettings.Row.daemon.title == "Daemon")
+    }
+
+    @Test func restartFinishedRefreshesServiceInsideDaemon() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.daemon))
+        await store.send(.destination(.presented(.daemon(.sectionTapped(.service)))))
 
         await store.send(.restart(.delegate(.finished)))
 
-        await store.receive(\.destination.presented.service.refreshRequested)
+        await store.receive(\.destination.presented.daemon.machine.restartFinished)
+        await store.receive(\.destination.presented.daemon.destination.presented.service.refreshRequested)
+    }
+
+    @Test func connectionForwardsIntoDaemonChild() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.daemon))
+        await store.send(.destination(.presented(.daemon(.sectionTapped(.client)))))
+
+        await store.send(.linkUpdated(Self.link(.offline, features: [])))
+
+        await store.receive(\.destination.presented.daemon.machine.connectionChanged, false)
+        await store.receive(\.destination.presented.daemon.destination.presented.client.machine.connectionChanged, false)
+        #expect(store.state.destination?.daemon?.destination?.client != nil)
+    }
+
+    @Test func aDaemonChildsRestartAsksTheMachine() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.daemon))
+
+        await store.send(.destination(.presented(.daemon(.delegate(.restart(.daemon))))))
+
+        await store.receive(\.restart.requested, .daemon)
+    }
+
+    @Test func theScenePhaseReachesTheServiceInsideDaemon() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.daemon))
+        await store.send(.destination(.presented(.daemon(.sectionTapped(.service)))))
+
+        await store.send(.scenePhaseChanged(isActive: false))
+
+        await store.receive(\.destination.presented.daemon.machine.scenePhaseChanged, false)
+    }
+
+    // MARK: defaults
+
+    @Test func theDefaultsRowOpensTheDefaultsForm() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+
+        await store.send(.rowTapped(.defaults))
+
+        #expect(store.state.destination?.defaults?.core.resourceKey == "defaults")
+    }
+
+    @Test func theDefaultsFormsRestartAsksTheMachine() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.defaults))
+
+        await store.send(.destination(.presented(.defaults(.delegate(.restart(.agents))))))
+
+        await store.receive(\.restart.requested, .agents)
+    }
+
+    @Test func leavingTheDefaultsFormClosesIt() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.defaults))
+
+        await store.send(.destination(.presented(.defaults(.delegate(.leave)))))
+
+        #expect(store.state.destination == nil)
+    }
+
+    @Test func connectivityReachesAnOpenDefaultsForm() async throws {
+        let store = try Self.store(MachineSettings.State(link: Self.link()))
+        await store.send(.rowTapped(.defaults))
+
+        await store.send(.linkUpdated(Self.link(.offline, features: [])))
+
+        await store.receive(\.destination.presented.defaults.machine.connectionChanged, false)
     }
 
     @Test func theScenePhaseReachesTheMachineRestart() async throws {
