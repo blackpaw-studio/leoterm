@@ -53,6 +53,10 @@ final class TaskPromptViewController: UIViewController, UITextViewDelegate {
         stack.axis = .vertical
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
+        // To the view's edge while the keyboard is down, so the text runs to
+        // the bottom and scrolls clear of the home indicator (the text view
+        // insets its content by the safe area itself).
+        view.keyboardLayoutGuide.usesBottomSafeArea = false
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),

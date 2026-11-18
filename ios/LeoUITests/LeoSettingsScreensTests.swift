@@ -114,7 +114,11 @@ final class LeoSettingsScreensTests: XCTestCase {
         capture("task-detail-links")
 
         app.cells["config.link.prompt"].tap()
-        XCTAssertTrue(app.textViews["task.prompt.text"].waitForExistence(timeout: 10))
+        let prompt = app.textViews["task.prompt.text"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 10))
+        // With the keyboard down the text runs to the screen's bottom edge (it
+        // scrolls clear of the home indicator itself), not stopping above it.
+        XCTAssertEqual(prompt.frame.maxY, app.windows.firstMatch.frame.maxY, accuracy: 1)
         capture("task-prompt")
         backOut()
 
