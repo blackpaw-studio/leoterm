@@ -24,19 +24,29 @@ struct LeoBrandingTests {
     private static let interpolation = #/\\\([^)]*\)/#
 
     /// `file:line` for each Swift line whose string literal (interpolations
-    /// removed) names Ghostty. Comment lines are skipped.
+    /// removed) names Ghostty. Covers single-line "…" literals and the
+    /// bodies of multi-line """ blocks. Comment lines outside a block are
+    /// skipped.
     private static func swiftOffenders() throws -> [String] {
         try files(withExtension: "swift").flatMap { url -> [String] in
             let lines = try String(contentsOf: url, encoding: .utf8).components(separatedBy: "\n")
-            return lines.enumerated().compactMap { index, line in
+            var isInsideBlock = false
+            var offenders: [String] = []
+            for (index, line) in lines.enumerated() {
+                let delimiters = line.components(separatedBy: "\"\"\"").count - 1
+                let startedInsideBlock = isInsideBlock
+                isInsideBlock = startedInsideBlock != (delimiters % 2 == 1)
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
-                guard !trimmed.hasPrefix("//"), !trimmed.hasPrefix("*") else { return nil }
-                let hit = line.matches(of: literal).contains { match in
-                    let text = String(line[match.range]).replacing(interpolation, with: "")
-                    return text.contains(brand)
-                }
-                return hit ? "\(url.lastPathComponent):\(index + 1)" : nil
+                if !startedInsideBlock, trimmed.hasPrefix("//") || trimmed.hasPrefix("*") { continue }
+                let text = line.replacing(interpolation, with: "")
+                let hit = startedInsideBlock || delimiters > 0
+                    ? text.contains(brand)
+                    : line.matches(of: literal).contains {
+                        String(line[$0.range]).replacing(interpolation, with: "").contains(brand)
+                    }
+                if hit { offenders.append("\(url.lastPathComponent):\(index + 1)") }
             }
+            return offenders
         }
     }
 

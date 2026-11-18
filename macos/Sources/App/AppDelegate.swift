@@ -1584,7 +1584,7 @@ extension AppDelegate {
                 let alert = NSAlert()
                 alert.messageText = "Failed to Set Default Terminal"
                 alert.informativeText = """
-                Ghostty could not be set as the default terminal application.
+                Leo could not be set as the default terminal application.
 
                 Error: \(error.localizedDescription)
                 """
