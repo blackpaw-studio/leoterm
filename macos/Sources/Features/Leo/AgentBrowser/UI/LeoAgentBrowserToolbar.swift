@@ -297,10 +297,16 @@ class LeoControlPill: NSButton {
 }
 
 /// The address bar. A click into it while unfocused focuses it with everything
-/// selected, as Safari does (B-420); once focused, clicks place the caret.
+/// selected, as Safari does (B-420) -- unless the press becomes a drag, which
+/// selects just the range dragged over (B-428). Once focused, clicks place the
+/// caret.
 final class LeoAddressField: NSTextField {
     override func mouseDown(with event: NSEvent) {
         guard currentEditor() == nil, isEnabled, window?.makeFirstResponder(self) == true else { return super.mouseDown(with: event) }
-        selectText(nil)
+        // The field editor now exists. `super` runs the press's whole
+        // click/drag tracking and returns on mouse-up; a plain click leaves
+        // an empty selection, which becomes select-all.
+        super.mouseDown(with: event)
+        if (currentEditor() as? NSTextView)?.selectedRange.length == 0 { selectText(nil) }
     }
 }

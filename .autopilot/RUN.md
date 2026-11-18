@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
-Digested-through: 5
+Digested-through: 10
 Filed: 0/3 bugs, 3/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
@@ -156,16 +156,31 @@ Lane: B-428
   Dispatched: 2026-11-18T07:04:55Z
   Base: 53ad53212034dcc6242300e663e5731d645059e7
   Tier: light
-  State: building
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Tokens: 11M in (10.7M cache read), ≥33.6k out, 116 requests
+  Reviewed-tip: 5cdaa3ed4c0ed74cbaf72dbe8e76e6070f6ba8a4
+  Call: Mac only: AppKit address bar in the browser pane — D-925/D-929
 
 Lane: B-351
   Branch: autopilot-lane/B-351
-  Dispatched: 2026-11-18T07:17:04Z
+  Dispatched: 2026-11-18T08:15:33Z
   Base: c3edc651e19931e4ee05bf63536f75c773495d9d
+  Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: 9b525498a5acd96a33f2b6153ad883ea22e01ba5
+  Call: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396 — Mac/iOS parity rule
+  Call: Move errors wrap to two lines, then truncate; the tooltip is unchanged — P2 Calm
+
+Lane: B-335
+  Branch: autopilot-lane/B-335
+  Dispatched: 2026-11-18T08:11:41Z
+  Base: d3d6a40d14c4ceaec300f6ff027fff9c98c48066
   Tier: light
   State: building
   Fixes: 0
@@ -218,3 +233,10 @@ Finished 8: B-384 landed 3ca216725 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-382 landed c69660e66. D-970..D-973.
 Finished 9: B-382 landed c69660e66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png
 - Pick: B-351 light (sidebar row move error wraps to two lines). Dispatched d-24c84ce977b0.
+- B-428 ready (general full, 5042 tests, not visually verified: browser pane needs a scratch daemon; tests post synthetic NSEvents). Fresh.
+- B-428 landed 580e44c07. D-974..D-974.
+Finished 10: B-428 landed 580e44c07 · not visually verified
+- Interim digest 2 posted (items 6–10).
+- Pick: B-335 light (row menu submenu-parent enablement; independent of B-351's error line). Dispatched d-3bfa9172408b.
+- B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
+- Dispatched B-351 re-verify d-c384f97f449f.

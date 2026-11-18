@@ -2040,3 +2040,9 @@ Chose: Mac only (iOS has its own fleet task panel, Fleet+TaskPanel.swift)
 Why: Mac/iOS parity rule
 Commit: 137053a69
 Veto: [ ]
+
+## D-974 · 2026-11-18 · B-428: Mac only: AppKit address bar in the browser pane
+Chose: Mac only: AppKit address bar in the browser pane
+Why: D-925/D-929
+Commit: 2f41ff8a9
+Veto: [ ]
