@@ -34,10 +34,11 @@ Lane: B-431
   Dispatched: 2026-11-18T02:20:50Z
   Base: 0d5f7905144bee64282629117d65a23a915c7063
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 7.35M in (7.15M cache read), ≥25.6k out, 69 requests
   Reviewed-tip: none
 
 Lane: B-432
@@ -53,6 +54,28 @@ Lane: B-432
   Reviewed-tip: none
   Call: iOS only; LeoKit isn't involved — AUTONOMY (state the platform call)
 
+Lane: B-218
+  Branch: autopilot-lane/B-218
+  Dispatched: 2026-11-18T02:44:48Z
+  Base: fd620fa06078e8115e1e353b8f7779aaae993cd2
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-371
+  Branch: autopilot-lane/B-371
+  Dispatched: 2026-11-18T02:54:06Z
+  Base: 9721a21fae384b70dfb50af0a7043717b015cd36
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -63,3 +86,7 @@ Progress:
 Finished 1: B-324 blocked
 - B-432 blocked: couldn't reproduce (8/8 alone, 125/125 full bundle ×5 incl. fresh-erased sim; ~4 s vs 32.7 s in CI). CI log: first WebKit use timed out at the 28 s navigation deadline on a cold WebContent/Networking start. Shelved on autopilot-shelved/B-432.
 Finished 2: B-432 blocked
+- Pick: B-218 light (copy: Ghostty branding in user-facing strings). Dispatched d-01be07a9d7a0.
+- B-431 blocked: couldn't reproduce (download tests 25× isolated, all pass ~12 s; full single-host runs timed out elsewhere under load 125–180). Shelved on autopilot-shelved/B-431.
+Finished 3: B-431 blocked
+- Pick: B-371 full (composer behavior, parity call; B-388 waits). Dispatched d-273e47e89288.

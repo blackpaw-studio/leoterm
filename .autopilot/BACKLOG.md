@@ -3247,12 +3247,14 @@ Dropped: 2026-11-17 — duplicate of B-372
 Note: the bar looks mid-edit after a navigation starts (P1 Safari parity)
 Source: autopilot polish (B-426)
 
-## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [ready]
+## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [blocked]
 Issue: #397
 Type: bug
 Report: CI flake — Leo CI test-macos "Unit tests" hangs until the 900s timeout; last test started was attachmentResponseDownloadsIntoWorkspace() in the browser downloads tests (likely the known WKWebView hang). Hit main 8d9248096 (run 44201642042) and the leo-v0.36.1 release run 44201644337 (passed on rerun). Fix at cause so it can't block releases.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-17)
+Question: couldn't reproduce — LeoWKBrowserDownloadTests ran 25× in isolation on the lane build, all passing (~12 s, no hang). Full single-host-process suite runs (as CI, run-unit-tests.sh) hit their own 300–400 s timeout twice at different tests, never the download tests, with load 125–180, so they say little about CI. In run 44201642042's log the last tests logged were LeoWKBrowserPageTests, not attachmentResponseDownloadsIntoWorkspace, but the log is block-buffered; run 44201644337's failed attempt log is gone. Unproven suspects: unbounded evaluateJavaScript/takeSnapshot/pdf awaits in the WKWebView page tests, and LeoHTTPFixtureServer.stop() closing the listener while accept() blocks. Suggested retry scope: per-test time limits + unbuffered output in the unit-test script so a hang names its test, and deadlines on the WebKit awaits (Mac only). Reply "B-431: close" to close it, or "B-431: <more detail>" to retry. Work kept on autopilot-shelved/B-431.
+Answer:
 Inbox: 20261118T020458680192Z-72eeed98#1
 
 ## B-432 · CI flake — Leo iOS CI "App tests":…   [blocked]
