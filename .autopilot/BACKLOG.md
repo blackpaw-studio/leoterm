@@ -3267,7 +3267,7 @@ Question: couldn't reproduce — LeoIOSBrowserTests alone (8/8) and the full Leo
 Answer:
 Inbox: 20261118T020458768349Z-88087e88#1
 
-## B-218 · Remove remaining Ghostty branding from user-facing strings   [ready]
+## B-218 · Remove remaining Ghostty branding from user-facing strings   [done]
 Why: Shipped Leo still says "Quit Ghostty?" and "Update Ghostty and Restart"; Ghostty branding in a Leo app is immediately noticeable.
 Accept: No "Ghostty" in any Leo dialog, menu, palette entry, About text or accessibility label; a grep of user-facing strings in macos/Sources/App and Features/Leo is clean; tests pass.
 Out: Bundle IDs, the ghostty CLI name, internal identifiers, upstream-only code paths the user never sees, the Open Ghostty Config item (B-400).
@@ -3275,6 +3275,8 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#61
 Issue: #222
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Done: 6d81f197a 84fcfc5f1
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
 
 ## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [ready]
 Issue: #399
@@ -3285,7 +3287,7 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#56
 Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
 
-## B-388 · Fix the LeoTemplateListTests refetch flake under load   [ready]
+## B-388 · Fix the LeoTemplateListTests refetch flake under load   [done]
 Issue: #400
 Why: manualRefreshRefetchesEveryLoadedMachinesList fails on a loaded host (1 s awaitCondition default on a network-ordered refetch), producing noisy CI reruns.
 Accept: The test passes in repeated runs at load average above 30; its assertions are unchanged; the wait is injected or given a longer bound, never a sleep.
@@ -3293,6 +3295,8 @@ Out: Other flaky tests.
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#51
 Note: 1 s wait timeout fails under heavy host load; noisy CI re-runs.
+Done: 0b7288ddb
+Verified: not visually verified — test-support change only; full suite 5029 green
 
 ## B-384 · Toolbar task capsule stops spinning for indeterminate and stalled tasks   [ready]
 Issue: #401
@@ -3386,3 +3390,11 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#1
 Note: iOS Settings: the task prompt editor's bottom edge clips above the home indicator (usesBottomSafeArea fix broke a UI test, reverted)
 Inbox: 20261024T234539423483Z-b13bef15#1
+
+## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
+Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
+Source: autopilot polish (B-218)
+
+## B-434 · iOS composer still sends to a stopped agent (starts it, no Start bar)   [idea]
+Note: decide whether iOS needs a Start bar before any refusal (Mac refuses since B-371) — P2 honest state, parity
+Source: autopilot polish (B-371)

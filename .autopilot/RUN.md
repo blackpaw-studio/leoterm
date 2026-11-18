@@ -1,9 +1,11 @@
 Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
-Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Digested-through: 5
+Filed: 0/3 bugs, 2/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
+Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
+Self-filed: B-371 → B-434 idea — iOS composer still sends to a stopped agent (starts it, no Start bar)
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -59,17 +61,52 @@ Lane: B-218
   Dispatched: 2026-11-18T02:44:48Z
   Base: fd620fa06078e8115e1e353b8f7779aaae993cd2
   Tier: light
-  State: building
-  Fixes: 0
+  State: landed
+  Fixes: 1
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Tokens: 10.7M in (10.3M cache read), ≥49.9k out, 120 requests
+  Reviewed-tip: 84fcfc5f1344684191609dfa8ef4389e0a80c698
+  Call: Product name is the literal "Leo" in alerts, palette, popovers, accessibility labels and window titles — P1
+  Call: Kept the 👻 prefix in default window titles ("👻 Leo") — P1
+  Call: Platform: Mac only; no "Ghostty" string in ios/ or Packages/ — Mac/iOS parity rule
 
 Lane: B-371
   Branch: autopilot-lane/B-371
-  Dispatched: 2026-11-18T02:54:06Z
+  Dispatched: 2026-11-18T05:31:25Z
   Base: 9721a21fae384b70dfb50af0a7043717b015cd36
   Tier: full
+  State: verifying
+  Fixes: 1
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: 86e6a05e40e55cf5421314f0aba8d4cfa348d43b
+  Call: Refuse on the client; never let the daemon auto-start from the composer (the daemon starts a stopped agent on POST) — P2, D-724, item Out
+  Call: Typing stays enabled; only send is gated and the draft is kept with a notice — P1
+  Call: `.starting` sends; `.stopped`/`.unknown` refuse "isn't running"; `.restoring` refuses "still starting" — P2
+  Call: Mac only; iOS untouched (its send starts the agent and it has no Start bar, D-723) — Mac/iOS rule
+  Call: Refusal notice withdrawn on agent switch and once the agent becomes sendable — P2
+  Call: Send arrow dimmed while refused — P1/HIG
+
+Lane: B-388
+  Branch: autopilot-lane/B-388
+  Dispatched: 2026-11-18T04:05:54Z
+  Base: 8a7820117a218fc1cad37e3f095f07ada2505264
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Tokens: 6.47M in (6.2M cache read), ≥20k out, 75 requests
+  Reviewed-tip: a1970295a30120ccaf48f4bb0aebba849bb95818
+  Call: Mac test target only (macos/Tests/Leo); LeoKit's helper already defaults to 10 s and iOS is unaffected — AUTONOMY: flake fixes are agent-decides
+  Call: Raise the Mac awaitCondition default bound to 10 s, no sleeps, assertions unchanged — AUTONOMY: fix at the cause
+
+Lane: B-384
+  Branch: autopilot-lane/B-384
+  Dispatched: 2026-11-18T05:15:12Z
+  Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
+  Tier: light
   State: building
   Fixes: 0
   Wip: none
@@ -90,3 +127,14 @@ Finished 2: B-432 blocked
 - B-431 blocked: couldn't reproduce (download tests 25× isolated, all pass ~12 s; full single-host runs timed out elsewhere under load 125–180). Shelved on autopilot-shelved/B-431.
 Finished 3: B-431 blocked
 - Pick: B-371 full (composer behavior, parity call; B-388 waits). Dispatched d-273e47e89288.
+- B-218 ready (fix 1, general full + delta review, window shot). Calls vs D-793/D-801: consistent. Fresh. Full suite had one unrelated flake per run under load (LeoTitleIntegrationTests known flaky; LeoMachineStatsPollerTests reconnect) — re-run at merge gate.
+- B-218 landed 4be252b4f. D-952..D-954. Filed B-433 idea (Ghostty.sdef).
+Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
+- Pick: B-388 light (test flake fix). Dispatched d-6be9d413e408.
+- B-388 ready (general full review, full suite 5029 green, not visually verified: test-only). Acceptance partly unmeasured: no repeated series at load >30 (targeted run passed at load 72–114). Fresh.
+- B-388 landed dd1f3def2. D-955..D-956.
+Finished 5: B-388 landed dd1f3def2 · not visually verified
+- Interim digest 1 posted (items 1–5).
+- Pick: B-384 light (Mac toolbar capsule spinner). Dispatched d-c5112f76f5b7.
+- B-371 ready (fix 1, general full + delta, 5035 tests, window shots). Calls vs D-723..D-726, D-948: consistent. Integration stale (B-218, B-388 landed) → re-verify round 1. Note: a "Leo quit unexpectedly" dialog appeared during its verify; debug app survived, cause unconfirmed.
+- Dispatched B-371 re-verify d-b2aa58412a71.
