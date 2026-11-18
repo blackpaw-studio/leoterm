@@ -173,9 +173,10 @@ Lane: B-351
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 9b525498a5acd96a33f2b6153ad883ea22e01ba5
+  Reviewed-tip: 14b99543ae9a45ca0565a9d5f32ac6561f2e6ac5
   Call: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396 — Mac/iOS parity rule
   Call: Move errors wrap to two lines, then truncate; the tooltip is unchanged — P2 Calm
+  Call: Only the .error detail wraps, to at most two lines; other details stay one line at a fixed height, so only an error can make a row grow — P2 Calm, P6
 
 Lane: B-335
   Branch: autopilot-lane/B-335
@@ -240,3 +241,4 @@ Finished 10: B-428 landed 580e44c07 · not visually verified
 - Pick: B-335 light (row menu submenu-parent enablement; independent of B-351's error line). Dispatched d-3bfa9172408b.
 - B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
 - Dispatched B-351 re-verify d-c384f97f449f.
+- B-351 re-verify 1 ready (general delta, 5043 tests; GUI unchanged since first verify's window shot). Fresh.
