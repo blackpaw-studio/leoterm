@@ -1908,3 +1908,21 @@ Chose: close
 Why: the owner's answer
 Commit:
 Veto: n/a (owner)
+
+## D-952 · 2026-11-17 · B-218: Product name
+Chose: Product name is the literal "Leo" in alerts, palette, popovers, accessibility labels and window titles
+Why: P1
+Commit: 6d81f197a 84fcfc5f1
+Veto: [ ]
+
+## D-953 · 2026-11-17 · B-218: Window title ghost
+Chose: Kept the 👻 prefix in default window titles ("👻 Leo")
+Why: P1
+Commit: 6d81f197a 84fcfc5f1
+Veto: [ ]
+
+## D-954 · 2026-11-17 · B-218: Platform
+Chose: Mac only; no "Ghostty" string in ios/ or Packages/
+Why: Mac/iOS parity rule
+Commit: 6d81f197a 84fcfc5f1
+Veto: [ ]

@@ -60,10 +60,11 @@ Lane: B-218
   Dispatched: 2026-11-18T02:44:48Z
   Base: fd620fa06078e8115e1e353b8f7779aaae993cd2
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
+  Tokens: 10.7M in (10.3M cache read), ≥49.9k out, 120 requests
   Reviewed-tip: 84fcfc5f1344684191609dfa8ef4389e0a80c698
   Call: Product name is the literal "Leo" in alerts, palette, popovers, accessibility labels and window titles — P1
   Call: Kept the 👻 prefix in default window titles ("👻 Leo") — P1
@@ -95,3 +96,5 @@ Finished 2: B-432 blocked
 Finished 3: B-431 blocked
 - Pick: B-371 full (composer behavior, parity call; B-388 waits). Dispatched d-273e47e89288.
 - B-218 ready (fix 1, general full + delta review, window shot). Calls vs D-793/D-801: consistent. Fresh. Full suite had one unrelated flake per run under load (LeoTitleIntegrationTests known flaky; LeoMachineStatsPollerTests reconnect) — re-run at merge gate.
+- B-218 landed 4be252b4f. D-952..D-954. Filed B-433 idea (Ghostty.sdef).
+Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png

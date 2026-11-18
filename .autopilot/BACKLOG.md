@@ -3267,7 +3267,7 @@ Question: couldn't reproduce — LeoIOSBrowserTests alone (8/8) and the full Leo
 Answer:
 Inbox: 20261118T020458768349Z-88087e88#1
 
-## B-218 · Remove remaining Ghostty branding from user-facing strings   [ready]
+## B-218 · Remove remaining Ghostty branding from user-facing strings   [done]
 Why: Shipped Leo still says "Quit Ghostty?" and "Update Ghostty and Restart"; Ghostty branding in a Leo app is immediately noticeable.
 Accept: No "Ghostty" in any Leo dialog, menu, palette entry, About text or accessibility label; a grep of user-facing strings in macos/Sources/App and Features/Leo is clean; tests pass.
 Out: Bundle IDs, the ghostty CLI name, internal identifiers, upstream-only code paths the user never sees, the Open Ghostty Config item (B-400).
@@ -3275,6 +3275,8 @@ Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#61
 Issue: #222
 Note: parked (triage 2026-10-08) — triage 2026-10-07 — speculative polish; promote with /feature if wanted
+Done: 6d81f197a 84fcfc5f1
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
 
 ## B-371 · Composer refuses messages to a stopped agent instead of swallowing them   [ready]
 Issue: #399
