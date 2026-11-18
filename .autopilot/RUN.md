@@ -95,6 +95,17 @@ Lane: B-388
   Call: Mac test target only (macos/Tests/Leo); LeoKit's helper already defaults to 10 s and iOS is unaffected — AUTONOMY: flake fixes are agent-decides
   Call: Raise the Mac awaitCondition default bound to 10 s, no sleeps, assertions unchanged — AUTONOMY: fix at the cause
 
+Lane: B-384
+  Branch: autopilot-lane/B-384
+  Dispatched: 2026-11-18T05:15:12Z
+  Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
 Progress:
 - Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
@@ -116,3 +127,5 @@ Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-388 ready (general full review, full suite 5029 green, not visually verified: test-only). Acceptance partly unmeasured: no repeated series at load >30 (targeted run passed at load 72–114). Fresh.
 - B-388 landed dd1f3def2. D-955..D-956.
 Finished 5: B-388 landed dd1f3def2 · not visually verified
+- Interim digest 1 posted (items 1–5).
+- Pick: B-384 light (Mac toolbar capsule spinner). Dispatched d-c5112f76f5b7.
