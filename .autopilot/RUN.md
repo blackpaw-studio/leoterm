@@ -25,6 +25,7 @@ Lane: B-324
   Fixes: 0
   Wip: none
   Reverifies: 0
+  Tokens: 5.33M in (4.91M cache read), ≥58.1k out, 58 requests
   Reviewed-tip: none
   Call: A moved row opened in a new window shows its chat, like a plain click on a non-running row (B-369), instead of a Start prompt — VISION 2, 6
 
@@ -44,4 +45,5 @@ Progress:
 - Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
 - Dispatched runners via leo_dispatch implement: B-324 d-50c4c1aa6949, B-431 d-6a406081d874.
 - B-324 blocked: planner audit says 13/14 criteria met; one Mac new-window gap; live cross-host Move needs a second leo host (only Evan's real daemons) → asks to accept live Duplicate + daemon Move refusal instead. Shelved on autopilot-shelved/B-324. Polish bug dropped as dup of B-324's own gap.
+- B-324 ≈$2.07 est.
 Finished 1: B-324 blocked
