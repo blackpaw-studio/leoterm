@@ -642,6 +642,32 @@ struct LeoChatPaneModelTests {
         #expect(await client.sent.isEmpty)
     }
 
+    @Test func aSendToAStoppedAgentIsRefusedAndKeepsTheDraft() async throws {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("hello")
+        try model.addFiles([try file("a.txt")], to: Self.alpha)
+        let refusal = try #require(LeoChatSendGate.refusal(for: .stopped, agentName: "alpha"))
+        await model.send(refusal: refusal)
+        #expect(await client.sent.isEmpty)
+        #expect(await client.uploads.isEmpty)
+        #expect(model.notice == refusal)
+        #expect(model.draft(for: Self.alpha).text == "hello")
+        #expect(model.draft(for: Self.alpha).files.count == 1)
+        #expect(!model.isSending(Self.alpha))
+    }
+
+    @Test func aSendWithoutARefusalStillSendsAndClearsTheNotice() async {
+        let model = make()
+        await model.show(Self.alpha)
+        model.setText("hello")
+        await model.send(refusal: "earlier")
+        #expect(model.notice == "earlier")
+        await model.send(refusal: nil)
+        #expect(await client.sent.count == 1)
+        #expect(model.notice == nil)
+    }
+
     @Test func aSecondSendWhileOneIsInFlightIsIgnored() async {
         await client.holdSends()
         let model = make()
@@ -711,6 +737,18 @@ struct LeoChatPaneModelTests {
         #expect(upload.mime == "audio/mp4")
         #expect(upload.filename.hasSuffix(".m4a"))
         #expect(await client.sent.count == 1)
+    }
+
+    @Test func aVoiceNoteForAStoppedAgentStaysInTheDraft() async throws {
+        let model = make()
+        await model.show(Self.alpha)
+        await model.toggleRecording()
+        await model.toggleRecording(refusal: "alpha isn\u{2019}t running")
+        #expect(!model.isRecording)
+        #expect(await client.uploads.isEmpty)
+        #expect(await client.sent.isEmpty)
+        #expect(model.draft(for: Self.alpha).files.map(\.isVoiceNote) == [true])
+        #expect(model.notice == "alpha isn\u{2019}t running")
     }
 
     @Test func aVoiceNoteReachingTheCapFinishesOnItsOwn() async throws {

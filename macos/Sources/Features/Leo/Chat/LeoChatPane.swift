@@ -144,7 +144,7 @@ struct LeoChatPane: View {
                 }
                 Divider()
                 LeoChatComposer(
-                    chat: chat, agent: row.id, agentName: row.displayName,
+                    chat: chat, agent: row.id, agentName: row.displayName, agentStatus: row.status,
                     focusRequest: session.chatFocusRequest, takeFocusRequest: session.takeChatFocusRequest
                 )
             }
@@ -240,6 +240,22 @@ extension LeoChatPaneModel {
             try addFiles(urls, to: agent)
         } catch {
             showNotice(error.localizedDescription)
+        }
+    }
+}
+
+/// B-371: whether the composer may send to an agent. The daemon starts a
+/// stopped agent when it gets a message, so the Mac refuses up front
+/// instead: nothing starts by itself (B-369) and typed text is never
+/// dropped silently. Returns the refusal to show, or nil to send.
+enum LeoChatSendGate {
+    static func refusal(for status: LeoAgentStatus, agentName: String) -> String? {
+        switch status {
+        case .running, .starting: nil
+        case .stopped, .unknown:
+            "\(agentName) isn\u{2019}t running, so this wasn\u{2019}t sent. Start it, then send again."
+        case .restoring:
+            "\(agentName) is still starting, so this wasn\u{2019}t sent. Send again once it\u{2019}s running."
         }
     }
 }

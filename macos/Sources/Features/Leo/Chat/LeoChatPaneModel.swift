@@ -57,6 +57,8 @@ import LeoKit
     private var attachmentLoads: [String: Task<Void, Never>] = [:]
     private var visibleCount = 0
     private var lastRead: String?
+    /// Why the recording in progress won't be sent, if the agent can't take it.
+    private var recordingRefusal: String?
 
     init(
         clients: [LeoHostID: any LeoChatClient], recorder: any LeoChatVoiceRecording, attachmentDirectory: URL,
@@ -487,15 +489,22 @@ import LeoKit
         updateDraft(agent) { $0.files.removeAll { $0.id == id } }
     }
 
-    func send() async {
+    /// A non-nil `refusal` (see `LeoChatSendGate`) means the caller knows the
+    /// agent can't take a message: nothing is sent, the draft stays, and the
+    /// refusal becomes the pane's notice.
+    func send(refusal: String? = nil) async {
         guard let agent else { return }
-        await send(agent)
+        await send(agent, refusal: refusal)
     }
 
     /// Uploads the draft's files, then sends; clears only what was sent.
-    /// One send per agent at a time; a failure keeps the draft.
-    private func send(_ agent: LeoAgentID) async {
+    /// One send per agent at a time; a failure or refusal keeps the draft.
+    private func send(_ agent: LeoAgentID, refusal: String?) async {
         guard clients[agent.host] != nil, sending[agent] == nil, let outgoing = draft(for: agent).outgoing else { return }
+        if let refusal {
+            notice = refusal
+            return
+        }
         sending[agent] = outgoing
         notice = nil
         defer { sending[agent] = nil }
@@ -541,10 +550,14 @@ import LeoKit
 
     /// The mic button: starts recording, or finishes the note (which joins
     /// the draft and sends at once unless a send is already in flight).
-    func toggleRecording() async {
+    /// A non-nil `refusal` keeps the finished note in the draft, unsent. The
+    /// one given when recording starts also covers a note that ends at the cap.
+    func toggleRecording(refusal: String? = nil) async {
         switch recording {
-        case .idle: await startRecording()
-        case .recording: await finishRecording()
+        case .idle:
+            recordingRefusal = refusal
+            await startRecording()
+        case .recording: await finishRecording(refusal: refusal)
         case .requesting: return
         }
     }
@@ -571,7 +584,7 @@ import LeoKit
         do {
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             try recorder.start(url: url, limit: Self.maximumRecording) { [weak self] in
-                Task { await self?.finishRecording() }
+                Task { await self?.finishRecording(refusal: self?.recordingRefusal) }
             }
             recording = .recording(url: url, agent: agent, startedAt: Date())
         } catch {
@@ -580,7 +593,7 @@ import LeoKit
         }
     }
 
-    private func finishRecording() async {
+    private func finishRecording(refusal: String?) async {
         guard case .recording(let url, let agent, _) = recording else { return }
         let duration = recorder.stop()
         recording = .idle
@@ -590,7 +603,7 @@ import LeoKit
         }
         let note = LeoChatOutgoingFile(id: UUID(), url: url, filename: "Voice note.m4a", mime: "audio/mp4", isVoiceNote: true)
         updateDraft(agent) { $0.files.append(note) }
-        await send(agent)
+        await send(agent, refusal: refusal)
     }
 
     private static func deleteVoiceNotes(_ files: [LeoChatOutgoingFile]) {

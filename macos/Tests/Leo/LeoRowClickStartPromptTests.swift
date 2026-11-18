@@ -471,3 +471,21 @@ import Testing
         #expect(bar?.offersStart == false)
     }
 }
+
+/// B-371: the composer refuses a send to an agent that isn't running, so the
+/// daemon never auto-starts it behind the user's back.
+@MainActor struct LeoChatSendGateTests {
+    private static let notRunning = "alpha isn\u{2019}t running, so this wasn\u{2019}t sent. Start it, then send again."
+    private static let stillStarting = "alpha is still starting, so this wasn\u{2019}t sent. Send again once it\u{2019}s running."
+
+    @Test(arguments: [
+        (LeoAgentStatus.running, String?.none),
+        (.starting, nil),
+        (.stopped, notRunning),
+        (.unknown("x"), notRunning),
+        (.restoring, stillStarting),
+    ])
+    func refusalFollowsStatus(status: LeoAgentStatus, expected: String?) {
+        #expect(LeoChatSendGate.refusal(for: status, agentName: "alpha") == expected)
+    }
+}
