@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-18T02:17:23Z
 Budget: 20 items, until 2026-11-18T14:17:23Z
-Digested-through: 10
+Digested-through: 15
 Filed: 0/3 bugs, 4/5 ideas
 Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
 Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
@@ -312,3 +312,4 @@ Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
 - B-299 ready (hard implementer, concurrency full review: 4 polish, 3 accepted risks; LeoKit 1939, Mac 5047, iOS 125 + 13 screen tests; 11 simulator screen captures). LeoSettingsE2ETests all skipped (no pairing payload). Unchecked: tab bar may cover last rows of Delegation/Defaults (not filed: its own re-check). Fresh.
 - B-299 landed 995a7eb77. D-984..D-988.
 Finished 15: B-299 landed 995a7eb77 · screen capture, not attached
+- Interim digest 3 posted (items 11–15).
