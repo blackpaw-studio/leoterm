@@ -208,14 +208,17 @@ Lane: B-182
 
 Lane: B-400
   Branch: autopilot-lane/B-400
-  Dispatched: 2026-11-18T09:33:29Z
+  Dispatched: 2026-11-18T10:23:00Z
   Base: 0862df82c174c1ba61f0356eb5902e27e67fcb57
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
-  Reverifies: 0
-  Reviewed-tip: none
+  Reverifies: 1
+  Reviewed-tip: 24b47094fc484b6c545459c04b9e8448b594c7d2
+  Call: Open Ghostty Config gets a doc.text icon instead of none, since macOS 26 menus show icons throughout — P1
+  Call: Mac only, because iOS has no app menu — D-795, D-954
+  Call: Open Ghostty Config kept and not renamed — item Out
 
 Lane: B-299
   Branch: autopilot-lane/B-299
@@ -292,3 +295,4 @@ Finished 12: B-335 landed fdb5bbdb6 · not visually verified
 - B-182 landed 58e41019f. D-979..D-980.
 Finished 13: B-182 landed 58e41019f · not visually verified
 - Pick: B-299 full (iOS Settings panes, new screens; independent of B-400). Dispatched d-9f12c0db4314.
+- B-400 ready (general full, 5046 tests; not visually verified: App menu capture failed; peekaboo menu list + LeoSettingsMenuIconTests). Stale (B-182 landed) → re-verify round 1.
