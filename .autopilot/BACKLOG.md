@@ -3397,6 +3397,7 @@ Inbox: 20261118T021310552058Z-d91db23d#11
 Note: B-397 moved Settings… to Leo settings; the gear stayed on "Open Ghostty Config" (AppDelegate.swift:1416). First-party Mac apps put the gear on Settings… (P1)
 Done: 32fe5cb62
 Verified: not visually verified — this host (macOS 27) renders no menu icons; LeoSettingsMenuIconTests + peekaboo menu list, full suite 5047 green
+Reviewed: accepted 2026-11-18 — 9c9070a2f302
 
 ## B-299 · iOS Settings gets the Defaults, Delegation and Daemon panes   [done]
 Issue: #408
