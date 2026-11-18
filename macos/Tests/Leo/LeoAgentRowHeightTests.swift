@@ -36,7 +36,7 @@ struct LeoAgentRowHeightTests {
             ("needsYou+reason", row(attention: .needsInput, reason: reason), nil),
             ("needsYou", row(attention: .needsInput), nil),
             ("error attention", row(attention: .errored), nil),
-            ("error text", row(), "Start failed: no such template"),
+            ("error text", row(), "Start failed: no template"),
             ("done", row(attention: .finished), nil),
             ("starting", row(.starting), nil),
             ("stopped", row(.stopped), nil),
@@ -62,6 +62,21 @@ struct LeoAgentRowHeightTests {
             let actual = height(row: row, error: error)
             #expect(abs(actual - expected) <= Self.tolerance, "\(name) is \(actual)pt, expected \(expected)pt")
         }
+    }
+
+    /// B-351: a refused move's reason reads in full without hovering, wrapping
+    /// to two lines at most; a longer one truncates (the tooltip has it all).
+    @Test func aLongErrorWrapsToTwoDetailLinesAtMost() {
+        let (_, row, _) = variants().first { $0.0 == "idle" }!
+        let oneDetail = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
+            + LeoAgentRowMetrics.lineSpacing + LeoAgentRowMetrics.detailLineHeight
+        let twoDetail = oneDetail + LeoAgentRowMetrics.detailLineHeight
+        let wraps = "Move refused: the destination machine already has an agent named alpha"
+        let tooLong = String(repeating: "Move refused: the destination has no room. ", count: 8)
+        let wrapped = height(row: row, error: wraps)
+        let capped = height(row: row, error: tooLong)
+        #expect(abs(wrapped - twoDetail) <= 1, "wrapped error is \(wrapped)pt, expected \(twoDetail)pt")
+        #expect(abs(capped - twoDetail) <= 1, "capped error is \(capped)pt, expected \(twoDetail)pt")
     }
 
     @Test func theWorkingSectionRendersWorkingRowsAsOneLine() {

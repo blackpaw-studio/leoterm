@@ -166,8 +166,34 @@ Lane: B-428
 
 Lane: B-351
   Branch: autopilot-lane/B-351
-  Dispatched: 2026-11-18T07:17:04Z
+  Dispatched: 2026-11-18T08:15:33Z
   Base: c3edc651e19931e4ee05bf63536f75c773495d9d
+  Tier: light
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Tokens: 15.7M in (15.2M cache read), ≥52k out, 170 requests
+  Reviewed-tip: 14b99543ae9a45ca0565a9d5f32ac6561f2e6ac5
+  Call: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396 — Mac/iOS parity rule
+  Call: Move errors wrap to two lines, then truncate; the tooltip is unchanged — P2 Calm
+  Call: Only the .error detail wraps, to at most two lines; other details stay one line at a fixed height, so only an error can make a row grow — P2 Calm, P6
+
+Lane: B-335
+  Branch: autopilot-lane/B-335
+  Dispatched: 2026-11-18T08:11:41Z
+  Base: d3d6a40d14c4ceaec300f6ff027fff9c98c48066
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-182
+  Branch: autopilot-lane/B-182
+  Dispatched: 2026-11-18T08:49:33Z
+  Base: f5a652f100d9f11ef4f4ad2d8450a80fc69909bf
   Tier: light
   State: building
   Fixes: 0
@@ -224,3 +250,10 @@ Finished 9: B-382 landed c69660e66 · shot /Users/evan/.leo/agents/leoterm/.git/
 - B-428 landed 580e44c07. D-974..D-974.
 Finished 10: B-428 landed 580e44c07 · not visually verified
 - Interim digest 2 posted (items 6–10).
+- Pick: B-335 light (row menu submenu-parent enablement; independent of B-351's error line). Dispatched d-3bfa9172408b.
+- B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
+- Dispatched B-351 re-verify d-c384f97f449f.
+- B-351 re-verify 1 ready (general delta, 5043 tests; GUI unchanged since first verify's window shot). Fresh.
+- B-351 landed e5155196e. D-975..D-977.
+Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
+- Pick: B-182 light (restored terminal name clear → live title; independent of B-335). Dispatched d-c33141168cbe.

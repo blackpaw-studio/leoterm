@@ -25,6 +25,13 @@ struct LeoAgentRowPresentation: Equatable {
         /// "claude · $0.42": the template and the session's cost.
         case fallback(String)
 
+        /// Lines the row may spend on this detail: only an error wraps (B-351).
+        var maxLines: Int {
+            if case .error = self { Self.errorLineLimit } else { 1 }
+        }
+
+        static let errorLineLimit = 2
+
         var text: String {
             switch self {
             case .attention(let text), .error(let text), .warning(let text), .progress(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):

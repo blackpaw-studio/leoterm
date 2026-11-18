@@ -3333,7 +3333,7 @@ Note: When an error or env warning takes line 2, an indeterminate task has no mo
 Done: 137053a69
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png
 
-## B-351 · Agent move errors readable without hovering   [ready]
+## B-351 · Agent move errors readable without hovering   [done]
 Issue: #404
 Why: A refused move's reason is unreadable at normal sidebar width unless you hover.
 Accept: A move error shows in full at default sidebar width without hover, wrapping to at most two lines; the tooltip stays; a view test covers a long message.
@@ -3341,6 +3341,8 @@ Out: Rewording daemon error text (B-352).
 Source: owner (/feature, 2026-11-17)
 Inbox: 20261118T021310552058Z-d91db23d#31
 Note: B-340 review: the sidebar row error is lineLimit(1) and truncates at normal width; full text only in the tooltip (Calm: a plain failure should be readable without hovering)
+Done: 235b7835b
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
 
 ## B-428 · Drag-select part of the URL in an unfocused address bar   [done]
 Issue: #405
