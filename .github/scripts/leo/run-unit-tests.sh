@@ -36,6 +36,8 @@ if [[ "$host_tests" == "1" ]]; then echo "host tier: on"; else echo "host tier: 
 
 D="$DEVELOPER_DIR"
 app="$DERIVED_DATA/Build/Products/Debug/Leo.app"
+hang="$log.hang"
+rm -f "$hang"
 set +e
 timeout "$TEST_TIMEOUT_SECONDS" env \
   LEO_HOST_TESTS="$host_tests" \
@@ -44,8 +46,18 @@ timeout "$TEST_TIMEOUT_SECONDS" env \
   DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
   XCInjectBundleInto="$app/Contents/MacOS/Leo" \
   "$app/Contents/MacOS/Leo" -XCTest All "$app/Contents/PlugIns/GhosttyTests.xctest" \
-  >"$log" 2>&1
+  >"$log" 2>&1 &
+host=$!
+# A hung test ends the run only at the timeout and leaves no trace of where.
+# Watch the log instead: once it stops growing for STALL_SECONDS, record the
+# host's stacks and kill it, so the run fails fast with the evidence.
+"$script_dir/watch-stall.sh" "$log" "$host" "$hang" &
+watcher=$!
+wait "$host"
 rc=$?
+kill "$watcher" 2>/dev/null
+wait "$watcher" 2>/dev/null
 set -e
+[[ -s "$hang" ]] && { echo "::group::Stall diagnostics"; head -c 200000 "$hang"; echo "::endgroup::"; }
 
 "$script_dir/check-test-log.sh" "$log" "$rc"
