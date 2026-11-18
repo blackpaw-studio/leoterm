@@ -3289,6 +3289,7 @@ Inbox: 20261118T021310552058Z-d91db23d#56
 Note: seen by the B-369 verifier (pre-existing): with the stopped-agent chat now visible, the composer accepts text but nothing happens — P2 calm, honest state
 Done: 86e6a05e4 17b5ef323
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-371-1.png
+Reviewed: accepted 2026-11-18 — 4a8cda645f85
 
 ## B-388 · Fix the LeoTemplateListTests refetch flake under load   [done]
 Issue: #400
