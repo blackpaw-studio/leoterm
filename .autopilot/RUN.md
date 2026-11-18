@@ -140,11 +140,15 @@ Lane: B-382
   Dispatched: 2026-11-18T06:34:31Z
   Base: a657fde4535a6874bbc339e8176599036b4ffdeb
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: b92753564bf562968d3fa050969e55838a1b4e6b
+  Call: Show Tasks sits right after "Open in New Window" in the agent row context menu — P1 (every action has a menu item, HIG)
+  Call: Show Tasks is hidden, not disabled, when there is no task (sidesteps the B-329/B-335 menu-enablement quirks) — P1
+  Call: Show Tasks is shown even when an error or warning takes line 2, and for indeterminate tasks — item Note, VISION 1
+  Call: Mac only (iOS has its own fleet task panel, Fleet+TaskPanel.swift) — Mac/iOS parity rule
 
 Lane: B-428
   Branch: autopilot-lane/B-428
@@ -198,3 +202,4 @@ Finished 7: B-383 landed 82075531a · not visually verified
 - B-384 landed 3ca216725. D-967..D-969.
 Finished 8: B-384 landed 3ca216725 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-384-1.png
 - Pick: B-428 light (address bar drag-select; B-428 built before B-351 (independent; B-351 shares the sidebar row with open B-382)). Dispatched d-6bb022028a69.
+- B-382 ready (general full, 5041 tests, window shot). Calls vs D-745/D-766/D-770: consistent. Fresh. Verifier saw a "Configuration Errors" dialog from verify.md's launch args (-ApplePersistenceIgnoreState YES), not this change.
