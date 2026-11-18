@@ -137,3 +137,4 @@ Finished 5: B-388 landed dd1f3def2 · not visually verified
 - Interim digest 1 posted (items 1–5).
 - Pick: B-384 light (Mac toolbar capsule spinner). Dispatched d-c5112f76f5b7.
 - B-371 ready (fix 1, general full + delta, 5035 tests, window shots). Calls vs D-723..D-726, D-948: consistent. Integration stale (B-218, B-388 landed) → re-verify round 1. Note: a "Leo quit unexpectedly" dialog appeared during its verify; debug app survived, cause unconfirmed.
+- Dispatched B-371 re-verify d-b2aa58412a71.
