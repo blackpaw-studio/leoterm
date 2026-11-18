@@ -203,7 +203,9 @@ jobs:
         with:
           name: leo-test-log
           retention-days: 14
-          path: ${{ runner.temp }}/leo-tests.log
+          path: |
+            ${{ runner.temp }}/leo-tests.log
+            ${{ runner.temp }}/leo-tests.log.hang
           if-no-files-found: ignore
 
       # Only main pushes write caches; PRs and tag calls restore from main.
