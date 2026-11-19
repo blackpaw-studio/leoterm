@@ -736,11 +736,10 @@ import Testing
         // The window is never shown, so SwiftUI only attaches a new split to it once something
         // lays the content out. `moveFocus` retries for ~0.75 s and then gives up, so a slow
         // host (CI) left the view window-less and the move silently dropped. Lay out where focus
-        // is asserted, and re-ask once the view is attached (the pending move may have expired).
+        // is asserted; the product's own retries then land.
         return await eventually(.seconds(10)) {
             if fixture.controller.window?.firstResponder === view { return true }
             fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
-            if view.window != nil { Ghostty.moveFocus(to: view) }
             return false
         }
     }
@@ -767,7 +766,10 @@ import Testing
         #expect(fixture.terminals.selection == heir.id)
         // The heir's focus move retries on a timer while the close
         // re-hosts it (`window == nil`), so this is polled, not counted.
-        #expect(await eventually(.seconds(10)) { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+        #expect(await eventually(.seconds(10)) {
+            fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
+            return focusMatchesSelection(fixture)
+        }, "the selection is what has keyboard focus")
     }
 
     /// The same through the row's own close (its ⌘W, `closeShownPane`).
@@ -782,7 +784,10 @@ import Testing
         #expect(fixture.terminals.selection == heir.id)
         // The heir's focus move retries on a timer while the close
         // re-hosts it (`window == nil`), so this is polled, not counted.
-        #expect(await eventually(.seconds(10)) { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+        #expect(await eventually(.seconds(10)) {
+            fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
+            return focusMatchesSelection(fixture)
+        }, "the selection is what has keyboard focus")
     }
 
     /// B-107: a switch in the very turn the row's pane closed -- before
