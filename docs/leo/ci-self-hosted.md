@@ -10,8 +10,8 @@ The `pick-runner` job (ubuntu, 5 min cap) outputs `runner`, a JSON value that
 `test-macos` feeds to `runs-on: ${{ fromJSON(...) }}`: `["self-hosted","xcode-26.3"]`
 or `"macos-26"`. It picks self-hosted only if all hold:
 
-- `github.ref` is `refs/heads/main` (push or `workflow_dispatch` on main);
-  pull requests (including same-repo ones) and branch dispatches go hosted;
+- the run is in this repo: a `push` or `workflow_dispatch` on any branch, or a
+  `pull_request` whose head repo is this repo (fork PRs always go hosted);
 - input `allow_self_hosted` is not `false`;
 - secret `LEO_RUNNER_PICKER_TOKEN` is set;
 - `GET /orgs/blackpaw-studio/actions/runners` lists a runner that is `online`,
@@ -23,11 +23,18 @@ read permission), missing token, or parse failure falls back to hosted, with a
 
 ## Security boundary
 
-The boundary is the **org runner group**, restricted to the workflow
-`blackpaw-studio/leoterm/.github/workflows/leo-ci.yml@refs/heads/main`. A PR,
-fork or branch can edit workflow YAML, so nothing in YAML is a control. The
-`refs/heads/main` check in the picker only mirrors the group so it never picks
-a runner the group would refuse (the job would sit queued forever).
+Org runner group `leo-laptop` (id 3) is limited to leoterm, public repos
+allowed, with **no workflow restriction** (GitHub doesn't support ref
+wildcards). So any branch or same-repo PR workflow can run on the VM, and
+workflow YAML itself is not a control. The boundary is:
+
+- the repo's required approval for external contributors' workflow runs;
+- the runner group being limited to leoterm;
+- the VM running inside Tart (disposable, isolated from the laptop).
+
+The picker's fork check only avoids picking the VM for a fork PR; it is not
+the control. **Rule: never approve a fork PR run that changes `.github/`
+without reading it.**
 
 **Releases never use self-hosted**: `leo-release.yml` calls `leo-ci.yml` with
 `allow_self_hosted: false`.
@@ -38,7 +45,7 @@ a runner the group would refuse (the job would sit queued forever).
 waiting for a self-hosted runner stays queued until GitHub gives up (24 hours).
 
 - Laptop sleeps after the pick, before the job starts: the job stays queued on
-  the offline runner. Cancel it and re-run, or dispatch on main with
+  the offline runner. Cancel it and re-run, or dispatch with
   `allow_self_hosted` off.
 - Laptop sleeps mid-job: the runner stops reporting, GitHub marks the job
   failed after losing contact (about a few minutes). Re-run.

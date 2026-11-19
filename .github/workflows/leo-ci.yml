@@ -117,7 +117,9 @@ jobs:
         id: pick
         env:
           GH_TOKEN: ${{ secrets.LEO_RUNNER_PICKER_TOKEN }}
-          REF: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
           ALLOW: ${{ inputs.allow_self_hosted }}
         run: |
           hosted() {
@@ -125,10 +127,12 @@ jobs:
             echo 'runner="macos-26"' >> "$GITHUB_OUTPUT"
             exit 0
           }
-          # The org runner group only accepts this workflow at refs/heads/main;
-          # picking self-hosted anywhere else would queue forever. The group is
-          # the security boundary, this just avoids a pick it would refuse.
-          [[ "$REF" == refs/heads/main ]] || hosted "ref $REF is not refs/heads/main"
+          # Fork PRs never get the self-hosted runner. The runner group
+          # (leoterm only) and fork-approval rules are the real boundary; see
+          # docs/leo/ci-self-hosted.md.
+          if [[ "$EVENT_NAME" == pull_request && "$HEAD_REPO" != "$THIS_REPO" ]]; then
+            hosted "fork pull request"
+          fi
           [[ "$ALLOW" != false ]] || hosted "self-hosted disabled by allow_self_hosted=false"
           [[ -n "$GH_TOKEN" ]] || hosted "LEO_RUNNER_PICKER_TOKEN is not available"
           if ! runners="$(gh api --paginate /orgs/blackpaw-studio/actions/runners 2>&1)"; then
