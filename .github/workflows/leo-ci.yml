@@ -201,6 +201,15 @@ jobs:
           ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
+      # sparkle-key-check.sh needs Ed25519 in `openssl pkey`. Hosted images put
+      # Homebrew OpenSSL 3 first on PATH; a self-hosted VM may only have
+      # macOS LibreSSL, which fails silently. No-op when OpenSSL 3 is first.
+      - name: Ensure OpenSSL 3 on PATH
+        run: |
+          if openssl version | grep -q '^OpenSSL 3'; then exit 0; fi
+          brew list openssl@3 >/dev/null 2>&1 || brew install openssl@3
+          echo "$(brew --prefix openssl@3)/bin" >> "$GITHUB_PATH"
+
       # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
       # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
       - name: Install swiftlint 0.63.3
