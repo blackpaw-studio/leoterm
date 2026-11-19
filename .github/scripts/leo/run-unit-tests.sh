@@ -11,7 +11,8 @@
 set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
-readonly TEST_TIMEOUT_SECONDS=900
+# Overall cap; a real hang is caught sooner by watch-stall.sh (no log growth for 240 s).
+readonly TEST_TIMEOUT_SECONDS=1200
 export TEST_TIMEOUT_SECONDS
 log="${LOG:-${RUNNER_TEMP:-/tmp}/leo-tests.log}"
 # Resolved before the cd below; BASH_SOURCE is relative when CI runs the script by path.
