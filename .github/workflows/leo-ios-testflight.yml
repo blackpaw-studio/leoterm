@@ -70,12 +70,32 @@ jobs:
             fi
           done
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@de492cf36cbab201753d720ce4f4e336cd688c94 # v1.336.0
+      # Homebrew Ruby: setup-ruby's hostedtoolcache path doesn't exist on the
+      # Ghast VMs, and macOS's system Ruby is too old for fastlane. ruby@3.3 is
+      # keg-only, so put its bin dir (and its gem bin dir) on PATH. The
+      # Gemfile sets no Ruby constraint.
+      - name: Install Ruby 3.3
+        run: |
+          brew list ruby@3.3 >/dev/null 2>&1 || HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ruby@3.3
+          prefix="$(brew --prefix ruby@3.3)"
+          {
+            echo "$prefix/bin"
+            echo "$("$prefix/bin/ruby" -e 'print Gem.bindir')"
+          } >> "$GITHUB_PATH"
+          "$prefix/bin/ruby" --version
+
+      - name: Cache gems
+        id: cache-gems
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          ruby-version: "3.3.4"
-          bundler-cache: true
-          working-directory: ios
+          path: ios/vendor/bundle
+          key: gems-${{ runner.os }}-${{ runner.arch }}-ruby33-${{ hashFiles('ios/Gemfile.lock') }}
+
+      - name: Bundle install
+        working-directory: ios
+        run: |
+          bundle config set --local path vendor/bundle
+          bundle install --jobs 4
 
       # fastlane match imports the certificate and installs profiles; confine
       # both to a per-job keychain and profile snapshot (removed in the
