@@ -5,7 +5,17 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      allow_self_hosted:
+        description: Let test-macos use the self-hosted Tart runner when it is idle
+        type: boolean
+        default: true
   workflow_call:
+    inputs:
+      allow_self_hosted:
+        description: Let test-macos use the self-hosted Tart runner when it is idle
+        type: boolean
+        default: true
 
 # github.workflow is the caller's name inside a reusable call, so a release
 # run ("Leo Release") can't share a group with, and cancel, push CI ("Leo CI")
@@ -94,8 +104,51 @@ jobs:
         working-directory: .
         run: git diff --exit-code -- macos/Bundled/Plugins/studio.blackpaw.status
 
+  # Chooses where test-macos runs: Evan's self-hosted Tart VM when it is idle,
+  # else hosted macos-26. Every failure path falls back to hosted. See
+  # docs/leo/ci-self-hosted.md.
+  pick-runner:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      runner: ${{ steps.pick.outputs.runner }}
+    steps:
+      - name: Pick runner
+        id: pick
+        env:
+          GH_TOKEN: ${{ secrets.LEO_RUNNER_PICKER_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          THIS_REPO: ${{ github.repository }}
+          ALLOW: ${{ inputs.allow_self_hosted }}
+        run: |
+          hosted() {
+            echo "::notice::test-macos runs on hosted macos-26: $1"
+            echo 'runner="macos-26"' >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [[ "$EVENT_NAME" == pull_request && "$HEAD_REPO" != "$THIS_REPO" ]]; then
+            hosted "fork pull request"
+          fi
+          [[ "$ALLOW" != false ]] || hosted "self-hosted disabled by allow_self_hosted=false"
+          [[ -n "$GH_TOKEN" ]] || hosted "LEO_RUNNER_PICKER_TOKEN is not available"
+          if ! runners="$(gh api --paginate /orgs/blackpaw-studio/actions/runners 2>&1)"; then
+            hosted "runner API call failed (${runners//$'\n'/ })"
+          fi
+          idle="$(jq -s '[.[].runners[]
+            | select(.status == "online" and .busy == false)
+            | select(([.labels[].name] | index("self-hosted")) != null
+                     and ([.labels[].name] | index("xcode-26.3")) != null)] | length' <<<"$runners")" \
+            || hosted "could not parse runner list"
+          (( idle > 0 )) || hosted "no idle online self-hosted runner with label xcode-26.3"
+          echo "::notice::test-macos runs on self-hosted ($idle idle runner(s))"
+          echo 'runner=["self-hosted","xcode-26.3"]' >> "$GITHUB_OUTPUT"
+
   test-macos:
-    runs-on: macos-26
+    needs: pick-runner
+    runs-on: ${{ fromJSON(needs.pick-runner.outputs.runner) }}
+    # A sleeping laptop shows up only here: a job queued on an offline
+    # self-hosted runner waits until this timeout, then fails.
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -109,11 +162,25 @@ jobs:
       # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md), so a
       # missing 26.3 must fail, never fall back to a newer Xcode.
       - name: Select Xcode 26.3
+        env:
+          IS_HOSTED: ${{ runner.environment == 'github-hosted' }}
         run: |
-          x=/Applications/Xcode_26.3.app
-          test -d "$x" || { echo "::error::$x missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
-          echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
-          DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
+          if [[ "$IS_HOSTED" == true ]]; then
+            candidates=(/Applications/Xcode_26.3.app)
+          else
+            candidates=(/Applications/Xcode_26.3.app /Applications/Xcode-26.3.0.app /Applications/Xcode-26.3.app /Applications/Xcode.app)
+          fi
+          for x in "${candidates[@]}"; do
+            [[ -d "$x" ]] || continue
+            v="$(DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version 2>/dev/null | sed -n 's/^Xcode //p')"
+            [[ "$v" == 26.3* ]] || { echo "skipping $x (Xcode ${v:-unknown})"; continue; }
+            echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
+            DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
+            exit 0
+          done
+          echo "::error::no Xcode 26.3 found among: ${candidates[*]}"
+          ls -d /Applications/Xcode*.app || true
+          exit 1
 
       - name: Setup zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -124,7 +191,8 @@ jobs:
       # run-unit-tests.sh calls GNU `timeout`, which hosted images lack.
       - name: Install coreutils (timeout)
         run: |
-          brew install coreutils
+          # Idempotent: a reused self-hosted runner already has it.
+          brew list coreutils >/dev/null 2>&1 || brew install coreutils
           # Only `timeout`: full gnubin shadows BSD stat/etc. and breaks script tests.
           mkdir -p "$RUNNER_TEMP/bin"
           ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"

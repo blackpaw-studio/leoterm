@@ -26,6 +26,8 @@ jobs:
   # unless the tests pass.
   ci:
     uses: ./.github/workflows/leo-ci.yml
+    with:
+      allow_self_hosted: false # releases always run hosted
 
   build:
     uses: ./.github/workflows/leo-build.yml
