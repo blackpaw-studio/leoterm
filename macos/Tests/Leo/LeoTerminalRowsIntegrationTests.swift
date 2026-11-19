@@ -733,7 +733,16 @@ import Testing
     /// doubling) while the view isn't in the window yet.
     private func focusLands(on view: Ghostty.SurfaceView?, in fixture: Fixture) async -> Bool {
         guard let view else { return false }
-        return await eventually(.seconds(10)) { fixture.controller.window?.firstResponder === view }
+        // The window is never shown, so SwiftUI only attaches a new split to it once something
+        // lays the content out. `moveFocus` retries for ~0.75 s and then gives up, so a slow
+        // host (CI) left the view window-less and the move silently dropped. Lay out where focus
+        // is asserted, and re-ask once the view is attached (the pending move may have expired).
+        return await eventually(.seconds(10)) {
+            if fixture.controller.window?.firstResponder === view { return true }
+            fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
+            if view.window != nil { Ghostty.moveFocus(to: view) }
+            return false
+        }
     }
 
     /// Keyboard focus -- the window's first responder, and the pane the
