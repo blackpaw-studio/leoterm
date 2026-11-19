@@ -14,8 +14,11 @@ or `"macos-26"`. It picks self-hosted only if all hold:
   `pull_request` whose head repo is this repo (fork PRs always go hosted);
 - input `allow_self_hosted` is not `false`;
 - secret `LEO_RUNNER_PICKER_TOKEN` is set;
-- `GET /orgs/blackpaw-studio/actions/runners` lists a runner that is `online`,
-  not `busy`, with labels `self-hosted` and `xcode-26.3`.
+- the org runner group `leo-laptop` lists a runner that is `online`,
+  not `busy`, with labels `self-hosted` and `xcode-26.3`. Runners in other
+  groups are ignored, since they can't take leoterm jobs. The VM's runner is
+  ephemeral and re-registers after each job, so its registration must pass
+  `--runnergroup leo-laptop`.
 
 Any API error (including 403 while the token lacks the org self-hosted-runners
 read permission), missing token, or parse failure falls back to hosted, with a

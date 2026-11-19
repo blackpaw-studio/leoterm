@@ -135,7 +135,14 @@ jobs:
           fi
           [[ "$ALLOW" != false ]] || hosted "self-hosted disabled by allow_self_hosted=false"
           [[ -n "$GH_TOKEN" ]] || hosted "LEO_RUNNER_PICKER_TOKEN is not available"
-          if ! runners="$(gh api --paginate /orgs/blackpaw-studio/actions/runners 2>&1)"; then
+          # Only runners in the leo-laptop group can take leoterm jobs; one
+          # registered into another group would leave the job queued forever.
+          if ! group="$(gh api /orgs/blackpaw-studio/actions/runner-groups \
+                --jq '.runner_groups[] | select(.name == "leo-laptop") | .id' 2>&1)"; then
+            hosted "runner group API call failed (${group//$'\n'/ })"
+          fi
+          [[ "$group" =~ ^[0-9]+$ ]] || hosted "runner group leo-laptop not found"
+          if ! runners="$(gh api --paginate "/orgs/blackpaw-studio/actions/runner-groups/$group/runners" 2>&1)"; then
             hosted "runner API call failed (${runners//$'\n'/ })"
           fi
           idle="$(jq -s '[.[].runners[]
