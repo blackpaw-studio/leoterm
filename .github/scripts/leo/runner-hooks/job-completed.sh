@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Runner job hook (ACTIONS_RUNNER_HOOK_JOB_STARTED / _COMPLETED): stop stray
-# builds and test hosts and prune old DerivedData on a reused self-hosted
-# runner. Best-effort; never fails the job.
+# ACTIONS_RUNNER_HOOK_JOB_COMPLETED: stop what the job left running. Scoped to
+# this runner's work dir (the parent of $RUNNER_TEMP); no global kills, no
+# file deletion. Best-effort; never fails the job.
 set -uo pipefail
 
-pkill -f 'xcodebuild' || true
-pkill -f 'Build/Products/Debug/(Ghostty|Leo)\.app' || true
-pkill -x Ghostty || true
-pkill -x Leo || true
+temp="${RUNNER_TEMP:-}"
+[[ -n "$temp" ]] || exit 0
+work="$(dirname "$temp")"
+[[ "$(basename "$work")" == _work ]] || exit 0
 
-find "$HOME/Library/Developer/Xcode/DerivedData" -mindepth 1 -maxdepth 1 -mtime +3 \
-  -exec rm -rf {} + 2>/dev/null || true
+pkill -f "xcodebuild.*$work" || true
+pkill -f "$work/.*\.app/Contents/MacOS/" || true
 exit 0
