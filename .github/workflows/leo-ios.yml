@@ -23,13 +23,9 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  # Xcode 27 crashes on this code; the Mac app's Xcode 26.3 pin is separate.
-  DEVELOPER_DIR: /Applications/Xcode_26.5.app/Contents/Developer
-
 jobs:
   leo-ios:
-    runs-on: macos-26
+    runs-on: blackpaw-macos-tahoe-xcode-26-5
     timeout-minutes: 60
     env:
       SIMULATOR: iPhone 17 Pro
@@ -43,10 +39,12 @@ jobs:
         run: |
           echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-leo-ios" >> "$GITHUB_ENV"
 
+      # Xcode 27 crashes on this code; the Mac app's 26.3 pin is separate.
       - name: Select Xcode 26.5
-        run: |
-          test -d "$DEVELOPER_DIR" || { echo "::error::$DEVELOPER_DIR missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
-          xcodebuild -version
+        run: .github/scripts/leo/select-xcode.sh 26.5
+
+      - name: Ensure gh
+        run: .github/scripts/leo/ensure-tools.sh gh
 
       - name: Install xcodegen 2.42.0
         run: |

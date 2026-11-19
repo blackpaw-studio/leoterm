@@ -26,8 +26,6 @@ jobs:
   # unless the tests pass.
   ci:
     uses: ./.github/workflows/leo-ci.yml
-    with:
-      allow_self_hosted: false # releases always run hosted
 
   build:
     uses: ./.github/workflows/leo-build.yml
@@ -38,7 +36,7 @@ jobs:
 
   publish:
     needs: [ci, build]
-    runs-on: macos-26
+    runs-on: blackpaw-macos-tahoe-xcode-26-3
     timeout-minutes: 30
     permissions:
       contents: write
@@ -65,6 +63,9 @@ jobs:
             /macos/Ghostty-Info.plist
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      - name: Ensure tools
+        run: ci/.github/scripts/leo/ensure-tools.sh gh python3
 
       - name: Check Sparkle key
         env:

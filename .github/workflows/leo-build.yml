@@ -38,12 +38,11 @@ permissions:
   contents: read
 
 env:
-  DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
   SIGN_IDENTITY: "Developer ID Application: Evan Coleman (52M9C6892K)"
 
 jobs:
   build:
-    runs-on: macos-26
+    runs-on: blackpaw-macos-tahoe-xcode-26-3
     timeout-minutes: 150
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -61,12 +60,13 @@ jobs:
           sparse-checkout: .github/scripts/leo
           persist-credentials: false
 
-      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md); a
-      # missing 26.3 must fail, never fall back to a newer Xcode.
+      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md).
       - name: Select Xcode 26.3
-        run: |
-          test -d "$DEVELOPER_DIR" || { echo "::error::$DEVELOPER_DIR missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
-          xcodebuild -version
+        run: ci/.github/scripts/leo/select-xcode.sh 26.3
+
+      # Fresh VM: resolve-ref.sh needs gh; build-tmux.sh needs pkg-config.
+      - name: Ensure tools
+        run: ci/.github/scripts/leo/ensure-tools.sh gh jq pkg-config
 
       - name: Setup zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1

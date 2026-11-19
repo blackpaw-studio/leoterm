@@ -5,17 +5,7 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
-    inputs:
-      allow_self_hosted:
-        description: Let test-macos use the self-hosted Tart runner when it is idle
-        type: boolean
-        default: true
   workflow_call:
-    inputs:
-      allow_self_hosted:
-        description: Let test-macos use the self-hosted Tart runner when it is idle
-        type: boolean
-        default: true
 
 # github.workflow is the caller's name inside a reusable call, so a release
 # run ("Leo Release") can't share a group with, and cancel, push CI ("Leo CI")
@@ -104,61 +94,9 @@ jobs:
         working-directory: .
         run: git diff --exit-code -- macos/Bundled/Plugins/studio.blackpaw.status
 
-  # Chooses where test-macos runs: Evan's self-hosted Tart VM when it is idle,
-  # else hosted macos-26. Every failure path falls back to hosted. See
-  # docs/leo/ci-self-hosted.md.
-  pick-runner:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      runner: ${{ steps.pick.outputs.runner }}
-    steps:
-      - name: Pick runner
-        id: pick
-        env:
-          GH_TOKEN: ${{ secrets.LEO_RUNNER_PICKER_TOKEN }}
-          EVENT_NAME: ${{ github.event_name }}
-          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
-          THIS_REPO: ${{ github.repository }}
-          ALLOW: ${{ inputs.allow_self_hosted }}
-        run: |
-          hosted() {
-            echo "::notice::test-macos runs on hosted macos-26: $1"
-            echo 'runner="macos-26"' >> "$GITHUB_OUTPUT"
-            exit 0
-          }
-          # Fork PRs never get the self-hosted runner. The runner group
-          # (leoterm only) and fork-approval rules are the real boundary; see
-          # docs/leo/ci-self-hosted.md.
-          if [[ "$EVENT_NAME" == pull_request && "$HEAD_REPO" != "$THIS_REPO" ]]; then
-            hosted "fork pull request"
-          fi
-          [[ "$ALLOW" != false ]] || hosted "self-hosted disabled by allow_self_hosted=false"
-          [[ -n "$GH_TOKEN" ]] || hosted "LEO_RUNNER_PICKER_TOKEN is not available"
-          # Only runners in the leo-laptop group can take leoterm jobs; one
-          # registered into another group would leave the job queued forever.
-          if ! group="$(gh api /orgs/blackpaw-studio/actions/runner-groups \
-                --jq '.runner_groups[] | select(.name == "leo-laptop") | .id' 2>&1)"; then
-            hosted "runner group API call failed (${group//$'\n'/ })"
-          fi
-          [[ "$group" =~ ^[0-9]+$ ]] || hosted "runner group leo-laptop not found"
-          if ! runners="$(gh api --paginate "/orgs/blackpaw-studio/actions/runner-groups/$group/runners" 2>&1)"; then
-            hosted "runner API call failed (${runners//$'\n'/ })"
-          fi
-          idle="$(jq -s '[.[].runners[]
-            | select(.status == "online" and .busy == false)
-            | select(([.labels[].name] | index("self-hosted")) != null
-                     and ([.labels[].name] | index("xcode-26.3")) != null)] | length' <<<"$runners")" \
-            || hosted "could not parse runner list"
-          (( idle > 0 )) || hosted "no idle online self-hosted runner with label xcode-26.3"
-          echo "::notice::test-macos runs on self-hosted ($idle idle runner(s))"
-          echo 'runner=["self-hosted","xcode-26.3"]' >> "$GITHUB_OUTPUT"
-
+  # Ghast VM runner (docs/leo/ci-self-hosted.md); queues while no Ghast host is up.
   test-macos:
-    needs: pick-runner
-    runs-on: ${{ fromJSON(needs.pick-runner.outputs.runner) }}
-    # A sleeping laptop shows up only here: a job queued on an offline
-    # self-hosted runner waits until this timeout, then fails.
+    runs-on: blackpaw-macos-tahoe-xcode-26-3
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -169,28 +107,12 @@ jobs:
       - name: Set DerivedData path
         run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-ci" >> "$GITHUB_ENV"
 
-      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md), so a
-      # missing 26.3 must fail, never fall back to a newer Xcode.
+      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md).
       - name: Select Xcode 26.3
-        env:
-          IS_HOSTED: ${{ runner.environment == 'github-hosted' }}
-        run: |
-          if [[ "$IS_HOSTED" == true ]]; then
-            candidates=(/Applications/Xcode_26.3.app)
-          else
-            candidates=(/Applications/Xcode_26.3.app /Applications/Xcode-26.3.0.app /Applications/Xcode-26.3.app /Applications/Xcode.app)
-          fi
-          for x in "${candidates[@]}"; do
-            [[ -d "$x" ]] || continue
-            v="$(DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version 2>/dev/null | sed -n 's/^Xcode //p')"
-            [[ "$v" == 26.3* ]] || { echo "skipping $x (Xcode ${v:-unknown})"; continue; }
-            echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
-            DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
-            exit 0
-          done
-          echo "::error::no Xcode 26.3 found among: ${candidates[*]}"
-          ls -d /Applications/Xcode*.app || true
-          exit 1
+        run: .github/scripts/leo/select-xcode.sh 26.3
+
+      - name: Ensure gh
+        run: .github/scripts/leo/ensure-tools.sh gh
 
       - name: Setup zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -198,19 +120,18 @@ jobs:
           version: 0.16.0
           use-cache: false # zig caches managed explicitly below
 
-      # run-unit-tests.sh calls GNU `timeout`, which hosted images lack.
+      # run-unit-tests.sh calls GNU `timeout`, which macOS lacks.
       - name: Install coreutils (timeout)
         run: |
-          # Idempotent: a reused self-hosted runner already has it.
+          # Idempotent: skips the install when the image already has it.
           brew list coreutils >/dev/null 2>&1 || brew install coreutils
           # Only `timeout`: full gnubin shadows BSD stat/etc. and breaks script tests.
           mkdir -p "$RUNNER_TEMP/bin"
           ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      # sparkle-key-check.sh needs Ed25519 in `openssl pkey`. Hosted images put
-      # Homebrew OpenSSL 3 first on PATH; a self-hosted VM may only have
-      # macOS LibreSSL, which fails silently. No-op when OpenSSL 3 is first.
+      # sparkle-key-check.sh needs Ed25519 in `openssl pkey`. macOS's LibreSSL
+      # fails silently, so put Homebrew OpenSSL 3 first. No-op when it already is.
       - name: Ensure OpenSSL 3 on PATH
         run: |
           if openssl version | grep -q '^OpenSSL 3'; then exit 0; fi
@@ -278,6 +199,13 @@ jobs:
           [[ -n "$version" ]] || { echo "could not read .version from build.zig.zon" >&2; exit 1; }
           rm -rf macos/GhosttyKit.xcframework zig-out
           zig build -Demit-macos-app=false -Dversion-string="$version"
+
+      # Diagnostic only: shows whether the VM has a GUI session and a display.
+      - name: Session diagnostics
+        continue-on-error: true
+        run: |
+          launchctl managername || true
+          system_profiler SPDisplaysDataType | head -20 || true
 
       - name: Unit tests
         env:

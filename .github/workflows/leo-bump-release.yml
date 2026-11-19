@@ -28,7 +28,7 @@ jobs:
       github.event.pull_request.merged == true &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'bump/leo-')
-    runs-on: macos-26
+    runs-on: blackpaw-macos-tahoe-xcode-26-3
     timeout-minutes: 10
     permissions:
       contents: read
@@ -43,6 +43,9 @@ jobs:
           token: ${{ secrets.LEO_BUMP_TOKEN }}
           # The tag push below needs the token; checkout's post step removes it.
           persist-credentials: true
+
+      - name: Ensure tools
+        run: .github/scripts/leo/ensure-tools.sh gh jq
 
       - name: Tag the next release
         env:
