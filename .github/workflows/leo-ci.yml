@@ -202,15 +202,15 @@ jobs:
         continue-on-error: true
         run: |
           launchctl managername || true
-          system_profiler SPDisplaysDataType | head -20 || true
-          echo "AppleShowScrollBars=$(defaults read -g AppleShowScrollBars 2>/dev/null || echo unset)"
+          sw_vers || true
+          system_profiler SPDisplaysDataType 2>&1 | head -30 || true
           echo "AppleKeyboardUIMode=$(defaults read -g AppleKeyboardUIMode 2>/dev/null || echo unset)"
 
-      # A VM with no trackpad gets legacy (always-visible) scrollers, which
-      # take ~8 pt and shift the split-view layout tests. Hosted runners use
-      # overlay scrollers; match them.
-      - name: Use overlay scrollers
-        run: defaults write -g AppleShowScrollBars -string WhenScrolling
+      # The Cirrus image turns on Full Keyboard Access (AppleKeyboardUIMode=3),
+      # which puts scroll views in the Tab key loop and breaks the launch
+      # focus tests. Hosted runners leave it off; match them.
+      - name: Turn off Full Keyboard Access
+        run: defaults write -g AppleKeyboardUIMode -int 0
 
       - name: Unit tests
         env:
