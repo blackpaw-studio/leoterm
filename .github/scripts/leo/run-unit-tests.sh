@@ -40,6 +40,48 @@ host_tests="${LEO_HOST_TESTS:-}"
 if [[ "$host_tests" == "1" ]]; then echo "host tier: on"; else echo "host tier: off"; fi
 
 D="$DEVELOPER_DIR"
+result_bundle="${log%.log}.xcresult"
+
+# Maps a filter token (Suite or Suite/test()) to an -only-testing identifier.
+# A suite declared inside a top-level `extension Parent {` (as the Leo suites
+# nested under LeoAppEventQueueTests are) is identified as
+# GhosttyTests/Parent/Suite; a bare GhosttyTests/Suite matches nothing there.
+only_testing_id() {
+  local token="$1" suite="${1%%/*}" rest="" parent
+  [[ "$token" == */* ]] && rest="/${token#*/}"
+  if [[ "$token" == GhosttyTests/* ]]; then echo "$token"; return; fi
+  parent="$(find Tests -name '*.swift' -print0 | xargs -0 awk -v n="$suite" '
+    FNR == 1 { parent = "" }
+    /^extension [A-Za-z0-9_.]+ \{/ { parent = $2 }
+    /^\}/ { parent = "" }
+    $0 ~ "^[A-Za-z@ ]*(struct|class|enum|actor) " n "([^A-Za-z0-9_]|$)" { print parent; exit }')"
+  parent="${parent//.//}"
+  echo "GhosttyTests/${parent:+$parent/}$suite$rest"
+}
+
+# Prints every failing test's issues (Swift Testing expectation text with
+# file:line and values) from the result bundle, plus ::error annotations.
+dump_failures() {
+  [[ -d "$result_bundle" ]] || { echo "no result bundle at $result_bundle"; return 0; }
+  echo "::group::Failures from the result bundle"
+  xcrun xcresulttool get test-results summary --path "$result_bundle" --compact 2>&1 \
+    | python3 -I -c '
+import json, sys
+raw = sys.stdin.read()
+try:
+    failures = json.loads(raw).get("testFailures", [])
+except ValueError:
+    print(raw); sys.exit(0)
+if not failures:
+    print("no failures recorded in the result bundle")
+for f in failures:
+    text = f.get("failureText", "")
+    name = f.get("testName", "?")
+    print(f"{name}: {text}")
+    print("::error title=" + name.replace(",", " ") + "::" + text.replace("%", "%25").replace("\r", "").replace("\n", "%0A"))
+' || true
+  echo "::endgroup::"
+}
 app="$DERIVED_DATA/Build/Products/Debug/Leo.app"
 hang="$log.hang"
 rm -f "$hang"
@@ -51,15 +93,18 @@ if [[ -n "${LEO_TEST_FILTER:-}" ]]; then
   for f in "${filters[@]}"; do
     f="${f// /}"
     [[ -n "$f" ]] || continue
-    [[ "$f" == GhosttyTests/* ]] || f="GhosttyTests/$f"
-    only+=("-only-testing:$f")
+    id="$(only_testing_id "$f")"
+    echo "  $f -> $id"
+    only+=("-only-testing:$id")
   done
+  rm -rf "$result_bundle"
   cmd=(env LEO_HOST_TESTS="$host_tests"
     xcodebuild test-without-building
     -project Ghostty.xcodeproj -scheme Ghostty
     -destination 'platform=macOS,arch=arm64'
     -derivedDataPath "$DERIVED_DATA"
     -skipMacroValidation
+    -resultBundlePath "$result_bundle"
     "${only[@]}"
     CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO)
 else
@@ -84,5 +129,7 @@ kill "$watcher" 2>/dev/null
 wait "$watcher" 2>/dev/null
 set -e
 [[ -s "$hang" ]] && { echo "::group::Stall diagnostics"; head -c 200000 "$hang"; echo "::endgroup::"; }
+
+if [[ -n "${LEO_TEST_FILTER:-}" && $rc -ne 0 ]]; then dump_failures; fi
 
 "$script_dir/check-test-log.sh" "$log" "$rc"
