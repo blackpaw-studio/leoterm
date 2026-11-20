@@ -203,6 +203,14 @@ jobs:
         run: |
           launchctl managername || true
           system_profiler SPDisplaysDataType | head -20 || true
+          echo "AppleShowScrollBars=$(defaults read -g AppleShowScrollBars 2>/dev/null || echo unset)"
+          echo "AppleKeyboardUIMode=$(defaults read -g AppleKeyboardUIMode 2>/dev/null || echo unset)"
+
+      # A VM with no trackpad gets legacy (always-visible) scrollers, which
+      # take ~8 pt and shift the split-view layout tests. Hosted runners use
+      # overlay scrollers; match them.
+      - name: Use overlay scrollers
+        run: defaults write -g AppleShowScrollBars -string WhenScrolling
 
       - name: Unit tests
         env:
