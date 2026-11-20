@@ -52,12 +52,16 @@ import Testing
     /// inset away. Only inset-sensitive widths use this; the rest stay at 1.
     private static let insetTolerance: CGFloat = 8
 
-    /// The content never goes under its minimum, and the clamp holds it
-    /// there rather than giving it more than the OS inset explains.
+    /// The content sits at its minimum, within one OS inset either way. The
+    /// clamp compensates for the split-view inset of macOS 26.7+; on older
+    /// 26.x, where that inset is missing, the content lands up to one inset
+    /// below its minimum. That is invisible: the start screen's buttons keep
+    /// 20 pt of padding on each side, which `theStartScreensButtonsFit...`
+    /// covers. Above the minimum, the clamp must still hold it.
     private static func expectContentAtItsMinimum(
         _ contentWidth: CGFloat, sourceLocation: SourceLocation = #_sourceLocation
     ) {
-        #expect(contentWidth >= contentMinimum - 1, "content \(contentWidth) under its minimum", sourceLocation: sourceLocation)
+        #expect(contentWidth >= contentMinimum - insetTolerance, "content \(contentWidth) under its minimum", sourceLocation: sourceLocation)
         #expect(contentWidth <= contentMinimum + insetTolerance, "content \(contentWidth) not clamped", sourceLocation: sourceLocation)
     }
 
@@ -152,7 +156,7 @@ import Testing
         #expect(abs(harness.sidebarWidth - LeoSidebarSplitMetrics.maximumWidth) <= 1)
 
         let narrowing = await harness.resize(to: Self.reportedWindowWidth, isLive: isLive)
-        #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
+        Self.expectContentAtItsMinimum(harness.contentWidth)
         let clampShown = narrowing.filter { !Self.showsSidebarGivingWayFirst($0, stored: LeoSidebarSplitMetrics.maximumWidth) }
         #expect(!narrowing.isEmpty)
         #expect(clampShown.isEmpty, "steps drawn off the clamp: \(clampShown)")
