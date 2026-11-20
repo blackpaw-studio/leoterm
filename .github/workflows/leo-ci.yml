@@ -251,12 +251,13 @@ jobs:
             ${{ runner.temp }}/leo-tests.log.hang
           if-no-files-found: ignore
 
-      # Only main pushes write caches; PRs and tag calls restore from main.
+      # Main pushes and manual dispatches (any branch) write caches; PRs and
+      # tag calls only restore.
       # Each save runs once the step that filled it succeeded, even if a
       # later test step failed, so a red run doesn't force a cold rebuild.
       # A save is skipped on an exact-key hit (actions/cache can't overwrite).
       - name: Save zig cache
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-zig.outputs.cache-hit != 'true' && steps.ghosttykit.outcome == 'success' }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && steps.cache-zig.outputs.cache-hit != 'true' && steps.ghosttykit.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -265,14 +266,14 @@ jobs:
           key: ${{ steps.cache-zig.outputs.cache-primary-key }}
 
       - name: Save LeoKit .build
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-leokit.outputs.cache-hit != 'true' && steps.leokit-tests.outcome == 'success' }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && steps.cache-leokit.outputs.cache-hit != 'true' && steps.leokit-tests.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: Packages/LeoKit/.build
           key: ${{ steps.cache-leokit.outputs.cache-primary-key }}
 
       - name: Save DerivedData
-        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-dd.outputs.cache-hit != 'true' && steps.unit.outputs.built == 'true' }}
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && steps.cache-dd.outputs.cache-hit != 'true' && steps.unit.outputs.built == 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DERIVED_DATA }}
