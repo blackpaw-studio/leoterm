@@ -7,7 +7,9 @@
 # `-XCTest All <bundle>` on its own argv; Ghostty.Config.loadConfig skips CLI
 # arg parsing whenever isRunningXCTest() is true specifically so that argv
 # never reaches config parsing, so no test failures need to be tolerated here.
-# Env: DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
+# Env: LEO_TEST_FILTER (optional, comma-separated Suite or Suite/test(); runs
+# only those through `xcodebuild test-without-building -only-testing`, not the
+# injected host), DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
 set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
@@ -29,6 +31,8 @@ xcodebuild build-for-testing \
   -skipMacroValidation \
   CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO
 echo "::endgroup::"
+# Tells the workflow the DerivedData cache is worth saving even if tests fail.
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then echo "built=true" >> "$GITHUB_OUTPUT"; fi
 
 # Host tier (real key focus, surfaces, WebKit): only an explicit LEO_HOST_TESTS=1
 # turns it on. Passed explicitly so the test host sees exactly what is logged.
@@ -40,14 +44,34 @@ app="$DERIVED_DATA/Build/Products/Debug/Leo.app"
 hang="$log.hang"
 rm -f "$hang"
 set +e
-timeout "$TEST_TIMEOUT_SECONDS" env \
-  LEO_HOST_TESTS="$host_tests" \
-  DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
-  DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
-  DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
-  XCInjectBundleInto="$app/Contents/MacOS/Leo" \
-  "$app/Contents/MacOS/Leo" -XCTest All "$app/Contents/PlugIns/GhosttyTests.xctest" \
-  >"$log" 2>&1 &
+if [[ -n "${LEO_TEST_FILTER:-}" ]]; then
+  echo "test filter: $LEO_TEST_FILTER"
+  only=()
+  IFS=',' read -r -a filters <<<"$LEO_TEST_FILTER"
+  for f in "${filters[@]}"; do
+    f="${f// /}"
+    [[ -n "$f" ]] || continue
+    [[ "$f" == GhosttyTests/* ]] || f="GhosttyTests/$f"
+    only+=("-only-testing:$f")
+  done
+  cmd=(env LEO_HOST_TESTS="$host_tests"
+    xcodebuild test-without-building
+    -project Ghostty.xcodeproj -scheme Ghostty
+    -destination 'platform=macOS,arch=arm64'
+    -derivedDataPath "$DERIVED_DATA"
+    -skipMacroValidation
+    "${only[@]}"
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO)
+else
+  cmd=(env
+    LEO_HOST_TESTS="$host_tests"
+    DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks"
+    DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib"
+    DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib"
+    XCInjectBundleInto="$app/Contents/MacOS/Leo"
+    "$app/Contents/MacOS/Leo" -XCTest All "$app/Contents/PlugIns/GhosttyTests.xctest")
+fi
+timeout "$TEST_TIMEOUT_SECONDS" "${cmd[@]}" >"$log" 2>&1 &
 host=$!
 # A hung test ends the run only at the timeout and leaves no trace of where.
 # Watch the log instead: once it stops growing for STALL_SECONDS, record the

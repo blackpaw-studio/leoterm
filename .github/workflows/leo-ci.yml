@@ -5,7 +5,23 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      test_filter:
+        description: >-
+          Run only these macOS unit tests (comma-separated Suite or
+          Suite/test(), e.g. LeoSidebarContentMinimumTests) and skip CI script
+          tests, LeoKit tests and SwiftLint. Empty runs everything.
+        type: string
+        default: ""
   workflow_call:
+    inputs:
+      test_filter:
+        description: >-
+          Run only these macOS unit tests (comma-separated Suite or
+          Suite/test(), e.g. LeoSidebarContentMinimumTests) and skip CI script
+          tests, LeoKit tests and SwiftLint. Empty runs everything.
+        type: string
+        default: ""
 
 # github.workflow is the caller's name inside a reusable call, so a release
 # run ("Leo Release") can't share a group with, and cancel, push CI ("Leo CI")
@@ -176,21 +192,26 @@ jobs:
             dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-
 
       - name: CI script tests
+        if: inputs.test_filter == ''
         run: .github/scripts/leo/run-tests.sh
 
       - name: LeoKit tests
+        id: leokit-tests
+        if: inputs.test_filter == ''
         working-directory: Packages/LeoKit
         run: |
           swiftlint lint --strict
           swift test
 
       - name: SwiftLint
+        if: inputs.test_filter == ''
         working-directory: macos
         run: swiftlint lint --strict
 
       # leo-release.yml calls this workflow on a leo-vX.Y.Z tag; without an
       # explicit version string Config.zig panics on the tag (B-317).
       - name: Build GhosttyKit
+        id: ghosttykit
         run: |
           version="$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' build.zig.zon | head -1)"
           [[ -n "$version" ]] || { echo "could not read .version from build.zig.zon" >&2; exit 1; }
@@ -213,8 +234,10 @@ jobs:
         run: defaults write -g AppleKeyboardUIMode -int 0
 
       - name: Unit tests
+        id: unit
         env:
           LOG: ${{ runner.temp }}/leo-tests.log
+          LEO_TEST_FILTER: ${{ inputs.test_filter }}
         run: .github/scripts/leo/run-unit-tests.sh
 
       - name: Upload test log
@@ -229,8 +252,11 @@ jobs:
           if-no-files-found: ignore
 
       # Only main pushes write caches; PRs and tag calls restore from main.
+      # Each save runs once the step that filled it succeeded, even if a
+      # later test step failed, so a red run doesn't force a cold rebuild.
+      # A save is skipped on an exact-key hit (actions/cache can't overwrite).
       - name: Save zig cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-zig.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-zig.outputs.cache-hit != 'true' && steps.ghosttykit.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -239,14 +265,14 @@ jobs:
           key: ${{ steps.cache-zig.outputs.cache-primary-key }}
 
       - name: Save LeoKit .build
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-leokit.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-leokit.outputs.cache-hit != 'true' && steps.leokit-tests.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: Packages/LeoKit/.build
           key: ${{ steps.cache-leokit.outputs.cache-primary-key }}
 
       - name: Save DerivedData
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-dd.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-dd.outputs.cache-hit != 'true' && steps.unit.outputs.built == 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DERIVED_DATA }}

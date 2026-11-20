@@ -9,8 +9,9 @@
 #      Exercised against fixture dirs only, so this test never re-enters the
 #      real suite (no recursion).
 #   2. leo-ci.yml (push to main + every PR) has a step that calls it, parsed
-#      as YAML, with no step-level `if:` or `continue-on-error` that could
-#      skip it or swallow its failure.
+#      as YAML, with no step-level `if:` (other than `inputs.test_filter == ''`,
+#      set only by manual runs) or `continue-on-error` that could skip it or
+#      swallow its failure.
 # Run directly:
 #   ./test_ci-runs-script-tests.sh
 set -euo pipefail
@@ -97,7 +98,9 @@ else
       (job["steps"] || []).each do |s|
         lines = s["run"].to_s.lines.reject { |l| l.strip.start_with?("#") }
         next unless lines.any? { |l| l =~ %r{(\A|[\s/])\.github/scripts/leo/run-tests\.sh\b} }
-        next if s.key?("if") || s["continue-on-error"]
+        # The only allowed condition: a manual run with a test_filter skips
+        # the script tests; push and PR runs never set it.
+        next if (s.key?("if") && s["if"].to_s.strip != "inputs.test_filter == \x27\x27") || s["continue-on-error"]
         puts "#{job_id}: #{s["name"]}"
       end
     end
