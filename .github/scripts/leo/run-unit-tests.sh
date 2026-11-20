@@ -132,4 +132,12 @@ set -e
 
 if [[ -n "${LEO_TEST_FILTER:-}" && $rc -ne 0 ]]; then dump_failures; fi
 
+# The filtered xcodebuild path prints no Swift Testing summary line, so a
+# clean exit is judged from the result bundle's counts instead.
+if [[ -n "${LEO_TEST_FILTER:-}" && $rc -eq 0 ]]; then
+  "$script_dir/check-filtered-run.sh" "$result_bundle" "$log"
+  echo "All tests passed"
+  exit 0
+fi
+
 "$script_dir/check-test-log.sh" "$log" "$rc"
