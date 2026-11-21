@@ -35,6 +35,12 @@ import AppKit
     /// The subtype of the events the loop posts to end its own waits.
     private static let stopSubtype: Int16 = 0x4C49
 
+    /// How many of the window's `LeoEventLoop` wakes the last `idle` handled:
+    /// none with a window still listed means the wakes stopped (the main
+    /// thread was busy past `closedWindowWakeLimit`), many means something
+    /// kept holding it.
+    private(set) var wakesHandled = 0
+
     private init() {}
 
     /// Runs `body` inside the loop; returns what it returned.
@@ -85,6 +91,7 @@ import AppKit
         until isDone: @escaping @MainActor () -> Bool, wakingFor windowNumber: Int, timeout: Duration
     ) -> Bool {
         let outcome = IdleOutcome()
+        wakesHandled = 0
         let check = Timer(timeInterval: Self.idleCheckInterval, repeats: true) { _ in
             MainActor.assumeIsolated {
                 guard outcome.isDone == nil, isDone() else { return }
@@ -109,6 +116,7 @@ import AppKit
                     matching: .applicationDefined, until: .distantFuture, inMode: .default, dequeue: true
                 ), !isStopEvent(event) {
                     guard isWake(event, for: windowNumber) else { continue }
+                    wakesHandled += 1
                     NSApp.sendEvent(event)
                     return
                 }

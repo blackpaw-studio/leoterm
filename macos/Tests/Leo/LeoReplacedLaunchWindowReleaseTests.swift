@@ -115,6 +115,8 @@ struct LeoReplacedLaunchWindowReleaseTests {
         let isReleasedWhileIdle: Bool
         /// The windows the test opened besides the traced one.
         let others: [TerminalController]
+        /// The production wakes the idle wait handled (see `LeoIdleEventLoop.wakesHandled`).
+        var wakes = 0
     }
 
     /// Inside `loop`: a start-screen window, presented and its cascade run.
@@ -183,7 +185,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
             let isReleased = loop.idle(
                 until: { launch.isFreed }, wakingFor: launch.windowNumber, timeout: Self.releaseTimeout
             )
-            return (launch, Outcome(isReleasedWhileIdle: isReleased, others: requested.map { [$0] } ?? []))
+            return (launch, Outcome(isReleasedWhileIdle: isReleased, others: requested.map { [$0] } ?? [], wakes: loop.wakesHandled))
         }
         let launch = try #require(trace, "the launch window never presented")
         return (launch, outcome)
@@ -207,7 +209,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
         defer { close(launch, outcome) }
 
         #expect(outcome.others.count == 1)
-        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event")
+        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event (\(outcome.wakes) wakes handled)")
         let left = remains(of: launch)
         #expect(left.isEmpty, "the replaced launch window #\(launch.windowNumber) lingers: \(left)")
     }
@@ -221,7 +223,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
         defer { close(launch, outcome) }
 
         #expect(outcome.others.count == 1)
-        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event")
+        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event (\(outcome.wakes) wakes handled)")
         let left = remains(of: launch)
         #expect(left.isEmpty, "the replaced launch window #\(launch.windowNumber) lingers: \(left)")
     }
@@ -256,7 +258,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
                 wasRegistered: wasRegistered,
                 releasedAfter: isReleased ? ContinuousClock.now - requestedAt : nil
             )
-            return (launch, undo, Outcome(isReleasedWhileIdle: isReleased, others: replacement.map { [$0] } ?? []))
+            return (launch, undo, Outcome(isReleasedWhileIdle: isReleased, others: replacement.map { [$0] } ?? [], wakes: loop.wakesHandled))
         }
         let launch = try #require(trace, "the launch window never presented")
         defer { close(launch, outcome) }
@@ -265,7 +267,7 @@ struct LeoReplacedLaunchWindowReleaseTests {
         let timeout = try #require(undo.timeout)
         try #require(timeout >= Self.minimumUndoTimeout, "an undo timeout of \(timeout) can't be told from a release")
         #expect(outcome.others.count == 1)
-        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event")
+        #expect(outcome.isReleasedWhileIdle, "the replaced launch window #\(launch.windowNumber) waited for the next event (\(outcome.wakes) wakes handled)")
         let releasedAfter = try #require(undo.releasedAfter)
         #expect(
             releasedAfter < timeout - Self.undoExpiryMargin,
@@ -281,18 +283,18 @@ struct LeoReplacedLaunchWindowReleaseTests {
     @Test func aClosedStartScreenWindowIsReleased() async throws {
         let app = try liveApp()
 
-        let (trace, isReleased) = await LeoIdleEventLoop.run { loop -> (Trace?, Bool) in
-            guard let start = openStartScreenWindow(app, in: loop) else { return (nil, false) }
+        let (trace, isReleased, wakes) = await LeoIdleEventLoop.run { loop -> (Trace?, Bool, Int) in
+            guard let start = openStartScreenWindow(app, in: loop) else { return (nil, false, 0) }
             loop.turn { start.window?.close() }
             let isReleased = loop.idle(
                 until: { start.isFreed }, wakingFor: start.windowNumber, timeout: Self.releaseTimeout
             )
-            return (start, isReleased)
+            return (start, isReleased, loop.wakesHandled)
         }
         let start = try #require(trace, "the start-screen window never presented")
         defer { start.closeIfOpen() }
 
-        #expect(isReleased, "the closed start-screen window #\(start.windowNumber) waited for the next event")
+        #expect(isReleased, "the closed start-screen window #\(start.windowNumber) waited for the next event (\(wakes) wakes handled)")
         let left = remains(of: start)
         #expect(left.isEmpty, "the closed start-screen window #\(start.windowNumber) lingers: \(left)")
     }
