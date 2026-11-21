@@ -120,6 +120,12 @@ import json, sys
 print(json.dumps({"testNodes": [{"nodeType": "Test Case", "result": sys.argv[1], "nodeIdentifier": i} for i in sys.argv[2:]]}))' "$@"
 }
 
+# The script never reads DEVELOPER_DIR here (the host is a fake), but on macOS
+# /usr/bin/git and /usr/bin/python3 are xcrun shims that fail on a DEVELOPER_DIR
+# that doesn't exist, so it must name a real developer directory.
+developer_dir="$(xcode-select -p 2>/dev/null || true)"
+: "${developer_dir:=/Library/Developer/CommandLineTools}"
+
 # new_case: a fresh scenario dir, with the sample suites enumerated.
 new_case() {
   export FAKE_DIR="$work/case-$RANDOM$RANDOM"
@@ -133,7 +139,7 @@ run_case() {
   : >"$FAKE_DIR/step-summary"
   : >"$FAKE_DIR/github-output"
   rc=0
-  out="$(cd "$repo" && env PATH="$bin:$PATH" DERIVED_DATA="$derived" DEVELOPER_DIR=/nonexistent \
+  out="$(cd "$repo" && env PATH="$bin:$PATH" DERIVED_DATA="$derived" DEVELOPER_DIR="$developer_dir" \
     LOG="$FAKE_DIR/leo-tests.log" RUNNER_TEMP="$FAKE_DIR/tmp" HOME="$FAKE_DIR/home" \
     GITHUB_STEP_SUMMARY="$FAKE_DIR/step-summary" GITHUB_OUTPUT="$FAKE_DIR/github-output" \
     "$@" bash "$script" 2>&1)" || rc=$?
