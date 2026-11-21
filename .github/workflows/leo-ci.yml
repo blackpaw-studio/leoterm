@@ -240,6 +240,12 @@ jobs:
           LEO_TEST_FILTER: ${{ inputs.test_filter }}
         run: .github/scripts/leo/run-unit-tests.sh
 
+      # A host trap leaves its evidence outside the test log: macOS .ips reports
+      # and Ghostty's sentry minidumps. Gather them into one plain directory.
+      - name: Collect crash evidence
+        if: failure()
+        run: .github/scripts/leo/collect-crash-evidence.sh "$RUNNER_TEMP/leo-crash-evidence"
+
       - name: Upload test log
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -249,6 +255,7 @@ jobs:
           path: |
             ${{ runner.temp }}/leo-tests.log
             ${{ runner.temp }}/leo-tests.log.hang
+            ${{ runner.temp }}/leo-crash-evidence
           if-no-files-found: ignore
 
       # Main pushes and manual dispatches (any branch) write caches; PRs and
