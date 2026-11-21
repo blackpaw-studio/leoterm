@@ -69,11 +69,13 @@ host="$derived/Build/Products/Debug/Leo.app/Contents/MacOS/Leo"
 mkdir -p "$(dirname "$host")"
 # The host's interpreter is a copy of bash, not /bin/bash: dyld strips DYLD_*
 # variables from SIP-protected binaries only, so a copy sees the script's
-# DYLD_INSERT_LIBRARIES exactly as the real app would (a runner without SIP
-# does for /bin/bash too), and the test fails if the injection is not neutered.
+# DYLD_INSERT_LIBRARIES exactly as the real app would (the Ghast VM runs
+# without SIP, so /bin/bash does too), and the test fails if the injection is
+# not neutered. Not re-signed: an ad-hoc signature on the arm64e bash is killed
+# on the VM. A copy some macOS refuses to run falls back to /bin/bash.
 host_bash="$work/host-bash"
 cp /bin/bash "$host_bash"
-codesign --force -s - "$host_bash" >/dev/null 2>&1 || true
+if ! { "$host_bash" -c : >/dev/null 2>&1; } 2>/dev/null; then host_bash=/bin/bash; fi
 { echo "#!$host_bash"; cat <<'EOF'
 n=$(($(cat "$FAKE_DIR/host.count" 2>/dev/null || echo 0) + 1))
 echo "$n" >"$FAKE_DIR/host.count"
@@ -161,6 +163,13 @@ check() {
   else
     echo "FAIL: $desc"
     echo "$out" | tail -30 | sed 's/^/    | /'
+    # The test host's own output (its stderr included) and the xcodebuild fake's args.
+    local f
+    for f in "$FAKE_DIR"/*.log "$FAKE_DIR"/xb.*.args; do
+      [[ -e "$f" ]] || continue
+      echo "    ## ${f#"$FAKE_DIR"/}"
+      tail -15 "$f" | sed 's/^/    | /'
+    done
     fail=$((fail + 1))
   fi
 }
