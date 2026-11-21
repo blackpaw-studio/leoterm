@@ -9,7 +9,7 @@ import WebKit
 /// while focus is in the pane; the terminal keeps its own meaning for those keys.
 @MainActor
 @Suite(.serialized)
-struct LeoAgentBrowserHistoryRoutingTests {
+final class LeoAgentBrowserHistoryRoutingTests {
     private final class KeyWindow: NSWindow {
         override var isKeyWindow: Bool { true }
     }
@@ -52,6 +52,10 @@ struct LeoAgentBrowserHistoryRoutingTests {
         source.changed()
         await drainMainQueue()
     }
+
+    /// Detaches the views while the window is alive: letting it deallocate with
+    /// a web view still inside trapped the host ("Cannot form weak reference").
+    deinit { LeoFixtureWindow.tearDown(window) }
 
     private func key(_ character: String, _ modifiers: NSEvent.ModifierFlags = [.command]) -> NSEvent {
         NSEvent.keyEvent(
