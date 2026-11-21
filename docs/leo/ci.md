@@ -42,16 +42,22 @@ A full unit-test run retries once, so an intermittent failure doesn't cost a
 release; the step still says so. In `run-unit-tests.sh` (cap
 `MAX_RETRIED_FAILURES`, 10):
 
-- **Tests failed:** exactly those tests rerun through the filtered path
-  (`xcodebuild test-without-building -only-testing`). If they all pass, the
-  step passes with a `::warning title=Flaky test::` per test and a "Flaky
-  tests" list in the job summary; if any fails again, the step fails. More
+- **Tests failed:** each is resolved to its real identifier from
+  `xcodebuild -enumerate-tests` (so nested suites, suites declared in an
+  extension, and parameterized tests match exactly), then those tests rerun
+  through the filtered path (`xcodebuild test-without-building
+  -only-testing`). The retry passes only if every one of them is in the result
+  bundle as run and passed: an identifier that matches nothing, or a skipped
+  suite, fails it, and the focus-gate and skip checks apply to its log too. If
+  it passes, the step passes with a `::warning title=Flaky test::` per test
+  and a "Flaky tests" list in the job summary; otherwise the step fails. More
   than 10 failures is breakage, not flake: no retry. A failing test that can't
-  be placed in exactly one suite (`list-failed-tests.sh`) isn't retried either.
+  be resolved to exactly one identifier (`list-failed-tests.sh`), or an
+  enumeration that fails, isn't retried either.
 - **Host crashed or exited without a summary:** the whole suite reruns once. A
   clean rerun passes with a `::warning title=Test host crash::`. The first
   attempt's crash evidence is collected before the rerun. A timeout or stall
-  kill is not retried.
+  kill is not retried, even when a summary was printed first.
 - The first attempt's log stays in `leo-tests.log`, the rerun's in
   `leo-tests-retry.log`; both upload, with the crash evidence, whenever a
   retry ran, even if the step passed. Filtered runs (`test_filter`) never

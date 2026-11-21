@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Plain-sh tests for run-unit-tests.sh's retry policy: tests that failed are
-# rerun once by name, a crashed host's suite is rerun once, and neither is
+# resolved to real identifiers and rerun once, a retry passes only if every
+# one of them ran, a crashed host's suite is rerun once, and none of it is
 # retried when it looks like breakage. The real script runs against fakes: a
-# stand-in test host and xcodebuild whose outputs and exit statuses each test
-# scripts (host.N / xb.N for the Nth call), and a `timeout` that just runs the
-# command. Run directly:
+# stand-in test host, xcodebuild (test enumeration from enum.json; outputs and
+# exit statuses each test scripts as xb.N for the Nth test run) and xcrun's
+# xcresulttool (results from xb.N.tests / xb.N.summary, else every -only-testing
+# id as passed), and a `timeout` that just runs the command. Run directly:
 #   ./test_run-unit-tests-retry.sh
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
@@ -25,13 +27,42 @@ cat >"$bin/xcodebuild" <<'EOF'
 #!/bin/bash
 # build-for-testing succeeds; each test-without-building is the next xb.N.
 [[ "$1" == build-for-testing ]] && exit 0
+bundle="" enum_out=""
+args=("$@")
+for ((i = 0; i < ${#args[@]}; i++)); do
+  [[ "${args[i]}" == -resultBundlePath ]] && bundle="${args[i + 1]}"
+  [[ "${args[i]}" == -test-enumeration-output-path ]] && enum_out="${args[i + 1]}"
+done
+if [[ -n "$enum_out" ]]; then
+  echo x >>"$FAKE_DIR/enumerations"
+  cp "$FAKE_DIR/enum.json" "$enum_out"
+  exit "$(cat "$FAKE_DIR/enum.rc" 2>/dev/null || echo 0)"
+fi
+[[ -n "$bundle" ]] && mkdir -p "$bundle"
 n=$(($(cat "$FAKE_DIR/xb.count" 2>/dev/null || echo 0) + 1))
 echo "$n" >"$FAKE_DIR/xb.count"
 printf '%s\n' "$@" >"$FAKE_DIR/xb.$n.args"
+env | grep '^TEST_RUNNER_' >"$FAKE_DIR/xb.$n.env" || true
 cat "$FAKE_DIR/xb.$n" 2>/dev/null
 exit "$(cat "$FAKE_DIR/xb.$n.rc" 2>/dev/null || echo 0)"
 EOF
-chmod +x "$bin/timeout" "$bin/xcodebuild"
+cat >"$bin/xcrun" <<'EOF'
+#!/bin/bash
+# xcrun xcresulttool get test-results (summary|tests) --path BUNDLE --compact
+n=$(cat "$FAKE_DIR/xb.count")
+f="$FAKE_DIR/xb.$n.$4"
+if [[ -e "$f" ]]; then cat "$f"; exit 0; fi
+python3 -I - "$4" "$FAKE_DIR/xb.$n.args" <<'PY'
+import json, sys
+cases = [
+    {"nodeType": "Test Case", "result": "Passed", "nodeIdentifier": a.split(":", 1)[1].removeprefix("GhosttyTests/")}
+    for a in open(sys.argv[2]).read().split("\n")
+    if a.startswith("-only-testing:")
+]
+print(json.dumps({"testNodes": cases} if sys.argv[1] == "tests" else {"passedTests": len(cases), "failedTests": 0}))
+PY
+EOF
+chmod +x "$bin/timeout" "$bin/xcodebuild" "$bin/xcrun"
 
 derived="$work/derived"
 host="$derived/Build/Products/Debug/Leo.app/Contents/MacOS/Leo"
@@ -75,10 +106,26 @@ fail_log() {
 }
 pass_log() { echo "✔ Test run with 5 tests in 2 suites passed after 1.0 seconds."; }
 
-# new_case: a fresh scenario dir.
+# enum_json ID...: the tests xcodebuild's enumeration knows.
+enum_json() {
+  python3 -I -c '
+import json, sys
+print(json.dumps({"errors": [], "values": [{"disabledTests": [], "enabledTests": [{"identifier": i} for i in sys.argv[1:]]}]}))' "$@"
+}
+
+# tests_json RESULT ID...: a result bundle holding each ID as a test case with RESULT.
+tests_json() {
+  python3 -I -c '
+import json, sys
+print(json.dumps({"testNodes": [{"nodeType": "Test Case", "result": sys.argv[1], "nodeIdentifier": i} for i in sys.argv[2:]]}))' "$@"
+}
+
+# new_case: a fresh scenario dir, with the sample suites enumerated.
 new_case() {
   export FAKE_DIR="$work/case-$RANDOM$RANDOM"
   mkdir -p "$FAKE_DIR"
+  enum_json 'GhosttyTests/AlphaTests/flaky()' 'GhosttyTests/AlphaTests/steady()' 'GhosttyTests/AlphaTests/twin()' \
+    'GhosttyTests/BetaTests/other()' 'GhosttyTests/BetaTests/twin()' >"$FAKE_DIR/enum.json"
 }
 
 # run_case [ENV=VALUE...]: runs the script; sets out, rc, and the files below.
@@ -125,6 +172,7 @@ check "  the step summary lists the flaky tests" bash -c "grep -q 'Flaky tests' 
 check "  the workflow is told to upload the evidence" grep -qx 'retried=true' "$FAKE_DIR/github-output"
 check "  the first attempt's errors are softened to warnings" lacks '::error'
 check "  one retry only" calls xb 1
+check "  and one enumeration" bash -c "[[ \$(wc -l <'$FAKE_DIR/enumerations' | tr -d ' ') == 1 ]]"
 
 # A retried test fails again: the step fails with the errors.
 new_case
@@ -172,6 +220,106 @@ echo 1 >"$FAKE_DIR/host.1.rc"
 run_case
 check "an ambiguous failing test fails without retrying" bash -c "[[ $rc -ne 0 ]]"
 check "  no retry ran" calls xb 0
+
+# A parameterized test in a nested suite: the log's " with N test cases"
+# suffix is not part of the test's name, and the nested path is kept.
+new_case
+enum_json 'GhosttyTests/AlphaTests/Nested/param(_:step:)' 'GhosttyTests/BetaTests/param(_:step:)' >"$FAKE_DIR/enum.json"
+{
+  echo '✘ Test param(_:step:) with 4 test cases failed after 0.1 seconds with 2 issues.'
+  echo '✘ Suite Nested failed after 0.1 seconds with 2 issues.'
+  echo '✘ Test run with 5 tests in 2 suites failed after 1.0 seconds with 2 issues.'
+} >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+run_case
+check "a parameterized nested test is retried and passes" test "$rc" -eq 0
+check "  by its qualified identifier, without the case-count suffix" grep -qxF -- '-only-testing:GhosttyTests/AlphaTests/Nested/param(_:step:)' "$FAKE_DIR/xb.1.args"
+check "  and reported without the bundle prefix" has '::warning title=Flaky test::AlphaTests/Nested/param(_:step:) failed then passed on retry'
+
+# An identifier xcodebuild matches to nothing exits 0 and "passes" the other
+# tests: the retry must not count that as the failed test passing.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+echo "Test case 'AlphaTests/steady()' passed" >"$FAKE_DIR/xb.1"
+tests_json Passed 'AlphaTests/steady()' >"$FAKE_DIR/xb.1.tests"
+echo '{"passedTests":1,"failedTests":0}' >"$FAKE_DIR/xb.1.summary"
+run_case
+check "a retry that never ran the failed test fails" test "$rc" -ne 0
+check "  and says the identifier matched nothing" has 'AlphaTests/flaky(): no result in the bundle'
+check "  with no flaky warning" lacks 'title=Flaky test'
+
+# A skipped retried test (a gated suite) is not a pass either.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+tests_json Skipped 'AlphaTests/flaky()' >"$FAKE_DIR/xb.1.tests"
+echo '{"passedTests":2,"failedTests":0}' >"$FAKE_DIR/xb.1.summary"
+run_case
+check "a skipped retry fails" test "$rc" -ne 0
+check "  and says it did not pass" has 'AlphaTests/flaky(): Skipped'
+
+# One passing and one never run: the step still fails.
+new_case
+{ fail_log 'flaky()' 'other()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+tests_json Passed 'AlphaTests/flaky()' >"$FAKE_DIR/xb.1.tests"
+echo '{"passedTests":1,"failedTests":0}' >"$FAKE_DIR/xb.1.summary"
+run_case
+check "every retried test must have run, not just one" test "$rc" -ne 0
+check "  naming the one that did not" has 'BetaTests/other(): no result in the bundle'
+
+# The host tier reaches the retry's test host (xcodebuild forwards only TEST_RUNNER_ variables).
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+run_case LEO_HOST_TESTS=1
+check "the retry's host gets TEST_RUNNER_LEO_HOST_TESTS" grep -qx 'TEST_RUNNER_LEO_HOST_TESTS=1' "$FAKE_DIR/xb.1.env"
+
+# A retry whose log shows the host tier silently skipped fails.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+echo '➜ Suite AlphaTests skipped: host tier: set LEO_HOST_TESTS=1' >"$FAKE_DIR/xb.1"
+run_case LEO_HOST_TESTS=1
+check "a retry that skipped host-only tests fails the step" test "$rc" -ne 0
+check "  with the host-tier error" has 'host tier skipped host-only tests'
+
+# A focus-gate skip on the retry is surfaced like it is on a first run.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+echo 'focus-gate-skip: no key window' >"$FAKE_DIR/xb.1"
+run_case
+check "a focus-gate skip on the retry is a warning" has 'focus-gate check(s) skipped'
+check "  and the flaky test still passes the step" test "$rc" -eq 0
+
+# A timeout after the summary was printed means the host was killed: no retry.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 124 >"$FAKE_DIR/host.1.rc"
+run_case
+check "a timeout after a summary fails without a retry" test "$rc" -ne 0
+check "  no enumeration or retry ran" bash -c "[[ ! -e '$FAKE_DIR/enumerations' && ! -e '$FAKE_DIR/xb.count' ]]"
+
+# The enumeration fails: the failure can't be named, so no retry.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+echo 1 >"$FAKE_DIR/enum.rc"
+run_case
+check "a failed enumeration fails without a retry" test "$rc" -ne 0
+check "  no retry ran" calls xb 0
+
+# The enumeration is unreadable: the resolver's failure aborts, never a retry of nothing.
+new_case
+{ fail_log 'flaky()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+echo 'not json' >"$FAKE_DIR/enum.json"
+run_case
+check "an unreadable enumeration fails without a retry" test "$rc" -ne 0
+check "  no retry ran" calls xb 0
+check "  and says the failures could not be resolved" has 'could not resolve the failed tests'
 
 # The host crashes, the rerun is clean: pass with a warning.
 new_case

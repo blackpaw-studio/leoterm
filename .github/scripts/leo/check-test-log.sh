@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Post-run checks on the unit-test log: usage check-test-log.sh LOG RC
+# Post-run checks on the unit-test log: usage check-test-log.sh LOG RC [--notes-only]
 # (RC is the test host's exit status). Prints the run summary, a ::warning::
 # for every focus-gate skip (a runner that never gets key status must not
 # quietly drop those guards), and exits 1 on a timeout, a missing summary, a
-# non-zero status, or any failed test.
+# non-zero status, or any failed test. --notes-only (for a filtered run, which
+# prints no summary) stops after the focus-gate, skip and host-tier checks.
 set -euo pipefail
 
-log="${1:?usage: check-test-log.sh LOG RC}"
-rc="${2:?usage: check-test-log.sh LOG RC}"
+log="${1:?usage: check-test-log.sh LOG RC [--notes-only]}"
+rc="${2:?usage: check-test-log.sh LOG RC [--notes-only]}"
+notes_only=0
+[[ "${3:-}" == --notes-only ]] && notes_only=1
 readonly TEST_TIMEOUT_SECONDS="${TEST_TIMEOUT_SECONDS:-900}"
 # Printed by LeoFocusProbe.runLoggingSkip (macos/Tests/Leo/LeoTestHostActivation.swift).
 readonly FOCUS_SKIP_MARKER='focus-gate-skip:'
 
 summary="$(grep -E 'Test run with [0-9]+ tests' "$log" | tail -1 || true)"
-echo "${summary:-no test summary found}"
+if [[ $notes_only -eq 0 ]]; then echo "${summary:-no test summary found}"; fi
 
 skips="$(grep -cF "$FOCUS_SKIP_MARKER" "$log" || true)"
 if [[ "${skips:-0}" -gt 0 ]]; then
@@ -40,6 +43,8 @@ if [[ "${LEO_HOST_TESTS:-}" == 1 ]] && grep -qF "$HOST_SKIP_REASON" <<<"$skipped
   echo "::error::host tier skipped host-only tests (LEO_HOST_TESTS=1 was not honored)"
   exit 1
 fi
+
+if [[ $notes_only -eq 1 ]]; then exit 0; fi
 
 if [[ $rc -eq 124 ]]; then
   echo "::error::Test run timed out after ${TEST_TIMEOUT_SECONDS}s"

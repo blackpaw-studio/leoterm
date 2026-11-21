@@ -12,14 +12,20 @@
 # injected host), DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
 #
 # Retry policy (full, unfiltered runs only; one round, never more):
-#   - tests failed (a summary, at most MAX_RETRIED_FAILURES of them): rerun
-#     exactly those through the filtered path. All pass: the step passes with
-#     a ::warning:: per flaky test and a "Flaky tests" step-summary list.
+#   - tests failed (a summary, at most MAX_RETRIED_FAILURES of them): resolve
+#     each to its real identifier (xcodebuild -enumerate-tests, so nested and
+#     extension suites and parameterized tests resolve exactly) and rerun
+#     exactly those through the filtered path. The retry passes only if every
+#     one of them ran and passed (an identifier that matches nothing, or a
+#     skipped suite, fails it), and the focus-gate and skip checks hold on its
+#     log too. Then the step passes with a ::warning:: per flaky test and a
+#     "Flaky tests" step-summary list.
 #   - the host crashed or exited without a summary: rerun the whole suite.
 #     Clean: the step passes with a ::warning::. The first attempt's crash
 #     evidence is collected before the rerun.
-#   - a timeout or a stall kill, more than MAX_RETRIED_FAILURES failures
-#     (real breakage, not flake), or a failure that can't be named: no retry.
+#   - a timeout or a stall kill (even after a summary), more than
+#     MAX_RETRIED_FAILURES failures (real breakage, not flake), or a failure
+#     that can't be named: no retry.
 # The first attempt's log stays at $log; the rerun's goes to ${log%.log}-retry.log.
 set -euo pipefail
 
@@ -138,7 +144,8 @@ run_filtered() {
   local out="$1" bundle="$2"
   shift 2
   rm -rf "$bundle"
-  supervise "$out" env LEO_HOST_TESTS="$host_tests" \
+  # xcodebuild forwards only TEST_RUNNER_-prefixed variables to the test host.
+  supervise "$out" env LEO_HOST_TESTS="$host_tests" TEST_RUNNER_LEO_HOST_TESTS="$host_tests" \
     xcodebuild test-without-building \
     -project Ghostty.xcodeproj -scheme Ghostty \
     -destination 'platform=macOS,arch=arm64' \
@@ -221,11 +228,47 @@ if [[ $has_summary -eq 0 && $first_rc -ne 124 && $first_hang -eq 0 ]]; then
   fail_first
 fi
 
+# A stall or a timeout, even after a summary, is not a flaky test: the host
+# was killed, so nothing it reported can be trusted.
+if [[ $first_rc -eq 124 || $first_hang -eq 1 ]]; then fail_first; fi
+
+# Every identifier xcodebuild knows, to place the failed tests exactly.
+enumerate_tests() {
+  local out="$1"
+  timeout "$TEST_TIMEOUT_SECONDS" xcodebuild test-without-building \
+    -project Ghostty.xcodeproj -scheme Ghostty \
+    -destination 'platform=macOS,arch=arm64' \
+    -derivedDataPath "$DERIVED_DATA" \
+    -skipMacroValidation \
+    -enumerate-tests -test-enumeration-style flat -test-enumeration-format json \
+    -test-enumeration-output-path "$out" \
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO \
+    >"${out%.json}.log" 2>&1
+}
+
 # A summary with failed tests: rerun exactly those, if there are few enough.
+[[ $has_summary -eq 1 ]] || fail_first
+failed_count="$(grep -E '^✘ Test .* failed after ' "$log" | grep -vc '^✘ Test run with ' || true)"
+if [[ "${failed_count:-0}" -eq 0 ]]; then fail_first; fi
+if [[ $failed_count -gt $MAX_RETRIED_FAILURES ]]; then
+  echo "::notice::$failed_count tests failed (more than $MAX_RETRIED_FAILURES): not retrying"
+  fail_first
+fi
+
+enumeration="${log%.log}-enumeration.json"
+if ! enumerate_tests "$enumeration"; then
+  echo "::notice::could not enumerate the tests (see ${enumeration%.json}.log): not retrying"
+  fail_first
+fi
+# list-failed-tests.sh's status is checked here, not inside a process substitution that would drop it.
+failed_list="$("$script_dir/list-failed-tests.sh" "$log" "$enumeration")" || {
+  echo "::notice::could not resolve the failed tests: not retrying"
+  fail_first
+}
 failed_ids=()
-[[ $has_summary -eq 1 ]] && while IFS= read -r id; do
+while IFS= read -r id; do
   [[ -n "$id" ]] && failed_ids+=("$id")
-done < <("$script_dir/list-failed-tests.sh" "$log")
+done <<<"$failed_list"
 
 if [[ ${#failed_ids[@]} -eq 0 ]]; then fail_first; fi
 if [[ ${#failed_ids[@]} -gt $MAX_RETRIED_FAILURES ]]; then
@@ -240,21 +283,22 @@ for id in "${failed_ids[@]}"; do
 done
 
 only=()
-for id in "${failed_ids[@]}"; do
-  rest="${id#*/}"
-  only+=("-only-testing:$(only_testing_id "${id%%/*}/$rest")")
-done
+for id in "${failed_ids[@]}"; do only+=("-only-testing:$id"); done
 mark_retried
-echo "Retrying ${#failed_ids[@]} failed test(s) once: ${failed_ids[*]}"
+echo "Retrying ${#failed_ids[@]} failed test(s) once: ${failed_ids[*]#GhosttyTests/}"
 run_filtered "$retry_log" "$retry_bundle" "${only[@]}"
-if [[ $rc -eq 0 ]] && "$script_dir/check-filtered-run.sh" "$retry_bundle" "$retry_log"; then
+# Passed means: exit 0, every retried test ran and passed, and the focus-gate
+# and skip notes on the retry's log hold.
+if [[ $rc -eq 0 ]] \
+  && "$script_dir/check-filtered-run.sh" "$retry_bundle" "$retry_log" "${failed_ids[@]}" \
+  && "$script_dir/check-test-log.sh" "$retry_log" 0 --notes-only; then
   soften_first
   {
     printf '### Flaky tests\n\nFailed, then passed on retry:\n\n'
-    for id in "${failed_ids[@]}"; do printf -- '- `%s`\n' "$id"; done
+    for id in "${failed_ids[@]}"; do printf -- '- `%s`\n' "${id#GhosttyTests/}"; done
   } >>"$summary_file"
   for id in "${failed_ids[@]}"; do
-    echo "::warning title=Flaky test::$id failed then passed on retry"
+    echo "::warning title=Flaky test::${id#GhosttyTests/} failed then passed on retry"
   done
   echo "All tests passed (after retrying ${#failed_ids[@]} flaky test(s))"
   exit 0
