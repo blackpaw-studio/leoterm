@@ -67,13 +67,20 @@ chmod +x "$bin/timeout" "$bin/xcodebuild" "$bin/xcrun"
 derived="$work/derived"
 host="$derived/Build/Products/Debug/Leo.app/Contents/MacOS/Leo"
 mkdir -p "$(dirname "$host")"
-cat >"$host" <<'EOF'
-#!/bin/bash
+# The host's interpreter is a copy of bash, not /bin/bash: dyld strips DYLD_*
+# variables from SIP-protected binaries only, so a copy sees the script's
+# DYLD_INSERT_LIBRARIES exactly as the real app would (a runner without SIP
+# does for /bin/bash too), and the test fails if the injection is not neutered.
+host_bash="$work/host-bash"
+cp /bin/bash "$host_bash"
+codesign --force -s - "$host_bash" >/dev/null 2>&1 || true
+{ echo "#!$host_bash"; cat <<'EOF'
 n=$(($(cat "$FAKE_DIR/host.count" 2>/dev/null || echo 0) + 1))
 echo "$n" >"$FAKE_DIR/host.count"
 cat "$FAKE_DIR/host.$n" 2>/dev/null
 exit "$(cat "$FAKE_DIR/host.$n.rc" 2>/dev/null || echo 0)"
 EOF
+} >"$host"
 chmod +x "$host"
 
 repo="$work/repo"
@@ -139,7 +146,7 @@ run_case() {
   : >"$FAKE_DIR/step-summary"
   : >"$FAKE_DIR/github-output"
   rc=0
-  out="$(cd "$repo" && env PATH="$bin:$PATH" DERIVED_DATA="$derived" DEVELOPER_DIR="$developer_dir" \
+  out="$(cd "$repo" && env PATH="$bin:$PATH" DERIVED_DATA="$derived" DEVELOPER_DIR="$developer_dir" LEO_TEST_INJECT_LIB= \
     LOG="$FAKE_DIR/leo-tests.log" RUNNER_TEMP="$FAKE_DIR/tmp" HOME="$FAKE_DIR/home" \
     GITHUB_STEP_SUMMARY="$FAKE_DIR/step-summary" GITHUB_OUTPUT="$FAKE_DIR/github-output" \
     "$@" bash "$script" 2>&1)" || rc=$?

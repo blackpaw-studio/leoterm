@@ -9,7 +9,7 @@
 # never reaches config parsing, so no test failures need to be tolerated here.
 # Env: LEO_TEST_FILTER (optional, comma-separated Suite or Suite/test(); runs
 # only those through `xcodebuild test-without-building -only-testing`, not the
-# injected host), DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
+# injected host), DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LEO_TEST_INJECT_LIB (the dylib injected into the host; empty = none; script tests only). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
 #
 # Retry policy (full, unfiltered runs only; one round, never more):
 #   - tests failed (a summary, at most MAX_RETRIED_FAILURES of them): resolve
@@ -134,7 +134,7 @@ run_full() {
     LEO_HOST_TESTS="$host_tests" \
     DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
     DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
-    DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
+    DYLD_INSERT_LIBRARIES="${LEO_TEST_INJECT_LIB-$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib}" \
     XCInjectBundleInto="$app/Contents/MacOS/Leo" \
     "$app/Contents/MacOS/Leo" -XCTest All "$app/Contents/PlugIns/GhosttyTests.xctest"
 }
