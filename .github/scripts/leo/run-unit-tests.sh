@@ -25,7 +25,8 @@
 #     evidence is collected before the rerun.
 #   - a timeout or a stall kill (even after a summary), more than
 #     MAX_RETRIED_FAILURES failures (real breakage, not flake), or a failure
-#     that can't be named: no retry.
+#     that can't be placed in any failing suite: no retry. A name two failing
+#     suites share retries both (a superset; each must run and pass).
 # The first attempt's log stays at $log; the rerun's goes to ${log%.log}-retry.log.
 set -euo pipefail
 

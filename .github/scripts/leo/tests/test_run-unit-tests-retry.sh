@@ -235,13 +235,25 @@ run_case
 check "an unplaceable failing test fails without retrying" test "$rc" -ne 0
 check "  no retry ran" calls xb 0
 
-# A name two failing suites declare could be either: not guessed, not retried.
+# A name two failing suites declare could be either: both are retried (a
+# superset), and each must run and pass.
 new_case
 { fail_log 'twin()'; } >"$FAKE_DIR/host.1"
 echo 1 >"$FAKE_DIR/host.1.rc"
 run_case
-check "an ambiguous failing test fails without retrying" bash -c "[[ $rc -ne 0 ]]"
-check "  no retry ran" calls xb 0
+check "a name shared by two failing suites is retried in both" test "$rc" -eq 0
+check "  the retry named both candidates" bash -c "grep -qxF -- '-only-testing:GhosttyTests/AlphaTests/twin()' '$FAKE_DIR/xb.1.args' && grep -qxF -- '-only-testing:GhosttyTests/BetaTests/twin()' '$FAKE_DIR/xb.1.args'"
+check "  and reported both" bash -c "[[ \$(grep -c 'title=Flaky test::.*twin()' <<<'$out') == 2 ]]"
+
+# ...and if either candidate does not run, the step fails.
+new_case
+{ fail_log 'twin()'; } >"$FAKE_DIR/host.1"
+echo 1 >"$FAKE_DIR/host.1.rc"
+tests_json Passed 'AlphaTests/twin()' >"$FAKE_DIR/xb.1.tests"
+echo '{"passedTests":1,"failedTests":0}' >"$FAKE_DIR/xb.1.summary"
+run_case
+check "a shared name fails the step unless every candidate ran" test "$rc" -ne 0
+check "  naming the candidate that did not" has 'BetaTests/twin(): no result in the bundle'
 
 # A parameterized test in a nested suite: the log's " with N test cases"
 # suffix is not part of the test's name, and the nested path is kept.

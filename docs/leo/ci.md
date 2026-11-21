@@ -51,9 +51,10 @@ release; the step still says so. In `run-unit-tests.sh` (cap
   suite, fails it, and the focus-gate and skip checks apply to its log too. If
   it passes, the step passes with a `::warning title=Flaky test::` per test
   and a "Flaky tests" list in the job summary; otherwise the step fails. More
-  than 10 failures is breakage, not flake: no retry. A failing test that can't
-  be resolved to exactly one identifier (`list-failed-tests.sh`), or an
-  enumeration that fails, isn't retried either.
+  than 10 failures is breakage, not flake: no retry. The log never names a failed
+  test's suite, so a name that two failing suites share retries both (a
+  superset; each must run and pass). A failing test that no failing suite
+  declares, or an enumeration that fails, isn't retried.
 - **Host crashed or exited without a summary:** the whole suite reruns once. A
   clean rerun passes with a `::warning title=Test host crash::`. The first
   attempt's crash evidence is collected before the rerun. A timeout or stall

@@ -12,11 +12,13 @@
 # The log names a failing test (`✘ Test name() failed after ...`, or `✘ Test
 # name(_:) with 4 test cases failed after ...` for a parameterized one) and, on
 # other lines, the failing suites (`✘ Suite Name failed after ...`), but never
-# which suite a test belongs to. A test resolves to the identifier whose last
-# two components are a failing suite and the test's name. One that resolves to
-# none, or to more than one (the same name in two failing suites), prints as
-# `?/name()`: the caller can't rerun it by name, and a guess could pass a rerun
-# that never ran the test that failed.
+# which suite a test belongs to. A test resolves to every identifier whose last
+# two components are a failing suite and the test's name: usually one, but a
+# common name (two failing suites each declare `failsOnce()`) gives several, and
+# the caller retries them all (a superset, each of which must then run and
+# pass). One that resolves to none prints as `?/name()`: the caller can't
+# rerun it by name, and a guess could pass a rerun that never ran the test that
+# failed.
 set -euo pipefail
 
 log="${1:?usage: list-failed-tests.sh LOG ENUMERATION_JSON}"
@@ -58,5 +60,5 @@ for name in sorted(tests):
         parts = ident.split("/")
         if len(parts) >= 3 and parts[-1] == name and parts[-2] in suites:
             matches.append(ident)
-    print(matches[0] if len(matches) == 1 else f"?/{name}")
+    print("\n".join(matches) if matches else f"?/{name}")
 PY
