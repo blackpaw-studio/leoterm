@@ -10,12 +10,25 @@
 # Env: LEO_TEST_FILTER (optional, comma-separated Suite or Suite/test(); runs
 # only those through `xcodebuild test-without-building -only-testing`, not the
 # injected host), DERIVED_DATA, DEVELOPER_DIR, optional LEO_HOST_TESTS=1 (host tier). Optional LOG (default $RUNNER_TEMP/leo-tests.log).
+#
+# Retry policy (full, unfiltered runs only; one round, never more):
+#   - tests failed (a summary, at most MAX_RETRIED_FAILURES of them): rerun
+#     exactly those through the filtered path. All pass: the step passes with
+#     a ::warning:: per flaky test and a "Flaky tests" step-summary list.
+#   - the host crashed or exited without a summary: rerun the whole suite.
+#     Clean: the step passes with a ::warning::. The first attempt's crash
+#     evidence is collected before the rerun.
+#   - a timeout or a stall kill, more than MAX_RETRIED_FAILURES failures
+#     (real breakage, not flake), or a failure that can't be named: no retry.
+# The first attempt's log stays at $log; the rerun's goes to ${log%.log}-retry.log.
 set -euo pipefail
 
 : "${DERIVED_DATA:?}" "${DEVELOPER_DIR:?}"
 # Overall cap; a real hang is caught sooner by watch-stall.sh (no log growth for 240 s).
 readonly TEST_TIMEOUT_SECONDS=1200
 export TEST_TIMEOUT_SECONDS
+# More failures than this is breakage, not flake: no retry.
+readonly MAX_RETRIED_FAILURES=10
 log="${LOG:-${RUNNER_TEMP:-/tmp}/leo-tests.log}"
 # Resolved before the cd below; BASH_SOURCE is relative when CI runs the script by path.
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -62,9 +75,10 @@ only_testing_id() {
 # Prints every failing test's issues (Swift Testing expectation text with
 # file:line and values) from the result bundle, plus ::error annotations.
 dump_failures() {
-  [[ -d "$result_bundle" ]] || { echo "no result bundle at $result_bundle"; return 0; }
+  local bundle="${1:-$result_bundle}"
+  [[ -d "$bundle" ]] || { echo "no result bundle at $bundle"; return 0; }
   echo "::group::Failures from the result bundle"
-  xcrun xcresulttool get test-results summary --path "$result_bundle" --compact 2>&1 \
+  xcrun xcresulttool get test-results summary --path "$bundle" --compact 2>&1 \
     | python3 -I -c '
 import json, sys
 raw = sys.stdin.read()
@@ -83,9 +97,58 @@ for f in failures:
   echo "::endgroup::"
 }
 app="$DERIVED_DATA/Build/Products/Debug/Leo.app"
-hang="$log.hang"
-rm -f "$hang"
-set +e
+
+# Runs `cmd` as the test host: output to `out`, its status in `rc`. A hung
+# test ends the run only at the timeout and leaves no trace of where, so the
+# log is watched instead: once it stops growing for STALL_SECONDS, the host's
+# stacks are recorded to `out.hang` and it is killed, so the run fails fast
+# with the evidence.
+supervise() {
+  local out="$1"
+  shift
+  local hang="$out.hang" host watcher
+  rm -f "$hang"
+  set +e
+  timeout "$TEST_TIMEOUT_SECONDS" "$@" >"$out" 2>&1 &
+  host=$!
+  "$script_dir/watch-stall.sh" "$out" "$host" "$hang" &
+  watcher=$!
+  wait "$host"
+  rc=$?
+  kill "$watcher" 2>/dev/null
+  wait "$watcher" 2>/dev/null
+  set -e
+  [[ -s "$hang" ]] && { echo "::group::Stall diagnostics"; head -c 200000 "$hang"; echo "::endgroup::"; }
+  return 0
+}
+
+# The full suite, injected into the host app: the log is `$1`.
+run_full() {
+  supervise "$1" env \
+    LEO_HOST_TESTS="$host_tests" \
+    DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks" \
+    DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib" \
+    DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib" \
+    XCInjectBundleInto="$app/Contents/MacOS/Leo" \
+    "$app/Contents/MacOS/Leo" -XCTest All "$app/Contents/PlugIns/GhosttyTests.xctest"
+}
+
+# Only the tests whose -only-testing identifiers follow `log bundle`.
+run_filtered() {
+  local out="$1" bundle="$2"
+  shift 2
+  rm -rf "$bundle"
+  supervise "$out" env LEO_HOST_TESTS="$host_tests" \
+    xcodebuild test-without-building \
+    -project Ghostty.xcodeproj -scheme Ghostty \
+    -destination 'platform=macOS,arch=arm64' \
+    -derivedDataPath "$DERIVED_DATA" \
+    -skipMacroValidation \
+    -resultBundlePath "$bundle" \
+    "$@" \
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO
+}
+
 if [[ -n "${LEO_TEST_FILTER:-}" ]]; then
   echo "test filter: $LEO_TEST_FILTER"
   only=()
@@ -97,47 +160,105 @@ if [[ -n "${LEO_TEST_FILTER:-}" ]]; then
     echo "  $f -> $id"
     only+=("-only-testing:$id")
   done
-  rm -rf "$result_bundle"
-  cmd=(env LEO_HOST_TESTS="$host_tests"
-    xcodebuild test-without-building
-    -project Ghostty.xcodeproj -scheme Ghostty
-    -destination 'platform=macOS,arch=arm64'
-    -derivedDataPath "$DERIVED_DATA"
-    -skipMacroValidation
-    -resultBundlePath "$result_bundle"
-    "${only[@]}"
-    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO ENABLE_HARDENED_RUNTIME=NO)
-else
-  cmd=(env
-    LEO_HOST_TESTS="$host_tests"
-    DYLD_FRAMEWORK_PATH="$D/Platforms/MacOSX.platform/Developer/Library/Frameworks:$D/Library/Frameworks"
-    DYLD_LIBRARY_PATH="$D/Platforms/MacOSX.platform/Developer/usr/lib"
-    DYLD_INSERT_LIBRARIES="$D/Platforms/MacOSX.platform/Developer/usr/lib/libXCTestBundleInject.dylib"
-    XCInjectBundleInto="$app/Contents/MacOS/Leo"
-    "$app/Contents/MacOS/Leo" -XCTest All "$app/Contents/PlugIns/GhosttyTests.xctest")
+  run_filtered "$log" "$result_bundle" "${only[@]}"
+  if [[ $rc -ne 0 ]]; then dump_failures; fi
+  # The filtered xcodebuild path prints no Swift Testing summary line, so a
+  # clean exit is judged from the result bundle's counts instead.
+  if [[ $rc -eq 0 ]]; then
+    "$script_dir/check-filtered-run.sh" "$result_bundle" "$log"
+    echo "All tests passed"
+    exit 0
+  fi
+  exec "$script_dir/check-test-log.sh" "$log" "$rc"
 fi
-timeout "$TEST_TIMEOUT_SECONDS" "${cmd[@]}" >"$log" 2>&1 &
-host=$!
-# A hung test ends the run only at the timeout and leaves no trace of where.
-# Watch the log instead: once it stops growing for STALL_SECONDS, record the
-# host's stacks and kill it, so the run fails fast with the evidence.
-"$script_dir/watch-stall.sh" "$log" "$host" "$hang" &
-watcher=$!
-wait "$host"
-rc=$?
-kill "$watcher" 2>/dev/null
-wait "$watcher" 2>/dev/null
-set -e
-[[ -s "$hang" ]] && { echo "::group::Stall diagnostics"; head -c 200000 "$hang"; echo "::endgroup::"; }
 
-if [[ -n "${LEO_TEST_FILTER:-}" && $rc -ne 0 ]]; then dump_failures; fi
+# ---- Full run, with one retry round (see the header) ----
+retry_log="${log%.log}-retry.log"
+retry_bundle="${log%.log}-retry.xcresult"
+summary_file="${GITHUB_STEP_SUMMARY:-/dev/null}"
 
-# The filtered xcodebuild path prints no Swift Testing summary line, so a
-# clean exit is judged from the result bundle's counts instead.
-if [[ -n "${LEO_TEST_FILTER:-}" && $rc -eq 0 ]]; then
-  "$script_dir/check-filtered-run.sh" "$result_bundle" "$log"
-  echo "All tests passed"
+# Tells the workflow the retry's evidence is worth uploading even though the
+# step passed.
+mark_retried() {
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then echo "retried=true" >> "$GITHUB_OUTPUT"; fi
+}
+
+# The first attempt's verdict, held back: its ::error:: annotations only
+# show if the step ends up failing (as ::warning:: with a prefix otherwise).
+first_verdict="$(mktemp)"
+trap 'rm -f "$first_verdict"' EXIT
+fail_first() { cat "$first_verdict"; exit 1; }
+soften_first() { sed 's/^::error::/::warning::first attempt: /' "$first_verdict"; }
+
+run_full "$log"
+first_rc=$rc
+first_hang=0
+[[ -s "$log.hang" ]] && first_hang=1
+if "$script_dir/check-test-log.sh" "$log" "$first_rc" >"$first_verdict" 2>&1; then
+  cat "$first_verdict"
   exit 0
 fi
 
-"$script_dir/check-test-log.sh" "$log" "$rc"
+has_summary=0
+grep -qE 'Test run with [0-9]+ tests' "$log" && has_summary=1
+
+# No summary and no timeout or stall: the host crashed or exited early.
+if [[ $has_summary -eq 0 && $first_rc -ne 124 && $first_hang -eq 0 ]]; then
+  echo "::group::Test host crash: first attempt"
+  cat "$first_verdict"
+  echo "::endgroup::"
+  # Before the rerun, in case it clobbers the evidence the first left.
+  "$script_dir/collect-crash-evidence.sh" "${RUNNER_TEMP:-/tmp}/leo-crash-evidence" || true
+  mark_retried
+  echo "Rerunning the whole suite once (retry log: $retry_log)"
+  run_full "$retry_log"
+  if "$script_dir/check-test-log.sh" "$retry_log" "$rc"; then
+    msg="The test host exited (status $first_rc) without a summary; the full rerun passed"
+    echo "::warning title=Test host crash::$msg"
+    printf '### Test host crash\n\n%s.\n' "$msg" >>"$summary_file"
+    exit 0
+  fi
+  fail_first
+fi
+
+# A summary with failed tests: rerun exactly those, if there are few enough.
+failed_ids=()
+[[ $has_summary -eq 1 ]] && while IFS= read -r id; do
+  [[ -n "$id" ]] && failed_ids+=("$id")
+done < <("$script_dir/list-failed-tests.sh" "$log")
+
+if [[ ${#failed_ids[@]} -eq 0 ]]; then fail_first; fi
+if [[ ${#failed_ids[@]} -gt $MAX_RETRIED_FAILURES ]]; then
+  echo "::notice::${#failed_ids[@]} tests failed (more than $MAX_RETRIED_FAILURES): not retrying"
+  fail_first
+fi
+for id in "${failed_ids[@]}"; do
+  if [[ "$id" == '?/'* ]]; then
+    echo "::notice::could not tell which suite ${id#\?/} belongs to: not retrying"
+    fail_first
+  fi
+done
+
+only=()
+for id in "${failed_ids[@]}"; do
+  rest="${id#*/}"
+  only+=("-only-testing:$(only_testing_id "${id%%/*}/$rest")")
+done
+mark_retried
+echo "Retrying ${#failed_ids[@]} failed test(s) once: ${failed_ids[*]}"
+run_filtered "$retry_log" "$retry_bundle" "${only[@]}"
+if [[ $rc -eq 0 ]] && "$script_dir/check-filtered-run.sh" "$retry_bundle" "$retry_log"; then
+  soften_first
+  {
+    printf '### Flaky tests\n\nFailed, then passed on retry:\n\n'
+    for id in "${failed_ids[@]}"; do printf -- '- `%s`\n' "$id"; done
+  } >>"$summary_file"
+  for id in "${failed_ids[@]}"; do
+    echo "::warning title=Flaky test::$id failed then passed on retry"
+  done
+  echo "All tests passed (after retrying ${#failed_ids[@]} flaky test(s))"
+  exit 0
+fi
+dump_failures "$retry_bundle"
+echo "::error::${#failed_ids[@]} test(s) failed again on retry"
+fail_first

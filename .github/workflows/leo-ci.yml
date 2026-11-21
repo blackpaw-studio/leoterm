@@ -243,11 +243,13 @@ jobs:
       # A host trap leaves its evidence outside the test log: macOS .ips reports
       # and Ghostty's sentry minidumps. Gather them into one plain directory.
       - name: Collect crash evidence
-        if: failure()
+        if: failure() || steps.unit.outputs.retried == 'true'
         run: .github/scripts/leo/collect-crash-evidence.sh "$RUNNER_TEMP/leo-crash-evidence"
 
+      # Also after a retried (flaky or crashed, then passing) run: the first
+      # attempt's log and evidence are why the step logged a warning.
       - name: Upload test log
-        if: failure()
+        if: failure() || steps.unit.outputs.retried == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: leo-test-log
@@ -255,6 +257,8 @@ jobs:
           path: |
             ${{ runner.temp }}/leo-tests.log
             ${{ runner.temp }}/leo-tests.log.hang
+            ${{ runner.temp }}/leo-tests-retry.log
+            ${{ runner.temp }}/leo-tests-retry.log.hang
             ${{ runner.temp }}/leo-crash-evidence
           if-no-files-found: ignore
 

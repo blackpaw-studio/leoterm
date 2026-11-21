@@ -36,6 +36,27 @@ Run it on a Mac with a logged-in desktop before cutting a `leo-v` tag.
 pushes; PRs and tag calls restore them. Bump `CACHE_SALT` to start cold.
 The Tart bundled-daemon e2e is a manual check on any Apple-silicon Mac.
 
+### Flaky tests: one retry
+
+A full unit-test run retries once, so an intermittent failure doesn't cost a
+release; the step still says so. In `run-unit-tests.sh` (cap
+`MAX_RETRIED_FAILURES`, 10):
+
+- **Tests failed:** exactly those tests rerun through the filtered path
+  (`xcodebuild test-without-building -only-testing`). If they all pass, the
+  step passes with a `::warning title=Flaky test::` per test and a "Flaky
+  tests" list in the job summary; if any fails again, the step fails. More
+  than 10 failures is breakage, not flake: no retry. A failing test that can't
+  be placed in exactly one suite (`list-failed-tests.sh`) isn't retried either.
+- **Host crashed or exited without a summary:** the whole suite reruns once. A
+  clean rerun passes with a `::warning title=Test host crash::`. The first
+  attempt's crash evidence is collected before the rerun. A timeout or stall
+  kill is not retried.
+- The first attempt's log stays in `leo-tests.log`, the rerun's in
+  `leo-tests-retry.log`; both upload, with the crash evidence, whenever a
+  retry ran, even if the step passed. Filtered runs (`test_filter`) never
+  retry. Read the warnings: a test that shows up twice in a week is a bug to fix.
+
 ### Dry runs (no release, no upload)
 
 ```sh
