@@ -26,16 +26,16 @@ check() {
 home="$work/home"
 mkdir -p "$home/Library/Logs/DiagnosticReports" \
   "$home/.cache/ghostty/sentry/a.run" \
-  "$home/Library/Caches/com.mitchellh.ghostty.debug/sentry/b.run"
+  "$home/Library/Caches/studio.blackpaw.leo.macos.debug/sentry/b.run"
 echo ips >"$home/Library/Logs/DiagnosticReports/Leo-1.ips"
 echo dump >"$home/.cache/ghostty/sentry/a.run/e1.envelope"
-echo dump >"$home/Library/Caches/com.mitchellh.ghostty.debug/sentry/b.run/e2.envelope"
+echo dump >"$home/Library/Caches/studio.blackpaw.leo.macos.debug/sentry/b.run/e2.envelope"
 
 HOME="$home" env -u XDG_CACHE_HOME bash "$script" "$work/out"
 check "copies diagnostic reports" test -f "$work/out/DiagnosticReports/Leo-1.ips"
 check "copies the ~/.cache sentry database" \
   test -n "$(find "$work/out/sentry" -name e1.envelope)"
-check "copies the ~/Library/Caches sentry database" \
+check "copies the test host bundle id's ~/Library/Caches sentry database" \
   test -n "$(find "$work/out/sentry" -name e2.envelope)"
 
 # A clean host: nothing to copy is still success, with an existing out dir.

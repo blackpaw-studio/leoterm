@@ -9,6 +9,9 @@ import Testing
 /// queue run one at a time as members of `LeoAppEventQueueTests`, so each
 /// file that posts to it must define or extend that suite.
 ///
+/// Any `.postEvent(` counts (`NSApp.`, `NSApplication.shared.`, a window's),
+/// as each reaches the same queue.
+///
 /// A deliberate exception goes in `allowlist` as `relative/path.swift` with a
 /// reason.
 struct LeoEventQueueGuardTests {
@@ -21,10 +24,13 @@ struct LeoEventQueueGuardTests {
 
     @Test func everyFilePostingToTheAppEventQueueIsInTheSerializedSuite() throws {
         let sources = try Self.swiftSources()
+        try #require(
+            sources.keys.contains("Leo/LeoSidebarCommandClickTests.swift"),
+            "the scan found no sources under \(Self.testsRoot.path)")
         let offenders = Self.unserializedPosters(in: sources, allowlist: Self.allowlist.keys)
         #expect(
             offenders.isEmpty,
-            "Files that call NSApp.postEvent must be inside `extension LeoAppEventQueueTests`: \(offenders.joined(separator: ", "))"
+            "Files that call postEvent must be inside `extension LeoAppEventQueueTests`: \(offenders.joined(separator: ", "))"
         )
     }
 
@@ -34,8 +40,10 @@ struct LeoEventQueueGuardTests {
             "b.swift": "extension LeoAppEventQueueTests {\nNSApp.postEvent(event, atStart: false)\n}",
             "c.swift": "struct LeoAppEventQueueTests {\nNSApp.postEvent(event, atStart: false)\n}",
             "d.swift": "no events here",
+            "e.swift": "NSApplication.shared.postEvent(event, atStart: false)",
+            "f.swift": "window.postEvent(event, atStart: false)",
         ]
-        #expect(Self.unserializedPosters(in: sources, allowlist: []) == ["a.swift"])
+        #expect(Self.unserializedPosters(in: sources, allowlist: []) == ["a.swift", "e.swift", "f.swift"])
     }
 
     private static func swiftSources() throws -> [String: String] {
@@ -49,7 +57,7 @@ struct LeoEventQueueGuardTests {
 
     static func unserializedPosters(in sources: [String: String], allowlist: some Collection<String>) -> [String] {
         sources.filter { path, text in
-            text.contains("NSApp.postEvent(")
+            text.contains(".postEvent(")
                 && !text.contains("extension LeoAppEventQueueTests")
                 && !text.contains("struct LeoAppEventQueueTests")
                 && !allowlist.contains(path)
