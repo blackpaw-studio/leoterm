@@ -18,10 +18,14 @@ struct LeoSidebarFeedDispatchTests {
         await harness.activity.send(Self.treeHello)
         try await harness.pump { Self.ids($0) == ["d1:0"] }
 
-        await harness.activity.send(.dispatchChanged(seq: 2, dispatch: LeoDispatch(id: "d2", status: "running", callerAgent: "x", parentDispatchID: "d1")))
+        // The hello's own recovery refetches `/state` and reads the feed's
+        // mark when its list fetch returns, which can be after d2 is
+        // reported live. A daemon that has reported d2 also lists it in
+        // `/state`; a fake that didn't would have the baseline rightly drop it.
+        await harness.activity.report(.dispatchChanged(seq: 2, dispatch: LeoDispatch(id: "d2", status: "running", callerAgent: "x", parentDispatchID: "d1")))
         try await harness.pump { Self.ids($0) == ["d1:0", "d2:1"] }
 
-        await harness.activity.send(.dispatchChanged(seq: 3, dispatch: LeoDispatch(id: "d2", status: "done", callerAgent: "x", parentDispatchID: "d1")))
+        await harness.activity.report(.dispatchChanged(seq: 3, dispatch: LeoDispatch(id: "d2", status: "done", callerAgent: "x", parentDispatchID: "d1")))
         try await harness.pump { Self.ids($0) == ["d1:0"] }
         await harness.stop()
     }
@@ -443,6 +447,15 @@ private actor DispatchActivity {
     func events() -> AsyncStream<LeoObserveEvent> { stream }
     func send(_ event: LeoObserveEvent) { continuation.yield(event) }
     func setDispatches(_ dispatches: [LeoDispatch]) { self.dispatches = dispatches }
+    /// A dispatch the daemon reports live: `/state` reflects it from now on
+    /// (a finished one drops out), exactly as it does by the time the event
+    /// is on the stream.
+    func report(_ event: LeoObserveEvent) {
+        if case .dispatchChanged(_, let dispatch) = event {
+            dispatches = dispatches.filter { $0.id != dispatch.id } + (dispatch.isLive ? [dispatch] : [])
+        }
+        continuation.yield(event)
+    }
     /// The `meta.seq` every `/state` answer carries (none by default).
     private var seq: Int?
     func setSeq(_ seq: Int?) { self.seq = seq }
