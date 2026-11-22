@@ -290,6 +290,7 @@
     rename: "rename"
   };
   var KIND_SYMBOL = { "claude-code": "bubble.left.fill", codex: "terminal" };
+  var KIND_NAME = { "claude-code": "Claude Code", codex: "Codex" };
   var KIND_COMMAND = { "claude-code": "claude", codex: "codex" };
   var HEADER_SYMBOL = "speedometer";
   var callback = (id, title, sfSymbol, payload) => ({
@@ -394,7 +395,9 @@
   var sidebarGroup = (account, nowMs) => {
     const top = highestWindow(account.state.windows);
     const children = top ? [meter(top, nowMs, staleDetail(account.state, nowMs))] : [];
-    const subtitle = children.length === 0 ? stateText(account) : void 0;
+    const text = children.length === 0 ? stateText(account) : void 0;
+    const kind = KIND_NAME[account.handle.kind];
+    const subtitle = clip(text === void 0 ? kind : kind + " \xB7 " + text, MAX_LINE_CHARS);
     return group(account, children, subtitle, [...leadingActions(account), refreshAction, ...addActions]);
   };
   var fullGroup = (account, nowMs) => {

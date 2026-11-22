@@ -9,6 +9,7 @@
   {
     "type": "Group",
     "title": "claude-work",
+    "subtitle": "Claude Code",
     "sfSymbol": "bubble.left.fill",
     "children": [
       {
@@ -50,6 +51,7 @@
   {
     "type": "Group",
     "title": "claude-home",
+    "subtitle": "Claude Code",
     "sfSymbol": "bubble.left.fill",
     "children": [
       {
@@ -90,7 +92,7 @@
   {
     "type": "Group",
     "title": "claude-old",
-    "subtitle": "Signed out — run `claude` with this account to refresh",
+    "subtitle": "Claude Code · Signed out — run `claude` with this account to refresh",
     "sfSymbol": "bubble.left.fill",
     "accessory": {
       "type": "Accessory",
@@ -135,6 +137,7 @@
   {
     "type": "Group",
     "title": ".codex",
+    "subtitle": "Codex",
     "sfSymbol": "terminal",
     "children": [
       {
