@@ -303,8 +303,24 @@ struct LeoPluginFetcherTests {
 
 private let boundToken = "sk-bound-SECRET"
 
-private func bound(_ host: String) -> LeoPluginFetchCredential {
+private func boundCredential(_ host: String) -> LeoPluginFetchCredential {
     LeoPluginFetchCredential(boundHost: host, headers: ["Authorization": "Bearer \(boundToken)", "anthropic-beta": "oauth-2025-04-20"])
+}
+
+private func bound(_ host: String) -> LeoPluginFetchCredentialSource { .resolved(boundCredential(host)) }
+
+/// Counts reads of the account: each stands for one Keychain or file read.
+private final class ReadCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _reads = 0
+    var reads: Int { lock.withLock { _reads } }
+
+    func source(_ host: String) -> LeoPluginFetchCredentialSource {
+        LeoPluginFetchCredentialSource(boundHost: host) { [self] in
+            lock.withLock { _reads += 1 }
+            return boundCredential(host)
+        }
+    }
 }
 
 private func credentialReason(_ error: Error) -> String { (error as? LeoPluginFetchError)?.reason ?? "\(error)" }
@@ -372,6 +388,44 @@ extension LeoPluginFetcherTests {
         for error in errors {
             #expect(!error.reason.contains(boundToken))
             #expect(error.reason.hasPrefix("credential"))
+        }
+    }
+}
+
+// MARK: - The account is read last
+
+extension LeoPluginFetcherTests {
+    @Test func aCredentialFetchThatFailsAnyCheckNeverReadsTheAccount() async {
+        let counter = ReadCounter()
+        let fetcher = makeFetcher()
+        let attempts: [(String, LeoPluginFetchInit)] = [
+            ("not a url", LeoPluginFetchInit()),
+            ("https://evil.test/x", LeoPluginFetchInit()),
+            ("https://c7.example.com/x", LeoPluginFetchInit(headers: ["Authorization": "Bearer mine"])),
+            ("https://c7.example.com/x", LeoPluginFetchInit(method: "TRACE")),
+        ]
+        for (url, options) in attempts {
+            _ = try? await fetcher.fetch(url: url, init: options, credential: counter.source("c7.example.com"))
+        }
+        _ = try? await fetcher.fetch(url: "https://c8.example.com/x", init: LeoPluginFetchInit(), credential: counter.source("c7.example.com"))
+        #expect(counter.reads == 0)
+    }
+
+    @Test func anOverRateCredentialFetchNeverReadsTheAccount() async throws {
+        PluginFetchStubProtocol.serve("https://c9.example.com/x", text("ok"))
+        let counter = ReadCounter()
+        let fetcher = makeFetcher(limiter: LeoPluginRateLimiter(maxPerWindow: 1, now: { 7 }))
+        _ = try await fetcher.fetch(url: "https://c9.example.com/x", init: LeoPluginFetchInit(), credential: counter.source("c9.example.com"))
+        await #expect(throws: LeoPluginFetchError.rateLimited(retryAfter: 60)) {
+            try await fetcher.fetch(url: "https://c9.example.com/x", init: LeoPluginFetchInit(), credential: counter.source("c9.example.com"))
+        }
+        #expect(counter.reads == 1)
+    }
+
+    @Test func aResolvedCredentialForAnotherHostIsRefused() async {
+        let source = LeoPluginFetchCredentialSource(boundHost: "c10.example.com") { boundCredential("api.example.com") }
+        await #expect(throws: LeoPluginFetchError.credentialHostMismatch(host: "c10.example.com")) {
+            try await makeFetcher().fetch(url: "https://c10.example.com/x", init: LeoPluginFetchInit(), credential: source)
         }
     }
 }

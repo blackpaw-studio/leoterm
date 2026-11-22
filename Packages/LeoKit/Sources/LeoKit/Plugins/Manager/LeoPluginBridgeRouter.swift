@@ -190,11 +190,13 @@ import OSLog
         } catch {
             return deps.send(.reply(id: id, outcome: .rejected(reason: error.localizedDescription)))
         }
-        replyLater(id) {
-            // Background reads never show UI: one that would needs `authorize` first.
-            let credential = try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
-            return try await fetcher.fetch(url: url, init: options, credential: credential).replyValue
+        // Background reads never show UI: one that would needs `authorize` first.
+        // The fetcher reads the account only after the request passed its
+        // checks and the rate limiter, so a refused fetch never reaches the Keychain.
+        let source = LeoPluginFetchCredentialSource(boundHost: grant.kind.boundHost) {
+            try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
         }
+        replyLater(id) { try await fetcher.fetch(url: url, init: options, credential: source).replyValue }
     }
 
     /// Runs async work and answers request `id`, unless the session closed meanwhile.

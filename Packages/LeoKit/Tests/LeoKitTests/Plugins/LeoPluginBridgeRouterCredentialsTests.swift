@@ -74,7 +74,7 @@ private func manifest(id: String = usageID, apiVersion: Int = 2, credentials: [L
     final class Box: @unchecked Sendable { var now = Date(timeIntervalSince1970: 1_000) }
     @MainActor final class Sink { var events: [LeoPluginEvent] = [] }
 
-    init(manifest: LeoPluginManifest = manifest(), pickerAnswer: String? = "/Users/evan/.codex") {
+    init(manifest: LeoPluginManifest = manifest(), pickerAnswer: String? = "/Users/evan/.codex", fetching: (any LeoPluginFetching)? = nil) {
         picker = FakePicker(answer: pickerAnswer)
         grants = FakeGrantStore(manifests: [manifest, LeoPluginManifest.other])
         let permissions = manifest.permissions
@@ -85,7 +85,7 @@ private func manifest(id: String = usageID, apiVersion: Int = 2, credentials: [L
             LeoPluginBridgeRouter.Dependencies(
                 identity: LeoPluginIdentity(id: manifest.id, name: manifest.name), manifest: manifest,
                 engine: LeoPluginPermissionEngine(permissions: permissions),
-                gate: LeoPluginActionGate(grants: permissions, now: { box.now }), fetcher: fetcher, secrets: nil,
+                gate: LeoPluginActionGate(grants: permissions, now: { box.now }), fetcher: fetching ?? fetcher, secrets: nil,
                 timers: LeoPluginTimers(scheduler: scheduler, onFire: { _ in }), slots: LeoPluginSlotStore(), actions: actions,
                 agents: { [] }, now: { box.now }, send: { sink.events.append($0) },
                 credentials: LeoPluginCredentialServices(picker: picker, resolver: resolver, grants: grants, home: "/Users/evan")))
@@ -268,5 +268,19 @@ extension LeoPluginBridgeRouterTests {
         rig.router.handle(.credentialsAdd(id: "r1", kind: "codex", ref: ref))
         await rig.settle()
         #expect(rig.picker.asked == [.codex])
+    }
+
+    @Test func aCredentialFetchTheFetcherRefusesNeverReadsTheAccount() async throws {
+        let engine = LeoPluginPermissionEngine(permissions: manifest().permissions)
+        let overRate = LeoPluginRateLimiter(maxPerWindow: 1, now: { 0 })
+        _ = overRate.acquire()  // spend the window's only request
+        for (url, limiter) in [("https://chatgpt.com:bad/x", LeoPluginRateLimiter()), ("https://chatgpt.com/x", overRate)] {
+            let rig = CredentialRig(fetching: LeoPluginFetcher(pluginID: usageID, engine: engine, limiter: limiter))
+            let grant = try #require(try rig.grants.addGrant(pluginID: usageID, kind: .codex, path: "/Users/evan/.codex"))
+            rig.router.handle(.fetch(id: "r1", url: url, init: LeoPluginFetchInit(credential: grant.id)))
+            for _ in 0..<200 where rig.reply("r1") == nil { await Task.yield() }
+            #expect(rejection(rig.reply("r1")) != nil)
+            #expect(rig.resolver.calls.isEmpty)
+        }
     }
 }

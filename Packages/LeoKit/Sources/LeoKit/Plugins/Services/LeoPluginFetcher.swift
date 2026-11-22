@@ -73,10 +73,28 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
     public var errorDescription: String? { reason }
 }
 
+/// An account's headers, read only when a fetch is about to go out: after the
+/// URL, host and headers passed every check and the rate limiter admitted it,
+/// so a plugin can't turn rejected or over-rate fetches into Keychain reads.
+public struct LeoPluginFetchCredentialSource: Sendable {
+    /// Known before the read; the request must go to exactly this host.
+    public let boundHost: String
+    let resolve: @Sendable () async throws -> LeoPluginFetchCredential
+
+    public init(boundHost: String, resolve: @escaping @Sendable () async throws -> LeoPluginFetchCredential) {
+        self.boundHost = boundHost
+        self.resolve = resolve
+    }
+
+    public static func resolved(_ credential: LeoPluginFetchCredential) -> Self {
+        Self(boundHost: credential.boundHost) { credential }
+    }
+}
+
 /// What the router needs from a fetcher, so it can be faked.
 public protocol LeoPluginFetching: Sendable {
     /// With a `credential`, its headers are injected and every hop must be its bound host.
-    func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse
+    func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredentialSource?) async throws -> LeoPluginFetchResponse
 }
 
 extension LeoPluginFetching {
@@ -140,7 +158,7 @@ public final class LeoPluginFetcher: Sendable {
         return configuration
     }
 
-    public func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse {
+    public func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredentialSource?) async throws -> LeoPluginFetchResponse {
         do {
             return try await perform(url: url, options: options, credential: credential)
         } catch {
@@ -151,15 +169,15 @@ public final class LeoPluginFetcher: Sendable {
         }
     }
 
-    private func perform(url: String, options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse {
+    private func perform(url: String, options: LeoPluginFetchInit, credential source: LeoPluginFetchCredentialSource?) async throws -> LeoPluginFetchResponse {
         guard let given = URL(string: url) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
         if case .denied(let reason) = engine.check(url: given, hop: 0) { throw LeoPluginFetchError.denied(reason) }
         guard let parsed = Self.canonicalURL(given) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
         let originHost = LeoPluginPermissionEngine.canonicalHost(of: parsed)
-        if let credential, originHost != credential.boundHost {
+        if let source, originHost != source.boundHost {
             throw LeoPluginFetchError.credentialHostMismatch(host: originHost ?? "?")
         }
-        let request = try Self.makeRequest(url: parsed, options: options, credential: credential)
+        var request = try Self.makeRequest(url: parsed, options: options, reservesCredentialHeaders: source != nil)
 
         // Only requests that passed every check spend quota.
         let permit: LeoPluginRateLimitPermit
@@ -169,6 +187,17 @@ public final class LeoPluginFetcher: Sendable {
         case .rejected(.tooManyInFlight): throw LeoPluginFetchError.tooManyInFlight
         }
         defer { limiter.release(permit) }
+
+        // Last: the account is read only for a request that is going out.
+        var credential: LeoPluginFetchCredential?
+        if let source {
+            let resolved = try await source.resolve()
+            guard resolved.boundHost == source.boundHost else {
+                throw LeoPluginFetchError.credentialHostMismatch(host: originHost ?? "?")
+            }
+            try Self.inject(resolved, into: &request, pluginHeaders: options.headers ?? [:])
+            credential = resolved
+        }
 
         let configuration = Self.sessionConfiguration()
         configure(configuration)
@@ -201,7 +230,9 @@ public final class LeoPluginFetcher: Sendable {
         return URL(string: "\(absolute[..<schemeEnd.upperBound])\(host)\(port)\(tail)")
     }
 
-    static func makeRequest(url: URL, options: LeoPluginFetchInit, credential: LeoPluginFetchCredential? = nil) throws -> URLRequest {
+    /// Validates the plugin's part of the request. With `reservesCredentialHeaders`,
+    /// headers an account credential sets are refused here, before any read.
+    static func makeRequest(url: URL, options: LeoPluginFetchInit, reservesCredentialHeaders: Bool = false) throws -> URLRequest {
         let method = (options.method ?? "GET").uppercased()
         guard allowedMethods.contains(method) else { throw LeoPluginFetchError.invalidRequest("method \(method) is not allowed") }
         var request = URLRequest(url: url)
@@ -212,12 +243,11 @@ public final class LeoPluginFetcher: Sendable {
         guard headers.count <= maxHeaderCount else { throw LeoPluginFetchError.invalidRequest("too many headers") }
         for (name, value) in headers {
             try validateHeader(name: name, value: value)
-            if let credential, isCredentialHeader(name, of: credential) {
+            if reservesCredentialHeaders, credentialReservedHeaders.contains(name.lowercased()) {
                 throw LeoPluginFetchError.credentialHeaderConflict(name: name)
             }
             request.setValue(value, forHTTPHeaderField: name)
         }
-        for (name, value) in credential?.headers ?? [:] { request.setValue(value, forHTTPHeaderField: name) }
         if let body = options.body {
             guard !bodylessMethods.contains(method) else { throw LeoPluginFetchError.invalidRequest("\(method) requests can't have a body") }
             let data = Data(body.utf8)
@@ -240,9 +270,13 @@ public final class LeoPluginFetcher: Sendable {
         }
     }
 
-    private static func isCredentialHeader(_ name: String, of credential: LeoPluginFetchCredential) -> Bool {
-        let lower = name.lowercased()
-        return credentialReservedHeaders.contains(lower) || credential.headers.keys.contains { $0.lowercased() == lower }
+    /// Adds the account's headers. A plugin header the credential also sets is refused, never overridden silently.
+    static func inject(_ credential: LeoPluginFetchCredential, into request: inout URLRequest, pluginHeaders: [String: String]) throws {
+        let injected = Set(credential.headers.keys.map { $0.lowercased() })
+        if let clash = pluginHeaders.keys.first(where: { injected.contains($0.lowercased()) }) {
+            throw LeoPluginFetchError.credentialHeaderConflict(name: clash)
+        }
+        for (name, value) in credential.headers { request.setValue(value, forHTTPHeaderField: name) }
     }
 
     /// RFC 9110 token characters.

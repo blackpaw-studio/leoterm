@@ -23,7 +23,9 @@ final class PluginFakeFetcher: LeoPluginFetching, @unchecked Sendable {
 
     func enqueue(_ result: Result<LeoPluginFetchResponse, Error>) { lock.withLock { queued.append(result) } }
 
-    func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse {
+    /// Like the real fetcher, reads the account only once the request would go out.
+    func fetch(url: String, init options: LeoPluginFetchInit, credential source: LeoPluginFetchCredentialSource?) async throws -> LeoPluginFetchResponse {
+        let credential = try await source?.resolve()
         let next = lock.withLock { () -> Result<LeoPluginFetchResponse, Error>? in
             urls.append(url)
             credentials.append(credential)
