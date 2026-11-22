@@ -5,9 +5,16 @@ import OSLog
 extension LeoPluginManager {
     /// A slot was shown or asked for: send the plugin the event that makes it
     /// render. False if the manifest declares no such contribution.
+    /// `gesture` is minted only when the user ran a palette command; it lets
+    /// the command's handler open one credential prompt.
     @discardableResult
-    public func open(_ slot: LeoPluginSlotID, plugin id: String) -> Bool {
+    public func open(_ slot: LeoPluginSlotID, plugin id: String, gesture: LeoPluginGesture? = nil) -> Bool {
         guard let entry = entries[id], let manifest = entry.manifest, Self.declares(manifest, slot) else { return false }
+        if case .palette(let commandID) = slot, let gesture, let router = entry.session?.router {
+            deps.slots.expect(pluginID: id, slot: slot)
+            deliver(router.commandEvent(id: commandID, slot: slot, gesture: gesture), to: entry)
+            return true
+        }
         let event = Self.openingEvent(for: slot)
         // A command is a one-shot run, not state to restore: a restart must not run it again.
         if case .palette = slot {} else if entry.lastEvents[slot] != nil || entry.lastEvents.count < LeoPluginSlotStore.maxSlotsPerPlugin {

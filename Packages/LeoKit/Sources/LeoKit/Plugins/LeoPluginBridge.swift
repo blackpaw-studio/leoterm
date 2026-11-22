@@ -13,11 +13,15 @@ public struct LeoPluginFetchInit: Codable, Equatable, Sendable {
     public let method: String?
     public let headers: [String: String]?
     public let body: String?
+    /// A credential grant id (`leo.credentials`). The app injects that
+    /// account's headers itself; the token never reaches the plugin.
+    public let credential: String?
 
-    public init(method: String? = nil, headers: [String: String]? = nil, body: String? = nil) {
+    public init(method: String? = nil, headers: [String: String]? = nil, body: String? = nil, credential: String? = nil) {
         self.method = method
         self.headers = headers
         self.body = body
+        self.credential = credential
     }
 }
 
@@ -37,6 +41,15 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     case afterStart(id: String, seconds: Double)
     /// Cancels a `timerStart` or `afterStart`.
     case timerStop(id: String)
+    /// `leo.credentials.add(kind)`: opens the folder picker. `ref` is the
+    /// delivery whose handler made the call, if it ran synchronously inside a
+    /// gesture; the router refuses the request without one.
+    case credentialsAdd(id: String, kind: String, ref: String?)
+    /// `leo.credentials.authorize(id)`: one Keychain read that may show the
+    /// system dialog. Gesture-gated like `credentialsAdd`.
+    case credentialsAuthorize(id: String, credential: String, ref: String?)
+    case credentialsList(id: String)
+    case credentialsRemove(id: String, credential: String)
     case log(level: String, message: String)
     /// A callback handler's single follow-up action. Gated by the app.
     case callbackResult(ref: String, action: LeoPluginAction)
@@ -44,7 +57,7 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     case unsupported(call: String)
 
     private enum CodingKeys: String, CodingKey {
-        case call, slot, node, id, url, `init`, key, value, seconds, level, message, ref, action, source, agent
+        case call, slot, node, id, url, `init`, key, value, seconds, level, message, ref, action, source, agent, kind, credential
     }
 
     public init(from decoder: any Decoder) throws {
@@ -82,6 +95,21 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
             self = .afterStart(id: try c.decode(String.self, forKey: .id), seconds: try c.decode(Double.self, forKey: .seconds))
         case "timerStop":
             self = .timerStop(id: try c.decode(String.self, forKey: .id))
+        case "credentialsAdd":
+            self = .credentialsAdd(
+                id: try c.decode(String.self, forKey: .id),
+                kind: try c.decode(String.self, forKey: .kind),
+                ref: try c.decodeIfPresent(String.self, forKey: .ref))
+        case "credentialsAuthorize":
+            self = .credentialsAuthorize(
+                id: try c.decode(String.self, forKey: .id),
+                credential: try c.decode(String.self, forKey: .credential),
+                ref: try c.decodeIfPresent(String.self, forKey: .ref))
+        case "credentialsList":
+            self = .credentialsList(id: try c.decode(String.self, forKey: .id))
+        case "credentialsRemove":
+            self = .credentialsRemove(
+                id: try c.decode(String.self, forKey: .id), credential: try c.decode(String.self, forKey: .credential))
         case "log":
             self = .log(level: try c.decode(String.self, forKey: .level), message: try c.decode(String.self, forKey: .message))
         case "callbackResult":
@@ -140,6 +168,23 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
         case .timerStop(let id):
             try c.encode("timerStop", forKey: .call)
             try c.encode(id, forKey: .id)
+        case .credentialsAdd(let id, let kind, let ref):
+            try c.encode("credentialsAdd", forKey: .call)
+            try c.encode(id, forKey: .id)
+            try c.encode(kind, forKey: .kind)
+            try c.encodeIfPresent(ref, forKey: .ref)
+        case .credentialsAuthorize(let id, let credential, let ref):
+            try c.encode("credentialsAuthorize", forKey: .call)
+            try c.encode(id, forKey: .id)
+            try c.encode(credential, forKey: .credential)
+            try c.encodeIfPresent(ref, forKey: .ref)
+        case .credentialsList(let id):
+            try c.encode("credentialsList", forKey: .call)
+            try c.encode(id, forKey: .id)
+        case .credentialsRemove(let id, let credential):
+            try c.encode("credentialsRemove", forKey: .call)
+            try c.encode(id, forKey: .id)
+            try c.encode(credential, forKey: .credential)
         case .log(let level, let message):
             try c.encode("log", forKey: .call)
             try c.encode(level, forKey: .level)
@@ -194,7 +239,10 @@ public enum LeoPluginEvent: Codable, Equatable, Sendable {
     case activate(slot: LeoPluginSlotID?)
     case agentsChanged
     case viewOpened(agent: LeoPluginAgentRef, slot: LeoPluginSlotID)
-    case command(id: String, slot: LeoPluginSlotID?)
+    /// `ref` is set when the app minted a gesture for the command (palette
+    /// invocation). It lets the handler open a credential prompt; it can't
+    /// be redeemed for a follow-up action.
+    case command(id: String, slot: LeoPluginSlotID?, ref: String? = nil)
     /// `ref` correlates a follow-up (`callbackResult`) with this delivery.
     /// `gesture` says the app minted a gesture for it; the host never sees
     /// the token itself.
@@ -223,7 +271,8 @@ public enum LeoPluginEvent: Codable, Equatable, Sendable {
         case "command":
             self = .command(
                 id: try c.decode(String.self, forKey: .id),
-                slot: try c.decodeIfPresent(LeoPluginSlotID.self, forKey: .slot))
+                slot: try c.decodeIfPresent(LeoPluginSlotID.self, forKey: .slot),
+                ref: try c.decodeIfPresent(String.self, forKey: .ref))
         case "callback":
             self = .callback(
                 ref: try c.decode(String.self, forKey: .ref),
@@ -254,10 +303,11 @@ public enum LeoPluginEvent: Codable, Equatable, Sendable {
             try c.encode("viewOpened", forKey: .type)
             try c.encode(agent, forKey: .agent)
             try c.encode(slot, forKey: .slot)
-        case .command(let id, let slot):
+        case .command(let id, let slot, let ref):
             try c.encode("command", forKey: .type)
             try c.encode(id, forKey: .id)
             try c.encodeIfPresent(slot, forKey: .slot)
+            try c.encodeIfPresent(ref, forKey: .ref)
         case .callback(let ref, let id, let payload, let gesture):
             try c.encode("callback", forKey: .type)
             try c.encode(ref, forKey: .ref)

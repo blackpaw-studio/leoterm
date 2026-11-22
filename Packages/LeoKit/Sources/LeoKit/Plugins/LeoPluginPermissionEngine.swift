@@ -16,12 +16,14 @@ public struct LeoPluginPermissionEngine: Sendable {
     private let patterns: [LeoPluginHostPattern]
     private let secretsGranted: Bool
     private let agentVerbs: Set<LeoPluginAgentVerb>
+    private let credentialKinds: Set<LeoPluginCredentialKind>
 
     /// Network patterns that fail to parse grant nothing (fail closed).
     public init(permissions: LeoPluginPermissions) {
         patterns = permissions.network.compactMap { try? LeoPluginHostPattern.parse($0) }
         secretsGranted = permissions.secrets
         agentVerbs = Set(permissions.agents)
+        credentialKinds = Set(permissions.credentials)
     }
 
     /// Checks one hop of a fetch. Call it for the initial URL (`hop` 0) and again
@@ -50,6 +52,10 @@ public struct LeoPluginPermissionEngine: Sendable {
 
     public func check(agent verb: LeoPluginAgentVerb) -> LeoPluginPermissionDecision {
         agentVerbs.contains(verb) ? .allowed : .denied("agents:\(verb.rawValue) permission not granted in the manifest")
+    }
+
+    public func check(credential kind: LeoPluginCredentialKind) -> LeoPluginPermissionDecision {
+        credentialKinds.contains(kind) ? .allowed : .denied("credentials:\(kind.rawValue) permission not granted")
     }
 
     /// The one canonical host for a URL: lowercase ASCII, IDN as punycode (ACE).

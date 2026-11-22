@@ -108,3 +108,25 @@ struct LeoPluginBridgeTests {
         #expect(object?["gesture"] as? Bool == true)
     }
 }
+
+extension LeoPluginBridgeTests {
+    @Test func credentialRequestsAndTheCommandRefRoundTrip() throws {
+        let requests: [LeoPluginHostRequest] = [
+            .credentialsAdd(id: "r1", kind: "codex", ref: "c1"),
+            .credentialsAdd(id: "r2", kind: "claude-code", ref: nil),
+            .credentialsAuthorize(id: "r3", credential: "g1", ref: "c2"),
+            .credentialsList(id: "r4"),
+            .credentialsRemove(id: "r5", credential: "g1"),
+            .fetch(id: "r6", url: "https://chatgpt.com/x", init: LeoPluginFetchInit(credential: "g1")),
+        ]
+        for request in requests { #expect(try roundTrip(request) == request) }
+        for event: LeoPluginEvent in [.command(id: "go", slot: nil, ref: "k1"), .command(id: "go", slot: nil)] {
+            #expect(try roundTrip(event) == event)
+        }
+    }
+
+    @Test func aCommandFromAnOlderAppDecodesWithoutARef() throws {
+        let event = try JSONDecoder().decode(LeoPluginEvent.self, from: Data(#"{"type":"command","id":"go"}"#.utf8))
+        #expect(event == .command(id: "go", slot: nil, ref: nil))
+    }
+}

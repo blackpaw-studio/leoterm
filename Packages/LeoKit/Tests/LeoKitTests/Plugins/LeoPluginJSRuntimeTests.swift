@@ -40,7 +40,7 @@ struct LeoPluginJSRuntimeTests {
         leo.log("info", String(typeof leo.sendToAgent) + "," + String(typeof leo.spawnAgent));
         """)
         #expect(sink.logs == [
-            "after,agents,fetch,log,on,render,secrets,timer",
+            "after,agents,credentials,fetch,log,on,render,secrets,timer",
             "undefined,undefined",
         ])
     }
@@ -328,5 +328,71 @@ struct LeoPluginJSRuntimeTests {
         let runtime = try? LeoPluginJSRuntime(send: { sink.requests.append($0) })
         #expect(throws: LeoPluginRuntimeError.self) { try runtime?.load(source: "this is not js (") }
         #expect(throws: LeoPluginRuntimeError.self) { try runtime?.load(source: #"throw new Error("bad")"#) }
+    }
+}
+
+// MARK: - Credentials (apiVersion 2)
+
+extension LeoPluginJSRuntimeTests {
+    private func credentialRequests(_ sink: Sink) -> [LeoPluginHostRequest] {
+        sink.requests.filter {
+            switch $0 {
+            case .credentialsAdd, .credentialsAuthorize, .credentialsList, .credentialsRemove: true
+            default: false
+            }
+        }
+    }
+
+    @Test func addInsideACallbackCarriesItsRefAndAfterAnAwaitCarriesNone() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("callback", async (id) => {
+          leo.credentials.add("codex");
+          await leo.secrets.get("x");
+          leo.credentials.add("claude-code");
+        });
+        """)
+        runtime.deliver(.callback(ref: "c1", id: "add", payload: .null, gesture: true))
+        guard case .secretsGet(let id, _)? = sink.requests.first(where: { if case .secretsGet = $0 { true } else { false } }) else {
+            Issue.record("no secrets request"); return
+        }
+        runtime.deliver(.reply(id: id, outcome: .value(.null)))
+        let adds = credentialRequests(sink).map { request -> String in
+            if case .credentialsAdd(_, _, let ref) = request { ref ?? "none" } else { "other" }
+        }
+        #expect(adds == ["c1", "none"])
+    }
+
+    @Test func aCommandHandlerCarriesTheCommandsRefAndOtherHandlersNone() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("command", () => { leo.credentials.add("codex"); });
+        leo.on("activate", () => { leo.credentials.authorize("g1"); });
+        """)
+        runtime.deliver(.command(id: "add-codex", slot: nil, ref: "k1"))
+        runtime.deliver(.activate(slot: nil))
+        let requests = credentialRequests(sink)
+        guard requests.count == 2, case .credentialsAdd(_, "codex", "k1") = requests[0],
+            case .credentialsAuthorize(_, "g1", nil) = requests[1]
+        else { Issue.record("unexpected requests \(requests)"); return }
+    }
+
+    @Test func listRemoveAndFetchCredentialGoThroughTheBridge() throws {
+        let (_, sink) = try makeRuntime("""
+        leo.credentials.list();
+        leo.credentials.remove("g2");
+        leo.fetch("https://chatgpt.com/backend-api/wham/usage", { credential: "g2" });
+        """)
+        let requests = credentialRequests(sink)
+        guard requests.count == 2, case .credentialsList = requests[0], case .credentialsRemove(_, "g2") = requests[1] else {
+            Issue.record("unexpected requests \(requests)"); return
+        }
+        guard case .fetch(_, _, let fetchInit)? = sink.requests.last else { Issue.record("no fetch"); return }
+        #expect(fetchInit.credential == "g2")
+    }
+
+    @Test func aNonStringFetchCredentialRejectsWithoutReachingTheApp() throws {
+        let (_, sink) = try makeRuntime("""
+        leo.fetch("https://chatgpt.com/x", { credential: 7 }).catch(e => leo.log("info", e.message));
+        """)
+        #expect(!sink.requests.contains { if case .fetch = $0 { true } else { false } })
     }
 }

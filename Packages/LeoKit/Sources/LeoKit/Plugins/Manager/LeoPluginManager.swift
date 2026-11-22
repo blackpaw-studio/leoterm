@@ -83,6 +83,8 @@ public struct LeoPluginManagerDependencies {
     public let sleep: @Sendable (TimeInterval) async throws -> Void
     public let agentsDebounce: TimeInterval
     public let devWatcher: (any LeoPluginDevWatching)?
+    /// `leo.credentials`; nil refuses every credential call.
+    public let credentials: LeoPluginCredentialServices?
 
     public init(
         store: LeoPluginStore, bundledRoot: URL?, hosts: any LeoPluginHostMaking, scheduler: any LeoPluginTimerScheduling,
@@ -92,8 +94,10 @@ public struct LeoPluginManagerDependencies {
         reapOrphans: @escaping @MainActor () -> Void, clock: @escaping @Sendable () -> TimeInterval,
         now: @escaping @Sendable () -> Date = { Date() },
         sleep: @escaping @Sendable (TimeInterval) async throws -> Void = { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) },
-        agentsDebounce: TimeInterval = 0.5, devWatcher: (any LeoPluginDevWatching)? = nil
+        agentsDebounce: TimeInterval = 0.5, devWatcher: (any LeoPluginDevWatching)? = nil,
+        credentials: LeoPluginCredentialServices? = nil
     ) {
+        self.credentials = credentials
         self.store = store
         self.bundledRoot = bundledRoot
         self.hosts = hosts
@@ -351,6 +355,7 @@ public struct LeoPluginManagerDependencies {
                     guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
                     self.deliver(event, to: entry)
                 },
+                credentials: deps.credentials,
                 usage: { [agents = deps.agents] in agents.usage(for: $0) },
                 homeDirectory: deps.agents.homeDirectory))
         host.onRequest = { [weak self] request in
@@ -418,7 +423,7 @@ public struct LeoPluginManagerDependencies {
         do {
             try session.host.deliver(event)
             entry.outstandingCommands += 1
-            if case .command(_, let slot?) = event { entry.watchedCommandSlots.insert(slot) }
+            if case .command(_, let slot?, _) = event { entry.watchedCommandSlots.insert(slot) }
         } catch {
             Self.logger.debug("[\(entry.id, privacy: .public)] event not delivered: \(error.localizedDescription, privacy: .public)")
         }

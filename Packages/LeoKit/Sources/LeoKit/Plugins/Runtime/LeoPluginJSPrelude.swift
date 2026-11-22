@@ -21,6 +21,10 @@ enum LeoPluginJSPrelude {
       const pending = new Map();
       const timers = new Map();
       let seq = 0;
+      // The delivery whose handler is running synchronously right now. Only
+      // calls made before the handler's first await carry it, so a gesture
+      // can't be saved up for later.
+      let activeGestureRef = null;
 
       const send = (message) => post(stringify(message));
       const describe = (e) => String(e && e.message !== undefined ? e.message : e);
@@ -58,6 +62,10 @@ enum LeoPluginJSPrelude {
           }
           out.headers = headers;
         }
+        if (init.credential !== undefined) {
+          if (typeof init.credential !== "string") throw new TypeError("fetch credential must be a credential id");
+          out.credential = init.credential;
+        }
         return out;
       }
 
@@ -82,6 +90,30 @@ enum LeoPluginJSPrelude {
             if (timers.delete(id)) send({ call: "timerStop", id: id });
           }
         });
+      }
+
+      function withGesture(ref, fn) {
+        activeGestureRef = typeof ref === "string" ? ref : null;
+        try {
+          return fn();
+        } finally {
+          activeGestureRef = null;
+        }
+      }
+
+      function checkedString(value, what) {
+        if (typeof value !== "string") throw new TypeError(what + " must be a string");
+        return value;
+      }
+
+      function guarded(fn) {
+        return function () {
+          try {
+            return fn.apply(undefined, arguments);
+          } catch (e) {
+            return Promise.reject(e);
+          }
+        };
       }
 
       // Handlers may be async: a rejected promise is a handler error too.
@@ -131,6 +163,12 @@ enum LeoPluginJSPrelude {
             }
           }
         }),
+        credentials: Object.freeze({
+          add: guarded((kind) => request({ call: "credentialsAdd", kind: checkedString(kind, "a credential kind"), ref: activeGestureRef })),
+          authorize: guarded((id) => request({ call: "credentialsAuthorize", credential: checkedString(id, "a credential id"), ref: activeGestureRef })),
+          list: () => request({ call: "credentialsList" }),
+          remove: guarded((id) => request({ call: "credentialsRemove", credential: checkedString(id, "a credential id") }))
+        }),
         timer: (seconds, fn) => startTimer("timer", "timerStart", MIN_TIMER_SECONDS, seconds, fn),
         after: (seconds, fn) => startTimer("after", "afterStart", MIN_AFTER_SECONDS, seconds, fn),
         log: function (level, message) { send({ call: "log", level: String(level), message: String(message) }); }
@@ -158,14 +196,18 @@ enum LeoPluginJSPrelude {
             }
             case "callback": {
               const handler = handlers.callback;
-              if (handler) followUp(ev.ref, handler(ev.id, ev.payload));
+              if (handler) followUp(ev.ref, withGesture(ev.ref, () => handler(ev.id, ev.payload)));
               return;
             }
             case "activate": if (handlers.activate) watch(ev.type, handlers.activate(ev.slot)); return;
             case "agentsChanged": if (handlers.agentsChanged) watch(ev.type, handlers.agentsChanged()); return;
             case "viewOpened": if (handlers.viewOpened) watch(ev.type, handlers.viewOpened(ev.agent, ev.slot)); return;
             case "usageChanged": if (handlers.usageChanged) watch(ev.type, handlers.usageChanged(ev.agent)); return;
-            case "command": if (handlers.command) watch(ev.type, handlers.command(ev.id, ev.slot)); return;
+            case "command": {
+              const handler = handlers.command;
+              if (handler) watch(ev.type, withGesture(ev.ref, () => handler(ev.id, ev.slot)));
+              return;
+            }
           }
         } catch (e) {
           report(ev.type, e);

@@ -29,6 +29,8 @@ import OSLog
         public let usage: @MainActor (LeoPluginAgentRef) -> LeoPluginUsageReading?
         /// This Mac's home directory, for home-relative workspaces; nil shows them absolute.
         public let homeDirectory: String?
+        /// `leo.credentials` and credential fetches; nil refuses them.
+        public let credentials: LeoPluginCredentialServices?
 
         public init(
             identity: LeoPluginIdentity, manifest: LeoPluginManifest, engine: LeoPluginPermissionEngine,
@@ -36,10 +38,12 @@ import OSLog
             slots: LeoPluginSlotStore, actions: any LeoPluginActionRunning,
             agents: @escaping @MainActor () -> [(LeoHostID, LeoAgent)], now: @escaping @Sendable () -> Date,
             send: @escaping @MainActor (LeoPluginEvent) -> Void,
+            credentials: LeoPluginCredentialServices? = nil,
             usage: @escaping @MainActor (LeoPluginAgentRef) -> LeoPluginUsageReading? = { _ in nil },
             homeDirectory: String? = nil
         ) {
             self.usage = usage
+            self.credentials = credentials
             self.homeDirectory = homeDirectory
             self.identity = identity
             self.manifest = manifest
@@ -61,10 +65,10 @@ import OSLog
 
     private static let logger = LeoLog.logger(category: "leo.plugins")
 
-    private let deps: Dependencies
-    private var callbacks = LeoPluginCallbackRegistry()
-    private var inFlight: [UUID: Task<Void, Never>] = [:]
-    private var isClosed = false
+    let deps: Dependencies
+    var callbacks = LeoPluginCallbackRegistry()
+    var inFlight: [UUID: Task<Void, Never>] = [:]
+    private(set) var isClosed = false
 
     public init(_ dependencies: Dependencies) {
         deps = dependencies
@@ -90,6 +94,14 @@ import OSLog
     ) -> LeoPluginEvent {
         let ref = callbacks.register(gesture: gesture, slot: slot, now: deps.now())
         return .callback(ref: ref, id: id, payload: payload, gesture: gesture != nil)
+    }
+
+    /// The `command` event for a palette run. With a gesture it carries a ref
+    /// that can open one credential prompt; it can't be redeemed for a follow-up.
+    public func commandEvent(id: String, slot: LeoPluginSlotID?, gesture: LeoPluginGesture?) -> LeoPluginEvent {
+        guard let gesture else { return .command(id: id, slot: slot) }
+        let ref = callbacks.register(gesture: gesture, slot: slot, now: deps.now(), allowsFollowUp: false)
+        return .command(id: id, slot: slot, ref: ref)
     }
 
     // MARK: Requests
@@ -120,6 +132,10 @@ import OSLog
         case .timerStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startPeriodic(id: id, seconds: seconds) }
         case .afterStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startAfter(id: id, seconds: seconds) }
         case .timerStop(let id): deps.timers.stop(id: id)
+        case .credentialsAdd(let id, let kind, let ref): addCredential(id: id, kind: kind, ref: ref)
+        case .credentialsAuthorize(let id, let credential, let ref): authorizeCredential(id: id, grantID: credential, ref: ref)
+        case .credentialsList(let id): reply(id) { try self.credentialHandles() }
+        case .credentialsRemove(let id, let credential): reply(id) { try self.removeCredential(grantID: credential) }
         case .log(let level, let message): log(level: level, message: message)
         case .callbackResult(let ref, let action): followUp(ref: ref, action: action)
         case .handlerError(let source, let message): handlerError(source: source, message: message)
@@ -163,12 +179,31 @@ import OSLog
     // MARK: Services
 
     private func fetch(id: String, url: String, options: LeoPluginFetchInit) {
-        let taskID = UUID()
         let fetcher = deps.fetcher
+        guard let grantID = options.credential else {
+            return replyLater(id) { try await fetcher.fetch(url: url, init: options).replyValue }
+        }
+        let grant: LeoPluginCredentialGrant
+        let resolver: any LeoPluginCredentialResolving
+        do {
+            (grant, resolver) = try ownedGrant(grantID)
+        } catch {
+            return deps.send(.reply(id: id, outcome: .rejected(reason: error.localizedDescription)))
+        }
+        replyLater(id) {
+            // Background reads never show UI: one that would needs `authorize` first.
+            let credential = try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
+            return try await fetcher.fetch(url: url, init: options, credential: credential).replyValue
+        }
+    }
+
+    /// Runs async work and answers request `id`, unless the session closed meanwhile.
+    func replyLater(_ id: String, _ body: @escaping @MainActor () async throws -> LeoJSONValue) {
+        let taskID = UUID()
         inFlight[taskID] = Task { [weak self] in
             let outcome: LeoPluginReplyOutcome
             do {
-                outcome = .value(try await fetcher.fetch(url: url, init: options).replyValue)
+                outcome = .value(try await body())
             } catch {
                 outcome = .rejected(reason: (error as? LeoPluginFetchError)?.reason ?? error.localizedDescription)
             }
@@ -179,7 +214,7 @@ import OSLog
     }
 
     /// Runs a synchronous service call and answers request `id`.
-    private func reply(_ id: String, _ body: () throws -> LeoJSONValue) {
+    func reply(_ id: String, _ body: () throws -> LeoJSONValue) {
         let outcome: LeoPluginReplyOutcome
         do {
             outcome = .value(try body())
@@ -240,7 +275,7 @@ import OSLog
         deps.slots.failLoadingSlots(pluginID: deps.identity.id, message: text)
     }
 
-    private func warn(_ message: String) {
+    func warn(_ message: String) {
         Self.logger.warning("[\(self.deps.identity.id, privacy: .public)] \(message, privacy: .public)")
     }
 
