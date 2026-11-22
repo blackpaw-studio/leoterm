@@ -21,12 +21,24 @@ public enum LeoPluginSectionRows {
         }
     }
 
+    /// A section's header extra and its body rows.
+    public struct Layout: Equatable, Sendable {
+        /// A root that starts with an Accessory has it drawn at the header's
+        /// trailing edge (shown even when the section is collapsed), not in the body.
+        public let headerAccessory: LeoPluginNode.Accessory?
+        public let rows: [Row]
+    }
+
     public static let emptyTitle = "Nothing to show"
 
-    public static func make(from nodes: [LeoPluginNode]) -> [Row] {
-        let all = nodes.enumerated().flatMap { index, node in rows(for: node, at: index) }
-        return all.isEmpty ? [.message(id: "empty", title: emptyTitle, detail: nil)] : all
+    public static func layout(from nodes: [LeoPluginNode]) -> Layout {
+        let header: LeoPluginNode.Accessory? = if case .accessory(let accessory)? = nodes.first { accessory } else { nil }
+        let body = nodes.enumerated().dropFirst(header == nil ? 0 : 1)
+        let all = body.flatMap { index, node in rows(for: node, at: index) }
+        return Layout(headerAccessory: header, rows: all.isEmpty ? [.message(id: "empty", title: emptyTitle, detail: nil)] : all)
     }
+
+    public static func make(from nodes: [LeoPluginNode]) -> [Row] { layout(from: nodes).rows }
 
     private static func rows(for node: LeoPluginNode, at index: Int) -> [Row] {
         switch node {

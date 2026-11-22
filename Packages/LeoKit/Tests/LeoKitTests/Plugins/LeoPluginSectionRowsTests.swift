@@ -35,6 +35,15 @@ struct LeoPluginSectionRowsTests {
         #expect(LeoPluginSectionRows.make(from: []) == [.message(id: "empty", title: "Nothing to show", detail: nil)])
     }
 
+    @Test func aLeadingAccessoryMovesToTheHeaderAndLeavesTheBody() {
+        let accessory = LeoPluginNode.Accessory(text: "91%")
+        let layout = LeoPluginSectionRows.layout(from: [.accessory(accessory), .emptyState(.init(title: "All clear", message: nil))])
+        #expect(layout.headerAccessory == accessory)
+        #expect(layout.rows == [.message(id: "n1", title: "All clear", detail: nil)])
+        let trailing = LeoPluginSectionRows.layout(from: [.emptyState(.init(title: "All clear", message: nil)), .accessory(accessory)])
+        #expect(trailing.headerAccessory == nil)
+    }
+
     @Test func aListWithNoItemsSaysNothingToShow() {
         #expect(LeoPluginSectionRows.make(from: [list([.init(items: [])])]) == [.message(id: "empty", title: "Nothing to show", detail: nil)])
     }
