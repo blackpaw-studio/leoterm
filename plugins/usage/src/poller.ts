@@ -46,6 +46,9 @@ export interface Poller {
   forget(id: string): Promise<void>;
 }
 
+/** The host label is the directory basename (".codex"); drop one leading dot for display. */
+export const defaultLabel = (handle: Handle): string => (handle.label.startsWith(".") ? handle.label.slice(1) : handle.label);
+
 const errorMessage = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 async function fetchOutcome(leo: LeoV2, handle: Handle): Promise<Outcome> {
@@ -168,7 +171,7 @@ export function createPoller(leo: LeoV2, clock: Clock, onChange: () => void): Po
       await refresh();
     },
     accounts: () =>
-      entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? e.handle.label, state: e.state })),
+      entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? defaultLabel(e.handle), state: e.state })),
     rename: async (id, label) => {
       const base = persisted ?? (await loadPersisted(leo));
       const trimmed = label.trim();

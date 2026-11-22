@@ -9,8 +9,8 @@ const session = { key: "session", label: "Session", percent: 42, resetsAtMs: NOW
 const weekly = { key: "weekly", label: "Weekly", percent: 91, resetsAtMs: NOW + 3 * 24 * 3_600_000 } as const;
 
 const account = (over: Partial<Omit<Account, "state">> & { state?: Partial<Account["state"]> } = {}): Account => ({
-  handle: { id: "a1", kind: "claude-code", label: "claude-work", path: "~/.claude-work" },
-  label: "claude-work",
+  handle: { id: "a1", kind: "claude-code", label: ".claude-work", path: "~/.claude-work" },
+  label: ".claude-work",
   ...over,
   state: { status: "ok", windows: [session, weekly], updatedAtMs: NOW - 3 * 60_000, ...over.state },
 });
@@ -27,14 +27,14 @@ describe("sidebarRoot", () => {
 
   it("shows only the highest window per account as a toned Meter", () => {
     const [g] = groups(sidebarRoot([account()], NOW));
-    expect(g.title).toBe("claude-work");
+    expect(g.title).toBe(".claude-work"); // views show Account.label verbatim; the poller owns the default
     expect(meters(g)).toEqual([
-      { type: "Meter", label: "Weekly", value: 0.91, valueText: "91%", detail: "resets in 3d", tone: "failure" },
+      { type: "Meter", label: "Weekly", value: 0.91, valueText: "91%", detail: "Resets in 3d", tone: "failure" },
     ]);
   });
 
   it("leads with a header accessory for the worst meter across accounts", () => {
-    const root = sidebarRoot([account(), account({ handle: { id: "b", kind: "codex", label: "codex", path: "~/.codex" }, state: { windows: [session] } })], NOW);
+    const root = sidebarRoot([account(), account({ handle: { id: "b", kind: "codex", label: ".codex", path: "~/.codex" }, state: { windows: [session] } })], NOW);
     const first = (root as unknown[])[0] as Accessory;
     expect(first).toMatchObject({ type: "Accessory", text: "91%", color: "failure" });
   });
@@ -45,7 +45,7 @@ describe("sidebarRoot", () => {
   });
 
   it("always leads the subtitle with the account kind, for VoiceOver (title, subtitle, state)", () => {
-    const codexAcct = account({ handle: { id: "b", kind: "codex", label: "codex", path: "~/.codex" } });
+    const codexAcct = account({ handle: { id: "b", kind: "codex", label: ".codex", path: "~/.codex" } });
     expect(groups(sidebarRoot([account()], NOW))[0].subtitle).toBe("Claude Code");
     expect(groups(sidebarRoot([codexAcct], NOW))[0].subtitle).toBe("Codex");
     expect(groups(fullRoot([account()], NOW))[0].subtitle).toBe("~/.claude-work · Updated 3m ago");
@@ -54,13 +54,13 @@ describe("sidebarRoot", () => {
   it("marks a stale account and explains the old values", () => {
     const [g] = groups(sidebarRoot([account({ state: { status: "stale", message: "HTTP 500" } })], NOW));
     expect(g.accessory).toMatchObject({ text: "Stale", color: "warning" });
-    expect(meters(g)[0].detail).toBe("Couldn't refresh · updated 3m ago");
+    expect(meters(g)[0].detail).toBe("Couldn't refresh · values from 6:57 AM");
   });
 
   it("an expired account says how to sign in again and leads with Copy Sign-in Command", () => {
     const [g] = groups(sidebarRoot([account({ state: { status: "expired", windows: [] } })], NOW));
     expect(g.accessory).toMatchObject({ text: "Expired", color: "failure" });
-    expect(g.subtitle).toBe("Claude Code · Signed out — run `claude` with this account to refresh");
+    expect(g.subtitle).toBe("Claude Code · Signed out — run claude with this account to refresh");
     expect(g.actions?.[0]).toMatchObject({ type: "copy", title: "Copy Sign-in Command", text: "CLAUDE_CONFIG_DIR=~/.claude-work claude" });
   });
 
@@ -107,6 +107,19 @@ describe("fullRoot", () => {
 
   it("an empty list is the same empty state as the sidebar", () => {
     expect(fullRoot([], NOW)).toMatchObject({ type: "EmptyState" });
+  });
+});
+
+describe("plain-text copy", () => {
+  it("no user-visible string contains markdown backticks", () => {
+    const states = ["loading", "ok", "stale", "expired", "needsAuthorization", "error"] as const;
+    const accounts = states.flatMap((status) =>
+      (["claude-code", "codex"] as const).map((kind) =>
+        account({ handle: { id: status + kind, kind, label: "l", path: "~/p" }, state: { status, message: "m", windows: status === "ok" || status === "stale" ? [session] : [] } }),
+      ),
+    );
+    const texts = JSON.stringify([sidebarRoot(accounts, NOW), fullRoot(accounts, NOW)]).replace(/"text":"[^"]*"/g, "");
+    expect(texts).not.toContain("`"); // copy-action text (a shell command) is exempt
   });
 });
 

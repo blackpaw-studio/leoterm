@@ -17,7 +17,7 @@
         "label": "Weekly Opus",
         "value": 0.91,
         "valueText": "91%",
-        "detail": "resets in 3d 4h",
+        "detail": "Resets in 3d 4h",
         "tone": "failure"
       }
     ],
@@ -50,7 +50,7 @@
   },
   {
     "type": "Group",
-    "title": "claude-home",
+    "title": "claude",
     "subtitle": "Claude Code",
     "sfSymbol": "bubble.left.fill",
     "children": [
@@ -92,7 +92,7 @@
   {
     "type": "Group",
     "title": "claude-old",
-    "subtitle": "Claude Code · Signed out — run `claude` with this account to refresh",
+    "subtitle": "Claude Code · Signed out — run claude with this account to refresh",
     "sfSymbol": "bubble.left.fill",
     "accessory": {
       "type": "Accessory",
@@ -136,7 +136,7 @@
   },
   {
     "type": "Group",
-    "title": ".codex",
+    "title": "codex",
     "subtitle": "Codex",
     "sfSymbol": "terminal",
     "children": [
@@ -145,7 +145,7 @@
         "label": "Weekly",
         "value": 0.955,
         "valueText": "96%",
-        "detail": "resets in 3d 13h",
+        "detail": "Resets in 3d 13h",
         "tone": "failure"
       }
     ],

@@ -1,6 +1,6 @@
 import type { Accessory, AccessoryColor, Action, Form } from "../../sdk/leo";
 import type { CredentialKind, GroupNode, MeterNode, MeterTone, UsageNode, UsageRoot } from "./api";
-import { MAX_HELP_CHARS, MAX_LINE_CHARS, clip, percentText, resetsIn, updatedAgo } from "./format";
+import { MAX_HELP_CHARS, MAX_LINE_CHARS, clip, clockTime, percentText, resetsIn, updatedAgo } from "./format";
 import type { Account } from "./poller";
 import { NO_DATA, type AccountState } from "./state";
 import { highestWindow, toneFor, worstTone } from "./tone";
@@ -46,8 +46,6 @@ const emptyState = (): UsageRoot => ({
   actions: addActions,
 });
 
-const lowerFirst = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
-
 const meter = (w: UsageWindow, nowMs: number, detail?: string): MeterNode => ({
   type: "Meter",
   label: w.label,
@@ -79,7 +77,7 @@ const stateText = (account: Account): string | undefined => {
     case "loading":
       return "Loading…";
     case "expired":
-      return "Signed out — run `" + KIND_COMMAND[handle.kind] + "` with this account to refresh";
+      return "Signed out — run " + KIND_COMMAND[handle.kind] + " with this account to refresh";
     case "needsAuthorization":
       return handle.kind === "claude-code"
         ? "Leo needs Keychain access to read this account"
@@ -110,7 +108,7 @@ const leadingActions = (account: Account): Action[] => {
 
 const staleDetail = (state: AccountState, nowMs: number): string | undefined =>
   state.status === "stale" && state.updatedAtMs !== undefined
-    ? "Couldn't refresh · " + lowerFirst(updatedAgo(state.updatedAtMs, nowMs))
+    ? "Couldn't refresh · values from " + clockTime(state.updatedAtMs)
     : undefined;
 
 const renameForm = (account: Account): Form => ({

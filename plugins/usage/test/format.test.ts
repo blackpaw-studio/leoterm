@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clip, percentText, resetsIn, updatedAgo } from "../src/format";
+import { clip, clockTime, percentText, resetsIn, updatedAgo } from "../src/format";
 
 const NOW = Date.UTC(2026, 0, 1, 12, 0, 0);
 const min = 60_000;
@@ -14,12 +14,12 @@ describe("percentText", () => {
 
 describe("resetsIn", () => {
   it.each([
-    [14 * min, "resets in 14m"],
-    [(2 * 60 + 14) * min, "resets in 2h 14m"],
-    [2 * 60 * min, "resets in 2h"],
-    [(3 * 24 + 4) * 60 * min, "resets in 3d 4h"],
-    [30_000, "resets in <1m"],
-    [-5 * min, "resetting now"],
+    [14 * min, "Resets in 14m"],
+    [(2 * 60 + 14) * min, "Resets in 2h 14m"],
+    [2 * 60 * min, "Resets in 2h"],
+    [(3 * 24 + 4) * 60 * min, "Resets in 3d 4h"],
+    [30_000, "Resets in <1m"],
+    [-5 * min, "Resetting now"],
   ])("offset %s ms → %s", (offset, text) => {
     expect(resetsIn(NOW + offset, NOW)).toBe(text);
   });
@@ -42,5 +42,13 @@ describe("clip", () => {
     expect(clip("x".repeat(300), 80)).toHaveLength(80);
     expect(clip("x".repeat(300), 80).endsWith("…")).toBe(true);
     expect(clip("x".repeat(80), 80)).toHaveLength(80);
+  });
+});
+
+describe("clockTime", () => {
+  it("formats local 12-hour time like the design's 8:57 PM", () => {
+    expect(clockTime(Date.UTC(2026, 0, 2, 1, 57))).toBe("8:57 PM"); // TZ pinned to America/New_York in vitest.config
+    expect(clockTime(Date.UTC(2026, 0, 1, 17, 5))).toBe("12:05 PM");
+    expect(clockTime(Date.UTC(2026, 0, 1, 5, 0))).toBe("12:00 AM");
   });
 });
