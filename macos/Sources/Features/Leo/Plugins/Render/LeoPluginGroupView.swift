@@ -122,6 +122,8 @@ final class LeoPluginGroupView: NSView {
         if structure.hasSubtitle {
             let label = LeoPluginRenderStyle.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor, lines: 2)
             label.setAccessibilityElement(false)
+            // Wraps to the Group's width instead of widening it (design.md: two lines, then tail).
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
             subtitleLabel = label
             addFullWidth(label, indent: Metrics.indent)
             content.setCustomSpacing(2, after: content.arrangedSubviews[0])
