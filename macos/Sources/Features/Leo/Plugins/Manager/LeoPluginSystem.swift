@@ -48,6 +48,12 @@ import LeoKit
         let scheduler = LeoPluginDispatchTimerScheduler()
         let watcher = LeoPluginDevWatcher(source: LeoPluginDispatchFileEvents(), scheduler: scheduler)
         let helperPath = LeoPluginPosixLauncher.embedded(in: bundle).helperURL.path
+        let home = NSHomeDirectory()
+        let credentials = LeoPluginCredentialServices(
+            picker: LeoPluginCredentialPicker(home: URL(fileURLWithPath: home, isDirectory: true)),
+            resolver: LeoPluginCredentials(
+                keychain: LeoPluginSystemCredentialKeychain(), files: LeoPluginCredentialFileReader(), home: home, userName: NSUserName()),
+            grants: store, home: home)
         let manager = LeoPluginManager(LeoPluginManagerDependencies(
             store: store,
             bundledRoot: bundle.resourceURL?.appendingPathComponent("Plugins", isDirectory: true),
@@ -61,7 +67,8 @@ import LeoKit
             makeFetcher: { id, engine in LeoPluginFetcher(pluginID: id, engine: engine) },
             reapOrphans: { LeoPluginHostOrphanReaper.reap(helperPath: helperPath) },
             clock: { ProcessInfo.processInfo.systemUptime },
-            devWatcher: watcher))
+            devWatcher: watcher,
+            credentials: credentials))
         watcher.onChange = { [weak manager] id in manager?.devPluginChanged(id) }
         sources.onUsageChange = { [weak manager] agent in manager?.usageDidChange(agent: agent) }
         let installer = LeoPluginGitInstaller(root: root, runner: LeoPluginProcessRunner(), idClaims: store)

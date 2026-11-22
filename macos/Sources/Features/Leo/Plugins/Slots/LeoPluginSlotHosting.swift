@@ -8,6 +8,9 @@ import LeoKit
     var plugins: [LeoPluginInfo] { get }
     var slots: LeoPluginSlotStore { get }
     @discardableResult func open(_ slot: LeoPluginSlotID, plugin id: String) -> Bool
+    /// The user ran a palette command. `gesture` lets its handler open one
+    /// credential prompt (folder picker or Keychain dialog).
+    func runCommand(_ commandID: String, plugin id: String, gesture: LeoPluginGesture)
     func retry(_ key: LeoPluginSlotKey)
     func perform(_ action: LeoPluginAction, plugin id: String, slot: LeoPluginSlotID?, gesture: LeoPluginGesture?)
     func setSection(_ id: String, section: String, hidden: Bool) throws

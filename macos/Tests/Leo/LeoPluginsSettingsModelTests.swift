@@ -29,6 +29,7 @@ import Testing
             log.events.append("uninstall \(id)")
         }
         func reload(restarting: Set<String>) { log.events.append("reload \(restarting.sorted().joined(separator: ","))") }
+        func removeCredentialGrant(_ id: String, grantID: String) throws { log.events.append("removeGrant \(id) \(grantID)") }
     }
 
     private struct Boom: Error, LocalizedError { var errorDescription: String? { "boom" } }

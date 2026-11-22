@@ -5,16 +5,9 @@ import OSLog
 extension LeoPluginManager {
     /// A slot was shown or asked for: send the plugin the event that makes it
     /// render. False if the manifest declares no such contribution.
-    /// `gesture` is minted only when the user ran a palette command; it lets
-    /// the command's handler open one credential prompt.
     @discardableResult
-    public func open(_ slot: LeoPluginSlotID, plugin id: String, gesture: LeoPluginGesture? = nil) -> Bool {
+    public func open(_ slot: LeoPluginSlotID, plugin id: String) -> Bool {
         guard let entry = entries[id], let manifest = entry.manifest, Self.declares(manifest, slot) else { return false }
-        if case .palette(let commandID) = slot, let gesture, let router = entry.session?.router {
-            deps.slots.expect(pluginID: id, slot: slot)
-            deliver(router.commandEvent(id: commandID, slot: slot, gesture: gesture), to: entry)
-            return true
-        }
         let event = Self.openingEvent(for: slot)
         // A command is a one-shot run, not state to restore: a restart must not run it again.
         if case .palette = slot {} else if entry.lastEvents[slot] != nil || entry.lastEvents.count < LeoPluginSlotStore.maxSlotsPerPlugin {
@@ -23,6 +16,21 @@ extension LeoPluginManager {
         deps.slots.expect(pluginID: id, slot: slot)
         deliver(event, to: entry)
         return true
+    }
+
+    /// The user ran a palette command. `gesture` (minted by the palette's own
+    /// key or click path) lets the command's handler open one credential
+    /// prompt. Without a running session it falls back to a plain `open`.
+    public func runCommand(_ commandID: String, plugin id: String, gesture: LeoPluginGesture) {
+        let slot = LeoPluginSlotID.palette(commandID: commandID)
+        guard let entry = entries[id], let manifest = entry.manifest, Self.declares(manifest, slot),
+            let router = entry.session?.router
+        else {
+            open(slot, plugin: id)
+            return
+        }
+        deps.slots.expect(pluginID: id, slot: slot)
+        deliver(router.commandEvent(id: commandID, slot: slot, gesture: gesture), to: entry)
     }
 
     /// Retry on an error slot: send the event that produced it again. A crashed

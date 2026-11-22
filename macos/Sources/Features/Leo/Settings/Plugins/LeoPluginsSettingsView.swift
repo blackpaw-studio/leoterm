@@ -79,6 +79,7 @@ private struct LeoPluginsPane: View {
                 review: { Task { await model.reviewApproval(row.id) } },
                 showSection: { model.showSection(row.id, section: $0) },
                 setPaneShown: { pane, shown in model.setPaneShown(row.id, pane: pane, shown: shown) },
+                removeAccount: { model.removeAccount(row.id, grantID: $0) },
                 uninstall: { model.requestUninstall(row.id) })
         }
         .listStyle(.inset)
@@ -130,6 +131,7 @@ private struct LeoPluginRowView: View {
     let review: () -> Void
     let showSection: (String) -> Void
     let setPaneShown: (String, Bool) -> Void
+    let removeAccount: (String) -> Void
     let uninstall: () -> Void
 
     var body: some View {
@@ -141,6 +143,14 @@ private struct LeoPluginRowView: View {
                 titleLine
                 Text(row.sourceText).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 Text(row.permissionsSummary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                ForEach(row.accounts) { account in
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.crop.circle").font(.caption).foregroundStyle(.secondary).accessibilityHidden(true)
+                        Text(account.title).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        Button("Remove") { removeAccount(account.id) }.buttonStyle(.link).font(.caption)
+                            .accessibilityLabel("Remove account \(account.title)")
+                    }
+                }
                 status
                 if let pane = row.pane {
                     Toggle("Show agent pane", isOn: Binding(get: { pane.isShown }, set: { setPaneShown(pane.id, $0) }))

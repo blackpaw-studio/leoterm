@@ -20,6 +20,13 @@ import LeoKit
         return true
     }
 
+    private(set) var commandGestures: [LeoPluginGesture] = []
+
+    func runCommand(_ commandID: String, plugin id: String, gesture: LeoPluginGesture) {
+        commandGestures.append(gesture)
+        open(.palette(commandID: commandID), plugin: id)
+    }
+
     private let finishedSubject = PassthroughSubject<LeoPluginSlotKey, Never>()
     var commandFinishedWithoutRender: AnyPublisher<LeoPluginSlotKey, Never> { finishedSubject.eraseToAnyPublisher() }
     /// The manager reporting that a command's handler finished with nothing rendered.

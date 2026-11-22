@@ -32,6 +32,14 @@ struct LeoPluginRow: Equatable, Identifiable {
     let hiddenSections: [String]
     /// The plugin's agent pane and whether it is shown; nil for a plugin with none.
     let pane: Pane?
+    /// Accounts the user picked for the plugin, each removable.
+    let accounts: [Account]
+
+    struct Account: Equatable, Identifiable {
+        let id: String
+        /// "Codex · ~/.codex".
+        let title: String
+    }
 
     struct Pane: Equatable {
         let id: String
@@ -62,6 +70,9 @@ struct LeoPluginRow: Equatable, Identifiable {
         hiddenSections = info.hiddenSections
         pane = info.manifest?.contributes.panes.first.map { Pane(id: $0.id, isShown: !info.hiddenPanes.contains($0.id)) }
         permissionsSummary = Self.summary(of: info.approvedPermissions)
+        accounts = info.credentialGrants.map { grant in
+            Account(id: grant.id, title: "\(grant.kind.displayName) · \((grant.path as NSString).abbreviatingWithTildeInPath)")
+        }
         switch info.source {
         case .bundled:
             shortSHA = nil
@@ -102,6 +113,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         if !permissions.network.isEmpty { parts.append("Network: \(permissions.network.joined(separator: ", "))") }
         if permissions.secrets { parts.append("Keychain") }
         if !permissions.agents.isEmpty { parts.append("Agents: \(permissions.agents.map(\.rawValue).joined(separator: ", "))") }
+        if !permissions.credentials.isEmpty { parts.append("Accounts: \(permissions.credentials.map(\.displayName).joined(separator: ", "))") }
         return parts.isEmpty ? "No special access" : parts.joined(separator: " · ")
     }
 

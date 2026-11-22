@@ -25,10 +25,12 @@ struct LeoPluginPaletteCommand: Identifiable, Equatable {
 @MainActor final class LeoPluginManagerCommandSource: LeoPluginCommandSource {
     private let host: any LeoPluginSlotHosting
     private let surface: any LeoPluginSlotSurface
+    private let mint: LeoPluginGestureMint
 
-    init(host: any LeoPluginSlotHosting, surface: any LeoPluginSlotSurface) {
+    init(host: any LeoPluginSlotHosting, surface: any LeoPluginSlotSurface, mint: LeoPluginGestureMint = LeoPluginGestureMint()) {
         self.host = host
         self.surface = surface
+        self.mint = mint
     }
 
     var commands: [LeoPluginPaletteCommand] {
@@ -40,7 +42,9 @@ struct LeoPluginPaletteCommand: Identifiable, Equatable {
     }
 
     func select(_ command: LeoPluginPaletteCommand) -> LeoPluginPaletteSession {
-        host.open(command.slotKey.slot, plugin: command.pluginID)
+        // Selecting a palette row is the user's own key press or click: the
+        // only place a command gets a gesture.
+        host.runCommand(command.commandID, plugin: command.pluginID, gesture: mint.mint(.keyboard))
         return LeoPluginPaletteSession(command: command, host: host, surface: surface)
     }
 }

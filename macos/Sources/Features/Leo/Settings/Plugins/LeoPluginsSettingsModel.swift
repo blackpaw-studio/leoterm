@@ -13,6 +13,7 @@ import LeoKit
     func setPane(_ id: String, pane: String, hidden: Bool) throws
     func uninstall(_ id: String) throws
     func reload(restarting: Set<String>)
+    func removeCredentialGrant(_ id: String, grantID: String) throws
 }
 
 extension LeoPluginManager: LeoPluginsManaging {
@@ -111,6 +112,11 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
             }
             attempt { try manager.approveCurrentPermissions(id) }
         }
+    }
+
+    /// Forgets one account the plugin was given; it can't read it again until re-added.
+    func removeAccount(_ id: String, grantID: String) {
+        attempt { try manager.removeCredentialGrant(id, grantID: grantID) }
     }
 
     // MARK: Uninstall
