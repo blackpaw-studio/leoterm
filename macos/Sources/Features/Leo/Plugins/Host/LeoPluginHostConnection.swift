@@ -32,6 +32,8 @@ final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
     private static let logger = Logger(subsystem: "studio.blackpaw.leo", category: "plugins")
 
     private let launcher: any LeoPluginHostLauncher
+    /// The plugin's manifest API version: frames are decoded at this version.
+    private let apiVersion: Int
     private let readUsage: @Sendable (pid_t) -> LeoPluginUsage?
     private let clock: @Sendable () -> TimeInterval
     private let configuration: Configuration
@@ -61,12 +63,14 @@ final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
 
     init(
         launcher: any LeoPluginHostLauncher,
+        apiVersion: Int = 1,
         configuration: Configuration = Configuration(),
         readUsage: @escaping @Sendable (pid_t) -> LeoPluginUsage? = { LeoPluginProcessUsage.read(pid: $0) },
         clock: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         callbackQueue: DispatchQueue = .main
     ) {
         self.launcher = launcher
+        self.apiVersion = apiVersion
         self.configuration = configuration
         self.readUsage = readUsage
         self.clock = clock
@@ -135,6 +139,7 @@ final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
         let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: readQueue)
         let throttle = LeoPluginReadThrottle(source: source)
         var reader = LeoPluginFrameReader(limit: LeoPluginWire.maxHostToAppBytes)
+        let apiVersion = self.apiVersion
         var quota = LeoPluginRequestQuota()
         var chunk = [UInt8](repeating: 0, count: 64 * 1024)
         source.setEventHandler { [weak self] in
@@ -147,7 +152,7 @@ final class LeoPluginHostConnection: LeoPluginHosting, @unchecked Sendable {
             }
             do {
                 for frame in try reader.append(Data(chunk[0..<count])) {
-                    let message = try LeoPluginHostMessage.decode(frame: frame)
+                    let message = try LeoPluginHostMessage.decode(frame: frame, apiVersion: apiVersion)
                     if case .request = message {
                         if let reason = quota.record(requestBytes: frame.count) {
                             source.cancel()

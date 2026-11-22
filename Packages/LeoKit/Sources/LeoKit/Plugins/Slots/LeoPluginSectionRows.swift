@@ -11,10 +11,12 @@ public enum LeoPluginSectionRows {
         case subheader(id: String, title: String)
         case item(id: String, LeoPluginNode.Item)
         case message(id: String, title: String, detail: String?)
+        case group(id: String, LeoPluginNode.Group)
+        case meter(id: String, LeoPluginNode.ValueMeter)
 
         public var id: String {
             switch self {
-            case .subheader(let id, _), .item(let id, _), .message(let id, _, _): id
+            case .subheader(let id, _), .item(let id, _), .message(let id, _, _), .group(let id, _), .meter(let id, _): id
             }
         }
     }
@@ -44,6 +46,10 @@ public enum LeoPluginSectionRows {
             return [.message(id: "n\(index)", title: loading.message ?? "Loading…", detail: nil)]
         case .text(let text):
             return [.message(id: "n\(index)", title: text.plainText, detail: nil)]
+        case .group(let group):
+            return [.group(id: "g\(index)", group)]
+        case .valueMeter(let meter):
+            return [.meter(id: "m\(index)", meter)]
         case .form, .accessory, .meter:
             return []
         }

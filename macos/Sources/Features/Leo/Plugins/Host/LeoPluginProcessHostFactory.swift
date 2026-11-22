@@ -10,7 +10,7 @@ struct LeoPluginProcessHostFactory: LeoPluginHostMaking {
         self.launcher = launcher
     }
 
-    func makeHost() -> any LeoPluginHosting {
-        LeoPluginHostConnection(launcher: launcher)
+    func makeHost(apiVersion: Int) -> any LeoPluginHosting {
+        LeoPluginHostConnection(launcher: launcher, apiVersion: apiVersion)
     }
 }

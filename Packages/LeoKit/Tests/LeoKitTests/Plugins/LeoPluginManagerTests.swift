@@ -28,10 +28,11 @@ private final class SleepControl: @unchecked Sendable {
 }
 
 private func manifestJSON(
-    id: String, network: String = "[]", secrets: Bool = false, agents: String = "[]", contributes: String? = nil
+    id: String, network: String = "[]", secrets: Bool = false, agents: String = "[]", contributes: String? = nil,
+    apiVersion: Int = 1, credentials: String = "[]"
 ) -> String {
     let contrib = contributes ?? #"{"views":[{"id":"main","title":"Main","sfSymbol":"star"}],"sidebarSections":[{"id":"issues","title":"Issues"}],"commands":[{"id":"go","title":"Go"}]}"#
-    return #"{"id":"\#(id)","name":"\#(id)","version":"1.0.0","apiVersion":1,"main":"main.js","permissions":{"network":\#(network),"secrets":\#(secrets),"agents":\#(agents)},"contributes":\#(contrib)}"#
+    return #"{"id":"\#(id)","name":"\#(id)","version":"1.0.0","apiVersion":\#(apiVersion),"main":"main.js","permissions":{"network":\#(network),"secrets":\#(secrets),"agents":\#(agents),"credentials":\#(credentials)},"contributes":\#(contrib)}"#
 }
 
 @MainActor private final class Rig {
@@ -836,3 +837,17 @@ private let demo = "studio.blackpaw.demo"
 }
 
 private enum LeoPluginTestError: Error { case boom }
+
+// MARK: - apiVersion 2
+
+extension LeoPluginManagerTests {
+    @Test func eachHostIsMadeAtItsPluginsManifestAPIVersion() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        try rig.addBundled("studio.blackpaw.usage", manifest: manifestJSON(id: "studio.blackpaw.usage", apiVersion: 2))
+        rig.buildManager()
+        rig.manager.reload()
+        #expect(rig.hosts.made.map(\.apiVersion).sorted() == [1, 2])
+    }
+}

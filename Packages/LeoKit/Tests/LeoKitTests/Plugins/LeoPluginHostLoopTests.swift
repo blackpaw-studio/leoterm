@@ -34,7 +34,7 @@ private final class LoopHarness: @unchecked Sendable {
 
     private func receive() throws -> LeoPluginHostMessage? {
         guard let frame = try LeoPluginWire.readFrame(from: appFD, limit: LeoPluginWire.maxHostToAppBytes) else { return nil }
-        return try LeoPluginHostMessage.decode(frame: frame)
+        return try LeoPluginHostMessage.decode(frame: frame, apiVersion: 1)
     }
 
     /// Messages up to and including the next handler-done marker.

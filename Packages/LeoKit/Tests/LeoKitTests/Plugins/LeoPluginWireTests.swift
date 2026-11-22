@@ -52,16 +52,16 @@ struct LeoPluginWireTests {
     @Test func hostMessageDecodesARequestAndTheDoneMarker() throws {
         let request = LeoPluginHostRequest.log(level: "info", message: "x")
         let json = try JSONEncoder().encode(request)
-        #expect(try LeoPluginHostMessage.decode(frame: json) == .request(request))
-        #expect(try LeoPluginHostMessage.decode(frame: LeoPluginWire.doneFrame) == .handlerDone)
+        #expect(try LeoPluginHostMessage.decode(frame: json, apiVersion: 1) == .request(request))
+        #expect(try LeoPluginHostMessage.decode(frame: LeoPluginWire.doneFrame, apiVersion: 1) == .handlerDone)
     }
 
     @Test func hostMessageRejectsOversizedAndNonUTF8Frames() {
         #expect(throws: LeoPluginFrameError.self) {
-            try LeoPluginHostMessage.decode(frame: Data(count: LeoPluginFrameLimits.maxFrameBytes + 1))
+            try LeoPluginHostMessage.decode(frame: Data(count: LeoPluginFrameLimits.maxFrameBytes + 1), apiVersion: 1)
         }
         #expect(throws: LeoPluginWireError.notUTF8) {
-            try LeoPluginHostMessage.decode(frame: Data([0xFF, 0xFE]))
+            try LeoPluginHostMessage.decode(frame: Data([0xFF, 0xFE]), apiVersion: 1)
         }
     }
 

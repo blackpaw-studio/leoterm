@@ -20,9 +20,13 @@ public enum LeoPluginFrameError: Error, Equatable, CustomStringConvertible, Send
 
 public enum LeoPluginFrame {
     /// Decodes one host → app frame. The byte cap is checked before any parsing.
-    public static func decodeRequest(_ json: String) throws -> LeoPluginHostRequest {
+    /// Trees in the frame may use only the components of `apiVersion` (the
+    /// plugin's manifest version); the default admits v1 components only.
+    public static func decodeRequest(_ json: String, apiVersion: Int = 1) throws -> LeoPluginHostRequest {
         let bytes = json.utf8.count
         guard bytes <= LeoPluginFrameLimits.maxFrameBytes else { throw LeoPluginFrameError.tooLarge(bytes: bytes) }
-        return try JSONDecoder().decode(LeoPluginHostRequest.self, from: Data(json.utf8))
+        let decoder = JSONDecoder()
+        decoder.userInfo[LeoPluginNodeDecoding.apiVersionKey] = apiVersion
+        return try decoder.decode(LeoPluginHostRequest.self, from: Data(json.utf8))
     }
 }

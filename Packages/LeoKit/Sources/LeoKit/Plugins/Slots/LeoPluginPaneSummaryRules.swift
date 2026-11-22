@@ -12,8 +12,8 @@ public enum LeoPluginPaneSummaryRules {
 
     private static func isAllowed(_ node: LeoPluginNode) -> Bool {
         switch node {
-        case .text, .meter, .accessory: true
-        case .list, .detail, .form, .emptyState, .loading, .error: false
+        case .text, .meter, .valueMeter, .accessory: true
+        case .list, .detail, .form, .emptyState, .loading, .error, .group: false
         }
     }
 
@@ -24,7 +24,8 @@ public enum LeoPluginPaneSummaryRules {
         case .form: "Form"
         case .accessory: "Accessory"
         case .text: "Text"
-        case .meter: "Meter"
+        case .meter, .valueMeter: "Meter"
+        case .group: "Group"
         case .emptyState: "EmptyState"
         case .loading: "Loading"
         case .error: "Error"

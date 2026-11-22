@@ -90,7 +90,9 @@ public final class LeoPluginJSRuntime {
 
     private func receive(json: String) {
         do {
-            send(try LeoPluginFrame.decodeRequest(json))
+            // The helper only pre-checks shape, at the newest API it knows; the
+            // app re-decodes every frame at the plugin's own manifest version.
+            send(try LeoPluginFrame.decodeRequest(json, apiVersion: LeoPluginAPI.supported))
         } catch {
             send(.handlerError(source: "bridge", message: "malformed request: \(error)"))
         }

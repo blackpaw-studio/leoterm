@@ -25,7 +25,8 @@ public enum LeoPluginAccessoryColor: String, Codable, Equatable, Sendable {
     case neutral, success, warning, failure, running
 }
 
-/// One v1 component. Wire form: `{"type":"List", ...}`.
+/// One component. Wire form: `{"type":"List", ...}`. `valueMeter` and `group`
+/// are apiVersion 2 (see `LeoPluginNodeV2.swift`).
 public indirect enum LeoPluginNode: Equatable, Sendable {
     case list(List)
     case detail(Detail)
@@ -36,6 +37,8 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
     case emptyState(EmptyState)
     case loading(Loading)
     case error(ErrorState)
+    case valueMeter(ValueMeter)
+    case group(Group)
 
     public struct List: Codable, Equatable, Sendable {
         public var sections: [Section]
@@ -340,6 +343,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
         switch self {
         case .list(let l): 1 + l.sections.reduce(0) { $0 + $1.items.reduce(0) { $0 + 1 + $1.accessories.count } }
         case .form(let f): 1 + f.fields.count
+        case .group(let g): 1 + g.children.count + (g.accessory == nil ? 0 : 1)
         default: 1
         }
     }
@@ -351,6 +355,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
             let items = l.sections.flatMap(\.items)
             return 1 + (items.isEmpty ? 0 : 1 + (items.contains { !$0.accessories.isEmpty } ? 1 : 0))
         case .form(let f): return f.fields.isEmpty ? 1 : 2
+        case .group(let g): return g.children.isEmpty && g.accessory == nil ? 1 : 2
         default: return 1
         }
     }
@@ -358,7 +363,7 @@ public indirect enum LeoPluginNode: Equatable, Sendable {
 
 extension LeoPluginNode: Codable {
     private enum Keys: String, CodingKey { case type }
-    private static let typeNames = "List, Detail, Form, Accessory, Text, Meter, EmptyState, Loading, Error"
+    private static let typeNames = "List, Detail, Form, Accessory, Text, Meter, EmptyState, Loading, Error, Group"
 
     public init(from decoder: Decoder) throws {
         let scope = try LeoPluginDecodeBudget.enter(decoder, elements: 1, depth: 1)
@@ -370,10 +375,13 @@ extension LeoPluginNode: Codable {
         case "Form": self = .form(try .init(from: decoder))
         case "Accessory": self = .accessory(try .init(from: decoder))
         case "Text": self = .text(try .init(from: decoder))
-        case "Meter": self = .meter(try .init(from: decoder))
+        case "Meter": self = try Self.decodeMeter(decoder)
         case "EmptyState": self = .emptyState(try .init(from: decoder))
         case "Loading": self = .loading(try .init(from: decoder))
         case "Error": self = .error(try .init(from: decoder))
+        case "Group":
+            try LeoPluginNodeDecoding.requireGroupAPI(decoder, type: "Group")
+            self = .group(try .init(from: decoder))
         default:
             throw DecodingError.dataCorrupted(.init(
                 codingPath: decoder.codingPath + [Keys.type],
@@ -393,7 +401,17 @@ extension LeoPluginNode: Codable {
         case .emptyState(let v): try c.encode("EmptyState", forKey: .type); try v.encode(to: encoder)
         case .loading(let v): try c.encode("Loading", forKey: .type); try v.encode(to: encoder)
         case .error(let v): try c.encode("Error", forKey: .type); try v.encode(to: encoder)
+        case .valueMeter(let v): try c.encode("Meter", forKey: .type); try v.encode(to: encoder)
+        case .group(let v): try c.encode("Group", forKey: .type); try v.encode(to: encoder)
         }
+    }
+
+    /// `Meter` has two wire forms: segments (v1) and, keyed by `value`, the v2 level meter.
+    private static func decodeMeter(_ decoder: Decoder) throws -> LeoPluginNode {
+        let c = try decoder.container(keyedBy: ValueMeter.Keys.self)
+        guard c.contains(.value) else { return .meter(try .init(from: decoder)) }
+        try LeoPluginNodeDecoding.requireGroupAPI(decoder, type: "A Meter with value")
+        return .valueMeter(try .init(from: decoder))
     }
 }
 

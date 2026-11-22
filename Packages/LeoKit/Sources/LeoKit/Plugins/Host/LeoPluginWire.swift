@@ -57,13 +57,15 @@ public enum LeoPluginHostMessage: Equatable, Sendable {
     case handlerDone
 
     /// Decodes one host → app frame. The byte cap is checked before parsing.
-    public static func decode(frame: Data) throws -> LeoPluginHostMessage {
+    /// `apiVersion` is the plugin's manifest version: it gates which components
+    /// the frame's trees may use.
+    public static func decode(frame: Data, apiVersion: Int) throws -> LeoPluginHostMessage {
         if frame == LeoPluginWire.doneFrame { return .handlerDone }
         guard frame.count <= LeoPluginFrameLimits.maxFrameBytes else {
             throw LeoPluginFrameError.tooLarge(bytes: frame.count)
         }
         guard let json = String(data: frame, encoding: .utf8) else { throw LeoPluginWireError.notUTF8 }
-        return .request(try LeoPluginFrame.decodeRequest(json))
+        return .request(try LeoPluginFrame.decodeRequest(json, apiVersion: apiVersion))
     }
 }
 

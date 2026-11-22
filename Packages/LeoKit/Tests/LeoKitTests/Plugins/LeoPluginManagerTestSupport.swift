@@ -80,6 +80,8 @@ final class PluginFakeHost: LeoPluginHosting, @unchecked Sendable {
     private var _events: [LeoPluginEvent] = []
     private var _stopped = false
     var startError: Error?
+    /// The manifest API version the manager made this host for.
+    var apiVersion = 0
 
     var source: String? { lock.withLock { _source } }
     var events: [LeoPluginEvent] { lock.withLock { _events } }
@@ -111,8 +113,9 @@ final class PluginFakeHostFactory: LeoPluginHostMaking, @unchecked Sendable {
     var made: [PluginFakeHost] { lock.withLock { _made } }
     var last: PluginFakeHost? { made.last }
 
-    func makeHost() -> any LeoPluginHosting {
+    func makeHost(apiVersion: Int) -> any LeoPluginHosting {
         let host = PluginFakeHost()
+        host.apiVersion = apiVersion
         host.startError = startError
         lock.withLock { _made.append(host) }
         return host

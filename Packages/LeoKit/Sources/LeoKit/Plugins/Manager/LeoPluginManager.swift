@@ -332,7 +332,7 @@ public struct LeoPluginManagerDependencies {
         for entry: LeoPluginManagerEntry, manifest: LeoPluginManifest, services: LeoPluginManagerEntry.Services
     ) -> LeoPluginManagerEntry.Session {
         let token = UUID()
-        let host = deps.hosts.makeHost()
+        let host = deps.hosts.makeHost(apiVersion: manifest.apiVersion)
         let id = entry.id
         let timers = LeoPluginTimers(scheduler: deps.scheduler) { [weak self] timerID in
             Task { @MainActor in

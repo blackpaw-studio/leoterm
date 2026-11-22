@@ -29,7 +29,10 @@ public protocol LeoPluginHosting: AnyObject, Sendable {
 }
 
 public protocol LeoPluginHostMaking: Sendable {
-    func makeHost() -> any LeoPluginHosting
+    /// One helper for a plugin whose manifest declares `apiVersion`. The host
+    /// decodes that plugin's frames at this version, so a v1 plugin can't use
+    /// v2 components.
+    func makeHost(apiVersion: Int) -> any LeoPluginHosting
 }
 
 /// The agents Leo currently knows, across machines (the sidebar feeds).
