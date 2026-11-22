@@ -5,8 +5,8 @@ import claudeFull from "./fixtures/claude-full.json";
 import codexFull from "./fixtures/codex-full.json";
 import { createStubLeo } from "./stubLeo";
 
-const claude: Handle = { id: "c1", kind: "claude-code", label: "claude-work", path: "~/.claude-work" };
-const claude2: Handle = { id: "c2", kind: "claude-code", label: "claude-home", path: "~/.claude" };
+const claude: Handle = { id: "c1", kind: "claude-code", label: ".claude-work", path: "~/.claude-work" };
+const claude2: Handle = { id: "c2", kind: "claude-code", label: ".claude", path: "~/.claude" };
 const codex: Handle = { id: "x1", kind: "codex", label: ".codex", path: "~/.codex" };
 
 const setup = (handles: Handle[]) => {
@@ -161,6 +161,16 @@ describe("poller", () => {
     stub.setCredentials([codex, claude2]);
     await poller.sync();
     expect(poller.accounts().map((a) => a.handle.id)).toEqual(["x1", "c2"]);
+  });
+
+  it("defaults the label to the host's basename without a single leading dot, and a rename wins", async () => {
+    const dotted: Handle = { id: "d", kind: "claude-code", label: "..odd", path: "~/..odd" };
+    const { stub, poller } = setup([claude, codex, dotted]);
+    await poller.sync();
+    expect(poller.accounts().map((a) => a.label)).toEqual(["claude-work", "codex", ".odd"]);
+    await poller.rename("x1", "Codex Home");
+    expect(poller.accounts().map((a) => a.label)[1]).toBe("Codex Home");
+    expect(stub.credentialCalls).not.toContain("remove:x1");
   });
 
   it("persists order, custom labels and last-good snapshots, and restores them", async () => {

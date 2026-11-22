@@ -88,7 +88,7 @@
   },
   {
     "type": "Group",
-    "title": "claude-home",
+    "title": "claude",
     "subtitle": "~/.claude · Updated just now",
     "sfSymbol": "bubble.left.fill",
     "children": [
@@ -120,7 +120,7 @@
               "id": "label",
               "type": "text",
               "label": "Name",
-              "value": "claude-home"
+              "value": "claude"
             },
             {
               "id": "submit",
@@ -216,7 +216,7 @@
   },
   {
     "type": "Group",
-    "title": ".codex",
+    "title": "codex",
     "subtitle": "~/.codex · Updated just now",
     "sfSymbol": "terminal",
     "children": [
@@ -257,7 +257,7 @@
               "id": "label",
               "type": "text",
               "label": "Name",
-              "value": ".codex"
+              "value": "codex"
             },
             {
               "id": "submit",

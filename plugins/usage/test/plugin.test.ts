@@ -11,9 +11,9 @@ import { createStubLeo } from "./stubLeo";
 const SECTION: SlotID = { kind: "section", id: "usage" };
 const SHOW: SlotID = { kind: "palette", commandID: "show" };
 
-const work: Handle = { id: "c1", kind: "claude-code", label: "claude-work", path: "~/.claude-work" };
-const home: Handle = { id: "c2", kind: "claude-code", label: "claude-home", path: "~/.claude" };
-const old: Handle = { id: "c3", kind: "claude-code", label: "claude-old", path: "~/.claude-old" };
+const work: Handle = { id: "c1", kind: "claude-code", label: ".claude-work", path: "~/.claude-work" };
+const home: Handle = { id: "c2", kind: "claude-code", label: ".claude", path: "~/.claude" };
+const old: Handle = { id: "c3", kind: "claude-code", label: ".claude-old", path: "~/.claude-old" };
 const codex: Handle = { id: "x1", kind: "codex", label: ".codex", path: "~/.codex" };
 
 const boot = () => {
@@ -40,7 +40,7 @@ describe("sidebar", () => {
     stub.route("GET", CODEX_URL, { body: codexFull });
     await stub.emit("activate", SECTION);
     const tree = stub.lastRender(SECTION);
-    expect(groupsOf(tree).map((g) => g.title)).toEqual(["claude-work", "claude-home", "claude-old", ".codex"]);
+    expect(groupsOf(tree).map((g) => g.title)).toEqual(["claude-work", "claude", "claude-old", "codex"]);
     await expect(json(tree)).toMatchFileSnapshot("./fixtures/trees/sidebar.json");
   });
 
@@ -93,7 +93,7 @@ describe("adding accounts", () => {
     await stub.emit("command", command, { kind: "palette", commandID: command });
     expect(stub.credentialCalls).toContain("add:" + kind); // the stub rejects gestureRequired after any await
     expect(stub.fetches.map((f) => f.credential)).toEqual([handle.id]);
-    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual([handle.label]);
+    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual([handle.label.replace(/^\./, "")]);
   });
 
   it("the sidebar's Add Account callbacks also add synchronously", async () => {
@@ -166,7 +166,7 @@ describe("account actions", () => {
     await stub.emit("activate", SECTION);
     await stub.emit("callback", "remove", { id: "c1" });
     expect(stub.credentialCalls).toContain("remove:c1");
-    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual([".codex"]);
+    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual(["codex"]);
   });
 
   it("Rename submits the form value as the account's label", async () => {

@@ -50,7 +50,7 @@
   },
   {
     "type": "Group",
-    "title": "claude-home",
+    "title": "claude",
     "subtitle": "Claude Code",
     "sfSymbol": "bubble.left.fill",
     "children": [
@@ -136,7 +136,7 @@
   },
   {
     "type": "Group",
-    "title": ".codex",
+    "title": "codex",
     "subtitle": "Codex",
     "sfSymbol": "terminal",
     "children": [

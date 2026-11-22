@@ -127,6 +127,7 @@
     "claude-code": { url: CLAUDE_URL, parse: parseClaude },
     codex: { url: CODEX_URL, parse: parseCodex }
   };
+  var defaultLabel = (handle) => handle.label.startsWith(".") ? handle.label.slice(1) : handle.label;
   var errorMessage = (e) => e instanceof Error ? e.message : String(e);
   async function fetchOutcome(leo2, handle) {
     const provider = PROVIDERS[handle.kind];
@@ -232,7 +233,7 @@
         await sync();
         await refresh();
       },
-      accounts: () => entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? e.handle.label, state: e.state })),
+      accounts: () => entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? defaultLabel(e.handle), state: e.state })),
       rename: async (id, label) => {
         const base = persisted ?? await loadPersisted(leo2);
         const trimmed = label.trim();

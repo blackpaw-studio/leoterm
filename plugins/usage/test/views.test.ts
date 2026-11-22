@@ -9,8 +9,8 @@ const session = { key: "session", label: "Session", percent: 42, resetsAtMs: NOW
 const weekly = { key: "weekly", label: "Weekly", percent: 91, resetsAtMs: NOW + 3 * 24 * 3_600_000 } as const;
 
 const account = (over: Partial<Omit<Account, "state">> & { state?: Partial<Account["state"]> } = {}): Account => ({
-  handle: { id: "a1", kind: "claude-code", label: "claude-work", path: "~/.claude-work" },
-  label: "claude-work",
+  handle: { id: "a1", kind: "claude-code", label: ".claude-work", path: "~/.claude-work" },
+  label: ".claude-work",
   ...over,
   state: { status: "ok", windows: [session, weekly], updatedAtMs: NOW - 3 * 60_000, ...over.state },
 });
@@ -27,14 +27,14 @@ describe("sidebarRoot", () => {
 
   it("shows only the highest window per account as a toned Meter", () => {
     const [g] = groups(sidebarRoot([account()], NOW));
-    expect(g.title).toBe("claude-work");
+    expect(g.title).toBe(".claude-work"); // views show Account.label verbatim; the poller owns the default
     expect(meters(g)).toEqual([
       { type: "Meter", label: "Weekly", value: 0.91, valueText: "91%", detail: "Resets in 3d", tone: "failure" },
     ]);
   });
 
   it("leads with a header accessory for the worst meter across accounts", () => {
-    const root = sidebarRoot([account(), account({ handle: { id: "b", kind: "codex", label: "codex", path: "~/.codex" }, state: { windows: [session] } })], NOW);
+    const root = sidebarRoot([account(), account({ handle: { id: "b", kind: "codex", label: ".codex", path: "~/.codex" }, state: { windows: [session] } })], NOW);
     const first = (root as unknown[])[0] as Accessory;
     expect(first).toMatchObject({ type: "Accessory", text: "91%", color: "failure" });
   });
@@ -45,7 +45,7 @@ describe("sidebarRoot", () => {
   });
 
   it("always leads the subtitle with the account kind, for VoiceOver (title, subtitle, state)", () => {
-    const codexAcct = account({ handle: { id: "b", kind: "codex", label: "codex", path: "~/.codex" } });
+    const codexAcct = account({ handle: { id: "b", kind: "codex", label: ".codex", path: "~/.codex" } });
     expect(groups(sidebarRoot([account()], NOW))[0].subtitle).toBe("Claude Code");
     expect(groups(sidebarRoot([codexAcct], NOW))[0].subtitle).toBe("Codex");
     expect(groups(fullRoot([account()], NOW))[0].subtitle).toBe("~/.claude-work · Updated 3m ago");
