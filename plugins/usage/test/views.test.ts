@@ -44,6 +44,13 @@ describe("sidebarRoot", () => {
     expect((root[0] as { type: string }).type).toBe("Group");
   });
 
+  it("always leads the subtitle with the account kind, for VoiceOver (title, subtitle, state)", () => {
+    const codexAcct = account({ handle: { id: "b", kind: "codex", label: "codex", path: "~/.codex" } });
+    expect(groups(sidebarRoot([account()], NOW))[0].subtitle).toBe("Claude Code");
+    expect(groups(sidebarRoot([codexAcct], NOW))[0].subtitle).toBe("Codex");
+    expect(groups(fullRoot([account()], NOW))[0].subtitle).toBe("~/.claude-work · Updated 3m ago");
+  });
+
   it("marks a stale account and explains the old values", () => {
     const [g] = groups(sidebarRoot([account({ state: { status: "stale", message: "HTTP 500" } })], NOW));
     expect(g.accessory).toMatchObject({ text: "Stale", color: "warning" });
@@ -53,7 +60,7 @@ describe("sidebarRoot", () => {
   it("an expired account says how to sign in again and leads with Copy Sign-in Command", () => {
     const [g] = groups(sidebarRoot([account({ state: { status: "expired", windows: [] } })], NOW));
     expect(g.accessory).toMatchObject({ text: "Expired", color: "failure" });
-    expect(g.subtitle).toBe("Signed out — run `claude` with this account to refresh");
+    expect(g.subtitle).toBe("Claude Code · Signed out — run `claude` with this account to refresh");
     expect(g.actions?.[0]).toMatchObject({ type: "copy", title: "Copy Sign-in Command", text: "CLAUDE_CONFIG_DIR=~/.claude-work claude" });
   });
 
@@ -65,9 +72,9 @@ describe("sidebarRoot", () => {
 
   it("an error account shows the reason, loading shows Loading…", () => {
     const err = groups(sidebarRoot([account({ state: { status: "error", windows: [], message: "No usage data" } })], NOW))[0];
-    expect(err).toMatchObject({ subtitle: "No usage data", accessory: { text: "Error" } });
+    expect(err).toMatchObject({ subtitle: "Claude Code · No usage data", accessory: { text: "Error" } });
     const loading = groups(sidebarRoot([account({ state: { status: "loading", windows: [] } })], NOW))[0];
-    expect(loading.subtitle).toBe("Loading…");
+    expect(loading.subtitle).toBe("Claude Code · Loading…");
   });
 
   it("every group offers Refresh and both add actions", () => {

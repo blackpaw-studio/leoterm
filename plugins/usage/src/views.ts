@@ -17,6 +17,7 @@ export const CALLBACKS = {
 
 // Every symbol must be on the host allowlist (LeoPluginSymbolAllowlist.swift); test/symbols.test.ts enforces it.
 const KIND_SYMBOL: Record<CredentialKind, string> = { "claude-code": "bubble.left.fill", codex: "terminal" };
+const KIND_NAME: Record<CredentialKind, string> = { "claude-code": "Claude Code", codex: "Codex" };
 const KIND_COMMAND: Record<CredentialKind, string> = { "claude-code": "claude", codex: "codex" };
 const HEADER_SYMBOL = "speedometer";
 
@@ -143,7 +144,11 @@ const group = (account: Account, children: GroupNode["children"], subtitle: stri
 const sidebarGroup = (account: Account, nowMs: number): GroupNode => {
   const top = highestWindow(account.state.windows);
   const children = top ? [meter(top, nowMs, staleDetail(account.state, nowMs))] : [];
-  const subtitle = children.length === 0 ? stateText(account) : undefined;
+  // The kind is always the subtitle (VoiceOver reads title, subtitle, state). The host hides it while a
+  // meter shows; without one, the state explanation follows the kind so it isn't lost.
+  const text = children.length === 0 ? stateText(account) : undefined;
+  const kind = KIND_NAME[account.handle.kind];
+  const subtitle = clip(text === undefined ? kind : kind + " · " + text, MAX_LINE_CHARS);
   return group(account, children, subtitle, [...leadingActions(account), refreshAction, ...addActions]);
 };
 
