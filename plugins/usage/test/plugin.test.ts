@@ -178,3 +178,30 @@ describe("account actions", () => {
     expect(groupsOf(stub.lastRender(SECTION))[0].title).toBe("Work");
   });
 });
+
+describe("startup recovery", () => {
+  it("a failed first start is retried by the next activate, with one timer only", async () => {
+    const stub = boot();
+    stub.setCredentials([codex]);
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    stub.failNextList("host not ready");
+    await stub.emit("activate", SECTION);
+    expect(stub.logs.some((l) => l.level === "error" && l.message.includes("host not ready"))).toBe(true);
+    expect(stub.fetches).toHaveLength(0);
+    await stub.emit("activate", SECTION);
+    expect(stub.fetches).toHaveLength(1);
+    await stub.tick(300);
+    expect(stub.fetches).toHaveLength(2); // a single timer, not one per attempt
+  });
+
+  it("the poll timer is registered even when the first pass fails, and recovers on its tick", async () => {
+    const stub = boot();
+    stub.setCredentials([codex]);
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    stub.failNextList("host not ready");
+    await stub.emit("activate", SECTION);
+    await stub.tick(300);
+    expect(stub.fetches).toHaveLength(1);
+    expect(groupsOf(stub.lastRender(SECTION))).toHaveLength(1);
+  });
+});

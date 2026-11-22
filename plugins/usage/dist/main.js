@@ -197,23 +197,40 @@
       }
       await persist();
     };
+    let queued = null;
+    const run = async (first) => {
+      await pass(first);
+      while (queued !== null) {
+        const next = queued;
+        queued = null;
+        await pass(next);
+      }
+    };
     const refresh = (options = {}) => {
-      if (inFlight) return inFlight;
-      inFlight = pass(options).finally(() => {
+      if (inFlight) {
+        queued = { force: (queued?.force ?? false) || options.force === true };
+        return inFlight;
+      }
+      inFlight = run(options).finally(() => {
         inFlight = null;
       });
       return inFlight;
     };
+    let timer = null;
     return {
       sync,
       refresh,
       start: async () => {
+        timer ?? (timer = leo2.timer(POLL_INTERVAL_SEC, async () => {
+          try {
+            await sync();
+            await refresh();
+          } catch (e) {
+            leo2.log("error", "poll failed: " + errorMessage(e));
+          }
+        }));
         await sync();
         await refresh();
-        leo2.timer(POLL_INTERVAL_SEC, async () => {
-          await sync();
-          await refresh();
-        });
       },
       accounts: () => entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? e.handle.label, state: e.state })),
       rename: async (id, label) => {
@@ -252,6 +269,9 @@
     if (age < DAY) return "Updated " + Math.floor(age / HOUR) + "h ago";
     return "Updated " + Math.floor(age / DAY) + "d ago";
   };
+  var MAX_HELP_CHARS = 80;
+  var MAX_LINE_CHARS = 120;
+  var clip = (text, max) => text.length <= max ? text : text.slice(0, max - 1) + "\u2026";
 
   // src/tone.ts
   var WARNING_AT = 75;
@@ -269,9 +289,9 @@
     remove: "remove",
     rename: "rename"
   };
-  var KIND_SYMBOL = { "claude-code": "sparkles", codex: "terminal" };
+  var KIND_SYMBOL = { "claude-code": "bubble.left.fill", codex: "terminal" };
   var KIND_COMMAND = { "claude-code": "claude", codex: "codex" };
-  var HEADER_SYMBOL = "gauge.with.dots.needle.67percent";
+  var HEADER_SYMBOL = "speedometer";
   var callback = (id, title, sfSymbol, payload) => ({
     type: "callback",
     id,
@@ -289,7 +309,7 @@
     type: "EmptyState",
     title: "No accounts yet",
     message: "Add a Claude Code or Codex account to see its rate-limit usage.",
-    sfSymbol: "person.crop.circle.badge.plus",
+    sfSymbol: "plus.circle",
     actions: addActions
   });
   var lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
@@ -304,9 +324,9 @@
   var stateAccessory = (state) => {
     switch (state.status) {
       case "stale":
-        return { ...accessory("arrow.clockwise.circle", "Stale", "warning"), help: state.message };
+        return { ...accessory("arrow.clockwise", "Stale", "warning"), ...state.message !== void 0 ? { help: clip(state.message, MAX_HELP_CHARS) } : {} };
       case "expired":
-        return accessory("person.crop.circle.badge.xmark", "Expired", "failure");
+        return accessory("xmark.circle", "Expired", "failure");
       case "needsAuthorization":
         return accessory("lock.fill", "Locked", "warning");
       case "error":
@@ -325,7 +345,7 @@
       case "needsAuthorization":
         return handle.kind === "claude-code" ? "Leo needs Keychain access to read this account" : "Leo needs access to read this account";
       case "error":
-        return state.message ?? NO_DATA;
+        return clip(state.message ?? NO_DATA, MAX_LINE_CHARS);
       default:
         return void 0;
     }
@@ -337,9 +357,9 @@
   var leadingActions = (account) => {
     switch (account.state.status) {
       case "expired":
-        return [{ type: "copy", title: "Copy Sign-in Command", sfSymbol: "doc.on.doc", text: signInCommand(account) }];
+        return [{ type: "copy", title: "Copy Sign-in Command", sfSymbol: "doc", text: signInCommand(account) }];
       case "needsAuthorization":
-        return [callback(CALLBACKS.authorize, "Grant Access\u2026", "lock.open", { id: account.handle.id })];
+        return [callback(CALLBACKS.authorize, "Grant Access\u2026", "key", { id: account.handle.id })];
       default:
         return [];
     }
@@ -380,7 +400,7 @@
   var fullGroup = (account, nowMs) => {
     const { state, handle } = account;
     const updated = state.updatedAtMs !== void 0 && state.windows.length > 0 ? updatedAgo(state.updatedAtMs, nowMs) : stateText(account);
-    const subtitle = updated === void 0 ? handle.path : handle.path + " \xB7 " + updated;
+    const subtitle = clip(updated === void 0 ? handle.path : handle.path + " \xB7 " + updated, MAX_LINE_CHARS);
     const detail = staleDetail(state, nowMs);
     return group(
       account,
@@ -389,8 +409,8 @@
       [
         ...leadingActions(account),
         refreshAction,
-        { type: "pushView", title: "Rename\u2026", sfSymbol: "pencil", node: renameForm(account) },
-        callback(CALLBACKS.remove, "Remove", "trash", { id: handle.id })
+        { type: "pushView", title: "Rename\u2026", sfSymbol: "tag", node: renameForm(account) },
+        callback(CALLBACKS.remove, "Remove", "minus.circle", { id: handle.id })
       ]
     );
   };
@@ -457,7 +477,10 @@
     };
     const poller = createPoller(leo2, clock, draw);
     const start = () => {
-      started = started ?? poller.start();
+      started = started ?? poller.start().catch((e) => {
+        started = null;
+        throw e;
+      });
       return started;
     };
     const safely = (what, fn) => async (...args) => {

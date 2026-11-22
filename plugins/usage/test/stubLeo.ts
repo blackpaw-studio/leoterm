@@ -107,6 +107,8 @@ export interface StubLeo {
   queueAdd(kind: CredentialKind, ...picks: Array<Handle | null>): void;
   /** Handles `credentials.list()` returns. */
   setCredentials(handles: readonly Handle[]): void;
+  /** Make the next `credentials.list()` reject with this message. */
+  failNextList(message: string): void;
   /** Make the next `credentials.authorize(id)` reject with this reason. */
   failAuthorize(reason: string): void;
   /** Every credentials call, in order (`add:claude-code`, `authorize:<id>`, `remove:<id>`, `list`). */
@@ -183,6 +185,7 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
   let handles: Handle[] = [];
   const addQueues = new Map<CredentialKind, Array<Handle | null>>();
   let authorizeFailure: string | null = null;
+  let listFailure: string | null = null;
   let gestureDepth = 0;
   /** Run a host-dispatched handler with the gesture open for its synchronous part only. */
   const withGesture = <T>(fn: () => T): T => {
@@ -218,6 +221,11 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
       },
       list: async () => {
         credentialCalls.push("list");
+        if (listFailure !== null) {
+          const message = listFailure;
+          listFailure = null;
+          throw new Error(message);
+        }
         return handles.map((h) => ({ ...h }));
       },
       remove: async (id) => {
@@ -319,6 +327,9 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
     },
     setCredentials: (list) => {
       handles = list.map((h) => ({ ...h }));
+    },
+    failNextList: (message) => {
+      listFailure = message;
     },
     failAuthorize: (reason) => {
       authorizeFailure = reason;

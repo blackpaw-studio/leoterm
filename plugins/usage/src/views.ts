@@ -1,6 +1,6 @@
 import type { Accessory, AccessoryColor, Action, Form } from "../../sdk/leo";
 import type { CredentialKind, GroupNode, MeterNode, MeterTone, UsageNode, UsageRoot } from "./api";
-import { percentText, resetsIn, updatedAgo } from "./format";
+import { MAX_HELP_CHARS, MAX_LINE_CHARS, clip, percentText, resetsIn, updatedAgo } from "./format";
 import type { Account } from "./poller";
 import { NO_DATA, type AccountState } from "./state";
 import { highestWindow, toneFor, worstTone } from "./tone";
@@ -15,9 +15,10 @@ export const CALLBACKS = {
   rename: "rename",
 } as const;
 
-const KIND_SYMBOL: Record<CredentialKind, string> = { "claude-code": "sparkles", codex: "terminal" };
+// Every symbol must be on the host allowlist (LeoPluginSymbolAllowlist.swift); test/symbols.test.ts enforces it.
+const KIND_SYMBOL: Record<CredentialKind, string> = { "claude-code": "bubble.left.fill", codex: "terminal" };
 const KIND_COMMAND: Record<CredentialKind, string> = { "claude-code": "claude", codex: "codex" };
-const HEADER_SYMBOL = "gauge.with.dots.needle.67percent";
+const HEADER_SYMBOL = "speedometer";
 
 const callback = (id: string, title: string, sfSymbol: string, payload?: Record<string, string>): Action => ({
   type: "callback",
@@ -40,7 +41,7 @@ const emptyState = (): UsageRoot => ({
   type: "EmptyState",
   title: "No accounts yet",
   message: "Add a Claude Code or Codex account to see its rate-limit usage.",
-  sfSymbol: "person.crop.circle.badge.plus",
+  sfSymbol: "plus.circle",
   actions: addActions,
 });
 
@@ -59,9 +60,9 @@ const meter = (w: UsageWindow, nowMs: number, detail?: string): MeterNode => ({
 const stateAccessory = (state: AccountState): Accessory | undefined => {
   switch (state.status) {
     case "stale":
-      return { ...accessory("arrow.clockwise.circle", "Stale", "warning"), help: state.message };
+      return { ...accessory("arrow.clockwise", "Stale", "warning"), ...(state.message !== undefined ? { help: clip(state.message, MAX_HELP_CHARS) } : {}) };
     case "expired":
-      return accessory("person.crop.circle.badge.xmark", "Expired", "failure");
+      return accessory("xmark.circle", "Expired", "failure");
     case "needsAuthorization":
       return accessory("lock.fill", "Locked", "warning");
     case "error":
@@ -83,7 +84,7 @@ const stateText = (account: Account): string | undefined => {
         ? "Leo needs Keychain access to read this account"
         : "Leo needs access to read this account";
     case "error":
-      return state.message ?? NO_DATA;
+      return clip(state.message ?? NO_DATA, MAX_LINE_CHARS);
     default:
       return undefined;
   }
@@ -98,9 +99,9 @@ const signInCommand = (account: Account): string => {
 const leadingActions = (account: Account): Action[] => {
   switch (account.state.status) {
     case "expired":
-      return [{ type: "copy", title: "Copy Sign-in Command", sfSymbol: "doc.on.doc", text: signInCommand(account) }];
+      return [{ type: "copy", title: "Copy Sign-in Command", sfSymbol: "doc", text: signInCommand(account) }];
     case "needsAuthorization":
-      return [callback(CALLBACKS.authorize, "Grant Access…", "lock.open", { id: account.handle.id })];
+      return [callback(CALLBACKS.authorize, "Grant Access…", "key", { id: account.handle.id })];
     default:
       return [];
   }
@@ -149,7 +150,7 @@ const sidebarGroup = (account: Account, nowMs: number): GroupNode => {
 const fullGroup = (account: Account, nowMs: number): GroupNode => {
   const { state, handle } = account;
   const updated = state.updatedAtMs !== undefined && state.windows.length > 0 ? updatedAgo(state.updatedAtMs, nowMs) : stateText(account);
-  const subtitle = updated === undefined ? handle.path : handle.path + " · " + updated;
+  const subtitle = clip(updated === undefined ? handle.path : handle.path + " · " + updated, MAX_LINE_CHARS);
   const detail = staleDetail(state, nowMs);
   return group(
     account,
@@ -158,8 +159,8 @@ const fullGroup = (account: Account, nowMs: number): GroupNode => {
     [
       ...leadingActions(account),
       refreshAction,
-      { type: "pushView", title: "Rename…", sfSymbol: "pencil", node: renameForm(account) },
-      callback(CALLBACKS.remove, "Remove", "trash", { id: handle.id }),
+      { type: "pushView", title: "Rename…", sfSymbol: "tag", node: renameForm(account) },
+      callback(CALLBACKS.remove, "Remove", "minus.circle", { id: handle.id }),
     ],
   );
 };

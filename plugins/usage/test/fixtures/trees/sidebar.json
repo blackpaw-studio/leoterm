@@ -1,7 +1,7 @@
 [
   {
     "type": "Accessory",
-    "sfSymbol": "gauge.with.dots.needle.67percent",
+    "sfSymbol": "speedometer",
     "text": "96%",
     "color": "failure",
     "help": "Highest usage across accounts: Weekly"
@@ -9,7 +9,7 @@
   {
     "type": "Group",
     "title": "claude-work",
-    "sfSymbol": "sparkles",
+    "sfSymbol": "bubble.left.fill",
     "children": [
       {
         "type": "Meter",
@@ -50,7 +50,7 @@
   {
     "type": "Group",
     "title": "claude-home",
-    "sfSymbol": "sparkles",
+    "sfSymbol": "bubble.left.fill",
     "children": [
       {
         "type": "Meter",
@@ -91,10 +91,10 @@
     "type": "Group",
     "title": "claude-old",
     "subtitle": "Signed out — run `claude` with this account to refresh",
-    "sfSymbol": "sparkles",
+    "sfSymbol": "bubble.left.fill",
     "accessory": {
       "type": "Accessory",
-      "sfSymbol": "person.crop.circle.badge.xmark",
+      "sfSymbol": "xmark.circle",
       "text": "Expired",
       "color": "failure"
     },
@@ -103,7 +103,7 @@
       {
         "type": "copy",
         "title": "Copy Sign-in Command",
-        "sfSymbol": "doc.on.doc",
+        "sfSymbol": "doc",
         "text": "CLAUDE_CONFIG_DIR=~/.claude-old claude"
       },
       {

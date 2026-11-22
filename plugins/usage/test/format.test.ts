@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { percentText, resetsIn, updatedAgo } from "../src/format";
+import { clip, percentText, resetsIn, updatedAgo } from "../src/format";
 
 const NOW = Date.UTC(2026, 0, 1, 12, 0, 0);
 const min = 60_000;
@@ -33,5 +33,14 @@ describe("updatedAgo", () => {
     [50 * 60 * min, "Updated 2d ago"],
   ])("%s ms ago → %s", (age, text) => {
     expect(updatedAgo(NOW - age, NOW)).toBe(text);
+  });
+});
+
+describe("clip", () => {
+  it("leaves short text alone and ellipsizes long text within the limit", () => {
+    expect(clip("short", 10)).toBe("short");
+    expect(clip("x".repeat(300), 80)).toHaveLength(80);
+    expect(clip("x".repeat(300), 80).endsWith("…")).toBe(true);
+    expect(clip("x".repeat(80), 80)).toHaveLength(80);
   });
 });

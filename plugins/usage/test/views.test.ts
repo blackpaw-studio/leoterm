@@ -102,3 +102,28 @@ describe("fullRoot", () => {
     expect(fullRoot([], NOW)).toMatchObject({ type: "EmptyState" });
   });
 });
+
+describe("host limits on raw error text", () => {
+  const long = "x".repeat(300);
+  const walk = (node: unknown, visit: (n: Record<string, unknown>) => void): void => {
+    if (Array.isArray(node)) return node.forEach((n) => walk(n, visit));
+    if (typeof node !== "object" || node === null) return;
+    visit(node as Record<string, unknown>);
+    Object.values(node).forEach((v) => walk(v, visit));
+  };
+
+  it.each(["stale", "error"] as const)("a 300-char %s message still yields a valid tree", (status) => {
+    const a = account({ state: { status, message: long, windows: status === "stale" ? [session] : [] } });
+    for (const root of [sidebarRoot([a], NOW), fullRoot([a], NOW)]) {
+      walk(root, (n) => {
+        if (n.type === "Accessory") {
+          expect((n.help as string | undefined)?.length ?? 0).toBeLessThanOrEqual(80);
+          expect((n.text as string).length).toBeLessThanOrEqual(8);
+        }
+        for (const key of ["subtitle", "detail", "message"]) {
+          expect((n[key] as string | undefined)?.length ?? 0).toBeLessThanOrEqual(120);
+        }
+      });
+    }
+  });
+});

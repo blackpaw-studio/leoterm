@@ -3,7 +3,7 @@
     "type": "Group",
     "title": "claude-work",
     "subtitle": "~/.claude-work · Updated just now",
-    "sfSymbol": "sparkles",
+    "sfSymbol": "bubble.left.fill",
     "children": [
       {
         "type": "Meter",
@@ -48,7 +48,7 @@
       {
         "type": "pushView",
         "title": "Rename…",
-        "sfSymbol": "pencil",
+        "sfSymbol": "tag",
         "node": {
           "type": "Form",
           "id": "rename",
@@ -79,7 +79,7 @@
         "type": "callback",
         "id": "remove",
         "title": "Remove",
-        "sfSymbol": "trash",
+        "sfSymbol": "minus.circle",
         "payload": {
           "id": "c1"
         }
@@ -90,7 +90,7 @@
     "type": "Group",
     "title": "claude-home",
     "subtitle": "~/.claude · Updated just now",
-    "sfSymbol": "sparkles",
+    "sfSymbol": "bubble.left.fill",
     "children": [
       {
         "type": "Meter",
@@ -110,7 +110,7 @@
       {
         "type": "pushView",
         "title": "Rename…",
-        "sfSymbol": "pencil",
+        "sfSymbol": "tag",
         "node": {
           "type": "Form",
           "id": "rename",
@@ -141,7 +141,7 @@
         "type": "callback",
         "id": "remove",
         "title": "Remove",
-        "sfSymbol": "trash",
+        "sfSymbol": "minus.circle",
         "payload": {
           "id": "c2"
         }
@@ -152,10 +152,10 @@
     "type": "Group",
     "title": "claude-old",
     "subtitle": "~/.claude-old · Signed out — run `claude` with this account to refresh",
-    "sfSymbol": "sparkles",
+    "sfSymbol": "bubble.left.fill",
     "accessory": {
       "type": "Accessory",
-      "sfSymbol": "person.crop.circle.badge.xmark",
+      "sfSymbol": "xmark.circle",
       "text": "Expired",
       "color": "failure"
     },
@@ -164,7 +164,7 @@
       {
         "type": "copy",
         "title": "Copy Sign-in Command",
-        "sfSymbol": "doc.on.doc",
+        "sfSymbol": "doc",
         "text": "CLAUDE_CONFIG_DIR=~/.claude-old claude"
       },
       {
@@ -176,7 +176,7 @@
       {
         "type": "pushView",
         "title": "Rename…",
-        "sfSymbol": "pencil",
+        "sfSymbol": "tag",
         "node": {
           "type": "Form",
           "id": "rename",
@@ -207,7 +207,7 @@
         "type": "callback",
         "id": "remove",
         "title": "Remove",
-        "sfSymbol": "trash",
+        "sfSymbol": "minus.circle",
         "payload": {
           "id": "c3"
         }
@@ -247,7 +247,7 @@
       {
         "type": "pushView",
         "title": "Rename…",
-        "sfSymbol": "pencil",
+        "sfSymbol": "tag",
         "node": {
           "type": "Form",
           "id": "rename",
@@ -278,7 +278,7 @@
         "type": "callback",
         "id": "remove",
         "title": "Remove",
-        "sfSymbol": "trash",
+        "sfSymbol": "minus.circle",
         "payload": {
           "id": "x1"
         }

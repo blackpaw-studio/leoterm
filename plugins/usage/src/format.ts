@@ -24,3 +24,10 @@ export const updatedAgo = (updatedAtMs: number, nowMs: number): string => {
   if (age < DAY) return "Updated " + Math.floor(age / HOUR) + "h ago";
   return "Updated " + Math.floor(age / DAY) + "d ago";
 };
+
+/** Limits the host enforces on tree text; raw error text must fit them or the whole render is refused. */
+export const MAX_HELP_CHARS = 80;
+export const MAX_LINE_CHARS = 120;
+
+/** Truncates to at most `max` characters, the ellipsis included. */
+export const clip = (text: string, max: number): string => (text.length <= max ? text : text.slice(0, max - 1) + "…");

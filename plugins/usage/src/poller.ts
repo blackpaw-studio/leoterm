@@ -1,3 +1,4 @@
+import type { TimerHandle } from "../../sdk/leo";
 import type { CredentialKind, Handle, LeoV2 } from "./api";
 import type { Clock } from "./clock";
 import { parseClaude } from "./parse/claude";
@@ -125,24 +126,46 @@ export function createPoller(leo: LeoV2, clock: Clock, onChange: () => void): Po
     await persist();
   };
 
+  /** Requests that arrived during a pass; they collapse into one follow-up that keeps `force` if any asked for it. */
+  let queued: RefreshOptions | null = null;
+
+  const run = async (first: RefreshOptions): Promise<void> => {
+    await pass(first);
+    while (queued !== null) {
+      const next = queued;
+      queued = null;
+      await pass(next);
+    }
+  };
+
   const refresh = (options: RefreshOptions = {}): Promise<void> => {
-    if (inFlight) return inFlight;
-    inFlight = pass(options).finally(() => {
+    if (inFlight) {
+      queued = { force: (queued?.force ?? false) || options.force === true };
+      return inFlight;
+    }
+    inFlight = run(options).finally(() => {
       inFlight = null;
     });
     return inFlight;
   };
 
+  let timer: TimerHandle | null = null;
+
   return {
     sync,
     refresh,
     start: async () => {
+      // The timer goes first and only once, so a failed first pass (or a retried start) still ends up polling.
+      timer ??= leo.timer(POLL_INTERVAL_SEC, async () => {
+        try {
+          await sync();
+          await refresh();
+        } catch (e) {
+          leo.log("error", "poll failed: " + errorMessage(e));
+        }
+      });
       await sync();
       await refresh();
-      leo.timer(POLL_INTERVAL_SEC, async () => {
-        await sync();
-        await refresh();
-      });
     },
     accounts: () =>
       entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? e.handle.label, state: e.state })),

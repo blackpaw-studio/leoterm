@@ -39,7 +39,10 @@ export function createPlugin(leo: LeoV2, clock: Clock): void {
   const poller = createPoller(leo, clock, draw);
 
   const start = (): Promise<void> => {
-    started = started ?? poller.start();
+    started = started ?? poller.start().catch((e: unknown) => {
+      started = null; // a rejected start must not stick; the next activate or command retries
+      throw e;
+    });
     return started;
   };
 

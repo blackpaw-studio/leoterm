@@ -53,7 +53,7 @@ describe("poller", () => {
     await poller.sync();
     await Promise.all([poller.refresh(), poller.refresh()]);
     expect(stub.maxInFlight).toBe(1);
-    expect(stub.fetches).toHaveLength(3); // the second refresh joined the first
+    expect(stub.fetches).toHaveLength(6); // the second refresh queued exactly one follow-up pass
   });
 
   it.each([
@@ -104,6 +104,36 @@ describe("poller", () => {
     await poller.refresh();
     await poller.refresh({ force: true });
     expect(stateOf(poller, "c1")?.status).toBe("ok");
+  });
+
+  it("a refresh during a pass queues exactly one follow-up that picks up accounts added mid-pass", async () => {
+    const { stub, poller } = setup([claude]);
+    stub.route("GET", CLAUDE_URL, { body: claudeFull });
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    await poller.sync();
+    const first = poller.refresh();
+    stub.setCredentials([claude, codex]);
+    const added = poller.sync().then(() => poller.refresh());
+    const again = poller.refresh();
+    const third = poller.refresh();
+    await Promise.all([first, added, again, third]);
+    expect(stub.fetches.filter((f) => f.credential === "x1")).toHaveLength(1);
+    expect(stub.fetches.filter((f) => f.credential === "c1")).toHaveLength(2); // original pass + the one follow-up
+    expect(stub.maxInFlight).toBe(1);
+  });
+
+  it("a forced refresh during a non-forced pass bypasses the 429 backoff in the follow-up", async () => {
+    const { stub, poller } = setup([claude, codex]);
+    stub.route("GET", CLAUDE_URL, { status: 429 }, { body: claudeFull });
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    await poller.sync();
+    await poller.refresh();
+    stub.clock.advance(5 * 60_000);
+    const timerPass = poller.refresh();
+    const manual = poller.refresh({ force: true });
+    await Promise.all([timerPass, manual]);
+    expect(stateOf(poller, "c1")?.status).toBe("ok");
+    expect(stub.maxInFlight).toBe(1);
   });
 
   it("start() refreshes now and then every 5 minutes on leo.timer", async () => {

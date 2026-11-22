@@ -12,7 +12,7 @@
   "contributes": {
     "sidebarSections": [{ "id": "usage", "title": "Usage" }],
     "commands": [
-      { "id": "show", "title": "Show Account Usage", "sfSymbol": "gauge" },
+      { "id": "show", "title": "Show Account Usage", "sfSymbol": "speedometer" },
       { "id": "add-claude", "title": "Add Claude Account…", "sfSymbol": "plus.circle" },
       { "id": "add-codex", "title": "Add Codex Account…", "sfSymbol": "plus.circle" },
       { "id": "refresh", "title": "Refresh Usage", "sfSymbol": "arrow.clockwise" }
