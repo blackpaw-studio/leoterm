@@ -154,6 +154,9 @@ class AppDelegate: NSObject,
 
     // MARK: Leo
     let leoRuntime: LeoRuntime
+    /// Retry on a failed "Tell an agent" notification.
+    @MainActor private(set) lazy var leoSendFailedRetry = LeoSendFailedRetry(
+        sender: leoRuntime.makeAgentMessageSender(), post: LeoSendFailedRetry.postToNotificationCenter)
     /// "Run as server only" (A10): Dock-less, windowless, set before the
     /// config reload below can restore the Dock icon.
     @MainActor private(set) lazy var leoServerMode = LeoServerMode(
@@ -492,14 +495,14 @@ class AppDelegate: NSObject,
 
         let center = UNUserNotificationCenter.current()
 
-        center.setNotificationCategories([
+        center.setNotificationCategories(Set([
             UNNotificationCategory(
                 identifier: Ghostty.userNotificationCategory,
                 actions: actions,
                 intentIdentifiers: [],
                 options: [.customDismissAction]
             )
-        ])
+        ] + (LeoSendFailedRetry.category.map { [$0] } ?? [])))
         center.delegate = self
 
         // Observe our appearance so we can report the correct value to libghostty.
@@ -1193,7 +1196,10 @@ class AppDelegate: NSObject,
         let isLeoAttention = didReceive.actionIdentifier == UNNotificationDefaultActionIdentifier
             ? MainActor.assumeIsolated { leoRuntime.openAttentionNotification(userInfo: userInfo) }
             : LeoAttentionNotification.agent(fromUserInfo: userInfo) != nil
-        if !isLeoAttention { ghostty.handleUserNotification(response: didReceive) }
+        let isLeoRetry = MainActor.assumeIsolated {
+            leoSendFailedRetry.handle(actionIdentifier: didReceive.actionIdentifier, userInfo: userInfo)
+        }
+        if !isLeoAttention && !isLeoRetry { ghostty.handleUserNotification(response: didReceive) }
         withCompletionHandler()
     }
 
