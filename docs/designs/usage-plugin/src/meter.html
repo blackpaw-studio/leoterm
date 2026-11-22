@@ -1,0 +1,76 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Meter close-up</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  body { width: 980px; height: 1130px; padding: 24px; }
+  .sheet { zoom: 1.5; width: 621px; }
+  h2 { font-size: 11px; font-weight: 600; color: var(--secondary); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 6px 2px; }
+  .cols { display: grid; grid-template-columns: 1fr 228px; gap: 12px; margin-bottom: 14px; }
+  .card { background: var(--window); border-radius: 10px; box-shadow: 0 0 0 .5px var(--separator); padding: 10px 12px; }
+  .card.sb { background: var(--sidebar); }
+  .stack { display: flex; flex-direction: column; gap: 9px; }
+  .tone-tag { font-size: 9px; color: var(--annot); font-family: ui-monospace, "SF Mono", monospace; margin-bottom: 1px; }
+  .states { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grp .group-head .g-title { font-weight: 600; }
+  .grp .g-sub { font-size: 11px; margin: 1px 0 0 22px; white-space: normal; }
+  .grp .g-sub code { font: 10.5px ui-monospace, "SF Mono", monospace; }
+  .grp .meters { margin: 7px 0 0 22px; display: flex; flex-direction: column; gap: 8px; }
+  .grp .inline-row { margin: 8px 0 0 22px; }
+  .notes { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+</style></head>
+<body>
+<div class="sheet">
+  <div class="cols">
+    <div><h2>Regular · palette view</h2><div class="card regular"><div class="stack" id="reg"></div>
+      <div class="notes annot">
+        <span>track 6 pt · radius 3</span><span>label | 8 | track | 8 | value</span>
+        <span>value col ≥ "100%" · tabular digits</span><span>detail 2 pt below</span><span>8 pt between meters</span>
+      </div></div></div>
+    <div><h2>Compact · sidebar</h2><div class="card sb compact"><div class="stack" id="cmp"></div>
+      <div class="notes annot"><span>track 5 pt · radius 2.5</span><span>11 / 10 pt text</span></div></div></div>
+  </div>
+  <h2>Edge values</h2>
+  <div class="card regular" style="margin-bottom:14px"><div class="stack" id="edge"></div>
+    <div class="notes annot"><span>0 → empty track</span><span>&gt; 0 → fill ≥ track height (a dot)</span><span>value clamped 0…1</span></div></div>
+  <h2>Account states (Group)</h2>
+  <div class="states regular" id="states"></div>
+</div>
+<script src="mock.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const tones = [
+    { label: 'Credits', value: .30, valueText: '30%', detail: 'neutral · no judgement', tone: 'neutral' },
+    { label: 'Session', value: .42, valueText: '42%', detail: 'success · below 75%', tone: 'success' },
+    { label: 'Weekly Sonnet', value: .79, valueText: '79%', detail: 'warning · 75% to below 90%', tone: 'warning' },
+    { label: 'Weekly', value: .91, valueText: '91%', detail: 'failure · 90% and up', tone: 'failure' },
+  ];
+  $('reg').innerHTML = tones.map(meter).join('');
+  $('cmp').innerHTML = tones.map((m) => meter({ ...m, label: m.label.replace('Weekly Sonnet', 'Sonnet'), detail: m.detail.split(' · ')[0] })).join('');
+  $('edge').innerHTML = [
+    { label: 'Session', value: 0, valueText: '0%', detail: 'Resets in 5h', tone: 'success' },
+    { label: 'Session', value: .01, valueText: '1%', detail: 'Resets in 4h 58m', tone: 'success' },
+    { label: 'Weekly', value: 1, valueText: '100%', detail: 'Limit reached · resets Mon 9:00 AM', tone: 'failure' },
+  ].map(meter).join('');
+  [$('reg'), $('cmp'), $('edge')].forEach(alignLabels);
+
+  const menu = `<span class="menu-btn">${icon('ellipsis')}</span>`;
+  const head = (label, kind, acc) => `<div class="group-head"><span class="g-glyph">${glyphFor(kind)}</span>
+    <span class="g-title">${label}</span>${accessory(acc)}<span class="spacer"></span>${menu}</div>`;
+  const card = (title, inner) => `<div><div class="tone-tag">${title}</div><div class="card grp">${inner}</div></div>`;
+  $('states').innerHTML = [
+    card('ok', head('blackpaw-leo', 'claude') +
+      `<div class="g-sub">~/.claude-blackpaw-leo · Updated 3m ago</div>
+       <div class="meters">${meter(win('Session', 42, 'Resets in 2h 14m'))}</div>`),
+    card('stale — last good values kept', head('blackpaw-evan', 'claude', STALE.accessory) +
+      `<div class="g-sub">~/.claude-blackpaw-evan · Updated 22m ago</div>
+       <div class="meters">${meter(win('Weekly', 91, 'Couldn’t refresh · values from 8:57 PM'))}</div>`),
+    card('expired (401)', head('jackie', 'claude', EXPIRED.accessory) +
+      `<div class="g-sub">~/.claude-jackie · ${EXPIRED.subtitle({ kind: 'claude' })}</div>
+       <div class="inline-row"><span class="inline-btn">${icon('copy')}${EXPIRED.action.title}</span></div>`),
+    card('needsAuthorization', head('codex', 'codex', NEEDS_AUTH.accessory) +
+      `<div class="g-sub">~/.codex · ${NEEDS_AUTH.subtitle()}</div>
+       <div class="inline-row"><span class="inline-btn">${icon('lock')}${NEEDS_AUTH.action.title}</span></div>`),
+  ].join('');
+  document.querySelectorAll('#states .meters').forEach((m) => alignLabels(m));
+</script>
+</body></html>

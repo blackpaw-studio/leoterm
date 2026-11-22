@@ -1,0 +1,96 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Usage sidebar section</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  body { width: 520px; height: 760px; padding: 20px; }
+  .window { position: relative; width: 480px; height: 720px; border-radius: 16px; background: var(--window);
+    box-shadow: var(--shadow); overflow: hidden; }
+  .sidebar { position: absolute; left: 8px; top: 8px; bottom: 8px; width: 260px; border-radius: 14px;
+    background: var(--sidebar); box-shadow: 0 0 0 .5px var(--sidebar-edge), 0 4px 16px rgba(0,0,0,.06);
+    padding: 0 10px; display: flex; flex-direction: column; }
+  .lights { display: flex; gap: 8px; padding: 14px 4px 0; }
+  .lights span { width: 12px; height: 12px; border-radius: 50%; }
+  .hdr { display: flex; align-items: center; justify-content: space-between; padding: 14px 4px 8px; }
+  .hdr b { font-size: 13px; font-weight: 700; }
+  .hdr .i { color: var(--secondary); }
+  .search { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border-radius: 8px;
+    background: var(--quaternary); color: var(--tertiary); }
+  .machine { display: flex; align-items: center; gap: 6px; padding: 12px 4px 4px; font-weight: 600; }
+  .machine .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+  .row { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 4px 0 18px; }
+  .row .i { color: var(--secondary); }
+  .row .t { flex: 1; }
+  .row .ago { color: var(--secondary); font-size: 11px; }
+  .sec { display: flex; align-items: center; gap: 4px; height: 28px; padding: 0 4px; margin-top: 14px; }
+  .sec .i { width: 10px; height: 10px; color: var(--secondary); stroke-width: 2; }
+  .sec b { font-size: 13px; font-weight: 600; flex: 1; }
+  .groups { display: flex; flex-direction: column; }
+  .grp { padding: 5px 4px 6px; border-radius: 7px; }
+  .grp .meter, .grp .g-sub, .grp .inline-row { margin-left: 22px; }
+  .grp .meter { margin-top: 3px; }
+  .grp .g-sub { font-size: 11px; margin-top: 1px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .grp .g-sub code { font: 10.5px ui-monospace, "SF Mono", monospace; }
+  .add { display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 4px; color: var(--secondary); margin-top: 2px; }
+  .add .i { width: 16px; }
+  .add .chev { width: 9px; height: 9px; stroke-width: 2; }
+  .foot { margin-top: auto; border-top: .5px solid var(--separator); height: 36px; display: flex; align-items: center;
+    gap: 14px; padding: 0 4px; color: var(--secondary); }
+  .menu { position: absolute; left: 0; top: 0; width: 214px; padding: 5px; border-radius: 10px;
+    background: var(--menu); box-shadow: var(--shadow); backdrop-filter: blur(20px); }
+  .menu .mi { display: flex; align-items: center; gap: 8px; height: 24px; padding: 0 8px; border-radius: 5px; }
+  .menu .mi.hl { background: var(--accent); color: #fff; }
+  .menu .mi .i { color: inherit; opacity: .85; }
+  .content { position: absolute; left: 276px; right: 0; top: 0; bottom: 0; display: flex; align-items: center;
+    justify-content: center; color: var(--tertiary); font-size: 12px; }
+</style></head>
+<body>
+<div class="window">
+  <div class="content">Agent content</div>
+  <aside class="sidebar compact" aria-label="Sidebar">
+    <div class="lights"><span style="background:#ff5f57"></span><span style="background:#febc2e"></span><span style="background:#28c840"></span></div>
+    <div class="hdr"><b>Agents</b><span id="plus"></span></div>
+    <div class="search" id="search"></div>
+    <div class="machine"><span class="dot"></span>This Mac</div>
+    <div class="row" id="r1"></div>
+    <div class="row" id="r2"></div>
+    <div class="sec" id="sec"></div>
+    <div class="groups" id="groups"></div>
+    <div class="add" id="add"></div>
+    <div class="foot" id="foot"></div>
+  </aside>
+  <div class="menu" id="menu"></div>
+</div>
+<script src="mock.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  $('plus').innerHTML = icon('plus');
+  $('search').innerHTML = icon('search') + 'Search agents';
+  $('r1').innerHTML = icon('moon') + '<span class="t">leoterm</span><span class="ago">2m</span>';
+  $('r2').innerHTML = icon('moon') + '<span class="t">olympus</span><span class="ago">14m</span>';
+  // Header accessory: worst tone across accounts (spec delta: header accessory).
+  $('sec').innerHTML = icon('chevronDown') + '<b>Usage</b>' +
+    accessory({ sfSymbol: 'gauge', text: '91%', color: 'failure' });
+
+  const groupHTML = (a) => {
+    if (a.state === 'expired') {
+      return `<div class="grp">
+        <div class="group-head"><span class="g-glyph">${glyphFor(a.kind)}</span>
+          <span class="g-title">${a.label}</span><span class="spacer"></span>${accessory(EXPIRED.accessory)}</div>
+        <div class="g-sub">${EXPIRED.subtitle(a)}</div></div>`;
+    }
+    return `<div class="grp">
+      <div class="group-head"><span class="g-glyph">${glyphFor(a.kind)}</span>
+        <span class="g-title">${a.label}</span></div>
+      ${meter(a.windows[a.top])}</div>`;
+  };
+  $('groups').innerHTML = ACCOUNTS.map(groupHTML).join('');
+  $('add').innerHTML = icon('plus') + '<span>Add Account…</span>' + icon('chevronDown', 'chev');
+  $('menu').innerHTML =
+    `<div class="mi hl">${icon('sparkle')}Claude Code Account…</div>` +
+    `<div class="mi">${icon('terminal')}Codex Account…</div>`;
+  alignLabels(document.querySelector('.sidebar'));
+  const r = $('add').getBoundingClientRect(), w = document.querySelector('.window').getBoundingClientRect();
+  $('menu').style.left = (r.left - w.left + 18) + 'px'; $('menu').style.top = (r.bottom - w.top + 2) + 'px';
+  $('foot').innerHTML = icon('terminal') + icon('refresh');
+</script>
+</body></html>

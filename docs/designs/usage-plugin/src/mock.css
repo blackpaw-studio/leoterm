@@ -1,0 +1,105 @@
+/* Usage plugin mockups. Tokens approximate the named NSColor semantic colours
+   (see design.md); only the names are normative, not these hex values. */
+:root {
+  --window: #f6f6f8;            /* windowBackgroundColor (content side) */
+  --sidebar: rgba(236,236,240,.92); /* sidebar Liquid Glass approximation */
+  --sidebar-edge: rgba(0,0,0,.08);
+  --label: rgba(0,0,0,.85);      /* labelColor */
+  --secondary: rgba(0,0,0,.50);  /* secondaryLabelColor */
+  --tertiary: rgba(0,0,0,.26);   /* tertiaryLabelColor */
+  --quaternary: rgba(0,0,0,.10); /* quaternaryLabelColor (track) */
+  --separator: rgba(0,0,0,.10);  /* separatorColor */
+  --fill: rgba(0,0,0,.04);       /* quaternarySystemFillColor (inset group bg) */
+  --selection: rgba(0,0,0,.07);  /* unemphasizedSelectedContentBackgroundColor */
+  --accent: #007aff;             /* controlAccentColor */
+  --green: #28cd41;              /* systemGreen */
+  --orange: #ff9500;             /* systemOrange */
+  --red: #ff3b30;                /* systemRed */
+  --green-ink: #1f8f31;          /* tone ink for accessory text on light */
+  --orange-ink: #c26a00;
+  --red-ink: #d70015;
+  --panel: rgba(250,250,252,.96);
+  --menu: rgba(246,246,248,.98);
+  --shadow: 0 18px 50px rgba(0,0,0,.18), 0 0 0 .5px rgba(0,0,0,.18);
+  --canvas: #dfe1e6;
+  --annot: #c2185b;
+}
+html[data-theme="dark"] {
+  --window: #1e1e20;
+  --sidebar: rgba(44,44,48,.92);
+  --sidebar-edge: rgba(255,255,255,.08);
+  --label: rgba(255,255,255,.85);
+  --secondary: rgba(255,255,255,.55);
+  --tertiary: rgba(255,255,255,.25);
+  --quaternary: rgba(255,255,255,.12);
+  --separator: rgba(255,255,255,.10);
+  --fill: rgba(255,255,255,.05);
+  --selection: rgba(255,255,255,.08);
+  --accent: #0a84ff;
+  --green: #32d74b;
+  --orange: #ff9f0a;
+  --red: #ff453a;
+  --green-ink: #32d74b;
+  --orange-ink: #ff9f0a;
+  --red-ink: #ff6961;
+  --panel: rgba(40,40,44,.97);
+  --menu: rgba(52,52,56,.98);
+  --shadow: 0 18px 50px rgba(0,0,0,.5), 0 0 0 .5px rgba(255,255,255,.14);
+  --canvas: #121214;
+  --annot: #ff7ab0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  font-size: 13px; color: var(--label); background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+}
+svg.i { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor;
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+svg.i.fillicon { fill: currentColor; stroke: none; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Meter ---------- */
+.meter { display: grid; grid-template-columns: var(--label-col, auto) 1fr var(--value-col, 34px);
+  column-gap: 8px; align-items: center; }
+.meter .m-label { color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meter .m-value { text-align: right; color: var(--label); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.meter.warning .m-value, .meter.failure .m-value { font-weight: 600; }
+.meter .m-track { position: relative; height: var(--track-h, 6px); border-radius: 999px;
+  background: var(--quaternary); overflow: hidden; min-width: 48px; }
+.meter .m-fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px;
+  min-width: var(--track-h, 6px); }
+.meter.neutral .m-fill { background: var(--secondary); }
+.meter.success .m-fill { background: var(--green); }
+.meter.warning .m-fill { background: var(--orange); }
+.meter.failure .m-fill { background: var(--red); }
+.meter .m-detail { grid-column: 1 / -1; color: var(--secondary); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+
+/* compact (sidebar) vs regular (palette) */
+.compact .meter { --track-h: 5px; --value-col: 30px; font-size: 11px; }
+.compact .meter .m-detail { font-size: 10px; margin-top: 1px; }
+.regular .meter { --track-h: 6px; --value-col: 38px; font-size: 13px; }
+.regular .meter .m-label { color: var(--label); }
+.regular .meter .m-detail { font-size: 11px; margin-top: 2px; }
+
+/* ---------- Group ---------- */
+.group-head { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.group-head .g-glyph { width: 16px; display: flex; justify-content: center; color: var(--secondary); }
+.group-head .g-title { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.group-head .spacer { flex: 1; }
+.g-sub { color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.acc { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; font-weight: 500; white-space: nowrap; flex: none; }
+.acc svg.i { width: 11px; height: 11px; }
+.acc.neutral { color: var(--secondary); }
+.acc.success { color: var(--green-ink); }
+.acc.warning { color: var(--orange-ink); }
+.acc.failure { color: var(--red-ink); }
+.inline-btn { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px;
+  border-radius: 999px; font-size: 11px; font-weight: 500; color: var(--label);
+  background: var(--quaternary); white-space: nowrap; }
+.menu-btn { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+  color: var(--secondary); border-radius: 5px; flex: none; }
+
+/* annotation helpers */
+.annot { color: var(--annot); font-size: 10px; font-family: ui-monospace, "SF Mono", monospace; }

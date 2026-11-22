@@ -1,0 +1,59 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Account Usage palette view</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  body { width: 700px; height: 850px; padding: 30px 40px; }
+  .panel { width: 620px; border-radius: 16px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 8px; height: 48px; padding: 0 14px; border-bottom: .5px solid var(--separator); }
+  .back { display: inline-flex; align-items: center; gap: 2px; height: 24px; padding: 0 8px 0 4px; border-radius: 6px;
+    background: var(--quaternary); color: var(--label); font-size: 12px; }
+  .back .i { width: 12px; height: 12px; stroke-width: 2; }
+  .bar .title { font-size: 15px; font-weight: 600; }
+  .bar .ph { color: var(--tertiary); font-size: 15px; margin-left: 4px; }
+  .body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .grp { padding: 10px 12px 12px; border-radius: 10px; background: var(--fill); }
+  .grp.sel { background: var(--selection); box-shadow: inset 0 0 0 1.5px var(--accent); }
+  .grp .group-head .g-title { font-weight: 600; }
+  .grp .g-sub { font-size: 11px; margin: 1px 0 0 22px; }
+  .grp .g-sub code { font: 10.5px ui-monospace, "SF Mono", monospace; }
+  .grp .wrap { white-space: normal; }
+  .grp .meters { margin: 8px 0 0 22px; display: flex; flex-direction: column; gap: 8px; }
+  .grp .inline-row { margin: 8px 0 0 22px; }
+  .add { display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; color: var(--secondary); }
+  .add .i { width: 16px; }
+  .add .chev { width: 9px; height: 9px; stroke-width: 2; }
+  .foot { display: flex; align-items: center; justify-content: flex-end; gap: 16px; height: 34px; padding: 0 14px;
+    border-top: .5px solid var(--separator); color: var(--secondary); font-size: 11px; }
+  .kbd { display: inline-flex; align-items: center; gap: 4px; }
+  .kbd kbd { font-family: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px; background: var(--quaternary); color: var(--label); }
+</style></head>
+<body>
+<div class="panel">
+  <div class="bar" id="bar"></div>
+  <div class="body regular" id="body"></div>
+  <div class="add" id="add"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<script src="mock.js"></script>
+<script>
+  const $ = (id) => document.getElementById(id);
+  $('bar').innerHTML = `<span class="back">${icon('chevronLeft')}Back</span><span class="title">Account Usage</span>`;
+  const menu = `<span class="menu-btn">${icon('ellipsis')}</span>`;
+  const head = (a, acc) => `<div class="group-head"><span class="g-glyph">${glyphFor(a.kind)}</span>
+    <span class="g-title">${a.label}</span>${accessory(acc)}<span class="spacer"></span>${menu}</div>`;
+  const groupHTML = (a, i) => {
+    if (a.state === 'expired') {
+      return `<div class="grp">${head(a, EXPIRED.accessory)}
+        <div class="g-sub wrap">${a.path} · ${EXPIRED.subtitle(a)}</div>
+        <div class="inline-row"><span class="inline-btn">${icon(EXPIRED.action.sfSymbol)}${EXPIRED.action.title}</span></div></div>`;
+    }
+    return `<div class="grp ${i === 1 ? 'sel' : ''}">${head(a)}
+      <div class="g-sub">${a.path} · ${a.updated}</div>
+      <div class="meters">${a.windows.map(meter).join('')}</div></div>`;
+  };
+  $('body').innerHTML = ACCOUNTS.map(groupHTML).join('');
+  alignLabels($('body'));
+  $('add').innerHTML = icon('plus') + '<span>Add Account…</span>' + icon('chevronDown', 'chev');
+  $('foot').innerHTML = `<span class="kbd">Refresh <kbd>↩</kbd></span><span class="kbd">Actions <kbd>⌘↩</kbd></span><span class="kbd">Back <kbd>esc</kbd></span>`;
+</script>
+</body></html>
