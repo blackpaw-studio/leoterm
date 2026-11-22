@@ -25,7 +25,7 @@ struct LeoBundledGitHubManifestTests {
     @Test func theValidatorAcceptsTheShippedManifest() throws {
         let manifest = try Self.manifest()
         #expect(manifest.id == "studio.blackpaw.github")
-        #expect(manifest.apiVersion == LeoPluginAPI.supported)
+        #expect(manifest.apiVersion == 1)  // GitHub needs nothing from v2
     }
 
     @Test func networkHostsAreExactlyTheSpecsFour() throws {

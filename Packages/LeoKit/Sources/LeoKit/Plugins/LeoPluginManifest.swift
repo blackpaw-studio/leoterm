@@ -2,7 +2,7 @@ import Foundation
 
 /// The plugin API revision this build of Leo implements.
 public enum LeoPluginAPI {
-    public static let supported = 1
+    public static let supported = 2
 }
 
 /// Agent capabilities a plugin may request. `read` gates `leo.agents.list`,
@@ -14,6 +14,31 @@ public enum LeoPluginAgentVerb: String, Codable, CaseIterable, Hashable, Sendabl
     case read, send, spawn, usage
 }
 
+/// Account credentials a plugin may use through the host (apiVersion 2). Each
+/// kind is a host-defined adapter with one fixed bound host: the host injects
+/// the account's token only on requests to that host, and the token never
+/// enters the plugin process.
+public enum LeoPluginCredentialKind: String, Codable, CaseIterable, Hashable, Sendable {
+    case claudeCode = "claude-code"
+    case codex
+
+    /// The only host this kind's headers are ever sent to.
+    public var boundHost: String {
+        switch self {
+        case .claudeCode: "api.anthropic.com"
+        case .codex: "chatgpt.com"
+        }
+    }
+
+    /// Reader-facing name for the approval sheet and Settings.
+    public var displayName: String {
+        switch self {
+        case .claudeCode: "Claude Code"
+        case .codex: "Codex"
+        }
+    }
+}
+
 /// `permissions` block of `leo-plugin.json`. Network entries are raw host
 /// patterns (`api.github.com`, `*.example.com`); parse them with
 /// ``LeoPluginHostPattern``.
@@ -21,13 +46,19 @@ public struct LeoPluginPermissions: Equatable, Sendable {
     public let network: [String]
     public let secrets: Bool
     public let agents: [LeoPluginAgentVerb]
+    /// Credential kinds (apiVersion 2 only; the validator refuses them on v1).
+    public let credentials: [LeoPluginCredentialKind]
 
     public static let none = LeoPluginPermissions(network: [], secrets: false, agents: [])
 
-    public init(network: [String] = [], secrets: Bool = false, agents: [LeoPluginAgentVerb] = []) {
+    public init(
+        network: [String] = [], secrets: Bool = false, agents: [LeoPluginAgentVerb] = [],
+        credentials: [LeoPluginCredentialKind] = []
+    ) {
         self.network = network
         self.secrets = secrets
         self.agents = agents
+        self.credentials = credentials
     }
 }
 
@@ -176,17 +207,40 @@ extension LeoPluginAgentVerb {
     }
 }
 
+extension LeoPluginCredentialKind {
+    // Custom decode so an unknown kind gets a readable reason.
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        guard let kind = LeoPluginCredentialKind(rawValue: raw) else {
+            throw LeoPluginManifestIssue(reason: "unknown credential kind '\(raw)' (expected claude-code or codex)")
+        }
+        self = kind
+    }
+}
+
 extension LeoPluginPermissions: Codable {
-    private enum CodingKeys: String, CodingKey { case network, secrets, agents }
+    private enum CodingKeys: String, CodingKey { case network, secrets, agents, credentials }
 
     public init(from decoder: Decoder) throws {
-        try rejectUnknownKeys(decoder, allowed: ["network", "secrets", "agents"], in: "permissions", noun: "permission")
+        try rejectUnknownKeys(
+            decoder, allowed: ["network", "secrets", "agents", "credentials"], in: "permissions", noun: "permission")
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             network: try c.decodeIfPresent([String].self, forKey: .network) ?? [],
             secrets: try c.decodeIfPresent(Bool.self, forKey: .secrets) ?? false,
-            agents: try c.decodeIfPresent([LeoPluginAgentVerb].self, forKey: .agents) ?? []
+            agents: try c.decodeIfPresent([LeoPluginAgentVerb].self, forKey: .agents) ?? [],
+            credentials: try c.decodeIfPresent([LeoPluginCredentialKind].self, forKey: .credentials) ?? []
         )
+    }
+
+    /// `credentials` is written only when non-empty, so a registry.json without
+    /// credential grants stays readable by an older Leo's strict decode.
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(network, forKey: .network)
+        try c.encode(secrets, forKey: .secrets)
+        try c.encode(agents, forKey: .agents)
+        if !credentials.isEmpty { try c.encode(credentials, forKey: .credentials) }
     }
 }
 

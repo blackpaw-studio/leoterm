@@ -66,6 +66,7 @@ public enum LeoPluginManifestValidator {
         if !isSemver(m.version) { return "version '\(m.version)' is not a semantic version (e.g. 1.2.3)" }
         if let problem = mainPathProblem(m.main) { return "main \(problem)" }
         if let problem = permissionsProblem(m.permissions) { return problem }
+        if let problem = credentialsProblem(m.permissions, apiVersion: m.apiVersion) { return problem }
         return contributionsProblem(m.contributes)
     }
 
@@ -169,6 +170,27 @@ public enum LeoPluginManifestValidator {
             }
         }
         if let dup = firstDuplicate(hosts) { return "permissions.network lists '\(dup)' more than once" }
+        return nil
+    }
+
+    /// API version that introduced `permissions.credentials`.
+    static let credentialsAPIVersion = 2
+
+    /// Credentials need v2, no duplicates, and each kind's bound host listed
+    /// exactly in `network` (a wildcard does not count: the grant is for one host).
+    private static func credentialsProblem(_ p: LeoPluginPermissions, apiVersion: Int) -> String? {
+        guard !p.credentials.isEmpty else { return nil }
+        if apiVersion < credentialsAPIVersion {
+            return "permissions.credentials requires API version \(credentialsAPIVersion)"
+        }
+        if let dup = firstDuplicate(p.credentials.map(\.rawValue)) {
+            return "permissions.credentials lists '\(dup)' more than once"
+        }
+        let exactHosts = Set(p.network.compactMap { try? LeoPluginHostPattern.parse($0) }.map(\.canonical))
+        // A wildcard's canonical form starts with "*.", so it never equals a bound host.
+        if let missing = p.credentials.first(where: { !exactHosts.contains($0.boundHost) }) {
+            return "permissions.credentials '\(missing.rawValue)' requires '\(missing.boundHost)' in permissions.network"
+        }
         return nil
     }
 

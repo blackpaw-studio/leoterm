@@ -58,11 +58,17 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
     /// One line per capability, in the order the sheet lists them. An update
     /// lists only the increases.
     public var permissionLines: [String] {
-        if let diff { return Self.lines(hosts: diff.addedHosts, secrets: diff.secretsEnabled, verbs: diff.addedAgentVerbs) }
-        return Self.lines(hosts: permissions.network, secrets: permissions.secrets, verbs: permissions.agents)
+        if let diff {
+            return Self.lines(
+                hosts: diff.addedHosts, secrets: diff.secretsEnabled, verbs: diff.addedAgentVerbs, credentials: diff.addedCredentials)
+        }
+        return Self.lines(
+            hosts: permissions.network, secrets: permissions.secrets, verbs: permissions.agents, credentials: permissions.credentials)
     }
 
-    private static func lines(hosts: [String], secrets: Bool, verbs: [LeoPluginAgentVerb]) -> [String] {
+    private static func lines(
+        hosts: [String], secrets: Bool, verbs: [LeoPluginAgentVerb], credentials: [LeoPluginCredentialKind]
+    ) -> [String] {
         var lines: [String] = []
         if !hosts.isEmpty { lines.append("Network: \(hosts.joined(separator: ", "))") }
         if secrets { lines.append("Keychain: stores secrets such as access tokens") }
@@ -73,6 +79,9 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
             case .spawn: lines.append("Agents: offer to start new agents (you confirm each one)")
             case .usage: lines.append("Agents: read each agent's model, working folder and usage (context, cost, rate limits)")
             }
+        }
+        for kind in credentials {
+            lines.append("Accounts: use \(kind.displayName) accounts you choose, only with \(kind.boundHost) (tokens stay in Leo)")
         }
         return lines
     }
