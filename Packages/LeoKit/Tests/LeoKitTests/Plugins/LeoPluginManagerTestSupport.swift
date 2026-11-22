@@ -18,12 +18,15 @@ final class PluginFakeFetcher: LeoPluginFetching, @unchecked Sendable {
     private let lock = NSLock()
     private var queued: [Result<LeoPluginFetchResponse, Error>] = []
     private(set) var urls: [String] = []
+    /// The credential each fetch carried (nil for a plain fetch), in order.
+    private(set) var credentials: [LeoPluginFetchCredential?] = []
 
     func enqueue(_ result: Result<LeoPluginFetchResponse, Error>) { lock.withLock { queued.append(result) } }
 
-    func fetch(url: String, init options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse {
+    func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse {
         let next = lock.withLock { () -> Result<LeoPluginFetchResponse, Error>? in
             urls.append(url)
+            credentials.append(credential)
             return queued.isEmpty ? nil : queued.removeFirst()
         }
         return try (next ?? .failure(LeoPluginFetchError.network("no response queued"))).get()

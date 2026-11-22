@@ -298,3 +298,80 @@ struct LeoPluginFetcherTests {
         #expect(configuration.requestCachePolicy == .reloadIgnoringLocalCacheData)
     }
 }
+
+// MARK: - Credential host binding
+
+private let boundToken = "sk-bound-SECRET"
+
+private func bound(_ host: String) -> LeoPluginFetchCredential {
+    LeoPluginFetchCredential(boundHost: host, headers: ["Authorization": "Bearer \(boundToken)", "anthropic-beta": "oauth-2025-04-20"])
+}
+
+private func credentialReason(_ error: Error) -> String { (error as? LeoPluginFetchError)?.reason ?? "\(error)" }
+
+extension LeoPluginFetcherTests {
+    @Test func aRequestToTheBoundHostCarriesTheInjectedHeaders() async throws {
+        PluginFetchStubProtocol.serve("https://c1.example.com/usage", text("ok"))
+        let response = try await makeFetcher().fetch(url: "https://c1.example.com/usage", init: LeoPluginFetchInit(), credential: bound("c1.example.com"))
+        #expect(response.status == 200)
+        let request = try #require(PluginFetchStubProtocol.seen("https://c1.example.com/usage").first)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer \(boundToken)")
+        #expect(request.value(forHTTPHeaderField: "anthropic-beta") == "oauth-2025-04-20")
+    }
+
+    @Test func aFirstHopToAnotherHostIsRejectedBeforeAnyRequest() async throws {
+        PluginFetchStubProtocol.serve("https://c2.example.com/usage", text("ok"))
+        do {
+            _ = try await makeFetcher().fetch(url: "https://c2.example.com/usage", init: LeoPluginFetchInit(), credential: bound("api.example.com"))
+            Issue.record("expected credentialHostMismatch")
+        } catch {
+            #expect(error as? LeoPluginFetchError == .credentialHostMismatch(host: "c2.example.com"))
+            #expect(!credentialReason(error).contains(boundToken))
+        }
+        #expect(PluginFetchStubProtocol.seen("https://c2.example.com/usage").isEmpty)
+    }
+
+    @Test func aCrossHostRedirectIsRejectedAndTheSecondHostGetsNothing() async throws {
+        PluginFetchStubProtocol.serve("https://c3.example.com/a", .redirect(status: 302, to: "https://c4.example.com/b"))
+        PluginFetchStubProtocol.serve("https://c4.example.com/b", text("stolen"))
+        do {
+            _ = try await makeFetcher().fetch(url: "https://c3.example.com/a", init: LeoPluginFetchInit(), credential: bound("c3.example.com"))
+            Issue.record("expected credentialHostMismatch")
+        } catch {
+            #expect(error as? LeoPluginFetchError == .credentialHostMismatch(host: "c4.example.com"))
+        }
+        #expect(PluginFetchStubProtocol.seen("https://c4.example.com/b").isEmpty)
+    }
+
+    @Test func aSameHostRedirectKeepsTheHeaders() async throws {
+        PluginFetchStubProtocol.serve("https://c5.example.com/a", .redirect(status: 302, to: "https://c5.example.com/b"))
+        PluginFetchStubProtocol.serve("https://c5.example.com/b", text("ok"))
+        _ = try await makeFetcher().fetch(url: "https://c5.example.com/a", init: LeoPluginFetchInit(), credential: bound("c5.example.com"))
+        let hop = try #require(PluginFetchStubProtocol.seen("https://c5.example.com/b").first)
+        #expect(hop.value(forHTTPHeaderField: "Authorization") == "Bearer \(boundToken)")
+    }
+
+    @Test(arguments: ["Authorization", "authorization", "ChatGPT-Account-Id", "ANTHROPIC-BETA"])
+    func aPluginHeaderThatCollidesWithACredentialIsRejected(_ name: String) async throws {
+        PluginFetchStubProtocol.serve("https://c6.example.com/x", text("ok"))
+        await #expect(throws: LeoPluginFetchError.credentialHeaderConflict(name: name)) {
+            try await makeFetcher().fetch(
+                url: "https://c6.example.com/x", init: LeoPluginFetchInit(headers: [name: "Bearer mine"]), credential: bound("c6.example.com"))
+        }
+        #expect(PluginFetchStubProtocol.seen("https://c6.example.com/x").isEmpty)
+    }
+
+    @Test func withoutACredentialAPluginMaySetItsOwnAuthorization() async throws {
+        PluginFetchStubProtocol.serve("https://c7.example.com/x", text("ok"))
+        _ = try await makeFetcher().fetch(url: "https://c7.example.com/x", init: LeoPluginFetchInit(headers: ["Authorization": "Bearer mine"]))
+        #expect(PluginFetchStubProtocol.seen("https://c7.example.com/x").first?.value(forHTTPHeaderField: "Authorization") == "Bearer mine")
+    }
+
+    @Test func credentialErrorsNeverCarryHeaderValues() {
+        let errors: [LeoPluginFetchError] = [.credentialHostMismatch(host: "x.example.com"), .credentialHeaderConflict(name: "Authorization")]
+        for error in errors {
+            #expect(!error.reason.contains(boundToken))
+            #expect(error.reason.hasPrefix("credential"))
+        }
+    }
+}

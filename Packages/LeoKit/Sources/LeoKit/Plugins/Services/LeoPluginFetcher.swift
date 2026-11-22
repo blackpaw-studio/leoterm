@@ -52,6 +52,10 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
     case tooManyInFlight
     case bodyTooLarge(limit: Int)
     case network(String)
+    /// A credential fetch (or one of its redirects) went to a host other than the kind's bound host.
+    case credentialHostMismatch(host: String)
+    /// The plugin set a header that the credential injects.
+    case credentialHeaderConflict(name: String)
 
     public var reason: String {
         switch self {
@@ -61,6 +65,8 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
         case .tooManyInFlight: "too many requests in flight (limit \(LeoPluginRateLimiter.defaultMaxInFlight))"
         case .bodyTooLarge(let limit): "response body is larger than \(limit / 1024 / 1024) MB"
         case .network(let reason): "network error: \(reason)"
+        case .credentialHostMismatch(let host): "credentialHostMismatch: '\(host)' is not this account's host"
+        case .credentialHeaderConflict(let name): "credentialHeaderConflict: header '\(name)' is set by the account credential"
         }
     }
 
@@ -69,7 +75,14 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
 
 /// What the router needs from a fetcher, so it can be faked.
 public protocol LeoPluginFetching: Sendable {
-    func fetch(url: String, init options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse
+    /// With a `credential`, its headers are injected and every hop must be its bound host.
+    func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse
+}
+
+extension LeoPluginFetching {
+    public func fetch(url: String, init options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse {
+        try await fetch(url: url, init: options, credential: nil)
+    }
 }
 
 extension LeoPluginFetcher: LeoPluginFetching {}
@@ -91,6 +104,9 @@ public final class LeoPluginFetcher: Sendable {
     ]
     /// Dropped when a redirect changes host, so a credential never follows it.
     static let credentialHeaders = ["Authorization", "Cookie", "Proxy-Authorization"]
+    /// Headers a plugin may not set on a credential fetch (lowercased): the
+    /// host injects them, and a plugin value must never replace an account's.
+    static let credentialReservedHeaders: Set<String> = ["authorization", "chatgpt-account-id", "anthropic-beta"]
     static let maxHeaderCount = 50
     static let maxHeaderValueBytes = 8 * 1024
 
@@ -124,9 +140,9 @@ public final class LeoPluginFetcher: Sendable {
         return configuration
     }
 
-    public func fetch(url: String, init options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse {
+    public func fetch(url: String, init options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse {
         do {
-            return try await perform(url: url, options: options)
+            return try await perform(url: url, options: options, credential: credential)
         } catch {
             LeoLog.logger(category: "leo.plugins").warning(
                 "fetch rejected for \(self.pluginID, privacy: .public) (\(Self.loggableHost(url), privacy: .public)): \((error as? LeoPluginFetchError)?.reason ?? error.localizedDescription, privacy: .public)"
@@ -135,11 +151,15 @@ public final class LeoPluginFetcher: Sendable {
         }
     }
 
-    private func perform(url: String, options: LeoPluginFetchInit) async throws -> LeoPluginFetchResponse {
+    private func perform(url: String, options: LeoPluginFetchInit, credential: LeoPluginFetchCredential?) async throws -> LeoPluginFetchResponse {
         guard let given = URL(string: url) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
         if case .denied(let reason) = engine.check(url: given, hop: 0) { throw LeoPluginFetchError.denied(reason) }
         guard let parsed = Self.canonicalURL(given) else { throw LeoPluginFetchError.invalidRequest("not a valid URL") }
-        let request = try Self.makeRequest(url: parsed, options: options)
+        let originHost = LeoPluginPermissionEngine.canonicalHost(of: parsed)
+        if let credential, originHost != credential.boundHost {
+            throw LeoPluginFetchError.credentialHostMismatch(host: originHost ?? "?")
+        }
+        let request = try Self.makeRequest(url: parsed, options: options, credential: credential)
 
         // Only requests that passed every check spend quota.
         let permit: LeoPluginRateLimitPermit
@@ -152,7 +172,7 @@ public final class LeoPluginFetcher: Sendable {
 
         let configuration = Self.sessionConfiguration()
         configure(configuration)
-        let transfer = LeoPluginFetchTransfer(engine: engine, originHost: LeoPluginPermissionEngine.canonicalHost(of: parsed), maxBytes: Self.maxBodyBytes)
+        let transfer = LeoPluginFetchTransfer(engine: engine, originHost: originHost, credential: credential, maxBytes: Self.maxBodyBytes)
         let session = URLSession(configuration: configuration, delegate: transfer, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
         let task = session.dataTask(with: request)
@@ -181,7 +201,7 @@ public final class LeoPluginFetcher: Sendable {
         return URL(string: "\(absolute[..<schemeEnd.upperBound])\(host)\(port)\(tail)")
     }
 
-    static func makeRequest(url: URL, options: LeoPluginFetchInit) throws -> URLRequest {
+    static func makeRequest(url: URL, options: LeoPluginFetchInit, credential: LeoPluginFetchCredential? = nil) throws -> URLRequest {
         let method = (options.method ?? "GET").uppercased()
         guard allowedMethods.contains(method) else { throw LeoPluginFetchError.invalidRequest("method \(method) is not allowed") }
         var request = URLRequest(url: url)
@@ -192,8 +212,12 @@ public final class LeoPluginFetcher: Sendable {
         guard headers.count <= maxHeaderCount else { throw LeoPluginFetchError.invalidRequest("too many headers") }
         for (name, value) in headers {
             try validateHeader(name: name, value: value)
+            if let credential, isCredentialHeader(name, of: credential) {
+                throw LeoPluginFetchError.credentialHeaderConflict(name: name)
+            }
             request.setValue(value, forHTTPHeaderField: name)
         }
+        for (name, value) in credential?.headers ?? [:] { request.setValue(value, forHTTPHeaderField: name) }
         if let body = options.body {
             guard !bodylessMethods.contains(method) else { throw LeoPluginFetchError.invalidRequest("\(method) requests can't have a body") }
             let data = Data(body.utf8)
@@ -216,6 +240,11 @@ public final class LeoPluginFetcher: Sendable {
         }
     }
 
+    private static func isCredentialHeader(_ name: String, of credential: LeoPluginFetchCredential) -> Bool {
+        let lower = name.lowercased()
+        return credentialReservedHeaders.contains(lower) || credential.headers.keys.contains { $0.lowercased() == lower }
+    }
+
     /// RFC 9110 token characters.
     private static func isTokenByte(_ byte: UInt8) -> Bool {
         (48...57).contains(byte) || (65...90).contains(byte) || (97...122).contains(byte) || "!#$%&'*+-.^_`|~".utf8.contains(byte)
@@ -232,6 +261,8 @@ public final class LeoPluginFetcher: Sendable {
 private final class LeoPluginFetchTransfer: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let engine: LeoPluginPermissionEngine
     private let originHost: String?
+    /// Set for a credential fetch: every hop must stay on its bound host.
+    private let credential: LeoPluginFetchCredential?
     private let maxBytes: Int
 
     private let lock = NSLock()
@@ -242,9 +273,10 @@ private final class LeoPluginFetchTransfer: NSObject, URLSessionDataDelegate, @u
     private var hop = 0
     private var finished = false
 
-    init(engine: LeoPluginPermissionEngine, originHost: String?, maxBytes: Int) {
+    init(engine: LeoPluginPermissionEngine, originHost: String?, credential: LeoPluginFetchCredential?, maxBytes: Int) {
         self.engine = engine
         self.originHost = originHost
+        self.credential = credential
         self.maxBytes = maxBytes
     }
 
@@ -286,7 +318,15 @@ private final class LeoPluginFetchTransfer: NSObject, URLSessionDataDelegate, @u
         }
         var redirected = request
         redirected.url = canonical
-        if LeoPluginPermissionEngine.canonicalHost(of: canonical) != originHost {
+        let host = LeoPluginPermissionEngine.canonicalHost(of: canonical)
+        if let credential {
+            // Never follow a credential off its host, and never strip it silently.
+            guard host == credential.boundHost else {
+                finish(.failure(LeoPluginFetchError.credentialHostMismatch(host: host ?? "?")))
+                return completionHandler(nil)
+            }
+            for (name, value) in credential.headers { redirected.setValue(value, forHTTPHeaderField: name) }
+        } else if host != originHost {
             for header in LeoPluginFetcher.credentialHeaders { redirected.setValue(nil, forHTTPHeaderField: header) }
         }
         completionHandler(redirected)
