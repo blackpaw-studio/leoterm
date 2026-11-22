@@ -150,12 +150,19 @@ public struct LeoPluginCredentials: Sendable {
 }
 
 /// Reads credential files from disk, capped so a huge file can't be loaded.
+/// Only regular files (a symlink to one is fine): the open is non-blocking and
+/// the opened descriptor is checked, so a FIFO or device at the path can't
+/// stall the read, and swapping the path after a check doesn't help.
 public struct LeoPluginCredentialFileReader: LeoPluginCredentialFileReading {
     public init() {}
 
     public func read(path: String, maxBytes: Int) throws -> Data {
-        guard let handle = FileHandle(forReadingAtPath: path) else { throw LeoPluginCredentialError.notFound }
+        let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        guard descriptor >= 0 else { throw LeoPluginCredentialError.notFound }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
         defer { try? handle.close() }
+        var info = stat()
+        guard fstat(descriptor, &info) == 0, info.st_mode & S_IFMT == S_IFREG else { throw LeoPluginCredentialError.invalid }
         let data = try handle.read(upToCount: maxBytes + 1) ?? Data()
         guard data.count <= maxBytes else { throw LeoPluginCredentialError.invalid }
         return data

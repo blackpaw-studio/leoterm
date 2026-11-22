@@ -154,4 +154,28 @@ struct LeoPluginCredentialsTests {
             #expect(!error.code.isEmpty)
         }
     }
+
+    // MARK: File reader
+
+    @Test func theFileReaderRefusesAFIFOWithoutBlocking() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("leo-cred-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fifo = dir.appendingPathComponent("auth.json").path
+        try #require(mkfifo(fifo, 0o600) == 0)
+        #expect(throws: LeoPluginCredentialError.invalid) {
+            try LeoPluginCredentialFileReader().read(path: fifo, maxBytes: 1024)
+        }
+    }
+
+    @Test func theFileReaderReadsARegularFileThroughASymlink() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("leo-cred-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let target = dir.appendingPathComponent("real.json")
+        try Data("{}".utf8).write(to: target)
+        let link = dir.appendingPathComponent("auth.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        #expect(try LeoPluginCredentialFileReader().read(path: link.path, maxBytes: 1024) == Data("{}".utf8))
+    }
 }
