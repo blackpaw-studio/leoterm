@@ -42,8 +42,49 @@ struct LeoPluginSidebarSection: View {
         .id(LeoPluginSectionIdentity.make(entry: entry, expanded: expanded))
     }
 
-    private func header(expanded: Bool) -> some View {
-        Button { sections.toggle(entry) } label: {
+    @ViewBuilder private func header(expanded: Bool) -> some View {
+        if let surfaces {
+            LeoPluginObservedSectionHeader(
+                surfaces: surfaces, entry: entry, expanded: expanded,
+                toggle: { sections.toggle(entry) }, hide: { sections.hide(entry) })
+        } else {
+            LeoPluginSectionHeader(
+                entry: entry, expanded: expanded, accessory: nil,
+                toggle: { sections.toggle(entry) }, hide: { sections.hide(entry) })
+        }
+    }
+}
+
+/// Reads the slot's last render for the header accessory, so it stays current
+/// while the section is collapsed.
+private struct LeoPluginObservedSectionHeader: View {
+    @ObservedObject var surfaces: LeoPluginSurfaces
+    let entry: LeoPluginSidebarSectionEntry
+    let expanded: Bool
+    let toggle: () -> Void
+    let hide: () -> Void
+
+    var body: some View {
+        LeoPluginSectionHeader(entry: entry, expanded: expanded, accessory: accessory, toggle: toggle, hide: hide)
+    }
+
+    private var accessory: LeoPluginNode.Accessory? {
+        guard case .nodes(let nodes, _) = surfaces.content(for: entry.slotKey) else { return nil }
+        return LeoPluginSectionRows.layout(from: nodes).headerAccessory
+    }
+}
+
+/// Chevron, title and, at the trailing edge, the plugin's header accessory
+/// (a slot root that starts with an Accessory), shown collapsed or open.
+private struct LeoPluginSectionHeader: View {
+    let entry: LeoPluginSidebarSectionEntry
+    let expanded: Bool
+    let accessory: LeoPluginNode.Accessory?
+    let toggle: () -> Void
+    let hide: () -> Void
+
+    var body: some View {
+        Button(action: toggle) {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.right")
                     .font(.caption2.weight(.semibold))
@@ -53,17 +94,23 @@ struct LeoPluginSidebarSection: View {
                 Text(entry.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                Spacer(minLength: 0)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                if let accessory { LeoPluginSectionAccessory(accessory: accessory).accessibilityHidden(true) }
             }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .help(expanded ? "Collapse \(entry.title)" : "Expand \(entry.title)")
-        .accessibilityLabel("\(entry.title), \(entry.pluginName)")
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .contextMenu {
-            Button("Hide Section") { sections.hide(entry) }
+            Button("Hide Section", action: hide)
         }
+    }
+
+    private var accessibilityLabel: String {
+        [entry.title, entry.pluginName, accessory?.text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: ", ")
     }
 }
 
@@ -90,7 +137,9 @@ private struct LeoPluginSectionRowsView: View {
         case .notice(let message):
             statusRow { Text(message).lineLimit(2) }
         case .nodes(let nodes, _):
-            ForEach(LeoPluginSectionRows.make(from: nodes)) { row in
+            let rows = LeoPluginSectionRows.layout(from: nodes).rows
+            let labelColumn = LeoPluginSectionMeter.labelColumn(for: rows)
+            ForEach(rows) { row in
                 switch row {
                 case .subheader(_, let title):
                     Text(title)
@@ -110,11 +159,11 @@ private struct LeoPluginSectionRowsView: View {
                         }
                     }
                 case .group(_, let group):
-                    LeoPluginSectionGroupRow(group: group) { action in
+                    LeoPluginSectionGroupRow(group: group, labelColumn: labelColumn) { action in
                         surfaces.perform(action, gesture: mint.mint(.click), in: key)
                     }
                 case .meter(_, let meter):
-                    LeoPluginSectionMeterRow(meter: meter)
+                    LeoPluginSectionMeterRow(meter: meter, labelColumn: labelColumn)
                 }
             }
         }

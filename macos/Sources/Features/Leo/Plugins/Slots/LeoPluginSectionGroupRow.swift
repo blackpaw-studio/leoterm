@@ -7,6 +7,8 @@ import SwiftUI
 /// menu has them all. Metrics follow `docs/designs/usage-plugin/design.md`.
 struct LeoPluginSectionGroupRow: View {
     let group: LeoPluginNode.Group
+    /// The slot's shared meter label column (`LeoPluginSectionMeter.labelColumn`).
+    var labelColumn: CGFloat?
     let perform: (LeoPluginAction) -> Void
 
     private static let symbolColumn: CGFloat = 16
@@ -32,7 +34,7 @@ struct LeoPluginSectionGroupRow: View {
             }
             ForEach(Array(group.children.enumerated()), id: \.offset) { _, child in
                 switch child {
-                case .meter(let meter): LeoPluginSectionMeter(meter: meter)
+                case .meter(let meter): LeoPluginSectionMeter(meter: meter, labelColumn: labelColumn)
                 case .accessory(let accessory): LeoPluginSectionAccessory(accessory: accessory)
                 }
             }
@@ -53,7 +55,7 @@ struct LeoPluginSectionGroupRow: View {
             }
         }
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(group.title + (group.accessory.map { ", \($0.text)" } ?? ""))
+        .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(group.subtitle ?? "")
         .accessibilityActions {
             ForEach(entries, id: \.index) { entry in
@@ -61,6 +63,15 @@ struct LeoPluginSectionGroupRow: View {
             }
         }
         .listRowInsets(EdgeInsets())
+    }
+
+    /// Title, then the subtitle even while meters hide it (the plugin puts
+    /// the account's kind there, so Claude vs Codex is announced), then state.
+    private var accessibilityLabel: String {
+        [group.title, group.subtitle, group.accessory?.text]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: ", ")
     }
 
     private var header: some View {
@@ -85,9 +96,10 @@ struct LeoPluginSectionGroupRow: View {
 /// A value `Meter` as a sidebar row on its own (a slot root), at the Group's indent.
 struct LeoPluginSectionMeterRow: View {
     let meter: LeoPluginNode.ValueMeter
+    var labelColumn: CGFloat?
 
     var body: some View {
-        LeoPluginSectionMeter(meter: meter)
+        LeoPluginSectionMeter(meter: meter, labelColumn: labelColumn)
             .padding(.vertical, 5)
             .padding(.horizontal, 4)
             .frame(maxWidth: .infinity, minHeight: LeoDispatchRowMetrics.terminalRowHeight, alignment: .leading)
@@ -99,32 +111,41 @@ struct LeoPluginSectionMeterRow: View {
 /// valueText never truncates; the label gives way first, then hides.
 struct LeoPluginSectionMeter: View {
     let meter: LeoPluginNode.ValueMeter
+    /// The widest label in the slot, so tracks line up across Groups; nil sizes to this label.
+    var labelColumn: CGFloat?
     @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let trackHeight: CGFloat = 5
     private static let minimumTrackWidth: CGFloat = 48
+    private static let labelFont = NSFont.systemFont(ofSize: 11)
+
+    /// The shared label column for a section's rows: its widest meter label.
+    static func labelColumn(for rows: [LeoPluginSectionRows.Row]) -> CGFloat? {
+        let labels = rows.flatMap { row -> [String] in
+            switch row {
+            case .group(_, let group): group.children.compactMap { if case .meter(let meter) = $0 { meter.label } else { nil } }
+            case .meter(_, let meter): [meter.label]
+            default: []
+            }
+        }
+        return labels.map { ceil(($0 as NSString).size(withAttributes: [.font: labelFont]).width) }.max()
+    }
 
     private var presentation: LeoPluginValueMeterPresentation { LeoPluginValueMeterPresentation(meter) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 1) {
-            HStack(spacing: 8) {
+            LeoPluginMeterRowLayout(labelColumn: labelColumn, minimumTrackWidth: Self.minimumTrackWidth) {
                 Text(meter.label)
-                    .font(.system(size: 11))
+                    .font(Font(Self.labelFont))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                    .layoutPriority(0)
                 track
-                    .frame(minWidth: Self.minimumTrackWidth, maxWidth: .infinity)
-                    .layoutPriority(1)
-                if let valueText = meter.valueText, !valueText.isEmpty {
-                    Text(valueText)
-                        .font(.system(size: 11, weight: presentation.emphasizesValueText ? .semibold : .regular).monospacedDigit())
-                        .fixedSize()
-                        .layoutPriority(2)
-                }
+                Text(meter.valueText ?? "")
+                    .font(.system(size: 11, weight: presentation.emphasizesValueText ? .semibold : .regular).monospacedDigit())
+                    .fixedSize()
             }
             if let detail = meter.detail, !detail.isEmpty {
                 Text(detail)
@@ -186,5 +207,44 @@ struct LeoPluginInlineActionButton: View {
                 .background(Capsule().fill(Color(nsColor: .quaternaryLabelColor)))
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// label | track | valueText. The label column is the shared width (or the
+/// label's own), capped at 40% of the row; valueText never truncates; the
+/// track takes the rest, and below its minimum the label gives way first.
+struct LeoPluginMeterRowLayout: Layout {
+    var labelColumn: CGFloat?
+    var minimumTrackWidth: CGFloat
+    var gap: CGFloat = 8
+    var labelCap: CGFloat = 0.4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard subviews.count == 3 else { return .zero }
+        let height = subviews.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
+        if let width = proposal.width { return CGSize(width: width, height: height) }
+        let ideal = columns(width: .infinity, subviews: subviews)
+        return CGSize(width: ideal.label + ideal.gaps + minimumTrackWidth + ideal.value, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard subviews.count == 3 else { return }
+        let widths = columns(width: bounds.width, subviews: subviews)
+        let track = max(0, bounds.width - widths.label - widths.value - widths.gaps)
+        var x = bounds.minX
+        for (subview, width) in zip(subviews, [widths.label, track, widths.value]) {
+            subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: width, height: nil))
+            x += width + (width > 0 ? gap : 0)
+        }
+    }
+
+    private func columns(width: CGFloat, subviews: Subviews) -> (label: CGFloat, value: CGFloat, gaps: CGFloat) {
+        let value = subviews[2].sizeThatFits(.unspecified).width
+        let gaps = value > 0 ? gap * 2 : gap
+        var label = labelColumn ?? subviews[0].sizeThatFits(.unspecified).width
+        if width.isFinite {
+            label = min(label, width * labelCap, max(0, width - value - gaps - minimumTrackWidth))
+        }
+        return (label, value, gaps)
     }
 }

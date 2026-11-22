@@ -32,6 +32,30 @@ final class LeoPluginValueMeterView: NSStackView {
     private let valueText: NSTextField
     private let detail = LeoPluginRenderStyle.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
     private(set) var meter: LeoPluginNode.ValueMeter
+    private var columnConstraint: NSLayoutConstraint?
+
+    /// The label's own width: what a shared label column is sized from.
+    var naturalLabelWidth: CGFloat { ceil(label.intrinsicContentSize.width) }
+
+    /// A label column shared with other meters (the widest label in the
+    /// slot), so tracks line up. Still capped at 40% of the meter; nil sizes
+    /// the label to its own text.
+    var labelColumnWidth: CGFloat? {
+        didSet {
+            guard labelColumnWidth != oldValue else { return }
+            columnConstraint?.isActive = false
+            columnConstraint = labelColumnWidth.map { width in
+                let constraint = label.widthAnchor.constraint(equalToConstant: width)
+                // Above the label's hugging, below the required 40% cap.
+                constraint.priority = Self.columnPriority
+                constraint.isActive = true
+                return constraint
+            }
+        }
+    }
+
+    private static let columnPriority = NSLayoutConstraint.Priority(740)
+    private static let labelHugging = NSLayoutConstraint.Priority(730)
 
     init(meter: LeoPluginNode.ValueMeter, style: Style) {
         self.meter = meter
@@ -69,7 +93,8 @@ final class LeoPluginValueMeterView: NSStackView {
         valueText.setContentHuggingPriority(.required, for: .horizontal)
         let widest = ("100%" as NSString).size(withAttributes: [.font: valueText.font as Any]).width
         valueText.widthAnchor.constraint(greaterThanOrEqualToConstant: ceil(widest)).isActive = true
-        label.setContentHuggingPriority(.required, for: .horizontal)
+        // Hugs against the track, but gives way to a shared column width.
+        label.setContentHuggingPriority(Self.labelHugging, for: .horizontal)
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         track.setContentHuggingPriority(.defaultLow, for: .horizontal)
         let minimum = track.widthAnchor.constraint(greaterThanOrEqualToConstant: style == .summary ? 56 : Self.minimumTrackWidth)

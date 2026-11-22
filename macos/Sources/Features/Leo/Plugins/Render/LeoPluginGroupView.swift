@@ -19,6 +19,26 @@ final class LeoPluginGroupView: NSView {
         static let childSpacing: CGFloat = 8
         static let menuButtonSize: CGFloat = 20
         static let inlineButtonHeight: CGFloat = 20
+        static let focusRingWidth: CGFloat = 1.5
+    }
+
+    /// What a rebuild depends on. While it is unchanged an update refreshes the
+    /// live views, so meter fills animate and VoiceOver keeps its place.
+    private struct Structure: Equatable {
+        enum Child: Equatable { case meter, accessory }
+        let children: [Child]
+        let hasSubtitle: Bool
+        let hasAccessory: Bool
+        let hasActions: Bool
+
+        init(_ group: LeoPluginNode.Group) {
+            children = group.children.map { if case .meter = $0 { .meter } else { .accessory } }
+            hasSubtitle = !(group.subtitle ?? "").isEmpty
+            hasAccessory = group.accessory != nil
+            hasActions = !group.actions.isEmpty
+        }
+
+        var showsInlineAction: Bool { hasActions && !children.contains(.meter) }
     }
 
     private let emitter: LeoPluginActionEmitter
@@ -26,6 +46,19 @@ final class LeoPluginGroupView: NSView {
     private let background = NSView()
     private let content = NSStackView()
     private var panel: NSPopover?
+    private var structure: Structure?
+    private let symbolView = NSImageView()
+    private let titleLabel = LeoPluginRenderStyle.label("", font: .systemFont(ofSize: 13, weight: .semibold))
+    private var headerAccessory: LeoPluginAccessoryView?
+    private var subtitleLabel: NSTextField?
+    private var childViews: [NSView] = []
+    private var inlineActionButton: NSButton?
+    private var isKeyboardFocused = false {
+        didSet { if isKeyboardFocused != oldValue { applyBackground() } }
+    }
+
+    /// The Group's meters, for the slot's shared label column.
+    var meterViews: [LeoPluginValueMeterView] { childViews.compactMap { $0 as? LeoPluginValueMeterView } }
 
     init(group: LeoPluginNode.Group, emitter: LeoPluginActionEmitter) {
         self.group = group
@@ -39,6 +72,10 @@ final class LeoPluginGroupView: NSView {
         content.edgeInsets = NSEdgeInsets(
             top: Metrics.verticalPadding, left: Metrics.horizontalPadding,
             bottom: Metrics.verticalPadding, right: Metrics.horizontalPadding)
+        symbolView.contentTintColor = .secondaryLabelColor
+        symbolView.setAccessibilityElement(false)
+        titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        focusRingType = .none  // drawn by applyBackground, per design.md
         layoutBackground()
         setAccessibilityElement(true)
         setAccessibilityRole(.group)
@@ -68,66 +105,72 @@ final class LeoPluginGroupView: NSView {
 
     func update(group: LeoPluginNode.Group) {
         self.group = group
-        content.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        addFullWidth(headerRow())
-        if let subtitle = group.subtitle, !subtitle.isEmpty {
-            let label = LeoPluginRenderStyle.label(subtitle, font: .systemFont(ofSize: 11), color: .secondaryLabelColor, lines: 2)
-            label.setAccessibilityElement(false)
-            addFullWidth(label, indent: Metrics.indent)
-            content.setCustomSpacing(2, after: content.arrangedSubviews[0])
-        }
-        let meters = childViews()
-        meters.forEach { addFullWidth($0, indent: Metrics.indent) }
-        alignMeterLabels(meters.compactMap { $0 as? LeoPluginValueMeterView })
-        if meters.isEmpty, let first = LeoPluginActionPresentation.entries(for: group.actions).first {
-            content.addArrangedSubview(inlineButton(first))
-        }
+        let next = Structure(group)
+        if next == structure { refresh() } else { rebuild(next) }
+        structure = next
         applyAccessibility()
         applyBackground()
     }
 
-    // MARK: Pieces
+    // MARK: Building
+
+    private func rebuild(_ structure: Structure) {
+        content.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        headerAccessory = group.accessory.map { LeoPluginAccessoryView(accessory: $0) }
+        addFullWidth(headerRow())
+        subtitleLabel = nil
+        if structure.hasSubtitle {
+            let label = LeoPluginRenderStyle.label("", font: .systemFont(ofSize: 11), color: .secondaryLabelColor, lines: 2)
+            label.setAccessibilityElement(false)
+            subtitleLabel = label
+            addFullWidth(label, indent: Metrics.indent)
+            content.setCustomSpacing(2, after: content.arrangedSubviews[0])
+        }
+        childViews = group.children.map { child -> NSView in
+            switch child {
+            case .meter(let meter): LeoPluginValueMeterView(meter: meter, style: .regular)
+            case .accessory(let accessory): LeoPluginAccessoryView(accessory: accessory)
+            }
+        }
+        childViews.forEach { addFullWidth($0, indent: Metrics.indent) }
+        inlineActionButton = nil
+        if structure.showsInlineAction, let first = entries.first {
+            content.addArrangedSubview(inlineButton(first))
+        }
+        refresh()
+    }
+
+    /// Puts the current Group's values into the live views.
+    private func refresh() {
+        symbolView.image = LeoPluginRenderStyle.symbol(group.sfSymbol, pointSize: 13) ?? NSImage()
+        titleLabel.stringValue = group.title
+        titleLabel.toolTip = group.title
+        if let accessory = group.accessory { headerAccessory?.update(accessory: accessory) }
+        subtitleLabel?.stringValue = group.subtitle ?? ""
+        for (view, child) in zip(childViews, group.children) {
+            switch (view, child) {
+            case (let meterView as LeoPluginValueMeterView, .meter(let meter)): meterView.update(meter: meter)
+            case (let accessoryView as LeoPluginAccessoryView, .accessory(let accessory)): accessoryView.update(accessory: accessory)
+            default: break
+            }
+        }
+        if let button = inlineActionButton, let first = entries.first { configure(button, with: first) }
+    }
 
     private func headerRow() -> NSView {
         let row = NSStackView()
         row.orientation = .horizontal
         row.alignment = .centerY
         row.spacing = Metrics.symbolGap
-        let symbol = NSImageView(image: LeoPluginRenderStyle.symbol(group.sfSymbol, pointSize: 13) ?? NSImage())
-        symbol.contentTintColor = .secondaryLabelColor
-        symbol.setAccessibilityElement(false)
-        symbol.widthAnchor.constraint(equalToConstant: Metrics.symbolColumn).isActive = true
-        row.addArrangedSubview(symbol)
-        let title = LeoPluginRenderStyle.label(group.title, font: .systemFont(ofSize: 13, weight: .semibold))
-        title.toolTip = group.title
-        title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        row.addArrangedSubview(title)
-        if let accessory = group.accessory { row.addArrangedSubview(LeoPluginAccessoryView(accessory: accessory)) }
+        symbolView.widthAnchor.constraint(equalToConstant: Metrics.symbolColumn).isActive = true
+        row.addArrangedSubview(symbolView)
+        row.addArrangedSubview(titleLabel)
+        if let headerAccessory { row.addArrangedSubview(headerAccessory) }
         let spacer = NSView()
         spacer.setContentHuggingPriority(.init(1), for: .horizontal)
         row.addArrangedSubview(spacer)
         if !group.actions.isEmpty { row.addArrangedSubview(menuButton()) }
         return row
-    }
-
-    private func childViews() -> [NSView] {
-        group.children.map { child -> NSView in
-            switch child {
-            case .meter(let meter): LeoPluginValueMeterView(meter: meter, style: .regular)
-            case .accessory(let accessory): LeoPluginAccessoryView(accessory: accessory)
-            }
-        }
-    }
-
-    /// All meters in the Group share the widest label's width (capped by each
-    /// meter), so their tracks line up.
-    private func alignMeterLabels(_ meters: [LeoPluginValueMeterView]) {
-        guard let first = meters.first else { return }
-        for other in meters.dropFirst() {
-            let equal = other.label.widthAnchor.constraint(equalTo: first.label.widthAnchor)
-            equal.priority = .defaultHigh
-            equal.isActive = true
-        }
     }
 
     private func menuButton() -> NSButton {
@@ -147,17 +190,23 @@ final class LeoPluginGroupView: NSView {
 
     private func inlineButton(_ entry: LeoPluginActionEntry) -> NSView {
         let button = NSButton(title: entry.title, target: self, action: #selector(inlineChosen(_:)))
-        button.image = LeoPluginRenderStyle.symbol(entry.sfSymbol, pointSize: 11, weight: .medium)
         button.imagePosition = .imageLeading
         button.font = .systemFont(ofSize: 11, weight: .medium)
         button.bezelStyle = .push
         button.controlSize = .small
         button.bezelColor = .quaternaryLabelColor
-        button.tag = entry.index
+        configure(button, with: entry)
+        inlineActionButton = button
         button.heightAnchor.constraint(equalToConstant: Metrics.inlineButtonHeight).isActive = true
         let wrapper = NSStackView(views: [button])
         wrapper.edgeInsets = NSEdgeInsets(top: 0, left: Metrics.indent, bottom: 0, right: 0)
         return wrapper
+    }
+
+    private func configure(_ button: NSButton, with entry: LeoPluginActionEntry) {
+        button.title = entry.title
+        button.image = LeoPluginRenderStyle.symbol(entry.sfSymbol, pointSize: 11, weight: .medium)
+        button.tag = entry.index
     }
 
     private func addFullWidth(_ view: NSView, indent: CGFloat = 0) {
@@ -204,9 +253,17 @@ final class LeoPluginGroupView: NSView {
     // MARK: Keyboard
 
     override var acceptsFirstResponder: Bool { !group.actions.isEmpty }
-    override var focusRingMaskBounds: NSRect { background.frame }
-    override func drawFocusRingMask() {
-        NSBezierPath(roundedRect: background.frame, xRadius: Metrics.cornerRadius, yRadius: Metrics.cornerRadius).fill()
+
+    override func becomeFirstResponder() -> Bool {
+        let became = super.becomeFirstResponder()
+        if became { isKeyboardFocused = true }
+        return became
+    }
+
+    override func resignFirstResponder() -> Bool {
+        let resigned = super.resignFirstResponder()
+        if resigned { isKeyboardFocused = false }
+        return resigned
     }
 
     override func keyDown(with event: NSEvent) {
@@ -235,11 +292,16 @@ final class LeoPluginGroupView: NSView {
         applyBackground()
     }
 
+    /// Focused (design.md): the unemphasized selection fill and a 1.5 pt ring
+    /// in the keyboard focus colour, following the corner radius.
     private func applyBackground() {
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            let fill: NSColor
-            if #available(macOS 14.0, *) { fill = .quaternarySystemFill } else { fill = .quaternaryLabelColor }
-            background.layer?.backgroundColor = fill.cgColor
+            let resting: NSColor
+            if #available(macOS 14.0, *) { resting = .quaternarySystemFill } else { resting = .quaternaryLabelColor }
+            let layer = background.layer
+            layer?.backgroundColor = (isKeyboardFocused ? NSColor.unemphasizedSelectedContentBackgroundColor : resting).cgColor
+            layer?.borderWidth = isKeyboardFocused ? Metrics.focusRingWidth : 0
+            layer?.borderColor = NSColor.keyboardFocusIndicatorColor.cgColor
         }
     }
 
@@ -253,7 +315,6 @@ final class LeoPluginGroupView: NSView {
                 return true
             }
         })
-        let meters: [NSView] = content.arrangedSubviews.flatMap(\.subviews).filter { $0 is LeoPluginValueMeterView }
-        setAccessibilityChildren(meters)
+        setAccessibilityChildren(meterViews)
     }
 }

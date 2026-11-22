@@ -34,7 +34,10 @@ final class LeoPluginNodeView: NSView {
 
     /// The first render replaces everything; later ones apply the diff.
     func render(_ newNodes: [LeoPluginNode]) {
-        defer { nodes = newNodes }
+        defer {
+            nodes = newNodes
+            alignMeterLabels()
+        }
         for op in LeoPluginTreeDiff.diff(old: nodes, new: newNodes) {
             switch op {
             case .replaceRoot(let all):
@@ -49,6 +52,19 @@ final class LeoPluginNodeView: NSView {
                 }
             }
         }
+    }
+
+    /// Every value Meter in the slot (inside Groups or on its own) shares one
+    /// label column: the widest label, still capped at 40% per meter, so the
+    /// tracks line up across Groups (design.md).
+    private func alignMeterLabels() {
+        let meters = children.flatMap { child -> [LeoPluginValueMeterView] in
+            if let group = child as? LeoPluginGroupView { return group.meterViews }
+            if let meter = (child as? LeoPluginInsetView)?.content as? LeoPluginValueMeterView { return [meter] }
+            return []
+        }
+        let column = meters.map(\.naturalLabelWidth).max()
+        meters.forEach { $0.labelColumnWidth = column }
     }
 
     // MARK: Build
