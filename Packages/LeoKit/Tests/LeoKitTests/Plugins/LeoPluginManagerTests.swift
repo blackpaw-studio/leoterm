@@ -893,4 +893,53 @@ extension LeoPluginManagerTests {
         #expect(rig.manager.plugins.first { $0.id == id }?.credentialGrants.isEmpty == true)
         #expect(rig.store.registry.grants(for: id).isEmpty)
     }
+
+    /// Registers the bundled plugin's record first, so the hide sticks before its first start.
+    private func hideSection(_ section: String, contributes: String, in rig: Rig) throws {
+        let manifest = try JSONDecoder().decode(LeoPluginManifest.self, from: Data(manifestJSON(id: demo, contributes: contributes, apiVersion: 2).utf8))
+        try rig.store.update {
+            $0.registerBundled(manifest)
+            $0.setSection(demo, section: section, hidden: true)
+        }
+    }
+
+    /// The section header's accessory must show while the section is collapsed,
+    /// so a v2 plugin hears about its sections at start, opened or not.
+    @Test func aV2PluginsSidebarSectionsAreActivatedAtStartEvenWhenNeverOpened() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        let contributes = #"{"sidebarSections":[{"id":"usage","title":"Usage"},{"id":"spare","title":"Spare"}]}"#
+        try rig.addBundled(demo, manifest: manifestJSON(id: demo, contributes: contributes, apiVersion: 2))
+        rig.buildManager()
+        try hideSection("spare", contributes: contributes, in: rig)
+
+        rig.manager.reload()
+
+        let section = LeoPluginSlotID.section(id: "usage")
+        #expect(rig.hosts.last?.events == [.activate(slot: nil), .activate(slot: section)])
+        #expect(rig.manager.slots.isHostOpened(pluginID: demo, slot: section))
+    }
+
+    @Test func aV1PluginsSectionsStillWaitUntilOpened() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        #expect(rig.hosts.last?.events == [.activate(slot: nil)])
+    }
+
+    @Test func showingAHiddenV2SectionActivatesIt() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        let contributes = #"{"sidebarSections":[{"id":"usage","title":"Usage"}]}"#
+        try rig.addBundled(demo, manifest: manifestJSON(id: demo, contributes: contributes, apiVersion: 2))
+        rig.buildManager()
+        try hideSection("usage", contributes: contributes, in: rig)
+        rig.manager.reload()
+
+        try rig.manager.setSection(demo, section: "usage", hidden: false)
+
+        #expect(rig.hosts.last?.events == [.activate(slot: nil), .activate(slot: .section(id: "usage"))])
+    }
 }

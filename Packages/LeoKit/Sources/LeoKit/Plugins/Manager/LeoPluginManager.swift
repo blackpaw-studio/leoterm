@@ -192,8 +192,24 @@ public struct LeoPluginManagerDependencies {
 
     public func setSection(_ id: String, section: String, hidden: Bool) throws {
         try deps.store.update { $0.setSection(id, section: section, hidden: hidden) }
+        if !hidden, let entry = entries[id], entry.session != nil, let manifest = entry.manifest {
+            let slot = LeoPluginSlotID.section(id: section)
+            if eagerSections(of: entry, manifest: manifest).contains(slot), entry.lastEvents[slot] == nil { open(slot, plugin: id) }
+        }
         publish()
     }
+
+    /// A v2 plugin's visible sidebar sections, activated when it starts whether
+    /// or not they were ever opened: a collapsed section still shows the
+    /// plugin's header accessory, so it needs a render. v1 plugins keep
+    /// loading a section only when it is first opened.
+    func eagerSections(of entry: LeoPluginManagerEntry, manifest: LeoPluginManifest) -> [LeoPluginSlotID] {
+        guard manifest.apiVersion >= Self.eagerSectionsAPIVersion else { return [] }
+        let hidden = Set(deps.store.registry.record(for: entry.id)?.hiddenSections ?? [])
+        return manifest.contributes.sidebarSections.filter { !hidden.contains($0.id) }.map { .section(id: $0.id) }
+    }
+
+    static let eagerSectionsAPIVersion = 2
 
     public func setPane(_ id: String, pane: String, hidden: Bool) throws {
         try deps.store.update { $0.setPane(id, pane: pane, hidden: hidden) }
@@ -338,6 +354,9 @@ public struct LeoPluginManagerDependencies {
         for (slot, event) in entry.lastEvents {
             deps.slots.expect(pluginID: entry.id, slot: slot)
             deliver(event, to: entry)
+        }
+        for slot in eagerSections(of: entry, manifest: manifest) where entry.lastEvents[slot] == nil {
+            open(slot, plugin: entry.id)
         }
         publish()
     }
