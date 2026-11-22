@@ -54,3 +54,21 @@ public struct LeoPluginCredentialServices: Sendable {
         self.home = home
     }
 }
+
+/// Passes grant changes through and reports each one (to refresh Settings).
+struct LeoPluginPublishingGrantStore: LeoPluginCredentialGrantStoring {
+    let base: any LeoPluginCredentialGrantStoring
+    let didChange: @Sendable () -> Void
+
+    func grants(pluginID: String) -> [LeoPluginCredentialGrant] { base.grants(pluginID: pluginID) }
+
+    func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String) throws -> LeoPluginCredentialGrant? {
+        defer { didChange() }
+        return try base.addGrant(pluginID: pluginID, kind: kind, path: path)
+    }
+
+    func removeGrant(pluginID: String, grantID: String) throws {
+        defer { didChange() }
+        try base.removeGrant(pluginID: pluginID, grantID: grantID)
+    }
+}

@@ -31,12 +31,15 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
     public let hiddenSections: [String]
     /// Pane ids the user hid from the agent pane.
     public let hiddenPanes: [String]
+    /// Accounts the user picked for the plugin (`credentials`).
+    public let credentialGrants: [LeoPluginCredentialGrant]
 
     public init(
         id: String, name: String, version: String, source: LeoPluginSource, isEnabled: Bool, state: LeoPluginRunState,
         approvedPermissions: LeoPluginPermissions, manifest: LeoPluginManifest?, hiddenSections: [String],
-        hiddenPanes: [String] = []
+        hiddenPanes: [String] = [], credentialGrants: [LeoPluginCredentialGrant] = []
     ) {
+        self.credentialGrants = credentialGrants
         self.id = id
         self.name = name
         self.version = version
@@ -194,6 +197,13 @@ public struct LeoPluginManagerDependencies {
 
     public func setPane(_ id: String, pane: String, hidden: Bool) throws {
         try deps.store.update { $0.setPane(id, pane: pane, hidden: hidden) }
+        publish()
+    }
+
+    /// Forgets one account the user granted the plugin. Its next credential
+    /// fetch with that id is refused as unknown.
+    public func removeCredentialGrant(_ id: String, grantID: String) throws {
+        try deps.store.update { $0.removeGrant(pluginID: id, grantID: grantID) }
         publish()
     }
 
@@ -355,7 +365,15 @@ public struct LeoPluginManagerDependencies {
                     guard let self, let entry = self.entries[id], entry.session?.token == token else { return }
                     self.deliver(event, to: entry)
                 },
-                credentials: deps.credentials,
+                credentials: deps.credentials.map { services in
+                    // Grants the plugin adds or removes show in Settings right away.
+                    LeoPluginCredentialServices(
+                        picker: services.picker, resolver: services.resolver,
+                        grants: LeoPluginPublishingGrantStore(base: services.grants) { [weak self] in
+                            Task { @MainActor in self?.publish() }
+                        },
+                        home: services.home)
+                },
                 usage: { [agents = deps.agents] in agents.usage(for: $0) },
                 homeDirectory: deps.agents.homeDirectory))
         host.onRequest = { [weak self] request in
@@ -450,7 +468,7 @@ public struct LeoPluginManagerDependencies {
                 id: record.id, name: entry?.manifest?.name ?? record.name, version: entry?.manifest?.version ?? record.version,
                 source: record.source, isEnabled: record.enabled, state: entry?.state ?? .refused("not loaded"),
                 approvedPermissions: record.approvedPermissions, manifest: entry?.manifest, hiddenSections: record.hiddenSections,
-                hiddenPanes: record.hiddenPanes)
+                hiddenPanes: record.hiddenPanes, credentialGrants: record.credentialGrants)
         }
     }
 }
