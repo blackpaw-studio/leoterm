@@ -29,7 +29,7 @@ describe("sidebarRoot", () => {
     const [g] = groups(sidebarRoot([account()], NOW));
     expect(g.title).toBe("claude-work");
     expect(meters(g)).toEqual([
-      { type: "Meter", label: "Weekly", value: 0.91, valueText: "91%", detail: "resets in 3d", tone: "failure" },
+      { type: "Meter", label: "Weekly", value: 0.91, valueText: "91%", detail: "Resets in 3d", tone: "failure" },
     ]);
   });
 
@@ -54,13 +54,13 @@ describe("sidebarRoot", () => {
   it("marks a stale account and explains the old values", () => {
     const [g] = groups(sidebarRoot([account({ state: { status: "stale", message: "HTTP 500" } })], NOW));
     expect(g.accessory).toMatchObject({ text: "Stale", color: "warning" });
-    expect(meters(g)[0].detail).toBe("Couldn't refresh · updated 3m ago");
+    expect(meters(g)[0].detail).toBe("Couldn't refresh · values from 6:57 AM");
   });
 
   it("an expired account says how to sign in again and leads with Copy Sign-in Command", () => {
     const [g] = groups(sidebarRoot([account({ state: { status: "expired", windows: [] } })], NOW));
     expect(g.accessory).toMatchObject({ text: "Expired", color: "failure" });
-    expect(g.subtitle).toBe("Claude Code · Signed out — run `claude` with this account to refresh");
+    expect(g.subtitle).toBe("Claude Code · Signed out — run claude with this account to refresh");
     expect(g.actions?.[0]).toMatchObject({ type: "copy", title: "Copy Sign-in Command", text: "CLAUDE_CONFIG_DIR=~/.claude-work claude" });
   });
 
@@ -107,6 +107,19 @@ describe("fullRoot", () => {
 
   it("an empty list is the same empty state as the sidebar", () => {
     expect(fullRoot([], NOW)).toMatchObject({ type: "EmptyState" });
+  });
+});
+
+describe("plain-text copy", () => {
+  it("no user-visible string contains markdown backticks", () => {
+    const states = ["loading", "ok", "stale", "expired", "needsAuthorization", "error"] as const;
+    const accounts = states.flatMap((status) =>
+      (["claude-code", "codex"] as const).map((kind) =>
+        account({ handle: { id: status + kind, kind, label: "l", path: "~/p" }, state: { status, message: "m", windows: status === "ok" || status === "stale" ? [session] : [] } }),
+      ),
+    );
+    const texts = JSON.stringify([sidebarRoot(accounts, NOW), fullRoot(accounts, NOW)]).replace(/"text":"[^"]*"/g, "");
+    expect(texts).not.toContain("`"); // copy-action text (a shell command) is exempt
   });
 });
 

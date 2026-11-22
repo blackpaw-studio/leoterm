@@ -15,7 +15,7 @@ const span = (ms: number): string => {
 };
 
 export const resetsIn = (resetsAtMs: number, nowMs: number): string =>
-  resetsAtMs <= nowMs ? "resetting now" : "resets in " + span(resetsAtMs - nowMs);
+  resetsAtMs <= nowMs ? "Resetting now" : "Resets in " + span(resetsAtMs - nowMs);
 
 export const updatedAgo = (updatedAtMs: number, nowMs: number): string => {
   const age = Math.max(0, nowMs - updatedAtMs);
@@ -31,3 +31,11 @@ export const MAX_LINE_CHARS = 120;
 
 /** Truncates to at most `max` characters, the ellipsis included. */
 export const clip = (text: string, max: number): string => (text.length <= max ? text : text.slice(0, max - 1) + "…");
+
+/** Local 12-hour clock time, such as "8:57 PM". Built by hand: no locale APIs in the plugin sandbox. */
+export const clockTime = (ms: number): string => {
+  const d = new Date(ms);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return (h % 12 === 0 ? 12 : h % 12) + ":" + (m < 10 ? "0" : "") + m + (h < 12 ? " AM" : " PM");
+};

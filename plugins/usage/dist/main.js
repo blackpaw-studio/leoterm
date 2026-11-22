@@ -261,7 +261,7 @@
     if (ms < DAY) return pair(Math.floor(ms / HOUR), "h", Math.floor(ms % HOUR / MIN), "m");
     return pair(Math.floor(ms / DAY), "d", Math.floor(ms % DAY / HOUR), "h");
   };
-  var resetsIn = (resetsAtMs, nowMs) => resetsAtMs <= nowMs ? "resetting now" : "resets in " + span(resetsAtMs - nowMs);
+  var resetsIn = (resetsAtMs, nowMs) => resetsAtMs <= nowMs ? "Resetting now" : "Resets in " + span(resetsAtMs - nowMs);
   var updatedAgo = (updatedAtMs, nowMs) => {
     const age = Math.max(0, nowMs - updatedAtMs);
     if (age < MIN) return "Updated just now";
@@ -272,6 +272,12 @@
   var MAX_HELP_CHARS = 80;
   var MAX_LINE_CHARS = 120;
   var clip = (text, max) => text.length <= max ? text : text.slice(0, max - 1) + "\u2026";
+  var clockTime = (ms) => {
+    const d = new Date(ms);
+    const h = d.getHours();
+    const m = d.getMinutes();
+    return (h % 12 === 0 ? 12 : h % 12) + ":" + (m < 10 ? "0" : "") + m + (h < 12 ? " AM" : " PM");
+  };
 
   // src/tone.ts
   var WARNING_AT = 75;
@@ -313,7 +319,6 @@
     sfSymbol: "plus.circle",
     actions: addActions
   });
-  var lowerFirst = (s) => s.charAt(0).toLowerCase() + s.slice(1);
   var meter = (w, nowMs, detail) => ({
     type: "Meter",
     label: w.label,
@@ -342,7 +347,7 @@
       case "loading":
         return "Loading\u2026";
       case "expired":
-        return "Signed out \u2014 run `" + KIND_COMMAND[handle.kind] + "` with this account to refresh";
+        return "Signed out \u2014 run " + KIND_COMMAND[handle.kind] + " with this account to refresh";
       case "needsAuthorization":
         return handle.kind === "claude-code" ? "Leo needs Keychain access to read this account" : "Leo needs access to read this account";
       case "error":
@@ -365,7 +370,7 @@
         return [];
     }
   };
-  var staleDetail = (state, nowMs) => state.status === "stale" && state.updatedAtMs !== void 0 ? "Couldn't refresh \xB7 " + lowerFirst(updatedAgo(state.updatedAtMs, nowMs)) : void 0;
+  var staleDetail = (state, nowMs) => state.status === "stale" && state.updatedAtMs !== void 0 ? "Couldn't refresh \xB7 values from " + clockTime(state.updatedAtMs) : void 0;
   var renameForm = (account) => ({
     type: "Form",
     id: CALLBACKS.rename,

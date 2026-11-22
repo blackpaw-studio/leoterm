@@ -10,7 +10,7 @@
         "label": "Session",
         "value": 0.42,
         "valueText": "42%",
-        "detail": "resets in 2h 14m",
+        "detail": "Resets in 2h 14m",
         "tone": "success"
       },
       {
@@ -18,7 +18,7 @@
         "label": "Weekly",
         "value": 0.764,
         "valueText": "76%",
-        "detail": "resets in 3d 4h",
+        "detail": "Resets in 3d 4h",
         "tone": "warning"
       },
       {
@@ -26,7 +26,7 @@
         "label": "Weekly Opus",
         "value": 0.91,
         "valueText": "91%",
-        "detail": "resets in 3d 4h",
+        "detail": "Resets in 3d 4h",
         "tone": "failure"
       },
       {
@@ -34,7 +34,7 @@
         "label": "Weekly Sonnet",
         "value": 0.122,
         "valueText": "12%",
-        "detail": "resets in 3d 4h",
+        "detail": "Resets in 3d 4h",
         "tone": "success"
       }
     ],
@@ -151,7 +151,7 @@
   {
     "type": "Group",
     "title": "claude-old",
-    "subtitle": "~/.claude-old · Signed out — run `claude` with this account to refresh",
+    "subtitle": "~/.claude-old · Signed out — run claude with this account to refresh",
     "sfSymbol": "bubble.left.fill",
     "accessory": {
       "type": "Accessory",
@@ -225,7 +225,7 @@
         "label": "Session",
         "value": 0.42,
         "valueText": "42%",
-        "detail": "resets in 2h 14m",
+        "detail": "Resets in 2h 14m",
         "tone": "success"
       },
       {
@@ -233,7 +233,7 @@
         "label": "Weekly",
         "value": 0.955,
         "valueText": "96%",
-        "detail": "resets in 3d 13h",
+        "detail": "Resets in 3d 13h",
         "tone": "failure"
       }
     ],
