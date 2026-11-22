@@ -850,4 +850,25 @@ extension LeoPluginManagerTests {
         rig.manager.reload()
         #expect(rig.hosts.made.map(\.apiVersion).sorted() == [1, 2])
     }
+
+    @Test func uninstallingAPluginLeavesNoCredentialGrants() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        let id = "studio.blackpaw.usage"
+        let permissions = LeoPluginPermissions(network: ["chatgpt.com"], credentials: [.codex])
+        let manifest = LeoPluginManifest(id: id, name: "Usage", version: "1.0.0", apiVersion: 2, main: "main.js", permissions: permissions)
+        let devDir = try rig.addPlugin(
+            in: rig.root.appendingPathComponent("usage"),
+            manifest: manifestJSON(id: id, network: #"["chatgpt.com"]"#, apiVersion: 2, credentials: #"["codex"]"#))
+        try rig.store.update {
+            $0.registerDev(manifest, path: devDir.path)
+            _ = $0.addGrant(pluginID: id, kind: .codex, path: "/Users/a/.codex", id: "g1")
+        }
+        rig.buildManager()
+        rig.manager.reload()
+
+        try rig.manager.uninstall(id)
+        try rig.store.update { $0.registerDev(manifest, path: devDir.path) }
+        #expect(rig.store.registry.grants(for: id).isEmpty)
+    }
 }

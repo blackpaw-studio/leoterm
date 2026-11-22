@@ -27,9 +27,12 @@ public struct LeoPluginRecord: Codable, Equatable, Sendable {
     /// The manifest's name and version when last seen, for lists that don't load the plugin.
     public var name: String
     public var version: String
+    /// Accounts the user chose for the plugin's `credentials` kinds. Paths
+    /// only; never tokens. Dropped with the record on uninstall.
+    public var credentialGrants: [LeoPluginCredentialGrant] = []
 
     private enum CodingKeys: String, CodingKey {
-        case id, source, enabled, approvedPermissions, hiddenSections, hiddenPanes, disabledReason, name, version
+        case id, source, enabled, approvedPermissions, hiddenSections, hiddenPanes, disabledReason, name, version, credentialGrants
     }
 
     public init(from decoder: Decoder) throws {
@@ -44,6 +47,8 @@ public struct LeoPluginRecord: Codable, Equatable, Sendable {
         disabledReason = try c.decodeIfPresent(String.self, forKey: .disabledReason)
         name = try c.decode(String.self, forKey: .name)
         version = try c.decode(String.self, forKey: .version)
+        // Registries saved before credential grants existed have no key.
+        credentialGrants = try c.decodeIfPresent([LeoPluginCredentialGrant].self, forKey: .credentialGrants) ?? []
     }
 
     public init(
@@ -116,8 +121,12 @@ public struct LeoPluginRegistry: Codable, Equatable, Sendable, LeoPluginIDClaimL
     }
 
     /// The user approved `permissions` (an install, or an update that asked for more).
+    /// Grants for kinds `permissions` no longer has are revoked.
     public mutating func approve(_ id: String, permissions: LeoPluginPermissions) {
-        update(id) { $0.approvedPermissions = permissions }
+        update(id) {
+            $0.approvedPermissions = permissions
+            $0.credentialGrants.removeAll { !permissions.credentials.contains($0.kind) }
+        }
     }
 
     public mutating func setSource(_ id: String, _ source: LeoPluginSource, version: String) {
@@ -168,15 +177,18 @@ public struct LeoPluginRegistry: Codable, Equatable, Sendable, LeoPluginIDClaimL
     // MARK: Private
 
     private mutating func insert(_ manifest: LeoPluginManifest, source: LeoPluginSource) {
-        let record = LeoPluginRecord(
+        var record = LeoPluginRecord(
             id: manifest.id, source: source, enabled: true, approvedPermissions: manifest.permissions,
             hiddenSections: [], disabledReason: nil, name: manifest.name, version: manifest.version)
+        // Re-registering the same plugin keeps the accounts it may still use.
+        record.credentialGrants = (self.record(for: manifest.id)?.credentialGrants ?? [])
+            .filter { manifest.permissions.credentials.contains($0.kind) }
         records.removeAll { $0.id == manifest.id }
         records.append(record)
         records.sort { $0.id < $1.id }
     }
 
-    private mutating func update(_ id: String, _ change: (inout LeoPluginRecord) -> Void) {
+    mutating func update(_ id: String, _ change: (inout LeoPluginRecord) -> Void) {
         guard let index = records.firstIndex(where: { $0.id == id }) else { return }
         change(&records[index])
     }
