@@ -12,11 +12,11 @@ import Security
 /// suppresses that dialog: it fails fast with `errSecAuthFailed` (-25293).
 /// `kSecUseAuthenticationUIFail` and `LAContext.interactionNotAllowed` both
 /// still block on the dialog (spike, 2026-11-21). The flag is process-wide, so
-/// every read here holds one lock across set → read → restore.
+/// every read goes through the shared `LeoPluginKeychainGate`.
 ///
 /// Call off the main thread: a read with `allowUI` blocks while the dialog is up.
 struct LeoPluginSystemCredentialKeychain: LeoPluginCredentialKeychain {
-    private static let interactionLock = NSLock()
+    var gate: LeoPluginKeychainGate = .system
 
     func password(service: String, account: String, allowUI: Bool) throws -> Data {
         let query: [String: Any] = [
@@ -27,11 +27,12 @@ struct LeoPluginSystemCredentialKeychain: LeoPluginCredentialKeychain {
             kSecReturnData as String: true,
         ]
         var result: CFTypeRef?
-        let status = Self.interactionLock.withLock {
-            guard !allowUI else { return SecItemCopyMatching(query as CFDictionary, &result) }
-            SecKeychainSetUserInteractionAllowed(false)
-            defer { SecKeychainSetUserInteractionAllowed(true) }
-            return SecItemCopyMatching(query as CFDictionary, &result)
+        let status: OSStatus
+        do {
+            status = try gate.run(allowUI: allowUI) { SecItemCopyMatching(query as CFDictionary, &result) }
+        } catch {
+            // The flag couldn't be turned off, so a read now might show UI: don't read.
+            throw LeoPluginCredentialKeychainError.needsAuthorization
         }
         switch status {
         case errSecSuccess:

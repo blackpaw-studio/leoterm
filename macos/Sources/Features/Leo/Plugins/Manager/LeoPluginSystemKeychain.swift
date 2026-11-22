@@ -4,14 +4,18 @@ import Security
 
 /// The Keychain behind `leo.secrets`: generic-password items, service
 /// `leo.plugin.<id>`, account `<key>`. Service matching is exact, so removing
-/// one plugin's items never touches another's.
+/// one plugin's items never touches another's. Every call goes through the
+/// shared `LeoPluginKeychainGate`, so none runs while a credential read has
+/// Keychain UI turned off.
 struct LeoPluginSystemKeychain: LeoPluginKeychain {
+    var gate: LeoPluginKeychainGate = .system
+
     func get(service: String, account: String) throws -> String? {
         var query = identity(service: service, account: account)
         query[kSecReturnData as String] = true
         query[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let status = try gate.run(allowUI: true) { SecItemCopyMatching(query as CFDictionary, &result) }
         if status == errSecItemNotFound { return nil }
         try check(status)
         guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else {
@@ -23,16 +27,17 @@ struct LeoPluginSystemKeychain: LeoPluginKeychain {
     func set(service: String, account: String, value: String) throws {
         let query = identity(service: service, account: account)
         let data = Data(value.utf8)
-        let status = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
-        if status == errSecItemNotFound {
-            try check(SecItemAdd(query.merging([kSecValueData as String: data]) { $1 } as CFDictionary, nil))
-        } else {
-            try check(status)
+        let status = try gate.run(allowUI: true) {
+            let updated = SecItemUpdate(query as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+            guard updated == errSecItemNotFound else { return updated }
+            return SecItemAdd(query.merging([kSecValueData as String: data]) { $1 } as CFDictionary, nil)
         }
+        try check(status)
     }
 
     func delete(service: String, account: String) throws {
-        let status = SecItemDelete(identity(service: service, account: account) as CFDictionary)
+        let query = identity(service: service, account: account)
+        let status = try gate.run(allowUI: true) { SecItemDelete(query as CFDictionary) }
         if status != errSecItemNotFound { try check(status) }
     }
 
@@ -44,7 +49,7 @@ struct LeoPluginSystemKeychain: LeoPluginKeychain {
             kSecMatchLimit as String: kSecMatchLimitAll,
         ]
         var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        let status = try gate.run(allowUI: true) { SecItemCopyMatching(query as CFDictionary, &result) }
         if status == errSecItemNotFound { return }
         try check(status)
         for item in (result as? [[String: Any]]) ?? [] {
