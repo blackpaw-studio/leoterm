@@ -72,3 +72,10 @@ valueText never truncates. At the 260 pt default nothing truncates except long e
    - The inline label | track | value layout above applies when `valueText` or `detail` is set.
 2. **Section header accessory.** Today the sidebar header is chevron + title only. Proposal: a sidebar slot root may start with an `Accessory`, which the host lifts into the header's trailing edge, visible even when collapsed.
 3. **Add Account… needs a pull-down.** `credentials.add(kind)` needs the kind, and a row click runs only the first action. Proposal: `List.Item.presentsMenu: true`, so clicking or pressing Return opens the item's actions as a menu. Without it, the fallback within the current spec is two rows, "Add Claude Account…" and "Add Codex Account…".
+
+## Orchestrator decisions on proposed deltas (2026-11-21)
+
+1. **Meter: rejected.** Keep the plan's v2 value-form `Meter {label, value, valueText?, detail?, tone}`, as the spec says. The renderer may share one view with the v1 segmented Meter. The neutral tone uses `secondaryLabelColor`.
+2. **Header accessory: accepted.** When a sidebar-section slot root is an array whose first element is an `Accessory`, the host draws it at the header's trailing edge, visible even when collapsed, and drops it from the body.
+3. **Add pull-down: rejected (YAGNI).** No `presentsMenu`. Instead there are two rows/actions, "Add Claude Account…" and "Add Codex Account…".
+- VoiceOver gap: the compact Group's accessibility label includes the kind ("Claude" or "Codex").
