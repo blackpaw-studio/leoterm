@@ -1,6 +1,7 @@
 import AVFoundation
 import ComposableArchitecture
 import LeoFeatures
+import LeoKit
 import UIKit
 import UserNotifications
 
@@ -74,6 +75,17 @@ extension ChatNotifierClient: @retroactive DependencyKey {
             let content = UNMutableNotificationContent()
             content.title = agent
             content.body = String(localized: "Couldn't send your response: \(reason)")
+            content.sound = .default
+            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+            try? await UNUserNotificationCenter.current().add(request)
+        }, sendFailed: { payload in
+            let notification = LeoChatNotificationActions.sendFailedContent(payload)
+            let content = UNMutableNotificationContent()
+            content.title = notification.title
+            content.body = notification.body
+            content.categoryIdentifier = notification.categoryID
+            content.threadIdentifier = notification.threadIdentifier
+            content.userInfo = notification.userInfo
             content.sound = .default
             let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
             try? await UNUserNotificationCenter.current().add(request)

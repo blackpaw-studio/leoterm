@@ -43,6 +43,7 @@ targets:
       - package: SwiftTerm
         product: SwiftTerm
       - target: LeoNotificationService
+      - target: LeoControls
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios
@@ -94,6 +95,41 @@ targets:
           CODE_SIGN_STYLE: Manual
           CODE_SIGN_IDENTITY: Apple Distribution
           PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios.notification-service
+  # The Action button / Control Center / Lock Screen Control (voice to agent).
+  # It shares the intent and entity files with the app and holds no secrets:
+  # the intent runs in Leo, and the picker reads the app group's snapshot.
+  # TODO(signing): Release uses the match profile below, which doesn't exist
+  # yet. Create it (fastlane match, App Store Connect identifier) once Evan
+  # approves provisioning; until then only simulator builds are verified.
+  LeoControls:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: LeoControls
+      - path: Leo/Intents/AgentEntity.swift
+      - path: Leo/Intents/SendMessageToAgent.swift
+    dependencies:
+      - package: LeoFeatures
+        product: LeoFeatures
+      - package: LeoKit
+        product: LeoKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: studio.blackpaw.leo.ios.controls
+        PRODUCT_NAME: LeoControls
+        INFOPLIST_FILE: LeoControls/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_ENTITLEMENTS: LeoControls/LeoControls.entitlements
+        TARGETED_DEVICE_FAMILY: "1,2"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        # The shared intent skips app-only API (ForegroundContinuableIntent).
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) LEO_CONTROLS_EXTENSION"
+      configs:
+        Release:
+          CODE_SIGN_STYLE: Manual
+          CODE_SIGN_IDENTITY: Apple Distribution
+          PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios.controls
   LeoUITests:
     type: bundle.ui-testing
     platform: iOS

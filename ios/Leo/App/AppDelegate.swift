@@ -1,3 +1,4 @@
+import AppIntents
 import ComposableArchitecture
 import LeoFeatures
 import LeoKit
@@ -41,6 +42,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         // Before returning, so a tap that launched the app is delivered.
         UNUserNotificationCenter.current().delegate = self
         Self.registerChatCategories()
+        // "Tell an agent" (Siri, Action button, Shortcuts) can launch the app
+        // in the background: register before it asks for the client.
+        AppDependencyManager.shared.add(dependency: AgentMessagingClient.liveValue)
         LaunchPolicy.send(.task, to: Self.store)
         #if DEBUG
         if MachinesFixture.isRequested { MachinesFixture.openMachines(Self.store) }
