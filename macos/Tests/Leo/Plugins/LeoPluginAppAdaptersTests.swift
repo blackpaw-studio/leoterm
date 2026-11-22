@@ -117,8 +117,8 @@ struct LeoPluginAppAdaptersTests {
     @Test func hostFactoryMakesAFreshConnectionEachTime() {
         let factory = LeoPluginProcessHostFactory(launcher: LeoPluginPosixLauncher(helperURL: URL(fileURLWithPath: "/nonexistent")))
 
-        let first = factory.makeHost()
-        let second = factory.makeHost()
+        let first = factory.makeHost(apiVersion: 1)
+        let second = factory.makeHost(apiVersion: 2)
 
         #expect(first as AnyObject !== second as AnyObject)
     }
