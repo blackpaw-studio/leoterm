@@ -54,6 +54,13 @@ final class LeoPluginValueMeterView: NSStackView {
         }
     }
 
+    /// True when valueText shows fewer points than its text needs (design.md:
+    /// it never truncates). Half a point absorbs layout rounding.
+    var isValueTextTruncated: Bool {
+        !valueText.isHidden && valueText.frame.width + Self.layoutRounding < valueText.intrinsicContentSize.width
+    }
+
+    private static let layoutRounding: CGFloat = 0.5
     private static let columnPriority = NSLayoutConstraint.Priority(740)
     private static let labelHugging = NSLayoutConstraint.Priority(730)
 

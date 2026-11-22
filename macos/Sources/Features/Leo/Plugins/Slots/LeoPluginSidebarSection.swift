@@ -76,7 +76,7 @@ private struct LeoPluginObservedSectionHeader: View {
 
 /// Chevron, title and, at the trailing edge, the plugin's header accessory
 /// (a slot root that starts with an Accessory), shown collapsed or open.
-private struct LeoPluginSectionHeader: View {
+struct LeoPluginSectionHeader: View {
     let entry: LeoPluginSidebarSectionEntry
     let expanded: Bool
     let accessory: LeoPluginNode.Accessory?
@@ -137,34 +137,50 @@ private struct LeoPluginSectionRowsView: View {
         case .notice(let message):
             statusRow { Text(message).lineLimit(2) }
         case .nodes(let nodes, _):
-            let rows = LeoPluginSectionRows.layout(from: nodes).rows
-            let labelColumn = LeoPluginSectionMeter.labelColumn(for: rows)
-            ForEach(rows) { row in
-                switch row {
-                case .subheader(_, let title):
-                    Text(title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
-                case .item(_, let item):
-                    LeoPluginSectionItemRow(item: item) { action in
-                        surfaces.perform(action, gesture: mint.mint(.click), in: key)
+            LeoPluginSectionNodeRows(nodes: nodes) { action in
+                surfaces.perform(action, gesture: mint.mint(.click), in: key)
+            }
+        }
+    }
+
+    private func statusRow<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
+        content()
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, minHeight: LeoDispatchRowMetrics.terminalRowHeight, alignment: .leading)
+            .listRowInsets(EdgeInsets())
+    }
+}
+
+/// A rendered slot's body as sidebar rows (the header accessory is drawn by
+/// `LeoPluginSectionHeader`). `perform` gets the clicked action.
+struct LeoPluginSectionNodeRows: View {
+    let nodes: [LeoPluginNode]
+    let perform: (LeoPluginAction) -> Void
+
+    var body: some View {
+        let rows = LeoPluginSectionRows.layout(from: nodes).rows
+        let labelColumn = LeoPluginSectionMeter.labelColumn(for: rows)
+        ForEach(rows) { row in
+            switch row {
+            case .subheader(_, let title):
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+            case .item(_, let item):
+                LeoPluginSectionItemRow(item: item, perform: perform)
+            case .message(_, let title, let detail):
+                statusRow {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(title).lineLimit(2)
+                        if let detail { Text(detail).font(.caption).lineLimit(2) }
                     }
-                case .message(_, let title, let detail):
-                    statusRow {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(title).lineLimit(2)
-                            if let detail { Text(detail).font(.caption).lineLimit(2) }
-                        }
-                    }
-                case .group(_, let group):
-                    LeoPluginSectionGroupRow(group: group, labelColumn: labelColumn) { action in
-                        surfaces.perform(action, gesture: mint.mint(.click), in: key)
-                    }
-                case .meter(_, let meter):
-                    LeoPluginSectionMeterRow(meter: meter, labelColumn: labelColumn)
                 }
+            case .group(_, let group):
+                LeoPluginSectionGroupRow(group: group, labelColumn: labelColumn, perform: perform)
+            case .meter(_, let meter):
+                LeoPluginSectionMeterRow(meter: meter, labelColumn: labelColumn)
             }
         }
     }

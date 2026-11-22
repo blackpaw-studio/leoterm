@@ -199,11 +199,16 @@ struct LeoPluginInlineActionButton: View {
 
     var body: some View {
         Button(action: action) {
-            Label(entry.title, systemImage: entry.sfSymbol)
-                .font(.system(size: 11, weight: .medium))
-                .padding(.horizontal, 8)
-                .frame(height: 20)
-                .background(Capsule().fill(Color(nsColor: .quaternaryLabelColor)))
+            // Not a Label: a sidebar List gives a Label's icon its own wide
+            // column, which pulls the symbol away from the title.
+            HStack(spacing: 4) {
+                Image(systemName: entry.sfSymbol)
+                Text(entry.title)
+            }
+            .font(.system(size: 11, weight: .medium))
+            .padding(.horizontal, 8)
+            .frame(height: 20)
+            .background(Capsule().fill(Color(nsColor: .quaternaryLabelColor)))
         }
         .buttonStyle(.plain)
     }
@@ -218,32 +223,48 @@ struct LeoPluginMeterRowLayout: Layout {
     var gap: CGFloat = 8
     var labelCap: CGFloat = 0.4
 
+    /// Column widths for one row; pure, so the rules are tested without a view.
+    struct Columns: Equatable {
+        let label: CGFloat
+        let track: CGFloat
+        let value: CGFloat
+    }
+
+    static func columns(
+        width: CGFloat, labelIdeal: CGFloat, labelColumn: CGFloat?, value: CGFloat,
+        gap: CGFloat = 8, labelCap: CGFloat = 0.4, minimumTrackWidth: CGFloat
+    ) -> Columns {
+        let gaps = value > 0 ? gap * 2 : gap
+        var label = labelColumn ?? labelIdeal
+        if width.isFinite {
+            label = min(label, width * labelCap, max(0, width - value - gaps - minimumTrackWidth))
+        }
+        let track = width.isFinite ? max(0, width - label - value - gaps) : minimumTrackWidth
+        return Columns(label: label, track: track, value: value)
+    }
+
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
         guard subviews.count == 3 else { return .zero }
         let height = subviews.map { $0.sizeThatFits(.unspecified).height }.max() ?? 0
-        if let width = proposal.width { return CGSize(width: width, height: height) }
+        if let width = proposal.width, width.isFinite { return CGSize(width: width, height: height) }
         let ideal = columns(width: .infinity, subviews: subviews)
-        return CGSize(width: ideal.label + ideal.gaps + minimumTrackWidth + ideal.value, height: height)
+        let gaps = ideal.value > 0 ? gap * 2 : gap
+        return CGSize(width: ideal.label + gaps + ideal.track + ideal.value, height: height)
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         guard subviews.count == 3 else { return }
         let widths = columns(width: bounds.width, subviews: subviews)
-        let track = max(0, bounds.width - widths.label - widths.value - widths.gaps)
         var x = bounds.minX
-        for (subview, width) in zip(subviews, [widths.label, track, widths.value]) {
+        for (subview, width) in zip(subviews, [widths.label, widths.track, widths.value]) {
             subview.place(at: CGPoint(x: x, y: bounds.midY), anchor: .leading, proposal: ProposedViewSize(width: width, height: nil))
             x += width + (width > 0 ? gap : 0)
         }
     }
 
-    private func columns(width: CGFloat, subviews: Subviews) -> (label: CGFloat, value: CGFloat, gaps: CGFloat) {
-        let value = subviews[2].sizeThatFits(.unspecified).width
-        let gaps = value > 0 ? gap * 2 : gap
-        var label = labelColumn ?? subviews[0].sizeThatFits(.unspecified).width
-        if width.isFinite {
-            label = min(label, width * labelCap, max(0, width - value - gaps - minimumTrackWidth))
-        }
-        return (label, value, gaps)
+    private func columns(width: CGFloat, subviews: Subviews) -> Columns {
+        Self.columns(
+            width: width, labelIdeal: subviews[0].sizeThatFits(.unspecified).width, labelColumn: labelColumn,
+            value: subviews[2].sizeThatFits(.unspecified).width, gap: gap, labelCap: labelCap, minimumTrackWidth: minimumTrackWidth)
     }
 }
