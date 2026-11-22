@@ -109,6 +109,12 @@ private struct LeoPluginSectionRowsView: View {
                             if let detail { Text(detail).font(.caption).lineLimit(2) }
                         }
                     }
+                case .group(_, let group):
+                    LeoPluginSectionGroupRow(group: group) { action in
+                        surfaces.perform(action, gesture: mint.mint(.click), in: key)
+                    }
+                case .meter(_, let meter):
+                    LeoPluginSectionMeterRow(meter: meter)
                 }
             }
         }

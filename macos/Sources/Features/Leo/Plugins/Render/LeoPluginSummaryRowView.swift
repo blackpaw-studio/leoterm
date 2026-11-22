@@ -24,8 +24,9 @@ final class LeoPluginSummaryRowView: NSStackView {
             switch node {
             case .text(let text): addArrangedSubview(LeoPluginTextView(text: text))
             case .meter(let meter): addArrangedSubview(LeoPluginMeterView(meter: meter, style: .summary))
+            case .valueMeter(let meter): addArrangedSubview(LeoPluginValueMeterView(meter: meter, style: .summary))
             case .accessory(let accessory): addArrangedSubview(LeoPluginAccessoryView(accessory: accessory))
-            case .list, .detail, .form, .emptyState, .loading, .error: continue
+            case .list, .detail, .form, .emptyState, .loading, .error, .group: continue
             }
         }
     }

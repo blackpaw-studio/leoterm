@@ -135,6 +135,8 @@ final class LeoPluginNodeView: NSView {
         case (let v as LeoPluginEmptyStateView, .emptyState(let state)): v.update(state: state)
         case (let v as LeoPluginLoadingView, .loading(let loading)): v.update(loading: loading)
         case (let v as LeoPluginErrorView, .error(let error)): v.update(error: error)
+        case (let v as LeoPluginGroupView, .group(let group)): v.update(group: group)
+        case (let v as LeoPluginInsetView, .valueMeter(let meter)): (v.content as? LeoPluginValueMeterView)?.update(meter: meter)
         default: return false
         }
         return true
@@ -151,6 +153,8 @@ final class LeoPluginNodeView: NSView {
         case .emptyState(let state): LeoPluginEmptyStateView(state: state, emitter: emitter)
         case .loading(let loading): LeoPluginLoadingView(loading: loading)
         case .error(let error): LeoPluginErrorView(error: error, emitter: emitter)
+        case .group(let group): LeoPluginGroupView(group: group, emitter: emitter)
+        case .valueMeter(let meter): LeoPluginInsetView(LeoPluginValueMeterView(meter: meter, style: .regular))
         }
     }
 
@@ -164,4 +168,27 @@ final class LeoPluginNodeView: NSView {
             child.bottomAnchor.constraint(equalTo: parent.bottomAnchor),
         ])
     }
+}
+
+/// Sits a component in the body gutter (a lone value Meter lines up with the
+/// other components' edges) and keeps the inner view for in-place updates.
+final class LeoPluginInsetView: NSView {
+    let content: NSView
+
+    init(_ content: NSView, vertical: CGFloat = 4) {
+        self.content = content
+        super.init(frame: .zero)
+        content.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(content)
+        let gutter = LeoPluginRenderStyle.gutter
+        NSLayoutConstraint.activate([
+            content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: gutter),
+            content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -gutter),
+            content.topAnchor.constraint(equalTo: topAnchor, constant: vertical),
+            content.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -vertical),
+        ])
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
 }
