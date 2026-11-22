@@ -56,7 +56,6 @@ struct LeoPluginSectionGroupRow: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityHint(group.subtitle ?? "")
         .accessibilityActions {
             ForEach(entries, id: \.index) { entry in
                 Button(entry.title) { perform(entry.action) }
