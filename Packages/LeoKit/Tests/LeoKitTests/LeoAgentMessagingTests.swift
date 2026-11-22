@@ -54,4 +54,46 @@ struct LeoAgentMessagingTests {
         #expect(Self.zeusOnLaptop.displayName(among: all) == "zeus · Laptop")
         #expect(Self.hera.displayName(among: all) == "hera")
     }
+
+    // MARK: Unreachable machines
+
+    static let laptopDown = LeoAgentMachineRef(id: "d2", name: "Laptop")
+
+    @Test func aConfiguredAgentOnAFailedMachineIsStillSentToSoItFailsIntoRetry() {
+        let resolution = LeoAgentResolution.resolve(
+            configured: LeoPushTarget(daemonID: "d2", agent: "zeus"),
+            available: [Self.hera], machineCount: 2, unreachable: [Self.laptopDown]
+        )
+        #expect(resolution == .send(Self.zeusOnLaptop))
+    }
+
+    @Test func nothingAnsweringWhileAMachineFailedIsUnreachableNotAskWithNoOptions() {
+        let resolution = LeoAgentResolution.resolve(configured: nil, available: [], machineCount: 1, unreachable: [Self.laptopDown])
+        #expect(resolution == .unreachable(configured: nil, machine: "Laptop"))
+    }
+
+    @Test func aConfiguredAgentWhoseMachineAnsweredStaysUnavailableEvenIfAnotherMachineFailed() {
+        let resolution = LeoAgentResolution.resolve(
+            configured: LeoPushTarget(daemonID: "d1", agent: "ares"),
+            available: [Self.hera], machineCount: 2, unreachable: [Self.laptopDown]
+        )
+        #expect(resolution == .ask(options: [Self.hera], unavailable: "ares"))
+    }
+
+    @Test func aConfiguredAgentWithNoAnsweringMachineIsUnreachableAndKeepsTheTarget() {
+        let configured = LeoPushTarget(daemonID: "d1", agent: "ares")
+        let resolution = LeoAgentResolution.resolve(configured: configured, available: [], machineCount: 2, unreachable: [Self.laptopDown])
+        #expect(resolution == .unreachable(configured: configured, machine: "Laptop"))
+    }
+
+    @Test func aMessageToAnUnreachableConfiguredAgentKeepsItsTextForRetry() {
+        let configured = LeoPushTarget(daemonID: "d1", agent: "ares")
+        let payload = LeoAgentRetryPayload.forUnreachable(configured: configured, machine: "Laptop", text: "run it")
+        #expect(payload == LeoAgentRetryPayload(target: configured, machine: "Laptop", text: "run it"))
+    }
+
+    @Test func withNoAgentChosenThereIsNothingToRetryTo() {
+        #expect(LeoAgentRetryPayload.forUnreachable(configured: nil, machine: "Laptop", text: "run it") == nil)
+    }
 }
+

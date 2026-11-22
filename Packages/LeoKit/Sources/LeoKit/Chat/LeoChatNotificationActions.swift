@@ -85,6 +85,27 @@ public enum LeoChatNotificationActions {
 
     /// The category for a push, or nil for one that isn't about a chat
     /// message (a plain attention push keeps the default actions).
+    /// The notification for a message with no agent to retry to (nothing
+    /// answered and the request named none): the text is kept, and a tap
+    /// opens the app. No category, so no Retry.
+    public static func unsentContent(machine: String, text: String) -> LeoChatLocalNotification {
+        LeoChatLocalNotification(
+            title: String(localized: "Couldn't reach \(machine)"),
+            body: String(localized: "Your message wasn't sent: \(text)"),
+            categoryID: "", userInfo: [:], threadIdentifier: "leo.chat.unsent"
+        )
+    }
+
+    /// The notification for a message whose agent is gone (a retry can't
+    /// help): the text is kept so it can be sent elsewhere.
+    public static func agentMissingContent(agent: String, text: String) -> LeoChatLocalNotification {
+        LeoChatLocalNotification(
+            title: String(localized: "\(agent) isn't available"),
+            body: String(localized: "Your message wasn't sent: \(text)"),
+            categoryID: "", userInfo: [:], threadIdentifier: "leo.chat.unsent"
+        )
+    }
+
     public static func category(for alert: LeoPushAlert) -> LeoChatNotificationCategory? {
         guard let chat = alert.chat else { return nil }
         let isChatPush = alert.kind == LeoPushNotification.chatKind

@@ -6,6 +6,8 @@ public struct LeoAgentMachine: Sendable {
     public let name: String
     public let agents: @Sendable () async throws -> [String]
 
+    public var ref: LeoAgentMachineRef { LeoAgentMachineRef(id: id, name: name) }
+
     public init(id: String, name: String, agents: @escaping @Sendable () async throws -> [String]) {
         self.id = id
         self.name = name
@@ -18,10 +20,13 @@ public struct LeoAgentMachine: Sendable {
 public struct LeoAgentDirectory: Equatable, Sendable {
     public let machineCount: Int
     public let targets: [LeoAgentTarget]
+    /// Paired machines that failed or timed out when listing their agents.
+    public let unreachable: [LeoAgentMachineRef]
 
-    public init(machineCount: Int, targets: [LeoAgentTarget]) {
+    public init(machineCount: Int, targets: [LeoAgentTarget], unreachable: [LeoAgentMachineRef] = []) {
         self.machineCount = machineCount
         self.targets = targets
+        self.unreachable = unreachable
     }
 }
 
@@ -45,6 +50,12 @@ public struct LeoAgentRetryPayload: Equatable, Sendable {
         self.target = target
         self.machine = machine
         self.text = text
+    }
+
+    /// What to keep when no machine answered before a send: only a request
+    /// that named an agent has anywhere to retry to.
+    public static func forUnreachable(configured: LeoPushTarget?, machine: String, text: String) -> Self? {
+        configured.map { Self(target: $0, machine: machine, text: text) }
     }
 }
 
@@ -109,17 +120,23 @@ public struct LeoAgentMessageSender: Sendable {
 
     public func agents() async -> LeoAgentDirectory {
         let paired = (try? await machines()) ?? []
-        let listed = await withTaskGroup(of: [LeoAgentTarget].self) { group in
+        let listings = await withTaskGroup(of: (LeoAgentMachine, [LeoAgentTarget]?).self) { group in
             for machine in paired {
-                group.addTask { await agents(of: machine) }
+                group.addTask { (machine, await agents(of: machine)) }
             }
-            return await group.reduce(into: []) { $0 += $1 }
+            return await group.reduce(into: []) { $0.append($1) }
         }
-        return LeoAgentDirectory(machineCount: paired.count, targets: listed)
+        // Group order is completion order; keep the paired order.
+        let byID = Dictionary(listings.map { ($0.0.id, $0.1) }, uniquingKeysWith: { first, _ in first })
+        return LeoAgentDirectory(
+            machineCount: paired.count,
+            targets: paired.flatMap { byID[$0.id].flatMap { $0 } ?? [] },
+            unreachable: paired.filter { byID[$0.id].flatMap { $0 } == nil }.map(\.ref)
+        )
     }
 
-    /// One machine's agents, or none when it fails or misses its deadline.
-    private func agents(of machine: LeoAgentMachine) async -> [LeoAgentTarget] {
+    /// One machine's agents, or nil when it fails or misses its deadline.
+    private func agents(of machine: LeoAgentMachine) async -> [LeoAgentTarget]? {
         let names: [String]? = await withTaskGroup(of: [String]?.self) { group in
             group.addTask { try? await machine.agents() }
             group.addTask {
@@ -130,7 +147,7 @@ public struct LeoAgentMessageSender: Sendable {
             group.cancelAll()
             return first
         }
-        return (names ?? []).map { LeoAgentTarget(machineID: machine.id, machineName: machine.name, agent: $0) }
+        return names?.map { LeoAgentTarget(machineID: machine.id, machineName: machine.name, agent: $0) }
     }
 
     /// Maps what a send threw. A 2xx whose body won't decode counts as a

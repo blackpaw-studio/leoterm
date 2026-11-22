@@ -139,6 +139,21 @@ struct LeoChatNotificationTests {
         #expect(content.threadIdentifier == "d/zeus")
     }
 
+    @Test func anUnsentNotificationKeepsTheTextButOffersNoRetry() {
+        let content = Actions.unsentContent(machine: "Studio", text: "run the tests")
+        #expect(content.title == "Couldn't reach Studio")
+        #expect(content.body.contains("run the tests"))
+        #expect(content.categoryID.isEmpty)
+        #expect(content.userInfo.isEmpty)
+    }
+
+    @Test func anAgentThatIsGoneGetsANotificationWithTheText() {
+        let content = Actions.agentMissingContent(agent: "zeus", text: "run the tests")
+        #expect(content.title == "zeus isn't available")
+        #expect(content.body.contains("run the tests"))
+        #expect(content.categoryID.isEmpty)
+    }
+
     @Test func aRetryActionRoundTripsThePayload() {
         let userInfo: [AnyHashable: Any] = Actions.sendFailedContent(Self.payload).userInfo
         let response = Actions.response(actionIdentifier: Actions.retryActionID, userText: nil, userInfo: userInfo)

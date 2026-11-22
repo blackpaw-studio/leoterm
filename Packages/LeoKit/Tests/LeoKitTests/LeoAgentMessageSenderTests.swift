@@ -140,5 +140,6 @@ struct LeoAgentMessageSenderTests {
 
         #expect(directory.machineCount == 3)
         #expect(directory.targets == [LeoAgentTarget(machineID: "d1", machineName: "Studio", agent: "zeus")])
+        #expect(directory.unreachable == [LeoAgentMachineRef(id: "d2", name: "Broken"), LeoAgentMachineRef(id: "d3", name: "Slow")])
     }
 }
