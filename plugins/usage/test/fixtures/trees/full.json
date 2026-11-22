@@ -1,0 +1,288 @@
+[
+  {
+    "type": "Group",
+    "title": "claude-work",
+    "subtitle": "~/.claude-work · Updated just now",
+    "sfSymbol": "bubble.left.fill",
+    "children": [
+      {
+        "type": "Meter",
+        "label": "Session",
+        "value": 0.42,
+        "valueText": "42%",
+        "detail": "resets in 2h 14m",
+        "tone": "success"
+      },
+      {
+        "type": "Meter",
+        "label": "Weekly",
+        "value": 0.764,
+        "valueText": "76%",
+        "detail": "resets in 3d 4h",
+        "tone": "warning"
+      },
+      {
+        "type": "Meter",
+        "label": "Weekly Opus",
+        "value": 0.91,
+        "valueText": "91%",
+        "detail": "resets in 3d 4h",
+        "tone": "failure"
+      },
+      {
+        "type": "Meter",
+        "label": "Weekly Sonnet",
+        "value": 0.122,
+        "valueText": "12%",
+        "detail": "resets in 3d 4h",
+        "tone": "success"
+      }
+    ],
+    "actions": [
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "pushView",
+        "title": "Rename…",
+        "sfSymbol": "tag",
+        "node": {
+          "type": "Form",
+          "id": "rename",
+          "title": "Rename Account",
+          "fields": [
+            {
+              "id": "label",
+              "type": "text",
+              "label": "Name",
+              "value": "claude-work"
+            },
+            {
+              "id": "submit",
+              "type": "submit",
+              "label": "Rename",
+              "action": {
+                "type": "callback",
+                "id": "rename",
+                "payload": {
+                  "id": "c1"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "c1"
+        }
+      }
+    ]
+  },
+  {
+    "type": "Group",
+    "title": "claude-home",
+    "subtitle": "~/.claude · Updated just now",
+    "sfSymbol": "bubble.left.fill",
+    "children": [
+      {
+        "type": "Meter",
+        "label": "Session",
+        "value": 0.03,
+        "valueText": "3%",
+        "tone": "success"
+      }
+    ],
+    "actions": [
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "pushView",
+        "title": "Rename…",
+        "sfSymbol": "tag",
+        "node": {
+          "type": "Form",
+          "id": "rename",
+          "title": "Rename Account",
+          "fields": [
+            {
+              "id": "label",
+              "type": "text",
+              "label": "Name",
+              "value": "claude-home"
+            },
+            {
+              "id": "submit",
+              "type": "submit",
+              "label": "Rename",
+              "action": {
+                "type": "callback",
+                "id": "rename",
+                "payload": {
+                  "id": "c2"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "c2"
+        }
+      }
+    ]
+  },
+  {
+    "type": "Group",
+    "title": "claude-old",
+    "subtitle": "~/.claude-old · Signed out — run `claude` with this account to refresh",
+    "sfSymbol": "bubble.left.fill",
+    "accessory": {
+      "type": "Accessory",
+      "sfSymbol": "xmark.circle",
+      "text": "Expired",
+      "color": "failure"
+    },
+    "children": [],
+    "actions": [
+      {
+        "type": "copy",
+        "title": "Copy Sign-in Command",
+        "sfSymbol": "doc",
+        "text": "CLAUDE_CONFIG_DIR=~/.claude-old claude"
+      },
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "pushView",
+        "title": "Rename…",
+        "sfSymbol": "tag",
+        "node": {
+          "type": "Form",
+          "id": "rename",
+          "title": "Rename Account",
+          "fields": [
+            {
+              "id": "label",
+              "type": "text",
+              "label": "Name",
+              "value": "claude-old"
+            },
+            {
+              "id": "submit",
+              "type": "submit",
+              "label": "Rename",
+              "action": {
+                "type": "callback",
+                "id": "rename",
+                "payload": {
+                  "id": "c3"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "c3"
+        }
+      }
+    ]
+  },
+  {
+    "type": "Group",
+    "title": ".codex",
+    "subtitle": "~/.codex · Updated just now",
+    "sfSymbol": "terminal",
+    "children": [
+      {
+        "type": "Meter",
+        "label": "Session",
+        "value": 0.42,
+        "valueText": "42%",
+        "detail": "resets in 2h 14m",
+        "tone": "success"
+      },
+      {
+        "type": "Meter",
+        "label": "Weekly",
+        "value": 0.955,
+        "valueText": "96%",
+        "detail": "resets in 3d 13h",
+        "tone": "failure"
+      }
+    ],
+    "actions": [
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "pushView",
+        "title": "Rename…",
+        "sfSymbol": "tag",
+        "node": {
+          "type": "Form",
+          "id": "rename",
+          "title": "Rename Account",
+          "fields": [
+            {
+              "id": "label",
+              "type": "text",
+              "label": "Name",
+              "value": ".codex"
+            },
+            {
+              "id": "submit",
+              "type": "submit",
+              "label": "Rename",
+              "action": {
+                "type": "callback",
+                "id": "rename",
+                "payload": {
+                  "id": "x1"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "x1"
+        }
+      }
+    ]
+  }
+]

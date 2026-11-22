@@ -1,0 +1,176 @@
+[
+  {
+    "type": "Accessory",
+    "sfSymbol": "speedometer",
+    "text": "96%",
+    "color": "failure",
+    "help": "Highest usage across accounts: Weekly"
+  },
+  {
+    "type": "Group",
+    "title": "claude-work",
+    "sfSymbol": "bubble.left.fill",
+    "children": [
+      {
+        "type": "Meter",
+        "label": "Weekly Opus",
+        "value": 0.91,
+        "valueText": "91%",
+        "detail": "resets in 3d 4h",
+        "tone": "failure"
+      }
+    ],
+    "actions": [
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Claude Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "claude-code"
+        }
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Codex Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "codex"
+        }
+      }
+    ]
+  },
+  {
+    "type": "Group",
+    "title": "claude-home",
+    "sfSymbol": "bubble.left.fill",
+    "children": [
+      {
+        "type": "Meter",
+        "label": "Session",
+        "value": 0.03,
+        "valueText": "3%",
+        "tone": "success"
+      }
+    ],
+    "actions": [
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Claude Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "claude-code"
+        }
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Codex Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "codex"
+        }
+      }
+    ]
+  },
+  {
+    "type": "Group",
+    "title": "claude-old",
+    "subtitle": "Signed out — run `claude` with this account to refresh",
+    "sfSymbol": "bubble.left.fill",
+    "accessory": {
+      "type": "Accessory",
+      "sfSymbol": "xmark.circle",
+      "text": "Expired",
+      "color": "failure"
+    },
+    "children": [],
+    "actions": [
+      {
+        "type": "copy",
+        "title": "Copy Sign-in Command",
+        "sfSymbol": "doc",
+        "text": "CLAUDE_CONFIG_DIR=~/.claude-old claude"
+      },
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Claude Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "claude-code"
+        }
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Codex Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "codex"
+        }
+      }
+    ]
+  },
+  {
+    "type": "Group",
+    "title": ".codex",
+    "sfSymbol": "terminal",
+    "children": [
+      {
+        "type": "Meter",
+        "label": "Weekly",
+        "value": 0.955,
+        "valueText": "96%",
+        "detail": "resets in 3d 13h",
+        "tone": "failure"
+      }
+    ],
+    "actions": [
+      {
+        "type": "callback",
+        "id": "refresh",
+        "title": "Refresh",
+        "sfSymbol": "arrow.clockwise"
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Claude Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "claude-code"
+        }
+      },
+      {
+        "type": "callback",
+        "id": "add",
+        "title": "Add Codex Account…",
+        "sfSymbol": "plus.circle",
+        "payload": {
+          "kind": "codex"
+        }
+      }
+    ]
+  }
+]
