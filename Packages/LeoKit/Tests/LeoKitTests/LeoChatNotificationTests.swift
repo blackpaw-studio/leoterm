@@ -110,8 +110,57 @@ struct LeoChatNotificationTests {
         #expect(Actions.category(for: alert)?.identifier == Actions.askOpenCategoryID)
     }
 
-    @Test func theStaticCategoriesAreChatPermissionAndOpenAsk() {
-        #expect(Actions.staticCategories.map(\.identifier) == [Actions.chatCategoryID, Actions.permissionCategoryID, Actions.askOpenCategoryID])
+    @Test func theStaticCategoriesAreChatPermissionOpenAskAndSendFailed() {
+        #expect(Actions.staticCategories.map(\.identifier) == [
+            Actions.chatCategoryID, Actions.permissionCategoryID, Actions.askOpenCategoryID, Actions.sendFailedCategoryID,
+        ])
+    }
+
+    @Test func theSendFailedCategoryOffersOnlyRetry() throws {
+        let category = try #require(Actions.staticCategories.first { $0.identifier == Actions.sendFailedCategoryID })
+        #expect(category.actions == [.button(id: Actions.retryActionID, title: "Retry", isDestructive: false)])
+    }
+
+    @Test func existingCategoriesAreUnchanged() {
+        let byID = Dictionary(uniqueKeysWithValues: Actions.staticCategories.map { ($0.identifier, $0.actions) })
+        #expect(byID[Actions.chatCategoryID]?.map(\.id) == [Actions.replyActionID])
+        #expect(byID[Actions.permissionCategoryID]?.map(\.id) == [Actions.answerPrefix + "allow", Actions.answerPrefix + "deny"])
+        #expect(byID[Actions.askOpenCategoryID]?.isEmpty == true)
+    }
+
+    static let payload = LeoAgentRetryPayload(target: LeoPushTarget(daemonID: "d", agent: "zeus"), machine: "Studio", text: "run the tests")
+
+    @Test func aSendFailedNotificationNamesTheMachineAndCarriesTheText() {
+        let content = Actions.sendFailedContent(Self.payload)
+        #expect(content.categoryID == Actions.sendFailedCategoryID)
+        #expect(content.title == "Couldn't reach Studio")
+        #expect(content.body.contains("run the tests"))
+        #expect(content.body.contains("zeus"))
+        #expect(content.threadIdentifier == "d/zeus")
+    }
+
+    @Test func aRetryActionRoundTripsThePayload() {
+        let userInfo: [AnyHashable: Any] = Actions.sendFailedContent(Self.payload).userInfo
+        let response = Actions.response(actionIdentifier: Actions.retryActionID, userText: nil, userInfo: userInfo)
+        #expect(response == .retry(Self.payload.target, text: "run the tests"))
+        #expect(Actions.opensThread(actionIdentifier: Actions.retryActionID, userInfo: userInfo) == false)
+    }
+
+    @Test func aRetryKeepsTheTextVerbatim() {
+        let payload = LeoAgentRetryPayload(target: Self.payload.target, machine: "Studio", text: "  two\nlines  ")
+        let userInfo: [AnyHashable: Any] = Actions.sendFailedContent(payload).userInfo
+        #expect(Actions.response(actionIdentifier: Actions.retryActionID, userText: nil, userInfo: userInfo) == .retry(payload.target, text: "  two\nlines  "))
+    }
+
+    @Test(arguments: [nil, "", "   \n"] as [String?])
+    func aRetryWithoutTextIsIgnored(text: String?) {
+        var userInfo: [AnyHashable: Any] = ["daemon_id": "d", "agent": "zeus"]
+        if let text { userInfo[LeoPushNotification.retryTextKey] = text }
+        #expect(Actions.response(actionIdentifier: Actions.retryActionID, userText: nil, userInfo: userInfo) == nil)
+    }
+
+    @Test func aRetryWithoutATargetIsIgnored() {
+        #expect(Actions.response(actionIdentifier: Actions.retryActionID, userText: nil, userInfo: [LeoPushNotification.retryTextKey: "hi"]) == nil)
     }
 
     @Test func aReplyActionBecomesAReplyToTheMessage() throws {
