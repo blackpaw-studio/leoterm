@@ -86,8 +86,9 @@ public struct LeoPluginPermissionDiff: Equatable, Sendable {
     public let addedHosts: [String]
     public let secretsEnabled: Bool
     public let addedAgentVerbs: [LeoPluginAgentVerb]
+    public let addedCredentials: [LeoPluginCredentialKind]
 
-    public var isEmpty: Bool { addedHosts.isEmpty && !secretsEnabled && addedAgentVerbs.isEmpty }
+    public var isEmpty: Bool { addedHosts.isEmpty && !secretsEnabled && addedAgentVerbs.isEmpty && addedCredentials.isEmpty }
 
     public init(old: LeoPluginPermissions, new: LeoPluginPermissions) {
         let oldPatterns = old.network.compactMap { try? LeoPluginHostPattern.parse($0) }
@@ -104,5 +105,6 @@ public struct LeoPluginPermissionDiff: Equatable, Sendable {
         }
         secretsEnabled = new.secrets && !old.secrets
         addedAgentVerbs = LeoPluginAgentVerb.allCases.filter { new.agents.contains($0) && !old.agents.contains($0) }
+        addedCredentials = LeoPluginCredentialKind.allCases.filter { new.credentials.contains($0) && !old.credentials.contains($0) }
     }
 }

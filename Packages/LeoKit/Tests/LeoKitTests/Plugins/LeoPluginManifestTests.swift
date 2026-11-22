@@ -170,12 +170,12 @@ struct LeoPluginManifestTests {
 
     @Test func aFutureAPIVersionWinsOverSchemaErrorsItMayLegitimatelyHave() {
         let object = Self.mutated {
-            $0["apiVersion"] = 2
+            $0["apiVersion"] = LeoPluginAPI.supported + 1
             $0["somethingFromTheFuture"] = true
             $0["permissions"] = ["telepathy": true]
         }
         let reason = Self.refusal(object)
-        #expect(reason.contains("API version 2"))
+        #expect(reason.contains("API version \(LeoPluginAPI.supported + 1)"))
     }
 
     // MARK: - Strictness
