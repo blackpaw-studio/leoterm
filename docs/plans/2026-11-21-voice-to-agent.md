@@ -147,6 +147,14 @@ Verify (`heavy`, in the background): build the Mac app per `AGENTS.md`, then `cd
 1. **Picker snapshot built unconditionally** (no spike to tell us which process runs the query). The app writes a non-secret `agent-directory.json` (machine id and name plus agent names) to the app-group container on agent refresh, and the extension reads it. It holds no secrets, the app can always rewrite it, and it stays inside the spec's "the Control holds no secrets" rule.
 2. **Mac failure Retry: in scope** (Evan, 2026-11-21). The spec's §5 applies to both platforms, so the Mac registers the same `leo.chat.send-failed` category from LeoKit and handles Retry through the sender.
 3. **Localization:** LeoKit returns outcome cases, and each app formats them with `String(localized:)`.
+4. **Implementation deviations (2026-11-21, no device spike):**
+   - `LeoAgentSendResult` is an enum whose cases carry the target and the text, so `outcome` and `retryPayload` are computed from it. `LeoAgentMessageSender` also takes an injected per-machine `deadline` (default 3 s) so tests need no wall-clock wait.
+   - `LeoAgentDirectorySnapshotStore` (LeoKit) writes `agent-directory.json` to the app group; `AppFeature` saves it on every `.fleet` action, and the store skips an unchanged or empty list. The picker query always reads it (Decision 1); `perform` resolves against the live directory.
+   - iOS sends through `LeoChatHTTPClient` built on `LeoHTTPSTransport` directly (the sender needs a `LeoChatClient`, which `ChatClient` doesn't expose), and `AgentMessagingClient` registers with `AppDependencyManager` in `AppDelegate`.
+   - On iOS `message` is `String?` and the intent asks for it in `perform` ("What should I tell <agent>?"), because a required parameter can't name another parameter in its prompt. The Mac prompt is the static "What should I tell the agent?".
+   - `.noMachines` on iOS uses `continueInForeground` (`ForegroundContinuableIntent`, app-only: the `LeoControls` target defines `LEO_CONTROLS_EXTENSION` to skip it).
+   - A retry for an unpaired daemon or a missing credential uses `actionFailed`, not `sendFailed`, so Retry can't loop on something a retry can't fix. A 2xx whose body won't decode counts as unreachable (a duplicate on retry beats a dropped message).
+   - iOS builds use Xcode 26.5 (it has the Metal toolchain and an iOS platform); Xcode 26.3 has no iOS platform and Xcode 27 has no Metal toolchain.
 
 ## Risks
 
