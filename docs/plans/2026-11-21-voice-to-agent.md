@@ -11,7 +11,15 @@ Spec: `docs/specs/2026-11-21-voice-to-agent.md` (the spec wins any conflict). Pl
 - The Mac registers no notification categories and has no `AppShortcutsProvider` (Ghostty's intents are in `macos/Sources/Features/App Intents/`). Mac agents and chat come from `LeoMachineDaemon.chat` per `LeoHostID` (`LeoRuntime+Machines.swift`).
 - CI runs `swift test` for LeoKit and LeoFeatures, plus app tests with `xcodebuild`.
 
-## Step 1: Device spike (gate; nothing below merges until it passes)
+## Step 1: Device spike — SKIPPED (Evan, 2026-11-21: "skip the phone test, make assumptions")
+
+Assumptions the build proceeds on (each is verified at the Step 9 device checklist instead):
+- **R1:** the direct POST completes in the background within the intent budget. No `.queued` path.
+- **R2:** the Control runs the shared intent in the **Leo** app process, and the app UI doesn't open. Intent and entity files are compiled into both targets. If the picker query runs in the extension, the agent-directory snapshot (Decision 1) is built anyway, so the picker works in either process.
+- **R3:** the Keychain is readable after first unlock. Before first unlock, the read fails and the failure path runs.
+- No device build is made now. `LeoControls` builds for the simulator only. Release signing is deferred until Evan approves provisioning.
+
+The original spike design follows for reference, should an assumption fail.
 
 A throwaway branch `spike/voice-intents` (never merged) adds:
 - a hardcoded `SpikeSend` intent in the `Leo` target (fixed agent and text, POST through the existing `ChatClient.liveValue`);
@@ -136,8 +144,8 @@ Verify (`heavy`, in the background): build the Mac app per `AGENTS.md`, then `cd
 
 ## Decisions (orchestrator, 2026-11-21)
 
-1. **Picker snapshot fallback approved.** If R2 shows the picker query running in the extension, the app writes a non-secret `agent-directory.json` (machine id and name plus agent names) to the app-group container on agent refresh, and the extension reads it. It holds no secrets, the app can always rewrite it, and it stays inside the spec's "the Control holds no secrets" rule.
-2. **Mac failure Retry:** pending Evan's answer. Default if he doesn't answer: in scope. The spec's §5 applies to both platforms, so the Mac registers the same `leo.chat.send-failed` category from LeoKit and handles Retry through the sender.
+1. **Picker snapshot built unconditionally** (no spike to tell us which process runs the query). The app writes a non-secret `agent-directory.json` (machine id and name plus agent names) to the app-group container on agent refresh, and the extension reads it. It holds no secrets, the app can always rewrite it, and it stays inside the spec's "the Control holds no secrets" rule.
+2. **Mac failure Retry: in scope** (Evan, 2026-11-21). The spec's §5 applies to both platforms, so the Mac registers the same `leo.chat.send-failed` category from LeoKit and handles Retry through the sender.
 3. **Localization:** LeoKit returns outcome cases, and each app formats them with `String(localized:)`.
 
 ## Risks
