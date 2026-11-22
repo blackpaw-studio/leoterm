@@ -25,7 +25,8 @@ struct AgentMessagingClientTests {
     private static func client(
         daemons: [PairedDaemon] = [.dionysus], hasSecrets: Bool = true, status: Int? = 200,
         agents: @escaping @Sendable (DaemonConnection) async throws -> [String] = { _ in ["zeus", "hera"] },
-        failures: LockIsolated<[LeoAgentRetryPayload]> = LockIsolated([])
+        failures: LockIsolated<[LeoAgentRetryPayload]> = LockIsolated([]),
+        unsent: LockIsolated<[String]> = LockIsolated([])
     ) -> (client: AgentMessagingClient, transport: FakeTransport) {
         let transport = FakeTransport(status: status)
         var secrets = SecretsClient()
@@ -34,7 +35,8 @@ struct AgentMessagingClientTests {
         pairedDaemons.load = { daemons }
         let client = AgentMessagingClient.live(
             pairedDaemons: pairedDaemons, secrets: secrets, agentNames: agents, transport: { _ in transport },
-            notifyFailure: { payload in failures.withValue { $0.append(payload) } }
+            notifyFailure: { payload in failures.withValue { $0.append(payload) } },
+            notifyUnsent: { machine, text in unsent.withValue { $0.append("\(machine): \(text)") } }
         )
         return (client, transport)
     }
@@ -50,6 +52,7 @@ struct AgentMessagingClientTests {
         #expect(directory.machineCount == 2)
         #expect(directory.targets.map(\.agent) == ["zeus", "hera"])
         #expect(Set(directory.targets.map(\.machineName)) == ["dionysus"])
+        #expect(directory.unreachable == [LeoAgentMachineRef(id: PairedDaemon.hestia.id, name: "hestia")])
     }
 
     @Test func aSendPostsTheTextAndNotifiesNothing() async throws {
@@ -82,5 +85,24 @@ struct AgentMessagingClientTests {
         let (client, _) = Self.client(status: 404, failures: failures)
         #expect(await client.send(Self.studio, "hi") == .agentMissing(Self.studio))
         #expect(failures.value.isEmpty)
+    }
+
+    @Test func nothingAnsweringForAConfiguredAgentKeepsTheTextForRetry() async {
+        let failures = LockIsolated<[LeoAgentRetryPayload]>([])
+        let (client, _) = Self.client(failures: failures)
+        let target = Self.studio.pushTarget
+        let outcome = await client.reportUnreachable(target, "hestia", "run the tests")
+        #expect(outcome == .unreachable(machine: "hestia"))
+        #expect(failures.value == [LeoAgentRetryPayload(target: target, machine: "hestia", text: "run the tests")])
+    }
+
+    @Test func nothingAnsweringWithNoAgentChosenStillKeepsTheText() async {
+        let failures = LockIsolated<[LeoAgentRetryPayload]>([])
+        let unsent = LockIsolated<[String]>([])
+        let (client, _) = Self.client(failures: failures, unsent: unsent)
+        let outcome = await client.reportUnreachable(nil, "hestia", "run the tests")
+        #expect(outcome == .unreachable(machine: "hestia"))
+        #expect(failures.value.isEmpty)
+        #expect(unsent.value == ["hestia: run the tests"])
     }
 }

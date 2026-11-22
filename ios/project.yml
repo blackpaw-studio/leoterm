@@ -96,8 +96,9 @@ targets:
           CODE_SIGN_IDENTITY: Apple Distribution
           PROVISIONING_PROFILE_SPECIFIER: match AppStore studio.blackpaw.leo.ios.notification-service
   # The Action button / Control Center / Lock Screen Control (voice to agent).
-  # It shares the intent and entity files with the app and holds no secrets:
-  # the intent runs in Leo, and the picker reads the app group's snapshot.
+  # It shares the entity and Control intent files with the app and holds no
+  # secrets: the Control's intent opens Leo (openAppWhenRun), which sends, and
+  # the picker reads the app group's snapshot.
   # TODO(signing): Release uses the match profile below, which doesn't exist
   # yet. Create it (fastlane match, App Store Connect identifier) once Evan
   # approves provisioning; until then only simulator builds are verified.
@@ -108,7 +109,8 @@ targets:
     sources:
       - path: LeoControls
       - path: Leo/Intents/AgentEntity.swift
-      - path: Leo/Intents/SendMessageToAgent.swift
+      - path: Leo/Intents/ControlSendMessageToAgent.swift
+      - path: Leo/Intents/IntentLog.swift
     dependencies:
       - package: LeoFeatures
         product: LeoFeatures
@@ -123,7 +125,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: LeoControls/LeoControls.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         APPLICATION_EXTENSION_API_ONLY: YES
-        # The shared intent skips app-only API (ForegroundContinuableIntent).
+        # ControlSendMessageToAgent is a stub in the extension (it sends from the app).
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) LEO_CONTROLS_EXTENSION"
       configs:
         Release:

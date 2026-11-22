@@ -138,6 +138,9 @@ public struct ChatNotifierClient: Sendable {
     /// A message that didn't send (a retry, or one told by voice): a local
     /// notification that keeps the text and offers Retry.
     public var sendFailed: @Sendable (_ payload: LeoAgentRetryPayload) async -> Void
+    /// A message nothing could take (no agent to retry to): a notification
+    /// that keeps the text.
+    public var unsent: @Sendable (_ machine: String, _ text: String) async -> Void
 }
 
 extension ChatNotifierClient: TestDependencyKey {

@@ -3,9 +3,10 @@ import LeoFeatures
 import LeoKit
 
 /// "Tell an agent": sends one message to a Leo agent without opening the
-/// app. The reply arrives as the normal chat push. Shared by the app and
-/// the Controls extension; `perform` is expected to run in the app, which
-/// registers `AgentMessagingClient` with `AppDependencyManager`.
+/// app. The reply arrives as the normal chat push. App only: Siri and
+/// Shortcuts run it in the Leo process, which registers
+/// `AgentMessagingClient` with `AppDependencyManager`. A Control runs
+/// `ControlSendMessageToAgent`, which hands off to this in the app.
 struct SendMessageToAgent: AppIntent {
     static let title: LocalizedStringResource = "Tell an Agent"
     static let description = IntentDescription("Sends a message to a Leo agent. The reply arrives as a notification.")
@@ -32,25 +33,34 @@ struct SendMessageToAgent: AppIntent {
     }
 
     func perform() async throws -> some IntentResult & ProvidesDialog {
+        IntentLog.performed("SendMessageToAgent")
         let directory = await messaging.agents()
         let resolution = LeoAgentResolution.resolve(
-            configured: agent?.target.pushTarget, available: directory.targets, machineCount: directory.machineCount
+            configured: agent?.target.pushTarget, available: directory.targets, machineCount: directory.machineCount,
+            unreachable: directory.unreachable
         )
         let target: LeoAgentTarget
         switch resolution {
         case .noMachines:
-            #if !LEO_CONTROLS_EXTENSION
-            // Opens Leo (after Siri says it; the
-            // extension can't, and never runs `perform` anyway.
+            // Opens Leo after Siri says it.
             try await continueInForeground(IntentDialog("Pair a machine in Leo first."), alwaysConfirm: false)
-            #endif
             return .result(dialog: "Pair a machine in Leo first.")
         case .send(let found):
             target = found
+        case .unreachable(let configured, let machine):
+            // Nothing answered, so there is no one to ask about: keep the text.
+            let text = try await resolvedMessage(named: configured?.agent)
+            let outcome = await messaging.reportUnreachable(configured, machine, text)
+            return .result(dialog: IntentDialog(stringLiteral: Self.dialog(for: outcome)))
         case .ask(let options, let unavailable):
+            // Never ask Siri to choose from nothing.
+            guard !options.isEmpty else {
+                let reply = unavailable.map { String(localized: "\($0) isn't available.") } ?? String(localized: "There are no agents to tell.")
+                return .result(dialog: IntentDialog(stringLiteral: reply))
+            }
             target = try await chooseAgent(among: options, unavailable: unavailable)
         }
-        let text = try await resolvedMessage(for: target, among: directory.targets)
+        let text = try await resolvedMessage(named: target.displayName(among: directory.targets))
         let result = await messaging.send(target, text)
         return .result(dialog: IntentDialog(stringLiteral: Self.dialog(for: result.outcome)))
     }
@@ -62,9 +72,9 @@ struct SendMessageToAgent: AppIntent {
         return picked.target
     }
 
-    private func resolvedMessage(for target: LeoAgentTarget, among all: [LeoAgentTarget]) async throws -> String {
+    private func resolvedMessage(named name: String?) async throws -> String {
         if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return message }
-        let name = target.displayName(among: all)
+        let name = name ?? String(localized: "the agent")
         return try await $message.requestValue(IntentDialog(stringLiteral: String(localized: "What should I tell \(name)?")))
     }
 
@@ -78,7 +88,4 @@ struct SendMessageToAgent: AppIntent {
     }
 }
 
-#if !LEO_CONTROLS_EXTENSION
-// `ForegroundContinuableIntent` isn't available in app extensions.
 extension SendMessageToAgent: ForegroundContinuableIntent {}
-#endif

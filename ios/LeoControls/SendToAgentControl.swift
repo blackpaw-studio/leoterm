@@ -13,13 +13,13 @@ struct SendToAgentConfiguration: ControlConfigurationIntent {
 
 /// A Control for the Action button, Control Center or the Lock Screen:
 /// press, speak, and the message goes to the agent. It holds no secrets;
-/// the intent runs in the Leo app.
+/// its intent opens Leo, which sends.
 struct SendToAgentControl: ControlWidget {
     static let kind = "studio.blackpaw.leo.ios.controls.send-to-agent"
 
     var body: some ControlWidgetConfiguration {
         AppIntentControlConfiguration(kind: Self.kind, provider: Provider()) { agent in
-            ControlWidgetButton(action: SendMessageToAgent(agent: agent)) {
+            ControlWidgetButton(action: ControlSendMessageToAgent(agent: agent)) {
                 Label(agent?.name ?? String(localized: "Tell an Agent"), systemImage: "waveform")
             }
         }

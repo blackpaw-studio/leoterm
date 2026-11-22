@@ -10,6 +10,7 @@
 		0210459E723B77A4A4B9AEB3 /* LeoBrowserE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE21802254FED46D02F52BF /* LeoBrowserE2ETests.swift */; };
 		037D5C755DBFEA2A75DD4ECD /* ChatMarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = B021B3688B030A313B3A9ED2 /* ChatMarkdownText.swift */; };
 		055CD8F81C9A8FB17787D897 /* AgentEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53519A5973436AC023C802CA /* AgentEntity.swift */; };
+		05ACF0F75DB9570785530480 /* IntentLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204C0BFDE770CB9C70074FBE /* IntentLog.swift */; };
 		062B6C7C320ACE50A93CBE91 /* ProgressFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAF1F1D0EFF386B66C8BE13 /* ProgressFixture.swift */; };
 		0712673420101122689B3124 /* DelegationCells.swift in Sources */ = {isa = PBXBuildFile; fileRef = B456BB9CE2DFD38176C9881F /* DelegationCells.swift */; };
 		0A738BC4B723F8A148040CE9 /* ChatMessageCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */; };
@@ -25,6 +26,8 @@
 		26549DC683D6DEBDC7230A82 /* DelegationSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 428B4F3ACCE4F688C46B58BE /* DelegationSheets.swift */; };
 		26FA2A85749C017121FEA4A5 /* RootTabBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 517F37819D8EF92B650935BF /* RootTabBarController.swift */; };
 		2753B4A7B4AC3C2FE126635B /* PairingViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A28DF61BF22507AC7C45D4DB /* PairingViewController.swift */; };
+		2A5A19389107C7D1EBEA08D7 /* IntentLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204C0BFDE770CB9C70074FBE /* IntentLog.swift */; };
+		2B48E8BAE104F4FBA4BA7F48 /* ControlSendMessageToAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61273F681D28C4CA1BD8C798 /* ControlSendMessageToAgent.swift */; };
 		2BC71F157DD346713AA024CB /* SchemaFormTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AF76CE70071EA3957056747 /* SchemaFormTestSupport.swift */; };
 		2D60FE7D22C9936220A0192E /* LeoShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67AD72D63E63F6782B3546FA /* LeoShortcuts.swift */; };
 		2F613DE6FE36BEADFC273BAE /* Ghostty.icon in Resources */ = {isa = PBXBuildFile; fileRef = AEAD0E0F3907256BB0BB8DAD /* Ghostty.icon */; };
@@ -49,7 +52,6 @@
 		4A17426C8214D9DDEFD25D26 /* ConfigItemViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */; };
 		4A70B7218DD15E34171BB0B2 /* TaskScreensTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 866078F14A6A67D5765EDD0A /* TaskScreensTests.swift */; };
 		4F2A4BB3AA8CBE3BA1F79B5F /* AgentsSplitViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */; };
-		4FEFBC9B9EA66B7984874041 /* SendMessageToAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B495B6B5CD63A0F68223648E /* SendMessageToAgent.swift */; };
 		507B10B4B682437690E21414 /* ChatImagePageController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FCCE0C2472AD422980F10BB /* ChatImagePageController.swift */; };
 		52267BE6F859097A09775A73 /* LeoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 02FB66C3DAF86096FDC01F27 /* LeoKit */; };
 		52AF27E75BC9A3FA5D427A81 /* LeoAppearanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */; };
@@ -149,6 +151,7 @@
 		EF4A0166AFD67220A7139538 /* AgentPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7C2D8B8F6720988CD4D2F35 /* AgentPresentationTests.swift */; };
 		EFCBE9EFD21DF679F0B34923 /* LeoIOSBrowserPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85312DEFDA5F0131BB647E0E /* LeoIOSBrowserPage.swift */; };
 		F0277EE768ABDF3A4910CCB3 /* AgentsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FE39999ECDA1982AB15718A /* AgentsViewController.swift */; };
+		F0B815629FCB55A000635CFD /* ControlSendMessageToAgent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61273F681D28C4CA1BD8C798 /* ControlSendMessageToAgent.swift */; };
 		F2400C8130A073B9E7620FB1 /* ChatMarkdownBlockViewsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 498192286970F873CFB3CE09 /* ChatMarkdownBlockViewsTests.swift */; };
 		F5E3C42B16983822B7EE13C1 /* AgentContextMenuTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1EA4EF66046A17E93D84449 /* AgentContextMenuTests.swift */; };
 		F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */; };
@@ -220,6 +223,7 @@
 		1ED2AE8BC18ACE49BA9863AC /* ChatQuestionsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatQuestionsFixture.swift; sourceTree = "<group>"; };
 		1F5519992F268DDD43A627F5 /* TaskPanelViewTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPanelViewTests.swift; sourceTree = "<group>"; };
 		20051536EA35480E82295F58 /* TaskPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskPanelView.swift; sourceTree = "<group>"; };
+		204C0BFDE770CB9C70074FBE /* IntentLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IntentLog.swift; sourceTree = "<group>"; };
 		20730F7D4E88EEB6CDC9DF47 /* ConfigItemViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigItemViewController.swift; sourceTree = "<group>"; };
 		22A905AA871540E60BA88896 /* ConfigEditorNavigationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigEditorNavigationTests.swift; sourceTree = "<group>"; };
 		238A0EF95E58F7CF1A40AB89 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -261,6 +265,7 @@
 		5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatMessageCell.swift; sourceTree = "<group>"; };
 		5F5580795BABB23ADE51EB7D /* TerminalStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalStripView.swift; sourceTree = "<group>"; };
 		5FCCE0C2472AD422980F10BB /* ChatImagePageController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatImagePageController.swift; sourceTree = "<group>"; };
+		61273F681D28C4CA1BD8C798 /* ControlSendMessageToAgent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControlSendMessageToAgent.swift; sourceTree = "<group>"; };
 		650EBAD07E75A2D3EA0F60F3 /* MeterAppearance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeterAppearance.swift; sourceTree = "<group>"; };
 		67AD72D63E63F6782B3546FA /* LeoShortcuts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoShortcuts.swift; sourceTree = "<group>"; };
 		6B48EC9D98C80D8F978F2F0A /* LeoTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = LeoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -752,6 +757,8 @@
 			isa = PBXGroup;
 			children = (
 				53519A5973436AC023C802CA /* AgentEntity.swift */,
+				61273F681D28C4CA1BD8C798 /* ControlSendMessageToAgent.swift */,
+				204C0BFDE770CB9C70074FBE /* IntentLog.swift */,
 				67AD72D63E63F6782B3546FA /* LeoShortcuts.swift */,
 				B495B6B5CD63A0F68223648E /* SendMessageToAgent.swift */,
 			);
@@ -1042,7 +1049,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				055CD8F81C9A8FB17787D897 /* AgentEntity.swift in Sources */,
-				4FEFBC9B9EA66B7984874041 /* SendMessageToAgent.swift in Sources */,
+				F0B815629FCB55A000635CFD /* ControlSendMessageToAgent.swift in Sources */,
+				2A5A19389107C7D1EBEA08D7 /* IntentLog.swift in Sources */,
 				542C6967534964D308BE99F7 /* SendToAgentControl.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1095,6 +1103,7 @@
 				C3CBC2AC2DB9E7C18DE162EF /* ConfigCollectionViewController.swift in Sources */,
 				4A17426C8214D9DDEFD25D26 /* ConfigItemViewController.swift in Sources */,
 				302D68B25DDC1EDE4E7B0D2D /* ConfigSingletonViewController.swift in Sources */,
+				2B48E8BAE104F4FBA4BA7F48 /* ControlSendMessageToAgent.swift in Sources */,
 				80559A0BD2BAE4877B6A5995 /* DaemonViewController.swift in Sources */,
 				853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */,
 				0712673420101122689B3124 /* DelegationCells.swift in Sources */,
@@ -1104,6 +1113,7 @@
 				856177A341DE4C84ED12AE35 /* DelegationViewController.swift in Sources */,
 				33854805D6C53EA0522D4F98 /* DetailLineFit.swift in Sources */,
 				F87675DB161359B673F1856D /* DialogAnchors.swift in Sources */,
+				05ACF0F75DB9570785530480 /* IntentLog.swift in Sources */,
 				5DA21AA250E27BBAF2F4B3A7 /* KeyValueRows.swift in Sources */,
 				198BEC9A8AC490B51AE10289 /* LaunchPolicy.swift in Sources */,
 				0E92577B6EF55D8B16B82942 /* LeoAppearancePalette+UIKit.swift in Sources */,
