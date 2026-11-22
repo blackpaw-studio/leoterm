@@ -1,0 +1,104 @@
+import { describe, expect, it } from "vitest";
+import { fullRoot, sidebarRoot } from "../src/views";
+import type { Account } from "../src/poller";
+import type { GroupNode, MeterNode } from "../src/api";
+import type { Accessory } from "../../sdk/leo";
+
+const NOW = Date.UTC(2026, 0, 1, 12, 0, 0);
+const session = { key: "session", label: "Session", percent: 42, resetsAtMs: NOW + (2 * 60 + 14) * 60_000 } as const;
+const weekly = { key: "weekly", label: "Weekly", percent: 91, resetsAtMs: NOW + 3 * 24 * 3_600_000 } as const;
+
+const account = (over: Partial<Omit<Account, "state">> & { state?: Partial<Account["state"]> } = {}): Account => ({
+  handle: { id: "a1", kind: "claude-code", label: "claude-work", path: "~/.claude-work" },
+  label: "claude-work",
+  ...over,
+  state: { status: "ok", windows: [session, weekly], updatedAtMs: NOW - 3 * 60_000, ...over.state },
+});
+
+const groups = (root: unknown): GroupNode[] => (Array.isArray(root) ? root : [root]).filter((n): n is GroupNode => n.type === "Group");
+const meters = (g: GroupNode): MeterNode[] => g.children.filter((c): c is MeterNode => c.type === "Meter");
+
+describe("sidebarRoot", () => {
+  it("shows an empty state with both add actions when there are no accounts", () => {
+    const root = sidebarRoot([], NOW);
+    expect(root).toMatchObject({ type: "EmptyState" });
+    expect(JSON.stringify(root)).toContain("add");
+  });
+
+  it("shows only the highest window per account as a toned Meter", () => {
+    const [g] = groups(sidebarRoot([account()], NOW));
+    expect(g.title).toBe("claude-work");
+    expect(meters(g)).toEqual([
+      { type: "Meter", label: "Weekly", value: 0.91, valueText: "91%", detail: "resets in 3d", tone: "failure" },
+    ]);
+  });
+
+  it("leads with a header accessory for the worst meter across accounts", () => {
+    const root = sidebarRoot([account(), account({ handle: { id: "b", kind: "codex", label: "codex", path: "~/.codex" }, state: { windows: [session] } })], NOW);
+    const first = (root as unknown[])[0] as Accessory;
+    expect(first).toMatchObject({ type: "Accessory", text: "91%", color: "failure" });
+  });
+
+  it("omits the header accessory when no account has data", () => {
+    const root = sidebarRoot([account({ state: { status: "loading", windows: [] } })], NOW) as unknown[];
+    expect((root[0] as { type: string }).type).toBe("Group");
+  });
+
+  it("marks a stale account and explains the old values", () => {
+    const [g] = groups(sidebarRoot([account({ state: { status: "stale", message: "HTTP 500" } })], NOW));
+    expect(g.accessory).toMatchObject({ text: "Stale", color: "warning" });
+    expect(meters(g)[0].detail).toBe("Couldn't refresh · updated 3m ago");
+  });
+
+  it("an expired account says how to sign in again and leads with Copy Sign-in Command", () => {
+    const [g] = groups(sidebarRoot([account({ state: { status: "expired", windows: [] } })], NOW));
+    expect(g.accessory).toMatchObject({ text: "Expired", color: "failure" });
+    expect(g.subtitle).toBe("Signed out — run `claude` with this account to refresh");
+    expect(g.actions?.[0]).toMatchObject({ type: "copy", title: "Copy Sign-in Command", text: "CLAUDE_CONFIG_DIR=~/.claude-work claude" });
+  });
+
+  it("a locked account leads with Grant Access…", () => {
+    const [g] = groups(sidebarRoot([account({ state: { status: "needsAuthorization", windows: [] } })], NOW));
+    expect(g.accessory).toMatchObject({ text: "Locked", color: "warning" });
+    expect(g.actions?.[0]).toMatchObject({ type: "callback", id: "authorize", payload: { id: "a1" }, title: "Grant Access…" });
+  });
+
+  it("an error account shows the reason, loading shows Loading…", () => {
+    const err = groups(sidebarRoot([account({ state: { status: "error", windows: [], message: "No usage data" } })], NOW))[0];
+    expect(err).toMatchObject({ subtitle: "No usage data", accessory: { text: "Error" } });
+    const loading = groups(sidebarRoot([account({ state: { status: "loading", windows: [] } })], NOW))[0];
+    expect(loading.subtitle).toBe("Loading…");
+  });
+
+  it("every group offers Refresh and both add actions", () => {
+    const [g] = groups(sidebarRoot([account()], NOW));
+    expect((g.actions ?? []).map((a) => a.title)).toEqual(["Refresh", "Add Claude Account…", "Add Codex Account…"]);
+  });
+});
+
+describe("fullRoot", () => {
+  it("shows every window with path and update time", () => {
+    const [g] = groups(fullRoot([account()], NOW));
+    expect(g.subtitle).toBe("~/.claude-work · Updated 3m ago");
+    expect(meters(g).map((m) => [m.label, m.valueText, m.tone])).toEqual([
+      ["Session", "42%", "success"],
+      ["Weekly", "91%", "failure"],
+    ]);
+  });
+
+  it("adds Rename and Remove actions", () => {
+    const [g] = groups(fullRoot([account()], NOW));
+    const titles = (g.actions ?? []).map((a) => a.title);
+    expect(titles).toEqual(expect.arrayContaining(["Refresh", "Rename…", "Remove"]));
+    const rename = g.actions?.find((a) => a.title === "Rename…");
+    expect(rename).toMatchObject({ type: "pushView", node: { type: "Form" } });
+  });
+
+  it("uses the custom label as the title", () => {
+    expect(groups(fullRoot([account({ label: "Work" })], NOW))[0].title).toBe("Work");
+  });
+
+  it("an empty list is the same empty state as the sidebar", () => {
+    expect(fullRoot([], NOW)).toMatchObject({ type: "EmptyState" });
+  });
+});
