@@ -23,7 +23,7 @@ extension LeoRuntime {
         )
     }
 
-    /// Registers the sender for App Intents. Called once, at runtime start.
+    /// Registers the sender for App Intents. Called once, from `AppDelegate.init`.
     func registerAgentMessaging() {
         let sender = makeAgentMessageSender()
         AppDependencyManager.shared.add(dependency: sender)

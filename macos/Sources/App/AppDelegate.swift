@@ -342,7 +342,12 @@ class AppDelegate: NSObject,
 
     override init() {
         // MARK: Leo
-        leoRuntime = MainActor.assumeIsolated { LeoRuntime(defaults: .ghostty) }
+        let runtime = MainActor.assumeIsolated { LeoRuntime(defaults: .ghostty) }
+        leoRuntime = runtime
+        // Before anything else can run: an App Intent or its picker opened by
+        // Spotlight on a cold launch reads this dependency straight away. The
+        // sender is lazy (it reads machines per call), so it needs no startup.
+        MainActor.assumeIsolated { runtime.registerAgentMessaging() }
 #if DEBUG
         ghostty = Ghostty.App(configPath: ProcessInfo.processInfo.environment["GHOSTTY_CONFIG_PATH"])
 #else

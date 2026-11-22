@@ -37,14 +37,28 @@ struct LeoAgentMessagingMacTests {
         #expect(notifications.first?.userInfo[LeoPushNotification.retryTextKey] == "ship it")
     }
 
-    @Test func retryForAnUnknownMachineSendsNothing() async {
+    @Test func retryForAnUnknownMachineKeepsTheTextInANotification() async {
         let posted = PostedNotifications()
         let sender = LeoAgentMessageSender(machines: { [] }, chat: { _ in throw Unreachable() })
         let retry = LeoSendFailedRetry(sender: sender, post: { await posted.add($0) })
 
         await retry.retry(LeoPushTarget(daemonID: "garbage", agent: "alfred"), text: "hi")
 
-        #expect(await posted.all.isEmpty)
+        let notifications = await posted.all
+        #expect(notifications.map(\.title) == ["alfred isn't available"])
+        #expect(notifications.first?.body.contains("hi") == true)
+    }
+
+    @Test func retryToAnAgentWhoseMachineIsGoneKeepsTheTextInANotification() async {
+        let posted = PostedNotifications()
+        let sender = LeoAgentMessageSender(machines: { [] }, chat: { _ in throw Unreachable() })
+        let retry = LeoSendFailedRetry(sender: sender, post: { await posted.add($0) })
+
+        await retry.retry(LeoPushTarget(daemonID: "local", agent: "alfred"), text: "ship it")
+
+        let notifications = await posted.all
+        #expect(notifications.map(\.title) == ["alfred isn't available"])
+        #expect(notifications.first?.body.contains("ship it") == true)
     }
 
     @Test func nonRetryActionsAreLeftAlone() {

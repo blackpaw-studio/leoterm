@@ -32,7 +32,8 @@ struct SendMessageToLeoAgentIntent: AppIntent {
         let directory = await sender.agents()
         let configured = agent?.parts.map { LeoPushTarget(daemonID: $0.machineID, agent: $0.agent) }
         let resolution = LeoAgentResolution.resolve(
-            configured: configured, available: directory.targets, machineCount: directory.machineCount)
+            configured: configured, available: directory.targets, machineCount: directory.machineCount,
+            unreachable: directory.unreachable)
 
         switch resolution {
         case .noMachines:
@@ -40,14 +41,28 @@ struct SendMessageToLeoAgentIntent: AppIntent {
             return "Pair a machine in Leo first"
         case .send(let target):
             return await deliver(message, to: target)
+        case .unreachable(let configured, let machine):
+            // Nothing answered: keep the text (with Retry when an agent was named).
+            await keepUnsent(message, configured: configured, machine: machine)
+            return Self.dialog(for: .unreachable(machine: machine))
         case .ask(let options, let unavailable):
-            guard !options.isEmpty else { return "Couldn't reach any machine." }
+            // Never ask Siri to choose from nothing.
+            guard !options.isEmpty else {
+                return unavailable.map { "\($0) isn't available." } ?? "There are no agents to tell."
+            }
             let entities = options.map { LeoAgentEntity(target: $0, among: options) }
             let prompt: IntentDialog = unavailable.map { "\($0) isn't available. Which agent?" } ?? "Which agent?"
             let chosen = try await $agent.requestDisambiguation(among: entities, dialog: prompt)
             guard let target = chosen.target(in: directory) else { return "\(chosen.label) isn't available." }
             return await deliver(message, to: target)
         }
+    }
+
+    private func keepUnsent(_ text: String, configured: LeoPushTarget?, machine: String) async {
+        let notification = LeoAgentRetryPayload.forUnreachable(configured: configured, machine: machine, text: text)
+            .map(LeoChatNotificationActions.sendFailedContent)
+            ?? LeoChatNotificationActions.unsentContent(machine: machine, text: text)
+        await LeoSendFailedRetry.postToNotificationCenter(notification)
     }
 
     private func deliver(_ text: String, to target: LeoAgentTarget) async -> IntentDialog {

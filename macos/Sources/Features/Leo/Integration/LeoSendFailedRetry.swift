@@ -25,14 +25,19 @@ struct LeoSendFailedRetry: Sendable {
     }
 
     func retry(_ target: LeoPushTarget, text: String) async {
-        guard let host = LeoAgentMachineID.host(for: target.daemonID) else { return }
+        guard let host = LeoAgentMachineID.host(for: target.daemonID) else {
+            // A machine this Mac no longer knows: keep the text.
+            await post(LeoChatNotificationActions.agentMissingContent(agent: target.agent, text: text))
+            return
+        }
         let agent = LeoAgentTarget(machineID: target.daemonID, machineName: LeoAgentMachineID.name(for: host), agent: target.agent)
         let result = await sender.send(agent, text: text)
-        if let payload = result.retryPayload { await repost(payload) }
-    }
-
-    private func repost(_ payload: LeoAgentRetryPayload) async {
-        await post(LeoChatNotificationActions.sendFailedContent(payload))
+        if let payload = result.retryPayload {
+            await post(LeoChatNotificationActions.sendFailedContent(payload))
+        } else if case .agentMissing(let gone) = result {
+            // A retry can't help; keep the text, as on iOS.
+            await post(LeoChatNotificationActions.agentMissingContent(agent: gone.agent, text: text))
+        }
     }
 }
 

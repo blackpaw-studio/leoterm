@@ -623,7 +623,6 @@ import LeoKit
             statsPoller.setSidebarPollable(registry.hasPollableSidebar)
             statsPoller.setAppActive(NSApp?.isActive ?? false)
             machines.start(flavor: flavor)
-            registerAgentMessaging()
             startPlugins()
         }
     }
