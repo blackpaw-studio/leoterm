@@ -1,7 +1,7 @@
 import Foundation
 
 /// An agent on a specific machine: what "tell an agent" can send to.
-public struct LeoAgentTarget: Equatable, Hashable, Sendable {
+public struct LeoAgentTarget: Codable, Equatable, Hashable, Sendable {
     public let machineID: String
     public let machineName: String
     public let agent: String
