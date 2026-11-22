@@ -135,6 +135,9 @@ extension BackgroundTaskClient: TestDependencyKey {
 @DependencyClient
 public struct ChatNotifierClient: Sendable {
     public var actionFailed: @Sendable (_ agent: String, _ reason: String) async -> Void
+    /// A message that didn't send (a retry, or one told by voice): a local
+    /// notification that keeps the text and offers Retry.
+    public var sendFailed: @Sendable (_ payload: LeoAgentRetryPayload) async -> Void
 }
 
 extension ChatNotifierClient: TestDependencyKey {

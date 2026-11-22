@@ -335,6 +335,54 @@ struct AppFeatureChatTests {
         #expect(drafts.value == ["d-dionysus zeus on it 01"])
     }
 
+    @Test func aRetryActionResendsTheTextToTheTargetAgent() async {
+        let drafts = LockIsolated<[String]>([])
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.pairedDaemons.load = { [.dionysus] }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.send = { connection, agent, draft in
+                drafts.withValue { $0.append("\(connection.daemonID) \(agent) \(draft.text) \(draft.replyTo ?? "-")") }
+                return .make("02", draft.text, direction: .outbound)
+            }
+        }
+        let target = LeoPushTarget(daemonID: PairedDaemon.dionysus.id, agent: "zeus")
+        await store.send(.chatNotificationAction(.retry(target, text: "run the tests")))
+        await store.receive(\.chatNotificationActionFinished)
+        #expect(drafts.value == ["d-dionysus zeus run the tests -"])
+    }
+
+    @Test func aRetryThatFailsAgainPostsSendFailedWithTheSameText() async {
+        struct Down: Error {}
+        let failures = LockIsolated<[LeoAgentRetryPayload]>([])
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.pairedDaemons.load = { [.dionysus] }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.send = { _, _, _ in throw Down() }
+            $0.chatNotifier.sendFailed = { payload in failures.withValue { $0.append(payload) } }
+        }
+        let target = LeoPushTarget(daemonID: PairedDaemon.dionysus.id, agent: "zeus")
+        await store.send(.chatNotificationAction(.retry(target, text: "run the tests")))
+        await store.receive(\.chatNotificationActionFinished)
+        #expect(failures.value == [LeoAgentRetryPayload(target: target, machine: "dionysus", text: "run the tests")])
+    }
+
+    @Test func aRetryForAnUnpairedDaemonTellsTheUserInsteadOfLoopingOnRetry() async {
+        let told = LockIsolated<[String]>([])
+        let store = TestStore(initialState: AppFeature.State()) {
+            AppFeature()
+        } withDependencies: {
+            $0.pairedDaemons.load = { [] }
+            $0.chatNotifier.actionFailed = { agent, reason in told.withValue { $0.append("\(agent): \(reason)") } }
+        }
+        await store.send(.chatNotificationAction(.retry(LeoPushTarget(daemonID: "gone", agent: "zeus"), text: "x")))
+        await store.receive(\.chatNotificationActionFinished)
+        #expect(told.value.count == 1)
+    }
+
     @Test func aNotificationAnswerAnswersThePrompt() async {
         let answers = LockIsolated<[String]>([])
         let store = TestStore(initialState: AppFeature.State()) {
