@@ -44,7 +44,7 @@ Bridge API (v2):
 
 ## The plugin
 
-Manifest: apiVersion 2; `network: ["api.anthropic.com", "chatgpt.com"]`; `credentials: ["claude-code", "codex"]`; `secrets: false`. It contributes:
+Manifest: apiVersion 2; `network: ["api.anthropic.com", "chatgpt.com"]`; `credentials: ["claude-code", "codex"]`; `secrets: true` (plugin state as `leo.secrets` JSON; no tokens). It contributes:
 
 - **Sidebar section "Usage"** (glanceable, all accounts): one compact `Group` per account showing the label and kind glyph, then the account's **highest** current window as a Meter (`"Session 42%"`, detail `"resets in 2h 14m"`). A header accessory shows the overall worst tone. An "Add Account…" action is always present.
 - **Command "Show Account Usage"**: pushes the full view, with one `Group` per account and every window as a Meter:
@@ -60,7 +60,7 @@ Data:
 - Polling: every 5 min via `leo.timer(300)`, plus on activate and manual Refresh. Requests are sequential, staying well under the 60 req/min cap. On 429, back off that account to 15 min.
 - Tone thresholds: below 75% success, 75% to below 90% warning, 90% and up failure.
 - States per account: loading (first fetch only), ok, stale (last good values plus a "Couldn't refresh" detail), expired (401: "Signed out — run `claude` (or `codex`) with this account to refresh"), needsAuthorization, error.
-- Plugin state (account order, custom labels, last good snapshot) persists via the existing plugin storage mechanism if one exists, else via `leo.secrets` JSON (planner to confirm). It never stores tokens.
+- Plugin state (account order, custom labels, last good snapshot) persists as `leo.secrets` JSON (key `state`, ≤16 KB). It never stores tokens.
 
 ## Non-goals (v1)
 
