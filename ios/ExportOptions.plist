@@ -10,6 +10,7 @@
   <dict>
     <key>studio.blackpaw.leo.ios</key><string>match AppStore studio.blackpaw.leo.ios</string>
     <key>studio.blackpaw.leo.ios.notification-service</key><string>match AppStore studio.blackpaw.leo.ios.notification-service</string>
+    <key>studio.blackpaw.leo.ios.controls</key><string>match AppStore studio.blackpaw.leo.ios.controls</string>
   </dict>
   <key>manageAppVersionAndBuildNumber</key><false/>
   <key>uploadSymbols</key><true/>

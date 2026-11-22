@@ -99,9 +99,6 @@ targets:
   # It shares the entity and Control intent files with the app and holds no
   # secrets: the Control's intent opens Leo (openAppWhenRun), which sends, and
   # the picker reads the app group's snapshot.
-  # TODO(signing): Release uses the match profile below, which doesn't exist
-  # yet. Create it (fastlane match, App Store Connect identifier) once Evan
-  # approves provisioning; until then only simulator builds are verified.
   LeoControls:
     type: app-extension
     platform: iOS
