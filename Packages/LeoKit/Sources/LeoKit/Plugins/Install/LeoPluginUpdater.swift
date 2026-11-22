@@ -62,7 +62,8 @@ public struct LeoPluginUpdater: Sendable {
         let diff = LeoPluginPermissionDiff(old: record.approvedPermissions, new: staged.manifest.permissions)
         let request = LeoPluginApprovalRequest(
             id: id, name: staged.manifest.name, version: staged.manifest.version, sha: staged.sha,
-            sourceDescription: url, permissions: staged.manifest.permissions, diff: diff, isDev: false)
+            sourceDescription: url, permissions: staged.manifest.permissions, diff: diff, isDev: false,
+            trust: LeoPluginSourceTrust.classify(record.source))
         let pending = LeoPluginPendingUpdate(result: staged, fromSHA: current, diff: diff, request: request)
         guard diff.isEmpty else { return .needsApproval(pending) }
         try swap(pending)

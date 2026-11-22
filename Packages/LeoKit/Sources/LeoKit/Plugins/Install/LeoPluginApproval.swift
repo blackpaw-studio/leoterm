@@ -14,10 +14,12 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
     /// Non-nil for an update: the increases that need approving.
     public let diff: LeoPluginPermissionDiff?
     public let isDev: Bool
+    /// Whether the source is Blackpaw's own; the sheet warns when it is not.
+    public let trust: LeoPluginSourceTrust
 
     public init(
         id: String, name: String, version: String, sha: String?, sourceDescription: String,
-        permissions: LeoPluginPermissions, diff: LeoPluginPermissionDiff?, isDev: Bool
+        permissions: LeoPluginPermissions, diff: LeoPluginPermissionDiff?, isDev: Bool, trust: LeoPluginSourceTrust
     ) {
         self.id = id
         self.name = name
@@ -27,6 +29,7 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
         self.permissions = permissions
         self.diff = diff
         self.isDev = isDev
+        self.trust = trust
     }
 
     /// The sheet for a plugin that already runs but now asks for more than the
@@ -48,8 +51,11 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
         }
         self.init(
             id: info.id, name: manifest.name, version: manifest.version, sha: sha, sourceDescription: source,
-            permissions: manifest.permissions, diff: diff, isDev: isDev)
+            permissions: manifest.permissions, diff: diff, isDev: isDev,
+            trust: LeoPluginSourceTrust.classify(info.source))
     }
+
+    public var isUnverified: Bool { trust == .unverified }
 
     public var isUpdate: Bool { diff != nil }
 

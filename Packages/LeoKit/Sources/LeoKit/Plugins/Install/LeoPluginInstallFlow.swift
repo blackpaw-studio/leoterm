@@ -33,7 +33,8 @@ public struct LeoPluginInstallFlow: Sendable {
         let result = try await installer.install(url: url, ref: ref)
         let request = LeoPluginApprovalRequest(
             id: result.manifest.id, name: result.manifest.name, version: result.manifest.version, sha: result.sha,
-            sourceDescription: result.url, permissions: result.manifest.permissions, diff: nil, isDev: false)
+            sourceDescription: result.url, permissions: result.manifest.permissions, diff: nil, isDev: false,
+            trust: LeoPluginSourceTrust.classify(.git(url: result.url, ref: result.ref, sha: result.sha)))
         return LeoPluginPendingInstall(result: result, request: request)
     }
 
@@ -81,7 +82,8 @@ public struct LeoPluginInstallFlow: Sendable {
         }
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: nil,
-            sourceDescription: folder.path, permissions: manifest.permissions, diff: nil, isDev: true)
+            sourceDescription: folder.path, permissions: manifest.permissions, diff: nil, isDev: true,
+            trust: .notApplicable)
         return LeoPluginPendingDev(manifest: manifest, folder: folder, request: request)
     }
 

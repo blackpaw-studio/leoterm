@@ -124,7 +124,7 @@ import Testing
             manifest: manifest, sha: sha, url: "https://github.com/acme/demo", ref: "main", directory: URL(fileURLWithPath: "/tmp/x"))
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: sha, sourceDescription: result.url,
-            permissions: manifest.permissions, diff: nil, isDev: false)
+            permissions: manifest.permissions, diff: nil, isDev: false, trust: .unverified)
         return LeoPluginPendingInstall(result: result, request: request)
     }
 
@@ -303,7 +303,7 @@ import Testing
         let manifest = Self.manifest()
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: nil, sourceDescription: folder.path,
-            permissions: manifest.permissions, diff: nil, isDev: true)
+            permissions: manifest.permissions, diff: nil, isDev: true, trust: .notApplicable)
         rig.installer.stagedDev = LeoPluginPendingDev(manifest: manifest, folder: folder, request: request)
         rig.shown.onShow = { #expect(rig.log.events == ["stageDev /tmp/demo-plugin", "approve dev.example.demo"]) }
 
@@ -319,7 +319,7 @@ import Testing
         let manifest = Self.manifest()
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: nil, sourceDescription: folder.path,
-            permissions: manifest.permissions, diff: nil, isDev: true)
+            permissions: manifest.permissions, diff: nil, isDev: true, trust: .notApplicable)
         rig.installer.stagedDev = LeoPluginPendingDev(manifest: manifest, folder: folder, request: request)
         rig.shown.answer = false
 
@@ -466,7 +466,7 @@ import Testing
             directory: URL(fileURLWithPath: "/tmp"))
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: result.sha, sourceDescription: result.url,
-            permissions: manifest.permissions, diff: diff, isDev: false)
+            permissions: manifest.permissions, diff: diff, isDev: false, trust: .unverified)
         return LeoPluginPendingUpdate(result: result, fromSHA: sha, diff: diff, request: request)
     }
 

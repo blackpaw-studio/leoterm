@@ -47,6 +47,26 @@ struct LeoPluginApprovalReviewTests {
         #expect(request.sourceDescription == "/tmp/demo")
     }
 
+    @Test func reviewingGitSourceCarriesTrust() throws {
+        let diff = LeoPluginPermissionDiff(old: .none, new: Self.grown)
+        let sha = String(repeating: "c", count: 40)
+        let foreign = try #require(LeoPluginApprovalRequest(
+            reviewing: Self.info(
+                source: .git(url: "https://evil.com/blackpaw-studio/x", ref: "main", sha: sha), state: .needsApproval(diff),
+                manifest: Self.manifest)))
+        let own = try #require(LeoPluginApprovalRequest(
+            reviewing: Self.info(
+                source: .git(url: "https://github.com/blackpaw-studio/x", ref: "main", sha: sha), state: .needsApproval(diff),
+                manifest: Self.manifest)))
+        let bundled = try #require(LeoPluginApprovalRequest(
+            reviewing: Self.info(source: .bundled, state: .needsApproval(diff), manifest: Self.manifest)))
+
+        #expect(foreign.trust == .unverified)
+        #expect(own.trust == .verified)
+        #expect(bundled.trust == .notApplicable)
+        #expect(!bundled.isUnverified)
+    }
+
     @Test func aPluginNotWaitingOnApprovalHasNoReview() {
         #expect(LeoPluginApprovalRequest(reviewing: Self.info(source: .bundled, state: .running, manifest: Self.manifest)) == nil)
         let diff = LeoPluginPermissionDiff(old: .none, new: Self.grown)
