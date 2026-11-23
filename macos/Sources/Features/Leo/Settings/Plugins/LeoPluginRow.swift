@@ -25,6 +25,8 @@ struct LeoPluginRow: Equatable, Identifiable {
     let sourceText: String
     let isDev: Bool
     let isBundled: Bool
+    /// A git source that is not Blackpaw Studio's; the row says so.
+    let isUnverified: Bool
     /// What the plugin may do, as the user approved it.
     let permissionsSummary: String
     let status: Status
@@ -62,6 +64,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         hiddenSections = info.hiddenSections
         pane = info.manifest?.contributes.panes.first.map { Pane(id: $0.id, isShown: !info.hiddenPanes.contains($0.id)) }
         permissionsSummary = Self.summary(of: info.approvedPermissions)
+        isUnverified = LeoPluginSourceTrust.classify(info.source) == .unverified
         switch info.source {
         case .bundled:
             shortSHA = nil
