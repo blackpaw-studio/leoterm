@@ -576,6 +576,12 @@
       await leo2.credentials.remove(id);
       await poller.forget(id);
     };
+    const credentialsChanged = async () => {
+      await start();
+      await poller.sync();
+      await poller.refresh();
+    };
+    leo2.on("credentialsChanged", safely("credentialsChanged", credentialsChanged));
     leo2.on("activate", safely("activate", activate));
     leo2.on("command", safely("command", command));
     leo2.on("callback", safely("callback", callbackHandler));

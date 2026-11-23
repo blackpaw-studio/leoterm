@@ -205,3 +205,50 @@ describe("startup recovery", () => {
     expect(groupsOf(stub.lastRender(SECTION))).toHaveLength(1);
   });
 });
+
+describe("credentialsChanged", () => {
+  const showSlot = SHOW;
+
+  it("a removal drops the account from both trees and the store with no timer tick", async () => {
+    const stub = boot();
+    stub.setCredentials([work, codex]);
+    stub.route("GET", CLAUDE_URL, { body: claudeFull });
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    await stub.emit("activate", SECTION);
+    await stub.emit("command", "show", showSlot);
+    stub.setCredentials([codex]); // removed from Settings
+    await stub.emit("credentialsChanged");
+    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual(["codex"]);
+    expect(groupsOf(stub.lastRender(showSlot)).map((g) => g.title)).toEqual(["codex"]);
+    const stored = JSON.parse(stub.secretStore.get("state") ?? "{}");
+    expect(stored.order).toEqual(["x1"]);
+    expect(Object.keys(stored.snapshots)).toEqual(["x1"]);
+  });
+
+  it("an addition shows Loading and then fetches right away", async () => {
+    const stub = boot();
+    stub.setCredentials([codex]);
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    stub.route("GET", CLAUDE_URL, { body: claudeFull });
+    await stub.emit("activate", SECTION);
+    const before = stub.rendersFor(SECTION).length;
+    stub.setCredentials([codex, work]);
+    await stub.emit("credentialsChanged");
+    const renders = stub.rendersFor(SECTION).slice(before).map((r) => JSON.stringify(r));
+    expect(renders.some((r) => r.includes("Claude Code · Loading…"))).toBe(true);
+    expect(stub.fetches.filter((f) => f.credential === "c1")).toHaveLength(1);
+    expect(JSON.stringify(stub.lastRender(SECTION))).not.toContain("Loading…");
+  });
+
+  it("never overlaps requests with an in-flight pass", async () => {
+    const stub = boot();
+    stub.setCredentials([codex]);
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    stub.route("GET", CLAUDE_URL, { body: claudeFull });
+    const activating = stub.emit("activate", SECTION);
+    stub.setCredentials([codex, work]);
+    await Promise.all([activating, stub.emit("credentialsChanged")]);
+    expect(stub.maxInFlight).toBe(1);
+    expect(stub.fetches.some((f) => f.credential === "c1")).toBe(true);
+  });
+});
