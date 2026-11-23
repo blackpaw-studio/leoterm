@@ -42,8 +42,6 @@ export interface Poller {
   start(): Promise<void>;
   accounts(): readonly Account[];
   rename(id: string, label: string): Promise<void>;
-  /** Forget an account locally after its grant was removed. */
-  forget(id: string): Promise<void>;
 }
 
 /** The host label is the directory basename (".codex"); drop one leading dot for display. */
@@ -178,11 +176,6 @@ export function createPoller(leo: LeoV2, clock: Clock, onChange: () => void): Po
       const { [id]: _dropped, ...rest } = base.labels;
       persisted = { ...base, labels: trimmed === "" ? rest : { ...rest, [id]: trimmed } };
       await savePersisted(leo, persisted);
-      onChange();
-    },
-    forget: async (id) => {
-      entries = entries.filter((e) => e.handle.id !== id);
-      await persist();
       onChange();
     },
   };

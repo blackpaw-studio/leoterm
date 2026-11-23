@@ -77,9 +77,10 @@ describe("sidebarRoot", () => {
     expect(loading.subtitle).toBe("Claude Code · Loading…");
   });
 
-  it("every group offers Refresh and both add actions", () => {
+  it("every group offers Refresh, both add actions and Remove Account", () => {
     const [g] = groups(sidebarRoot([account()], NOW));
-    expect((g.actions ?? []).map((a) => a.title)).toEqual(["Refresh", "Add Claude Account…", "Add Codex Account…"]);
+    expect((g.actions ?? []).map((a) => a.title)).toEqual(["Refresh", "Add Claude Account…", "Add Codex Account…", "Remove Account"]);
+    expect(g.actions?.[3]).toMatchObject({ type: "callback", id: "remove", payload: { id: "a1" }, sfSymbol: "minus.circle" });
   });
 });
 

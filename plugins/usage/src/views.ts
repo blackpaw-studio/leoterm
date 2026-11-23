@@ -34,6 +34,8 @@ const addActions: Action[] = [
   callback(CALLBACKS.add, "Add Codex Account…", "plus.circle", { kind: "codex" }),
 ];
 
+const removeAction = (account: Account): Action => callback(CALLBACKS.remove, "Remove Account", "minus.circle", { id: account.handle.id });
+
 const refreshAction = callback(CALLBACKS.refresh, "Refresh", "arrow.clockwise");
 
 const accessory = (sfSymbol: string, text: string, color: AccessoryColor): Accessory => ({ type: "Accessory", sfSymbol, text, color });
@@ -147,7 +149,7 @@ const sidebarGroup = (account: Account, nowMs: number): GroupNode => {
   const text = children.length === 0 ? stateText(account) : undefined;
   const kind = KIND_NAME[account.handle.kind];
   const subtitle = clip(text === undefined ? kind : kind + " · " + text, MAX_LINE_CHARS);
-  return group(account, children, subtitle, [...leadingActions(account), refreshAction, ...addActions]);
+  return group(account, children, subtitle, [...leadingActions(account), refreshAction, ...addActions, removeAction(account)]);
 };
 
 const fullGroup = (account: Account, nowMs: number): GroupNode => {

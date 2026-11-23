@@ -241,11 +241,6 @@
         persisted = { ...base, labels: trimmed === "" ? rest : { ...rest, [id]: trimmed } };
         await savePersisted(leo2, persisted);
         onChange();
-      },
-      forget: async (id) => {
-        entries = entries.filter((e) => e.handle.id !== id);
-        await persist();
-        onChange();
       }
     };
   }
@@ -311,6 +306,7 @@
     callback(CALLBACKS.add, "Add Claude Account\u2026", "plus.circle", { kind: "claude-code" }),
     callback(CALLBACKS.add, "Add Codex Account\u2026", "plus.circle", { kind: "codex" })
   ];
+  var removeAction = (account) => callback(CALLBACKS.remove, "Remove Account", "minus.circle", { id: account.handle.id });
   var refreshAction = callback(CALLBACKS.refresh, "Refresh", "arrow.clockwise");
   var accessory = (sfSymbol, text, color) => ({ type: "Accessory", sfSymbol, text, color });
   var emptyState = () => ({
@@ -404,7 +400,7 @@
     const text = children.length === 0 ? stateText(account) : void 0;
     const kind = KIND_NAME[account.handle.kind];
     const subtitle = clip(text === void 0 ? kind : kind + " \xB7 " + text, MAX_LINE_CHARS);
-    return group(account, children, subtitle, [...leadingActions(account), refreshAction, ...addActions]);
+    return group(account, children, subtitle, [...leadingActions(account), refreshAction, ...addActions, removeAction(account)]);
   };
   var fullGroup = (account, nowMs) => {
     const { state, handle } = account;
@@ -574,8 +570,14 @@
     };
     const removeAccount = async (id) => {
       await leo2.credentials.remove(id);
-      await poller.forget(id);
+      await poller.sync();
     };
+    const credentialsChanged = async () => {
+      await start();
+      await poller.sync();
+      await poller.refresh();
+    };
+    leo2.on("credentialsChanged", safely("credentialsChanged", credentialsChanged));
     leo2.on("activate", safely("activate", activate));
     leo2.on("command", safely("command", command));
     leo2.on("callback", safely("callback", callbackHandler));

@@ -11,7 +11,7 @@
  * Behaviour:
  * - render: recorded in `renders` (in order); `rendersFor`/`lastRender` look up by slot.
  *   Slots are compared by their JSON form, so build them with the same key order.
- * - on/emit: handlers per event; `emit` awaits all of them and returns the first
+ * - on/emit: handlers per event (including the v2 `credentialsChanged`, which carries no payload); `emit` awaits all of them and returns the first
  *   defined result (the CallbackResult for `callback`).
  * - fetch: routed by "METHOD url" (method upper-cased, default GET). `route(m, url, ...entries)`
  *   queues a sequence: calls consume entries in order and the last one repeats, so
@@ -37,14 +37,13 @@
 import type {
   AgentRef,
   AgentSnapshot,
-  Events,
   FetchResponse,
   JSONValue,
   SlotID,
   TimerHandle,
   UsageSnapshot,
 } from "../../sdk/leo";
-import type { CredentialKind, Handle, LeoV2, UsageFetchInit, UsageRoot } from "../src/api";
+import type { CredentialKind, EventsV2, Handle, LeoV2, UsageFetchInit, UsageRoot } from "../src/api";
 import type { Clock } from "../src/clock";
 
 export interface StubResponse {
@@ -102,7 +101,7 @@ export interface StubLeo {
   denyUsage(): void;
   /** Every agent `leo.agents.usage` was asked about, in order. */
   readonly usageReads: readonly AgentRef[];
-  emit<E extends keyof Events>(event: E, ...args: Parameters<Events[E]>): Promise<Awaited<ReturnType<Events[E]>> | undefined>;
+  emit<E extends keyof EventsV2>(event: E, ...args: Parameters<EventsV2[E]>): Promise<Awaited<ReturnType<EventsV2[E]>> | undefined>;
   /** What the user would pick in the next `credentials.add(kind)` panel; `null` cancels. Queued per kind. */
   queueAdd(kind: CredentialKind, ...picks: Array<Handle | null>): void;
   /** Handles `credentials.list()` returns. */
@@ -162,7 +161,7 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
   let inFlight = 0;
   let maxInFlight = 0;
   const secretStore = new Map<string, string>();
-  const handlers = new Map<keyof Events, Array<Events[keyof Events]>>();
+  const handlers = new Map<keyof EventsV2, Array<EventsV2[keyof EventsV2]>>();
   const routes = new Map<string, { entries: StubEntry[]; next: number }>();
   const timers: ScheduledTimer[] = [];
   let agents: AgentSnapshot[] = [];
@@ -343,7 +342,7 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
     setAgents: (list) => {
       agents = list.map((a) => ({ ...a }));
     },
-    emit: (async (event: keyof Events, ...args: unknown[]) => {
+    emit: (async (event: keyof EventsV2, ...args: unknown[]) => {
       const gestured = event === "callback" || event === "command";
       const results = await Promise.all(
         (handlers.get(event) ?? []).map((fn) => {

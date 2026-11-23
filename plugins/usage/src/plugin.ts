@@ -140,9 +140,17 @@ export function createPlugin(leo: LeoV2, clock: Clock): void {
 
   const removeAccount = async (id: string): Promise<void> => {
     await leo.credentials.remove(id);
-    await poller.forget(id);
+    await poller.sync();
   };
 
+  /** Grants changed (e.g. removed in Settings): reconcile now, fetch new accounts through the queued pass. */
+  const credentialsChanged = async (): Promise<void> => {
+    await start();
+    await poller.sync();
+    await poller.refresh();
+  };
+
+  leo.on("credentialsChanged", safely("credentialsChanged", credentialsChanged));
   leo.on("activate", safely("activate", activate));
   leo.on("command", safely("command", command));
   leo.on("callback", safely("callback", callbackHandler));
