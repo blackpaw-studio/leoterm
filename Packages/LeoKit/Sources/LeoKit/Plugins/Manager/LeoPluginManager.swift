@@ -130,6 +130,8 @@ public struct LeoPluginManagerDependencies {
     var entries: [String: LeoPluginManagerEntry] = [:]
     private var hasReapedOrphans = false
     var agentsChangeTask: Task<Void, Never>?
+    /// Each plugin's account grants as last published; nil before the first publish.
+    private var publishedGrants: [String: [LeoPluginCredentialGrant]]?
     /// One window per agent, shared by every plugin; eligibility is checked when it fires.
     private(set) lazy var usageCoalescer = LeoPluginUsageCoalescer(
         now: deps.clock, scheduler: deps.scheduler, fire: { [weak self] in self?.deliverUsageChanged(for: $0) })
@@ -481,7 +483,9 @@ public struct LeoPluginManagerDependencies {
     }
 
     func publish() {
-        plugins = deps.store.registry.records.map { record in
+        let records = deps.store.registry.records
+        announceGrantChanges(records)
+        plugins = records.map { record in
             let entry = entries[record.id]
             return LeoPluginInfo(
                 id: record.id, name: entry?.manifest?.name ?? record.name, version: entry?.manifest?.version ?? record.version,
@@ -490,6 +494,22 @@ public struct LeoPluginManagerDependencies {
                 hiddenPanes: record.hiddenPanes, credentialGrants: record.credentialGrants)
         }
     }
+
+    /// Tells each running apiVersion 2 plugin whose grants changed since the
+    /// last publish, however they changed: Settings' Remove, its own
+    /// `leo.credentials` add or remove, or narrowed permissions. Every one of
+    /// those publishes, so this is the one place that sees them all.
+    private func announceGrantChanges(_ records: [LeoPluginRecord]) {
+        let current = Dictionary(records.map { ($0.id, $0.credentialGrants) }, uniquingKeysWith: { first, _ in first })
+        defer { publishedGrants = current }
+        guard let previous = publishedGrants else { return }
+        for (id, grants) in current where grants != previous[id] ?? [] {
+            guard let entry = entries[id], (entry.manifest?.apiVersion ?? 1) >= Self.credentialsChangedAPIVersion else { continue }
+            deliver(.credentialsChanged, to: entry)
+        }
+    }
+
+    static let credentialsChangedAPIVersion = 2
 }
 
 extension LeoPluginRunState {

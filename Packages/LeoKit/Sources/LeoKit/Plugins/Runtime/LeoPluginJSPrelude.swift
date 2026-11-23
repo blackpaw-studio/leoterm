@@ -13,7 +13,7 @@ enum LeoPluginJSPrelude {
       const stringify = JSON.stringify;
       const parse = JSON.parse;
       const resolveValue = Promise.resolve.bind(Promise);
-      const EVENTS = ["activate", "agentsChanged", "viewOpened", "usageChanged", "command", "callback"];
+      const EVENTS = ["activate", "agentsChanged", "viewOpened", "usageChanged", "credentialsChanged", "command", "callback"];
       const MIN_TIMER_SECONDS = 60;
       const MIN_AFTER_SECONDS = 1;
 
@@ -203,6 +203,7 @@ enum LeoPluginJSPrelude {
             case "agentsChanged": if (handlers.agentsChanged) watch(ev.type, handlers.agentsChanged()); return;
             case "viewOpened": if (handlers.viewOpened) watch(ev.type, handlers.viewOpened(ev.agent, ev.slot)); return;
             case "usageChanged": if (handlers.usageChanged) watch(ev.type, handlers.usageChanged(ev.agent)); return;
+            case "credentialsChanged": if (handlers.credentialsChanged) watch(ev.type, handlers.credentialsChanged()); return;
             case "command": {
               const handler = handlers.command;
               if (handler) watch(ev.type, withGesture(ev.ref, () => handler(ev.id, ev.slot)));

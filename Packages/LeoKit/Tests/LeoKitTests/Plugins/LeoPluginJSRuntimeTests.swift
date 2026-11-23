@@ -227,6 +227,14 @@ struct LeoPluginJSRuntimeTests {
         #expect(sink.logs == ["usage local/alfred"])
     }
 
+    @Test func credentialsChangedIsDeliveredToItsHandler() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("credentialsChanged", () => leo.log("info", "accounts changed"));
+        """)
+        runtime.deliver(.credentialsChanged)
+        #expect(sink.logs == ["accounts changed"])
+    }
+
     // MARK: callbacks and follow-ups
 
     @Test func callbackDeliversIdAndPayload() throws {

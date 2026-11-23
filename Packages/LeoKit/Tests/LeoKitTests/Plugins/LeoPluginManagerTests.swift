@@ -49,6 +49,8 @@ private func manifestJSON(
     let agentSource = AgentSource()
     var reaperCalls: [Int] = []
     var clockValue: TimeInterval = 0
+    /// `leo.credentials` services; nil refuses every credential call.
+    var credentials: LeoPluginCredentialServices?
     var manager: LeoPluginManager!
 
     @MainActor final class AgentSource: LeoPluginAgentSource {
@@ -75,7 +77,8 @@ private func manifestJSON(
                 agents: agentSource, actions: actions, trash: trash, slots: slots,
                 makeFetcher: { _, _ in PluginFakeFetcher() },
                 reapOrphans: { [unowned self] in reaperCalls.append(factory.made.count) },
-                clock: { clock.value }, sleep: { [sleeper] in try await sleeper.sleep($0) }, agentsDebounce: 0.5))
+                clock: { clock.value }, sleep: { [sleeper] in try await sleeper.sleep($0) }, agentsDebounce: 0.5,
+                credentials: credentials))
     }
 
     @discardableResult
@@ -941,5 +944,115 @@ extension LeoPluginManagerTests {
         try rig.manager.setSection(demo, section: "usage", hidden: false)
 
         #expect(rig.hosts.last?.events == [.activate(slot: nil), .activate(slot: .section(id: "usage"))])
+    }
+}
+
+// MARK: - credentialsChanged
+
+/// `leo.credentials` with no picker answer and no readable sign-in: enough
+/// for the list and remove calls, which never read a token.
+private struct NoPicker: LeoPluginCredentialPicking {
+    func pickFolder(for kind: LeoPluginCredentialKind) async -> String? { nil }
+}
+
+private struct NoResolver: LeoPluginCredentialResolving {
+    func resolve(_ grant: LeoPluginCredentialGrant, allowUI: Bool) throws(LeoPluginCredentialError) -> LeoPluginFetchCredential {
+        throw .invalid
+    }
+}
+
+private let usage = "studio.blackpaw.usage"
+private let other = "studio.blackpaw.other"
+
+extension LeoPluginManagerTests {
+    /// A dev apiVersion 2 plugin approved for Codex accounts, holding one.
+    private func addAccountsPlugin(_ id: String, grantID: String, in rig: Rig) throws {
+        let permissions = LeoPluginPermissions(network: ["chatgpt.com"], credentials: [.codex])
+        let manifest = LeoPluginManifest(id: id, name: id, version: "1.0.0", apiVersion: 2, main: "main.js", permissions: permissions)
+        let dir = try rig.addPlugin(
+            in: rig.root.appendingPathComponent(id),
+            manifest: manifestJSON(id: id, network: #"["chatgpt.com"]"#, apiVersion: 2, credentials: #"["codex"]"#),
+            main: "leo.log('info', 'plugin \(id)')")
+        try rig.store.update {
+            $0.registerDev(manifest, path: dir.path)
+            _ = $0.addGrant(pluginID: id, kind: .codex, path: "/Users/a/.codex-\(grantID)", id: grantID)
+        }
+    }
+
+    private func host(_ id: String, in rig: Rig) -> PluginFakeHost? {
+        rig.hosts.made.last { $0.source?.contains("plugin \(id)'") == true }
+    }
+
+    private func accountChanges(_ host: PluginFakeHost?) -> Int {
+        (host?.events ?? []).filter { $0 == .credentialsChanged }.count
+    }
+
+    @Test func aSettingsRemovalTellsOnlyThatPluginItsAccountsChanged() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addAccountsPlugin(usage, grantID: "g1", in: rig)
+        try addAccountsPlugin(other, grantID: "g2", in: rig)
+        rig.buildManager()
+        rig.manager.reload()
+
+        try rig.manager.removeCredentialGrant(usage, grantID: "g1")
+
+        #expect(accountChanges(host(usage, in: rig)) == 1)
+        #expect(accountChanges(host(other, in: rig)) == 0)
+    }
+
+    /// `leo.credentials.remove` takes the same path as Settings' Remove:
+    /// Settings shows the account gone and the plugin hears about it.
+    @Test func aPluginsOwnRemoveRefreshesSettingsAndTellsThePlugin() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addAccountsPlugin(usage, grantID: "g1", in: rig)
+        rig.credentials = LeoPluginCredentialServices(picker: NoPicker(), resolver: NoResolver(), grants: rig.store, home: "/Users/a")
+        rig.buildManager()
+        rig.manager.reload()
+        let plugin = try #require(host(usage, in: rig))
+
+        plugin.send(.credentialsRemove(id: "r1", credential: "g1"))
+        await rig.settle()
+
+        #expect(plugin.events.contains(.reply(id: "r1", outcome: .value(.null))))
+        #expect(rig.manager.plugins.first { $0.id == usage }?.credentialGrants.isEmpty == true)
+        #expect(accountChanges(plugin) == 1)
+    }
+
+    /// The manifest stops asking for Codex accounts; approving that narrows
+    /// the permissions, which drops the account.
+    @Test func narrowedPermissionsThatDropAnAccountTellThePlugin() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addAccountsPlugin(usage, grantID: "g1", in: rig)
+        rig.buildManager()
+        rig.manager.reload()
+        try rig.addPlugin(
+            in: rig.root.appendingPathComponent(usage), manifest: manifestJSON(id: usage, apiVersion: 2), main: "leo.log('info', 'plugin \(usage)')")
+        rig.manager.reload(restarting: [usage])
+
+        try rig.manager.approveCurrentPermissions(usage)
+
+        #expect(rig.store.registry.grants(for: usage).isEmpty)
+        #expect(accountChanges(host(usage, in: rig)) == 1)
+    }
+
+    @Test func aV1PluginNeverHearsCredentialsChanged() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try rig.addBundled(demo)
+        rig.buildManager()
+        rig.manager.reload()
+        // A v1 manifest can't ask for credentials, so put an account on its record directly to reach the version check.
+        try rig.store.update {
+            $0.approve(demo, permissions: LeoPluginPermissions(credentials: [.codex]))
+            _ = $0.addGrant(pluginID: demo, kind: .codex, path: "/Users/a/.codex", id: "g1")
+        }
+
+        try rig.manager.removeCredentialGrant(demo, grantID: "not-there")  // publishes the change
+
+        #expect(rig.manager.plugins.first { $0.id == demo }?.credentialGrants.map(\.id) == ["g1"])
+        #expect(accountChanges(rig.hosts.last) == 0)
     }
 }
