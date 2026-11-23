@@ -111,6 +111,10 @@ struct LeoSettingsSidebarItemTests {
         #expect(item(.machines(nil), remembered: .machine(.remote(UUID()))) == .machine(.local))
     }
 
+    @Test func pluginsEntryLandsOnPlugins() {
+        #expect(LeoSettingsEntry.plugins.item(remembered: .machine(.local), configurations: []) == .plugins)
+    }
+
     @Test func appearanceOpensThatMachinesAppearancePane() {
         #expect(item(.appearance(.remote("dionysus"))) == .pane(.remote(Self.dionysus.id), .appearance))
         #expect(item(.appearance(.local)) == .pane(.local, .appearance))
