@@ -8,7 +8,8 @@ import OSLog
 /// sheet. Links are dropped while any install or update sheet is up (so a page
 /// can't spam sheets) and held while the plugin system is still starting.
 @MainActor final class LeoPluginInstallLinkRouter {
-    private let openPluginsSettings: @MainActor () -> Void
+    /// Opens Settings ▸ Plugins; false if Settings stayed where it was.
+    private let openPluginsSettings: @MainActor () -> Bool
     private let showError: @MainActor (String) -> Void
     private let logger: Logger
     private var isReady = false
@@ -22,7 +23,7 @@ import OSLog
     let linkAvailable = PassthroughSubject<Void, Never>()
 
     init(
-        openPluginsSettings: @escaping @MainActor () -> Void, showError: @escaping @MainActor (String) -> Void, logger: Logger
+        openPluginsSettings: @escaping @MainActor () -> Bool, showError: @escaping @MainActor (String) -> Void, logger: Logger
     ) {
         self.openPluginsSettings = openPluginsSettings
         self.showError = showError
@@ -61,7 +62,12 @@ import OSLog
     }
 
     private func present() {
-        openPluginsSettings()
+        guard openPluginsSettings() else {
+            // The person stayed on their unsaved edits: the link must not sit here refusing every later one.
+            pending = nil
+            logger.notice("dropped plugin install link: Settings did not navigate")
+            return
+        }
         linkAvailable.send()
     }
 }

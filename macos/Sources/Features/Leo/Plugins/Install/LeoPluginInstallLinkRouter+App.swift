@@ -6,7 +6,7 @@ extension LeoPluginInstallLinkRouter {
     /// bad link in an alert.
     static func live(for runtime: LeoRuntime) -> LeoPluginInstallLinkRouter {
         LeoPluginInstallLinkRouter(
-            openPluginsSettings: { [weak runtime] in runtime?.settingsWindow.show(.plugins) },
+            openPluginsSettings: { [weak runtime] in runtime?.settingsWindow.show(.plugins) ?? false },
             showError: { reason in
                 let alert = NSAlert()
                 alert.alertStyle = .warning

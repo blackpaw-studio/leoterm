@@ -149,7 +149,7 @@ import Testing
 
     private static func linkRouter(_ log: LinkLog = LinkLog(), receiving link: String? = nil) -> LeoPluginInstallLinkRouter {
         let router = LeoPluginInstallLinkRouter(
-            openPluginsSettings: { log.opened += 1 }, showError: { _ in },
+            openPluginsSettings: { log.opened += 1; return true }, showError: { _ in },
             logger: Logger(subsystem: "studio.blackpaw.leo.macos.tests", category: "links"))
         router.markReady()
         if let link, let url = URL(string: link) { router.receive(url) }

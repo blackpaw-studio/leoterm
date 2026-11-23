@@ -10,6 +10,8 @@ import Testing
         var opened = 0
         var errors: [String] = []
         var onError: () -> Void = {}
+        /// False when Settings stayed put (the unsaved-changes prompt was cancelled).
+        var navigates = true
     }
 
     static let bad = URL(string: "leo://plugin/install?url=http%3A%2F%2Fx")!
@@ -17,7 +19,7 @@ import Testing
 
     static func router(_ recorder: Recorder) -> LeoPluginInstallLinkRouter {
         LeoPluginInstallLinkRouter(
-            openPluginsSettings: { recorder.opened += 1 }, showError: { recorder.errors.append($0); recorder.onError() },
+            openPluginsSettings: { recorder.opened += 1; return recorder.navigates }, showError: { recorder.errors.append($0); recorder.onError() },
             logger: Logger(subsystem: "studio.blackpaw.leo.macos.tests", category: "links"))
     }
 
@@ -113,6 +115,31 @@ import Testing
         #expect(recorder.opened == 1)
         #expect(router.take()?.url.absoluteString == "https://github.com/acme/demo")
         #expect(router.take() == nil)
+    }
+
+    @Test func linkIsDroppedWhenSettingsDidNotNavigate() {
+        let recorder = Recorder()
+        let router = Self.router(recorder)
+        router.markReady()
+        recorder.navigates = false
+
+        router.receive(Self.good)
+        #expect(router.pending == nil)
+
+        recorder.navigates = true
+        router.receive(Self.good)
+        #expect(router.pending != nil)
+    }
+
+    @Test func aHeldLinkIsDroppedWhenTheFirstNavigationAtLaunchFails() {
+        let recorder = Recorder()
+        let router = Self.router(recorder)
+        recorder.navigates = false
+        router.receive(Self.good)
+
+        router.markReady()
+
+        #expect(router.pending == nil)
     }
 
     @Test func aSecondLinkWhileOneIsPendingIsDropped() {
