@@ -17,8 +17,10 @@ import OSLog
 
     /// The link waiting for the Plugins pane to take it.
     private(set) var pending: LeoPluginInstallLink?
-    /// The Plugins pane sets this while its install sheet, an install, or an update is up.
-    var isInstallUIOpen = false
+    /// Each Plugins pane model that has its install sheet, an install, or an update up holds a token here.
+    /// One pane ending can't reopen the door while another's run is still going.
+    private var installUIOwners: Set<UUID> = []
+    var isInstallUIOpen: Bool { !installUIOwners.isEmpty }
     /// Fires after a link becomes pending and the router is ready to show it.
     let linkAvailable = PassthroughSubject<Void, Never>()
 
@@ -55,6 +57,10 @@ import OSLog
         isReady = true
         if pending != nil { present() }
     }
+
+    func beginInstallUI(_ owner: UUID) { installUIOwners.insert(owner) }
+
+    func endInstallUI(_ owner: UUID) { installUIOwners.remove(owner) }
 
     func take() -> LeoPluginInstallLink? {
         defer { pending = nil }

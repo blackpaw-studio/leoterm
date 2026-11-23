@@ -194,6 +194,24 @@ import Testing
         #expect(log.opened == 0)
     }
 
+    @Test func aReplacementPaneDoesNotClearAnotherPanesBusyGuard() async {
+        let router = Self.linkRouter()
+        let rig = Self.rig([Self.info()], links: router)
+        rig.updater.outcomes = ["dev.example.demo": .needsApproval(Self.pendingUpdate())]
+        var replacement: Rig?
+        rig.shown.onShow = {
+            // Settings navigated away and back while the update's approval sheet is still up.
+            replacement = Self.rig(links: router)
+            router.receive(URL(string: Self.forkLink)!)
+        }
+
+        await rig.model.checkForUpdates()
+
+        #expect(router.pending == nil)
+        #expect(replacement?.model.isAskingInstallSource == false)
+        #expect(replacement?.model.installPrefill == nil)
+    }
+
     @Test func linkWhileTheInstallSheetIsUpIsIgnoredAndOnceItClosesLinksWorkAgain() {
         let router = Self.linkRouter()
         let rig = Self.rig(links: router)

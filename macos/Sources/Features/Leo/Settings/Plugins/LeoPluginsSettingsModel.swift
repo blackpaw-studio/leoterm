@@ -69,6 +69,8 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
     /// Shows the approval sheet; true if the person approved.
     private let approve: @MainActor (LeoPluginApprovalRequest) async -> Bool
     private let links: LeoPluginInstallLinkRouter?
+    /// This model's claim on the router's install-UI guard; another pane's model has its own.
+    private let uiOwner = UUID()
     private var subscription: AnyCancellable?
     private var linkSubscriptions: Set<AnyCancellable> = []
 
@@ -87,6 +89,12 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
             .dropFirst()
             .sink { [weak self] in self?.rows = $0.map(LeoPluginRow.init) }
         bindLinks()
+    }
+
+    deinit {
+        // A pane torn down mid-sheet must not leave the router refusing links.
+        let (links, owner) = (links, uiOwner)
+        Task { @MainActor in links?.endInstallUI(owner) }
     }
 
     // MARK: Per-plugin
@@ -224,7 +232,9 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         Publishers.CombineLatest($isBusy, $isAskingInstallSource)
             .map { $0 || $1 }
             .removeDuplicates()
-            .sink { [weak links] in links?.isInstallUIOpen = $0 }
+            .sink { [weak links, uiOwner] in
+                if $0 { links?.beginInstallUI(uiOwner) } else { links?.endInstallUI(uiOwner) }
+            }
             .store(in: &linkSubscriptions)
         links.linkAvailable
             .sink { [weak self] in self?.takePendingLink() }

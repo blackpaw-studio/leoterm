@@ -39,7 +39,7 @@ import Testing
         let recorder = Recorder()
         let router = Self.router(recorder)
         router.markReady()
-        router.isInstallUIOpen = true
+        router.beginInstallUI(UUID())
 
         router.receive(Self.bad)
 
@@ -82,7 +82,7 @@ import Testing
         let recorder = Recorder()
         let router = Self.router(recorder)
         router.markReady()
-        router.isInstallUIOpen = true
+        router.beginInstallUI(UUID())
 
         router.receive(Self.good)
 
@@ -140,6 +140,34 @@ import Testing
         router.markReady()
 
         #expect(router.pending == nil)
+    }
+
+    @Test func linksAreRefusedUntilEveryOwnerOfTheInstallUIHasEnded() {
+        let recorder = Recorder()
+        let router = Self.router(recorder)
+        router.markReady()
+        let first = UUID()
+        let second = UUID()
+        router.beginInstallUI(first)
+        router.beginInstallUI(second)
+
+        router.endInstallUI(first)
+        router.receive(Self.good)
+        #expect(router.pending == nil)
+
+        router.endInstallUI(second)
+        router.receive(Self.good)
+        #expect(router.pending != nil)
+    }
+
+    @Test func endingAnOwnerThatNeverBeganChangesNothing() {
+        let router = Self.router(Recorder())
+        router.markReady()
+        router.beginInstallUI(UUID())
+
+        router.endInstallUI(UUID())
+
+        #expect(router.isInstallUIOpen)
     }
 
     @Test func aSecondLinkWhileOneIsPendingIsDropped() {
