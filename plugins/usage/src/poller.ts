@@ -38,7 +38,9 @@ export interface Poller {
   sync(): Promise<void>;
   /** Refresh every due account, one request at a time. Concurrent calls share one pass. */
   refresh(options?: RefreshOptions): Promise<void>;
-  /** sync + refresh now, then every 5 minutes. */
+  /** Local setup only, no network: register the 5-minute timer (once) and do the first sync. */
+  init(): Promise<void>;
+  /** init + the first refresh pass; polling continues every 5 minutes. */
   start(): Promise<void>;
   accounts(): readonly Account[];
   rename(id: string, label: string): Promise<void>;
@@ -152,20 +154,25 @@ export function createPoller(leo: LeoV2, clock: Clock, onChange: () => void): Po
 
   let timer: TimerHandle | null = null;
 
+  const init = async (): Promise<void> => {
+    // The timer goes first and only once, so a failed first sync (or a retried init) still ends up polling.
+    timer ??= leo.timer(POLL_INTERVAL_SEC, async () => {
+      try {
+        await sync();
+        await refresh();
+      } catch (e) {
+        leo.log("error", "poll failed: " + errorMessage(e));
+      }
+    });
+    await sync();
+  };
+
   return {
     sync,
     refresh,
+    init,
     start: async () => {
-      // The timer goes first and only once, so a failed first pass (or a retried start) still ends up polling.
-      timer ??= leo.timer(POLL_INTERVAL_SEC, async () => {
-        try {
-          await sync();
-          await refresh();
-        } catch (e) {
-          leo.log("error", "poll failed: " + errorMessage(e));
-        }
-      });
-      await sync();
+      await init();
       await refresh();
     },
     accounts: () =>

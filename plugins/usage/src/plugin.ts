@@ -29,6 +29,7 @@ export function createPlugin(leo: LeoV2, clock: Clock): void {
   const sections = new Map<string, SlotID>();
   let showSlot: SlotID | null = null;
   let started: Promise<void> | null = null;
+  let initialized: Promise<void> | null = null;
 
   const draw = (): void => {
     const accounts = poller.accounts();
@@ -38,9 +39,19 @@ export function createPlugin(leo: LeoV2, clock: Clock): void {
 
   const poller = createPoller(leo, clock, draw);
 
+  /** Local setup only (timer + first grant sync). Never waits on the network. */
+  const ready = (): Promise<void> => {
+    initialized = initialized ?? poller.init().catch((e: unknown) => {
+      initialized = null; // a rejected init must not stick; the next event retries
+      throw e;
+    });
+    return initialized;
+  };
+
+  /** ready + the first network pass. */
   const start = (): Promise<void> => {
-    started = started ?? poller.start().catch((e: unknown) => {
-      started = null; // a rejected start must not stick; the next activate or command retries
+    started = started ?? ready().then(() => poller.refresh()).catch((e: unknown) => {
+      started = null;
       throw e;
     });
     return started;
@@ -145,9 +156,10 @@ export function createPlugin(leo: LeoV2, clock: Clock): void {
 
   /** Grants changed (e.g. removed in Settings): reconcile now, fetch new accounts through the queued pass. */
   const credentialsChanged = async (): Promise<void> => {
-    await start();
-    await poller.sync();
-    await poller.refresh();
+    await ready();
+    await poller.sync(); // reconciles and redraws now
+    // Fetch newly added accounts through the queued pass, but don't hold the reconcile path on the network.
+    void poller.refresh().catch((e: unknown) => leo.log("error", "refresh failed: " + (e instanceof Error ? e.message : String(e))));
   };
 
   leo.on("credentialsChanged", safely("credentialsChanged", credentialsChanged));

@@ -218,19 +218,23 @@
       return inFlight;
     };
     let timer = null;
+    const init = async () => {
+      timer ?? (timer = leo2.timer(POLL_INTERVAL_SEC, async () => {
+        try {
+          await sync();
+          await refresh();
+        } catch (e) {
+          leo2.log("error", "poll failed: " + errorMessage(e));
+        }
+      }));
+      await sync();
+    };
     return {
       sync,
       refresh,
+      init,
       start: async () => {
-        timer ?? (timer = leo2.timer(POLL_INTERVAL_SEC, async () => {
-          try {
-            await sync();
-            await refresh();
-          } catch (e) {
-            leo2.log("error", "poll failed: " + errorMessage(e));
-          }
-        }));
-        await sync();
+        await init();
         await refresh();
       },
       accounts: () => entries.map((e) => ({ handle: e.handle, label: persisted?.labels[e.handle.id] ?? defaultLabel(e.handle), state: e.state })),
@@ -475,14 +479,22 @@
     const sections = /* @__PURE__ */ new Map();
     let showSlot = null;
     let started = null;
+    let initialized = null;
     const draw = () => {
       const accounts = poller.accounts();
       sections.forEach((slot) => leo2.render(slot, sidebarRoot(accounts, clock.now())));
       if (showSlot) leo2.render(showSlot, fullRoot(accounts, clock.now()));
     };
     const poller = createPoller(leo2, clock, draw);
+    const ready = () => {
+      initialized = initialized ?? poller.init().catch((e) => {
+        initialized = null;
+        throw e;
+      });
+      return initialized;
+    };
     const start = () => {
-      started = started ?? poller.start().catch((e) => {
+      started = started ?? ready().then(() => poller.refresh()).catch((e) => {
         started = null;
         throw e;
       });
@@ -573,9 +585,9 @@
       await poller.sync();
     };
     const credentialsChanged = async () => {
-      await start();
+      await ready();
       await poller.sync();
-      await poller.refresh();
+      void poller.refresh().catch((e) => leo2.log("error", "refresh failed: " + (e instanceof Error ? e.message : String(e))));
     };
     leo2.on("credentialsChanged", safely("credentialsChanged", credentialsChanged));
     leo2.on("activate", safely("activate", activate));

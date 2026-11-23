@@ -18,6 +18,7 @@
  *   `route("GET", u, ok200, notModified304)` is a 200 followed by 304s. An entry is a
  *   `StubResponse` or `{ reject }` (the promise rejects, like the host's rate limit or a
  *   disallowed host). Unrouted requests reject loudly. Every call lands in `fetches`.
+ * - `{ hang: true }` entries never settle (a stalled connection).
  * - host limits: like LeoPluginRateLimiter, a fetch is rejected (never queued) when 4 are already in
  *   flight or 60 were admitted in the last rolling minute. `hostRejections` records each rejection;
  *   `maxInFlight` is the high-water mark. Rejections reject the promise, like the real host.
@@ -56,7 +57,11 @@ export interface StubResponse {
 export interface StubRejection {
   reject: string;
 }
-export type StubEntry = StubResponse | StubRejection;
+/** The request never completes, like a stalled connection. It holds its in-flight slot forever. */
+export interface StubHang {
+  hang: true;
+}
+export type StubEntry = StubResponse | StubRejection | StubHang;
 
 export interface RecordedFetch {
   credential: string | undefined;
@@ -261,6 +266,7 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
         if (!route) throw new Error("stubLeo: no route for " + routeKey(method, url));
         const entry = route.entries[Math.min(route.next, route.entries.length - 1)];
         route.next += 1;
+        if ("hang" in entry) return new Promise<never>(() => {});
         if ("reject" in entry) throw new Error(entry.reject);
         return toFetchResponse(entry);
       } finally {
