@@ -115,6 +115,19 @@
 	<string>$(LEO_ALLOWS_AUTOMATIC_UPDATES)</string>
 	<key>LeoDaemonLabel</key>
 	<string>$(LEO_DAEMON_LABEL)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).plugin-install</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>$(LEO_URL_SCHEME)</string>
+			</array>
+		</dict>
+	</array>
 	<key>SUPublicEDKey</key>
 	<string>yQcDYO8rnAKiOrSW0D5dJNNXk/SWj09TmVLjScZb/d4=</string>
 	<key>UTExportedTypeDeclarations</key>

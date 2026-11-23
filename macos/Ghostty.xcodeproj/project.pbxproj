@@ -766,6 +766,7 @@
 				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
 				LEO_DAEMON_LABEL = studio.blackpaw.leo.daemon;
+				LEO_URL_SCHEME = leo;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1172,6 +1173,7 @@
 				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
 				LEO_DAEMON_LABEL = studio.blackpaw.leo.daemon.debug;
+				LEO_URL_SCHEME = leo-debug;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -1231,6 +1233,7 @@
 				INFOPLIST_KEY_NSSystemAdministrationUsageDescription = "A program running within Ghostty requires elevated privileges.";
 				INFOPLIST_PREPROCESS = YES;
 				LEO_DAEMON_LABEL = studio.blackpaw.leo.daemon;
+				LEO_URL_SCHEME = leo;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
