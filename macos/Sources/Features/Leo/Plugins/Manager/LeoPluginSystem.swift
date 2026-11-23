@@ -16,6 +16,8 @@ import LeoKit
     let sections: LeoPluginSidebarSections
     /// The command palette's plugin commands (slot 3).
     let commands: LeoPluginManagerCommandSource
+    /// Where `leo://plugin/install` links go; the Plugins pane takes them from here.
+    let links: LeoPluginInstallLinkRouter?
     private let devWatcher: LeoPluginDevWatcher
 
     init(
@@ -26,8 +28,10 @@ import LeoKit
         applicationSupport: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0],
         bundle: Bundle = .main,
         surfaces: any LeoPluginSlotSurface,
-        presenter: LeoPluginSheetPresenter = LeoPluginSheetPresenter()
+        presenter: LeoPluginSheetPresenter = LeoPluginSheetPresenter(),
+        links: LeoPluginInstallLinkRouter? = nil
     ) {
+        self.links = links
         #if DEBUG
         let isDebugBuild = true
         #else

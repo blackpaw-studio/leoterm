@@ -55,26 +55,38 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
     @Published private(set) var isBusy = false
     @Published private(set) var pendingUninstall: LeoPluginRow?
     @Published var isAskingInstallSource = false
+    /// What a `leo://` link filled into the Install-from-URL sheet; nil for a plain open.
+    @Published private(set) var installPrefill: InstallPrefill?
+
+    struct InstallPrefill: Equatable {
+        let url: String
+        let ref: String
+    }
 
     private let manager: any LeoPluginsManaging
     private let installer: any LeoPluginInstalling
     private let updater: any LeoPluginUpdating
     /// Shows the approval sheet; true if the person approved.
     private let approve: @MainActor (LeoPluginApprovalRequest) async -> Bool
+    private let links: LeoPluginInstallLinkRouter?
     private var subscription: AnyCancellable?
+    private var linkSubscriptions: Set<AnyCancellable> = []
 
     init(
         manager: any LeoPluginsManaging, installer: any LeoPluginInstalling, updater: any LeoPluginUpdating,
-        approve: @escaping @MainActor (LeoPluginApprovalRequest) async -> Bool
+        approve: @escaping @MainActor (LeoPluginApprovalRequest) async -> Bool,
+        links: LeoPluginInstallLinkRouter? = nil
     ) {
         self.manager = manager
         self.installer = installer
         self.updater = updater
         self.approve = approve
+        self.links = links
         rows = manager.plugins.map(LeoPluginRow.init)
         subscription = manager.pluginsChanged
             .dropFirst()
             .sink { [weak self] in self?.rows = $0.map(LeoPluginRow.init) }
+        bindLinks()
     }
 
     // MARK: Per-plugin
@@ -192,6 +204,38 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
                 message = .notice(updated.isEmpty ? "Everything is up to date." : "\(updated.count) plugin\(updated.count == 1 ? "" : "s") updated.")
             }
         }
+    }
+
+    // MARK: Install links
+
+    func clearInstallPrefill() { installPrefill = nil }
+
+    /// The pane is going away: its sheet goes with it, so it must not keep
+    /// the router refusing links.
+    func paneDidDisappear() {
+        isAskingInstallSource = false
+        installPrefill = nil
+    }
+
+    /// Tells the router when a sheet or run is up, and opens the Install sheet
+    /// for a link the router holds.
+    private func bindLinks() {
+        guard let links else { return }
+        Publishers.CombineLatest($isBusy, $isAskingInstallSource)
+            .map { $0 || $1 }
+            .removeDuplicates()
+            .sink { [weak links] in links?.isInstallUIOpen = $0 }
+            .store(in: &linkSubscriptions)
+        links.linkAvailable
+            .sink { [weak self] in self?.takePendingLink() }
+            .store(in: &linkSubscriptions)
+        takePendingLink()
+    }
+
+    private func takePendingLink() {
+        guard let links, !isBusy, !isAskingInstallSource, let link = links.take() else { return }
+        installPrefill = InstallPrefill(url: link.url.absoluteString, ref: link.ref ?? "")
+        isAskingInstallSource = true
     }
 
     // MARK: Private
