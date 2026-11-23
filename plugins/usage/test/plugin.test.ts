@@ -169,6 +169,20 @@ describe("account actions", () => {
     expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual(["codex"]);
   });
 
+  it("the sidebar's Remove Account action removes the grant, re-syncs, and the account disappears", async () => {
+    const stub = boot();
+    stub.setCredentials([work, codex]);
+    stub.route("GET", CLAUDE_URL, { body: claudeFull });
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    await stub.emit("activate", SECTION);
+    const action = groupsOf(stub.lastRender(SECTION))[0].actions?.find((a) => a.title === "Remove Account");
+    if (action?.type !== "callback") throw new Error("no Remove Account callback");
+    await stub.emit("callback", action.id, action.payload ?? null);
+    expect(stub.credentialCalls).toContain("remove:c1");
+    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual(["codex"]);
+    expect(JSON.parse(stub.secretStore.get("state") ?? "{}").order).toEqual(["x1"]);
+  });
+
   it("Rename submits the form value as the account's label", async () => {
     const stub = boot();
     stub.setCredentials([work]);

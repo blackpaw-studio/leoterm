@@ -45,6 +45,15 @@
         "payload": {
           "kind": "codex"
         }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove Account",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "c1"
+        }
       }
     ]
   },
@@ -85,6 +94,15 @@
         "sfSymbol": "plus.circle",
         "payload": {
           "kind": "codex"
+        }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove Account",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "c2"
         }
       }
     ]
@@ -131,6 +149,15 @@
         "payload": {
           "kind": "codex"
         }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove Account",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "c3"
+        }
       }
     ]
   },
@@ -172,6 +199,15 @@
         "sfSymbol": "plus.circle",
         "payload": {
           "kind": "codex"
+        }
+      },
+      {
+        "type": "callback",
+        "id": "remove",
+        "title": "Remove Account",
+        "sfSymbol": "minus.circle",
+        "payload": {
+          "id": "x1"
         }
       }
     ]
