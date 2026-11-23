@@ -10,7 +10,7 @@ import WebKit
 /// menu (any focus). None of them takes control from the agent.
 @MainActor
 @Suite(.serialized)
-struct LeoAgentBrowserBrowserMenuTests {
+final class LeoAgentBrowserBrowserMenuTests {
     private final class KeyWindow: NSWindow {
         override var isKeyWindow: Bool { true }
     }
@@ -87,6 +87,10 @@ struct LeoAgentBrowserBrowserMenuTests {
         source.changed()
         await drainMainQueue()
     }
+
+    /// Detaches the views while the window is alive: letting it deallocate with
+    /// a web view still inside trapped the host ("Cannot form weak reference").
+    deinit { LeoFixtureWindow.tearDown(window) }
 
     private func key(_ character: String, _ modifiers: NSEvent.ModifierFlags) -> NSEvent {
         NSEvent.keyEvent(

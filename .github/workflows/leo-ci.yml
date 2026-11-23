@@ -5,7 +5,23 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      test_filter:
+        description: >-
+          Run only these macOS unit tests (comma-separated Suite or
+          Suite/test(), e.g. LeoSidebarContentMinimumTests) and skip CI script
+          tests, LeoKit tests and SwiftLint. Empty runs everything.
+        type: string
+        default: ""
   workflow_call:
+    inputs:
+      test_filter:
+        description: >-
+          Run only these macOS unit tests (comma-separated Suite or
+          Suite/test(), e.g. LeoSidebarContentMinimumTests) and skip CI script
+          tests, LeoKit tests and SwiftLint. Empty runs everything.
+        type: string
+        default: ""
 
 # github.workflow is the caller's name inside a reusable call, so a release
 # run ("Leo Release") can't share a group with, and cancel, push CI ("Leo CI")
@@ -133,8 +149,9 @@ jobs:
         working-directory: .
         run: test ! -e macos/Bundled/Plugins/studio.blackpaw.usage
 
+  # Ghast VM runner (docs/leo/ci-self-hosted.md); queues while no Ghast host is up.
   test-macos:
-    runs-on: macos-26
+    runs-on: blackpaw-macos-tahoe-xcode-26-3
     timeout-minutes: 120
     steps:
       - name: Checkout
@@ -145,14 +162,12 @@ jobs:
       - name: Set DerivedData path
         run: echo "DERIVED_DATA=$RUNNER_TEMP/DerivedData-ci" >> "$GITHUB_ENV"
 
-      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md), so a
-      # missing 26.3 must fail, never fall back to a newer Xcode.
+      # Hard pin: Xcode 26.5's SDK breaks Zig linking (docs/leo/ci.md).
       - name: Select Xcode 26.3
-        run: |
-          x=/Applications/Xcode_26.3.app
-          test -d "$x" || { echo "::error::$x missing on this macos-26 image"; ls -d /Applications/Xcode*.app; exit 1; }
-          echo "DEVELOPER_DIR=$x/Contents/Developer" >> "$GITHUB_ENV"
-          DEVELOPER_DIR="$x/Contents/Developer" xcodebuild -version
+        run: .github/scripts/leo/select-xcode.sh 26.3
+
+      - name: Ensure gh
+        run: .github/scripts/leo/ensure-tools.sh gh
 
       - name: Setup zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
@@ -160,14 +175,20 @@ jobs:
           version: 0.16.0
           use-cache: false # zig caches managed explicitly below
 
-      # run-unit-tests.sh calls GNU `timeout`, which hosted images lack.
+      # run-unit-tests.sh calls GNU `timeout`, which macOS lacks.
       - name: Install coreutils (timeout)
         run: |
-          brew install coreutils
+          # Idempotent: skips the install when the image already has it.
+          brew list coreutils >/dev/null 2>&1 || brew install coreutils
           # Only `timeout`: full gnubin shadows BSD stat/etc. and breaks script tests.
           mkdir -p "$RUNNER_TEMP/bin"
           ln -sf "$(brew --prefix coreutils)/bin/gtimeout" "$RUNNER_TEMP/bin/timeout"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      # sparkle-key-check.sh needs Ed25519 in `openssl pkey`. macOS's LibreSSL
+      # fails silently, so put Homebrew OpenSSL 3 first. No-op when it already is.
+      - name: Ensure OpenSSL 3 on PATH
+        run: .github/scripts/leo/ensure-openssl3.sh
 
       # Not preinstalled; brew now ships 0.65.1 which adds a rule our code
       # trips (legacy_swiftui_aspect_ratio), so pin the version the dev box has.
@@ -188,56 +209,86 @@ jobs:
           path: |
             ~/.cache/zig
             .zig-cache
-          key: zig-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('build.zig.zon', 'build.zig', 'src/build/**', 'pkg/**/*.zig', 'pkg/**/build.zig.zon') }}
-          restore-keys: zig-${{ env.CACHE_SALT }}-${{ runner.os }}-
+          key: zig-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-${{ hashFiles('build.zig.zon', 'build.zig', 'src/build/**', 'pkg/**/*.zig', 'pkg/**/build.zig.zon') }}
+          restore-keys: zig-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-
 
       - name: Cache LeoKit .build
         id: cache-leokit
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: Packages/LeoKit/.build
-          key: leokit-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('Packages/LeoKit/Package.swift', 'Packages/LeoKit/Sources/**', 'Packages/LeoKit/Tests/**') }}
-          restore-keys: leokit-${{ env.CACHE_SALT }}-${{ runner.os }}-
+          key: leokit-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-${{ hashFiles('Packages/LeoKit/Package.swift', 'Packages/LeoKit/Sources/**', 'Packages/LeoKit/Tests/**') }}
+          restore-keys: leokit-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-
 
       - name: Cache DerivedData (incl. SourcePackages)
         id: cache-dd
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DERIVED_DATA }}
-          key: dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
+          key: dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-${{ github.sha }}
           restore-keys: |
-            dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
-            dd-${{ env.CACHE_SALT }}-${{ runner.os }}-
+            dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-${{ hashFiles('macos/Ghostty.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}-
+            dd-${{ env.CACHE_SALT }}-${{ runner.os }}-${{ runner.environment }}-
 
       - name: CI script tests
+        if: inputs.test_filter == ''
         run: .github/scripts/leo/run-tests.sh
 
       - name: LeoKit tests
+        id: leokit-tests
+        if: inputs.test_filter == ''
         working-directory: Packages/LeoKit
         run: |
           swiftlint lint --strict
           swift test
 
       - name: SwiftLint
+        if: inputs.test_filter == ''
         working-directory: macos
         run: swiftlint lint --strict
 
       # leo-release.yml calls this workflow on a leo-vX.Y.Z tag; without an
       # explicit version string Config.zig panics on the tag (B-317).
       - name: Build GhosttyKit
+        id: ghosttykit
         run: |
           version="$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' build.zig.zon | head -1)"
           [[ -n "$version" ]] || { echo "could not read .version from build.zig.zon" >&2; exit 1; }
           rm -rf macos/GhosttyKit.xcframework zig-out
           zig build -Demit-macos-app=false -Dversion-string="$version"
 
+      # Diagnostic only: shows whether the VM has a GUI session and a display.
+      - name: Session diagnostics
+        continue-on-error: true
+        run: |
+          launchctl managername || true
+          sw_vers || true
+          system_profiler SPDisplaysDataType 2>&1 | head -30 || true
+          echo "AppleKeyboardUIMode=$(defaults read -g AppleKeyboardUIMode 2>/dev/null || echo unset)"
+
+      # The Cirrus image turns on Full Keyboard Access (AppleKeyboardUIMode=3),
+      # which puts scroll views in the Tab key loop and breaks the launch
+      # focus tests. Hosted runners leave it off; match them.
+      - name: Turn off Full Keyboard Access
+        run: defaults write -g AppleKeyboardUIMode -int 0
+
       - name: Unit tests
+        id: unit
         env:
           LOG: ${{ runner.temp }}/leo-tests.log
+          LEO_TEST_FILTER: ${{ inputs.test_filter }}
         run: .github/scripts/leo/run-unit-tests.sh
 
+      # A host trap leaves its evidence outside the test log: macOS .ips reports
+      # and Ghostty's sentry minidumps. Gather them into one plain directory.
+      - name: Collect crash evidence
+        if: failure() || steps.unit.outputs.retried == 'true'
+        run: .github/scripts/leo/collect-crash-evidence.sh "$RUNNER_TEMP/leo-crash-evidence"
+
+      # Also after a retried (flaky or crashed, then passing) run: the first
+      # attempt's log and evidence are why the step logged a warning.
       - name: Upload test log
-        if: failure()
+        if: failure() || steps.unit.outputs.retried == 'true'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: leo-test-log
@@ -245,11 +296,18 @@ jobs:
           path: |
             ${{ runner.temp }}/leo-tests.log
             ${{ runner.temp }}/leo-tests.log.hang
+            ${{ runner.temp }}/leo-tests-retry.log
+            ${{ runner.temp }}/leo-tests-retry.log.hang
+            ${{ runner.temp }}/leo-crash-evidence
           if-no-files-found: ignore
 
-      # Only main pushes write caches; PRs and tag calls restore from main.
+      # Main pushes and manual dispatches (any branch) write caches; PRs and
+      # tag calls only restore.
+      # Each save runs once the step that filled it succeeded, even if a
+      # later test step failed, so a red run doesn't force a cold rebuild.
+      # A save is skipped on an exact-key hit (actions/cache can't overwrite).
       - name: Save zig cache
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-zig.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && steps.cache-zig.outputs.cache-hit != 'true' && steps.ghosttykit.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
@@ -258,14 +316,14 @@ jobs:
           key: ${{ steps.cache-zig.outputs.cache-primary-key }}
 
       - name: Save LeoKit .build
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-leokit.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && steps.cache-leokit.outputs.cache-hit != 'true' && steps.leokit-tests.outcome == 'success' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: Packages/LeoKit/.build
           key: ${{ steps.cache-leokit.outputs.cache-primary-key }}
 
       - name: Save DerivedData
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache-dd.outputs.cache-hit != 'true'
+        if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')) && steps.cache-dd.outputs.cache-hit != 'true' && steps.unit.outputs.built == 'true' }}
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ env.DERIVED_DATA }}

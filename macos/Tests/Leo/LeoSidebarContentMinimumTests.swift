@@ -44,6 +44,27 @@ import Testing
 
     private static let windowMargin: CGFloat = 20
 
+    /// How far a clamped pane may sit from its exact target. macOS 26 insets
+    /// a sidebar item's view 7-8 pt inside its pane, and how far varies
+    /// between 26.x releases (26.2 differs from later ones). The sidebar
+    /// converts its limits through an inset read at an earlier layout, so
+    /// on an OS whose inset differs from that read the clamp lands up to an
+    /// inset away. Only inset-sensitive widths use this; the rest stay at 1.
+    private static let insetTolerance: CGFloat = 8
+
+    /// The content sits at its minimum, within one OS inset either way. The
+    /// clamp compensates for the split-view inset of macOS 26.7+; on older
+    /// 26.x, where that inset is missing, the content lands up to one inset
+    /// below its minimum. That is invisible: the start screen's buttons keep
+    /// 20 pt of padding on each side, which `theStartScreensButtonsFit...`
+    /// covers. Above the minimum, the clamp must still hold it.
+    private static func expectContentAtItsMinimum(
+        _ contentWidth: CGFloat, sourceLocation: SourceLocation = #_sourceLocation
+    ) {
+        #expect(contentWidth >= contentMinimum - insetTolerance, "content \(contentWidth) under its minimum", sourceLocation: sourceLocation)
+        #expect(contentWidth <= contentMinimum + insetTolerance, "content \(contentWidth) not clamped", sourceLocation: sourceLocation)
+    }
+
     // MARK: In a window
 
     // Widths are read with LeoSplitViewController.paneWidth, not view frames:
@@ -56,8 +77,10 @@ import Testing
         let harness = await Harness(defaults: defaults, windowWidth: Self.reportedWindowWidth)
         defer { harness.close() }
 
-        #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
-        #expect(abs(harness.sidebarWidth - (Self.reportedWindowWidth - 1 - Self.contentMinimum)) <= 1)
+        Self.expectContentAtItsMinimum(harness.contentWidth)
+        #expect(abs(harness.sidebarWidth - (Self.reportedWindowWidth - 1 - Self.contentMinimum)) <= Self.insetTolerance, "sidebar \(harness.sidebarWidth)")
+        #expect(harness.sidebarWidth >= LeoSidebarSplitMetrics.minimumWidth - 1)
+        #expect(harness.sidebarWidth <= LeoSidebarSplitMetrics.maximumWidth + 1)
         let clamped = harness.sidebarWidth
 
         // A clamp, not the user's width: widening keeps it, and the next
@@ -101,7 +124,7 @@ import Testing
         harness.components.controller.restoreSidebarWidth(LeoSidebarSplitMetrics.maximumWidth)
         for _ in 0..<3 { await harness.settle() }
 
-        #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
+        Self.expectContentAtItsMinimum(harness.contentWidth)
         #expect(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) == Double(LeoSidebarSplitMetrics.maximumWidth))
     }
 
@@ -113,7 +136,7 @@ import Testing
         harness.dragDivider(to: LeoSidebarSplitMetrics.maximumWidth)
         await harness.settle()
 
-        #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
+        Self.expectContentAtItsMinimum(harness.contentWidth)
         #expect(abs(defaults.double(forKey: LeoWindowSession.sidebarWidthKey) - Double(harness.sidebarWidth)) <= 1)
     }
 
@@ -133,7 +156,7 @@ import Testing
         #expect(abs(harness.sidebarWidth - LeoSidebarSplitMetrics.maximumWidth) <= 1)
 
         let narrowing = await harness.resize(to: Self.reportedWindowWidth, isLive: isLive)
-        #expect(abs(harness.contentWidth - Self.contentMinimum) <= 1, "content \(harness.contentWidth)")
+        Self.expectContentAtItsMinimum(harness.contentWidth)
         let clampShown = narrowing.filter { !Self.showsSidebarGivingWayFirst($0, stored: LeoSidebarSplitMetrics.maximumWidth) }
         #expect(!narrowing.isEmpty)
         #expect(clampShown.isEmpty, "steps drawn off the clamp: \(clampShown)")

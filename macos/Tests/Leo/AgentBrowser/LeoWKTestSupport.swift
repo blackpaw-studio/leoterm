@@ -31,6 +31,27 @@ enum LeoWKTestHost {
     }
 }
 
+/// Deterministic end of life for a fixture window that holds views.
+enum LeoFixtureWindow {
+    /// Takes the content out of the window while it is still alive. A window
+    /// that deallocates with a web view inside tears the view tree down
+    /// mid-dealloc, and WebKit/AppKit then form weak references to the dying
+    /// window (the "Cannot form weak reference ... NSKVONotifying_" trap).
+    /// Not `close()`: the fixtures' key-window stand-ins report `isKeyWindow`
+    /// without being key, and closing one crashes the host.
+    ///
+    /// Callable from a suite's nonisolated `deinit`, which Swift Testing may run
+    /// off the main thread: then the detach hops to the main queue, and its
+    /// closure keeps the window alive until it has run.
+    static func tearDown(_ window: NSWindow) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { window.contentView = nil }
+            return
+        }
+        MainActor.assumeIsolated { window.contentView = nil }
+    }
+}
+
 /// Serves in-memory pages at `leotest://fixture/<name>`.
 @MainActor final class LeoWKFixtureServer: NSObject, WKURLSchemeHandler {
     static let scheme = "leotest"

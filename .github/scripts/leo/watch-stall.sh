@@ -14,7 +14,13 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 last_size=-1
 idle=0
 while kill -0 "$pid" 2>/dev/null; do
-  sleep "$POLL_SECONDS"
+  # Not a foreground `sleep`: bash holds a SIGTERM until it returns, so the
+  # run's `kill` of this watcher would wait out the poll interval every time.
+  # Detached from stdout/stderr: when the watcher is killed its sleep lives on,
+  # and holding the caller's pipe open would stall anything reading it to EOF
+  # (a `$(...)` capture of the run) for the rest of the interval.
+  sleep "$POLL_SECONDS" >/dev/null 2>&1 &
+  wait $!
   size="$(stat -f %z "$log" 2>/dev/null || echo 0)"
   if [[ "$size" == "$last_size" ]]; then idle=$((idle + POLL_SECONDS)); else idle=0; fi
   last_size="$size"

@@ -17,9 +17,23 @@ struct LeoPluginApprovalSheet: View {
         return request.isDev ? "Load" : "Install"
     }
 
+    private var unverifiedBanner: some View {
+        Label {
+            Text("Not from Blackpaw Studio. Only install plugins from people you trust.")
+                .fixedSize(horizontal: false, vertical: true)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(LeoSettingsStatus.warning.color)
+        }
+        .font(.callout)
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LeoSettingsStatus.warning.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.headline)
+            if request.isUnverified { unverifiedBanner }
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(request.id) · \(request.version)").font(.callout.monospaced())
                 Text(request.sourceDescription).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)

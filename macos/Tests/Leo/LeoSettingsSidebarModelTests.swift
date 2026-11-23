@@ -120,6 +120,20 @@ struct LeoSettingsSidebarModelTests {
         #expect(harness.target.selectedHost == .remote("dionysus"))
     }
 
+    @Test func openReportsWhetherTheSelectionMoved() throws {
+        let harness = try Self.harness()
+        let dionysus = LeoSettingsMachineRef.remote(Self.dionysus.id)
+
+        #expect(harness.sidebar.open(.machine(.local)))   // already there
+        #expect(harness.sidebar.open(.machine(dionysus)))
+        #expect(harness.sidebar.selection == .machine(dionysus))
+
+        let pane = Pane(dirty: true)
+        harness.target.register(pane, for: .config("templates"))
+        #expect(!harness.sidebar.open(.machine(.local)))   // the discard question is up
+        #expect(harness.sidebar.selection == .machine(dionysus))
+    }
+
     @Test func cancellingARefusedSelectionKeepsTheOldRow() throws {
         let harness = try Self.harness()
         let pane = Pane(dirty: true)

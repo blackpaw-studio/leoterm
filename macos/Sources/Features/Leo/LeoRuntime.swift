@@ -9,6 +9,8 @@ import LeoKit
     private static let logger = Logger(subsystem: "studio.blackpaw.leo.macos", category: "leo")
 
     let model: LeoSidebarModel
+    /// Where `leo://plugin/install` links go; nil in a runtime that took no link handler (tests).
+    private(set) var pluginLinks: LeoPluginInstallLinkRouter?
     /// The plugin platform; built by `start()`, so a runtime that is never
     /// started (tests) touches no plugin files.
     private(set) var plugins: LeoPluginSystem?
@@ -134,7 +136,9 @@ import LeoKit
         LeoSocketDaemonClient(socketPath: socketPath, transport: transport)
     }
 
-    convenience init(defaults: UserDefaults = .ghostty) {
+    convenience init(
+        defaults: UserDefaults = .ghostty, pluginLinks: (@MainActor (LeoRuntime) -> LeoPluginInstallLinkRouter)? = nil
+    ) {
         let socketPath = LeoLocalDaemon.socketPath
         var activity = LeoRuntime.makeSocketOrLegacyActivitySource(socketPath: socketPath)
         var transport: any LeoDaemonTransport = LeoUnixSocketTransport()
@@ -150,7 +154,7 @@ import LeoKit
         let daemon = LeoRuntime.makeClient(socketPath: socketPath, transport: transport)
         self.init(
             daemon: daemon, cli: LeoCLI(runner: LeoProcessRunner()), activitySource: activity, defaults: defaults,
-            templateFetchRunner: LeoProcessRunner(), machineRunner: LeoProcessRunner()
+            templateFetchRunner: LeoProcessRunner(), machineRunner: LeoProcessRunner(), pluginLinks: pluginLinks
         )
     }
 
@@ -187,7 +191,8 @@ import LeoKit
         wakeNotifications: NotificationCenter = NSWorkspace.shared.notificationCenter,
         appActivationNotifications: NotificationCenter = .default,
         terminalFileDropDependencies: LeoTerminalFileDropDependencies? = nil,
-        chatClient: (any LeoChatClient)? = nil
+        chatClient: (any LeoChatClient)? = nil,
+        pluginLinks makePluginLinks: (@MainActor (LeoRuntime) -> LeoPluginInstallLinkRouter)? = nil
     ) {
         // First, before anything that connects a machine reads its defaults.
         LeoMachineDefaultsMigration(defaults: defaults).run()
@@ -545,6 +550,7 @@ import LeoKit
         // (connecting/connected/failed), tagged with the generation it
         // belongs to, drives that machine's feed and client.
         weakSelf = self
+        pluginLinks = makePluginLinks?(self)
         // Fires at once with today's machines, so the model and feeds know
         // them before any feed delivers (no phantom This Mac section).
         machinesSubscription = machines.$machines.sink { [weak self] in self?.machinesChanged($0) }
@@ -631,11 +637,12 @@ import LeoKit
         guard !isShutDown, plugins == nil else { return }
         let system = LeoPluginSystem(
             sidebar: model, clients: clients, machineFeeds: .live(sidebar: model, actions: actions), defaults: defaults,
-            surfaces: pluginSurfaces)
+            surfaces: pluginSurfaces, links: pluginLinks)
         plugins = system
         model.pluginSections = system.sections
         pluginSurfaces.attach(system.manager)
         system.start()
+        pluginLinks?.markReady()
     }
 
     /// The app restarted or switched its own daemon: reconnect This Mac.

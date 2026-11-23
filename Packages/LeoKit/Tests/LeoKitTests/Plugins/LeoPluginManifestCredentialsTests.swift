@@ -82,11 +82,21 @@ extension LeoPluginApprovalReviewTests {
         let permissions = LeoPluginPermissions(network: ["chatgpt.com"], credentials: [.claudeCode, .codex])
         let request = LeoPluginApprovalRequest(
             id: "studio.blackpaw.usage", name: "Usage", version: "1.0.0", sha: nil, sourceDescription: "/tmp/usage",
-            permissions: permissions, diff: nil, isDev: true)
+            permissions: permissions, diff: nil, isDev: true, trust: .notApplicable)
         let credentialLines = request.permissionLines.filter { $0.hasPrefix("Accounts:") }
         #expect(credentialLines.count == 2)
         #expect(credentialLines.contains { $0.contains("Claude Code") })
         #expect(credentialLines.contains { $0.contains("Codex") })
+    }
+
+    /// The approval sheet shows the unverified banner and the account lines together.
+    @Test func anUnverifiedInstallStillListsItsCredentialKinds() {
+        let permissions = LeoPluginPermissions(network: ["chatgpt.com"], credentials: [.codex])
+        let request = LeoPluginApprovalRequest(
+            id: "dev.someone.usage", name: "Usage", version: "1.0.0", sha: "abc1234", sourceDescription: "github.com/someone/usage",
+            permissions: permissions, diff: nil, isDev: false, trust: .unverified)
+        #expect(request.isUnverified)
+        #expect(request.permissionLines.contains { $0.hasPrefix("Accounts:") && $0.contains("Codex") })
     }
 
     @Test func anUpdateAddingCodexShowsOnlyTheNewKind() throws {
@@ -99,7 +109,7 @@ extension LeoPluginApprovalReviewTests {
 
         let request = LeoPluginApprovalRequest(
             id: "studio.blackpaw.usage", name: "Usage", version: "1.1.0", sha: nil, sourceDescription: "/tmp/usage",
-            permissions: new, diff: diff, isDev: true)
+            permissions: new, diff: diff, isDev: true, trust: .notApplicable)
         #expect(request.permissionLines.count == 1)
         #expect(request.permissionLines[0].contains("Codex"))
     }

@@ -9,7 +9,7 @@ import Testing
 /// one-field path sheet, and report in the download strip.
 @MainActor
 @Suite(.serialized)
-struct LeoAgentBrowserSaveMenuTests {
+final class LeoAgentBrowserSaveMenuTests {
     private final class KeyWindow: NSWindow {
         override var isKeyWindow: Bool { true }
     }
@@ -60,6 +60,10 @@ struct LeoAgentBrowserSaveMenuTests {
     private func item(_ action: Selector) -> NSMenuItem {
         NSMenuItem(title: "", action: action, keyEquivalent: "")
     }
+
+    /// Detaches the views while the window is alive: letting it deallocate with
+    /// a web view still inside trapped the host ("Cannot form weak reference").
+    deinit { LeoFixtureWindow.tearDown(window) }
 
     private func key(_ modifiers: NSEvent.ModifierFlags) -> NSEvent {
         NSEvent.keyEvent(

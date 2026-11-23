@@ -35,16 +35,27 @@ import Testing
     }
 
     /// Turns of the main queue, laying the window out after each, until
-    /// `condition` holds (or a few seconds pass).
-    private func settle(_ window: NSWindow, until condition: () -> Bool = { false }) async {
+    /// `condition` holds. Gives up after a few seconds, which only a stuck
+    /// condition reaches: callers `#require` what they waited for, so a miss
+    /// fails there, not as a downstream symptom.
+    private func settle(_ window: NSWindow, until condition: () -> Bool) async {
         let deadline = ContinuousClock.now + .seconds(3)
-        var turns = 0
-        while ContinuousClock.now < deadline, turns < 10 || !condition() {
+        while ContinuousClock.now < deadline, !condition() {
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
             window.layoutIfNeeded()
-            turns += 1
-            if turns >= 10, condition() { return }
         }
+    }
+
+    /// What `makeRoom` needs before it will act: the split in a window, with a width.
+    private func isSplitReady(_ state: SidebarState) -> Bool {
+        guard let split = state.split else { return false }
+        return split.view.window != nil && split.splitView.bounds.width > 0
+    }
+
+    private func layoutDescription(_ state: SidebarState) -> String {
+        guard let split = state.split else { return "no split" }
+        let panes = split.splitView.arrangedSubviews.map { $0.frame.width }
+        return "split \(split.splitView.bounds.width), panes \(panes), collapsed \(split.splitViewItems.map(\.isCollapsed)), in window \(split.view.window != nil)"
     }
 
     /// D-058: showing the sidebar where it would squeeze the terminal
@@ -61,20 +72,21 @@ import Testing
         window.setContentSize(NSSize(width: 1_000, height: 600))
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
-        await settle(window)
+        await settle(window) { isSplitReady(state) }
+        try #require(isSplitReady(state), "the split never reached the window: \(layoutDescription(state))")
 
         await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
         try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
         await settle(window) { !state.isVisible }
         let sidebarItem = try #require(state.split?.sidebarItem)
-        try #require(sidebarItem.isCollapsed, "opening both panes made room")
+        try #require(sidebarItem.isCollapsed, "opening both panes made room: \(layoutDescription(state))")
         try #require(state.split?.sidebarSqueezesTerminal(atWidth: LeoSidebarSplitMetrics.minimumWidth) == true)
 
         state.isVisible = true
         await settle(window) { !state.isVisible }
 
-        #expect(sidebarItem.isCollapsed)
-        #expect(!state.isVisible)
+        #expect(!state.isVisible, "the session heard it is still hidden")
+        #expect(sidebarItem.isCollapsed, "\(layoutDescription(state))")
         await editor.closeAll()
         await browser.close()
     }

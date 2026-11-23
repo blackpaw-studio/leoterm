@@ -85,14 +85,20 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     /// Shows the window on the item `entry` names: a fresh window starts there,
     /// an open one moves there (asking first when the page being left has
     /// unsaved edits).
-    func show(_ entry: LeoSettingsEntry = .settings) {
+    /// Returns whether the window landed on `entry`: false when the user's
+    /// unsaved edits put a discard question in the way (the window still comes forward).
+    @discardableResult
+    func show(_ entry: LeoSettingsEntry = .settings) -> Bool {
+        let moved: Bool
         if let sidebar {
-            sidebar.open(entry.item(remembered: sidebar.selection, configurations: registry.configurations))
+            moved = sidebar.open(entry.item(remembered: sidebar.selection, configurations: registry.configurations))
         } else {
             makeWindowAndModels(opening: entry.item(remembered: lastItem, configurations: registry.configurations))
+            moved = true
         }
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        return moved
     }
 
     private func makeWindowAndModels(opening item: LeoSettingsSidebarItem) {

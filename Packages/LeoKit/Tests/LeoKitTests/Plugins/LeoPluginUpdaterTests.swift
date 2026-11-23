@@ -93,6 +93,19 @@ struct LeoPluginUpdaterTests {
         #expect(box.exists(sha2))
     }
 
+    @Test func pendingUpdateCarriesUnverifiedTrust() async throws {
+        let box = try Fixture()
+        defer { box.cleanup() }
+        try await box.installV1()
+        box.git.setManifest(sha: sha2, json: pluginManifestJSON(version: "2.0.0", secrets: true))
+        box.git.setHead("main", sha: sha2)
+
+        guard case .needsApproval(let pending) = try await box.updater.check(id: id) else { Issue.record("expected approval"); return }
+
+        #expect(pending.request.trust == .unverified)
+        #expect(pending.request.isUnverified)
+    }
+
     @Test func decliningAnUpdateRemovesTheStagedFolderAndKeepsTheOldOne() async throws {
         let box = try Fixture()
         defer { box.cleanup() }
@@ -185,6 +198,22 @@ struct LeoPluginInstallFlowTests {
         #expect(FileManager.default.fileExists(atPath: root.appendingPathComponent("\(id)/\(sha1)").path))
     }
 
+    @Test func stagingANonBlackpawURLIsUnverified() async throws {
+        let root = try makeTempRoot("leo-flow-trust")
+        defer { try? FileManager.default.removeItem(at: root) }
+        let git = PluginScriptGit()
+        let store = LeoPluginStore(root: root)
+        let installer = LeoPluginGitInstaller(
+            root: root, runner: git, inheritedEnvironment: [:], gitIsAvailable: { _ in true }, idClaims: store)
+        let flow = LeoPluginInstallFlow(store: store, installer: installer, root: root)
+        git.setManifest(sha: sha1, json: pluginManifestJSON())
+        git.setHead("main", sha: sha1)
+
+        let pending = try await flow.stage(url: url, ref: "main")
+
+        #expect(pending.request.trust == .unverified)
+    }
+
     @Test func aDevFolderIsValidatedAndRegisteredInPlace() async throws {
         let root = try makeTempRoot("leo-flow-dev")
         defer { try? FileManager.default.removeItem(at: root) }
@@ -228,7 +257,8 @@ struct LeoPluginApprovalRequestTests {
         let new = LeoPluginPermissions(network: ["a.example.com", "b.example.com"], secrets: true, agents: [.read, .send])
         func request(diff: LeoPluginPermissionDiff?) -> LeoPluginApprovalRequest {
             LeoPluginApprovalRequest(
-                id: id, name: "Demo", version: "1.0.0", sha: sha1, sourceDescription: url, permissions: new, diff: diff, isDev: false)
+                id: id, name: "Demo", version: "1.0.0", sha: sha1, sourceDescription: url, permissions: new, diff: diff, isDev: false,
+                trust: .unverified)
         }
 
         let fresh = request(diff: nil)

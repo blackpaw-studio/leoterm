@@ -733,7 +733,15 @@ import Testing
     /// doubling) while the view isn't in the window yet.
     private func focusLands(on view: Ghostty.SurfaceView?, in fixture: Fixture) async -> Bool {
         guard let view else { return false }
-        return await eventually(.seconds(10)) { fixture.controller.window?.firstResponder === view }
+        // The window is never shown, so SwiftUI only attaches a new split to it once something
+        // lays the content out. `moveFocus` retries for ~0.75 s and then gives up, so a slow
+        // host (CI) left the view window-less and the move silently dropped. Lay out where focus
+        // is asserted; the product's own retries then land.
+        return await eventually(.seconds(10)) {
+            if fixture.controller.window?.firstResponder === view { return true }
+            fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
+            return false
+        }
     }
 
     /// Keyboard focus -- the window's first responder, and the pane the
@@ -758,7 +766,10 @@ import Testing
         #expect(fixture.terminals.selection == heir.id)
         // The heir's focus move retries on a timer while the close
         // re-hosts it (`window == nil`), so this is polled, not counted.
-        #expect(await eventually(.seconds(10)) { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+        #expect(await eventually(.seconds(10)) {
+            fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
+            return focusMatchesSelection(fixture)
+        }, "the selection is what has keyboard focus")
     }
 
     /// The same through the row's own close (its ⌘W, `closeShownPane`).
@@ -773,7 +784,10 @@ import Testing
         #expect(fixture.terminals.selection == heir.id)
         // The heir's focus move retries on a timer while the close
         // re-hosts it (`window == nil`), so this is polled, not counted.
-        #expect(await eventually(.seconds(10)) { focusMatchesSelection(fixture) }, "the selection is what has keyboard focus")
+        #expect(await eventually(.seconds(10)) {
+            fixture.controller.window?.contentView?.layoutSubtreeIfNeeded()
+            return focusMatchesSelection(fixture)
+        }, "the selection is what has keyboard focus")
     }
 
     /// B-107: a switch in the very turn the row's pane closed -- before

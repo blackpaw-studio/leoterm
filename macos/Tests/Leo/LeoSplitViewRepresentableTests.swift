@@ -518,6 +518,13 @@ struct LeoSplitViewRepresentableTests {
         }
     }
 
+    /// How far the sidebar's and terminal's widths may differ after a restore.
+    /// macOS 26 insets a sidebar item's view 7-8 pt inside its pane and the
+    /// inset varies between 26.x releases (26.2 differs from later ones); the
+    /// sidebar converts its limits through an inset read at an earlier
+    /// layout, so a restored pane can land up to an inset from where it began.
+    private static let insetTolerance: CGFloat = 8
+
     /// A jump (zoom, tiling) rather than a live resize: 1 400 → 700 →
     /// 1 400 pt at once still gives the editor its width back and brings
     /// the sidebar back (B-037), beside the browser or not.
@@ -532,8 +539,9 @@ struct LeoSplitViewRepresentableTests {
 
             #expect(harness.sidebarItem?.isCollapsed == false)
             #expect((counts.collapses, counts.restores) == (1, 1))
-            #expect(abs(harness.sidebarWidth - widths.0) <= 1)
-            #expect(abs(harness.terminalWidth - widths.1) <= 1)
+            // The sidebar and terminal widths move with the OS's sidebar inset.
+            #expect(abs(harness.sidebarWidth - widths.0) <= Self.insetTolerance, "sidebar \(harness.sidebarWidth) vs \(widths.0)")
+            #expect(abs(harness.terminalWidth - widths.1) <= Self.insetTolerance, "terminal \(harness.terminalWidth) vs \(widths.1)")
             #expect(abs(harness.editorWidth - widths.2) <= 1)
         }
     }

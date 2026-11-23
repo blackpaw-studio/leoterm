@@ -16,9 +16,12 @@ struct LeoWKBrowserPermissionTests {
     private static let page = "<title>Permissions</title><p>Ready</p>"
 
     /// A capture device is required: WebKit fails `getUserMedia` before it
-    /// asks the delegate on a Mac with no microphone.
+    /// asks the delegate on a Mac with no microphone. Microphone access must
+    /// also be decided already: while it is undetermined, macOS may show its
+    /// own prompt, which nobody answers on a fresh CI VM, so the test hangs.
     private nonisolated static var hasMicrophone: Bool {
         AVCaptureDevice.DiscoverySession(deviceTypes: [.microphone], mediaType: .audio, position: .unspecified).devices.isEmpty == false
+            && AVCaptureDevice.authorizationStatus(for: .audio) != .notDetermined
     }
 
     /// No pane shows this browser, so every request is denied at once.

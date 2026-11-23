@@ -103,19 +103,26 @@ import LeoKit
 
     /// Selects `item`. It takes effect now when the target accepts the move,
     /// else once the user confirms the discard question (`confirm(_:)`).
-    func select(_ item: LeoSettingsSidebarItem) {
-        guard item != selection, canSelect(item) else { return }
+    /// Returns whether `item` is now selected: false when the move is waiting
+    /// on the discard question (or `item` can't be selected).
+    @discardableResult
+    func select(_ item: LeoSettingsSidebarItem) -> Bool {
+        guard item != selection else { return true }
+        guard canSelect(item) else { return false }
         let resolution = resolve(item, draft: model.hosts)
-        if target.requestSelection(host: resolution.host, tab: resolution.tab) {
-            commit(resolution.item)
-        } else {
+        guard target.requestSelection(host: resolution.host, tab: resolution.tab) else {
             pendingItem = resolution.item
+            return false
         }
+        commit(resolution.item)
+        return true
     }
 
     /// Entry points (menus, the appearance popover): like `select`, but a pane
     /// whose machine can't open panes lands on that machine's overview.
-    func open(_ item: LeoSettingsSidebarItem) {
+    /// Returns whether the selection moved (or was already there).
+    @discardableResult
+    func open(_ item: LeoSettingsSidebarItem) -> Bool {
         select(canSelect(item) ? item : .machine(item.machine ?? .local))
     }
 

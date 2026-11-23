@@ -10,7 +10,7 @@ import WebKit
 /// their own find.
 @MainActor
 @Suite(.serialized)
-struct LeoAgentBrowserFindRoutingTests {
+final class LeoAgentBrowserFindRoutingTests {
     private final class KeyWindow: NSWindow {
         override var isKeyWindow: Bool { true }
     }
@@ -54,6 +54,10 @@ struct LeoAgentBrowserFindRoutingTests {
         await drainMainQueue()
         window.contentView?.layoutSubtreeIfNeeded()
     }
+
+    /// Detaches the views while the window is alive: letting it deallocate with
+    /// a web view still inside trapped the host ("Cannot form weak reference").
+    deinit { LeoFixtureWindow.tearDown(window) }
 
     private func key(_ character: String, _ modifiers: NSEvent.ModifierFlags = [.command]) -> NSEvent {
         NSEvent.keyEvent(

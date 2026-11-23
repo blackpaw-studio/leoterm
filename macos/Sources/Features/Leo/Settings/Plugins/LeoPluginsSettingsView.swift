@@ -23,7 +23,7 @@ extension LeoPluginsSettingsModel {
     convenience init(system: LeoPluginSystem) {
         self.init(
             manager: system.manager, installer: system.installFlow, updater: system.updater,
-            approve: { await system.presenter.approve($0) })
+            approve: { await system.presenter.approve($0) }, links: system.links)
     }
 }
 
@@ -41,11 +41,14 @@ private struct LeoPluginsPane: View {
             if model.rows.isEmpty { emptyState } else { list }
             footer
         }
-        .sheet(isPresented: $model.isAskingInstallSource) {
-            LeoPluginInstallSourceSheet { url, ref in
-                Task { await model.install(url: url, ref: ref) }
-            }
-        }
+        .sheet(
+            isPresented: $model.isAskingInstallSource, onDismiss: { model.clearInstallPrefill() },
+            content: {
+                LeoPluginInstallSourceSheet(initialURL: model.installPrefill?.url ?? "", initialRef: model.installPrefill?.ref ?? "") { url, ref in
+                    Task { await model.install(url: url, ref: ref) }
+                }
+            })
+        .onDisappear { model.paneDidDisappear() }
         .confirmationDialog(
             model.pendingUninstall.map { "Uninstall “\($0.name)”?" } ?? "Uninstall?",
             isPresented: Binding(get: { model.pendingUninstall != nil }, set: { if !$0 { model.cancelUninstall() } }),
@@ -184,6 +187,11 @@ private struct LeoPluginRowView: View {
                     .background(Color.accentColor.opacity(0.18), in: Capsule()).foregroundStyle(Color.accentColor)
                     .accessibilityLabel("Development plugin")
             }
+            if row.isUnverified {
+                Text("Unverified").font(.caption2).padding(.horizontal, 5).padding(.vertical, 1)
+                    .background(Color.secondary.opacity(0.18), in: Capsule()).foregroundStyle(.secondary)
+                    .help("Not from Blackpaw Studio.")
+            }
         }
     }
 
@@ -225,8 +233,14 @@ private struct LeoPluginRowView: View {
 private struct LeoPluginInstallSourceSheet: View {
     let install: (String, String) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var url = ""
-    @State private var ref = ""
+    @State private var url: String
+    @State private var ref: String
+
+    init(initialURL: String = "", initialRef: String = "", install: @escaping (String, String) -> Void) {
+        self.install = install
+        _url = State(initialValue: initialURL)
+        _ref = State(initialValue: initialRef)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {

@@ -25,6 +25,8 @@ struct LeoPluginRow: Equatable, Identifiable {
     let sourceText: String
     let isDev: Bool
     let isBundled: Bool
+    /// A git source that is not Blackpaw Studio's; the row says so.
+    let isUnverified: Bool
     /// What the plugin may do, as the user approved it.
     let permissionsSummary: String
     let status: Status
@@ -73,6 +75,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         accounts = info.credentialGrants.map { grant in
             Account(id: grant.id, title: "\(grant.kind.displayName) · \((grant.path as NSString).abbreviatingWithTildeInPath)")
         }
+        isUnverified = LeoPluginSourceTrust.classify(info.source) == .unverified
         switch info.source {
         case .bundled:
             shortSHA = nil

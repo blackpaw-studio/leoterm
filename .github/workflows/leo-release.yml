@@ -36,7 +36,7 @@ jobs:
 
   publish:
     needs: [ci, build]
-    runs-on: macos-26
+    runs-on: blackpaw-macos-tahoe-xcode-26-3
     timeout-minutes: 30
     permissions:
       contents: write
@@ -63,6 +63,14 @@ jobs:
             /macos/Ghostty-Info.plist
           sparse-checkout-cone-mode: false
           persist-credentials: false
+
+      - name: Ensure tools
+        run: ci/.github/scripts/leo/ensure-tools.sh gh python3
+
+      # sparkle-key-check.sh needs Ed25519 in `openssl pkey`; macOS's LibreSSL
+      # fails silently. No-op when OpenSSL 3 is already first.
+      - name: Ensure OpenSSL 3 on PATH
+        run: ci/.github/scripts/leo/ensure-openssl3.sh
 
       - name: Check Sparkle key
         env:

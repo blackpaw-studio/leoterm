@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import OSLog
 import Testing
 
 @testable import Ghostty
@@ -102,7 +103,7 @@ import Testing
             manifest: manifest ?? Self.manifest(id), hiddenSections: hidden, hiddenPanes: hiddenPanes)
     }
 
-    private static func rig(_ plugins: [LeoPluginInfo] = []) -> Rig {
+    private static func rig(_ plugins: [LeoPluginInfo] = [], links: LeoPluginInstallLinkRouter? = nil) -> Rig {
         let log = Log()
         let manager = FakeManager(log: log, plugins: plugins)
         let installer = FakeInstaller(log: log)
@@ -115,7 +116,8 @@ import Testing
                 shown.requests.append(request)
                 shown.onShow()
                 return shown.answer
-            })
+            },
+            links: links)
         return Rig(
             model: model, manager: manager, installer: installer, updater: updater, log: log, shown: shown)
     }
@@ -125,8 +127,113 @@ import Testing
             manifest: manifest, sha: sha, url: "https://github.com/acme/demo", ref: "main", directory: URL(fileURLWithPath: "/tmp/x"))
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: sha, sourceDescription: result.url,
-            permissions: manifest.permissions, diff: nil, isDev: false)
+            permissions: manifest.permissions, diff: nil, isDev: false, trust: .unverified)
         return LeoPluginPendingInstall(result: result, request: request)
+    }
+
+    // MARK: Trust
+
+    @Test func unverifiedGitRowIsLabelled() {
+        let theirs = Self.info("dev.example.theirs", source: .git(url: "https://github.com/someone/x", ref: "main", sha: Self.sha))
+        let ours = Self.info("dev.example.ours", source: .git(url: "https://github.com/blackpaw-studio/y", ref: "main", sha: Self.sha))
+        let bundled = Self.info("dev.example.bundled", source: .bundled)
+        let dev = Self.info("dev.example.dev", source: .dev(path: "/tmp/dev"))
+
+        let rows = Self.rig([theirs, ours, bundled, dev]).model.rows
+
+        #expect(rows.map(\.isUnverified) == [true, false, false, false])
+    }
+
+    // MARK: Install links
+
+    private final class LinkLog { var opened = 0 }
+
+    private static func linkRouter(_ log: LinkLog = LinkLog(), receiving link: String? = nil) -> LeoPluginInstallLinkRouter {
+        let router = LeoPluginInstallLinkRouter(
+            openPluginsSettings: { log.opened += 1; return true }, showError: { _ in },
+            logger: Logger(subsystem: "studio.blackpaw.leo.macos.tests", category: "links"))
+        router.markReady()
+        if let link, let url = URL(string: link) { router.receive(url) }
+        return router
+    }
+
+    private static let forkLink = "leo://plugin/install?url=https%3A%2F%2Fgithub.com%2Fsomeone%2Ffork&ref=main"
+
+    @Test func pendingLinkPrefillsInstallSheet() {
+        let rig = Self.rig(links: Self.linkRouter(receiving: Self.forkLink))
+
+        #expect(rig.model.isAskingInstallSource)
+        #expect(rig.model.installPrefill == .init(url: "https://github.com/someone/fork", ref: "main"))
+        #expect(rig.log.events.isEmpty)   // nothing staged: the person still has to press Continue
+    }
+
+    @Test func aLinkArrivingWhileThePaneIsOpenPrefillsTheSheetOnce() {
+        let router = Self.linkRouter()
+        let rig = Self.rig(links: router)
+        #expect(!rig.model.isAskingInstallSource)
+
+        router.receive(URL(string: Self.forkLink)!)
+
+        #expect(rig.model.isAskingInstallSource)
+        #expect(rig.model.installPrefill?.url == "https://github.com/someone/fork")
+        #expect(router.pending == nil)
+    }
+
+    @Test func linkArrivingDuringUpdateIsIgnored() async {
+        let log = LinkLog()
+        let router = Self.linkRouter(log)
+        let rig = Self.rig([Self.info()], links: router)
+        rig.updater.outcomes = ["dev.example.demo": .needsApproval(Self.pendingUpdate())]
+        rig.shown.onShow = { router.receive(URL(string: Self.forkLink)!) }
+
+        await rig.model.checkForUpdates()
+
+        #expect(rig.shown.requests.count == 1)
+        #expect(router.pending == nil)
+        #expect(rig.model.installPrefill == nil)
+        #expect(!rig.model.isAskingInstallSource)
+        #expect(log.opened == 0)
+    }
+
+    @Test func aReplacementPaneDoesNotClearAnotherPanesBusyGuard() async {
+        let router = Self.linkRouter()
+        let rig = Self.rig([Self.info()], links: router)
+        rig.updater.outcomes = ["dev.example.demo": .needsApproval(Self.pendingUpdate())]
+        var replacement: Rig?
+        rig.shown.onShow = {
+            // Settings navigated away and back while the update's approval sheet is still up.
+            replacement = Self.rig(links: router)
+            router.receive(URL(string: Self.forkLink)!)
+        }
+
+        await rig.model.checkForUpdates()
+
+        #expect(router.pending == nil)
+        #expect(replacement?.model.isAskingInstallSource == false)
+        #expect(replacement?.model.installPrefill == nil)
+    }
+
+    @Test func linkWhileTheInstallSheetIsUpIsIgnoredAndOnceItClosesLinksWorkAgain() {
+        let router = Self.linkRouter()
+        let rig = Self.rig(links: router)
+        rig.model.isAskingInstallSource = true
+
+        router.receive(URL(string: Self.forkLink)!)
+        #expect(router.pending == nil)
+        #expect(rig.model.installPrefill == nil)
+
+        rig.model.isAskingInstallSource = false
+        router.receive(URL(string: Self.forkLink)!)
+        #expect(rig.model.isAskingInstallSource)
+    }
+
+    @Test func dismissingTheSheetClearsThePrefill() {
+        let rig = Self.rig(links: Self.linkRouter(receiving: Self.forkLink))
+
+        rig.model.isAskingInstallSource = false
+        rig.model.clearInstallPrefill()
+
+        #expect(rig.model.installPrefill == nil)
     }
 
     // MARK: Agent pane
@@ -304,7 +411,7 @@ import Testing
         let manifest = Self.manifest()
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: nil, sourceDescription: folder.path,
-            permissions: manifest.permissions, diff: nil, isDev: true)
+            permissions: manifest.permissions, diff: nil, isDev: true, trust: .notApplicable)
         rig.installer.stagedDev = LeoPluginPendingDev(manifest: manifest, folder: folder, request: request)
         rig.shown.onShow = { #expect(rig.log.events == ["stageDev /tmp/demo-plugin", "approve dev.example.demo"]) }
 
@@ -320,7 +427,7 @@ import Testing
         let manifest = Self.manifest()
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: nil, sourceDescription: folder.path,
-            permissions: manifest.permissions, diff: nil, isDev: true)
+            permissions: manifest.permissions, diff: nil, isDev: true, trust: .notApplicable)
         rig.installer.stagedDev = LeoPluginPendingDev(manifest: manifest, folder: folder, request: request)
         rig.shown.answer = false
 
@@ -467,7 +574,7 @@ import Testing
             directory: URL(fileURLWithPath: "/tmp"))
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: result.sha, sourceDescription: result.url,
-            permissions: manifest.permissions, diff: diff, isDev: false)
+            permissions: manifest.permissions, diff: diff, isDev: false, trust: .unverified)
         return LeoPluginPendingUpdate(result: result, fromSHA: sha, diff: diff, request: request)
     }
 

@@ -120,7 +120,7 @@ enum LeoSettingsSidebarItem: Hashable {
     }
 }
 
-/// How Settings was asked to open: the five entry points.
+/// How Settings was asked to open: the entry points.
 enum LeoSettingsEntry: Equatable {
     /// App menu ▸ Settings…
     case settings
@@ -128,6 +128,8 @@ enum LeoSettingsEntry: Equatable {
     case machines(LeoHostID?)
     /// An agent row's or the appearance popover's Edit Appearance Rules….
     case appearance(LeoHostID)
+    /// A `leo://plugin/install` link: Settings ▸ Plugins.
+    case plugins
 
     /// The item to land on. `remembered` is the last item shown; a machine
     /// that is gone falls back to This Mac.
@@ -146,6 +148,8 @@ enum LeoSettingsEntry: Equatable {
             return .machine(LeoSettingsSidebarItem.resolve(.machine(machine), configurations: configurations).item.machine ?? .local)
         case .appearance(let host):
             return .pane(ref(host), .appearance)
+        case .plugins:
+            return .plugins
         }
     }
 }
