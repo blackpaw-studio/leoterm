@@ -23,6 +23,10 @@ const boot = () => {
 };
 
 const groupsOf = (tree: unknown): GroupNode[] => (Array.isArray(tree) ? tree : [tree]).filter((n) => n?.type === "Group");
+/** Lets queued microtasks (a fire-and-forget refresh pass) finish. */
+const flush = async (): Promise<void> => {
+  for (let i = 0; i < 50; i += 1) await Promise.resolve();
+};
 const json = (tree: unknown): string => JSON.stringify(tree, null, 2) + "\n";
 
 describe("sidebar", () => {
@@ -248,6 +252,7 @@ describe("credentialsChanged", () => {
     const before = stub.rendersFor(SECTION).length;
     stub.setCredentials([codex, work]);
     await stub.emit("credentialsChanged");
+    await flush(); // the refresh for the new account is queued, not awaited by the handler
     const renders = stub.rendersFor(SECTION).slice(before).map((r) => JSON.stringify(r));
     expect(renders.some((r) => r.includes("Claude Code · Loading…"))).toBe(true);
     expect(stub.fetches.filter((f) => f.credential === "c1")).toHaveLength(1);
@@ -286,5 +291,24 @@ describe("empty state", () => {
       expect(stub.credentialCalls).toContain("add:" + kind);
       expect(groupsOf(stub.lastRender(SECTION))).toHaveLength(1);
     }
+  });
+});
+
+describe("credentialsChanged while a fetch is stalled", () => {
+  it("a removal drops the account from both trees right away, without waiting on the network", async () => {
+    const stub = boot();
+    stub.setCredentials([work, codex]);
+    stub.route("GET", CLAUDE_URL, { hang: true });
+    stub.route("GET", CODEX_URL, { body: codexFull });
+    void stub.emit("activate", SECTION); // its first pass stalls on work's fetch
+    void stub.emit("command", "show", SHOW);
+    await flush();
+    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual(["claude-work", "codex"]);
+    stub.setCredentials([codex]);
+    void stub.emit("credentialsChanged"); // not awaited: it must not depend on the stalled fetch
+    await flush();
+    expect(groupsOf(stub.lastRender(SECTION)).map((g) => g.title)).toEqual(["codex"]);
+    expect(groupsOf(stub.lastRender(SHOW)).map((g) => g.title)).toEqual(["codex"]);
+    expect(stub.maxInFlight).toBe(1);
   });
 });
