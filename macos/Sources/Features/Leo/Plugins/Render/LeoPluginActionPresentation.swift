@@ -14,11 +14,13 @@ struct LeoPluginActionEntry: Equatable {
 /// ("merge-pr" → "Merge Pr").
 enum LeoPluginActionPresentation {
     static func entries(for actions: [LeoPluginLabeledAction]) -> [LeoPluginActionEntry] {
-        actions.enumerated().map { index, labeled in
-            LeoPluginActionEntry(
-                index: index, title: nonBlank(labeled.title) ?? title(for: labeled.action),
-                sfSymbol: nonBlank(labeled.sfSymbol) ?? symbol(for: labeled.action), action: labeled.action)
-        }
+        actions.enumerated().map { index, labeled in entry(for: labeled, index: index) }
+    }
+
+    static func entry(for labeled: LeoPluginLabeledAction, index: Int = 0) -> LeoPluginActionEntry {
+        LeoPluginActionEntry(
+            index: index, title: nonBlank(labeled.title) ?? title(for: labeled.action),
+            sfSymbol: nonBlank(labeled.sfSymbol) ?? symbol(for: labeled.action), action: labeled.action)
     }
 
     private static func nonBlank(_ text: String?) -> String? {

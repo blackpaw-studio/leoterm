@@ -4,8 +4,9 @@ import Foundation
 /// flow with the sidebar's own scrolling, like the Terminals section's. A list
 /// becomes its items (its section titles only when there are several: a lone
 /// title would repeat the section's own header); an empty state or a detail is
-/// one line of text. Components a sidebar can't host (forms, accessories) draw
-/// nothing. Pure, so the rules are tested without a view.
+/// one line of text, and an empty state's actions follow it as buttons.
+/// Components a sidebar can't host (forms, accessories) draw nothing. Pure, so
+/// the rules are tested without a view.
 public enum LeoPluginSectionRows {
     public enum Row: Equatable, Sendable, Identifiable {
         case subheader(id: String, title: String)
@@ -13,10 +14,12 @@ public enum LeoPluginSectionRows {
         case message(id: String, title: String, detail: String?)
         case group(id: String, LeoPluginNode.Group)
         case meter(id: String, LeoPluginNode.ValueMeter)
+        /// A clickable action, e.g. an empty state's "Add Account…".
+        case action(id: String, LeoPluginLabeledAction)
 
         public var id: String {
             switch self {
-            case .subheader(let id, _), .item(let id, _), .message(let id, _, _), .group(let id, _), .meter(let id, _): id
+            case .subheader(let id, _), .item(let id, _), .message(let id, _, _), .group(let id, _), .meter(let id, _), .action(let id, _): id
             }
         }
     }
@@ -49,7 +52,8 @@ public enum LeoPluginSectionRows {
                 return header + section.items.map { .item(id: "\(index).\(sectionIndex).\($0.id)", $0) }
             }
         case .emptyState(let state):
-            return [.message(id: "n\(index)", title: state.title, detail: state.message)]
+            let actions = state.actions.enumerated().map { Row.action(id: "n\(index).a\($0.offset)", $0.element) }
+            return [.message(id: "n\(index)", title: state.title, detail: state.message)] + actions
         case .detail(let detail):
             return plainFirstLine(detail.markdown).map { [.message(id: "n\(index)", title: $0, detail: nil)] } ?? []
         case .error(let state):

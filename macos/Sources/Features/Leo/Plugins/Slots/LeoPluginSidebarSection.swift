@@ -181,6 +181,10 @@ struct LeoPluginSectionNodeRows: View {
                 LeoPluginSectionGroupRow(group: group, labelColumn: labelColumn, perform: perform)
             case .meter(_, let meter):
                 LeoPluginSectionMeterRow(meter: meter, labelColumn: labelColumn)
+            case .action(_, let labeled):
+                // A click mints a gesture (via `perform`), so the callback may open a prompt.
+                LeoPluginInlineActionButton(entry: LeoPluginActionPresentation.entry(for: labeled)) { perform(labeled.action) }
+                    .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
             }
         }
     }

@@ -66,6 +66,28 @@ struct LeoPluginUsageRenderTests {
         }
     }
 
+    /// With no accounts the section is an EmptyState whose actions are the only
+    /// way to add one (a PiKVM can't send ⌘⇧ shortcuts): each needs its own row.
+    @Test func anEmptySidebarSectionDrawsARowPerAction() async throws {
+        let add = { (id: String, title: String) in LeoPluginLabeledAction(.callback(id: id, payload: .null), title: title, sfSymbol: "plus") }
+        let empty = LeoPluginNode.emptyState(.init(
+            title: "No accounts yet", message: "Add a Claude Code or Codex sign-in",
+            actions: [add("add-claude", "Add Claude Account…"), add("add-codex", "Add Codex Account…")]))
+        let entry = LeoPluginSidebarSectionEntry(pluginID: "studio.blackpaw.usage", pluginName: "Account Usage", sectionID: "usage", title: "Usage")
+        for (name, appearance) in Self.appearances {
+            let canvas = Self.canvas(width: Self.sidebarWidth, appearance: appearance)
+            let list = List {
+                Section(header: LeoPluginSectionHeader(entry: entry, expanded: true, accessory: nil, toggle: {}, hide: {})) {
+                    LeoPluginSectionNodeRows(nodes: [empty]) { _ in }
+                }
+            }
+            canvas.host(NSHostingView(rootView: list.listStyle(.sidebar).frame(width: Self.sidebarWidth)), height: 240)
+            let table = try await Self.settledTable(in: canvas.window, minimumRows: 4)
+            #expect(table.numberOfRows >= 4, "header, message and two action rows")
+            try canvas.writePNG(named: "sidebar-empty-\(Int(Self.sidebarWidth))-\(name)")
+        }
+    }
+
     /// The compact meter row's columns at every sidebar width down to the
     /// narrowest: valueText always gets its full width, the label column never
     /// passes 40%, and the track keeps its minimum while there is room.

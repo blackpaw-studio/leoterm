@@ -24,6 +24,18 @@ struct LeoPluginSectionRowsTests {
         #expect(rows == [.message(id: "n0", title: "All clear", detail: "Nothing assigned")])
     }
 
+    /// An empty sidebar section's actions ("Add Account…") must stay clickable:
+    /// a sidebar can't rely on a keyboard shortcut.
+    @Test func anEmptyStatesActionsFollowItsMessageAsActionRows() {
+        let addClaude = LeoPluginLabeledAction(.callback(id: "add-claude", payload: .null), title: "Add Claude Account…")
+        let addCodex = LeoPluginLabeledAction(.callback(id: "add-codex", payload: .null), title: "Add Codex Account…")
+        let rows = LeoPluginSectionRows.make(from: [.emptyState(.init(title: "No accounts", actions: [addClaude, addCodex]))])
+        #expect(rows == [
+            .message(id: "n0", title: "No accounts", detail: nil),
+            .action(id: "n0.a0", addClaude), .action(id: "n0.a1", addCodex),
+        ])
+    }
+
     @Test func aDetailShowsItsPlainTextAsOneMessageRow() {
         let rows = LeoPluginSectionRows.make(from: [.detail(.init(markdown: "# Heading\n\nSome **bold** body"))])
         #expect(rows.count == 1)
