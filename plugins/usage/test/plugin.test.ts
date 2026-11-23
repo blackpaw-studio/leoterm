@@ -266,3 +266,25 @@ describe("credentialsChanged", () => {
     expect(stub.fetches.some((f) => f.credential === "c1")).toBe(true);
   });
 });
+
+describe("empty state", () => {
+  it("carries both add actions, and clicking each calls credentials.add synchronously", async () => {
+    for (const [title, kind, handle, url, body] of [
+      ["Add Claude Account…", "claude-code", work, CLAUDE_URL, claudeFull],
+      ["Add Codex Account…", "codex", codex, CODEX_URL, codexFull],
+    ] as const) {
+      const stub = boot();
+      await stub.emit("activate", SECTION);
+      const tree = stub.lastRender(SECTION) as { type: string; actions?: Array<{ type: string; id: string; title: string; payload?: unknown }> };
+      expect(tree.type).toBe("EmptyState");
+      expect((tree.actions ?? []).map((a) => a.title)).toEqual(["Add Claude Account…", "Add Codex Account…"]);
+      const action = tree.actions?.find((a) => a.title === title);
+      expect(action?.type).toBe("callback");
+      stub.queueAdd(kind, handle);
+      stub.route("GET", url, { body });
+      await stub.emit("callback", action?.id ?? "", (action?.payload ?? null) as never); // stub rejects gestureRequired after any await
+      expect(stub.credentialCalls).toContain("add:" + kind);
+      expect(groupsOf(stub.lastRender(SECTION))).toHaveLength(1);
+    }
+  });
+});
