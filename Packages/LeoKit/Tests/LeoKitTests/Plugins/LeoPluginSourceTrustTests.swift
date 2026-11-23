@@ -31,6 +31,28 @@ struct LeoPluginSourceTrustTests {
         #expect(LeoPluginSourceTrust.classify(Self.git(url)) == .unverified)
     }
 
+    /// Git (and the server) fold dot segments, so these name another owner's repo.
+    @Test(arguments: [
+        "https://github.com/blackpaw-studio/../attacker/plugin",
+        "https://github.com/blackpaw-studio/./../attacker/plugin",
+        "https://github.com/blackpaw-studio/%2e%2e/attacker/plugin",
+        "https://github.com/blackpaw-studio/%2E%2E/attacker/plugin",
+        "https://github.com/blackpaw-studio/.%2e/attacker/plugin",
+        "https://github.com/blackpaw-studio/%2e./attacker/plugin",
+        "https://github.com/blackpaw-studio/%252e%252e/attacker/plugin",
+        "https://github.com/blackpaw-studio/./plugin",
+        "https://github.com/blackpaw-studio/plugin/..",
+        "https://github.com/%2e%2e/blackpaw-studio/plugin",
+        "https://github.com/blackpaw%2Dstudio/plugin",
+    ])
+    func dotSegmentsAreUnverified(url: String) {
+        #expect(LeoPluginSourceTrust.classify(Self.git(url)) == .unverified)
+    }
+
+    @Test func dotsInsideANameAreStillVerified() {
+        #expect(LeoPluginSourceTrust.classify(Self.git("https://github.com/blackpaw-studio/leo.plugin..x")) == .verified)
+    }
+
     @Test func nonHTTPSIsUnverified() {
         #expect(LeoPluginSourceTrust.classify(Self.git("file:///tmp/blackpaw-studio/x")) == .unverified)
         #expect(LeoPluginSourceTrust.classify(Self.git("http://github.com/blackpaw-studio/x")) == .unverified)

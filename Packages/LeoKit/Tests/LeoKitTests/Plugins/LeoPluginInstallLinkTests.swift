@@ -61,6 +61,16 @@ struct LeoPluginInstallLinkTests {
         Rejection(
             name: "credentials in url", link: "leo://plugin/install?url=https%3A%2F%2Fu%3Ap%40github.com%2Fx",
             expected: .invalidURL("the URL must not contain credentials")),
+        Rejection(
+            name: "dot segment", link: "leo://plugin/install?url=https%3A%2F%2Fgithub.com%2Fblackpaw-studio%2F..%2Fattacker%2Fplugin",
+            expected: .invalidURL("the URL path must not contain '.' or '..' segments")),
+        Rejection(
+            name: "encoded dot segment",
+            link: "leo://plugin/install?url=https%3A%2F%2Fgithub.com%2Fblackpaw-studio%2F%252e%252E%2Fattacker",
+            expected: .invalidURL("the URL path must not contain '.' or '..' segments")),
+        Rejection(
+            name: "single dot segment", link: "leo://plugin/install?url=https%3A%2F%2Fgithub.com%2F.%2Fx",
+            expected: .invalidURL("the URL path must not contain '.' or '..' segments")),
         Rejection(name: "ref leading dash", link: "leo://plugin/install?\(repoQuery)&ref=-x", expected: .invalidRef("-x")),
         Rejection(name: "ref double dot", link: "leo://plugin/install?\(repoQuery)&ref=a..b", expected: .invalidRef("a..b")),
         Rejection(name: "ref space", link: "leo://plugin/install?\(repoQuery)&ref=a%20b", expected: .invalidRef("a b")),

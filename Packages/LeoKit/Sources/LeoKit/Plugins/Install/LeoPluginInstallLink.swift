@@ -34,6 +34,8 @@ public struct LeoPluginInstallLink: Equatable, Sendable {
         guard let rawURL = values["url"] else { return .failure(.missingURL) }
         let url: URL
         switch LeoPluginGitSource.validatedURL(rawURL, allowedSchemes: ["https"]) {
+        case .success(let valid) where LeoPluginGitSource.hasDotSegment(valid):
+            return .failure(.invalidURL("the URL path must not contain '.' or '..' segments"))
         case .success(let valid): url = valid
         case .failure(.invalidURL(let reason)): return .failure(.invalidURL(reason))
         case .failure(let other): return .failure(.invalidURL(other.localizedDescription))

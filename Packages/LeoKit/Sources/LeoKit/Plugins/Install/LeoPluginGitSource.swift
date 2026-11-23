@@ -40,6 +40,26 @@ public enum LeoPluginGitSource {
         return .success(url)
     }
 
+    /// True if any path segment is `.` or `..`, however it is percent-encoded
+    /// (`%2e`, `.%2E`, even double-encoded). Git and the server fold these, so
+    /// `/owner/../other/repo` really names `/other/repo`.
+    static func hasDotSegment(_ url: URL) -> Bool {
+        guard let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.percentEncodedPath else { return true }
+        return path.split(separator: "/", omittingEmptySubsequences: false).contains { isDotSegment(String($0)) }
+    }
+
+    private static func isDotSegment(_ segment: String) -> Bool {
+        var current = segment
+        for _ in 0..<maxDecodePasses {
+            if current == "." || current == ".." { return true }
+            guard current.contains("%"), let decoded = current.removingPercentEncoding, decoded != current else { return false }
+            current = decoded
+        }
+        return true   // still encoded after several passes: not a name anyone should trust
+    }
+
+    private static let maxDecodePasses = 4
+
     /// A branch, tag or full ref name that is safe to pass as a git argument.
     public static func validatedRef(_ text: String) -> Result<String, LeoPluginInstallError> {
         let ref = text.trimmingCharacters(in: .whitespacesAndNewlines)

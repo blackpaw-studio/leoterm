@@ -24,7 +24,9 @@ public enum LeoPluginSourceTrust: Equatable, Sendable {
             let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
             components.port == nil,
             components.host?.lowercased() == trustedHost,
-            let owner = components.path.split(separator: "/").first,
+            !LeoPluginGitSource.hasDotSegment(url),
+            // The raw segment: a percent-encoded owner is not the owner.
+            let owner = components.percentEncodedPath.split(separator: "/").first,
             owner.lowercased() == trustedOwner
         else { return .unverified }
         return .verified
