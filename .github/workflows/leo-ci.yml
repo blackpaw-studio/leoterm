@@ -110,45 +110,6 @@ jobs:
         working-directory: .
         run: git diff --exit-code -- macos/Bundled/Plugins/studio.blackpaw.status
 
-  plugin-usage:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: plugins/usage
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: plugins/usage/.nvmrc
-          cache: npm
-          cache-dependency-path: plugins/usage/package-lock.json
-
-      - name: Install
-        run: npm ci
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm test
-
-      - name: Build
-        run: npm run build
-
-      - name: Committed bundle is up to date
-        working-directory: .
-        run: git diff --exit-code -- plugins/usage/dist
-
-      - name: Plugin is not bundled into the app
-        working-directory: .
-        run: test ! -e macos/Bundled/Plugins/studio.blackpaw.usage
-
   # Ghast VM runner (docs/leo/ci-self-hosted.md); queues while no Ghast host is up.
   test-macos:
     runs-on: blackpaw-macos-tahoe-xcode-26-3

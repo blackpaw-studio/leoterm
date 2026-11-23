@@ -136,9 +136,9 @@ struct LeoPluginUsageRenderTests {
     }
 
     static func fixture(_ name: String) throws -> [LeoPluginNode] {
-        let root = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let url = root.appendingPathComponent("plugins/usage/test/fixtures/trees/\(name).json")
+        let url = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/\(name).json")
         let decoder = JSONDecoder()
         decoder.userInfo[LeoPluginNodeDecoding.apiVersionKey] = 2
         return try decoder.decode(LeoPluginSlotRoot.self, from: Data(contentsOf: url)).nodes
