@@ -12,6 +12,7 @@ import OSLog
     private let showError: @MainActor (String) -> Void
     private let logger: Logger
     private var isReady = false
+    private var isShowingError = false
 
     /// The link waiting for the Plugins pane to take it.
     private(set) var pending: LeoPluginInstallLink?
@@ -29,15 +30,19 @@ import OSLog
     }
 
     func receive(_ url: URL) {
+        // Before parsing: a malformed link must not get past the guard that stops a page spamming us.
+        guard !isInstallUIOpen, pending == nil, !isShowingError else {
+            logger.notice("ignored plugin install link: sheet open")
+            return
+        }
         switch LeoPluginInstallLink.parse(url) {
         case .failure(let error):
             logger.notice("rejected plugin install link: \(error.localizedDescription, privacy: .public)")
+            // The alert is modal and runs its own event loop, so more links can arrive while it is up.
+            isShowingError = true
+            defer { isShowingError = false }
             showError(error.localizedDescription)
         case .success(let link):
-            guard !isInstallUIOpen, pending == nil else {
-                logger.notice("ignored plugin install link: sheet open")
-                return
-            }
             pending = link
             if isReady { present() }
         }
