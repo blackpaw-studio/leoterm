@@ -339,7 +339,9 @@ class AppDelegate: NSObject,
 
     override init() {
         // MARK: Leo
-        leoRuntime = MainActor.assumeIsolated { LeoRuntime(defaults: .ghostty) }
+        leoRuntime = MainActor.assumeIsolated {
+            LeoRuntime(defaults: .ghostty, pluginLinks: LeoPluginInstallLinkRouter.live(for:))
+        }
 #if DEBUG
         ghostty = Ghostty.App(configPath: ProcessInfo.processInfo.environment["GHOSTTY_CONFIG_PATH"])
 #else
@@ -350,11 +352,24 @@ class AppDelegate: NSObject,
         ghostty.delegate = self
     }
 
+    @objc private func handleGetURL(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
+        guard let text = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))?.stringValue,
+            let url = URL(string: text)
+        else { return }
+        MainActor.assumeIsolated { leoRuntime.pluginLinks?.receive(url) }
+    }
+
     // MARK: - NSApplicationDelegate
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         // MARK: Leo -- no tab bar, before any window or menu exists (D-098).
         LeoWindowTabbing.disableAutomaticTabbing()
+        // MARK: Leo -- leo://plugin/install links. An Apple Event handler, not
+        // application(_:open:), which would stop AppKit calling openFile:. Installed
+        // this early so it also catches the link that launched the app.
+        NSAppleEventManager.shared().setEventHandler(
+            self, andSelector: #selector(handleGetURL(_:withReplyEvent:)),
+            forEventClass: AEEventClass(kInternetEventClass), andEventID: AEEventID(kAEGetURL))
         #if DEBUG
         if
             let suite = UserDefaults.ghosttySuite,
