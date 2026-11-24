@@ -3506,6 +3506,7 @@ Source: owner (/feature, 2026-11-23)
 Inbox: 20261123T235734756623Z-26910159#1
 Done: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925 (sidebar sections reorder by header drag or Move Up/Down, order app-wide and kept across relaunch; new plugin sections land at the bottom; full suite 5091 pass; 1 fix round). Decisions D-1008..D-1014.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-12.png
+Reviewed: accepted 2026-11-24 — d9842679a19a
 
 ## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [done]
 Issue: #416
