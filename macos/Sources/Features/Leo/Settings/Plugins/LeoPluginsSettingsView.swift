@@ -85,6 +85,7 @@ private struct LeoPluginsPane: View {
                 showSection: { model.showSection(row.id, section: $0) },
                 setPaneShown: { pane, shown in model.setPaneShown(row.id, pane: pane, shown: shown) },
                 changeRef: { model.requestRefChange(row.id) },
+                isBusy: model.isBusy,
                 uninstall: { model.requestUninstall(row.id) })
         }
         .listStyle(.inset)
@@ -137,6 +138,7 @@ private struct LeoPluginRowView: View {
     let showSection: (String) -> Void
     let setPaneShown: (String, Bool) -> Void
     let changeRef: () -> Void
+    let isBusy: Bool
     let uninstall: () -> Void
 
     var body: some View {
@@ -151,6 +153,7 @@ private struct LeoPluginRowView: View {
                     HStack(spacing: 6) {
                         Text("Follows \(refText)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                         Button("Change…", action: changeRef).buttonStyle(.link).font(.caption)
+                            .disabled(isBusy)
                             .help("Switch “\(row.name)” to another branch or tag without reinstalling.")
                             .accessibilityLabel("Change branch or tag for \(row.name)")
                     }

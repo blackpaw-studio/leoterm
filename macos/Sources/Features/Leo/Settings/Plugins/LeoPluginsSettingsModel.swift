@@ -189,6 +189,7 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
     // MARK: Change branch or tag
 
     func requestRefChange(_ id: String) {
+        guard !isBusy else { return }
         pendingRefChange = rows.first { $0.id == id && $0.canChangeRef }
     }
 
