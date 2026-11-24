@@ -30,6 +30,15 @@ public enum LeoPluginCredentialKind: String, Codable, CaseIterable, Hashable, Se
         }
     }
 
+    /// Lowercased headers a machine's daemon injects for this kind, which a plugin
+    /// may not set on a fetch it forwards there.
+    public var reservedHeaders: Set<String> {
+        switch self {
+        case .claudeCode: ["authorization", "anthropic-beta", "user-agent"]
+        case .codex: ["authorization", "chatgpt-account-id"]
+        }
+    }
+
     /// Reader-facing name for the approval sheet and Settings.
     public var displayName: String {
         switch self {

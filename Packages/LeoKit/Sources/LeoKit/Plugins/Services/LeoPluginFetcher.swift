@@ -52,6 +52,11 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
     case tooManyInFlight
     case bodyTooLarge(limit: Int)
     case network(String)
+    /// The account's own machine refused or failed the request. `code` is one of the plugin-facing
+    /// `credential…` reasons; `message` never holds token bytes.
+    case credentialRemote(code: String, message: String)
+    /// The account's machine couldn't be asked: offline, too old, or not connected.
+    case credentialMachineUnavailable(String)
     /// A credential fetch (or one of its redirects) went to a host other than the kind's bound host.
     case credentialHostMismatch(host: String)
     /// The plugin set a header that the credential injects.
@@ -65,6 +70,8 @@ public enum LeoPluginFetchError: Error, Equatable, LocalizedError, Sendable {
         case .tooManyInFlight: "too many requests in flight (limit \(LeoPluginRateLimiter.defaultMaxInFlight))"
         case .bodyTooLarge(let limit): "response body is larger than \(limit / 1024 / 1024) MB"
         case .network(let reason): "network error: \(reason)"
+        case .credentialRemote(let code, let message): "\(code): \(message)"
+        case .credentialMachineUnavailable(let message): "credentialMachineUnavailable: \(message)"
         case .credentialHostMismatch(let host): "credentialHostMismatch: '\(host)' is not this account's host"
         case .credentialHeaderConflict(let name): "credentialHeaderConflict: header '\(name)' is set by the account credential"
         }
@@ -80,14 +87,55 @@ public struct LeoPluginFetchCredentialSource: Sendable {
     /// Known before the read; the request must go to exactly this host.
     public let boundHost: String
     let resolve: @Sendable () async throws -> LeoPluginFetchCredential
+    /// Set for an account on another machine: that machine's daemon reads the
+    /// token and makes the request, so `resolve` is never called on this Mac.
+    let remote: Remote?
+
+    /// The machine-side half of a fetch: what the daemon injects, and how to reach it.
+    struct Remote: Sendable {
+        /// Lowercased header names the daemon sets itself; a plugin may not.
+        let reservedHeaders: Set<String>
+        let forward: @Sendable (LeoPluginRemoteFetchRequest) async throws -> LeoPluginFetchResponse
+    }
 
     public init(boundHost: String, resolve: @escaping @Sendable () async throws -> LeoPluginFetchCredential) {
         self.boundHost = boundHost
         self.resolve = resolve
+        self.remote = nil
     }
 
     public static func resolved(_ credential: LeoPluginFetchCredential) -> Self {
         Self(boundHost: credential.boundHost) { credential }
+    }
+
+    /// An account on another machine. Every check still runs here first; `forward`
+    /// only ever sees a request that passed them.
+    public static func remote(
+        boundHost: String, reservedHeaders: Set<String>,
+        forward: @escaping @Sendable (LeoPluginRemoteFetchRequest) async throws -> LeoPluginFetchResponse
+    ) -> Self {
+        Self(boundHost: boundHost, remote: Remote(reservedHeaders: reservedHeaders, forward: forward))
+    }
+
+    private init(boundHost: String, remote: Remote) {
+        self.boundHost = boundHost
+        self.remote = remote
+        self.resolve = { throw LeoPluginFetchError.credentialMachineUnavailable("this account's token is not on this Mac") }
+    }
+}
+
+/// A fetch that passed every check, ready for the account's machine.
+public struct LeoPluginRemoteFetchRequest: Equatable, Sendable {
+    public let url: String
+    public let method: String
+    public let headers: [LeoCredentialHeader]
+    public let body: Data?
+
+    public init(url: String, method: String, headers: [LeoCredentialHeader], body: Data?) {
+        self.url = url
+        self.method = method
+        self.headers = headers
+        self.body = body
     }
 }
 
@@ -178,6 +226,9 @@ public final class LeoPluginFetcher: Sendable {
             throw LeoPluginFetchError.credentialHostMismatch(host: originHost ?? "?")
         }
         var request = try Self.makeRequest(url: parsed, options: options, reservesCredentialHeaders: source != nil)
+        if let remote = source?.remote {
+            try Self.rejectReserved(remote.reservedHeaders, in: options.headers ?? [:])
+        }
 
         // Only requests that passed every check spend quota.
         let permit: LeoPluginRateLimitPermit
@@ -187,6 +238,11 @@ public final class LeoPluginFetcher: Sendable {
         case .rejected(.tooManyInFlight): throw LeoPluginFetchError.tooManyInFlight
         }
         defer { limiter.release(permit) }
+
+        // A remote account's token is read on its own machine, never here.
+        if let remote = source?.remote {
+            return try await remote.forward(Self.remoteRequest(request))
+        }
 
         // Last: the account is read only for a request that is going out.
         var credential: LeoPluginFetchCredential?
@@ -277,6 +333,20 @@ public final class LeoPluginFetcher: Sendable {
             throw LeoPluginFetchError.credentialHeaderConflict(name: clash)
         }
         for (name, value) in credential.headers { request.setValue(value, forHTTPHeaderField: name) }
+    }
+
+    /// A plugin header the daemon sets itself is refused, never overridden silently.
+    static func rejectReserved(_ reserved: Set<String>, in pluginHeaders: [String: String]) throws {
+        if let clash = pluginHeaders.keys.sorted().first(where: { reserved.contains($0.lowercased()) }) {
+            throw LeoPluginFetchError.credentialHeaderConflict(name: clash)
+        }
+    }
+
+    private static func remoteRequest(_ request: URLRequest) -> LeoPluginRemoteFetchRequest {
+        let headers = (request.allHTTPHeaderFields ?? [:]).sorted { $0.key < $1.key }
+            .map { LeoCredentialHeader(name: $0.key, value: $0.value) }
+        return LeoPluginRemoteFetchRequest(
+            url: request.url?.absoluteString ?? "", method: request.httpMethod ?? "GET", headers: headers, body: request.httpBody)
     }
 
     /// RFC 9110 token characters.

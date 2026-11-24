@@ -4,6 +4,27 @@ import Foundation
 /// request that spent a fresh gesture. Nil when the user cancels.
 public protocol LeoPluginCredentialPicking: Sendable {
     @MainActor func pickFolder(for kind: LeoPluginCredentialKind) async -> String?
+    /// The account the user chose, on this Mac or on a connected machine.
+    @MainActor func pickAccount(for kind: LeoPluginCredentialKind) async -> LeoPluginCredentialSelection?
+}
+
+extension LeoPluginCredentialPicking {
+    /// A picker that only knows this Mac's folders.
+    @MainActor public func pickAccount(for kind: LeoPluginCredentialKind) async -> LeoPluginCredentialSelection? {
+        await pickFolder(for: kind).map { LeoPluginCredentialSelection(machine: .local, path: $0) }
+    }
+}
+
+/// One account the user chose: a folder on `machine`.
+public struct LeoPluginCredentialSelection: Equatable, Sendable {
+    public let machine: LeoHostID
+    /// Absolute, on `machine`.
+    public let path: String
+
+    public init(machine: LeoHostID, path: String) {
+        self.machine = machine
+        self.path = path
+    }
 }
 
 /// Turns a grant into fetch headers. May block (a Keychain read with UI waits
@@ -18,8 +39,15 @@ extension LeoPluginCredentials: LeoPluginCredentialResolving {}
 public protocol LeoPluginCredentialGrantStoring: Sendable {
     func grants(pluginID: String) -> [LeoPluginCredentialGrant]
     /// Nil when the plugin isn't approved for `kind` or the path isn't absolute.
-    func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String) throws -> LeoPluginCredentialGrant?
+    func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID) throws -> LeoPluginCredentialGrant?
     func removeGrant(pluginID: String, grantID: String) throws
+}
+
+extension LeoPluginCredentialGrantStoring {
+    /// An account on this Mac.
+    public func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String) throws -> LeoPluginCredentialGrant? {
+        try addGrant(pluginID: pluginID, kind: kind, path: path, machine: .local)
+    }
 }
 
 extension LeoPluginStore: LeoPluginCredentialGrantStoring {
@@ -27,8 +55,8 @@ extension LeoPluginStore: LeoPluginCredentialGrantStoring {
         registry.grants(for: pluginID)
     }
 
-    public func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String) throws -> LeoPluginCredentialGrant? {
-        try update { $0.addGrant(pluginID: pluginID, kind: kind, path: path, id: UUID().uuidString) }
+    public func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID) throws -> LeoPluginCredentialGrant? {
+        try update { $0.addGrant(pluginID: pluginID, kind: kind, path: path, id: UUID().uuidString, machine: machine) }
     }
 
     public func removeGrant(pluginID: String, grantID: String) throws {
@@ -43,15 +71,19 @@ public struct LeoPluginCredentialServices: Sendable {
     public let grants: any LeoPluginCredentialGrantStoring
     /// This Mac's home directory, for `~`-abbreviated handle paths.
     public let home: String
+    /// How to reach another machine's daemon, for accounts that live there.
+    /// Nil refuses (as offline) every remote account.
+    public let remote: (any LeoPluginRemoteCredentialForwarding)?
 
     public init(
         picker: any LeoPluginCredentialPicking, resolver: any LeoPluginCredentialResolving,
-        grants: any LeoPluginCredentialGrantStoring, home: String
+        grants: any LeoPluginCredentialGrantStoring, home: String, remote: (any LeoPluginRemoteCredentialForwarding)? = nil
     ) {
         self.picker = picker
         self.resolver = resolver
         self.grants = grants
         self.home = home
+        self.remote = remote
     }
 }
 
@@ -62,9 +94,9 @@ struct LeoPluginPublishingGrantStore: LeoPluginCredentialGrantStoring {
 
     func grants(pluginID: String) -> [LeoPluginCredentialGrant] { base.grants(pluginID: pluginID) }
 
-    func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String) throws -> LeoPluginCredentialGrant? {
+    func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID) throws -> LeoPluginCredentialGrant? {
         defer { didChange() }
-        return try base.addGrant(pluginID: pluginID, kind: kind, path: path)
+        return try base.addGrant(pluginID: pluginID, kind: kind, path: path, machine: machine)
     }
 
     func removeGrant(pluginID: String, grantID: String) throws {

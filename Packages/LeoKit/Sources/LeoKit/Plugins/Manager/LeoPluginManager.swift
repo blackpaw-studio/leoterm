@@ -393,7 +393,7 @@ public struct LeoPluginManagerDependencies {
                         grants: LeoPluginPublishingGrantStore(base: services.grants) { [weak self] in
                             Task { @MainActor in self?.publish() }
                         },
-                        home: services.home)
+                        home: services.home, remote: services.remote)
                 },
                 usage: { [agents = deps.agents] in agents.usage(for: $0) },
                 homeDirectory: deps.agents.homeDirectory))

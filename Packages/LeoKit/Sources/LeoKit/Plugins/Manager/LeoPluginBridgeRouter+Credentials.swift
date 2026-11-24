@@ -37,31 +37,54 @@ extension LeoPluginBridgeRouter {
         }
         let pluginID = deps.identity.id
         replyLater(id) {
-            guard let picked = await services.picker.pickFolder(for: kind) else { return .null }
-            guard let path = LeoPluginCredentialPath.standardize(picked, home: services.home) else {
-                throw LeoPluginCredentialRefusal.unreadable(.invalid)
-            }
-            // Read it once now, with UI allowed, so a folder without a sign-in is never granted.
-            let candidate = LeoPluginCredentialGrant(id: "", kind: kind, path: path)
-            _ = try await Self.resolveOffMain(candidate, allowUI: true, resolver: services.resolver)
-            guard let grant = try services.grants.addGrant(pluginID: pluginID, kind: kind, path: path) else {
-                throw LeoPluginCredentialRefusal.permissionDenied("the account couldn't be saved")
-            }
+            guard let picked = await services.picker.pickAccount(for: kind) else { return .null }
+            let grant = try await Self.checkedGrant(picked, kind: kind, pluginID: pluginID, services: services)
             return Self.value(grant.handle(home: services.home))
         }
     }
 
+    /// Reads the account once now, so a folder without a sign-in is never granted, then saves it.
+    /// A remote account is checked by its own machine; nothing is read on this Mac for it.
+    private static func checkedGrant(
+        _ picked: LeoPluginCredentialSelection, kind: LeoPluginCredentialKind, pluginID: String, services: LeoPluginCredentialServices
+    ) async throws -> LeoPluginCredentialGrant {
+        let isRemote = picked.machine != .local
+        guard !isRemote || picked.path.hasPrefix("/"),
+            let path = LeoPluginCredentialPath.standardize(picked.path, home: services.home)
+        else { throw LeoPluginCredentialRefusal.unreadable(.invalid) }
+        let candidate = LeoPluginCredentialGrant(id: "", kind: kind, path: path, machine: picked.machine)
+        if isRemote {
+            try await remoteFetcher(for: candidate, services: services).check()
+        } else {
+            _ = try await resolveOffMain(candidate, allowUI: true, resolver: services.resolver)
+        }
+        guard let grant = try services.grants.addGrant(pluginID: pluginID, kind: kind, path: path, machine: picked.machine) else {
+            throw LeoPluginCredentialRefusal.permissionDenied("the account couldn't be saved")
+        }
+        return grant
+    }
+
+    static func remoteFetcher(for grant: LeoPluginCredentialGrant, services: LeoPluginCredentialServices) -> LeoPluginRemoteCredentialFetcher {
+        LeoPluginRemoteCredentialFetcher(host: grant.machine, kind: grant.kind, dir: grant.path, forwarding: services.remote)
+    }
+
     func authorizeCredential(id: String, grantID: String, ref: String?) {
         let grant: LeoPluginCredentialGrant
-        let resolver: any LeoPluginCredentialResolving
+        let services: LeoPluginCredentialServices
         do {
-            (grant, resolver) = try ownedGrant(grantID)
+            (grant, _) = try ownedGrant(grantID)
+            services = try requireCredentials()
             try spendGesture(ref)
         } catch {
             return deps.send(.reply(id: id, outcome: .rejected(reason: error.localizedDescription)))
         }
         replyLater(id) {
-            _ = try await Self.resolveOffMain(grant, allowUI: true, resolver: resolver)
+            if grant.isRemote {
+                // Any dialog is on that machine; all this side can do is ask whether it will act as the account.
+                try await Self.remoteFetcher(for: grant, services: services).check()
+            } else {
+                _ = try await Self.resolveOffMain(grant, allowUI: true, resolver: services.resolver)
+            }
             return .null
         }
     }
@@ -105,7 +128,7 @@ extension LeoPluginBridgeRouter {
 
     // MARK: Checks
 
-    private func requireCredentials() throws -> LeoPluginCredentialServices {
+    func requireCredentials() throws -> LeoPluginCredentialServices {
         guard deps.manifest.apiVersion >= Self.credentialsAPIVersion else {
             throw LeoPluginCredentialRefusal.permissionDenied("leo.credentials needs apiVersion 2")
         }
@@ -134,10 +157,12 @@ extension LeoPluginBridgeRouter {
         }
     }
 
-    private static func value(_ handle: LeoPluginCredentialHandle) -> LeoJSONValue {
-        .object([
+    static func value(_ handle: LeoPluginCredentialHandle) -> LeoJSONValue {
+        var fields: [String: LeoJSONValue] = [
             "id": .string(handle.id), "kind": .string(handle.kind.rawValue),
             "label": .string(handle.label), "path": .string(handle.path),
-        ])
+        ]
+        if let machine = handle.machine { fields["machine"] = .string(machine) }
+        return .object(fields)
     }
 }

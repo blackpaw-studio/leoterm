@@ -185,16 +185,25 @@ import OSLog
         }
         let grant: LeoPluginCredentialGrant
         let resolver: any LeoPluginCredentialResolving
+        let services: LeoPluginCredentialServices
         do {
             (grant, resolver) = try ownedGrant(grantID)
+            services = try requireCredentials()
         } catch {
             return deps.send(.reply(id: id, outcome: .rejected(reason: error.localizedDescription)))
         }
-        // Background reads never show UI: one that would needs `authorize` first.
-        // The fetcher reads the account only after the request passed its
-        // checks and the rate limiter, so a refused fetch never reaches the Keychain.
-        let source = LeoPluginFetchCredentialSource(boundHost: grant.kind.boundHost) {
-            try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
+        // The fetcher reads or forwards for the account only after the request
+        // passed its checks and the rate limiter, so a refused fetch never reaches
+        // the Keychain, or another machine. Background reads never show UI: one
+        // that would needs `authorize` first.
+        let source: LeoPluginFetchCredentialSource
+        if grant.isRemote {
+            let remote = Self.remoteFetcher(for: grant, services: services)
+            source = .remote(boundHost: grant.kind.boundHost, reservedHeaders: grant.kind.reservedHeaders) { try await remote.forward($0) }
+        } else {
+            source = LeoPluginFetchCredentialSource(boundHost: grant.kind.boundHost) {
+                try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
+            }
         }
         replyLater(id) { try await fetcher.fetch(url: url, init: options, credential: source).replyValue }
     }
