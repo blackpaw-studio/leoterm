@@ -222,7 +222,7 @@ struct LeoRowPaneAgentBrowserTests {
 
         var editorItem: NSSplitViewItem? { split.splitViewItems.first { $0.leoPaneRole == .editor } }
         var tabsView: LeoEditorTabsViewController? {
-            (editorItem?.viewController as? LeoRowPaneContainerViewController)?.activeChild as? LeoEditorTabsViewController
+            (editorItem?.leoPaneContainer)?.activeChild as? LeoEditorTabsViewController
         }
     }
 

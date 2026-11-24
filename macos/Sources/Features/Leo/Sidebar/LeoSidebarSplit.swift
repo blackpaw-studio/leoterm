@@ -239,6 +239,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             sidePaneHeaderTopInset: session.toolbarInset,
             panes: session.panes,
             onPaneContainer: { session.adopt($0) },
+            paneDock: session.paneDock,
             agentPane: session.agentPane,
             agentPaneAgent: model.selectedRow.flatMap {
                 $0.movedTo == nil

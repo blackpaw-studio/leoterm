@@ -198,7 +198,7 @@ struct LeoSplitViewRepresentableTests {
         let floor = LeoSidebarSplitMetrics.terminalFloor
         #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 1_000, minimum: minimum) == 500)
         #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 1_001, minimum: minimum) == 500)
-        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 630, minimum: minimum) == minimum)
+        #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 390, minimum: minimum) == minimum)
         #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 500, minimum: minimum) == minimum)
         #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 700, minimum: 100) == 350)
         #expect(LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: 700, minimum: 390) == 390)
@@ -275,8 +275,11 @@ struct LeoSplitViewRepresentableTests {
         let browser = Self.makeBrowser()
         let editor = Self.makeEditor()
         var autoCollapses = 0
+        // 20 pt short of the sidebar, both panes at their minimums, and the floor.
+        let windowWidth = LeoSidebarSplitMetrics.minimumWidth + LeoWorkspaceBrowserViewController.minimumWidth
+            + LeoEditorPaneViewController.minimumWidth + LeoSidebarSplitMetrics.terminalFloor - 20
         let harness = Harness(
-            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_000, editor: editor, browser: browser,
+            preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: windowWidth, editor: editor, browser: browser,
             onSidebarAutoCollapse: { autoCollapses += 1 })
 
         await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
@@ -295,18 +298,20 @@ struct LeoSplitViewRepresentableTests {
         await browser.close()
     }
 
-    /// At 800pt, even without the sidebar the terminal is short of its
-    /// floor: the pane opens anyway and the terminal gives way down to its
-    /// minimum -- the user's action is never refused.
+    /// 40 pt short of both panes at their minimums and the floor, even
+    /// without the sidebar: the pane opens anyway and the terminal gives
+    /// way toward its minimum -- the user's action is never refused.
     @Test func whenTheTerminalIsStillShortThePaneOpensAnyway() async throws {
         let sandbox = try LeoFileSandbox()
         defer { sandbox.cleanUp() }
         let browser = Self.makeBrowser()
         let editor = Self.makeEditor()
-        let harness = Harness(preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 800, editor: editor, browser: browser)
+        let windowWidth = LeoWorkspaceBrowserViewController.minimumWidth + LeoEditorPaneViewController.minimumWidth
+            + LeoSidebarSplitMetrics.terminalFloor - 40
+        let harness = Harness(preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: windowWidth, editor: editor, browser: browser)
         await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
         await harness.settle()
-        #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.terminalFloor, "the browser alone fits beside the sidebar")
+        #expect(harness.browserItem?.isCollapsed == false)
 
         try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
         await harness.settle()
@@ -317,7 +322,7 @@ struct LeoSplitViewRepresentableTests {
         #expect(harness.editorWidth >= LeoEditorPaneViewController.minimumWidth - 1)
         #expect(harness.browserWidth >= LeoWorkspaceBrowserViewController.minimumWidth - 1)
         #expect(harness.terminalWidth >= LeoSidebarSplitMetrics.minimumTerminalWidth)
-        #expect(harness.terminalWidth > 200, "only the sidebar gave way, not the terminal down to its minimum")
+        #expect(harness.terminalWidth > 200, "the panes gave way to their minimums first, not the terminal to its own")
         await editor.closeAll()
         await browser.close()
     }
@@ -401,9 +406,9 @@ struct LeoSplitViewRepresentableTests {
 
     /// Beside the editor alone (the browser collapsed between them), the
     /// terminal keeps its floor down to where the editor is at its
-    /// minimum: 300 + 1 + 320 = 621 pt. Live resizes step by 5 pt (the fine
+    /// minimum: 300 + 1 + 200 = 501 pt. Live resizes step by 5 pt (the fine
     /// path, B-023) or by 40; a jump (zoom, tiling) goes there at once.
-    @Test(arguments: [([700], 5), ([900, 700], 40), ([621], 0)] as [([CGFloat], CGFloat)])
+    @Test(arguments: [([580], 5), ([900, 580], 40), ([501], 0)] as [([CGFloat], CGFloat)])
     func besideTheEditorAloneTheFloorHoldsToTheEditorsMinimum(_ path: [CGFloat], step: CGFloat) async throws {
         try await withBothPanes(opensBrowser: false) { harness, _, _, _ in
             for width in path {
@@ -433,14 +438,16 @@ struct LeoSplitViewRepresentableTests {
             #expect(abs(harness.terminalWidth - LeoSidebarSplitMetrics.terminalFloor) <= 1)
             #expect(harness.editorWidth < 500, "the editor gave way")
 
-            await harness.resizeWindow(stepwiseTo: 700)
+            // The panes at their minimums leave the terminal ~100 pt under
+            // its floor, so the widening below stays under it.
+            await harness.resizeWindow(stepwiseTo: 580)
             #expect(abs(harness.editorWidth - LeoEditorPaneViewController.minimumWidth) <= 1)
             #expect(abs(harness.browserWidth - LeoWorkspaceBrowserViewController.minimumWidth) <= 1)
             #expect(harness.terminalWidth < LeoSidebarSplitMetrics.terminalFloor)
 
             let editorWidth = harness.editorWidth
             let terminalWidth = harness.terminalWidth
-            await harness.resizeWindow(stepwiseTo: 800)
+            await harness.resizeWindow(stepwiseTo: 680)
             #expect(harness.terminalWidth >= terminalWidth + 100 - step, "widening goes to the terminal")
             #expect(harness.editorWidth <= editorWidth + step)
         }
@@ -1064,7 +1071,7 @@ extension LeoAppEventQueueTests.LeoSplitViewRepresentableTests {
 
         try await editor.open(LeoEditorFileID(host: .local, path: path))
         await editor.document?.settlePreview()
-        let pane = try #require(harness.editorItem?.viewController as? LeoRowPaneContainerViewController)
+        let pane = try #require(harness.editorItem?.leoPaneContainer)
         let tabs = try #require(pane.activeChild as? LeoEditorTabsViewController)
         var installed = false
         for _ in 0..<300 where !installed {

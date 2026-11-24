@@ -39,6 +39,11 @@ final class LeoEditorTabBar: NSView {
 
     var onSelect: (Int) -> Void = { _ in }
     var onClose: (Int) -> Void = { _ in }
+    /// The pane the item at an index docks with, and where it is now
+    /// (B-439); nil, or nil for an index, gives the tabs no dock menu.
+    var dockState: ((Int) -> (pane: LeoDockPane, edge: LeoDockEdge)?)?
+    /// A tab's menu moved its pane.
+    var onDock: (LeoDockPane, LeoDockEdge) -> Void = { _, _ in }
 
     private let scrollView = NSScrollView()
     private let stack = NSStackView()
@@ -82,8 +87,40 @@ final class LeoEditorTabBar: NSView {
             guard let self, let button else { return }
             onClose(button.index)
         }
+        button.onMenu = { [weak self, weak button] in
+            guard let self, let button else { return nil }
+            return dockMenu(forItemAt: button.index)
+        }
         stack.addArrangedSubview(button)
         return button
+    }
+
+    // MARK: - Dock menu (B-439)
+
+    /// A choice in a tab's dock menu.
+    private struct DockChoice {
+        let pane: LeoDockPane
+        let edge: LeoDockEdge
+    }
+
+    /// The tab's right-click menu: Dock Right and Dock Below for its pane,
+    /// its edge now checked.
+    func dockMenu(forItemAt index: Int) -> NSMenu? {
+        guard let state = dockState?(index) else { return nil }
+        let menu = NSMenu(title: state.pane.title)
+        for (edge, title) in [(LeoDockEdge.right, "Dock Right"), (.below, "Dock Below")] {
+            let item = NSMenuItem(title: title, action: #selector(dock(_:)), keyEquivalent: "")
+            item.target = self
+            item.state = edge == state.edge ? .on : .off
+            item.representedObject = DockChoice(pane: state.pane, edge: edge)
+            menu.addItem(item)
+        }
+        return menu
+    }
+
+    @objc private func dock(_ sender: NSMenuItem) {
+        guard let choice = sender.representedObject as? DockChoice else { return }
+        onDock(choice.pane, choice.edge)
     }
 
     override var wantsUpdateLayer: Bool { true }
@@ -149,6 +186,8 @@ final class LeoEditorTabButton: NSView {
     var index = 0
     var onSelect: () -> Void = {}
     var onClose: () -> Void = {}
+    /// The tab's right-click (and Control-click) menu.
+    var onMenu: () -> NSMenu? = { nil }
     var item = LeoEditorTabBar.Item(title: "", toolTip: "", isDirty: false, isSelected: false) {
         didSet { refresh() }
     }
@@ -184,6 +223,10 @@ final class LeoEditorTabButton: NSView {
 
     override func mouseDown(with event: NSEvent) {
         onSelect()
+    }
+
+    override func menu(for event: NSEvent) -> NSMenu? {
+        onMenu()
     }
 
     override func updateTrackingAreas() {

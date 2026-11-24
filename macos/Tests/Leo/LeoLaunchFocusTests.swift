@@ -193,7 +193,7 @@ private struct LaunchWindowFixture {
 
     var browserPaneItem: NSSplitViewItem? {
         splitController?.splitViewItems.first {
-            ($0.viewController as? LeoRowPaneContainerViewController)?.role == .browser
+            $0.leoPaneContainer?.role == .browser
         }
     }
 

@@ -11,7 +11,8 @@ import LeoKit
 /// is; `LeoEditorTabsViewController` focuses it when the user asks. One
 /// per tab, so undo, scroll and selection survive switching tabs.
 final class LeoEditorPaneViewController: NSViewController {
-    static let minimumWidth: CGFloat = 320
+    /// The narrowest a pane in the strip gets: the docks' 200 pt stop (B-439).
+    static let minimumWidth: CGFloat = LeoPaneDockMetrics.minimumSize
 
     let model: LeoEditorPaneModel
     /// How far below the pane's top edge its header row starts, centred on

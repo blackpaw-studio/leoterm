@@ -83,8 +83,9 @@ enum LeoPaneDockMetrics {
 
     /// A dock `size` big where `available` is the terminal's and the dock's
     /// together: at least `minimumSize`, and otherwise leaving the terminal
-    /// `terminalFloor`.
-    static func clampedSize(_ size: CGFloat, available: CGFloat) -> CGFloat {
+    /// `terminalFloor` (the right dock keeps the wider floor the side panes
+    /// always have, `LeoSidebarSplitMetrics.terminalFloor`).
+    static func clampedSize(_ size: CGFloat, available: CGFloat, terminalFloor: CGFloat = terminalFloor) -> CGFloat {
         max(minimumSize, min(size, available - terminalFloor))
     }
 }
