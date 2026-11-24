@@ -138,7 +138,7 @@ struct LeoChatPane: View {
             }
             if let feedbackControl { LeoControlFeedbackBanner(row: row, control: feedbackControl) }
             if document == nil {
-                if let prompt = LeoChatStartBar.prompt(for: row.status) {
+                if let prompt = LeoChatStartBar.prompt(for: row.status, movedTo: row.movedTo) {
                     Divider()
                     startBar(prompt)
                 }
@@ -267,8 +267,11 @@ struct LeoChatStartBar: Equatable {
     let message: String
     let offersStart: Bool
 
-    static func prompt(for status: LeoAgentStatus) -> LeoChatStartBar? {
-        switch status {
+    /// B-324: an agent moved to another host can't run here, so the bar says
+    /// where it went and offers no Start, whatever its status.
+    static func prompt(for status: LeoAgentStatus, movedTo: String? = nil) -> LeoChatStartBar? {
+        if let movedTo { return LeoChatStartBar(message: "moved to \(movedTo).", offersStart: false) }
+        return switch status {
         case .running: nil
         case .starting, .restoring: LeoChatStartBar(message: "is starting\u{2026}", offersStart: false)
         case .stopped, .unknown: LeoChatStartBar(message: "isn\u{2019}t running.", offersStart: true)

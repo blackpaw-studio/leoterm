@@ -533,6 +533,16 @@ import Testing
         #expect(bar != nil)
         #expect(bar?.offersStart == false)
     }
+
+    /// B-324: a moved agent can't be started here, so the bar says where it
+    /// went and offers no Start, whatever its status.
+    @Test(arguments: [LeoAgentStatus.stopped, .unknown("error"), .starting, .running])
+    func aMovedAgentOffersNoStart(status: LeoAgentStatus) throws {
+        let bar = try #require(LeoChatStartBar.prompt(for: status, movedTo: "nas"))
+
+        #expect(bar.offersStart == false)
+        #expect(bar.message.contains("nas"))
+    }
 }
 
 /// B-371: the composer refuses a send to an agent that isn't running, so the
