@@ -149,10 +149,14 @@ struct LeoChatPane: View {
                 )
             }
         }
-        .environment(\.openChatAttachment) { attachment, fullWindow in
+        .environment(\.openChatAttachment) { attachment, fullWindow, gallery in
             let agent = row.id
             Task {
-                await viewer.open(attachment, for: agent, fullWindow: fullWindow, download: { await chat.downloadedFile(attachment) })
+                await viewer.open(
+                    attachment, for: agent, fullWindow: fullWindow, gallery: gallery,
+                    download: { await chat.downloadedFile(attachment) },
+                    downloadGalleryItem: { await chat.downloadedFile($0) }
+                )
             }
         }
         .background(Color(nsColor: .textBackgroundColor))

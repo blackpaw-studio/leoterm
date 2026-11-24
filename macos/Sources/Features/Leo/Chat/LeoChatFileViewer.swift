@@ -6,10 +6,15 @@ import SwiftUI
 /// but never edits: the text view is not editable, and there is no save.
 final class LeoChatFileViewerView: NSView {
     private static let escapeKeyCode: UInt16 = 53
+    private static let leftArrowKeyCode: UInt16 = 123
+    private static let rightArrowKeyCode: UInt16 = 124
 
     let contentHost: LeoEditorContentHostView
     private let openExternally: (URL) -> Void
     private let onBack: () -> Void
+    /// Steps to the previous (-1) or next (+1) image of the message. Set only
+    /// while there is one to go to; otherwise the arrow keys are left alone.
+    var onStep: ((Int) -> Void)?
     /// Set when this view fills the window, so nothing else is left for Escape
     /// to mean: it counts with focus anywhere (bar a field editor).
     private let coversWindow: Bool
@@ -71,6 +76,23 @@ final class LeoChatFileViewerView: NSView {
         keyCode == escapeKeyCode && modifiers.isDisjoint(with: .deviceIndependentFlagsMask) && (isInViewer || coversWindow) && !isFieldEditor
     }
 
+    /// Modifier flags that AppKit sets on a bare arrow press (`.function`,
+    /// `.numericPad`) or that are state rather than a chord (`.capsLock`).
+    private static let arrowIncidentalFlags: NSEvent.ModifierFlags = [.function, .numericPad, .capsLock]
+
+    /// ←/→ step through a message's images. Only the bare keys, and not from
+    /// a field editor, where they move the caret. Real arrow keyDowns carry
+    /// `.function` and `.numericPad`, so those don't count as a chord.
+    static func galleryStep(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isFieldEditor: Bool) -> Int? {
+        let chord = modifiers.intersection(.deviceIndependentFlagsMask).subtracting(arrowIncidentalFlags)
+        guard chord.isEmpty, !isFieldEditor else { return nil }
+        switch keyCode {
+        case leftArrowKeyCode: return -1
+        case rightArrowKeyCode: return 1
+        default: return nil
+        }
+    }
+
     // MARK: Window
 
     override func viewDidMoveToWindow() {
@@ -93,10 +115,26 @@ final class LeoChatFileViewerView: NSView {
     private func installKeyMonitor() {
         guard keyMonitor == nil else { return }
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self, event.window === window, handlesEscape(event) else { return event }
-            onBack()
-            return nil
+            guard let self, event.window === window else { return event }
+            if handlesEscape(event) {
+                onBack()
+                return nil
+            }
+            if let delta = galleryStep(for: event) {
+                onStep?(delta)
+                return nil
+            }
+            return event
         }
+    }
+
+    /// Arrows step only in a view that covers the window and has somewhere to go.
+    private func galleryStep(for event: NSEvent) -> Int? {
+        guard coversWindow, onStep != nil else { return nil }
+        return Self.galleryStep(
+            keyCode: event.keyCode, modifiers: event.modifierFlags,
+            isFieldEditor: (window?.firstResponder as? NSText)?.isFieldEditor == true
+        )
     }
 
     private func handlesEscape(_ event: NSEvent) -> Bool {
@@ -121,16 +159,20 @@ final class LeoChatFileViewerView: NSView {
 struct LeoChatFileViewerRepresentable: NSViewRepresentable {
     let document: LeoChatViewerDocument
     var coversWindow = false
+    /// Nil when the file has no neighbours to step to.
+    var onStep: ((Int) -> Void)?
     let onBack: () -> Void
     let openExternally: (URL) -> Void
 
     func makeNSView(context: Context) -> LeoChatFileViewerView {
         let view = LeoChatFileViewerView(coversWindow: coversWindow, openExternally: openExternally, onBack: onBack)
+        view.onStep = onStep
         view.show(document)
         return view
     }
 
     func updateNSView(_ view: LeoChatFileViewerView, context: Context) {
+        view.onStep = onStep
         view.show(document)
     }
 

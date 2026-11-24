@@ -424,6 +424,11 @@ struct LeoWindowVisibilityState: Equatable {
         if !chatViewer.exitFullWindow() { requestChatFocus() }
     }
 
+    /// Shows the previous (-1) or next (+1) image of the open file's message.
+    func stepChatGallery(_ delta: Int) {
+        Task { await chatViewer.step(delta) }
+    }
+
     /// Closes the open file, in the pane or full window, back to the thread.
     func closeChatViewer() {
         chatViewer.close()
