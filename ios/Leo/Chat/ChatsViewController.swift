@@ -18,6 +18,8 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
     private var cards: [LeoAgentID: LeoInboxItem] = [:]
     private var cardRows: [LeoAgentID: ChatRow] = [:]
     private var askErrors: [LeoAgentID: String] = [:]
+    private var answering: Set<LeoAgentID> = []
+    private var shownAnswering: Set<LeoAgentID> = []
     private var inbox = LeoInbox.empty
     private var didScrollForScreenshot = false
     fileprivate var sectionTitles: [SectionTitleInfo?] = []
@@ -85,6 +87,7 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
             let search = store.chats.searchText
             inbox = store.inbox
             askErrors = store.chats.askErrors
+            answering = store.chats.answering
             render(
                 all: all, visible: ChatList.visible(all, filter: filter, search: search), filter: filter, search: search,
                 selection: store.chat?.ref, hasDaemons: !store.fleet.sessions.isEmpty
@@ -124,11 +127,11 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
         }
         let card = UICollectionView.CellRegistration<UICollectionViewListCell, LeoAgentID> { [weak self] cell, _, id in
             guard let self, let item = cards[id] else { return }
-            var configuration = ChatInboxCardConfiguration(item: item, row: cardRows[id], error: askErrors[id])
+            var configuration = ChatInboxCardConfiguration(item: item, row: cardRows[id], error: askErrors[id], isBusy: answering.contains(id))
             configuration.actions = actions(for: item)
             cell.contentConfiguration = configuration
             cell.accessories = []
-            cell.accessibilityIdentifier = "inbox.\(item.agent)"
+            cell.accessibilityIdentifier = "inbox.\(item.id.name)"
             cell.accessibilityLabel = configuration.accessibilityText
         }
         let header = UICollectionView.SupplementaryRegistration<ChatFilterBar>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] bar, _, _ in
@@ -159,6 +162,8 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
     private func render(all: [ChatRow], visible: [ChatRow], filter: ChatFilter, search: String, selection: AgentRef?, hasDaemons: Bool) {
         let previous = rows
         let previousCards = cards
+        let previousAnswering = shownAnswering
+        shownAnswering = answering
         selectedFilter = filter
         counts = ChatList.counts(all)
         counts.needsYou = inbox.blocked.count
@@ -174,7 +179,7 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
             snapshot.appendItems(items, toSection: index)
         }
         let changedRows = visible.filter { row in previous.first { $0.ref == row.ref } != row }.map { Item.row($0.ref) }
-        let changedCards = cards.filter { previousCards[$0.key] != $0.value || askErrors[$0.key] != nil }.map { Item.card($0.key) }
+        let changedCards = cards.filter { previousCards[$0.key] != $0.value || askErrors[$0.key] != nil || answering.contains($0.key) || previousAnswering.contains($0.key) }.map { Item.card($0.key) }
         snapshot.reconfigureItems((changedRows + changedCards).filter { snapshot.itemIdentifiers.contains($0) })
         dataSource.apply(snapshot, animatingDifferences: !previous.isEmpty || !previousCards.isEmpty)
         if let selection, splitViewController?.isCollapsed == false, let indexPath = dataSource.indexPath(for: .row(selection)) {
@@ -229,14 +234,14 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
     }
 
     private func actions(for item: LeoInboxItem) -> ChatInboxCardActions {
-        guard case .remote(let daemonID) = item.id.host else { return ChatInboxCardActions() }
-        let ref = AgentRef(daemonID: daemonID, name: item.agent)
+        guard let ref = item.agentRef else { return ChatInboxCardActions() }
+        let daemonID = ref.daemonID
         var actions = ChatInboxCardActions()
         actions.openChat = { [weak self] in self?.store.send(.chatOpened(ref)) }
         actions.goToAgent = { [weak self] in self?.store.send(.notificationOpened(ref)) }
         if case .chatAsk(let message) = item.kind {
             actions.answer = { [weak self] answer in
-                self?.store.send(.chats(.askAnswered(daemonID: daemonID, agent: item.agent, messageID: message.id, answer)))
+                self?.store.send(.chats(.askAnswered(daemonID: daemonID, agent: ref.name, messageID: message.id, answer)))
             }
         }
         return actions

@@ -318,9 +318,22 @@ public struct AppFeature {
                 state.syncChat()
                 state.decideChatFilter()
                 state.clearViewedChatUnread()
-                return .merge(opening, state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
+                state.chats.dropOpenAsks(ofHosts: state.fleet.sessions.filter { !$0.connection.isConnected }.map(\.id))
+                let viewed = markSeenWhileViewing(state: &state)
+                return .merge(opening, viewed, state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
             }
         }
+    }
+
+    /// An agent that finishes or errors while its chat is on screen was seen finishing:
+    /// mark it, so it does not land in the inbox as unread.
+    private func markSeenWhileViewing(state: inout State) -> Effect<Action> {
+        guard let ref = state.chat?.ref, state.isChatOnScreen(ref),
+              let session = state.fleet.sessions[id: ref.daemonID], let signal = session.agents[id: ref.name]?.attention,
+              signal.state == .finished || signal.state == .errored,
+              state.chats.seen.isUnread(ref.leoAgentID, at: signal.at, revision: signal.revision, bootID: session.bootID)
+        else { return .none }
+        return markSeen(ref, state: &state)
     }
 
     /// Opening an agent (detail or chat) marks it seen in the inbox.

@@ -40,6 +40,14 @@ public struct ChatRow: Equatable, Identifiable, Sendable {
     }
 }
 
+extension LeoInboxItem {
+    /// The agent this item routes to; nil for a host that is not a paired daemon.
+    public var agentRef: AgentRef? {
+        guard case .remote(let daemonID) = id.host else { return nil }
+        return AgentRef(daemonID: daemonID, name: id.name)
+    }
+}
+
 /// Where an agent was looked at, so its seen mark can be set (and synced).
 public struct SeenTarget: Equatable, Sendable {
     public let daemonID: String
@@ -132,6 +140,8 @@ public struct ChatList {
         public var seen = LeoInboxSeenState()
         /// The daemons last refreshed, by id: the inbox acts on them (answers, seen marks).
         var daemons: [String: PairedDaemon] = [:]
+        /// Agents whose inline answer is in flight: their card is disabled.
+        public var answering: Set<LeoAgentID> = []
         /// The daemon's reason an inline answer failed, by agent.
         public var askErrors: [LeoAgentID: String] = [:]
         /// Chat events that arrived while a host's open asks were loading;
@@ -139,6 +149,13 @@ public struct ChatList {
         var eventsDuringSeed: [String: [LeoChatEvent]] = [:]
 
         public init() {}
+
+        /// A disconnected host's open asks go; they come back with the next load.
+        mutating func dropOpenAsks(ofHosts hosts: [String]) {
+            for daemonID in hosts where !openAsks.threads(host: .remote(daemonID)).isEmpty {
+                openAsks.disconnect(host: .remote(daemonID))
+            }
+        }
 
         public var unreadTotal: Int {
             threads.reduce(0) { total, daemon in
@@ -188,8 +205,10 @@ public struct ChatList {
                 return .none
 
             case .askAnswered(let daemonID, let agent, let messageID, let answer):
-                state.askErrors[LeoAgentID(host: .remote(daemonID), name: agent)] = nil
-                guard let daemon = state.daemons[daemonID] else { return .none }
+                let answerer = LeoAgentID(host: .remote(daemonID), name: agent)
+                // One answer at a time per agent: a second tap would send it twice.
+                guard let daemon = state.daemons[daemonID], state.answering.insert(answerer).inserted else { return .none }
+                state.askErrors[answerer] = nil
                 return .run { [chatClient, secrets] send in
                     await send(.askAnswerResponse(daemonID: daemonID, agent: agent, Result {
                         let connection = try secrets.connection(for: daemon)
@@ -200,11 +219,13 @@ public struct ChatList {
                     }))
                 }
 
-            case .askAnswerResponse(let daemonID, _, .success(let message)):
+            case .askAnswerResponse(let daemonID, let agent, .success(let message)):
+                state.answering.remove(LeoAgentID(host: .remote(daemonID), name: agent))
                 if let message { state.openAsks.apply(host: .remote(daemonID), event: .updated(message)) }
                 return .none
 
             case .askAnswerResponse(let daemonID, let agent, .failure(let error)):
+                state.answering.remove(LeoAgentID(host: .remote(daemonID), name: agent))
                 // Settled elsewhere (409): the card is stale, so reload the open set.
                 if error as? LeoChatAnswerError == .settled { return loadOpenAsks(daemonID, state: &state) }
                 state.askErrors[LeoAgentID(host: .remote(daemonID), name: agent)] = error.localizedDescription
@@ -219,7 +240,7 @@ public struct ChatList {
             case .clearFinishedTapped(let items):
                 let targets = items.filter { !$0.isBlocked }.compactMap { item -> SeenTarget? in
                     guard case .remote(let daemonID) = item.id.host else { return nil }
-                    return SeenTarget(daemonID: daemonID, agent: item.agent, at: item.at, revision: item.revision, bootID: item.bootID)
+                    return SeenTarget(daemonID: daemonID, agent: item.id.name, at: item.at, revision: item.revision, bootID: item.bootID)
                 }
                 return markSeen(targets, state: &state)
 
@@ -228,10 +249,19 @@ public struct ChatList {
 
             case .openAsksResponse(let daemonID, let result):
                 let events = state.eventsDuringSeed.removeValue(forKey: daemonID) ?? []
-                if case .success(let messages?) = result {
+                switch result {
+                case .success(let messages?):
                     state.openAsks.seed(host: .remote(daemonID), messages: messages, complete: true)
-                    for event in events { state.openAsks.apply(host: .remote(daemonID), event: event) }
+                case .success(nil):
+                    // No open-asks route (older daemon): what was kept may be answered by now.
+                    // Start over from the threads' last messages.
+                    state.openAsks.disconnect(host: .remote(daemonID))
+                    let lastMessages = (state.threads[daemonID] ?? []).compactMap(\.lastMessage)
+                    state.openAsks.seed(host: .remote(daemonID), messages: lastMessages, complete: false)
+                case .failure:
+                    break
                 }
+                if case .success = result { for event in events { state.openAsks.apply(host: .remote(daemonID), event: event) } }
                 return .none
 
             case .seenResponse(let daemonID, .success(let seen)):
