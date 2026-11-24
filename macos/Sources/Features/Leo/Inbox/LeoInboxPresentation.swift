@@ -40,8 +40,8 @@ enum LeoInboxPresentation {
         case .chatAsk(let message):
             let text = message.displayText.trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? "Waiting for your answer" : text
-        case .permission(let tool, let detail):
-            return [tool, detail].compactMap { $0.flatMap { $0.isEmpty ? nil : $0 } }.joined(separator: " · ").nonEmpty ?? "Permission prompt"
+        case .permission(let tool, let detail, let input):
+            return [tool, input ?? detail].compactMap { $0.flatMap { $0.isEmpty ? nil : $0 } }.joined(separator: " · ").nonEmpty ?? "Permission prompt"
         case .question(let text):
             return text.flatMap { $0.isEmpty ? nil : $0 } ?? "Waiting for your input"
         case .finished(let result):

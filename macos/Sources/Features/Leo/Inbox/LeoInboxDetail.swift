@@ -99,7 +99,7 @@ struct LeoInboxDetail: View {
     @ViewBuilder private var content: some View {
         switch item.kind {
         case .chatAsk(let message): chatAsk(message)
-        case .permission(let tool, let detail): permission(tool: tool, detail: detail)
+        case .permission(let tool, let detail, let input): permission(tool: tool, detail: input ?? detail)
         case .question(let text): question(text)
         case .finished(let result): finished(result)
         }

@@ -26,7 +26,7 @@ struct LeoInboxPresentationTests {
 
     @Test func aPermissionHeadlineJoinsToolAndCommand() {
         let item = LeoInboxItem(
-            id: LeoAgentID(host: .local, name: "a"), kind: .permission(tool: "Bash", detail: "nomad job run x"), isUnread: true,
+            id: LeoAgentID(host: .local, name: "a"), kind: .permission(tool: "Bash", detail: "nomad job run x", input: nil), isUnread: true,
             agent: "a", machine: "This Mac"
         )
         #expect(LeoInboxPresentation.headline(item) == "Bash · nomad job run x")
