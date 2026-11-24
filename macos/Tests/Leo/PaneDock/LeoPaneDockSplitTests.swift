@@ -147,6 +147,42 @@ struct LeoPaneDockSplitTests {
         }
     }
 
+    /// After a relaunch the window is built with its panes already open:
+    /// the docks open from the saved layout, with no move or drag after.
+    @Test func aWindowBuiltWithPanesOpenDocksThemWhereTheStoreSays() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let saved = LeoPaneDockStore(defaults: defaults)
+            saved.setEdge(.below, for: .browser)
+            saved.setEdge(.right, for: .files)
+            saved.setSize(260, of: .below)
+            let panes = Harness.makePanes(presence: presence)
+            try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
+            let source = presence.open(Self.browserKey)
+            let page = NSView()
+            source.activeView = page
+            source.viewHost.adopt(page)
+            await drainMainQueue()
+
+            let harness = Harness(
+                presence: presence, store: LeoPaneDockStore(defaults: defaults), agentPane: true, panes: panes)
+            defer { harness.close() }
+            await harness.settle()
+
+            #expect(harness.terminalDock.bottomItem.isCollapsed == false)
+            #expect(page.isDescendant(of: harness.terminalDock.bottom.view), "the page is below")
+            #expect(harness.dock.rightStrip?.hosted === harness.dock.filesStrip)
+            #expect(harness.rightStripItem.isCollapsed == false)
+            #expect(harness.strip(harness.dock.filesStrip)?.shown != nil, "the file is on the right")
+            #expect(harness.rightStripWidth >= LeoPaneDockMetrics.minimumSize - Self.pointTolerance)
+            #expect(abs(harness.terminalDock.bottomHeight - 260) <= Self.pointTolerance)
+            let drawer = harness.frame(of: try #require(harness.drawerView))
+            let column = harness.frame(of: harness.terminalDock.view)
+            #expect(drawer.height > 0)
+            #expect(abs(drawer.minX - column.minX) <= Self.pointTolerance && abs(drawer.maxX - column.maxX) <= Self.pointTolerance)
+            #expect(drawer.maxY <= harness.frame(of: harness.terminalDock.bottom.view).minY + Self.pointTolerance, "the drawer is below the dock")
+        }
+    }
+
     // MARK: Closing and moving
 
     @Test func closingADockedPaneGivesItsSpaceBackToTheTerminal() async throws {
@@ -277,9 +313,15 @@ struct LeoPaneDockSplitTests {
         let window: NSWindow
         let agentPaneModel: LeoAgentPaneModel?
 
-        init(presence: FakePresence, store: LeoPaneDockStore, agentPane: Bool = false) {
-            panes = LeoRowPanes(makeAccess: { _ in LeoFileAccessor.local() }, confirm: { _, _ in .cancel }, presence: presence)
+        /// The row's panes, for a test that opens some before the window exists.
+        static func makePanes(presence: FakePresence) -> LeoRowPanes {
+            let panes = LeoRowPanes(makeAccess: { _ in LeoFileAccessor.local() }, confirm: { _, _ in .cancel }, presence: presence)
             panes.activate(LeoPaneDockSplitTests.agent)
+            return panes
+        }
+
+        init(presence: FakePresence, store: LeoPaneDockStore, agentPane: Bool = false, panes: LeoRowPanes? = nil) {
+            self.panes = panes ?? Self.makePanes(presence: presence)
             let defaults = LeoInMemoryDefaults()
             agentPaneModel = agentPane
                 ? LeoAgentPaneModel(
@@ -288,7 +330,7 @@ struct LeoPaneDockSplitTests {
             let components = LeoSplitViewControllerFactory.make(
                 isSidebarVisible: false, preferredWidth: 240, onDividerWidthChange: { _ in },
                 sidebar: AnyView(Color.clear), detail: AnyView(Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)),
-                panes: panes, paneDock: store, agentPane: agentPaneModel)
+                panes: self.panes, paneDock: store, agentPane: agentPaneModel)
             split = components.controller
             terminalView = components.detailHosting.view
             window = NSWindow(
