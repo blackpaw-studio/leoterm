@@ -8,9 +8,20 @@ import UIKitNavigation
 /// you first, with filter chips and search. "New chat" picks any agent.
 final class ChatsViewController: UIViewController, UICollectionViewDelegate, UISearchResultsUpdating {
     @UIBindable private var store: StoreOf<AppFeature>
+    /// What a list entry is: a thread row, or an inbox card (needs-you and done lists).
+    private enum Item: Hashable {
+        case row(AgentRef)
+        case card(LeoAgentID)
+    }
+
     private var rows: [ChatRow] = []
+    private var cards: [LeoAgentID: LeoInboxItem] = [:]
+    private var cardRows: [LeoAgentID: ChatRow] = [:]
+    private var askErrors: [LeoAgentID: String] = [:]
+    private var inbox = LeoInbox.empty
+    fileprivate var sectionTitles: [SectionTitleInfo?] = []
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
-    private var dataSource: UICollectionViewDiffableDataSource<Int, AgentRef>!
+    private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
     private weak var filterBar: ChatFilterBar?
     private var selectedFilter = ChatFilter.all
     private var counts = ChatCounts(needsYou: 0, working: 0)
@@ -71,6 +82,8 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
             let all = ChatList.rows(threads: store.chats.threads, unread: store.chats.unreadCounts, sessions: store.fleet.sessions)
             let filter = store.chats.filter ?? .all
             let search = store.chats.searchText
+            inbox = store.inbox
+            askErrors = store.chats.askErrors
             render(
                 all: all, visible: ChatList.visible(all, filter: filter, search: search), filter: filter, search: search,
                 selection: store.chat?.ref, hasDaemons: !store.fleet.sessions.isEmpty
@@ -108,36 +121,112 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
             cell.accessibilityIdentifier = "chat.\(row.ref.name)"
             cell.accessibilityLabel = configuration.accessibilityText
         }
+        let card = UICollectionView.CellRegistration<UICollectionViewListCell, LeoAgentID> { [weak self] cell, _, id in
+            guard let self, let item = cards[id] else { return }
+            var configuration = ChatInboxCardConfiguration(item: item, row: cardRows[id], error: askErrors[id])
+            configuration.actions = actions(for: item)
+            cell.contentConfiguration = configuration
+            cell.accessories = []
+            cell.accessibilityIdentifier = "inbox.\(item.agent)"
+            cell.accessibilityLabel = configuration.accessibilityText
+        }
         let header = UICollectionView.SupplementaryRegistration<ChatFilterBar>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] bar, _, _ in
             guard let self else { return }
             filterBar = bar
             bar.onPick = { [weak self] filter in self?.store.send(.chats(.filterPicked(filter))) }
-            bar.update(selected: selectedFilter, counts: counts)
+            bar.onClear = { [weak self] in self?.clearFinished() }
+            bar.update(selected: selectedFilter, counts: counts, title: sectionTitles.first.flatMap { $0 })
         }
-        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, ref in
-            collectionView.dequeueConfiguredReusableCell(using: cell, for: indexPath, item: ref)
+        let sectionHeader = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] view, _, indexPath in
+            var content = UIListContentConfiguration.header()
+            content.text = self?.sectionTitles[safe: indexPath.section]??.text.localizedUppercase
+            view.contentConfiguration = content
+        }
+        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
+            switch item {
+            case .row(let ref): collectionView.dequeueConfiguredReusableCell(using: cell, for: indexPath, item: ref)
+            case .card(let id): collectionView.dequeueConfiguredReusableCell(using: card, for: indexPath, item: id)
+            }
         }
         dataSource.supplementaryViewProvider = { collectionView, _, indexPath in
-            collectionView.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)
+            indexPath.section == 0
+                ? collectionView.dequeueConfiguredReusableSupplementary(using: header, for: indexPath)
+                : collectionView.dequeueConfiguredReusableSupplementary(using: sectionHeader, for: indexPath)
         }
     }
 
     private func render(all: [ChatRow], visible: [ChatRow], filter: ChatFilter, search: String, selection: AgentRef?, hasDaemons: Bool) {
         let previous = rows
-        rows = visible
+        let previousCards = cards
         selectedFilter = filter
         counts = ChatList.counts(all)
-        filterBar?.update(selected: filter, counts: counts)
-        var snapshot = NSDiffableDataSourceSnapshot<Int, AgentRef>()
-        snapshot.appendSections([0])
-        snapshot.appendItems(visible.map(\.ref))
-        let changed = visible.filter { row in previous.first { $0.ref == row.ref } != row }.map(\.ref)
-        snapshot.reconfigureItems(changed.filter { snapshot.itemIdentifiers.contains($0) })
-        dataSource.apply(snapshot, animatingDifferences: !previous.isEmpty)
-        if let selection, splitViewController?.isCollapsed == false, let indexPath = dataSource.indexPath(for: selection) {
+        counts.needsYou = inbox.blocked.count
+        let content = content(rows: visible, all: all, filter: filter, search: search)
+        rows = visible
+        cards = content.cards
+        cardRows = Dictionary(all.map { (LeoAgentID(host: .remote($0.ref.daemonID), name: $0.ref.name), $0) }, uniquingKeysWith: { $1 })
+        sectionTitles = content.titles
+        filterBar?.update(selected: filter, counts: counts, title: content.titles.first.flatMap { $0 })
+        var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
+        for (index, items) in content.sections.enumerated() {
+            snapshot.appendSections([index])
+            snapshot.appendItems(items, toSection: index)
+        }
+        let changedRows = visible.filter { row in previous.first { $0.ref == row.ref } != row }.map { Item.row($0.ref) }
+        let changedCards = cards.filter { previousCards[$0.key] != $0.value || askErrors[$0.key] != nil }.map { Item.card($0.key) }
+        snapshot.reconfigureItems((changedRows + changedCards).filter { snapshot.itemIdentifiers.contains($0) })
+        dataSource.apply(snapshot, animatingDifferences: !previous.isEmpty || !previousCards.isEmpty)
+        if let selection, splitViewController?.isCollapsed == false, let indexPath = dataSource.indexPath(for: .row(selection)) {
             collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
         }
-        contentUnavailableConfiguration = visible.isEmpty ? emptyState(filter: filter, search: search, hasChats: !all.isEmpty, hasDaemons: hasDaemons) : nil
+        let isEmpty = content.sections.allSatisfy(\.isEmpty)
+        contentUnavailableConfiguration = isEmpty ? emptyState(filter: filter, search: search, hasChats: !all.isEmpty, hasDaemons: hasDaemons) : nil
+    }
+
+    /// The list for the chip: inbox cards under Needs you and Done, thread rows elsewhere.
+    private func content(rows: [ChatRow], all: [ChatRow], filter: ChatFilter, search: String) -> (sections: [[Item]], titles: [SectionTitleInfo?], cards: [LeoAgentID: LeoInboxItem]) {
+        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        func matching(_ items: [LeoInboxItem]) -> [LeoInboxItem] {
+            items.filter { query.isEmpty || $0.agent.localizedCaseInsensitiveContains(query) }
+        }
+        func byID(_ items: [LeoInboxItem]) -> [LeoAgentID: LeoInboxItem] { Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) }) }
+        switch filter {
+        case .needsYou:
+            let blocked = matching(inbox.blocked)
+            return ([blocked.map { .card($0.id) }], [nil], byID(blocked))
+        case .done:
+            let finished = matching(inbox.finished)
+            let unread = finished.filter(\.isUnread)
+            let earlier = finished.filter { !$0.isUnread }
+            if unread.isEmpty {
+                return ([earlier.map { .card($0.id) }], [SectionTitleInfo(text: String(localized: "Earlier"))], byID(finished))
+            }
+            return (
+                [unread.map { .card($0.id) }, earlier.map { .card($0.id) }].filter { !$0.isEmpty },
+                [SectionTitleInfo(text: String(localized: "Since you looked"), canClear: true), earlier.isEmpty ? nil : SectionTitleInfo(text: String(localized: "Earlier"))],
+                byID(finished)
+            )
+        case .all, .working:
+            return ([rows.map { .row($0.ref) }], [nil], [:])
+        }
+    }
+
+    private func actions(for item: LeoInboxItem) -> ChatInboxCardActions {
+        guard case .remote(let daemonID) = item.id.host else { return ChatInboxCardActions() }
+        let ref = AgentRef(daemonID: daemonID, name: item.agent)
+        var actions = ChatInboxCardActions()
+        actions.openChat = { [weak self] in self?.store.send(.chatOpened(ref)) }
+        actions.goToAgent = { [weak self] in self?.store.send(.notificationOpened(ref)) }
+        if case .chatAsk(let message) = item.kind {
+            actions.answer = { [weak self] answer in
+                self?.store.send(.chats(.askAnswered(daemonID: daemonID, agent: item.agent, messageID: message.id, answer)))
+            }
+        }
+        return actions
+    }
+
+    private func clearFinished() {
+        store.send(.chats(.clearFinishedTapped(inbox.finished)))
     }
 
     private func emptyState(filter: ChatFilter, search: String, hasChats: Bool, hasDaemons: Bool) -> UIContentUnavailableConfiguration {
@@ -145,7 +234,7 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
         var configuration = UIContentUnavailableConfiguration.empty()
         if filter != .all, hasChats {
             let (symbol, text) = switch filter {
-            case .needsYou: ("checkmark.circle", String(localized: "Nothing Needs You"))
+            case .needsYou: ("checkmark.circle", String(localized: "Nothing needs you"))
             case .working: ("moon.zzz", String(localized: "Nothing Is Working"))
             case .done, .all: ("tray", String(localized: "Nothing Done Yet"))
             }
@@ -172,30 +261,47 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
         return configuration
     }
 
+    /// A blocked card answers through its own controls; rows and finished cards open the thread.
+    func collectionView(_ collectionView: UICollectionView, shouldSelectItemAt indexPath: IndexPath) -> Bool {
+        guard case .card(let id)? = dataSource.itemIdentifier(for: indexPath) else { return true }
+        return cards[id]?.isBlocked == false
+    }
+
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
-        store.send(.chats(.rowTapped(ref)))
+        switch dataSource.itemIdentifier(for: indexPath) {
+        case .row(let ref)?:
+            store.send(.chats(.rowTapped(ref)))
+        case .card(let id)?:
+            guard case .remote(let daemonID) = id.host else { return }
+            store.send(.chats(.rowTapped(AgentRef(daemonID: daemonID, name: id.name))))
+        case nil:
+            break
+        }
     }
 
     /// Long press: the Agents tab's menu. Rows with no agent record (e.g. a
     /// thread whose daemon dropped the agent) get none.
     func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
-        guard let indexPath = indexPaths.first, let ref = dataSource.itemIdentifier(for: indexPath) else { return nil }
+        guard case .row(let ref)? = indexPaths.first.flatMap({ dataSource.itemIdentifier(for: $0) }) else { return nil }
         return AgentContextMenu.configuration(for: ref, store: store)
     }
 }
 
-/// The chip row above the inbox: All, Needs you, Working, Done.
+/// The chip row above the inbox: All, Needs you, Working, Done; under Done,
+/// the first section's title with its Clear button.
 final class ChatFilterBar: UICollectionReusableView {
     var onPick: (ChatFilter) -> Void = { _ in }
+    var onClear: () -> Void = {}
     private var buttons: [ChatFilter: UIButton] = [:]
+    private let titleLabel = UILabel()
+    private let clearButton = UIButton(type: .system)
+    private let titleRow = UIStackView()
 
     override init(frame: CGRect) {
         super.init(frame: frame)
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(scroll)
         let stack = UIStackView()
         stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
@@ -206,11 +312,31 @@ final class ChatFilterBar: UICollectionReusableView {
             buttons[filter] = button
             stack.addArrangedSubview(button)
         }
+        titleLabel.font = .preferredFont(forTextStyle: .footnote)
+        titleLabel.textColor = .secondaryLabel
+        titleLabel.adjustsFontForContentSizeCategory = true
+        var clear = UIButton.Configuration.plain()
+        clear.title = String(localized: "Clear")
+        clear.contentInsets = .zero
+        clearButton.configuration = clear
+        clearButton.accessibilityIdentifier = "inbox.clear"
+        clearButton.addAction(UIAction { [weak self] _ in self?.onClear() }, for: .touchUpInside)
+        titleRow.addArrangedSubview(titleLabel)
+        titleRow.addArrangedSubview(UIView())
+        titleRow.addArrangedSubview(clearButton)
+        titleRow.isLayoutMarginsRelativeArrangement = true
+        titleRow.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16)
+        let column = UIStackView(arrangedSubviews: [scroll, titleRow])
+        column.axis = .vertical
+        column.spacing = 8
+        column.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(column)
         NSLayoutConstraint.activate([
-            scroll.leadingAnchor.constraint(equalTo: leadingAnchor),
-            scroll.trailingAnchor.constraint(equalTo: trailingAnchor),
-            scroll.topAnchor.constraint(equalTo: topAnchor, constant: 4),
-            scroll.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            column.leadingAnchor.constraint(equalTo: leadingAnchor),
+            column.trailingAnchor.constraint(equalTo: trailingAnchor),
+            column.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            column.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            scroll.heightAnchor.constraint(equalToConstant: 36),
             stack.leadingAnchor.constraint(equalTo: scroll.contentLayoutGuide.leadingAnchor, constant: 0),
             stack.trailingAnchor.constraint(equalTo: scroll.contentLayoutGuide.trailingAnchor, constant: 0),
             stack.topAnchor.constraint(equalTo: scroll.contentLayoutGuide.topAnchor),
@@ -222,7 +348,7 @@ final class ChatFilterBar: UICollectionReusableView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    func update(selected: ChatFilter, counts: ChatCounts) {
+    fileprivate func update(selected: ChatFilter, counts: ChatCounts, title: SectionTitleInfo?) {
         for (filter, button) in buttons {
             var configuration = filter == selected ? UIButton.Configuration.filled() : UIButton.Configuration.gray()
             configuration.cornerStyle = .capsule
@@ -232,6 +358,9 @@ final class ChatFilterBar: UICollectionReusableView {
             button.isSelected = filter == selected
             button.accessibilityTraits = filter == selected ? [.button, .selected] : .button
         }
+        titleRow.isHidden = title == nil
+        titleLabel.text = title?.text.localizedUppercase
+        clearButton.isHidden = title?.canClear != true
     }
 }
 
@@ -333,6 +462,12 @@ final class NewChatViewController: UIViewController, UICollectionViewDelegate {
         guard let ref = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.chats(.newChatPicked(ref)))
     }
+}
+
+/// The text above a section, and whether it offers Clear.
+fileprivate struct SectionTitleInfo: Equatable {
+    let text: String
+    var canClear = false
 }
 
 private extension Array {

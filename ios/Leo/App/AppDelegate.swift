@@ -60,6 +60,11 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
            let tab = AppTab.allCases.first(where: { "\($0)" == arguments[flag + 1] }) {
             Self.store.send(.tabSelected(tab))
         }
+        // `-chatsFilter needsYou|done|all|working`: picks that Chats chip, for screenshots.
+        if let flag = arguments.firstIndex(of: "-chatsFilter"), arguments.indices.contains(flag + 1) {
+            let filters: [String: ChatFilter] = ["all": .all, "needsYou": .needsYou, "working": .working, "done": .done]
+            if let filter = filters[arguments[flag + 1]] { Self.store.send(.chats(.filterPicked(filter))) }
+        }
         #endif
         return true
     }
