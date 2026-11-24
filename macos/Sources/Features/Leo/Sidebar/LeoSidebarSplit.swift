@@ -186,6 +186,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
     @ObservedObject var unread: LeoChatUnreadStore
+    private let inbox: LeoInboxModel?
     private let terminal: Terminal
     /// The top safe-area edges the split and the sidebar extend into (an
     /// agent window's toolbar region). See `LeoTitlebarInsets`.
@@ -196,7 +197,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
     private let buttonActions: LeoSidebarButtonActions
 
     init(
-        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, unread: LeoChatUnreadStore,
+        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, unread: LeoChatUnreadStore, inbox: LeoInboxModel? = nil,
         titlebarIgnoredEdges: Edge.Set = [],
         shortcutHints: LeoShortcutHints,
         buttonActions: LeoSidebarButtonActions,
@@ -206,6 +207,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
         self.model = model
         self.actions = actions
         self.unread = unread
+        self.inbox = inbox
         self.titlebarIgnoredEdges = titlebarIgnoredEdges
         self.shortcutHints = shortcutHints
         self.buttonActions = buttonActions
@@ -227,7 +229,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             // inset plus the system sidebar's, so ignoring it on the split
             // alone isn't enough.
             sidebar: LeoSidebarView(
-                model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread,
+                model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread, inbox: inbox,
                 searchFocusRequest: session.searchFocusRequest,
                 shortcutHints: shortcutHints, buttonActions: buttonActions,
                 toolbarInset: session.toolbarInset

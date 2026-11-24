@@ -14,19 +14,23 @@ enum LeoSidebarItemID: Hashable, Sendable {
     case agent(LeoAgentRow.ID)
     case dispatch(LeoDispatchRef)
     case terminal(UUID)
+    /// The pinned Inbox row: the window's content area shows the inbox.
+    case inbox
 }
 
 /// B-057: one window's sidebar selection, composed from the app-wide agent
 /// selection (`LeoSidebarModel.selection`, shared by every window) and the
-/// window's own terminal selection (`LeoWindowTerminals.selection`). A
-/// selected terminal wins in its window; selecting an agent there clears
+/// window's own terminal selection (`LeoWindowTerminals.selection`). The
+/// Inbox row is the window's own too (`isInboxSelected`) and leaves the
+/// agent selection untouched. A selected terminal wins in its window; selecting an agent there clears
 /// it. A selected dispatch rides on its parent agent's selection
 /// (`LeoSidebarModel.selectedDispatch`), so when it ends the agent is
 /// what stays selected. Neither side's storage changes shape, so the shared agent list
 /// behaves as before in every window.
 @MainActor enum LeoSidebarSelection {
     static func current(model: LeoSidebarModel, terminals: LeoWindowTerminals) -> LeoSidebarItemID? {
-        terminals.selection.map(LeoSidebarItemID.terminal)
+        (terminals.isInboxSelected ? LeoSidebarItemID.inbox : nil)
+            ?? terminals.selection.map(LeoSidebarItemID.terminal)
             ?? model.selectedDispatch.map(LeoSidebarItemID.dispatch)
             ?? model.selection.map(LeoSidebarItemID.agent)
     }
@@ -35,6 +39,8 @@ enum LeoSidebarItemID: Hashable, Sendable {
     /// never shows.
     static func select(_ item: LeoSidebarItemID?, model: LeoSidebarModel, terminals: LeoWindowTerminals) {
         switch item {
+        case .inbox:
+            terminals.selectInbox()
         case .terminal(let id):
             terminals.select(id)
         case .agent(let id):
@@ -51,12 +57,13 @@ enum LeoSidebarItemID: Hashable, Sendable {
 
     /// Return on the list: the same as clicking the selected row.
     static func activate(model: LeoSidebarModel, terminals: LeoWindowTerminals, from origin: LeoWindowID) {
+        guard !terminals.isInboxSelected else { return }
         guard let terminal = terminals.selection else { return model.activateSelection(from: origin) }
         terminals.activate(terminal)
     }
 
     /// Whether Return has a row to act on.
     static func canActivate(model: LeoSidebarModel, terminals: LeoWindowTerminals) -> Bool {
-        terminals.selection != nil || model.actionableSelection != nil
+        !terminals.isInboxSelected && (terminals.selection != nil || model.actionableSelection != nil)
     }
 }

@@ -93,6 +93,8 @@ struct LeoSidebarView: View {
     @ObservedObject var terminals: LeoWindowTerminals
     /// Unread chat messages per agent, for the row badges.
     @ObservedObject var unread: LeoChatUnreadStore
+    /// The Needs-you inbox behind the pinned Inbox row; nil hides the row (tests).
+    private let inbox: LeoInboxModel?
     /// Bumped by Agents ▸ Find Agent…; each change focuses the search field.
     let searchFocusRequest: Int
     /// The footer buttons' tooltips (B-065).
@@ -125,6 +127,7 @@ struct LeoSidebarView: View {
         actions: LeoAgentActions,
         terminals: LeoWindowTerminals,
         unread: LeoChatUnreadStore? = nil,
+        inbox: LeoInboxModel? = nil,
         searchFocusRequest: Int = 0,
         shortcutHints: LeoShortcutHints? = nil,
         buttonActions: LeoSidebarButtonActions = .none,
@@ -136,6 +139,7 @@ struct LeoSidebarView: View {
         self.actions = actions
         self.terminals = terminals
         _unread = ObservedObject(wrappedValue: unread ?? LeoChatUnreadStore())
+        self.inbox = inbox
         self.searchFocusRequest = searchFocusRequest
         _shortcutHints = ObservedObject(wrappedValue: shortcutHints ?? LeoShortcutHints())
         self.buttonActions = buttonActions
@@ -173,6 +177,12 @@ struct LeoSidebarView: View {
             )
             .accessibilityLabel("Search agents")
             .leoSidebarHeaderFrame(.searchField)
+
+            if let inbox {
+                LeoInboxSidebarEntry(inbox: inbox, terminals: terminals) {
+                    LeoSidebarSelection.select(.inbox, model: model, terminals: terminals)
+                }
+            }
 
             content
             if let panelError {
