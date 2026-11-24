@@ -2,8 +2,11 @@ Status: running
 Started: 2026-11-24T00:56:31Z
 Budget: 20 items, until 2026-11-24T12:56:31Z
 Digested-through: 0
-Filed: 1/3 bugs, 0/5 ideas
+Filed: 3/3 bugs, 1/5 ideas
 Self-filed: B-324 → B-442 bug — Mac composer on a moved agent still offers Start and shows Idle
+Self-filed: B-441 → B-444 bug — Escape doesn't close the full-window image viewer while caps lock is on
+Self-filed: B-441 → B-445 bug — Right-click on a chat image misses after a send (reply shifts scroll)
+Self-filed: B-441 → B-446 idea — Menu items for the chat image viewer's Open/Exit Full Window and Close
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -48,14 +51,43 @@ Lane: B-437
 Lane: B-441
   Branch: autopilot-lane/B-441
   Base: 06b47fbd7a14f3063ed1aa7d8ff97499b0e56904
+  Tier: light→full
+  State: landed
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: 55d74e838f399798c9e885dd8e7b678edd526e35
+  Dispatched: 2026-11-24T01:16:36Z
+  Call: Arrows and header buttons step only in the full-window viewer; the pane viewer keeps its arrows — principle 1 / principle 6
+  Call: Stepping stops at either end, no wrap (as in Preview) — principle 1
+  Call: View ▸ Previous Image / Next Image added in this item, enabled exactly where the arrow keys step — principle 1
+  Call: Mac only: iOS already pages a message's images (ChatImagePageController), so nothing moves to LeoKit — AGENTS.md parity rule
+  Tokens: 25M in (24.4M cache read), ≥113k out, 228 requests
+
+Lane: B-443
+  Branch: autopilot-lane/B-443
+  Base: c396b9d07cf69bbdc580382d310c9a5c9fc582a0
   Tier: light
   State: building
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-11-24T01:16:36Z
+  Dispatched: 2026-11-24T01:49:51Z
+
+Lane: B-439
+  Branch: autopilot-lane/B-439
+  Base: 095fd564e1c3abfbce82c49343dc0a916af638c8
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T02:42:35Z
 
 Finished 1: B-437 landed edf4408a04be9f93246dcc6a9d797b1b03e1f0a1 · not visually verified
 Finished 2: B-324 landed b127fba37f1e77389dbefb41208c828647e377e5 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
 Inbox applied: B-443
+Finished 3: B-441 landed 45a6e33e9dc43c681e3894e5fc647137ab398441 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
+Progress: B-439 built before B-440 (B-440 drag-to-dock depends on B-439 docking)

@@ -2181,3 +2181,27 @@ Chose: The moved-row guard in go(to:) comes before the status check, so it cover
 Why: VISION 2
 Commit: b1761eee4 3e62f1bbb
 Veto: [ ]
+
+## D-997 · 2026-11-23 · B-441: Arrows and buttons step only in the full-window viewer
+Chose: Arrows and header buttons step only in the full-window viewer; the pane viewer keeps its arrows
+Why: principle 1 / principle 6
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-998 · 2026-11-23 · B-441: Stepping stops at either end, no wrap
+Chose: Stepping stops at either end, no wrap (as in Preview)
+Why: principle 1
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-999 · 2026-11-23 · B-441: View ▸ Previous Image / Next Image menu items
+Chose: View ▸ Previous Image / Next Image added in this item, enabled exactly where the arrow keys step
+Why: principle 1
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-1000 · 2026-11-23 · B-441: Mac only; iOS already pages a message's images
+Chose: Mac only: iOS already pages a message's images (ChatImagePageController), so nothing moves to LeoKit
+Why: AGENTS.md parity rule
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]

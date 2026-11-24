@@ -3455,13 +3455,15 @@ Source: autopilot polish (B-384)
 Note: clearer confirmation before switching delegation profile on iOS; also move the preview wording and effort-level list into LeoKit (duplicated on iOS)
 Source: autopilot polish (B-299)
 
-## B-441 · on mac when a chat message has multiple images, in the full screen…   [ready]
+## B-441 · on mac when a chat message has multiple images, in the full screen…   [done]
 Issue: #411
 Type: bug
 Report: on mac when a chat message has multiple images, in the full screen view i should be able to use the arrow keys or buttons to cycle through them
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T005424260130Z-a6852666#1
+Done: be1b94b97 ce0441d3e ec7c8a71b (←/→, header chevrons and View ▸ Previous/Next Image step a message's images in the full-window viewer; bare-arrow tests failed before the fix; Mac suite 5054 pass). Decisions D-997..D-1000.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
 
 ## B-443 · we need a way to change the branch/tag for a plugin without having to…   [ready]
 Issue: #415
@@ -3501,3 +3503,19 @@ Type: bug
 Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-324)
+
+## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready (next run)]
+Type: bug
+Report: Escape doesn't close the full-window image viewer while caps lock is on — Escape closes the viewer on a plain press, so with caps lock on the key looks dead (principle 1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-441)
+
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready (next run)]
+Type: bug
+Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-441)
+
+## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
+Note: principle 1: every action has a menu item
+Source: autopilot polish (B-441)

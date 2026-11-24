@@ -55,6 +55,104 @@ struct LeoChatViewerModelTests {
         await model.open(attachment(id, "\(id).md"), for: agent, fullWindow: fullWindow, download: { url })
     }
 
+    // MARK: Gallery (B-441)
+
+    private func image(_ id: String) -> LeoChatAttachment {
+        LeoChatAttachment(id: id, filename: "\(id).png", mime: "image/png", bytes: 1)
+    }
+
+    /// Opens `current` of a message's images in `model`; the others download on demand.
+    private func openImage(
+        _ model: LeoChatViewerModel, _ current: String, among ids: [String] = ["i1", "i2", "i3"], fullWindow: Bool = true,
+        downloadSibling: ((LeoChatAttachment) async -> URL?)? = nil
+    ) async throws {
+        let urls = try Dictionary(uniqueKeysWithValues: ids.map { try ($0, file("\($0).png", Data([1]))) })
+        await model.open(
+            image(current), for: Self.a, fullWindow: fullWindow, gallery: ids.map(image), download: { urls[current] },
+            downloadGalleryItem: downloadSibling ?? { urls[$0.id] }
+        )
+    }
+
+    @Test func steppingShowsTheNextAndPreviousImageOfTheMessageInPlace() async throws {
+        let model = makeModel()
+        try await openImage(model, "i2")
+        await model.step(1)
+        #expect(model.fullWindowDocument?.attachmentID == "i3")
+        await model.step(-1)
+        await model.step(-1)
+        #expect(model.fullWindowDocument?.attachmentID == "i1")
+        #expect(model.shown?.agent == Self.a)
+        #expect(model.shown?.presentation == .fullWindow(fromPane: false))
+    }
+
+    @Test func steppingStopsAtEitherEnd() async throws {
+        let model = makeModel()
+        try await openImage(model, "i1")
+        await model.step(-1)
+        #expect(model.fullWindowDocument?.attachmentID == "i1")
+        await model.step(1)
+        await model.step(1)
+        await model.step(1)
+        #expect(model.fullWindowDocument?.attachmentID == "i3")
+    }
+
+    @Test func thePositionIsReportedOnlyForAMessageWithSeveralImages() async throws {
+        let model = makeModel()
+        try await openImage(model, "i2")
+        #expect(model.galleryPosition == LeoChatViewerModel.GalleryPosition(index: 1, count: 3))
+        await model.step(1)
+        #expect(model.galleryPosition == LeoChatViewerModel.GalleryPosition(index: 2, count: 3))
+        try await openImage(model, "i1", among: ["i1"])
+        #expect(model.galleryPosition == nil)
+        await model.step(1)
+        #expect(model.fullWindowDocument?.attachmentID == "i1")
+    }
+
+    @Test func aFileOpenedWithoutAGalleryHasNoPositionAndDoesNotStep() async throws {
+        let model = makeModel()
+        try await openMarkdown(model, fullWindow: true)
+        #expect(model.galleryPosition == nil)
+        await model.step(1)
+        #expect(model.fullWindowDocument?.attachmentID == "m1")
+    }
+
+    @Test func closingDuringAStepsDownloadShowsNothingWhenItFinishes() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let url = try file("i2.png", Data([1]))
+        try await openImage(model, "i1", downloadSibling: { _ in await downloads.wait() })
+        let step = Task { await model.step(1) }
+        await downloads.waitUntilHeld(1)
+        model.close()
+        downloads.finish(0, with: url)
+        await step.value
+        #expect(model.shown == nil)
+    }
+
+    @Test func stepsPressedWhileOneIsLoadingAddUp() async throws {
+        let model = makeModel()
+        let downloads = Downloads()
+        let urls = try ["i2", "i3"].map { try file("\($0).png", Data([1])) }
+        try await openImage(model, "i1", downloadSibling: { _ in await downloads.wait() })
+        let first = Task { await model.step(1) }
+        await downloads.waitUntilHeld(1)
+        let second = Task { await model.step(1) }
+        await downloads.waitUntilHeld(2)
+        downloads.finish(0, with: urls[0])
+        downloads.finish(1, with: urls[1])
+        await first.value
+        await second.value
+        #expect(model.fullWindowDocument?.attachmentID == "i3")
+    }
+
+    @Test func aFailedStepDownloadKeepsTheCurrentImage() async throws {
+        let model = makeModel()
+        try await openImage(model, "i1", downloadSibling: { _ in nil })
+        await model.step(1)
+        #expect(model.fullWindowDocument?.attachmentID == "i1")
+        #expect(model.galleryPosition?.index == 0)
+    }
+
     @Test func aMarkdownAttachmentOpensTheViewer() async throws {
         let model = makeModel()
         try await openMarkdown(model)

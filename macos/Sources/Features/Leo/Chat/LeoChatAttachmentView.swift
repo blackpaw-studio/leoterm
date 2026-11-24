@@ -4,14 +4,15 @@ import LeoKit
 import SwiftUI
 
 private struct LeoChatAttachmentOpenerKey: EnvironmentKey {
-    static let defaultValue: ((LeoChatAttachment, _ fullWindow: Bool) -> Void)? = nil
+    static let defaultValue: ((LeoChatAttachment, _ fullWindow: Bool, _ gallery: [LeoChatAttachment]) -> Void)? = nil
 }
 
 extension EnvironmentValues {
     /// What clicking an attachment does. Unset, it downloads the file and
     /// opens it in its default app; the chat pane sets it to show the
     /// file in its viewer, or over the whole window when `fullWindow`.
-    var openChatAttachment: ((LeoChatAttachment, _ fullWindow: Bool) -> Void)? {
+    /// `gallery` is the message's images, for stepping between them.
+    var openChatAttachment: ((LeoChatAttachment, _ fullWindow: Bool, _ gallery: [LeoChatAttachment]) -> Void)? {
         get { self[LeoChatAttachmentOpenerKey.self] }
         set { self[LeoChatAttachmentOpenerKey.self] = newValue }
     }
@@ -22,6 +23,9 @@ extension EnvironmentValues {
 struct LeoChatAttachmentView: View {
     let attachment: LeoChatAttachment
     @ObservedObject var chat: LeoChatPaneModel
+    /// The message's attachments: an image's full-window viewer steps through
+    /// the message's images.
+    var siblings: [LeoChatAttachment] = []
     @Environment(\.openChatAttachment) private var openAttachment
 
     var body: some View {
@@ -106,8 +110,14 @@ struct LeoChatAttachmentView: View {
     }
 
     private func open(fullWindow: Bool = false) {
-        if let openAttachment { return openAttachment(attachment, fullWindow) }
+        if let openAttachment { return openAttachment(attachment, fullWindow, gallery) }
         openInDefaultApp()
+    }
+
+    /// The message's viewable images, when this one is among them.
+    private var gallery: [LeoChatAttachment] {
+        guard attachment.isImage else { return [] }
+        return siblings.filter { $0.available && $0.isImage }
     }
 
     private func openInDefaultApp() {
