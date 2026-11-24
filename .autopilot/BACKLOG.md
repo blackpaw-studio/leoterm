@@ -3549,3 +3549,7 @@ Source: autopilot polish (B-439)
 ## B-451 · Outline comes back ~20 pt narrower after a window zoom or tile jump   [idea]
 Note: the widening-back restore after a zoom or tile jump gives width back only to the editor — P1: layout should return to where it was
 Source: autopilot polish (B-439)
+
+## B-452 · iOS may show Idle for a moved agent too   [idea]
+Note: check ChatThreadTitleView.swift:80 and AgentPresentation.swift:17 for the Idle-on-moved case B-442 fixed on Mac; file a bug if iOS can show a moved agent — Mac/iOS parity
+Source: autopilot polish (B-442)
