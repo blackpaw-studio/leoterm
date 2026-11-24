@@ -3463,6 +3463,13 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T005424260130Z-a6852666#1
 
+## B-443 · we need a way to change the branch/tag for a plugin without having to…   [ready]
+Type: bug
+Report: we need a way to change the branch/tag for a plugin without having to reinstall it
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-23)
+Inbox: 20261124T014054218316Z-edf65908#1
+
 ## B-440 · Drag a Browser or Files tab to dock it on the right or below   [ready]
 Issue: #412
 Why: Follow-up to the right/below docking item: moving a pane by dragging is the natural direct-manipulation route on the Mac (P1).
