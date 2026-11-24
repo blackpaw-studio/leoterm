@@ -29,7 +29,7 @@ Lane: B-439
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 81235c15351c5ebd6902e777c7f48bc2eb33aea9
+  Reviewed-tip: 58b736a723a6a519d31bb5ad21d9984a916ecfb9
   Dispatched: 2026-11-24T14:19:18Z
   Call: "Files" = outline plus editor and plugin tabs as one unit; "Browser" = the agent web-view tab — P6
   Call: Both panes default to the right, so layout is unchanged on upgrade — P2
