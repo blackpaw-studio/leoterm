@@ -3530,6 +3530,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-441)
 Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real chord on Escape still doesn't; failing test first; suite 5131 pass). Decision D-1028.
 Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
+Reviewed: accepted 2026-11-24 — 315518028f82
 
 ## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [blocked]
 Issue: #418
