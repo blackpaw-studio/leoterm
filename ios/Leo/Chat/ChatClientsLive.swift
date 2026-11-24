@@ -1,6 +1,7 @@
 import AVFoundation
 import ComposableArchitecture
 import LeoFeatures
+import LeoKit
 import UIKit
 import UserNotifications
 
@@ -77,7 +78,24 @@ extension ChatNotifierClient: @retroactive DependencyKey {
             content.sound = .default
             let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
             try? await UNUserNotificationCenter.current().add(request)
+        }, sendFailed: { payload in
+            await ChatNotifierClient.post(LeoChatNotificationActions.sendFailedContent(payload))
+        }, unsent: { machine, text in
+            await ChatNotifierClient.post(LeoChatNotificationActions.unsentContent(machine: machine, text: text))
         })
+    }
+
+    /// A local notification from `LeoChatLocalNotification` data.
+    private static func post(_ notification: LeoChatLocalNotification) async {
+        let content = UNMutableNotificationContent()
+        content.title = notification.title
+        content.body = notification.body
+        content.categoryIdentifier = notification.categoryID
+        content.threadIdentifier = notification.threadIdentifier
+        content.userInfo = notification.userInfo
+        content.sound = .default
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+        try? await UNUserNotificationCenter.current().add(request)
     }
 }
 

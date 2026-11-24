@@ -93,6 +93,7 @@ public struct AppFeature {
     @Dependency(\.chatClient) var chatClient
     @Dependency(\.clientTools) var clientTools
     @Dependency(\.chatNotifier) var chatNotifier
+    @Dependency(\.agentDirectory) var agentDirectory
     @Dependency(\.daemonClient) var daemonClient
     @Dependency(\.pairedDaemons) var pairedDaemons
     @Dependency(\.progressNotifier) var progressNotifier
@@ -291,7 +292,10 @@ public struct AppFeature {
                     let (clientTools, isOn) = (clientTools, state.isAgentBrowserEnabled)
                     return .merge(.run { _ in await clientTools.setEnabled(isOn) }, fleet(.task, state: &state))
 
-                case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .fleet, .move, .pairing, .push:
+                case .fleet:
+                    return saveAgentDirectory(state)
+
+                case .appearance, .binding, .chat, .chatNotificationActionFinished, .chats, .daemons, .detail, .move, .pairing, .push:
                     return .none
                 }
             }
@@ -364,6 +368,16 @@ public struct AppFeature {
         return .run { [progressNotifier] _ in await progressNotifier.post(notification) }
     }
 
+    /// The agents of every paired daemon, for the Control's picker (the
+    /// extension can't read the Keychain, so it reads this snapshot). The
+    /// client skips a write that changes nothing.
+    private func saveAgentDirectory(_ state: State) -> Effect<Action> {
+        let targets = state.fleet.sessions.flatMap { session in
+            session.agents.map { LeoAgentTarget(machineID: session.daemon.id, machineName: session.daemon.name, agent: $0.name) }
+        }
+        return .run { [agentDirectory] _ in await agentDirectory.write(targets) }
+    }
+
     private func fleet(_ action: Fleet.Action, state: inout State) -> Effect<Action> {
         Fleet().reduce(into: &state.fleet, action: action).map(Action.fleet)
     }
@@ -372,7 +386,7 @@ public struct AppFeature {
     /// launched in the background for it, so the daemon comes from disk.
     private func perform(_ response: LeoChatNotificationResponse) -> Effect<Action> {
         let target: LeoPushTarget = switch response {
-        case .reply(let target, _, _), .answer(let target, _, _): target
+        case .reply(let target, _, _), .answer(let target, _, _), .retry(let target, _): target
         }
         return .run { [chatClient, chatNotifier, pairedDaemons, secrets] send in
             do {
@@ -385,6 +399,13 @@ public struct AppFeature {
                     _ = try await chatClient.send(connection, target.agent, LeoChatDraft(text: text, replyTo: replyTo))
                 case .answer(_, let messageID, let value):
                     _ = try await chatClient.answer(connection, target.agent, messageID, .choice(value))
+                case .retry(_, let text):
+                    do {
+                        _ = try await chatClient.send(connection, target.agent, LeoChatDraft(text: text))
+                    } catch {
+                        // Never drop the text: offer Retry again.
+                        await chatNotifier.sendFailed(LeoAgentRetryPayload(target: target, machine: daemon.name, text: text))
+                    }
                 }
             } catch LeoChatAnswerError.settled {
                 // Answered elsewhere or expired: the notification was stale.

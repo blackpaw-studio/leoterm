@@ -68,6 +68,8 @@ public enum LeoPushNotification {
     public static let messageIDKey = "message_id"
     public static let messageKindKey = "message_kind"
     public static let chatKind = "chat"
+    /// The unsent text a send-failed notification keeps for Retry.
+    public static let retryTextKey = "retry_text"
 
     /// The decrypted alert, or nil when anything is off (the caller then
     /// leaves the generic alert alone), including a push from a daemon not

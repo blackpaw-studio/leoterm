@@ -6,5 +6,6 @@ storage_mode("git")
 type("appstore")
 app_identifier([
   "studio.blackpaw.leo.ios",
-  "studio.blackpaw.leo.ios.notification-service"
+  "studio.blackpaw.leo.ios.notification-service",
+  "studio.blackpaw.leo.ios.controls"
 ])

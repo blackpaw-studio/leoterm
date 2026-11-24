@@ -24,6 +24,17 @@ public struct LeoChatNotificationCategory: Equatable, Sendable {
 public enum LeoChatNotificationResponse: Equatable, Sendable {
     case reply(LeoPushTarget, text: String, replyTo: String?)
     case answer(LeoPushTarget, messageID: String, value: String)
+    /// Retry a message that failed to send (a voice message, say), with its original text.
+    case retry(LeoPushTarget, text: String)
+}
+
+/// A notification the app posts itself (not a push), as plain data.
+public struct LeoChatLocalNotification: Equatable, Sendable {
+    public let title: String
+    public let body: String
+    public let categoryID: String
+    public let userInfo: [String: String]
+    public let threadIdentifier: String
 }
 
 /// Notification categories and actions for Leo Chat: a text reply on a
@@ -40,6 +51,9 @@ public enum LeoChatNotificationActions {
     /// action would send a message that looks like an answer but isn't.
     public static let askOpenCategoryID = "leo.chat.ask-open"
     public static let replyActionID = "leo.chat.reply"
+    /// A message that failed to send, with a Retry button.
+    public static let sendFailedCategoryID = "leo.chat.send-failed"
+    public static let retryActionID = "leo.chat.retry"
     /// A choice button's id is this prefix plus the choice's value.
     public static let answerPrefix = "leo.chat.answer:"
     /// How many of an `ask`'s choices get a button.
@@ -50,11 +64,48 @@ public enum LeoChatNotificationActions {
             LeoChatNotificationCategory(identifier: chatCategoryID, actions: [replyAction]),
             LeoChatNotificationCategory(identifier: permissionCategoryID, actions: permissionButtons),
             LeoChatNotificationCategory(identifier: askOpenCategoryID, actions: []),
+            LeoChatNotificationCategory(identifier: sendFailedCategoryID, actions: [retryAction]),
         ]
+    }
+
+    /// The local notification for a message that failed to send. It keeps
+    /// the text in `userInfo` so Retry can resend it: it is never dropped.
+    public static func sendFailedContent(_ payload: LeoAgentRetryPayload) -> LeoChatLocalNotification {
+        LeoChatLocalNotification(
+            title: String(localized: "Couldn't reach \(payload.machine)"),
+            body: String(localized: "Your message to \(payload.target.agent) wasn't sent: \(payload.text)"),
+            categoryID: sendFailedCategoryID,
+            userInfo: [
+                LeoPushNotification.daemonIDKey: payload.target.daemonID, LeoPushNotification.agentKey: payload.target.agent,
+                LeoPushNotification.retryTextKey: payload.text,
+            ],
+            threadIdentifier: "\(payload.target.daemonID)/\(payload.target.agent)"
+        )
     }
 
     /// The category for a push, or nil for one that isn't about a chat
     /// message (a plain attention push keeps the default actions).
+    /// The notification for a message with no agent to retry to (nothing
+    /// answered and the request named none): the text is kept, and a tap
+    /// opens the app. No category, so no Retry.
+    public static func unsentContent(machine: String, text: String) -> LeoChatLocalNotification {
+        LeoChatLocalNotification(
+            title: String(localized: "Couldn't reach \(machine)"),
+            body: String(localized: "Your message wasn't sent: \(text)"),
+            categoryID: "", userInfo: [:], threadIdentifier: "leo.chat.unsent"
+        )
+    }
+
+    /// The notification for a message whose agent is gone (a retry can't
+    /// help): the text is kept so it can be sent elsewhere.
+    public static func agentMissingContent(agent: String, text: String) -> LeoChatLocalNotification {
+        LeoChatLocalNotification(
+            title: String(localized: "\(agent) isn't available"),
+            body: String(localized: "Your message wasn't sent: \(text)"),
+            categoryID: "", userInfo: [:], threadIdentifier: "leo.chat.unsent"
+        )
+    }
+
     public static func category(for alert: LeoPushAlert) -> LeoChatNotificationCategory? {
         guard let chat = alert.chat else { return nil }
         let isChatPush = alert.kind == LeoPushNotification.chatKind
@@ -81,6 +132,11 @@ public enum LeoChatNotificationActions {
             guard !isPrompt(userInfo) else { return nil }
             let text = (userText ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             return text.isEmpty ? nil : .reply(target, text: text, replyTo: messageID)
+        }
+        if actionIdentifier == retryActionID {
+            guard let text = userInfo[LeoPushNotification.retryTextKey] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+            return .retry(target, text: text)
         }
         if actionIdentifier.hasPrefix(answerPrefix), let messageID {
             return .answer(target, messageID: messageID, value: String(actionIdentifier.dropFirst(answerPrefix.count)))
@@ -113,6 +169,10 @@ public enum LeoChatNotificationActions {
     /// Categories are shared across agents, so the placeholder can't name one.
     private static var replyAction: LeoChatNotificationCategory.Action {
         .textInput(id: replyActionID, title: String(localized: "Reply"), buttonTitle: String(localized: "Send"), placeholder: String(localized: "Message"))
+    }
+
+    private static var retryAction: LeoChatNotificationCategory.Action {
+        .button(id: retryActionID, title: String(localized: "Retry"), isDestructive: false)
     }
 
     private static func digest(_ options: ArraySlice<LeoChatOption>) -> String {

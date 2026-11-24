@@ -82,6 +82,10 @@ import LeoKit
         clients[host] = client
     }
 
+    /// `host`'s Leo Chat client while it is connected, for sends that don't
+    /// come from the pane ("Tell an agent", Retry).
+    func client(for host: LeoHostID) -> (any LeoChatClient)? { clients[host] }
+
     /// `host`'s connection dropped. Its events are ignored from now on and a
     /// page in flight is dropped. If the shown agent lives there, the thread
     /// reads as it does when selecting an agent on a machine that is down;
