@@ -16,6 +16,8 @@ struct ChatInboxCardConfiguration: UIContentConfiguration {
     let row: ChatRow?
     /// The daemon's reason the last inline answer failed.
     let error: String?
+    /// An answer is on its way: the controls are off.
+    var isBusy = false
     var now = Date()
     var actions = ChatInboxCardActions()
 
@@ -33,7 +35,7 @@ struct ChatInboxCardConfiguration: UIContentConfiguration {
 extension ChatInboxCardConfiguration: Equatable {
     /// The actions are closures; a card is the same when what it shows is.
     static func == (lhs: Self, rhs: Self) -> Bool {
-        (lhs.item, lhs.row, lhs.error, lhs.now) == (rhs.item, rhs.row, rhs.error, rhs.now)
+        (lhs.item, lhs.row, lhs.error, lhs.isBusy, lhs.now) == (rhs.item, rhs.row, rhs.error, rhs.isBusy, rhs.now)
     }
 }
 
@@ -187,6 +189,8 @@ private final class ChatInboxCardContentView: UIView, UIContentView, UITextField
         error.text = card.error
         error.isHidden = card.error == nil
         rebuildControls(card)
+        controls.isUserInteractionEnabled = !card.isBusy
+        controls.alpha = card.isBusy ? 0.5 : 1
     }
 
     private static func bodyText(_ item: LeoInboxItem) -> NSAttributedString {

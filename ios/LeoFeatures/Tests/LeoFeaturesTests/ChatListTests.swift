@@ -315,8 +315,11 @@ struct ChatListTests {
             }
         }
         let answer = LeoChatAnswer(values: ["y"])
-        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", answer))
-        await store.receive(\.askAnswerResponse) { $0.openAsks.apply(host: Self.host, event: .updated(answered)) }
+        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", answer)) { $0.answering = [LeoAgentID(host: Self.host, name: "zeus")] }
+        await store.receive(\.askAnswerResponse) {
+            $0.answering = []
+            $0.openAsks.apply(host: Self.host, event: .updated(answered))
+        }
         #expect(store.state.openAsks.threads.isEmpty)
     }
 
@@ -326,8 +329,13 @@ struct ChatListTests {
             $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.settled }
             $0.chatClient.openAsks = { _ in [] }
         }
-        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", LeoChatAnswer(values: ["y"])))
-        await store.receive(\.askAnswerResponse) { $0.eventsDuringSeed[Self.daemon] = [] }
+        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", LeoChatAnswer(values: ["y"]))) {
+            $0.answering = [LeoAgentID(host: Self.host, name: "zeus")]
+        }
+        await store.receive(\.askAnswerResponse) {
+            $0.answering = []
+            $0.eventsDuringSeed[Self.daemon] = []
+        }
         await store.receive(\.openAsksResponse) {
             $0.eventsDuringSeed[Self.daemon] = nil
             $0.openAsks.seed(host: Self.host, messages: [], complete: true)
@@ -341,8 +349,13 @@ struct ChatListTests {
             $0.secrets.load = { _ in DaemonSecrets(token: "t") }
             $0.chatClient.answer = { _, _, _, _ in throw LeoChatAnswerError.invalid("pick one") }
         }
-        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", LeoChatAnswer(values: []))) 
-        await store.receive(\.askAnswerResponse) { $0.askErrors[LeoAgentID(host: Self.host, name: "zeus")] = "pick one" }
+        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", LeoChatAnswer(values: []))) {
+            $0.answering = [LeoAgentID(host: Self.host, name: "zeus")]
+        }
+        await store.receive(\.askAnswerResponse) {
+            $0.answering = []
+            $0.askErrors[LeoAgentID(host: Self.host, name: "zeus")] = "pick one"
+        }
         #expect(store.state.openAsks.threads.count == 1)
     }
 
@@ -437,5 +450,67 @@ struct ChatListTests {
         #expect(ChatList.inbox(sessions: sessions, openAsks: LeoOpenAsks(), seen: seen).finished.allSatisfy { !$0.isUnread })
         sessions[0].bootID = "boot-B"
         #expect(ChatList.inbox(sessions: sessions, openAsks: LeoOpenAsks(), seen: seen).finished.map(\.isUnread) == [true])
+    }
+
+    // MARK: Review round 1
+
+    @Test func clearingStoresTheMarkUnderTheAgentNameNotItsDisplayName() async {
+        var seeded = Self.listState()
+        seeded.seen.seed(host: Self.host, seen: [:])
+        var hera = Agent(name: "hera", status: .running, attention: LeoAttentionSignal(state: .finished, revision: 3, at: Self.epoch))
+        hera.daemonDisplayName = "Hera Prime"
+        let items = ChatList.inbox(sessions: Self.connected([hera]), openAsks: seeded.openAsks, seen: seeded.seen)
+        #expect(items.finished.first?.agent == "Hera Prime")
+        let store = TestStore(initialState: seeded) { ChatList() } withDependencies: {
+            $0.date.now = Self.epoch + 60
+            $0.inboxSeenStore.save = { _ in }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.markSeen = { _, agents in
+                #expect(agents == ["hera"])
+                return ["hera": Self.epoch + 60]
+            }
+        }
+        store.exhaustivity = .off
+        await store.send(.clearFinishedTapped(items.finished))
+        await store.skipReceivedActions()
+        #expect(!store.state.seen.isUnread(LeoAgentID(host: Self.host, name: "hera"), at: Self.epoch, revision: 3, bootID: "boot"))
+        #expect(items.finished.first?.agentRef == AgentRef(daemonID: Self.daemon, name: "hera"))
+    }
+
+    @Test func aSecondTapWhileAnAnswerIsInFlightIsIgnored() async {
+        let (gate, release) = AsyncStream<Void>.makeStream()
+        let calls = LockIsolated(0)
+        let answered = Self.ask("q1", state: "answered")
+        let store = TestStore(initialState: Self.listState(asks: [Self.ask("q1")])) { ChatList() } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.answer = { _, _, _, _ in
+                calls.withValue { $0 += 1 }
+                for await _ in gate { break }
+                return answered
+            }
+        }
+        let zeus = LeoAgentID(host: Self.host, name: "zeus")
+        let answer = LeoChatAnswer(values: ["y"])
+        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", answer)) { $0.answering = [zeus] }
+        await store.send(.askAnswered(daemonID: Self.daemon, agent: "zeus", messageID: "q1", answer))
+        release.yield()
+        await store.receive(\.askAnswerResponse) {
+            $0.answering = []
+            $0.openAsks.apply(host: Self.host, event: .updated(answered))
+        }
+        #expect(calls.value == 1)
+    }
+
+    @Test func aDaemonWithoutTheOpenAsksRouteDropsAnswerdAsksAndReseedsFromThreads() async {
+        var seeded = Self.listState(asks: [Self.ask("old", agent: "zeus")])
+        seeded.threads[Self.daemon] = [
+            LeoChatThread(agent: "zeus", lastMessage: Self.ask("old", agent: "zeus", state: "answered")),
+            LeoChatThread(agent: "hera", lastMessage: Self.ask("new", agent: "hera")),
+        ]
+        let store = TestStore(initialState: seeded) { ChatList() }
+        store.exhaustivity = .off
+        await store.send(.openAsksResponse(Self.daemon, .success(nil)))
+        let open = store.state.openAsks.threads
+        #expect(open.keys.map(\.name) == ["hera"])
     }
 }
