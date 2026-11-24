@@ -69,16 +69,15 @@ struct LeoSidebarSectionMoveItems: View {
     }
 }
 
-/// A section header as a drag source and drop target: dragging it moves
-/// the whole section; a line shows where a section dropped on it lands.
-/// The list doesn't reorder while a drag hovers, as in Finder's sidebar.
-private struct LeoSidebarSectionDragModifier: ViewModifier {
+/// A section header as a drop target: a line shows where a section
+/// dropped on it lands. The list doesn't reorder while a drag hovers, as
+/// in Finder's sidebar.
+private struct LeoSidebarSectionDropModifier: ViewModifier {
     let mover: LeoSidebarSectionMover
     @State private var landing: VerticalEdge?
 
     func body(content: Content) -> some View {
         content
-            .onDrag { provider() }
             .onDrop(of: [.leoSidebarSection], delegate: LeoSidebarSectionDropDelegate(mover: mover, landing: $landing))
             .overlay(alignment: landing == .bottom ? .bottom : .top) {
                 if landing != nil {
@@ -86,16 +85,18 @@ private struct LeoSidebarSectionDragModifier: ViewModifier {
                 }
             }
     }
+}
 
-    private func provider() -> NSItemProvider {
-        let payload = Data(mover.drags.begin(mover.key).utf8)
-        let provider = NSItemProvider()
-        provider.registerDataRepresentation(forTypeIdentifier: UTType.leoSidebarSection.identifier, visibility: .ownProcess) { completion in
-            completion(payload, nil)
-            return nil
-        }
-        return provider
+/// What a section header's drag carries: a one-off payload only this
+/// process can read (see `LeoSidebarSectionDrags`).
+@MainActor private func sectionDragProvider(_ mover: LeoSidebarSectionMover) -> NSItemProvider {
+    let payload = Data(mover.drags.begin(mover.key).utf8)
+    let provider = NSItemProvider()
+    provider.registerDataRepresentation(forTypeIdentifier: UTType.leoSidebarSection.identifier, visibility: .ownProcess) { completion in
+        completion(payload, nil)
+        return nil
     }
+    return provider
 }
 
 private struct LeoSidebarSectionDropDelegate: DropDelegate {
@@ -137,6 +138,18 @@ private struct LeoSidebarSectionDropDelegate: DropDelegate {
 extension View {
     /// Makes a section header draggable and a drop target (B-438).
     func leoSidebarSectionDrag(_ mover: LeoSidebarSectionMover) -> some View {
-        modifier(LeoSidebarSectionDragModifier(mover: mover))
+        leoSidebarSectionDragSource(mover).leoSidebarSectionDropTarget(mover)
+    }
+
+    /// Dragging this moves the section. A header whose title is a `Button`
+    /// puts this on the button's label: on the button or around it, the
+    /// button's click tracking takes the mouse and no drag starts.
+    func leoSidebarSectionDragSource(_ mover: LeoSidebarSectionMover) -> some View {
+        onDrag { sectionDragProvider(mover) }
+    }
+
+    /// A section dragged onto this takes its section's slot.
+    func leoSidebarSectionDropTarget(_ mover: LeoSidebarSectionMover) -> some View {
+        modifier(LeoSidebarSectionDropModifier(mover: mover))
     }
 }

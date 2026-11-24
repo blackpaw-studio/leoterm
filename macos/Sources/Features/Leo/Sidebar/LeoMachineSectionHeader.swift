@@ -64,6 +64,9 @@ struct LeoMachineSectionHeader: View {
                     .truncationMode(.tail)
             }
             .contentShape(Rectangle())
+            // The button's click tracking keeps a drag from the title from
+            // reaching the header's own drag (B-438).
+            .leoSidebarSectionDragSource(mover)
         }
         .buttonStyle(.plain)
         .disabled(!presentation.canToggleCollapse)

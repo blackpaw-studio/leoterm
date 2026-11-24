@@ -44,11 +44,11 @@ struct LeoPluginSidebarSection: View {
         .id(LeoPluginSectionIdentity.make(entry: entry, expanded: expanded))
     }
 
-    /// The drag goes on a container around the button, as on the machine
-    /// header, rather than on the button and its click tracking (B-438).
+    /// A drop lands on the whole header; the drag starts from the button's
+    /// label (B-438).
     private func header(expanded: Bool) -> some View {
         HStack(spacing: 0) { headerButton(expanded: expanded) }
-            .leoSidebarSectionDrag(mover)
+            .leoSidebarSectionDropTarget(mover)
     }
 
     private func headerButton(expanded: Bool) -> some View {
@@ -65,6 +65,7 @@ struct LeoPluginSidebarSection: View {
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
+            .leoSidebarSectionDragSource(mover)
         }
         .buttonStyle(.plain)
         .help(expanded ? "Collapse \(entry.title)" : "Expand \(entry.title)")
