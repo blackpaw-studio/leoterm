@@ -1163,3 +1163,32 @@ Interim updates: 3 posted, through item 15
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-24T00:56:31Z
+🛠 leoterm autopilot — 2 fixed, 2 shipped, 0 blocked
+Early stop: Dionysus's data volume is full (1.1 GB free of 1.8 TB); the leo daemon dropped and both open runners died (ENOSPC). B-438 and B-439 are left unlanded for the next run.
+Fixed
+• B-437 iOS task prompt editor stays inside the side safe area in landscape (not visually verified) · light
+• B-443 Change a git plugin's branch/tag from Settings ▸ Plugins, no reinstall (not visually verified — plugin tags need API 2) · light→full
+Shipped
+• B-324 Move/copy/duplicate: a moved agent's row never asks to start (verified: screenshot) · full
+• B-441 ←/→, chevrons and View ▸ Previous/Next Image step a message's images full-window (verified: screenshot) · light→full
+• B-439 built before B-440 (B-440 depends on it)
+Calls I made — reply "veto D-0xx" to undo
+• D-993 B-437 iOS only · D-994..996 B-324 moved-row behavior · D-997..1000 B-441 viewer stepping (no wrap, menu items, Mac only) · D-1001..1007 B-443 ref UI (Change… link, approval sheet, HEAD = default branch)
+Needs you
+• Free disk space on Dionysus. Biggest: ~/.tart 193G, CoreSimulator 79G, DerivedData 46G, /private/tmp 38G, ~/Library/Caches 35G, autopilot lanes 22G. I deleted nothing.
+• Lanes left for next run: B-438 (3 commits, unreviewed), B-439 (4 commits, unreviewed); both are first picks next run.
+• Stale lanes left in place: B-233, B-332 (no RUN.md block); B-368 landed but dirty.
+Self-filed
+• B-442 bug (from B-324) — Mac composer on a moved agent still offers Start and shows Idle
+• B-444 bug (from B-441) — Escape doesn't close the full-window viewer with caps lock on
+• B-445 bug (from B-441) — Right-click on a chat image misses after a send
+• B-446 idea (from B-441) — Menu items for the image viewer's full-window/close
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-237 Terminal upload errors truncate · B-276 Terminals section scroll · B-277 Dispatch viewer location · B-280 Dropped file mode · +35 more
+Next up: B-438, B-439 (recovered), B-440, B-442, B-444, B-445
+Spend (estimated, lower bound · prices 2026-10-09): ≈$21.06 est. — B-437 ≈$1.77, B-324 ≈$5.95, B-441 ≈$7.17, B-443 ≈$6.17
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

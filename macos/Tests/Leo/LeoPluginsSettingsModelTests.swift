@@ -58,8 +58,8 @@ import Testing
         var outcomes: [String: LeoPluginUpdateOutcome] = [:]
         var failures: [String: Error] = [:]
         init(log: Log) { self.log = log }
-        func check(id: String) async throws -> LeoPluginUpdateOutcome {
-            log.events.append("check \(id)")
+        func check(id: String, ref: String?) async throws -> LeoPluginUpdateOutcome {
+            log.events.append(ref.map { "check \(id) ref=\($0)" } ?? "check \(id)")
             if let error = failures[id] { throw error }
             return try #require(outcomes[id])
         }
@@ -458,6 +458,87 @@ import Testing
         #expect(rig.model.message == .failure("Demo: boom"))
     }
 
+    // MARK: Change branch or tag (B-443)
+
+    @Test func aGitRowShowsItsRefAndOnlyGitRowsCanChangeIt() throws {
+        let rig = Self.rig([
+            Self.info("a.b.git", source: .git(url: "https://github.com/acme/demo", ref: "next", sha: Self.sha)),
+            Self.info("a.b.head", source: .git(url: "https://github.com/acme/demo", ref: "HEAD", sha: Self.sha)),
+            Self.info("a.b.bundled", source: .bundled), Self.info("a.b.dev", source: .dev(path: "/tmp/d")),
+        ])
+        let rows = rig.model.rows
+
+        #expect(rows[0].ref == "next" && rows[0].refText == "“next”")
+        #expect(rows[1].ref == "" && rows[1].refText == "the default branch")
+        #expect(rows.map(\.canChangeRef) == [true, true, false, false])
+    }
+
+    @Test func changingTheRefChecksThatPluginAgainstTheNewRefAndRestartsIt() async {
+        let rig = Self.rig([Self.info("a.b.git"), Self.info("a.b.other")])
+        let result = LeoPluginInstallResult(
+            manifest: Self.manifest("a.b.git"), sha: String(repeating: "a", count: 40), url: "u", ref: "next", directory: URL(fileURLWithPath: "/tmp"))
+        rig.updater.outcomes = ["a.b.git": .updated(result)]
+
+        await rig.model.changeRef("a.b.git", to: "next")
+
+        #expect(rig.log.events == ["check a.b.git ref=next", "reload a.b.git"])
+        #expect(rig.model.message == .notice("“Demo” now follows “next”."))
+    }
+
+    @Test func changingToARefAtTheSameCommitRefreshesTheRowWithoutRestarting() async {
+        let rig = Self.rig([Self.info()])
+        rig.updater.outcomes = ["dev.example.demo": .upToDate(sha: Self.sha)]
+
+        await rig.model.changeRef("dev.example.demo", to: "stable")
+
+        #expect(rig.log.events == ["check dev.example.demo ref=stable", "reload "])
+        #expect(rig.model.message == .notice("“Demo” now follows “stable”."))
+    }
+
+    @Test func changingToARefThatAsksForMoreAsksFirstAndThenApplies() async {
+        let rig = Self.rig([Self.info()])
+        rig.updater.outcomes = ["dev.example.demo": .needsApproval(Self.pendingUpdate())]
+
+        await rig.model.changeRef("dev.example.demo", to: "next")
+
+        #expect(
+            rig.log.events == [
+                "check dev.example.demo ref=next", "approve dev.example.demo", "approveUpdate dev.example.demo", "reload dev.example.demo",
+            ])
+    }
+
+    @Test func decliningAChangeThatAsksForMoreDiscardsItAndRestartsNothing() async {
+        let rig = Self.rig([Self.info()])
+        rig.updater.outcomes = ["dev.example.demo": .needsApproval(Self.pendingUpdate())]
+        rig.shown.answer = false
+
+        await rig.model.changeRef("dev.example.demo", to: "next")
+
+        #expect(rig.log.events == ["check dev.example.demo ref=next", "approve dev.example.demo", "discard dev.example.demo"])
+        #expect(rig.model.message == nil)
+    }
+
+    @Test func aRefThatCannotBeResolvedShowsTheErrorAndRestartsNothing() async {
+        let rig = Self.rig([Self.info()])
+        rig.updater.failures = ["dev.example.demo": Boom()]
+
+        await rig.model.changeRef("dev.example.demo", to: "nope")
+
+        #expect(rig.log.events == ["check dev.example.demo ref=nope"])
+        #expect(rig.model.message == .failure("boom"))
+    }
+
+    @Test func theRefSheetOpensOnlyForAGitPluginAndClosesOnCancel() {
+        let rig = Self.rig([Self.info("a.b.git"), Self.info("a.b.bundled", source: .bundled)])
+
+        rig.model.requestRefChange("a.b.bundled")
+        #expect(rig.model.pendingRefChange == nil)
+        rig.model.requestRefChange("a.b.git")
+        #expect(rig.model.pendingRefChange?.id == "a.b.git")
+        rig.model.cancelRefChange()
+        #expect(rig.model.pendingRefChange == nil)
+    }
+
     private static func pendingUpdate() -> LeoPluginPendingUpdate {
         let manifest = Self.manifest(network: ["new.example.com"])
         let diff = LeoPluginPermissionDiff(old: .none, new: manifest.permissions)
@@ -467,7 +548,7 @@ import Testing
         let request = LeoPluginApprovalRequest(
             id: manifest.id, name: manifest.name, version: manifest.version, sha: result.sha, sourceDescription: result.url,
             permissions: manifest.permissions, diff: diff, isDev: false)
-        return LeoPluginPendingUpdate(result: result, fromSHA: sha, diff: diff, request: request)
+        return LeoPluginPendingUpdate(result: result, fromSHA: sha, ref: "main", diff: diff, request: request)
     }
 
     // MARK: Uninstall

@@ -2205,3 +2205,45 @@ Chose: Mac only: iOS already pages a message's images (ChatImagePageController),
 Why: AGENTS.md parity rule
 Commit: be1b94b97 ce0441d3e ec7c8a71b
 Veto: [ ]
+
+## D-1001 · 2026-11-23 · B-443: Mac only; iOS has no plugin settings or updater consumer, and the…
+Chose: Mac only; iOS has no plugin settings or updater consumer, and the updater logic is already in LeoKit
+Why: Mac/iOS parity rule
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1002 · 2026-11-23 · B-443: Each git plugin row shows "Follows “<ref>”" and a "Change…" link, not…
+Chose: Each git plugin row shows "Follows “<ref>”" and a "Change…" link, not shown for bundled or dev plugins
+Why: Keyboard-first, Mac-native
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1003 · 2026-11-23 · B-443: A stored `HEAD` reads as "the default branch", and an empty field…
+Chose: A stored `HEAD` reads as "the default branch", and an empty field switches back to it
+Why: Calm, attention-driven
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1004 · 2026-11-23 · B-443: Reuses the existing approval sheet
+Chose: Reuses the existing approval sheet
+Why: Local = remote; Everything through Leo
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1005 · 2026-11-23 · B-443: A declined ref change shows no message, same as a declined install
+Chose: A declined ref change shows no message, same as a declined install
+Why: Never invent a state
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1006 · 2026-11-23 · B-443: A same-commit ref switch refreshes the row without restarting the plugin
+Chose: A same-commit ref switch refreshes the row without restarting the plugin
+Why: Never invent a state
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1007 · 2026-11-23 · B-443: "Change…" stays an inline row button with no menu item or shortcut,…
+Chose: "Change…" stays an inline row button with no menu item or shortcut, like Uninstall
+Why: Keyboard-first, Mac-native
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
