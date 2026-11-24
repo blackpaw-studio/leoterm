@@ -73,4 +73,18 @@ import Testing
         session.terminals.selectInbox()
         #expect(session.shownAgent == nil)
     }
+
+    @Test func theBottomPaneShowsAnAgentOnlyWhileTheContentAreaShowsIt() {
+        let model = makeModel()
+        let terminals = LeoWindowTerminals()
+        let shell = UUID()
+        terminals.add(shell, title: "zsh")
+        #expect(LeoSidebarSelection.shownPaneAgent(model: model, terminals: terminals)?.ref.name == "alpha")
+        LeoSidebarSelection.select(.inbox, model: model, terminals: terminals)
+        #expect(LeoSidebarSelection.shownPaneAgent(model: model, terminals: terminals) == nil)
+        LeoSidebarSelection.select(.terminal(shell), model: model, terminals: terminals)
+        #expect(LeoSidebarSelection.shownPaneAgent(model: model, terminals: terminals) == nil)
+        LeoSidebarSelection.select(.agent(alpha), model: model, terminals: terminals)
+        #expect(LeoSidebarSelection.shownPaneAgent(model: model, terminals: terminals)?.ref.name == "alpha")
+    }
 }

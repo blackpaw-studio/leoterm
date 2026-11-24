@@ -21,7 +21,7 @@ struct LeoChatLayoutHost<Terminal: View>: View {
     @State private var dragWidth: CGFloat?
 
     var body: some View {
-        let row = terminals.selection == nil ? model.actionableSelection : nil
+        let row = LeoSidebarSelection.shownRow(model: model, terminals: terminals)
         let layout = session.chatLayout(for: row, contentWidth: contentWidth)
         let preferred = dragWidth ?? session.preferredChatWidth
         let sideBySideChatWidth = layout == .sideBySide ? layout.chatWidth(in: contentWidth, preferred: preferred) : 0

@@ -233,4 +233,49 @@ struct LeoInboxModelTests {
         model.updateAgents([agent(state: .finished, revision: 3, at: 1000, bootID: "boot-b")])
         #expect(model.inbox.finished.map(\.isUnread) == [true])
     }
+
+    private func transition(_ to: LeoAttentionState, revision: Int, notifies: Bool) -> LeoAttentionTransition {
+        LeoAttentionTransition(id: Self.alpha, from: .working, to: to, revision: revision, shouldNotify: notifies)
+    }
+
+    @Test(arguments: [LeoAttentionState.finished, .errored])
+    func aTurnThatEndsOnTheFocusedAgentIsNeverUnread(state: LeoAttentionState) async {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: state, revision: 2, at: 1000)])
+        await model.seed(host: .local)
+        #expect(model.inbox.finished.map(\.isUnread) == [true])
+        model.transitionsCommitted([transition(state, revision: 2, notifies: false)])
+        #expect(model.inbox.finished.map(\.isUnread) == [false])
+    }
+
+    @Test func theTransitionMayBeCommittedBeforeTheSidebarRowCarriesItsSignal() async {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .working, revision: 1, at: 900)])
+        await model.seed(host: .local)
+        model.transitionsCommitted([transition(.finished, revision: 2, notifies: false)])
+        model.updateAgents([agent(state: .finished, revision: 2, at: 1000)])
+        #expect(model.inbox.finished.map(\.isUnread) == [false])
+    }
+
+    @Test func aTurnThatEndsOnAnAgentNobodyWatchesStaysUnread() async {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .finished, revision: 2, at: 1000)])
+        await model.seed(host: .local)
+        model.transitionsCommitted([transition(.finished, revision: 2, notifies: true)])
+        #expect(model.inbox.finished.map(\.isUnread) == [true])
+    }
+
+    @Test func aWatchedTurnDoesNotHideALaterOne() async {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .finished, revision: 2, at: 1000)])
+        await model.seed(host: .local)
+        model.transitionsCommitted([transition(.finished, revision: 2, notifies: false)])
+        // After the (fixed-clock) seen mark at 5000.
+        model.updateAgents([agent(state: .finished, revision: 4, at: 6000)])
+        #expect(model.inbox.finished.map(\.isUnread) == [true])
+    }
 }

@@ -68,6 +68,17 @@ enum LeoSidebarItemID: Hashable, Sendable {
         showsSelectedAgent(terminals: terminals) ? model.actionableSelection : nil
     }
 
+    /// The agent the bottom pane shows (plugin slots, the agent's shell):
+    /// the selected row, while this window's content area shows it.
+    static func shownPaneAgent(model: LeoSidebarModel, terminals: LeoWindowTerminals) -> LeoAgentPaneAgent? {
+        guard showsSelectedAgent(terminals: terminals) else { return nil }
+        return model.selectedRow.flatMap {
+            $0.movedTo == nil
+                ? LeoAgentPaneAgent(ref: LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name), identity: $0.identity)
+                : nil
+        }
+    }
+
     /// Return on the list: the same as clicking the selected row.
     static func activate(model: LeoSidebarModel, terminals: LeoWindowTerminals, from origin: LeoWindowID) {
         guard !terminals.isInboxSelected else { return }

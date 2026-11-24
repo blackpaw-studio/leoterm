@@ -183,6 +183,8 @@ enum LeoSidebarSplitMetrics {
 /// `NSSplitViewController` gives us the real thing instead.
 struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var session: LeoWindowSession
+    /// The window's own selection (terminal rows, Inbox) decides which agent the pane shows.
+    @ObservedObject private var terminals: LeoWindowTerminals
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
     @ObservedObject var unread: LeoChatUnreadStore
@@ -204,6 +206,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
         @ViewBuilder terminal: () -> Terminal
     ) {
         self.session = session
+        _terminals = ObservedObject(wrappedValue: session.terminals)
         self.model = model
         self.actions = actions
         self.unread = unread
@@ -243,11 +246,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             onPaneContainer: { session.adopt($0) },
             paneDock: session.paneDock,
             agentPane: session.agentPane,
-            agentPaneAgent: model.selectedRow.flatMap {
-                $0.movedTo == nil
-                    ? LeoAgentPaneAgent(ref: LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name), identity: $0.identity)
-                    : nil
-            },
+            agentPaneAgent: LeoSidebarSelection.shownPaneAgent(model: model, terminals: terminals),
             onSplitViewReady: { [weak session] in session?.onSplitViewReady($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.

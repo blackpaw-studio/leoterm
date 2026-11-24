@@ -31,6 +31,9 @@ import LeoKit
     private let persistence: LeoInboxSeenPersistence
     private let now: () -> Date
     private var agents: [LeoInboxAgent] = []
+    /// Finished/errored turns the user watched, by the revision they ended
+    /// on, waiting for the sidebar row to carry that signal.
+    private var watchedTurns: [LeoAgentID: Int] = [:]
     private var openAsks = LeoOpenAsks()
     private var seen: LeoInboxSeenState
     private var seedTasks: [LeoHostID: Task<Void, Never>] = [:]
@@ -75,6 +78,7 @@ import LeoKit
     func updateAgents(_ updated: [LeoInboxAgent]) {
         guard !isFixture, updated != agents else { return }
         agents = updated
+        markWatchedTurnsSeen()
         rederive()
     }
 
@@ -173,6 +177,29 @@ import LeoKit
     /// The user opened `agent` (its chat, its terminal, or its inbox detail).
     func agentOpened(_ agent: LeoAgentID) {
         markSeen([agent])
+    }
+
+    /// Transitions the feed committed: an agent that finished or errored while
+    /// its attachment was focused (the reducer suppresses notifying then) was
+    /// watched, so the item is never unread.
+    func transitionsCommitted(_ transitions: [LeoAttentionTransition]) {
+        let watched = transitions.filter { ($0.to == .finished || $0.to == .errored) && !$0.shouldNotify }
+        watchedTurns = watched.reduce(into: watchedTurns) { $0[$1.id] = $1.revision }
+        markWatchedTurnsSeen()
+    }
+
+    /// The sidebar row reaches the inbox a turn after the transition, so a
+    /// watched turn waits for its revision: marked once it is current,
+    /// dropped once a later one has superseded it.
+    private func markWatchedTurnsSeen() {
+        guard !watchedTurns.isEmpty else { return }
+        let revisions = Dictionary(agents.compactMap { agent in agent.signal.map { (agent.id, $0.revision) } }, uniquingKeysWith: { first, _ in first })
+        let ready = watchedTurns.filter { revisions[$0.key] == $0.value }.map(\.key)
+        watchedTurns = watchedTurns.filter { id, revision in
+            let isSuperseded = revisions[id].map { $0 > revision } ?? false
+            return !isSuperseded && !ready.contains(id)
+        }
+        if !ready.isEmpty { markSeen(ready) }
     }
 
     /// Picks a row; looking at a finished one marks it seen.
