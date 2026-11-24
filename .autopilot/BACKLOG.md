@@ -3512,12 +3512,14 @@ Source: autopilot bug (B-324)
 Done: ee6f67417 (a moved agent's header pill reads "Moved to <host>" and the composer refuses send naming the host, no Start or Idle; Mac only; suite 5129 pass). Decisions D-1024..D-1027.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
 
-## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready]
+## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [done]
 Issue: #417
 Type: bug
 Report: Escape doesn't close the full-window image viewer while caps lock is on — Escape closes the viewer on a plain press, so with caps lock on the key looks dead (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
+Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real chord on Escape still doesn't; failing test first; suite 5131 pass). Decision D-1028.
+Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
 
 ## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready]
 Issue: #418

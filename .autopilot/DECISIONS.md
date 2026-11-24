@@ -2367,3 +2367,9 @@ Chose: Moved state takes priority over every status in the composer, send gate a
 Why: VISION 2 (consistent with D-995 and D-996)
 Commit: ee6f67417
 Veto: [ ]
+
+## D-1028 · 2026-11-24 · B-444: Mac only; iOS has a separate viewer with no Escape key path
+Chose: Mac only; iOS has a separate viewer with no Escape key path, so nothing moves to LeoKit
+Why: principle 1
+Commit: 4683730be
+Veto: [ ]

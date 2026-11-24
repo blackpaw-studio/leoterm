@@ -97,12 +97,13 @@ Lane: B-444
   Branch: autopilot-lane/B-444
   Base: 1eab2c3df2993fb812aaec570f87c9f892ec8a78
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 8ba06a95cc929254f2ea37192e2cebe4a092e50a
   Dispatched: 2026-11-24T15:10:42Z
+  Tokens: 4.23M in (3.99M cache read), ≥18.4k out, 53 requests
   Call: Mac only; iOS has a separate viewer with no Escape key path, so nothing moves to LeoKit — principle 1
 
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
@@ -113,3 +114,4 @@ Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge pan
 Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
 Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
+Finished 4: B-444 landed 315518028 · not visually verified
