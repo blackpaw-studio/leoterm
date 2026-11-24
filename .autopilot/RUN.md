@@ -68,7 +68,7 @@ Lane: B-443
   Branch: autopilot-lane/B-443
   Base: c396b9d07cf69bbdc580382d310c9a5c9fc582a0
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -81,6 +81,7 @@ Lane: B-443
   Call: A declined ref change shows no message, same as a declined install — Never invent a state
   Call: A same-commit ref switch refreshes the row without restarting the plugin — Never invent a state
   Call: "Change…" stays an inline row button with no menu item or shortcut, like Uninstall — Keyboard-first, Mac-native
+  Tokens: 22.4M in (21.8M cache read), ≥78.2k out, 196 requests
 
 Lane: B-439
   Branch: autopilot-lane/B-439
@@ -98,3 +99,4 @@ Finished 2: B-324 landed b127fba37f1e77389dbefb41208c828647e377e5 · shot /Users
 Inbox applied: B-443
 Finished 3: B-441 landed 45a6e33e9dc43c681e3894e5fc647137ab398441 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
 Progress: B-439 built before B-440 (B-440 drag-to-dock depends on B-439 docking)
+Finished 4: B-443 landed 0809800ef115cc078abbf2ee18312a186bca7331 · not visually verified

@@ -3465,13 +3465,15 @@ Inbox: 20261124T005424260130Z-a6852666#1
 Done: be1b94b97 ce0441d3e ec7c8a71b (←/→, header chevrons and View ▸ Previous/Next Image step a message's images in the full-window viewer; bare-arrow tests failed before the fix; Mac suite 5054 pass). Decisions D-997..D-1000.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
 
-## B-443 · we need a way to change the branch/tag for a plugin without having to…   [ready]
+## B-443 · we need a way to change the branch/tag for a plugin without having to…   [done]
 Issue: #415
 Type: bug
 Report: we need a way to change the branch/tag for a plugin without having to reinstall it
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T014054218316Z-edf65908#1
+Done: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72 (Settings ▸ Plugins: a git plugin row shows the ref it follows and Change… switches branch/tag via the updater and the approval sheet, no reinstall; LeoKit updater 16/16, Mac suite 5061 pass). Decisions D-1001..D-1007.
+Verified: not visually verified — the published leo-plugin-usage tags need plugin API 2 and this build supports 1, so the Change… flow couldn't be driven; unit tests cover it
 
 ## B-440 · Drag a Browser or Files tab to dock it on the right or below   [ready]
 Issue: #412
