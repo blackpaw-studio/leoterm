@@ -55,13 +55,14 @@ final class TaskPromptViewController: UIViewController, UITextViewDelegate {
         view.addSubview(stack)
         // To the view's edge while the keyboard is down, so the text runs to
         // the bottom and scrolls clear of the home indicator (the text view
-        // insets its content by the safe area itself).
+        // insets its content by the safe area itself). The sides stay inside
+        // the safe area, so in landscape the text clears the notch.
         view.keyboardLayoutGuide.usesBottomSafeArea = false
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             stack.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            stack.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor),
         ])
 
         present(item: $store.scope(state: \.promptDialog, action: \.promptDialog)) { [weak self] store in
