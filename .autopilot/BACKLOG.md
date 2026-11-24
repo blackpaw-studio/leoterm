@@ -3428,12 +3428,15 @@ Done: 2a7b603a4
 Verified: screen capture — iOS simulator at native pixels, /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-302-1.png, B-302-2.png
 Reviewed: accepted 2026-11-18 — 90615b86c62d
 
-## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [ready]
+## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [done]
 Issue: #410
 Type: bug
 Report: iOS task prompt editor side edges ignore the safe area in landscape — TaskPromptViewController.swift:63-64 pins leading/trailing to the view, so in iPhone landscape the text may sit under the notch or Dynamic Island (inferred from code, not run)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-302)
+Done: c32801b6c (editor pinned to the side safe area; new landscape layout test failed before, passes after; LeoTests 126 pass). Decision D-993.
+Verified: not visually verified — no isolated iOS launch recipe in verify.md; the layout test measures the real laid-out view
+
 ## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
 Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
 Source: autopilot polish (B-218)
