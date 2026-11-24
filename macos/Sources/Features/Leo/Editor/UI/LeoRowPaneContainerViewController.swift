@@ -7,6 +7,12 @@ protocol LeoRowPaneChild: NSViewController {
     var isPaneOpen: Bool { get }
     /// Back on screen: catches up with the disk, as becoming key does.
     func onShown()
+    /// A pane moved to another edge (B-439).
+    func dockDidChange()
+}
+
+extension LeoRowPaneChild {
+    func dockDidChange() {}
 }
 
 /// The window's editor or browser split item (B-274). The item stays put;
@@ -18,8 +24,12 @@ protocol LeoRowPaneChild: NSViewController {
 /// opening or closing its file changes nothing on screen.
 final class LeoRowPaneContainerViewController: NSViewController {
     enum Role {
+        /// Files' tab strip (the Browser item too while it shares Files' edge).
         case editor
+        /// Files' workspace outline.
         case browser
+        /// The Browser's own strip, while it docks apart from Files (B-439).
+        case agentBrowser
     }
 
     let role: Role
@@ -93,6 +103,12 @@ final class LeoRowPaneContainerViewController: NSViewController {
         ])
     }
 
+    /// A pane moved to another edge (B-439): every row's view hears it, so
+    /// a hidden row's is right when it's shown.
+    func dockDidChange() {
+        rowChildren.values.forEach { $0.dockDidChange() }
+    }
+
     /// A pane view's own request to collapse or show the item: only the
     /// one on screen gets it.
     func childRequestsCollapsed(_ child: NSViewController, _ collapsed: Bool, openingAtHalfWidth: Bool) {
@@ -119,7 +135,11 @@ final class LeoRowPaneContainerViewController: NSViewController {
 
 extension NSSplitViewItem {
     /// Which side pane the item holds, if it's one (B-274).
-    var leoPaneRole: LeoRowPaneContainerViewController.Role? {
-        (viewController as? LeoRowPaneContainerViewController)?.role
+    var leoPaneRole: LeoRowPaneContainerViewController.Role? { leoPaneContainer?.role }
+
+    /// The pane's container the item holds: itself, or the one its dock
+    /// slot hosts now (B-439).
+    var leoPaneContainer: LeoRowPaneContainerViewController? {
+        viewController as? LeoRowPaneContainerViewController ?? (viewController as? LeoDockSlotViewController)?.hosted
     }
 }

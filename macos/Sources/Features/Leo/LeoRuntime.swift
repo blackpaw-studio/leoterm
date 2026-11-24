@@ -17,6 +17,8 @@ import LeoKit
     let pluginSurfaces: LeoPluginSurfaces
     /// The agent pane's built-in tabs' switches, shared by every window's pane and Settings.
     let builtInPanes: LeoBuiltInPaneSettings
+    /// Where Browser and Files dock, shared by every window (B-439).
+    let paneDock: LeoPaneDockStore
     private var drawerSwitchSubscription: AnyCancellable?
     let registry: LeoWindowSessionRegistry
     let actions: LeoAgentActions
@@ -210,6 +212,7 @@ import LeoKit
             model?.rows.filter { $0.movedTo == nil }.map { LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name) } ?? []
         })
         builtInPanes = LeoBuiltInPaneSettings(defaults: defaults)
+        paneDock = LeoPaneDockStore(defaults: defaults)
         self.registry = registry
         drawerSwitchSubscription = LeoDrawerTerminalSwitch.closeShellsWhenTurnedOff(settings: builtInPanes) { [weak registry] in
             registry?.sessions.forEach { $0.drawerEnvironment?.pool.closeAll() }
@@ -688,6 +691,7 @@ import LeoKit
         // window session, and everything it holds, alive forever.
         let sessionID = session.id
         session.builtInPanes = builtInPanes
+        session.paneDock = paneDock
         session.pluginSurfaces = pluginSurfaces
         session.drawerEnvironment = LeoDrawerEnvironment(
             shells: LeoDrawerShells(app: { [weak controller] in controller?.ghostty.app }),

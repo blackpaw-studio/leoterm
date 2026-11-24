@@ -2,13 +2,15 @@ Status: running
 Started: 2026-11-24T11:58:07Z
 Budget: 20 items, until 2026-11-24T23:58:07Z
 Digested-through: 0
-Filed: 1/3 bugs, 4/5 ideas
+Filed: 1/3 bugs, 5/5 ideas
 Self-filed: B-438 → B-447 bug — Flaky focus-landing tests in LeoRowSplitIntoShellTests
 Self-filed: B-438 → B-448 idea — A plugin section moved to the top reads as part of Agents
 Self-filed: B-438 → dropped (dup of B-303) — leo-runtests.sh can leave Resources/terminfo/74 missing
 Self-filed: B-439 → B-449 idea — After a relaunch the Files pane starts closed and the right dock is empty
 Self-filed: B-439 → B-450 idea — Opening a second file can squeeze the terminal and hide the sidebar
 Self-filed: B-439 → B-451 idea — Outline comes back ~20 pt narrower after a window zoom or tile jump
+Self-filed: B-442 → dropped (dup of B-372) — Stopped, non-moved agent's header pill still reads Idle
+Self-filed: B-442 → B-452 idea — iOS may show Idle for a moved agent too
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -25,12 +27,13 @@ Lane: B-439
   Branch: autopilot-lane/B-439
   Base: 095fd564e1c3abfbce82c49343dc0a916af638c8
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 81235c15351c5ebd6902e777c7f48bc2eb33aea9
+  Reviewed-tip: 58b736a723a6a519d31bb5ad21d9984a916ecfb9
   Dispatched: 2026-11-24T14:19:18Z
+  Tokens: 84M in (82.7M cache read), ≥233k out, 577 requests
   Call: "Files" = outline plus editor and plugin tabs as one unit; "Browser" = the agent web-view tab — P6
   Call: Both panes default to the right, so layout is unchanged on upgrade — P2
   Call: Dock menu items enable only while Browser or Files has focus, with the current edge checked; no toolbar item or Settings picker — P1
@@ -64,15 +67,31 @@ Lane: B-442
   Branch: autopilot-lane/B-442
   Base: 310008646a2c15b5965af3ee9c07c873fb7825bf
   Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Reverifies: 1
+  Reviewed-tip: 46b41fa2eda34f840bc62fdaeada21665d796e94
+  Dispatched: 2026-11-24T14:51:30Z
+  Call: Header pill reads "Moved to <host>" for a moved agent, outranking other states — VISION 2
+  Call: Composer stays editable on a moved agent; send is refused with a notice naming the host, no Start wording — VISION 2
+  Call: Mac only: the Mac composer and capsule views change, and LeoChatSendGate lives in the app target, not LeoKit — Mac/iOS parity rule
+
+Lane: B-440
+  Branch: autopilot-lane/B-440
+  Base: 4a7cb8b8a07df43d3f737167a4f2f8aca3e8800f
+  Tier: full
   State: building
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-11-24T14:02:29Z
+  Dispatched: 2026-11-24T14:42:34Z
 
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
 Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
 Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
+Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge panes sit side by side, not as tabs (unchecked against Accept) — flag for review; verify.md launch flag -ApplePersistenceIgnoreState shows a Configuration Errors dialog
 Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
+Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png

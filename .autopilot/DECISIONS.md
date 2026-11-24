@@ -2289,3 +2289,57 @@ Chose: Removed the invisible placeholder row under a collapsed plugin section; a
 Why: P6
 Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
 Veto: [ ]
+
+## D-1015 · 2026-11-24 · B-439: "Files" = outline plus editor and plugin tabs as one unit;…
+Chose: "Files" = outline plus editor and plugin tabs as one unit; "Browser" = the agent web-view tab
+Why: P6
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1016 · 2026-11-24 · B-439: Both panes default to the right, so layout is unchanged on…
+Chose: Both panes default to the right, so layout is unchanged on upgrade
+Why: P2
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1017 · 2026-11-24 · B-439: Dock menu items enable only while Browser or Files has…
+Chose: Dock menu items enable only while Browser or Files has focus, with the current edge checked; no toolbar item or Settings picker
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1018 · 2026-11-24 · B-439: Both docks clamp at 200 pt; the editor's content minimum…
+Chose: Both docks clamp at 200 pt; the editor's content minimum drops from 320 to 200
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1019 · 2026-11-24 · B-439: An edge change applies live to every open window (one…
+Chose: An edge change applies live to every open window (one app-wide store)
+Why: P6
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1020 · 2026-11-24 · B-439: After a move, focus returns to the moved pane
+Chose: After a move, focus returns to the moved pane
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1021 · 2026-11-24 · B-439: The right dock's remembered width is its tab strip's width;…
+Chose: The right dock's remembered width is its tab strip's width; the outline keeps its own 180 pt minimum beside the strip
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1022 · 2026-11-24 · B-439: The bottom dock sits under whatever the terminal column…
+Chose: The bottom dock sits under whatever the terminal column shows, Chat included, and plain shell rows get it too
+Why: P6
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1023 · 2026-11-24 · B-439: With Files alone on the right, the outline takes the 200 pt…
+Chose: With Files alone on the right, the outline takes the 200 pt dock minimum (fix round 1)
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]

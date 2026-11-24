@@ -34,7 +34,7 @@ struct LeoRowPaneContainerTests {
 
         var editorItem: NSSplitViewItem { split.splitViewItems[3] }
         var editorPane: LeoEditorPaneViewController? {
-            ((editorItem.viewController as? LeoRowPaneContainerViewController)?.activeChild as? LeoEditorTabsViewController)?.shown
+            ((editorItem.leoPaneContainer)?.activeChild as? LeoEditorTabsViewController)?.shown
         }
 
         func layout() {
