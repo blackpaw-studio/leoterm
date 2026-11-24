@@ -77,6 +77,16 @@ enum LeoMenuCommands {
     /// title pair, like the sidebar's.
     static func hideSubagentsTitle(isHidden: Bool) -> String { isHidden ? "Show Subagents" : "Hide Subagents" }
 
+    /// View ▸ Previous Image / Next Image (←/→, B-441): enabled exactly where
+    /// the arrow keys step (the full-window viewer, outside a field editor),
+    /// and only with an image in that direction -- the gallery stops at its ends.
+    static func canStepImage(
+        _ delta: Int, isFullWindow: Bool, position: LeoChatViewerModel.GalleryPosition?, isFieldEditor: Bool
+    ) -> Bool {
+        guard isFullWindow, !isFieldEditor, let position else { return false }
+        return (0..<position.count).contains(position.index + delta)
+    }
+
     static func canTogglePin(_ context: AgentContext) -> Bool { context.hasLeoSession && context.availability != nil }
 
     static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }

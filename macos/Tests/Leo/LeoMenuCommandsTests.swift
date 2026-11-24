@@ -256,4 +256,39 @@ struct LeoMenuCommandsTests {
             #expect(xib.filter { $0.action == action }.count == 1)
         }
     }
+
+    // MARK: View ▸ Previous Image / Next Image (B-441)
+
+    /// The items step exactly where the arrow keys do: the full-window viewer,
+    /// on an image with a place in its message's gallery and one to go to, and
+    /// not while a field holds the caret.
+    @Test(arguments: [
+        // (isFullWindow, index, count, isFieldEditor, previous, next)
+        (true, 0, 3, false, false, true),
+        (true, 1, 3, false, true, true),
+        (true, 2, 3, false, true, false),
+        (false, 1, 3, false, false, false),
+        (true, 1, 3, true, false, false),
+        (true, 0, 1, false, false, false),
+    ])
+    func imageMenuItemsEnableOnlyWhereTheArrowsStep(
+        isFullWindow: Bool, index: Int, count: Int, isFieldEditor: Bool, previous: Bool, next: Bool
+    ) {
+        let position = LeoChatViewerModel.GalleryPosition(index: index, count: count)
+        #expect(LeoMenuCommands.canStepImage(-1, isFullWindow: isFullWindow, position: position, isFieldEditor: isFieldEditor) == previous)
+        #expect(LeoMenuCommands.canStepImage(1, isFullWindow: isFullWindow, position: position, isFieldEditor: isFieldEditor) == next)
+    }
+
+    @Test func imageMenuItemsAreDisabledForAFileOpenedAlone() {
+        #expect(!LeoMenuCommands.canStepImage(-1, isFullWindow: true, position: nil, isFieldEditor: false))
+        #expect(!LeoMenuCommands.canStepImage(1, isFullWindow: true, position: nil, isFieldEditor: false))
+    }
+
+    @Test func theViewMenuHasPreviousAndNextImageOnTheBareArrows() throws {
+        let shortcuts = try LeoMenuXib.shortcuts()
+        let previous = try #require(shortcuts.first { $0.action == "showPreviousLeoChatImage:" })
+        let next = try #require(shortcuts.first { $0.action == "showNextLeoChatImage:" })
+        #expect(previous.title == "Previous Image" && previous.shortcut == "\u{F702}")
+        #expect(next.title == "Next Image" && next.shortcut == "\u{F703}")
+    }
 }
