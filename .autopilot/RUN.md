@@ -75,7 +75,19 @@ Lane: B-443
   Reviewed-tip: none
   Dispatched: 2026-11-24T01:49:51Z
 
+Lane: B-439
+  Branch: autopilot-lane/B-439
+  Base: 095fd564e1c3abfbce82c49343dc0a916af638c8
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T02:42:35Z
+
 Finished 1: B-437 landed edf4408a04be9f93246dcc6a9d797b1b03e1f0a1 · not visually verified
 Finished 2: B-324 landed b127fba37f1e77389dbefb41208c828647e377e5 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
 Inbox applied: B-443
 Finished 3: B-441 landed 45a6e33e9dc43c681e3894e5fc647137ab398441 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
+Progress: B-439 built before B-440 (B-440 drag-to-dock depends on B-439 docking)
