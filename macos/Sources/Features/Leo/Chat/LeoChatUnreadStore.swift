@@ -82,6 +82,8 @@ import LeoKit
             counts = counts.receiving(event, host: host, isOnScreen: isOnScreen(agent))
         case .resync:
             seed(host)
+        case .agentSeen:
+            break
         }
     }
 
