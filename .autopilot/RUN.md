@@ -2,7 +2,7 @@ Status: running
 Started: 2026-11-24T11:58:07Z
 Budget: 20 items, until 2026-11-24T23:58:07Z
 Digested-through: 0
-Filed: 1/3 bugs, 5/5 ideas
+Filed: 2/3 bugs, 5/5 ideas
 Self-filed: B-438 → B-447 bug — Flaky focus-landing tests in LeoRowSplitIntoShellTests
 Self-filed: B-438 → B-448 idea — A plugin section moved to the top reads as part of Agents
 Self-filed: B-438 → dropped (dup of B-303) — leo-runtests.sh can leave Resources/terminfo/74 missing
@@ -11,6 +11,7 @@ Self-filed: B-439 → B-450 idea — Opening a second file can squeeze the termi
 Self-filed: B-439 → B-451 idea — Outline comes back ~20 pt narrower after a window zoom or tile jump
 Self-filed: B-442 → dropped (dup of B-372) — Stopped, non-moved agent's header pill still reads Idle
 Self-filed: B-442 → B-452 idea — iOS may show Idle for a moved agent too
+Self-filed: B-442 → B-453 bug — Composer placeholder says Start on a restoring agent
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -71,11 +72,12 @@ Lane: B-442
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Reviewed-tip: 46b41fa2eda34f840bc62fdaeada21665d796e94
+  Reviewed-tip: bbbaa1f4df5199ee5d4fa4ba2b0bfd1516c4429d
   Dispatched: 2026-11-24T14:51:30Z
   Call: Header pill reads "Moved to <host>" for a moved agent, outranking other states — VISION 2
   Call: Composer stays editable on a moved agent; send is refused with a notice naming the host, no Start wording — VISION 2
   Call: Mac only: the Mac composer and capsule views change, and LeoChatSendGate lives in the app target, not LeoKit — Mac/iOS parity rule
+  Call: Moved state takes priority over every status in the composer, send gate and header pill — VISION 2 (consistent with D-995 and D-996)
 
 Lane: B-440
   Branch: autopilot-lane/B-440

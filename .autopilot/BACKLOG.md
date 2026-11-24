@@ -3530,6 +3530,12 @@ Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsS
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
 
+## B-453 · Composer placeholder says Start on a restoring agent   [ready (next run)]
+Type: bug
+Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-442)
+
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
 Source: autopilot polish (B-441)
