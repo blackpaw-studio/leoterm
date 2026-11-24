@@ -2,7 +2,7 @@ Status: running
 Started: 2026-11-24T11:58:07Z
 Budget: 20 items, until 2026-11-24T23:58:07Z
 Digested-through: 0
-Filed: 2/3 bugs, 5/5 ideas
+Filed: 3/3 bugs, 6/5 ideas
 Self-filed: B-438 → B-447 bug — Flaky focus-landing tests in LeoRowSplitIntoShellTests
 Self-filed: B-438 → B-448 idea — A plugin section moved to the top reads as part of Agents
 Self-filed: B-438 → dropped (dup of B-303) — leo-runtests.sh can leave Resources/terminfo/74 missing
@@ -12,6 +12,8 @@ Self-filed: B-439 → B-451 idea — Outline comes back ~20 pt narrower after a 
 Self-filed: B-442 → dropped (dup of B-372) — Stopped, non-moved agent's header pill still reads Idle
 Self-filed: B-442 → B-452 idea — iOS may show Idle for a moved agent too
 Self-filed: B-442 → B-453 bug — Composer placeholder says Start on a restoring agent
+Self-filed: B-444 → B-454 bug — Escape doesn't dismiss the progress overlay while caps lock is on
+Self-filed: B-444 → B-455 idea — Escape doesn't dismiss the agent-browser handoff banner with caps lock on (bug over cap)
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -95,12 +97,13 @@ Lane: B-444
   Branch: autopilot-lane/B-444
   Base: 1eab2c3df2993fb812aaec570f87c9f892ec8a78
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 8ba06a95cc929254f2ea37192e2cebe4a092e50a
   Dispatched: 2026-11-24T15:10:42Z
+  Call: Mac only; iOS has a separate viewer with no Escape key path, so nothing moves to LeoKit — principle 1
 
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef

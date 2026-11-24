@@ -3538,6 +3538,12 @@ Report: Composer placeholder says Start on a restoring agent — on a non-moved 
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-442)
 
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready (next run)]
+Type: bug
+Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-444)
+
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
 Source: autopilot polish (B-441)
@@ -3561,3 +3567,7 @@ Source: autopilot polish (B-439)
 ## B-452 · iOS may show Idle for a moved agent too   [idea]
 Note: check ChatThreadTitleView.swift:80 and AgentPresentation.swift:17 for the Idle-on-moved case B-442 fixed on Mac; file a bug if iOS can show a moved agent — Mac/iOS parity
 Source: autopilot polish (B-442)
+
+## B-455 · Escape doesn't dismiss the agent-browser handoff banner with caps lock on   [idea]
+Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed (principle 1); a bug past the 3-bug cap
+Source: autopilot bug (B-444)
