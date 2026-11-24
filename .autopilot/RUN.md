@@ -33,12 +33,13 @@ Lane: B-438
   Branch: autopilot-lane/B-438
   Base: 4011ab001ea209a57f368aea2219ee889c0207fa
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
   Reviewed-tip: ebbdec92513d97f46639aa6be1e0fa37c9d204d3
   Dispatched: 2026-11-24T11:59:23Z
+  Tokens: 64.2M in (63.1M cache read), ≥185k out, 419 requests
   Call: All machines move together as one Agents unit and keep their Settings order — P6
   Call: A drop takes the target header's slot; an accent line marks where it lands; no live reordering while hovering — P1
   Call: No keyboard shortcut for moving sections (headers can't be focused; the context menu covers P1; a shortcut is a follow-up) — P1
@@ -49,3 +50,5 @@ Lane: B-438
 
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
+Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
+Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png

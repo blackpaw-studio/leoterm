@@ -3491,13 +3491,15 @@ Out: Drag-to-dock (a separate follow-up item); positions that differ per agent; 
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005227812070Z-030f6ea1#1
 
-## B-438 · Reorder sidebar sections, including plugin sections   [ready]
+## B-438 · Reorder sidebar sections, including plugin sections   [done]
 Issue: #414
 Why: You can drag the sidebar's sections into the order you want, and that order stays after a relaunch. This covers built-in sections like Agents and Terminals as well as sections that plugins add, such as Usage (P6: the sidebar is the navigation).
 Accept: Dragging a section header moves the whole section, and the new order survives a relaunch (tested); each section header's right-click menu has Move Up and Move Down, so you can reorder without dragging (P1); a newly installed plugin's section appears at the bottom, and removing a plugin drops its section without disturbing the order of the others (tested); screenshots from the isolated debug build, before and after moving a plugin section above Agents
 Out: No reordering of rows inside a section, no hiding or collapsing sections, no sync of the order across Macs, and no iOS (Mac only: the sidebar sections and plugins exist only on Mac)
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261123T235734756623Z-26910159#1
+Done: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925 (sidebar sections reorder by header drag or Move Up/Down, order app-wide and kept across relaunch; new plugin sections land at the bottom; full suite 5091 pass; 1 fix round). Decisions D-1008..D-1014.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 
 ## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready]
 Issue: #416
