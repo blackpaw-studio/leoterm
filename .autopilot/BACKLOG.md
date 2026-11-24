@@ -3466,6 +3466,7 @@ Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T005424260130Z-a6852666#1
 Done: be1b94b97 ce0441d3e ec7c8a71b (←/→, header chevrons and View ▸ Previous/Next Image step a message's images in the full-window viewer; bare-arrow tests failed before the fix; Mac suite 5054 pass). Decisions D-997..D-1000.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
+Reviewed: accepted 2026-11-24 — 45a6e33e9dc4
 
 ## B-443 · we need a way to change the branch/tag for a plugin without having to…   [done]
 Issue: #415
