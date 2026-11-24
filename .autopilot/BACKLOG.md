@@ -1290,6 +1290,7 @@ Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
 Done: b1761eee4 3e62f1bbb (moved row never asks to start; chat bar offers no Start for a moved agent; live Duplicate + daemon refusal of a .invalid Move verified per D-990; LeoKit 53 + iOS 29 move tests pass). Decisions D-990, D-994..D-996.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
+Reviewed: accepted 2026-11-24 — b127fba37f1e
 
 ## B-172 · Drain pending reconciles before a sidebar click selects   [done]
 Issue: #176
