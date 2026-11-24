@@ -71,4 +71,28 @@ struct LeoPaneDockStripTests {
 
         #expect(pane.content(hosting: []) == nil)
     }
+
+    // MARK: - Dragging a tab (B-440)
+
+    @Test func aTabsDragCarriesItsPane() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let harness = LeoPaneDockTestHarness(presence: presence, store: LeoPaneDockStore(defaults: nil))
+            defer { harness.close() }
+            let plugin = LeoPluginViewRef(
+                pluginID: "p", pluginName: "Plugin", viewID: "v", title: "View", sfSymbol: "star",
+                agent: LeoPluginAgentRef(machine: "localhost", name: "alpha"))
+            presence.open(Self.browserKey)
+            harness.pane.showPluginView(plugin)
+            try await harness.openFile(in: sandbox)
+            await harness.settle()
+            let bar = try #require(harness.strip(harness.dock.filesStrip)?.tabBar)
+            try #require(bar.items.count == 3)
+
+            #expect(bar.dragPane(forItemAt: 0) == .browser)
+            #expect(bar.dragPane(forItemAt: 1) == .files, "the plugin view docks with Files")
+            #expect(bar.dragPane(forItemAt: 2) == .files)
+            #expect(bar.dragPane(forItemAt: 3) == nil)
+            #expect(LeoEditorTabBar(style: .pages).dragPane(forItemAt: 0) == nil, "the pages strip can't dock")
+        }
+    }
 }

@@ -70,6 +70,8 @@ final class LeoTerminalDockController: NSSplitViewController {
     let terminalItem: NSSplitViewItem
     let bottomItem: NSSplitViewItem
     let bottom: LeoBottomDockViewController
+    /// The terminal and the overlay a dragged dock tab shows over it (B-440).
+    let dropHost: LeoDockDropHostViewController
     private let store: LeoPaneDockStore
     /// A move we make ourselves, not the user's drag.
     private var isApplying = false
@@ -79,7 +81,8 @@ final class LeoTerminalDockController: NSSplitViewController {
     init(terminal: NSViewController, bottom: LeoBottomDockViewController, store: LeoPaneDockStore) {
         self.bottom = bottom
         self.store = store
-        terminalItem = NSSplitViewItem(viewController: terminal)
+        dropHost = LeoDockDropHostViewController(terminal: terminal)
+        terminalItem = NSSplitViewItem(viewController: dropHost)
         terminalItem.holdingPriority = LeoAgentPaneSplitMetrics.terminalHoldingPriority
         terminalItem.minimumThickness = LeoSidebarSplitMetrics.minimumTerminalWidth
         bottomItem = NSSplitViewItem(viewController: bottom)
@@ -96,6 +99,8 @@ final class LeoTerminalDockController: NSSplitViewController {
     }
 
     required init?(coder: NSCoder) { nil }
+
+    var dropOverlay: LeoDockDropOverlay { dropHost.overlay }
 
     private var columnHeight: CGFloat { splitView.bounds.height }
     private var isReadyToPosition: Bool { view.window != nil && columnHeight > 0 }

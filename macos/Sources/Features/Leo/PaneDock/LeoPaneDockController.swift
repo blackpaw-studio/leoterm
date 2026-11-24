@@ -67,6 +67,7 @@ import Combine
             if let container, let inset { insets[ObjectIdentifier(container)] = inset }
         }
         mover.dock = self
+        terminalDock.dropOverlay.onDrop = { [weak self] in self?.move($0, to: $1) }
         place(store.layout)
         // Before any view loads: the slots below start as their panes are.
         for case let (item?, slot?) in [(bottom.outlineItem, belowOutline), (bottom.stripItem, belowStrip)] {
@@ -89,6 +90,17 @@ import Combine
         guard store.layout.edge(of: pane) != edge else { return }
         store.setEdge(edge, for: pane)
         focus(pane)
+    }
+
+    /// A tab of `pane` is being dragged (B-440): the terminal shows the one
+    /// zone it can land in, until `endDrag`.
+    func beginDrag(_ pane: LeoDockPane) {
+        terminalDock.dropOverlay.begin(pane: pane, edge: LeoDockDropZone.target(for: pane, layout: store.layout))
+    }
+
+    /// The drag ended, dropped or not.
+    func endDrag() {
+        terminalDock.dropOverlay.end()
     }
 
     /// Focus goes to `pane`: Files' open file, else its outline; the
@@ -179,6 +191,8 @@ extension LeoDockEdge {
         LeoPaneDockStripContext(
             hosts: { [weak self] in self?.store.map { hosts($0.layout) } ?? [] },
             edge: { [weak self] in self?.store?.layout.edge(of: $0) ?? .right },
-            move: { [weak self] in self?.dock?.move($0, to: $1) })
+            move: { [weak self] in self?.dock?.move($0, to: $1) },
+            beginDrag: { [weak self] in self?.dock?.beginDrag($0) },
+            endDrag: { [weak self] in self?.dock?.endDrag() })
     }
 }
