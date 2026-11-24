@@ -1279,7 +1279,7 @@ Inbox: 20261027T235417266137Z-9e9ee6e4#1
 Done: 2f2454a5c e17978ce2
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png (no UI change; shows the debug app still reaches its daemon); 5 new LeoLocalDaemonIsolationTests + full suite 3834 pass
 
-## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [ready]
+## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [done]
 Issue: #299
 Why: Leo's new agent move/copy lets an agent hand off or fork between hosts; doing it from the app keeps that work in Leo ("Everything through Leo", "Local = remote"). Both platforms: request/response and moved_to state live in LeoKit, only UI glue per app.
 Accept: Mac — an agent row's context menu and the Agent menu offer Move to ▸ <host>, Copy to ▸ <host>, and Duplicate (copy to the agent's own host), each with a menu item and shortcut per HIG; iOS — the same three actions from the agent row's context menu / swipe and the agent detail screen (UIKit + TCA); each action calls the daemon's move route (mode move/copy, to, optional name) through the existing client, shows the daemon's own error text on failure, and offers Force only when the daemon refuses because the agent is mid-turn; a moved agent's row shows its moved_to host as dormant and can't be started or attached, and a copy appears as a new row once the daemon reports it; LeoKit tests cover the request shape, the mid-turn refusal → Force path, and moved_to decoding; TCA reducer tests on iOS; shots from the isolated Mac debug build and the iOS simulator against a fake daemon.
@@ -1288,6 +1288,8 @@ Question: A live cross-host Move needs a destination host running leo, and the o
 Answer: accept your recommendation (yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing)
 Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
+Done: b1761eee4 3e62f1bbb (moved row never asks to start; chat bar offers no Start for a moved agent; live Duplicate + daemon refusal of a .invalid Move verified per D-990; LeoKit 53 + iOS 29 move tests pass). Decisions D-990, D-994..D-996.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
 
 ## B-172 · Drain pending reconciles before a sidebar click selects   [done]
 Issue: #176
