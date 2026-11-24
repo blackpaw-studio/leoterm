@@ -68,12 +68,13 @@ Lane: B-442
   Branch: autopilot-lane/B-442
   Base: 310008646a2c15b5965af3ee9c07c873fb7825bf
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 1
   Reviewed-tip: bbbaa1f4df5199ee5d4fa4ba2b0bfd1516c4429d
   Dispatched: 2026-11-24T14:51:30Z
+  Tokens: 11.6M in (11M cache read), ≥45.1k out, 128 requests
   Call: Header pill reads "Moved to <host>" for a moved agent, outranking other states — VISION 2
   Call: Composer stays editable on a moved agent; send is refused with a notice naming the host, no Start wording — VISION 2
   Call: Mac only: the Mac composer and capsule views change, and LeoChatSendGate lives in the app target, not LeoKit — Mac/iOS parity rule
@@ -97,3 +98,4 @@ Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
 Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge panes sit side by side, not as tabs (unchecked against Accept) — flag for review; verify.md launch flag -ApplePersistenceIgnoreState shows a Configuration Errors dialog
 Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
+Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png

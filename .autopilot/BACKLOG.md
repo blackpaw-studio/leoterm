@@ -3503,12 +3503,14 @@ Inbox: 20261123T235734756623Z-26910159#1
 Done: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925 (sidebar sections reorder by header drag or Move Up/Down, order app-wide and kept across relaunch; new plugin sections land at the bottom; full suite 5091 pass; 1 fix round). Decisions D-1008..D-1014.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 
-## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready]
+## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [done]
 Issue: #416
 Type: bug
 Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-324)
+Done: ee6f67417 (a moved agent's header pill reads "Moved to <host>" and the composer refuses send naming the host, no Start or Idle; Mac only; suite 5129 pass). Decisions D-1024..D-1027.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
 
 ## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready]
 Issue: #417
