@@ -355,7 +355,7 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .agentTaskChanged, .chat:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .agentTaskChanged, .chat, .agentSeen:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")
