@@ -18,6 +18,15 @@ import LeoKit
         let agent: LeoAgentID
         let document: LeoChatViewerDocument
         let presentation: Presentation
+        /// The message's other images the viewer can step through, in order,
+        /// this document's among them. Empty for a file opened alone.
+        var gallery: [LeoChatAttachment] = []
+    }
+
+    /// Where the shown image sits among its message's images.
+    struct GalleryPosition: Equatable {
+        let index: Int
+        let count: Int
     }
 
     @Published private(set) var shown: Shown?
@@ -28,6 +37,10 @@ import LeoKit
     private var token = 0
     /// The agent whose open is waiting on its download, if one is.
     private var pendingAgent: LeoAgentID?
+    /// Downloads a gallery's other images; set by the `open` that gave the gallery.
+    private var downloadGalleryItem: ((LeoChatAttachment) async -> URL?)?
+    /// The gallery index a step is still loading, so a second step goes on from it.
+    private var pendingIndex: Int?
 
     init(
         access: any LeoFileAccess = LeoFileAccessor.local(),
@@ -45,11 +58,14 @@ import LeoKit
         _ attachment: LeoChatAttachment,
         for agent: LeoAgentID,
         fullWindow: Bool = false,
-        download: @escaping () async -> URL?
+        gallery: [LeoChatAttachment] = [],
+        download: @escaping () async -> URL?,
+        downloadGalleryItem: ((LeoChatAttachment) async -> URL?)? = nil
     ) async {
         token += 1
         let mine = token
         pendingAgent = agent
+        pendingIndex = nil
         guard let url = await download(), mine == token else { return settle(mine) }
         let document = await LeoChatViewerDocument.load(attachment: attachment, url: url, access: access)
         guard mine == token else { return settle(mine) }
@@ -58,7 +74,42 @@ import LeoKit
             openExternally(url)
             return
         }
-        shown = Shown(agent: agent, document: document, presentation: fullWindow ? .fullWindow(fromPane: false) : .pane)
+        let siblings = gallery.count > 1 && gallery.contains { $0.id == attachment.id } ? gallery : []
+        self.downloadGalleryItem = downloadGalleryItem
+        shown = Shown(
+            agent: agent, document: document, presentation: fullWindow ? .fullWindow(fromPane: false) : .pane, gallery: siblings
+        )
+    }
+
+    /// The shown image's place among its message's images; nil when there is
+    /// no one to step to. While a step loads, the place it is going to.
+    var galleryPosition: GalleryPosition? {
+        guard let shown, shown.gallery.count > 1, let index = pendingIndex ?? galleryIndex(of: shown) else { return nil }
+        return GalleryPosition(index: index, count: shown.gallery.count)
+    }
+
+    /// Shows the image `delta` places on in the message's gallery. It stops
+    /// at either end, and a failed download keeps the current image. Closing
+    /// or an agent switch while it loads drops it; a later step supersedes it.
+    func step(_ delta: Int) async {
+        guard let start = shown, let position = galleryPosition, let download = downloadGalleryItem else { return }
+        let target = position.index + delta
+        guard start.gallery.indices.contains(target) else { return }
+        let attachment = start.gallery[target]
+        token += 1
+        let mine = token
+        pendingAgent = start.agent
+        pendingIndex = target
+        guard let url = await download(attachment), mine == token else { return settle(mine) }
+        let document = await LeoChatViewerDocument.load(attachment: attachment, url: url, access: access)
+        guard mine == token else { return settle(mine) }
+        settle(mine)
+        guard let document, let current = shown else { return }
+        shown = Shown(agent: current.agent, document: document, presentation: current.presentation, gallery: current.gallery)
+    }
+
+    private func galleryIndex(of shown: Shown) -> Int? {
+        shown.gallery.firstIndex { $0.id == shown.document.attachmentID }
     }
 
     /// The file the pane's viewer layout shows, only while `agent`'s thread
@@ -81,7 +132,7 @@ import LeoKit
     /// Expands the in-pane viewer over the window.
     func enterFullWindow() {
         guard let shown, shown.presentation == .pane else { return }
-        self.shown = Shown(agent: shown.agent, document: shown.document, presentation: .fullWindow(fromPane: true))
+        self.shown = Shown(agent: shown.agent, document: shown.document, presentation: .fullWindow(fromPane: true), gallery: shown.gallery)
     }
 
     /// Leaves full window for where it was opened from. True when the pane
@@ -94,13 +145,15 @@ import LeoKit
             close()
             return false
         }
-        self.shown = Shown(agent: shown.agent, document: shown.document, presentation: .pane)
+        self.shown = Shown(agent: shown.agent, document: shown.document, presentation: .pane, gallery: shown.gallery)
         return true
     }
 
     func close() {
         token += 1
         pendingAgent = nil
+        pendingIndex = nil
+        downloadGalleryItem = nil
         if shown != nil { shown = nil }
     }
 
@@ -114,6 +167,9 @@ import LeoKit
 
     /// Open `mine` has finished waiting; a newer open keeps its own claim.
     private func settle(_ mine: Int) {
-        if mine == token { pendingAgent = nil }
+        if mine == token {
+            pendingAgent = nil
+            pendingIndex = nil
+        }
     }
 }

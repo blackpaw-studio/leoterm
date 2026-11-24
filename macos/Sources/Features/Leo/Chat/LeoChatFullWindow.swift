@@ -34,6 +34,12 @@ struct LeoChatFullWindowHost: View {
         }
     }
 
+    /// Arrow keys step only while the message has another image to go to.
+    private var stepHandler: ((Int) -> Void)? {
+        guard viewer.galleryPosition != nil else { return nil }
+        return { session.stepChatGallery($0) }
+    }
+
     private func overlay(for document: LeoChatViewerDocument) -> some View {
         VStack(spacing: 0) {
             header(for: document)
@@ -41,6 +47,7 @@ struct LeoChatFullWindowHost: View {
             LeoChatFileViewerRepresentable(
                 document: document,
                 coversWindow: true,
+                onStep: stepHandler,
                 onBack: session.exitChatFullWindow,
                 openExternally: { NSWorkspace.shared.open($0) }
             )
@@ -63,6 +70,7 @@ struct LeoChatFullWindowHost: View {
             )
             Text(document.displayName).font(.headline).lineLimit(1).truncationMode(.middle)
             Spacer(minLength: 8)
+            if let position = viewer.galleryPosition { galleryControls(position) }
             LeoChatViewerIconButton(
                 systemImage: "arrow.up.forward.app", title: "Open in Default App", action: { NSWorkspace.shared.open(document.url) }
             )
@@ -71,6 +79,19 @@ struct LeoChatFullWindowHost: View {
         .padding(.horizontal, 12)
         .frame(height: 36)
         .background(.bar)
+    }
+
+    /// Previous / next image of the message, with where this one sits.
+    private func galleryControls(_ position: LeoChatViewerModel.GalleryPosition) -> some View {
+        HStack(spacing: 6) {
+            LeoChatViewerIconButton(systemImage: "chevron.left", title: "Previous Image", action: { session.stepChatGallery(-1) })
+                .disabled(position.index == 0)
+            Text("\(position.index + 1) of \(position.count)")
+                .font(.callout).monospacedDigit().foregroundStyle(.secondary)
+                .accessibilityLabel("Image \(position.index + 1) of \(position.count)")
+            LeoChatViewerIconButton(systemImage: "chevron.right", title: "Next Image", action: { session.stepChatGallery(1) })
+                .disabled(position.index == position.count - 1)
+        }
     }
 
     /// Hides what the overlay covers from VoiceOver where the system can.

@@ -81,6 +81,21 @@ struct LeoChatFileViewerTests {
         )
     }
 
+    // MARK: Gallery (B-441)
+
+    @Test(arguments: [
+        (UInt16(123), NSEvent.ModifierFlags(), false, -1),
+        (UInt16(124), NSEvent.ModifierFlags(), false, 1),
+        (UInt16(124), NSEvent.ModifierFlags.command, false, 0),
+        (UInt16(123), NSEvent.ModifierFlags.shift, false, 0),
+        (UInt16(124), NSEvent.ModifierFlags(), true, 0),
+        (UInt16(126), NSEvent.ModifierFlags(), false, 0),
+        (UInt16(53), NSEvent.ModifierFlags(), false, 0),
+    ])
+    func leftAndRightArrowsStepOnlyWhenPlain(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isFieldEditor: Bool, delta: Int) {
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: keyCode, modifiers: modifiers, isFieldEditor: isFieldEditor) == (delta == 0 ? nil : delta))
+    }
+
     // MARK: Find
 
     /// Find… is wired to `find:` (the terminal's search), which a text view
