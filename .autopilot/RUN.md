@@ -48,7 +48,19 @@ Lane: B-438
   Call: Drag source sits on the title Button's label, because a Button swallows .onDrag — P1
   Call: Removed the invisible placeholder row under a collapsed plugin section; a shared LeoPluginSectionListing drives both the drawn rows and the row count — P6
 
+Lane: B-442
+  Branch: autopilot-lane/B-442
+  Base: 310008646a2c15b5965af3ee9c07c873fb7825bf
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T14:02:29Z
+
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
 Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
+Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
 Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
