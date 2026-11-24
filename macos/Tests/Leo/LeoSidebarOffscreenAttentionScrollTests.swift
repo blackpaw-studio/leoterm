@@ -244,8 +244,9 @@ struct LeoSidebarOffscreenAttentionScrollTests {
 
     func close() { window.close() }
 
-    /// A collapsed plugin section's rows: its header and the placeholder row.
-    static let collapsedPluginSectionRows = 2
+    /// A collapsed plugin section's rows (its header), as the sidebar counts
+    /// them: the test checks the real table agrees.
+    static let collapsedPluginSectionRows = LeoPluginSidebarSection.tableRows(listing: nil)
     private var pluginHost: LeoPluginSlotHostFake?
 
     /// One plugin section, collapsed, moved above the agents (B-438).
