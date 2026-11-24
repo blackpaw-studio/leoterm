@@ -56,6 +56,8 @@ final class LeoEditorTabsViewController: NSViewController {
                 return (pane, dock.edge(pane))
             }
             tabBar.onDock = { pane, edge in dock.move(pane, edge) }
+            tabBar.onDragBegin = { dock.beginDrag($0) }
+            tabBar.onDragEnd = { dock.endDrag() }
         }
         bind()
         refresh()

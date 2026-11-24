@@ -10,9 +10,7 @@ import Testing
 /// with its own divider, remembered size and 200 pt stop.
 @MainActor
 struct LeoPaneDockSplitTests {
-    private static let agent = LeoRowKey.agent(LeoAgentIdentity(host: .local, name: "alpha"))
     private static let browserKey = LeoAgentBrowserKey(host: .local, agent: "alpha")
-    private static let windowSize = NSSize(width: 1_200, height: 600)
     /// `setPosition` lands dividers on whole points; a measured edge can be
     /// a rounding step off.
     private static let pointTolerance: CGFloat = 1
@@ -26,7 +24,7 @@ struct LeoPaneDockSplitTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
             store.setEdge(.below, for: .browser)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
 
             try await harness.openFile(in: sandbox)
@@ -50,7 +48,7 @@ struct LeoPaneDockSplitTests {
     @Test func theAgentDrawerStaysUnderTheTerminalColumn() async throws {
         let store = LeoPaneDockStore(defaults: defaults)
         store.setEdge(.below, for: .browser)
-        let harness = Harness(presence: presence, store: store, agentPane: true)
+        let harness = LeoPaneDockTestHarness(presence: presence, store: store, agentPane: true)
         defer { harness.close() }
         await harness.settle()
         let drawerBefore = harness.frame(of: try #require(harness.drawerView))
@@ -75,7 +73,7 @@ struct LeoPaneDockSplitTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
             store.setEdge(.below, for: .browser)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
             try await harness.openFile(in: sandbox)
             presence.open(Self.browserKey)
@@ -96,7 +94,7 @@ struct LeoPaneDockSplitTests {
     /// still stops at 200 pt, not at the outline's own 180.
     @Test func theRightDockStopsAtTwoHundredPointsWithOnlyTheOutline() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
-            let harness = Harness(presence: presence, store: LeoPaneDockStore(defaults: defaults))
+            let harness = LeoPaneDockTestHarness(presence: presence, store: LeoPaneDockStore(defaults: defaults))
             defer { harness.close() }
             await harness.pane.browser.open(LeoEditorAgentContext(host: .local, name: "alpha", workspace: sandbox.root))
             await harness.settle()
@@ -116,7 +114,7 @@ struct LeoPaneDockSplitTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
             store.setEdge(.below, for: .browser)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
             try await harness.openFile(in: sandbox)
             presence.open(Self.browserKey)
@@ -135,7 +133,7 @@ struct LeoPaneDockSplitTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
             store.setEdge(.below, for: .browser)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
             try await harness.openFile(in: sandbox)
             presence.open(Self.browserKey)
@@ -155,7 +153,7 @@ struct LeoPaneDockSplitTests {
             store.setEdge(.below, for: .browser)
             store.setSize(420, of: .right)
             store.setSize(260, of: .below)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
 
             try await harness.openFile(in: sandbox)
@@ -175,7 +173,7 @@ struct LeoPaneDockSplitTests {
             saved.setEdge(.below, for: .browser)
             saved.setEdge(.right, for: .files)
             saved.setSize(260, of: .below)
-            let panes = Harness.makePanes(presence: presence)
+            let panes = LeoPaneDockTestHarness.makePanes(presence: presence)
             try await panes.active.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
             let source = presence.open(Self.browserKey)
             let page = NSView()
@@ -183,7 +181,7 @@ struct LeoPaneDockSplitTests {
             source.viewHost.adopt(page)
             await drainMainQueue()
 
-            let harness = Harness(
+            let harness = LeoPaneDockTestHarness(
                 presence: presence, store: LeoPaneDockStore(defaults: defaults), agentPane: true, panes: panes)
             defer { harness.close() }
             await harness.settle()
@@ -209,7 +207,7 @@ struct LeoPaneDockSplitTests {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
             store.setEdge(.below, for: .browser)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
             try await harness.openFile(in: sandbox)
             presence.open(Self.browserKey)
@@ -230,7 +228,7 @@ struct LeoPaneDockSplitTests {
 
     @Test func movingTheBrowserKeepsTheSameWebView() async throws {
         let store = LeoPaneDockStore(defaults: defaults)
-        let harness = Harness(presence: presence, store: store)
+        let harness = LeoPaneDockTestHarness(presence: presence, store: store)
         defer { harness.close() }
         let source = presence.open(Self.browserKey)
         let page = NSView()
@@ -254,8 +252,8 @@ struct LeoPaneDockSplitTests {
     /// One store for every window: a move in one window moves the pane in all.
     @Test func aMoveReachesEveryWindow() async {
         let store = LeoPaneDockStore(defaults: defaults)
-        let first = Harness(presence: presence, store: store)
-        let second = Harness(presence: presence, store: store)
+        let first = LeoPaneDockTestHarness(presence: presence, store: store)
+        let second = LeoPaneDockTestHarness(presence: presence, store: store)
         defer {
             first.close()
             second.close()
@@ -274,7 +272,7 @@ struct LeoPaneDockSplitTests {
 
     @Test func theBrowserTabMenuOffersBothEdgesWithTheCurrentOneChecked() async throws {
         let store = LeoPaneDockStore(defaults: defaults)
-        let harness = Harness(presence: presence, store: store)
+        let harness = LeoPaneDockTestHarness(presence: presence, store: store)
         defer { harness.close() }
         presence.open(Self.browserKey)
         await harness.settle()
@@ -301,7 +299,7 @@ struct LeoPaneDockSplitTests {
     @Test func aFileTabMenuMovesFilesWithItsOutline() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
-            let harness = Harness(presence: presence, store: store)
+            let harness = LeoPaneDockTestHarness(presence: presence, store: store)
             defer { harness.close() }
             try await harness.pane.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
             try await harness.pane.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("b.swift", "let b = 2")))
@@ -321,96 +319,6 @@ struct LeoPaneDockSplitTests {
             #expect(harness.rightStripItem.isCollapsed)
             #expect(harness.terminalDock.bottomItem.isCollapsed == false)
             #expect(harness.strip(harness.dock.filesStrip)?.shown?.view.window === harness.window, "the same tab views, now below")
-        }
-    }
-
-    // MARK: - Harness
-
-    @MainActor private final class Harness {
-        let panes: LeoRowPanes
-        let split: LeoSplitViewController
-        let terminalView: NSView
-        let window: NSWindow
-        let agentPaneModel: LeoAgentPaneModel?
-
-        /// The row's panes, for a test that opens some before the window exists.
-        static func makePanes(presence: FakePresence) -> LeoRowPanes {
-            let panes = LeoRowPanes(makeAccess: { _ in LeoFileAccessor.local() }, confirm: { _, _ in .cancel }, presence: presence)
-            panes.activate(LeoPaneDockSplitTests.agent)
-            return panes
-        }
-
-        init(presence: FakePresence, store: LeoPaneDockStore, agentPane: Bool = false, panes: LeoRowPanes? = nil) {
-            self.panes = panes ?? Self.makePanes(presence: presence)
-            let defaults = LeoInMemoryDefaults()
-            agentPaneModel = agentPane
-                ? LeoAgentPaneModel(
-                    surfaces: nil, settings: LeoBuiltInPaneSettings(defaults: defaults), store: LeoAgentPaneStateStore(defaults: defaults))
-                : nil
-            let components = LeoSplitViewControllerFactory.make(
-                isSidebarVisible: false, preferredWidth: 240, onDividerWidthChange: { _ in },
-                sidebar: AnyView(Color.clear), detail: AnyView(Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)),
-                panes: self.panes, paneDock: store, agentPane: agentPaneModel)
-            split = components.controller
-            terminalView = components.detailHosting.view
-            window = NSWindow(
-                contentRect: NSRect(origin: .zero, size: LeoPaneDockSplitTests.windowSize), styleMask: [.titled, .resizable],
-                backing: .buffered, defer: false)
-            window.isReleasedWhenClosed = false
-            window.contentViewController = split
-            window.setContentSize(LeoPaneDockSplitTests.windowSize)
-            agentPaneModel?.setAgent(LeoAgentPaneAgent(
-                ref: LeoPluginAgentRef(machine: "localhost", name: "alpha"),
-                identity: LeoAgentIdentity(host: .local, name: "alpha", workspace: "/w/alpha")))
-            window.contentView?.layoutSubtreeIfNeeded()
-        }
-
-        var dock: LeoPaneDockController { split.paneDock! }
-        var terminalDock: LeoTerminalDockController { dock.terminalDock }
-        var pane: LeoRowPane { panes.active }
-        var rightStripItem: NSSplitViewItem { split.splitViewItem(for: dock.rightStrip!)! }
-        var rightStripView: NSView { dock.rightStrip!.view }
-        var rightStripWidth: CGFloat { LeoSplitViewController.paneWidth(of: rightStripView, in: split.splitView) }
-        var rightOutlineItem: NSSplitViewItem? { dock.rightOutline.flatMap(split.splitViewItem(for:)) }
-        var rightOutlineWidth: CGFloat { LeoSplitViewController.paneWidth(of: dock.rightOutline!.view, in: split.splitView) }
-        var drawerView: NSView? { (split.detailItem?.viewController as? LeoDetailColumnController)?.paneItem.viewController.view }
-
-        func strip(_ container: LeoRowPaneContainerViewController?) -> LeoEditorTabsViewController? {
-            container?.activeChild as? LeoEditorTabsViewController
-        }
-
-        func frame(of view: NSView) -> NSRect { view.convert(view.bounds, to: nil) }
-
-        func openFile(in sandbox: LeoFileSandbox) async throws {
-            try await pane.tabs.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
-        }
-
-        /// Lets main-queue subscriptions and deferred positioning run, then lays out.
-        func settle() async {
-            await drainMainQueue()
-            window.contentView?.layoutSubtreeIfNeeded()
-            await drainMainQueue()
-            window.contentView?.layoutSubtreeIfNeeded()
-        }
-
-        /// Moves the terminal's trailing divider, as a drag does, so the
-        /// right dock's strip (the outline closed) is `width` wide.
-        func dragRightDock(toWidth width: CGFloat) {
-            let index = split.splitViewItems.firstIndex(of: split.detailItem!)!
-            let trailingDividers = CGFloat(split.splitViewItems.count - 1 - index)
-            let splitView = split.splitView
-            splitView.setPosition(splitView.bounds.width - width - trailingDividers * splitView.dividerThickness, ofDividerAt: index)
-            window.contentView?.layoutSubtreeIfNeeded()
-        }
-
-        func dragBottomDock(toHeight height: CGFloat) {
-            let dockSplit = terminalDock.splitView
-            dockSplit.setPosition(dockSplit.bounds.height - height - dockSplit.dividerThickness, ofDividerAt: 0)
-            window.contentView?.layoutSubtreeIfNeeded()
-        }
-
-        func close() {
-            window.close()
         }
     }
 }

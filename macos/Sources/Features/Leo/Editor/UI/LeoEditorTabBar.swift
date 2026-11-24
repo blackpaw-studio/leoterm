@@ -44,6 +44,10 @@ final class LeoEditorTabBar: NSView {
     var dockState: ((Int) -> (pane: LeoDockPane, edge: LeoDockEdge)?)?
     /// A tab's menu moved its pane.
     var onDock: (LeoDockPane, LeoDockEdge) -> Void = { _, _ in }
+    /// A tab's drag started or ended (B-440): the bar is the drag source, so
+    /// the session outlives the strip's button refreshes.
+    var onDragBegin: (LeoDockPane) -> Void = { _ in }
+    var onDragEnd: () -> Void = {}
 
     private let scrollView = NSScrollView()
     private let stack = NSStackView()
@@ -87,6 +91,10 @@ final class LeoEditorTabBar: NSView {
             guard let self, let button else { return }
             onClose(button.index)
         }
+        button.onDrag = { [weak self, weak button] event in
+            guard let self, let button else { return }
+            beginDrag(from: button, event: event)
+        }
         button.onMenu = { [weak self, weak button] in
             guard let self, let button else { return nil }
             return dockMenu(forItemAt: button.index)
@@ -121,6 +129,24 @@ final class LeoEditorTabBar: NSView {
     @objc private func dock(_ sender: NSMenuItem) {
         guard let choice = sender.representedObject as? DockChoice else { return }
         onDock(choice.pane, choice.edge)
+    }
+
+    // MARK: - Dock drag (B-440)
+
+    /// The pane dragging the tab at `index` carries; nil gives a tab that
+    /// can't be dragged.
+    func dragPane(forItemAt index: Int) -> LeoDockPane? {
+        dockState?(index)?.pane
+    }
+
+    private func beginDrag(from button: LeoEditorTabButton, event: NSEvent) {
+        guard let pane = dragPane(forItemAt: button.index) else { return }
+        let item = NSDraggingItem(pasteboardWriter: LeoDockPaneDrag.item(for: pane))
+        item.setDraggingFrame(convert(button.bounds, from: button), contents: button.dragImage())
+        onDragBegin(pane)
+        let session = beginDraggingSession(with: [item], event: event, source: self)
+        // A drop outside the zone, or Escape, slides the tab back.
+        session.animatesToStartingPositionsOnCancelOrFail = true
     }
 
     override var wantsUpdateLayer: Bool { true }
@@ -179,7 +205,19 @@ final class LeoEditorTabBar: NSView {
     }
 }
 
-/// One tab in the strip: a click selects it, its button closes it.
+extension LeoEditorTabBar: NSDraggingSource {
+    /// Tabs move panes inside the app only; nothing leaves it.
+    func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
+        context == .withinApplication ? .move : []
+    }
+
+    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+        onDragEnd()
+    }
+}
+
+/// One tab in the strip: a click selects it, its button closes it, and
+/// dragging it past a small threshold hands the drag to the strip.
 final class LeoEditorTabButton: NSView {
     static let maximumWidth: CGFloat = 180
 
@@ -188,6 +226,9 @@ final class LeoEditorTabButton: NSView {
     var onClose: () -> Void = {}
     /// The tab's right-click (and Control-click) menu.
     var onMenu: () -> NSMenu? = { nil }
+    /// The press moved past `LeoDockPaneDrag.dragThreshold`: the event to drag with.
+    var onDrag: (NSEvent) -> Void = { _ in }
+    private var pressOrigin: NSPoint?
     var item = LeoEditorTabBar.Item(title: "", toolTip: "", isDirty: false, isSelected: false) {
         didSet { refresh() }
     }
@@ -222,7 +263,30 @@ final class LeoEditorTabButton: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        pressOrigin = event.locationInWindow
         onSelect()
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let origin = pressOrigin,
+              hypot(event.locationInWindow.x - origin.x, event.locationInWindow.y - origin.y) >= LeoDockPaneDrag.dragThreshold else { return }
+        // One drag per press.
+        pressOrigin = nil
+        onDrag(event)
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        pressOrigin = nil
+    }
+
+    /// The tab as it looks now, for the drag.
+    func dragImage() -> NSImage {
+        let image = NSImage(size: bounds.size)
+        if let rep = bitmapImageRepForCachingDisplay(in: bounds) {
+            cacheDisplay(in: bounds, to: rep)
+            image.addRepresentation(rep)
+        }
+        return image
     }
 
     override func menu(for event: NSEvent) -> NSMenu? {
