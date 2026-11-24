@@ -3520,6 +3520,16 @@ Report: Right-click on a chat image misses after a send (reply shifts scroll) �
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
 
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
+Type: bug
+Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-438)
+
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
 Source: autopilot polish (B-441)
+
+## B-448 · A plugin section moved to the top reads as part of Agents   [idea]
+Note: a plugin section moved to the top sits above the fixed "Agents" title and search field, so it reads as if it belongs under Agents — P6
+Source: autopilot polish (B-438)
