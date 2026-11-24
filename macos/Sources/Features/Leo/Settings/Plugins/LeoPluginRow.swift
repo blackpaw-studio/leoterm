@@ -43,8 +43,15 @@ struct LeoPluginRow: Equatable, Identifiable {
 
     struct Account: Equatable, Identifiable {
         let id: String
-        /// "Codex · ~/.codex".
+        /// "Codex · This Mac · ~/.codex".
         let title: String
+    }
+
+    /// A remote path stays absolute: this Mac's home says nothing about that machine's.
+    static func accountTitle(_ grant: LeoPluginCredentialGrant, home: String) -> String {
+        let machine = grant.isRemote ? grant.machine.displayName : "This Mac"
+        let path = grant.isRemote ? grant.path : LeoPluginCredentialPath.abbreviate(grant.path, home: home)
+        return "\(grant.kind.displayName) · \(machine) · \(path)"
     }
 
     struct Pane: Equatable {
@@ -79,7 +86,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         pane = info.manifest?.contributes.panes.first.map { Pane(id: $0.id, isShown: !info.hiddenPanes.contains($0.id)) }
         permissionsSummary = Self.summary(of: info.approvedPermissions)
         accounts = info.credentialGrants.map { grant in
-            Account(id: grant.id, title: "\(grant.kind.displayName) · \((grant.path as NSString).abbreviatingWithTildeInPath)")
+            Account(id: grant.id, title: Self.accountTitle(grant, home: NSHomeDirectory()))
         }
         isUnverified = LeoPluginSourceTrust.classify(info.source) == .unverified
         switch info.source {

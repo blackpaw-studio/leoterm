@@ -7,6 +7,24 @@ import LeoKit
 /// Non-modal, like the browser's file chooser: it never freezes a window.
 @MainActor struct LeoPluginCredentialPicker: LeoPluginCredentialPicking {
     let home: URL
+    /// Connected machines other than this Mac, and the live daemon for each.
+    let remoteMachines: @MainActor () -> [LeoHostID]
+    let daemon: @MainActor (LeoHostID) -> (any LeoDaemonClient)?
+    var presenter = LeoPluginSheetPresenter()
+
+    /// With no other machine connected there is nothing to choose between,
+    /// so it goes straight to the folder panel. Otherwise a small sheet asks which machine first.
+    func pickAccount(for kind: LeoPluginCredentialKind) async -> LeoPluginCredentialSelection? {
+        let remotes = remoteMachines()
+        guard !remotes.isEmpty else { return await pickFolder(for: kind).map { LeoPluginCredentialSelection(machine: .local, path: $0) } }
+        let model = LeoPluginAccountPickerModel(kind: kind, machines: [.local] + remotes, daemon: { daemon($0) })
+        let choice = await presenter.presentCancellable { finish in LeoPluginAccountSheet(model: model, finish: finish) }
+        switch choice {
+        case nil: return nil
+        case .thisMac?: return await pickFolder(for: kind).map { LeoPluginCredentialSelection(machine: .local, path: $0) }
+        case .remote(let host, let dir)?: return LeoPluginCredentialSelection(machine: host, path: dir)
+        }
+    }
 
     func pickFolder(for kind: LeoPluginCredentialKind) async -> String? {
         let panel = NSOpenPanel()

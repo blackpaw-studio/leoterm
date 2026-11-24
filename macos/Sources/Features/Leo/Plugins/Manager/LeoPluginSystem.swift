@@ -54,10 +54,15 @@ import LeoKit
         let helperPath = LeoPluginPosixLauncher.embedded(in: bundle).helperURL.path
         let home = NSHomeDirectory()
         let credentials = LeoPluginCredentialServices(
-            picker: LeoPluginCredentialPicker(home: URL(fileURLWithPath: home, isDirectory: true)),
+            picker: LeoPluginCredentialPicker(
+                home: URL(fileURLWithPath: home, isDirectory: true),
+                remoteMachines: { [unowned sidebar, clients] in
+                    sidebar.machineOrder.filter { $0 != .local && clients.daemon(for: $0) != nil }
+                },
+                daemon: { [clients] in clients.daemon(for: $0) }),
             resolver: LeoPluginCredentials(
                 keychain: LeoPluginSystemCredentialKeychain(), files: LeoPluginCredentialFileReader(), home: home, userName: NSUserName()),
-            grants: store, home: home)
+            grants: store, home: home, remote: LeoPluginMachineForwarding(clients: clients))
         let manager = LeoPluginManager(LeoPluginManagerDependencies(
             store: store,
             bundledRoot: bundle.resourceURL?.appendingPathComponent("Plugins", isDirectory: true),
@@ -95,4 +100,14 @@ import LeoKit
     func agentsDidChange() { manager.agentsDidChange() }
 
     func shutDown() { devWatcher.stopAll() }
+}
+
+/// Reaches another machine's daemon for a plugin's remote account: whatever
+/// client that machine's live connection has, or none while it is down.
+@MainActor final class LeoPluginMachineForwarding: LeoPluginRemoteCredentialForwarding {
+    private let clients: any LeoMachineClientResolving
+
+    init(clients: any LeoMachineClientResolving) { self.clients = clients }
+
+    func daemon(for host: LeoHostID) -> (any LeoDaemonClient)? { clients.daemon(for: host) }
 }

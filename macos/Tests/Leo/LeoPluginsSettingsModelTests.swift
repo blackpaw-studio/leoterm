@@ -96,11 +96,12 @@ import Testing
     private static func info(
         _ id: String = "dev.example.demo", source: LeoPluginSource = .git(url: "https://github.com/acme/demo.git", ref: "main", sha: sha),
         enabled: Bool = true, state: LeoPluginRunState = .running, approved: LeoPluginPermissions = .none,
-        manifest: LeoPluginManifest? = nil, hidden: [String] = [], hiddenPanes: [String] = []
+        manifest: LeoPluginManifest? = nil, hidden: [String] = [], hiddenPanes: [String] = [],
+        grants: [LeoPluginCredentialGrant] = []
     ) -> LeoPluginInfo {
         LeoPluginInfo(
             id: id, name: "Demo", version: "1.2.0", source: source, isEnabled: enabled, state: state, approvedPermissions: approved,
-            manifest: manifest ?? Self.manifest(id), hiddenSections: hidden, hiddenPanes: hiddenPanes)
+            manifest: manifest ?? Self.manifest(id), hiddenSections: hidden, hiddenPanes: hiddenPanes, credentialGrants: grants)
     }
 
     private static func rig(_ plugins: [LeoPluginInfo] = [], links: LeoPluginInstallLinkRouter? = nil) -> Rig {
@@ -142,6 +143,20 @@ import Testing
         let rows = Self.rig([theirs, ours, bundled, dev]).model.rows
 
         #expect(rows.map(\.isUnverified) == [true, false, false, false])
+    }
+
+    // MARK: Accounts
+
+    @Test func accountRowsNameTheKindTheMachineAndThePath() {
+        let home = NSHomeDirectory()
+        let grants = [
+            LeoPluginCredentialGrant(id: "g1", kind: .codex, path: home + "/.codex"),
+            LeoPluginCredentialGrant(id: "g2", kind: .claudeCode, path: "/Users/evan/.claude-blackpaw-leo", machine: .remote("Dionysus")),
+        ]
+
+        let accounts = Self.rig([Self.info(grants: grants)]).model.rows[0].accounts
+
+        #expect(accounts.map(\.title) == ["Codex · This Mac · ~/.codex", "Claude Code · Dionysus · /Users/evan/.claude-blackpaw-leo"])
     }
 
     // MARK: Install links
