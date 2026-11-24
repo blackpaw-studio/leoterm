@@ -86,12 +86,13 @@ Lane: B-440
   Branch: autopilot-lane/B-440
   Base: 4a7cb8b8a07df43d3f737167a4f2f8aca3e8800f
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: dd1e9dcdb282dd747b62de012b2e0508b1438649
   Dispatched: 2026-11-24T14:42:34Z
+  Tokens: 50.1M in (49.2M cache read), ≥203k out, 327 requests
   Call: Only the edge the pane isn't on shows a drop zone, so no zone ever does nothing — P2
   Call: The zone previews where the pane lands (half the terminal along that edge), faint over the terminal and accent-filled while armed; a drop elsewhere slides the tab back — P1
   Call: A drag starts only after a 4 pt threshold; a click still selects at once — P1
@@ -128,8 +129,10 @@ Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
 Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
 Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
 Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge panes sit side by side, not as tabs (unchecked against Accept) — flag for review; verify.md launch flag -ApplePersistenceIgnoreState shows a Configuration Errors dialog
+Progress: B-440 landed 96e9bfa7f; mid-drag Dock Below zone and live Escape cancel not visually verified; a single-file Files row has no tab strip so can't be dragged (menu/shortcut still work); implementer's mis-aimed drags put terminal text on Dionysus's clipboard (no keys typed into any agent)
 Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
 Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
 Finished 4: B-444 landed 315518028 · not visually verified
 Finished 5: B-445 blocked
+Finished 6: B-440 landed 96e9bfa7f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-440-6-zone.png

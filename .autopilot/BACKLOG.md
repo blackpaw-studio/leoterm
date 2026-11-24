@@ -3475,13 +3475,15 @@ Inbox: 20261124T014054218316Z-edf65908#1
 Done: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72 (Settings ▸ Plugins: a git plugin row shows the ref it follows and Change… switches branch/tag via the updater and the approval sheet, no reinstall; LeoKit updater 16/16, Mac suite 5061 pass). Decisions D-1001..D-1007.
 Verified: not visually verified — the published leo-plugin-usage tags need plugin API 2 and this build supports 1, so the Change… flow couldn't be driven; unit tests cover it
 
-## B-440 · Drag a Browser or Files tab to dock it on the right or below   [ready]
+## B-440 · Drag a Browser or Files tab to dock it on the right or below   [done]
 Issue: #412
 Why: Follow-up to the right/below docking item: moving a pane by dragging is the natural direct-manipulation route on the Mac (P1).
 Accept: Dragging a Browser or Files tab over the terminal shows a Dock Below or Dock Right drop zone only during the drag; dropping it docks the pane exactly as the menu command does (tested through the same code path); an Escape or a drop outside a zone leaves the layout unchanged; screenshot of the drop zone from the isolated debug build
 Out: Dragging panes between windows; docking on the left or top; iOS
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005228052478Z-9065746d#1
+Done: 8509119b7 10a0d4202 e1380172e (dragging a Browser or Files tab over the terminal shows a Dock Right/Below zone for the other edge only; a drop docks through the same LeoPaneDockController.move as the menu; a drop outside slides back; suite 5143 pass). Decisions D-1029..D-1033.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-440-6-zone.png
 
 ## B-439 · Dock the Browser and Files panes on the right or below the terminal   [done]
 Issue: #413

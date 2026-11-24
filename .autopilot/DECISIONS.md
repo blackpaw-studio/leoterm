@@ -2373,3 +2373,33 @@ Chose: Mac only; iOS has a separate viewer with no Escape key path, so nothing m
 Why: principle 1
 Commit: 4683730be
 Veto: [ ]
+
+## D-1029 · 2026-11-24 · B-440: Only the edge the pane isn't on shows a drop zone, so no…
+Chose: Only the edge the pane isn't on shows a drop zone, so no zone ever does nothing
+Why: P2
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1030 · 2026-11-24 · B-440: The zone previews where the pane lands (half the terminal…
+Chose: The zone previews where the pane lands (half the terminal along that edge), faint over the terminal and accent-filled while armed; a drop elsewhere slides the tab back
+Why: P1
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1031 · 2026-11-24 · B-440: A drag starts only after a 4 pt threshold; a click still…
+Chose: A drag starts only after a 4 pt threshold; a click still selects at once
+Why: P1
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1032 · 2026-11-24 · B-440: Drags never leave the app: the pasteboard carries only a…
+Chose: Drags never leave the app: the pasteboard carries only a private type, never text or a file URL, so the terminal can't paste it
+Why: P1
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1033 · 2026-11-24 · B-440: Dropping calls the same LeoPaneDockController.move as the…
+Chose: Dropping calls the same LeoPaneDockController.move as the menu, so there is no second dock path
+Why: P6
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
