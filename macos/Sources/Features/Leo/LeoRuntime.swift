@@ -36,6 +36,10 @@ import LeoKit
     /// sidebar and Chat-switch badges; fed by `chatRelay` before `chat` sees
     /// a delivery, so agents that aren't shown count too.
     let unread: LeoChatUnreadStore
+    /// The Needs-you inbox: open asks from every machine, the shared seen
+    /// state, and answers; fed by `chatRelay` and by the sidebar's rows.
+    let inbox: LeoInboxModel
+    private var inboxSubscription: AnyCancellable?
     /// This Mac's chat client; a remote machine's arrives with its connection.
     let localChatClient: any LeoChatClient
     let chatRelay: LeoOrderedRelay<LeoChatFeedDelivery>
@@ -391,18 +395,24 @@ import LeoKit
         unread.fixtureCounts = LeoAttentionFixture.loadFile()?.unread
         #endif
         self.unread = unread
+        let inbox = LeoInboxModel(persistence: .userDefaults(defaults))
+        self.inbox = inbox
         let chat = LeoChatPaneModel(
             clients: [:], recorder: LeoChatVoiceRecorder(),
             attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory,
-            onRead: { [weak unread] in unread?.clear($0) }
+            onRead: { [weak unread, weak inbox] in
+                unread?.clear($0)
+                inbox?.agentOpened($0)
+            }
         )
         self.chat = chat
-        let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat, weak unread, weak registry] delivery in
+        let chatRelay = LeoOrderedRelay<LeoChatFeedDelivery> { [weak chat, weak unread, weak inbox, weak registry] delivery in
             // Count first (a shown, read agent doesn't count), then let a
             // window showing the sending agent's terminal open Chat, then the
             // pane merges the message and marks it read.
             await MainActor.run {
                 unread?.receive(delivery, isOnScreen: { chat?.marksRead($0) ?? false })
+                inbox?.receive(delivery)
                 if unread?.isBound(delivery.host) == true, let agent = LeoChatAutoOpen.agent(sending: delivery) {
                     registry?.sessions.forEach { $0.openChatIfSent(by: agent) }
                 }
@@ -452,6 +462,14 @@ import LeoKit
             }
         ))
         self.feeds = feeds
+        // `@Published` sends before it stores; hop a turn to read the new snapshots.
+        inboxSubscription = model.$snapshots.receive(on: DispatchQueue.main)
+            .sink { [weak inbox, weak model] _ in
+                MainActor.assumeIsolated {
+                    guard let inbox, let model else { return }
+                    inbox.updateAgents(LeoInboxAgents.make(from: model.snapshots))
+                }
+            }
         focusedAgentRelay = LeoOrderedRelay(sink: focusedAgentSink ?? { [weak feeds] id in await feeds?.setFocusedAgent(id) })
         let clients = LeoRegistryMachineClients(registry: machines)
         self.clients = clients

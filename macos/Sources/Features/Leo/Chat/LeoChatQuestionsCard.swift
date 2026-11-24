@@ -5,9 +5,9 @@ import SwiftUI
 /// checkboxes for a multi-select question) and an "Other…" field, then
 /// Submit and "Answer in terminal"; once settled, what was answered, or
 /// that it moved to the terminal, timed out or expired.
-struct LeoChatQuestionsCard: View {
+struct LeoChatQuestionsCard<Host: LeoChatAnswerHost>: View {
     let message: LeoChatMessage
-    @ObservedObject var chat: LeoChatPaneModel
+    @ObservedObject var chat: Host
 
     var body: some View {
         switch message.questionsCard {
@@ -54,10 +54,10 @@ private struct LeoChatSettledQuestions: View {
     }
 }
 
-private struct LeoChatOpenQuestions: View {
+private struct LeoChatOpenQuestions<Host: LeoChatAnswerHost>: View {
     let messageID: String
     let questions: [LeoChatQuestion]
-    @ObservedObject var chat: LeoChatPaneModel
+    @ObservedObject var chat: Host
 
     private var draft: LeoChatQuestionsDraft { chat.questionsDraft(for: messageID) ?? LeoChatQuestionsDraft(questions: questions) }
     private var isAnswering: Bool { chat.answering.contains(messageID) }
@@ -98,11 +98,11 @@ private struct LeoChatOpenQuestions: View {
     }
 }
 
-private struct LeoChatQuestionSection: View {
+private struct LeoChatQuestionSection<Host: LeoChatAnswerHost>: View {
     let messageID: String
     let question: LeoChatQuestion
     let draft: LeoChatQuestionsDraft
-    @ObservedObject var chat: LeoChatPaneModel
+    @ObservedObject var chat: Host
 
     private var isTooLong: Bool {
         draft.text(for: question.id).trimmingCharacters(in: .whitespacesAndNewlines).unicodeScalars.count > LeoChatAnswer.maxTextScalars
