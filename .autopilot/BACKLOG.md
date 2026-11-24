@@ -3499,21 +3499,21 @@ Out: No reordering of rows inside a section, no hiding or collapsing sections, n
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261123T235734756623Z-26910159#1
 
-## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready (next run)]
+## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready]
 Issue: #416
 Type: bug
 Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-324)
 
-## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready (next run)]
+## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready]
 Issue: #417
 Type: bug
 Report: Escape doesn't close the full-window image viewer while caps lock is on — Escape closes the viewer on a plain press, so with caps lock on the key looks dead (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
 
-## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready (next run)]
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready]
 Issue: #418
 Type: bug
 Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
