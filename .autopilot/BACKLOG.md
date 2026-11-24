@@ -3535,3 +3535,15 @@ Source: autopilot polish (B-441)
 ## B-448 · A plugin section moved to the top reads as part of Agents   [idea]
 Note: a plugin section moved to the top sits above the fixed "Agents" title and search field, so it reads as if it belongs under Agents — P6
 Source: autopilot polish (B-438)
+
+## B-449 · After a relaunch the Files pane starts closed and the right dock is empty   [idea]
+Note: after a relaunch Files starts closed for that row, so the right dock is empty until it's toggled — P6: the window should come back as it was
+Source: autopilot polish (B-439)
+
+## B-450 · Opening a second file can squeeze the terminal and hide the sidebar   [idea]
+Note: opening a second file once squeezed the terminal to ~380 pt and auto-hid the sidebar (seen once during B-439's first verify) — P6: the content area shouldn't shift under you
+Source: autopilot polish (B-439)
+
+## B-451 · Outline comes back ~20 pt narrower after a window zoom or tile jump   [idea]
+Note: the widening-back restore after a zoom or tile jump gives width back only to the editor — P1: layout should return to where it was
+Source: autopilot polish (B-439)
