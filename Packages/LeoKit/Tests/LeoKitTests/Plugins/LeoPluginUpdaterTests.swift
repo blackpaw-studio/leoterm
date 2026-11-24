@@ -5,6 +5,7 @@ import Testing
 
 private let sha1 = String(repeating: "1", count: 40)
 private let sha2 = String(repeating: "2", count: 40)
+private let sha3 = String(repeating: "3", count: 40)
 private let url = "https://github.com/x/demo"
 private let id = "studio.blackpaw.demo"
 
@@ -240,5 +241,68 @@ struct LeoPluginApprovalRequestTests {
         #expect(update.isUpdate)
         #expect(update.permissionLines.count == 3)
         #expect(update.permissionLines.first == "Network: b.example.com")
+    }
+}
+
+/// B-443: following a different branch or tag without reinstalling.
+struct LeoPluginChangeRefTests {
+    @Test func switchingToABranchAtANewShaSwapsItAndRemembersTheNewRef() async throws {
+        let box = try Fixture()
+        defer { box.cleanup() }
+        try await box.installV1(network: ["api.example.com"])
+        box.git.setManifest(sha: sha2, json: pluginManifestJSON(version: "1.1.0", network: ["api.example.com"]))
+        box.git.setHead("next", sha: sha2)
+
+        let outcome = try await box.updater.check(id: id, ref: "next")
+
+        guard case .updated(let result) = outcome else { Issue.record("expected .updated, got \(outcome)"); return }
+        #expect(result.sha == sha2)
+        #expect(box.record?.source == .git(url: url, ref: "next", sha: sha2))
+        #expect(!box.exists(sha1))
+        // Later update checks follow the new ref.
+        box.git.setManifest(sha: sha3, json: pluginManifestJSON(version: "1.2.0", network: ["api.example.com"]))
+        box.git.setHead("next", sha: sha3)
+        _ = try await box.updater.check(id: id)
+        #expect(box.record?.source == .git(url: url, ref: "next", sha: sha3))
+    }
+
+    @Test func switchingToARefAtTheSameShaOnlyRewritesTheRef() async throws {
+        let box = try Fixture()
+        defer { box.cleanup() }
+        try await box.installV1()
+        box.git.setHead("stable", sha: sha1)
+        let fetchesBefore = box.git.fetchedSHAs.count
+
+        let outcome = try await box.updater.check(id: id, ref: "stable")
+
+        #expect(outcome == .upToDate(sha: sha1))
+        #expect(box.record?.source == .git(url: url, ref: "stable", sha: sha1))
+        #expect(box.git.fetchedSHAs.count == fetchesBefore)
+        #expect(box.exists(sha1))
+    }
+
+    @Test func switchingToARefThatAsksForMoreKeepsTheOldRefUntilApproved() async throws {
+        let box = try Fixture()
+        defer { box.cleanup() }
+        try await box.installV1()
+        box.git.setManifest(sha: sha2, json: pluginManifestJSON(version: "2.0.0", secrets: true))
+        box.git.setHead("next", sha: sha2)
+
+        guard case .needsApproval(let pending) = try await box.updater.check(id: id, ref: "next") else { Issue.record("expected approval"); return }
+        #expect(box.record?.source == .git(url: url, ref: "main", sha: sha1))
+
+        try box.updater.approve(pending)
+        #expect(box.record?.source == .git(url: url, ref: "next", sha: sha2))
+    }
+
+    @Test func aRefThatDoesNotExistIsRefusedAndTheRecordIsUntouched() async throws {
+        let box = try Fixture()
+        defer { box.cleanup() }
+        try await box.installV1()
+
+        await #expect(throws: LeoPluginInstallError.refNotFound("nope")) {
+            try await box.updater.check(id: id, ref: "nope")
+        }
+        #expect(box.record?.source == .git(url: url, ref: "main", sha: sha1))
     }
 }
