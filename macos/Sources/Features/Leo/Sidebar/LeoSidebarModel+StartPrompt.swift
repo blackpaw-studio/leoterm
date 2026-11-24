@@ -38,6 +38,13 @@ extension LeoSidebarModel {
     /// where the attach lands and the prompt shows.
     func go(to row: LeoAgentRow, from origin: LeoWindowID?, disposition: AttachDisposition) {
         guard let origin, !isDisconnected(row.host) else { return }
+        // B-324: a moved agent lives on another host, so it can't be started
+        // or attached here (the daemon refuses with `agent_moved`). Every
+        // click shows its chat, like a plain click, and never asks to start.
+        guard row.movedTo == nil else {
+            chatRequested(row, origin)
+            return
+        }
         guard row.status == .running else {
             // B-369: an agent that isn't running has no terminal to attach,
             // but its history is readable: a plain click shows its chat
@@ -84,12 +91,17 @@ extension LeoSidebarModel {
     }
 
     /// After each snapshot: a waiting prompt whose agent the daemon now
-    /// reports running attaches; one whose agent left the list ends. A
+    /// reports running attaches; one whose agent left the list, or was
+    /// reported moved to another host (it can never run here), ends. A
     /// disconnected machine's list is stale, so it decides nothing.
     func resolveStartPrompts() {
         for prompt in startPrompts.values {
             guard !isDisconnected(prompt.agent.host) else { continue }
             guard let row = rows.first(where: { $0.id == prompt.agent }) else {
+                endStartPrompt(prompt.id)
+                continue
+            }
+            guard row.movedTo == nil else {
                 endStartPrompt(prompt.id)
                 continue
             }
