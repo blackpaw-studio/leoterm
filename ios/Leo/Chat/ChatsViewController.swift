@@ -19,6 +19,7 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
     private var cardRows: [LeoAgentID: ChatRow] = [:]
     private var askErrors: [LeoAgentID: String] = [:]
     private var inbox = LeoInbox.empty
+    private var didScrollForScreenshot = false
     fileprivate var sectionTitles: [SectionTitleInfo?] = []
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: makeLayout())
     private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
@@ -180,6 +181,22 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
             collectionView.selectItem(at: indexPath, animated: false, scrollPosition: [])
         }
         let isEmpty = content.sections.allSatisfy(\.isEmpty)
+        #if DEBUG
+        // `-chatsScrolled`: scrolls the list to its end once, for screenshots.
+        if ProcessInfo.processInfo.arguments.contains("-chatsScrolled"), !isEmpty, !didScrollForScreenshot {
+            didScrollForScreenshot = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self, collectionView] in
+                guard let self else { return }
+                collectionView.layoutIfNeeded()
+                if let last = self.dataSource.snapshot().itemIdentifiers.last, let path = self.dataSource.indexPath(for: last) {
+                    collectionView.scrollToItem(at: path, at: .bottom, animated: false)
+                    collectionView.layoutIfNeeded()
+                    let bottom = collectionView.contentSize.height - collectionView.bounds.height + collectionView.adjustedContentInset.bottom
+                    collectionView.setContentOffset(CGPoint(x: 0, y: max(0, bottom)), animated: false)
+                }
+            }
+        }
+        #endif
         contentUnavailableConfiguration = isEmpty ? emptyState(filter: filter, search: search, hasChats: !all.isEmpty, hasDaemons: hasDaemons) : nil
     }
 
@@ -296,10 +313,13 @@ final class ChatFilterBar: UICollectionReusableView {
     private let titleLabel = UILabel()
     private let clearButton = UIButton(type: .system)
     private let titleRow = UIStackView()
+    private let scroll = UIScrollView()
+    private var selectedChip: ChatFilter?
+    private var revealedChip: ChatFilter?
+    private var revealedWidth: CGFloat = 0
 
     override init(frame: CGRect) {
         super.init(frame: frame)
-        let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
         let stack = UIStackView()
@@ -348,7 +368,29 @@ final class ChatFilterBar: UICollectionReusableView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        revealChipIfNeeded()
+    }
+
+    /// Brings the selected chip on screen when the selection changes or the chips resize
+    /// (their counts load after the first pass); a user's own scrolling is left alone.
+    private func revealChipIfNeeded() {
+        scroll.layoutIfNeeded()
+        guard let chip = selectedChip, scroll.bounds.width > 0, let button = buttons[chip],
+              revealedChip != chip || revealedWidth != scroll.contentSize.width else { return }
+        revealedChip = chip
+        revealedWidth = scroll.contentSize.width
+        let maxOffset = max(0, scroll.contentSize.width - scroll.bounds.width)
+        let target = min(max(0, button.frame.maxX + 16 - scroll.bounds.width), maxOffset)
+        if target > scroll.contentOffset.x { scroll.setContentOffset(CGPoint(x: target, y: 0), animated: false) }
+    }
+
     fileprivate func update(selected: ChatFilter, counts: ChatCounts, title: SectionTitleInfo?) {
+        selectedChip = selected
+        setNeedsLayout()
+        // The chips are measured after this pass; try again once layout has settled.
+        DispatchQueue.main.async { [weak self] in self?.revealChipIfNeeded() }
         for (filter, button) in buttons {
             var configuration = filter == selected ? UIButton.Configuration.filled() : UIButton.Configuration.gray()
             configuration.cornerStyle = .capsule

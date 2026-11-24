@@ -51,7 +51,7 @@ extension LeoInboxKind {
     var body: String? {
         switch self {
         case .chatAsk(let message): message.text
-        case .permission(let tool, _): tool
+        case .permission(let tool, _, _): tool
         case .question(let text): text ?? String(localized: "Waiting for your input")
         case .finished(let result): result
         }
@@ -60,7 +60,7 @@ extension LeoInboxKind {
     /// The command or detail shown in a monospaced box.
     var command: String? {
         switch self {
-        case .permission(_, let detail): detail
+        case .permission(_, let detail, let input): input ?? detail
         default: nil
         }
     }

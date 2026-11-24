@@ -36,7 +36,21 @@ enum NavFixture {
         )
     }
 
-    private static let richAgents = [
+    /// `-inboxScenario empty|dot`: no blocked items; `dot` leaves finished ones unread (grey badge dot).
+    private static var scenario: String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        return arguments.firstIndex(of: "-inboxScenario").flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
+    }
+
+    private static let blockedAgents: Set<String> = ["zeus", "olympus", "brooklyn-cam"]
+
+    private static var richAgents: [LeoObservedAgent] {
+        guard let scenario else { return allRichAgents }
+        let quiet = allRichAgents.filter { !blockedAgents.contains($0.name) }
+        return scenario == "dot" ? quiet : quiet.filter { $0.name != "athena" && $0.name != "hera" && $0.name != "assistant" }
+    }
+
+    private static let allRichAgents = [
         rich("assistant", .finished, emoji: "🎩", color: .green, preview: "Booked Thursday 2:00 PM with Dr. Patel; it's on your calendar.", minutesAgo: 41),
         rich("zeus", .needsInput, emoji: "⚡️", color: .yellow, minutesAgo: 4),
         rich("olympus", .working, emoji: "🏛️", color: .yellow, minutesAgo: 12),
@@ -72,7 +86,11 @@ enum NavFixture {
         )
     }
 
-    private static let richThreads = [
+    private static var richThreads: [LeoChatThread] {
+        scenario == nil ? allRichThreads : allRichThreads.filter { !blockedAgents.contains($0.agent) }
+    }
+
+    private static let allRichThreads = [
         LeoChatThread(agent: "assistant", lastMessage: message("a", "assistant", "Morning. Nothing is blocked; two PRs are waiting on review.", minutesAgo: 190), isPinned: true),
         LeoChatThread(agent: "zeus", lastMessage: richAsks[0], unread: 1),
         LeoChatThread(agent: "olympus", lastMessage: richAsks[1]),
@@ -110,7 +128,7 @@ enum NavFixture {
             LeoChatPage(messages: isRichInbox && agent == "zeus" ? zeusMessages : [], hasMore: false)
         }
         values.chatClient.markRead = { _, _, _ in }
-        values.chatClient.openAsks = { _ in isRichInbox ? richAsks : nil }
+        values.chatClient.openAsks = { _ in isRichInbox ? (scenario == nil ? richAsks : []) : nil }
         values.chatClient.seen = { _ in isRichInbox ? ["ares": Date()] : nil }
         values.chatClient.markSeen = { _, agents in Dictionary(uniqueKeysWithValues: agents.map { ($0, Date()) }) }
         values.chatClient.answer = { _, agent, id, _ in

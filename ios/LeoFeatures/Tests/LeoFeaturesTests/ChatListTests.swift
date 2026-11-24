@@ -426,4 +426,16 @@ struct ChatListTests {
         await store.send(.openAsksResponse(Self.daemon, .success([])))
         #expect(store.state.openAsks.threads[LeoAgentID(host: Self.host, name: "zeus")]?.asks.map(\.id) == ["q2"])
     }
+
+    @Test func aDaemonRestartMakesAFinishedItemUnreadAgainEvenAtTheSameRevision() {
+        let agent = Agent(name: "hera", status: .running, attention: LeoAttentionSignal(state: .finished, revision: 3, at: Self.epoch))
+        var seen = LeoInboxSeenState()
+        seen.seed(host: Self.host, seen: nil)
+        var sessions = Self.connected([agent])
+        sessions[0].bootID = "boot-A"
+        seen.markSeen(LeoAgentID(host: Self.host, name: "hera"), at: Self.epoch, revision: 3, bootID: "boot-A", now: Self.epoch)
+        #expect(ChatList.inbox(sessions: sessions, openAsks: LeoOpenAsks(), seen: seen).finished.allSatisfy { !$0.isUnread })
+        sessions[0].bootID = "boot-B"
+        #expect(ChatList.inbox(sessions: sessions, openAsks: LeoOpenAsks(), seen: seen).finished.map(\.isUnread) == [true])
+    }
 }

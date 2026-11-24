@@ -21,6 +21,13 @@ extension ChatBucket {
     }
 }
 
+extension ChatRow {
+    /// The status dot's color: an errored agent is red, though it sits under Done.
+    var statusTint: UIColor? {
+        agent?.priority == .errored ? .systemRed : bucket?.tint
+    }
+}
+
 extension ChatPreviewPrefix {
     var text: String {
         switch self {
@@ -199,8 +206,8 @@ final class ChatAvatarView: UIView {
         symbol.isHidden = glyph != nil
         symbol.image = UIImage(systemName: row.ref.name == ChatList.assistant ? "sparkles" : "person.fill")
         symbol.tintColor = color ?? .secondaryLabel
-        dot.backgroundColor = row.bucket?.tint
-        dot.isHidden = row.bucket == nil
-        ring.isHidden = row.bucket == nil
+        dot.backgroundColor = row.statusTint
+        dot.isHidden = row.statusTint == nil
+        ring.isHidden = row.statusTint == nil
     }
 }
