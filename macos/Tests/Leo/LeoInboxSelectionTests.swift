@@ -55,4 +55,22 @@ import Testing
         terminals.select(nil)
         #expect(!terminals.isInboxSelected)
     }
+
+    @Test func whileTheInboxIsShownNoAgentIsShownButTheSelectionComesBack() {
+        let model = makeModel()
+        let terminals = LeoWindowTerminals()
+        #expect(LeoSidebarSelection.shownRow(model: model, terminals: terminals)?.id == alpha)
+        LeoSidebarSelection.select(.inbox, model: model, terminals: terminals)
+        #expect(LeoSidebarSelection.shownRow(model: model, terminals: terminals) == nil)
+        LeoSidebarSelection.select(.agent(alpha), model: model, terminals: terminals)
+        #expect(LeoSidebarSelection.shownRow(model: model, terminals: terminals)?.id == alpha)
+    }
+
+    @Test func aWindowSessionShowsNoAgentWhileItsInboxIsSelected() {
+        let session = LeoWindowSession(defaults: LeoInMemoryDefaults())
+        session.selectedAgent = { LeoAgentID(host: .local, name: "alpha") }
+        #expect(session.shownAgent?.name == "alpha")
+        session.terminals.selectInbox()
+        #expect(session.shownAgent == nil)
+    }
 }

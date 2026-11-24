@@ -55,6 +55,19 @@ enum LeoSidebarItemID: Hashable, Sendable {
         }
     }
 
+    /// Whether this window's content area shows the selected agent: not
+    /// while it shows one of its terminals or the Inbox, which leave the
+    /// agent selection intact. Everything that reads "the agent shown"
+    /// (toolbar, capsule, menus, view switch) goes through this.
+    static func showsSelectedAgent(terminals: LeoWindowTerminals) -> Bool {
+        terminals.selection == nil && !terminals.isInboxSelected
+    }
+
+    /// The agent row this window's content area shows, if any.
+    static func shownRow(model: LeoSidebarModel, terminals: LeoWindowTerminals) -> LeoAgentRow? {
+        showsSelectedAgent(terminals: terminals) ? model.actionableSelection : nil
+    }
+
     /// Return on the list: the same as clicking the selected row.
     static func activate(model: LeoSidebarModel, terminals: LeoWindowTerminals, from origin: LeoWindowID) {
         guard !terminals.isInboxSelected else { return }

@@ -745,7 +745,10 @@ import LeoKit
         session.selectionChanged(unreadCount: session.unreadCount)
         wireTerminals(session.terminals, window: sessionID)
         #if DEBUG
-        if LeoInboxFixture.loadFile() != nil { session.terminals.selectInbox() }
+        if let fixture = LeoInboxFixture.loadFile() {
+            fixture.installShownAgent(into: model)
+            session.terminals.selectInbox()
+        }
         #endif
         if let window = controller.window {
             let presentation = LeoPickerPresentation(

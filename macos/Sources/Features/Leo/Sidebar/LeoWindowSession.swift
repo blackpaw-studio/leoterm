@@ -363,8 +363,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     /// The agent this window's content area shows: the selected one, unless
-    /// a terminal row of this window is selected instead.
-    var shownAgent: LeoAgentID? { terminals.selection == nil ? selectedAgent() : nil }
+    /// a terminal row of this window or the Inbox is selected instead.
+    var shownAgent: LeoAgentID? { LeoSidebarSelection.showsSelectedAgent(terminals: terminals) ? selectedAgent() : nil }
 
     /// `agent` sent a message: show its chat here if this window shows
     /// its terminal. Never selects the agent or activates the app; keyboard

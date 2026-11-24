@@ -41,6 +41,9 @@ struct LeoInboxFixture: Decodable {
 
     let agents: [Agent]
     let selected: String?
+    /// Lists this agent in the sidebar and selects it app-wide, so the
+    /// toolbar has an agent to (wrongly) show while the Inbox is selected.
+    let shownAgent: String?
 
     static let environmentKey = "LEO_INBOX_FIXTURE"
 
@@ -71,6 +74,18 @@ struct LeoInboxFixture: Decodable {
         }
         inbox.installFixture(agents: agents, messages: messages, seen: seen)
         if let selected { inbox.select(agents.first { $0.name == selected }?.id) }
+    }
+
+    /// The generation outranks every live snapshot, so the feed's later
+    /// (failed-connection) ones can't replace the row.
+    @MainActor func installShownAgent(into model: LeoSidebarModel) {
+        guard let shownAgent else { return }
+        let row = LeoAgentRow(
+            host: .local, name: shownAgent, template: nil, status: .running, activity: .idle, actionDetail: nil,
+            workspace: "/tmp/\(shownAgent)", startedAt: "s"
+        )
+        model.receive(LeoSidebarSnapshot(rows: [row], connectivity: .connected, generation: .max), for: .local)
+        model.userSelected(row.id)
     }
 
     private static func messages(for ask: Agent.Ask, agent: String, at: Date) -> [LeoChatMessage] {
