@@ -94,6 +94,17 @@ Lane: B-439
   Reviewed-tip: none
   Dispatched: 2026-11-24T02:42:35Z
 
+Lane: B-438
+  Branch: autopilot-lane/B-438
+  Base: 4011ab001ea209a57f368aea2219ee889c0207fa
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T03:50:29Z
+
 Finished 1: B-437 landed edf4408a04be9f93246dcc6a9d797b1b03e1f0a1 · not visually verified
 Finished 2: B-324 landed b127fba37f1e77389dbefb41208c828647e377e5 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
 Inbox applied: B-443
