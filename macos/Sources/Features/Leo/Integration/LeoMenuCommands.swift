@@ -87,6 +87,16 @@ enum LeoMenuCommands {
         return (0..<position.count).contains(position.index + delta)
     }
 
+    /// View ▸ Dock Focused Pane Right / Below (B-439): enabled while Browser
+    /// or Files has focus, with the pane's edge now checked (choosing it
+    /// does nothing).
+    static func dockFocusedPaneItem(
+        _ edge: LeoDockEdge, focused: LeoDockPane?, layout: LeoPaneDockLayout
+    ) -> (isEnabled: Bool, isChecked: Bool) {
+        guard let focused else { return (false, false) }
+        return (true, layout.edge(of: focused) == edge)
+    }
+
     static func canTogglePin(_ context: AgentContext) -> Bool { context.hasLeoSession && context.availability != nil }
 
     static func canJumpToNextNeedingAttention(hasLeoSession: Bool, hasTarget: Bool) -> Bool { hasLeoSession && hasTarget }

@@ -422,6 +422,26 @@
                                     <action selector="showNextLeoChatImage:" target="-1" id="Leo-ChatImage-Next-Action"/>
                                 </connections>
                             </menuItem>
+                            <!-- MARK: Leo pane docks (B-439) -->
+                            <menuItem isSeparatorItem="YES" id="Leo-PaneDock-Separator"/>
+                            <menuItem title="Dock Focused Pane Right" id="Leo-PaneDock-Right">
+                                <string key="keyEquivalent" base64-UTF8="YES">
+75yD
+</string>
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="dockFocusedLeoPaneRight:" target="-1" id="Leo-PaneDock-Right-Action"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem title="Dock Focused Pane Below" id="Leo-PaneDock-Below">
+                                <string key="keyEquivalent" base64-UTF8="YES">
+75yB
+</string>
+                                <modifierMask key="keyEquivalentModifierMask" control="YES" option="YES" command="YES"/>
+                                <connections>
+                                    <action selector="dockFocusedLeoPaneBelow:" target="-1" id="Leo-PaneDock-Below-Action"/>
+                                </connections>
+                            </menuItem>
                             <!-- MARK: Leo subagent rows (B-331) -->
                             <menuItem isSeparatorItem="YES" id="Leo-Subagents-View-Separator"/>
                             <menuItem title="Hide Subagents" keyEquivalent="s" id="Leo-Subagents-Hide">
