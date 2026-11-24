@@ -3455,13 +3455,15 @@ Source: autopilot polish (B-384)
 Note: clearer confirmation before switching delegation profile on iOS; also move the preview wording and effort-level list into LeoKit (duplicated on iOS)
 Source: autopilot polish (B-299)
 
-## B-441 · on mac when a chat message has multiple images, in the full screen…   [ready]
+## B-441 · on mac when a chat message has multiple images, in the full screen…   [done]
 Issue: #411
 Type: bug
 Report: on mac when a chat message has multiple images, in the full screen view i should be able to use the arrow keys or buttons to cycle through them
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T005424260130Z-a6852666#1
+Done: be1b94b97 ce0441d3e ec7c8a71b (←/→, header chevrons and View ▸ Previous/Next Image step a message's images in the full-window viewer; bare-arrow tests failed before the fix; Mac suite 5054 pass). Decisions D-997..D-1000.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
 
 ## B-443 · we need a way to change the branch/tag for a plugin without having to…   [ready]
 Issue: #415

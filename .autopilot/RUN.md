@@ -52,7 +52,7 @@ Lane: B-441
   Branch: autopilot-lane/B-441
   Base: 06b47fbd7a14f3063ed1aa7d8ff97499b0e56904
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -62,6 +62,7 @@ Lane: B-441
   Call: Stepping stops at either end, no wrap (as in Preview) — principle 1
   Call: View ▸ Previous Image / Next Image added in this item, enabled exactly where the arrow keys step — principle 1
   Call: Mac only: iOS already pages a message's images (ChatImagePageController), so nothing moves to LeoKit — AGENTS.md parity rule
+  Tokens: 25M in (24.4M cache read), ≥113k out, 228 requests
 
 Lane: B-443
   Branch: autopilot-lane/B-443
@@ -77,3 +78,4 @@ Lane: B-443
 Finished 1: B-437 landed edf4408a04be9f93246dcc6a9d797b1b03e1f0a1 · not visually verified
 Finished 2: B-324 landed b127fba37f1e77389dbefb41208c828647e377e5 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
 Inbox applied: B-443
+Finished 3: B-441 landed 45a6e33e9dc43c681e3894e5fc647137ab398441 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
