@@ -19,6 +19,22 @@ public protocol LeoChatClient: Sendable {
     /// message, now expired, when the daemon returned it. Same errors as `answer`.
     func dismiss(agent: String, messageID: String) async throws -> LeoChatMessage?
     func markRead(agent: String, upTo messageID: String) async throws
+    /// Every open ask/permission row across agents, oldest first
+    /// (`GET /chat/asks?state=open`); nil from a daemon without the route.
+    func openAsks() async throws -> [LeoChatMessage]?
+    /// The shared per-agent "last seen" times (`GET /agents/seen`); nil from
+    /// a daemon without the route (marks stay local).
+    func seen() async throws -> [String: Date]?
+    /// Marks agents seen now (`PUT /agents/seen`); the daemon's times, empty
+    /// when it sent none, nil from a daemon without the route.
+    func markSeen(agents: [String]) async throws -> [String: Date]?
+}
+
+/// A client that predates the inbox routes behaves like an old daemon.
+extension LeoChatClient {
+    public func openAsks() async throws -> [LeoChatMessage]? { nil }
+    public func seen() async throws -> [String: Date]? { nil }
+    public func markSeen(agents: [String]) async throws -> [String: Date]? { nil }
 }
 
 /// One request/response round trip; a status is a response, only failing
@@ -140,7 +156,28 @@ public struct LeoChatHTTPClient: LeoChatClient {
         try LeoDaemonEnvelope<LeoChatIgnored>.decode(response.body).expectOK()
     }
 
+    public func openAsks() async throws -> [LeoChatMessage]? {
+        guard let response = try await optional("GET", "\(Self.root)/asks?state=open") else { return nil }
+        return try LeoDaemonEnvelope<LeoOpenAsksPayload>.decode(response.body).value().messages
+    }
+
+    public func seen() async throws -> [String: Date]? {
+        guard let response = try await optional("GET", Self.seenPath) else { return nil }
+        return try LeoDaemonEnvelope<LeoSeenPayload>.decode(response.body).value().marks
+    }
+
+    public func markSeen(agents: [String]) async throws -> [String: Date]? {
+        guard !agents.isEmpty else { return [:] }
+        let body = try JSONEncoder().encode(["agents": agents])
+        guard let response = try await optional("PUT", Self.seenPath, body: body) else { return nil }
+        let envelope = try LeoDaemonEnvelope<LeoSeenPayload>.decode(response.body)
+        try envelope.expectOK()
+        return envelope.data?.marks ?? [:]
+    }
+
     // MARK: Routes
+
+    static let seenPath = "/api/v1/agents/seen"
 
     static func agentPath(_ agent: String, _ suffix: String) throws -> String {
         "\(root)/\(try LeoSocketDaemonClient.pathSegment(agent))/\(suffix)"
@@ -199,6 +236,13 @@ public struct LeoChatHTTPClient: LeoChatClient {
         return try Self.checked(try await transport.send(LeoHTTPRequest(method: method, path: path, body: body), timeout: timeout))
     }
 
+    /// Like `request`, but a 404 (a daemon without the route) is nil.
+    private func optional(_ method: String, _ path: String, body: Data? = nil) async throws -> LeoHTTPResponse? {
+        let timeout = method == "GET" ? defaultTimeout : mutationTimeout
+        let response = try await transport.send(LeoHTTPRequest(method: method, path: path, body: body), timeout: timeout)
+        return response.status == 404 ? nil : try Self.checked(response)
+    }
+
     private func value<T: Decodable & Sendable>(_ response: LeoHTTPResponse) throws -> T {
         try LeoDaemonEnvelope<T>.decode(response.body).value()
     }
@@ -213,6 +257,59 @@ public struct LeoChatHTTPClient: LeoChatClient {
             message: envelope?.error ?? "HTTP \(response.status)",
             matches: envelope?.matches ?? []
         )
+    }
+}
+
+/// `GET /chat/asks`: the messages as `{asks}` / `{messages}` or a bare array.
+struct LeoOpenAsksPayload: Decodable, Sendable {
+    let messages: [LeoChatMessage]
+
+    init(from decoder: any Decoder) throws {
+        enum Keys: String, CodingKey { case asks, messages }
+        if let bare = try? decoder.singleValueContainer().decode(LeoLenientArray<LeoChatMessage>.self) {
+            messages = bare.elements
+            return
+        }
+        let container = try decoder.container(keyedBy: Keys.self)
+        let lenient = try container.decodeIfPresent(LeoLenientArray<LeoChatMessage>.self, forKey: .asks)
+            ?? container.decode(LeoLenientArray<LeoChatMessage>.self, forKey: .messages)
+        messages = lenient.elements
+    }
+}
+
+/// `GET`/`PUT /agents/seen`: `{agents|seen}` holding `[{agent, seen_at}]` or
+/// `{name: seen_at}`. Unreadable entries are dropped.
+struct LeoSeenPayload: Decodable, Sendable {
+    let marks: [String: Date]
+
+    private struct Row: Decodable {
+        let agent: String
+        let seenAt: LeoChatTimestamp
+        enum CodingKeys: String, CodingKey { case agent; case seenAt = "seen_at" }
+    }
+
+    private struct Rows: Decodable {
+        let marks: [String: Date]
+
+        init(from decoder: any Decoder) throws {
+            if let rows = try? decoder.singleValueContainer().decode(LeoLenientArray<Row>.self) {
+                marks = rows.elements.reduce(into: [:]) { $0[$1.agent] = $1.seenAt.date }
+                return
+            }
+            let map = try decoder.singleValueContainer().decode([String: LeoChatTimestamp?].self)
+            marks = map.reduce(into: [:]) { result, pair in
+                if let stamp = pair.value { result[pair.key] = stamp.date }
+            }
+        }
+    }
+
+    init(from decoder: any Decoder) throws {
+        enum Keys: String, CodingKey { case agents, seen }
+        guard let container = try? decoder.container(keyedBy: Keys.self) else {
+            marks = try Rows(from: decoder).marks
+            return
+        }
+        marks = try (container.decodeIfPresent(Rows.self, forKey: .agents) ?? container.decodeIfPresent(Rows.self, forKey: .seen))?.marks ?? [:]
     }
 }
 
