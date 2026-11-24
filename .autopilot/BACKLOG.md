@@ -3496,6 +3496,7 @@ Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005227812070Z-030f6ea1#1
 Done: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153 (Browser and Files each dock right or below, app-wide, kept across relaunch; View ▸ Dock Focused Pane Right/Below ⌃⌥⌘→/⌃⌥⌘↓ and tab right-click menu; 200 pt dock minimum; full suite 5126 pass; 1 fix round + 1 re-verify). Decisions D-1015..D-1023.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
+Reviewed: accepted 2026-11-24 — cca402d84635
 
 ## B-438 · Reorder sidebar sections, including plugin sections   [done]
 Issue: #414
