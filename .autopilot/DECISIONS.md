@@ -2157,3 +2157,9 @@ Chose: close
 Why: the owner's answer
 Commit:
 Veto: n/a (owner)
+
+## D-993 · 2026-11-23 · B-437: iOS only (the Mac app has no notch or side safe area)
+Chose: iOS only (the Mac app has no notch or side safe area)
+Why: Mac/iOS parity rule; consistent with D-989
+Commit: c32801b6c
+Veto: [ ]
