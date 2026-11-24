@@ -24,7 +24,7 @@ Lane: B-439
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-11-24T02:42:35Z
+  Dispatched: 2026-11-24T11:59:23Z
 
 Lane: B-438
   Branch: autopilot-lane/B-438
@@ -35,6 +35,7 @@ Lane: B-438
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
-  Dispatched: 2026-11-24T03:50:29Z
+  Dispatched: 2026-11-24T11:59:23Z
 
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
+Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
