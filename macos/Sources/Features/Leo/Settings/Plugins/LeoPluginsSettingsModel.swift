@@ -31,7 +31,7 @@ protocol LeoPluginInstalling: Sendable {
 extension LeoPluginInstallFlow: LeoPluginInstalling {}
 
 protocol LeoPluginUpdating: Sendable {
-    func check(id: String) async throws -> LeoPluginUpdateOutcome
+    func check(id: String, ref: String?) async throws -> LeoPluginUpdateOutcome
     func approve(_ pending: LeoPluginPendingUpdate) throws
     func discard(_ pending: LeoPluginPendingUpdate)
 }
@@ -55,6 +55,8 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
     @Published private(set) var isBusy = false
     @Published private(set) var pendingUninstall: LeoPluginRow?
     @Published var isAskingInstallSource = false
+    /// The plugin whose branch or tag the person is changing (the sheet is up).
+    @Published private(set) var pendingRefChange: LeoPluginRow?
 
     private let manager: any LeoPluginsManaging
     private let installer: any LeoPluginInstalling
@@ -168,19 +170,9 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         await run {
             var updated: [String] = []
             var failures: [String] = []
-            for row in rows where !row.isBundled && !row.isDev {
+            for row in rows where row.canChangeRef {
                 do {
-                    switch try await updater.check(id: row.id) {
-                    case .upToDate: break
-                    case .updated: updated.append(row.id)
-                    case .needsApproval(let pending):
-                        if await approve(pending.request) {
-                            try updater.approve(pending)
-                            updated.append(row.id)
-                        } else {
-                            updater.discard(pending)
-                        }
-                    }
+                    if try await update(row.id, ref: nil) { updated.append(row.id) }
                 } catch {
                     failures.append("\(row.name): \(error.localizedDescription)")
                 }
@@ -194,6 +186,30 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         }
     }
 
+    // MARK: Change branch or tag
+
+    func requestRefChange(_ id: String) {
+        pendingRefChange = rows.first { $0.id == id && $0.canChangeRef }
+    }
+
+    func cancelRefChange() { pendingRefChange = nil }
+
+    /// Points a git plugin at another branch or tag, in place: same approval
+    /// flow as an update, and the old ref stays until the new one is applied.
+    func changeRef(_ id: String, to ref: String) async {
+        pendingRefChange = nil
+        guard let row = rows.first(where: { $0.id == id && $0.canChangeRef }) else { return }
+        await run {
+            do {
+                let didMove = try await update(id, ref: ref)
+                if didMove { manager.reload(restarting: [id]) }
+                message = .notice("“\(row.name)” now follows \(LeoPluginRow.refText(ref)).")
+            } catch {
+                fail(error)
+            }
+        }
+    }
+
     // MARK: Private
 
     /// Runs one long action with the buttons held and the last message cleared.
@@ -203,6 +219,21 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         message = nil
         await body()
         isBusy = false
+    }
+
+    /// One plugin's check, with the approval sheet when it asks for more. True if a new commit was applied.
+    private func update(_ id: String, ref: String?) async throws -> Bool {
+        switch try await updater.check(id: id, ref: ref) {
+        case .upToDate: return false
+        case .updated: return true
+        case .needsApproval(let pending):
+            guard await approve(pending.request) else {
+                updater.discard(pending)
+                return false
+            }
+            try updater.approve(pending)
+            return true
+        }
     }
 
     private func attempt(_ body: () throws -> Void) {

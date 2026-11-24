@@ -21,6 +21,10 @@ struct LeoPluginRow: Equatable, Identifiable {
     let version: String
     /// First seven characters of the pinned commit; nil for bundled and dev plugins.
     let shortSHA: String?
+    /// The branch or tag a git plugin follows ("Default branch" when none was given); nil for bundled and dev plugins.
+    let refText: String?
+    /// The stored ref as typed (empty for the default branch); nil for bundled and dev plugins.
+    let ref: String?
     /// "Built in", "github.com/owner/repo", or the dev folder's path.
     let sourceText: String
     let isDev: Bool
@@ -39,6 +43,8 @@ struct LeoPluginRow: Equatable, Identifiable {
     }
 
     var canUninstall: Bool { !isBundled }
+    /// Only git installs follow a branch or tag.
+    var canChangeRef: Bool { !isBundled && !isDev }
 
     private var needsApproval: Bool {
         if case .needsApproval = status { true } else { false }
@@ -65,16 +71,22 @@ struct LeoPluginRow: Equatable, Identifiable {
         switch info.source {
         case .bundled:
             shortSHA = nil
+            ref = nil
+            refText = nil
             sourceText = "Built in"
             isDev = false
             isBundled = true
-        case .git(let url, _, let sha):
+        case .git(let url, let storedRef, let sha):
+            ref = storedRef == Self.defaultRef ? "" : storedRef
+            refText = Self.refText(storedRef)
             shortSHA = String(sha.prefix(Self.shortSHALength))
             sourceText = Self.displayURL(url)
             isDev = false
             isBundled = false
         case .dev(let path):
             shortSHA = nil
+            ref = nil
+            refText = nil
             sourceText = (path as NSString).abbreviatingWithTildeInPath
             isDev = true
             isBundled = false
@@ -85,6 +97,13 @@ struct LeoPluginRow: Equatable, Identifiable {
     // MARK: Private
 
     private static let shortSHALength = 7
+    private static let defaultRef = "HEAD"
+
+    /// A ref for people: the installer stores an empty ref as `HEAD`.
+    static func refText(_ ref: String) -> String {
+        let name = ref.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty || name == defaultRef ? "the default branch" : "“\(name)”"
+    }
 
     private static func status(of info: LeoPluginInfo) -> Status {
         switch info.state {
