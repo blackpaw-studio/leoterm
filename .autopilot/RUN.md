@@ -40,4 +40,15 @@ Lane: B-437
 
   Call: iOS only (the Mac app has no notch or side safe area) — Mac/iOS parity rule; consistent with D-989
 
+Lane: B-441
+  Branch: autopilot-lane/B-441
+  Base: 06b47fbd7a14f3063ed1aa7d8ff97499b0e56904
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T01:16:36Z
+
 Finished 1: B-437 landed edf4408a04be9f93246dcc6a9d797b1b03e1f0a1 · not visually verified
