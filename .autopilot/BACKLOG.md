@@ -3507,12 +3507,14 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-324)
 
 ## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready (next run)]
+Issue: #417
 Type: bug
 Report: Escape doesn't close the full-window image viewer while caps lock is on — Escape closes the viewer on a plain press, so with caps lock on the key looks dead (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
 
 ## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready (next run)]
+Issue: #418
 Type: bug
 Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.

@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-11-24T00:56:31Z
 Budget: 20 items, until 2026-11-24T12:56:31Z
 Digested-through: 0
@@ -111,3 +111,4 @@ Inbox applied: B-443
 Finished 3: B-441 landed 45a6e33e9dc43c681e3894e5fc647137ab398441 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
 Progress: B-439 built before B-440 (B-440 drag-to-dock depends on B-439 docking)
 Finished 4: B-443 landed 0809800ef115cc078abbf2ee18312a186bca7331 · not visually verified
+Progress: early stop 2026-11-24T05:30Z — disk full (ENOSPC) on Dionysus; leo daemon dropped; B-438 and B-439 runners reported Error; nested implementers cancelled; both lanes clean with commits, left building for next run; verify lock (B-439) released; orphaned B-439 test host stopped
