@@ -31,13 +31,15 @@ struct LeoInboxModelTests {
     }
 
     private func agent(
-        _ id: LeoAgentID = Self.alpha, state: LeoAttentionState = .working, revision: Int = 1, preview: String? = nil, at seconds: Int? = nil
+        _ id: LeoAgentID = Self.alpha, state: LeoAttentionState = .working, revision: Int = 1, preview: String? = nil, at seconds: Int? = nil,
+        bootID: String? = nil
     ) -> LeoInboxAgent {
         LeoInboxAgent(
             id: id, name: id.name, machine: id.host.displayName,
             signal: LeoAttentionSignal(
                 state: state, revision: revision, preview: preview, at: seconds.map { Date(timeIntervalSince1970: TimeInterval($0)) }
-            )
+            ),
+            bootID: bootID
         )
     }
 
@@ -218,5 +220,17 @@ struct LeoInboxModelTests {
         #expect(model.inbox.finished.first?.isUnread == true)
         model.select(Self.alpha)
         #expect(model.inbox.finished.first?.isUnread == false)
+    }
+
+    @Test func aDaemonRestartReflagsAFinishedItemSeenUnderTheOldBootOnADaemonWithoutTheSeenRoute() async {
+        await client.setSeen(nil)
+        let model = make()
+        model.updateAgents([agent(state: .finished, revision: 3, at: 1000, bootID: "boot-a")])
+        await model.seed(host: .local)
+        model.agentOpened(Self.alpha)
+        #expect(model.inbox.finished.map(\.isUnread) == [false])
+        // Revisions restart with the daemon: the same number is a new event.
+        model.updateAgents([agent(state: .finished, revision: 3, at: 1000, bootID: "boot-b")])
+        #expect(model.inbox.finished.map(\.isUnread) == [true])
     }
 }

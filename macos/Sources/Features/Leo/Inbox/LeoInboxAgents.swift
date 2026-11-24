@@ -9,7 +9,7 @@ enum LeoInboxAgents {
             snapshot.rows.filter { $0.movedTo == nil }.map { row in
                 LeoInboxAgent(
                     id: row.id, name: row.displayName, machine: machineName(host), project: project(of: row),
-                    signal: row.attentionSignal, isStale: snapshot.connectivity.isOffline
+                    signal: row.attentionSignal, bootID: row.attentionBootID, isStale: snapshot.connectivity.isOffline
                 )
             }
         }
