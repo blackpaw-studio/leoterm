@@ -1,4 +1,4 @@
-Status: running
+Status: finished
 Started: 2026-11-24T11:58:07Z
 Budget: 20 items, until 2026-11-24T23:58:07Z
 Digested-through: 5
@@ -130,9 +130,9 @@ Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aim
 Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
 Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge panes sit side by side, not as tabs (unchecked against Accept) — flag for review; verify.md launch flag -ApplePersistenceIgnoreState shows a Configuration Errors dialog
 Progress: B-440 landed 96e9bfa7f; mid-drag Dock Below zone and live Escape cancel not visually verified; a single-file Files row has no tab strip so can't be dragged (menu/shortcut still work); implementer's mis-aimed drags put terminal text on Dionysus's clipboard (no keys typed into any agent)
-Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
+Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-12.png
 Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
-Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
+Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-1.png
 Finished 4: B-444 landed 315518028 · not visually verified
 Finished 5: B-445 blocked
 Finished 6: B-440 landed 96e9bfa7f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-440-6-zone.png

@@ -1192,3 +1192,37 @@ Spend (estimated, lower bound · prices 2026-10-09): ≈$21.06 est. — B-437 �
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-24T11:58:07Z
+
+🛠 leoterm autopilot — 2 fixed, 3 shipped, 1 blocked
+Fixed
+• B-442 Moved agent's header pill reads "Moved to <host>"; composer refuses send naming the host, no Start/Idle (verified: screenshot) · light
+• B-444 Escape closes the full-window image viewer with caps lock on (not visually verified — no recipe for a synthetic caps-lock key; failing test first) · light
+Shipped
+• B-438 Reorder sidebar sections by header drag or Move Up/Down, kept across relaunch (verified: screenshot) · full
+• B-439 Dock Browser and Files right or below, ⌃⌥⌘→/↓ and tab menu, 200 pt minimum (verified: screenshot) · full
+• B-440 Drag a Browser or Files tab onto a Dock Right/Below zone (verified: screenshot) · full
+• B-442 built before B-440 (B-440 depended on open lane B-439)
+Calls I made — reply "veto D-0xx" to undo
+• D-1008..1014 B-438 section reorder · D-1015..1023 B-439 docking · D-1024..1027 B-442 moved state · D-1028 B-444 Mac only · D-1029..1033 B-440 drag-to-dock
+Needs you — reply "B-0xx: <answer>", or "accept picks leoterm"
+• B-445 couldn't reproduce the right-click miss (likely the B-441 verifier clicked stale coordinates). I'd pick close. Shelved on autopilot-shelved/B-445 (no commits).
+• Review B-439: verifier saw same-edge panes side by side, not as tabs ("tabs as they are today" in Accept) — unchecked.
+• Verifiers: B-438's mis-aimed right-click opened real agent timehop's row menu (Escape, nothing chosen); B-440's mis-aimed drags put terminal text on Dionysus's clipboard (no keys sent to agents).
+• verify.md launch flag -ApplePersistenceIgnoreState YES shows a "Configuration Errors" dialog in this build.
+• Lanes left in place: B-233, B-332 (no block), B-058 (held), B-368 and B-439 landed but dirty (untracked profraw).
+Self-filed
+• B-447 bug (from B-438) — Flaky focus tests in LeoRowSplitIntoShellTests
+• B-453 bug (from B-442) — Composer placeholder says Start on a restoring agent
+• B-454 bug (from B-444) — Escape doesn't dismiss the progress overlay with caps lock on
+• B-448 idea (B-438) — plugin section at top reads as part of Agents · B-449/450/451 ideas (B-439) — Files closed after relaunch; second file squeezes terminal; outline ~20 pt narrower after zoom · B-452 idea (B-442) — iOS Idle on moved agent · B-455 idea (B-444, bug over cap) — handoff banner Escape with caps lock
+• dropped — terminfo drop (dup of B-303); stopped pill reads Idle (dup of B-372)
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-237 Terminal upload errors truncate · B-276 Terminals section scroll · B-277 Dispatch viewer location · B-280 Dropped file mode · +41 more
+Next up: B-447, B-453, B-454 (next run)
+Spend (estimated, lower bound · prices 2026-10-09): ≈$56.33 est. — B-438 ≈$19.13, B-439 ≈$19.44, B-440 ≈$11.12, B-442 ≈$4.18, B-444 ≈$1.75, B-445 ≈$0.73
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
