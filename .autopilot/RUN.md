@@ -30,9 +30,11 @@ Lane: B-437
   Branch: autopilot-lane/B-437
   Base: 785cf8d787f0446d2fa3200b902d16160ec883d9
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6b1e9792a69e1a2edc7af425f3bc49dc5a753427
   Dispatched: 2026-11-24T00:59:01Z
+
+  Call: iOS only (the Mac app has no notch or side safe area) — Mac/iOS parity rule; consistent with D-989
