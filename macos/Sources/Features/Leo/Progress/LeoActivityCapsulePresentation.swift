@@ -21,9 +21,17 @@ struct LeoActivityCapsulePresentation: Equatable {
     /// What the capsule says when the agent has no task.
     enum AgentState: Equatable {
         case working, idle, needsYou, errored
+        /// B-442: the agent lives on another host (its name); the daemon
+        /// reports it stopped, never idle, so the capsule doesn't say Idle.
+        case moved(String)
 
-        /// Needs-you and an error outrank working, as in the sidebar row.
-        init(attention: LeoAttentionBadge?, isWorking: Bool) {
+        /// Needs-you and an error outrank working, as in the sidebar row; a
+        /// moved agent outranks all of them (it can't be running here).
+        init(attention: LeoAttentionBadge?, isWorking: Bool, movedTo: String? = nil) {
+            if let movedTo {
+                self = .moved(movedTo)
+                return
+            }
             switch attention {
             case .needsInput: self = .needsYou
             case .errored: self = .errored
@@ -38,6 +46,7 @@ struct LeoActivityCapsulePresentation: Equatable {
             case .idle: "Idle"
             case .needsYou: "Needs you"
             case .errored: "Errored"
+            case .moved(let host): "Moved to \(host)"
             }
         }
     }

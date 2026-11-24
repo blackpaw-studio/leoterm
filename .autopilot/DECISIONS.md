@@ -2343,3 +2343,33 @@ Chose: With Files alone on the right, the outline takes the 200 pt dock minimum 
 Why: P1
 Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
 Veto: [ ]
+
+## D-1024 · 2026-11-24 · B-442: Header pill reads "Moved to <host>" for a moved agent,…
+Chose: Header pill reads "Moved to <host>" for a moved agent, outranking other states
+Why: VISION 2
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1025 · 2026-11-24 · B-442: Composer stays editable on a moved agent; send is refused…
+Chose: Composer stays editable on a moved agent; send is refused with a notice naming the host, no Start wording
+Why: VISION 2
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1026 · 2026-11-24 · B-442: Mac only: the Mac composer and capsule views change, and…
+Chose: Mac only: the Mac composer and capsule views change, and LeoChatSendGate lives in the app target, not LeoKit
+Why: Mac/iOS parity rule
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1027 · 2026-11-24 · B-442: Moved state takes priority over every status in the…
+Chose: Moved state takes priority over every status in the composer, send gate and header pill
+Why: VISION 2 (consistent with D-995 and D-996)
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1028 · 2026-11-24 · B-444: Mac only; iOS has a separate viewer with no Escape key path
+Chose: Mac only; iOS has a separate viewer with no Escape key path, so nothing moves to LeoKit
+Why: principle 1
+Commit: 4683730be
+Veto: [ ]

@@ -561,4 +561,21 @@ import Testing
     func refusalFollowsStatus(status: LeoAgentStatus, expected: String?) {
         #expect(LeoChatSendGate.refusal(for: status, agentName: "alpha") == expected)
     }
+
+    /// B-442: a moved agent lives on another host; the composer must not say
+    /// "Start" (the daemon refuses it), and a send says where it went instead.
+    @Test(arguments: [LeoAgentStatus.running, .starting, .stopped, .restoring, .unknown("x")])
+    func aMovedAgentRefusesWithWhereItWent(status: LeoAgentStatus) throws {
+        let refusal = try #require(LeoChatSendGate.refusal(for: status, agentName: "alpha", movedTo: "nas"))
+
+        #expect(refusal.contains("nas"))
+        #expect(!refusal.localizedCaseInsensitiveContains("start"))
+    }
+
+    @Test func theComposerPlaceholderOffersStartOnlyForAnAgentThatCanBeStarted() {
+        #expect(LeoChatSendGate.placeholder(for: .running, agentName: "alpha", movedTo: nil) == "Message alpha")
+        #expect(LeoChatSendGate.placeholder(for: .stopped, agentName: "alpha", movedTo: nil) == "Start alpha to send a message")
+        #expect(LeoChatSendGate.placeholder(for: .stopped, agentName: "alpha", movedTo: "nas") == "alpha moved to nas")
+        #expect(LeoChatSendGate.sendHelp(for: .stopped, agentName: "alpha", movedTo: "nas") == "alpha moved to nas")
+    }
 }

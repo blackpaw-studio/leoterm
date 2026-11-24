@@ -3503,32 +3503,50 @@ Inbox: 20261123T235734756623Z-26910159#1
 Done: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925 (sidebar sections reorder by header drag or Move Up/Down, order app-wide and kept across relaunch; new plugin sections land at the bottom; full suite 5091 pass; 1 fix round). Decisions D-1008..D-1014.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 
-## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready]
+## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [done]
 Issue: #416
 Type: bug
 Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-324)
+Done: ee6f67417 (a moved agent's header pill reads "Moved to <host>" and the composer refuses send naming the host, no Start or Idle; Mac only; suite 5129 pass). Decisions D-1024..D-1027.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
 
-## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [ready]
+## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [done]
 Issue: #417
 Type: bug
 Report: Escape doesn't close the full-window image viewer while caps lock is on — Escape closes the viewer on a plain press, so with caps lock on the key looks dead (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
+Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real chord on Escape still doesn't; failing test first; suite 5131 pass). Decision D-1028.
+Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
 
-## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready]
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [blocked]
 Issue: #418
 Type: bug
 Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
+Question: couldn't reproduce — the implementer traced send → LeoChatScrollPin (re-pins only within 40 pt of the bottom; tests cover it) → the image right-click (LeoChatAttachmentDragView.hitTest passes right-clicks to the SwiftUI .contextMenu, independent of scroll) and found no app defect; likely the B-441 verifier clicked stale screenshot coordinates after the stub reply scrolled. Reply "B-445: close" to close it, or "B-445: <more detail>" to retry. I'd pick close. Work kept on autopilot-shelved/B-445.
+Answer:
 
 ## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
 Type: bug
 Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
+
+## B-453 · Composer placeholder says Start on a restoring agent   [ready (next run)]
+Type: bug
+Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-442)
+
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready (next run)]
+Type: bug
+Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-444)
 
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
@@ -3549,3 +3567,11 @@ Source: autopilot polish (B-439)
 ## B-451 · Outline comes back ~20 pt narrower after a window zoom or tile jump   [idea]
 Note: the widening-back restore after a zoom or tile jump gives width back only to the editor — P1: layout should return to where it was
 Source: autopilot polish (B-439)
+
+## B-452 · iOS may show Idle for a moved agent too   [idea]
+Note: check ChatThreadTitleView.swift:80 and AgentPresentation.swift:17 for the Idle-on-moved case B-442 fixed on Mac; file a bug if iOS can show a moved agent — Mac/iOS parity
+Source: autopilot polish (B-442)
+
+## B-455 · Escape doesn't dismiss the agent-browser handoff banner with caps lock on   [idea]
+Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed (principle 1); a bug past the 3-bug cap
+Source: autopilot bug (B-444)
