@@ -40,6 +40,12 @@ public protocol LeoDaemonClient: LeoMoveJobClient {
     /// The daemon's JSON config API (`config_api`), when this client can
     /// reach it. Nil for a client with no such route.
     func configClient() -> (any LeoConfigClient)?
+    /// Acting as an account on this daemon's machine (socket-only routes; the
+    /// token never leaves that machine). Errors the daemon names come back
+    /// as `LeoCredentialRemoteError`; a daemon without the routes answers 404.
+    func credentialAccounts(kind: LeoPluginCredentialKind?) async throws -> [LeoCredentialAccount]
+    func credentialCheck(kind: LeoPluginCredentialKind, dir: String) async throws
+    func credentialFetch(_ request: LeoCredentialFetchRequest) async throws -> LeoCredentialFetchReply
 }
 
 /// B-324 (`agent_move`): start a move or copy of `name`; the daemon runs it as
@@ -70,6 +76,9 @@ extension LeoDaemonClient {
     public func setEnvironments(_ name: String, names: [String]) async throws { throw LeoDaemonError.transport("Environments are unavailable") }
     public func machineStats() async throws -> LeoMachineStats { throw LeoDaemonError.transport("Machine stats are unavailable") }
     public func configClient() -> (any LeoConfigClient)? { nil }
+    public func credentialAccounts(kind: LeoPluginCredentialKind?) async throws -> [LeoCredentialAccount] { throw LeoDaemonError.transport("Remote accounts are unavailable") }
+    public func credentialCheck(kind: LeoPluginCredentialKind, dir: String) async throws { throw LeoDaemonError.transport("Remote accounts are unavailable") }
+    public func credentialFetch(_ request: LeoCredentialFetchRequest) async throws -> LeoCredentialFetchReply { throw LeoDaemonError.transport("Remote accounts are unavailable") }
     public func startMove(_ name: String, _ request: LeoMoveRequest) async throws -> LeoMoveJob { throw LeoDaemonError.transport("Agent moves are unavailable") }
     public func moveJob(id: String) async throws -> LeoMoveJob { throw LeoDaemonError.transport("Agent moves are unavailable") }
 
@@ -182,6 +191,24 @@ public struct LeoSocketDaemonClient: LeoDaemonClient {
 
     public func templates() async throws -> [LeoTemplate] { try await value("GET", "/templates") }
     public func machineStats() async throws -> LeoMachineStats { try await value("GET", "/machine") }
+    /// The upstream request may take 30 s on the daemon, so this outlasts it.
+    public static let credentialFetchTimeout: TimeInterval = 35
+
+    public func credentialAccounts(kind: LeoPluginCredentialKind?) async throws -> [LeoCredentialAccount] {
+        let query = kind.map { "?kind=\($0.rawValue)" } ?? ""
+        return try LeoCredentialWire.accounts(try await checked("GET", "/credentials/accounts" + query).body)
+    }
+
+    public func credentialCheck(kind: LeoPluginCredentialKind, dir: String) async throws {
+        let body = try LeoCredentialWire.checkBody(kind: kind, dir: dir)
+        try LeoCredentialWire.check(try await checked("POST", "/credentials/check", body: body, timeout: mutationTimeout).body)
+    }
+
+    public func credentialFetch(_ request: LeoCredentialFetchRequest) async throws -> LeoCredentialFetchReply {
+        let response = try await checked("POST", "/credentials/fetch", body: try request.wireBody(), timeout: Self.credentialFetchTimeout)
+        return try LeoCredentialWire.fetch(response.body)
+    }
+
     public func configClient() -> (any LeoConfigClient)? {
         LeoConfigHTTPClient(
             prefix: LeoConfigHTTPClient.socketPrefix,
