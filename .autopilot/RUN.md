@@ -14,3 +14,25 @@ Lane: B-058
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
+
+Lane: B-324
+  Branch: autopilot-lane/B-324
+  Base: 785cf8d787f0446d2fa3200b902d16160ec883d9
+  Tier: full
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T00:59:01Z
+
+Lane: B-437
+  Branch: autopilot-lane/B-437
+  Base: 785cf8d787f0446d2fa3200b902d16160ec883d9
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T00:59:01Z
