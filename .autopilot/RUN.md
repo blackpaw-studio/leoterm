@@ -58,3 +58,4 @@ Lane: B-441
 
 Finished 1: B-437 landed edf4408a04be9f93246dcc6a9d797b1b03e1f0a1 · not visually verified
 Finished 2: B-324 landed b127fba37f1e77389dbefb41208c828647e377e5 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
+Inbox applied: B-443

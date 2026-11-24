@@ -3464,6 +3464,7 @@ Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T005424260130Z-a6852666#1
 
 ## B-443 · we need a way to change the branch/tag for a plugin without having to…   [ready]
+Issue: #415
 Type: bug
 Report: we need a way to change the branch/tag for a plugin without having to reinstall it
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3495,6 +3496,7 @@ Source: owner (/feature, 2026-11-23)
 Inbox: 20261123T235734756623Z-26910159#1
 
 ## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready (next run)]
+Issue: #416
 Type: bug
 Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
