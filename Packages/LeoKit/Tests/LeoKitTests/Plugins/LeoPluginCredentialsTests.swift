@@ -83,7 +83,9 @@ struct LeoPluginCredentialsTests {
         keychain.answer("Claude Code-credentials-4d74f2ae", .success(claudeJSON()))
         let credential = try credentials(keychain: keychain).resolve(grant(.claudeCode, "/Users/evan/.claude-blackpaw-leo"), allowUI: false)
         #expect(credential.boundHost == "api.anthropic.com")
-        #expect(credential.headers == ["Authorization": "Bearer \(token)", "anthropic-beta": "oauth-2025-04-20"])
+        #expect(credential.headers == [
+            "Authorization": "Bearer \(token)", "anthropic-beta": "oauth-2025-04-20", "User-Agent": "claude-cli/2.1.0 (external, cli)",
+        ])
         #expect(keychain.reads == [.init(service: "Claude Code-credentials-4d74f2ae", account: "evan", allowUI: false)])
     }
 
@@ -134,6 +136,7 @@ struct LeoPluginCredentialsTests {
         let credential = try credentials(keychain: keychain, files: files).resolve(grant(.codex, "/Users/evan/.codex"), allowUI: false)
         #expect(credential.boundHost == "chatgpt.com")
         #expect(credential.headers == ["Authorization": "Bearer codex-token", "ChatGPT-Account-Id": "acct-123"])
+        #expect(credential.headers["User-Agent"] == nil)
         #expect(keychain.reads.isEmpty)
     }
 

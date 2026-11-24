@@ -304,7 +304,7 @@ struct LeoPluginFetcherTests {
 private let boundToken = "sk-bound-SECRET"
 
 private func boundCredential(_ host: String) -> LeoPluginFetchCredential {
-    LeoPluginFetchCredential(boundHost: host, headers: ["Authorization": "Bearer \(boundToken)", "anthropic-beta": "oauth-2025-04-20"])
+    LeoPluginFetchCredential(boundHost: host, headers: ["Authorization": "Bearer \(boundToken)", "anthropic-beta": "oauth-2025-04-20", "User-Agent": "claude-cli/2.1.0 (external, cli)"])
 }
 
 private func bound(_ host: String) -> LeoPluginFetchCredentialSource { .resolved(boundCredential(host)) }
@@ -367,7 +367,7 @@ extension LeoPluginFetcherTests {
         #expect(hop.value(forHTTPHeaderField: "Authorization") == "Bearer \(boundToken)")
     }
 
-    @Test(arguments: ["Authorization", "authorization", "ChatGPT-Account-Id", "ANTHROPIC-BETA"])
+    @Test(arguments: ["Authorization", "authorization", "ChatGPT-Account-Id", "ANTHROPIC-BETA", "User-Agent", "user-agent"])
     func aPluginHeaderThatCollidesWithACredentialIsRejected(_ name: String) async throws {
         PluginFetchStubProtocol.serve("https://c6.example.com/x", text("ok"))
         await #expect(throws: LeoPluginFetchError.credentialHeaderConflict(name: name)) {

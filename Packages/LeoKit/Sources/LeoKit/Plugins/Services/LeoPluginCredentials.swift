@@ -51,6 +51,9 @@ public struct LeoPluginCredentials: Sendable {
     public static let maxFileBytes = 64 * 1024
     static let claudeService = "Claude Code-credentials"
     static let anthropicBeta = "oauth-2025-04-20"
+    /// Claude Code's own identity (the one CodexBar sends). Anthropic's usage
+    /// endpoint rate-limits clients that don't look like it.
+    static let claudeCodeUserAgent = "claude-cli/2.1.0 (external, cli)"
 
     private let keychain: any LeoPluginCredentialKeychain
     private let files: any LeoPluginCredentialFileReading
@@ -83,7 +86,9 @@ public struct LeoPluginCredentials: Sendable {
             let token = try claudeToken(configDir: grant.path, allowUI: allowUI)
             return LeoPluginFetchCredential(
                 boundHost: grant.kind.boundHost,
-                headers: ["Authorization": "Bearer \(token)", "anthropic-beta": Self.anthropicBeta])
+                headers: [
+                    "Authorization": "Bearer \(token)", "anthropic-beta": Self.anthropicBeta, "User-Agent": Self.claudeCodeUserAgent,
+                ])
         case .codex:
             let auth = try codexAuth(home: grant.path)
             var headers = ["Authorization": "Bearer \(auth.token)"]
