@@ -51,6 +51,15 @@ struct LeoActivityCapsulePresentationTests {
         #expect(State(attention: nil, isWorking: false).text == "Idle")
     }
 
+    /// B-442: the daemon reports a moved agent as stopped, never idle (VISION 2).
+    @Test func aMovedAgentShowsWhereItWentNotIdle() {
+        typealias State = LeoActivityCapsulePresentation.AgentState
+        let state = State(attention: nil, isWorking: false, movedTo: "nas")
+        #expect(state.text == "Moved to nas")
+        #expect(Self.idle(state).accessibilityLabel == "Moved to nas, no tasks")
+        #expect(State(attention: .needsInput, isWorking: true, movedTo: "nas").text == "Moved to nas")
+    }
+
     @Test func needsYouAndErrorOutrankWorking() {
         typealias State = LeoActivityCapsulePresentation.AgentState
         #expect(State(attention: .needsInput, isWorking: true) == .needsYou)

@@ -9,6 +9,8 @@ struct LeoChatComposer: View {
     let agent: LeoAgentID
     let agentName: String
     let agentStatus: LeoAgentStatus
+    /// The host the agent moved to, if it moved (B-442).
+    let movedTo: String?
     /// Bumped when something asks for the text field's focus.
     let focusRequest: Int
     /// Consumes a pending focus request (true once per request).
@@ -22,7 +24,7 @@ struct LeoChatComposer: View {
     private var draft: LeoChatComposerDraft { chat.draft(for: agent) }
     private var isSending: Bool { chat.isSending(agent) }
     /// Why a send would be refused now (the agent isn't running), if it would.
-    private var refusal: String? { LeoChatSendGate.refusal(for: agentStatus, agentName: agentName) }
+    private var refusal: String? { LeoChatSendGate.refusal(for: agentStatus, agentName: agentName, movedTo: movedTo) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -53,7 +55,7 @@ struct LeoChatComposer: View {
     private var inputRow: some View {
         HStack(alignment: .bottom, spacing: 8) {
             fieldButton("paperclip", "Attach Files…", label: "Attach Files", action: pickFiles)
-            TextField(refusal == nil ? "Message \(agentName)" : "Start \(agentName) to send a message", text: Binding(get: { draft.text }, set: { chat.setText($0) }), axis: .vertical)
+            TextField(LeoChatSendGate.placeholder(for: agentStatus, agentName: agentName, movedTo: movedTo), text: Binding(get: { draft.text }, set: { chat.setText($0) }), axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
                 .focused($isTextFocused)
@@ -92,7 +94,7 @@ struct LeoChatComposer: View {
         }
         .buttonStyle(.borderless)
         .disabled(!chat.canSend || refusal != nil)
-        .help(refusal == nil ? "Send (Return)" : "Start \(agentName) to send")
+        .help(LeoChatSendGate.sendHelp(for: agentStatus, agentName: agentName, movedTo: movedTo))
         .accessibilityLabel("Send")
     }
 
