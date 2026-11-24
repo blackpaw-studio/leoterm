@@ -105,3 +105,47 @@ extension LeoPluginRegistryTests {
         #expect(LeoPluginCredentialPath.standardize("", home: "/Users/a") == nil)
     }
 }
+
+// MARK: Remote machines
+
+private let dionysus = LeoHostID.remote("Dionysus")
+
+extension LeoPluginRegistryTests {
+    @Test func aGrantStoredBeforeMachinesExistedDecodesAsThisMac() throws {
+        let legacy = Data(#"{"id":"g1","kind":"codex","path":"/Users/a/.codex"}"#.utf8)
+        let grant = try JSONDecoder().decode(LeoPluginCredentialGrant.self, from: legacy)
+        #expect(grant.machine == .local)
+        #expect(grant == LeoPluginCredentialGrant(id: "g1", kind: .codex, path: "/Users/a/.codex"))
+    }
+
+    @Test func aRemoteGrantSurvivesAnEncodeDecodeRoundTrip() throws {
+        let grant = LeoPluginCredentialGrant(id: "g1", kind: .claudeCode, path: "/Users/evan/.claude", machine: dionysus)
+        let decoded = try JSONDecoder().decode(LeoPluginCredentialGrant.self, from: JSONEncoder().encode(grant))
+        #expect(decoded == grant)
+        #expect(decoded.machine == dionysus)
+    }
+
+    @Test func theSameFolderOnTwoMachinesIsTwoGrants() throws {
+        var registry = registryWithUsage()
+        let localAdded = registry.addGrant(pluginID: usageID, kind: .codex, path: "/Users/a/.codex", id: "g1")
+        let remoteAdded = registry.addGrant(pluginID: usageID, kind: .codex, path: "/Users/a/.codex", id: "g2", machine: dionysus)
+        let againAdded = registry.addGrant(pluginID: usageID, kind: .codex, path: "/Users/a/./.codex/", id: "g3", machine: dionysus)
+        let local = try #require(localAdded)
+        let remote = try #require(remoteAdded)
+        let again = try #require(againAdded)
+        #expect(local.machine == .local)
+        #expect(remote.machine == dionysus && remote.id == "g2")
+        #expect(again == remote)
+        #expect(registry.grants(for: usageID).count == 2)
+    }
+
+    @Test func aLocalHandleOmitsTheMachineAndARemoteHandleNamesIt() {
+        let local = LeoPluginCredentialGrant(id: "g1", kind: .codex, path: "/Users/evan/.codex").handle(home: "/Users/evan")
+        #expect(local.machine == nil)
+        // The remote path is shown as the daemon listed it: this Mac's home says nothing about that machine's.
+        let remote = LeoPluginCredentialGrant(id: "g2", kind: .codex, path: "/Users/evan/.codex", machine: dionysus).handle(home: "/Users/evan")
+        #expect(remote.machine == "Dionysus")
+        #expect(remote.path == "/Users/evan/.codex")
+        #expect(remote.label == ".codex")
+    }
+}

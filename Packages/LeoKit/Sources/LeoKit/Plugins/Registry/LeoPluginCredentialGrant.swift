@@ -9,19 +9,40 @@ public struct LeoPluginCredentialGrant: Codable, Equatable, Sendable {
     public let id: String
     public let kind: LeoPluginCredentialKind
     /// Absolute and standardized, no trailing slash (`LeoPluginCredentialPath`).
+    /// On a remote machine this is that machine's path, as its daemon listed it.
     public let path: String
+    /// Where the account lives. Grants saved before machines existed decode as `.local`.
+    public let machine: LeoHostID
 
-    public init(id: String, kind: LeoPluginCredentialKind, path: String) {
+    public init(id: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID = .local) {
         self.id = id
         self.kind = kind
         self.path = path
+        self.machine = machine
     }
 
-    /// What the plugin sees: the folder's name and a home-relative path for display.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        kind = try container.decode(LeoPluginCredentialKind.self, forKey: .kind)
+        path = try container.decode(String.self, forKey: .path)
+        machine = try container.decodeIfPresent(LeoHostID.self, forKey: .machine) ?? .local
+    }
+
+    public var isRemote: Bool { machine != .local }
+
+    /// What the plugin sees: the folder's name and a path for display. A remote
+    /// path stays absolute, since this Mac's home says nothing about that machine's.
     public func handle(home: String) -> LeoPluginCredentialHandle {
-        LeoPluginCredentialHandle(
-            id: id, kind: kind, label: (path as NSString).lastPathComponent,
-            path: LeoPluginCredentialPath.abbreviate(path, home: home))
+        switch machine {
+        case .local:
+            LeoPluginCredentialHandle(
+                id: id, kind: kind, label: (path as NSString).lastPathComponent,
+                path: LeoPluginCredentialPath.abbreviate(path, home: home))
+        case .remote(let name):
+            LeoPluginCredentialHandle(
+                id: id, kind: kind, label: (path as NSString).lastPathComponent, path: path, machine: name)
+        }
     }
 }
 
@@ -31,12 +52,16 @@ public struct LeoPluginCredentialHandle: Codable, Equatable, Sendable {
     public let kind: LeoPluginCredentialKind
     public let label: String
     public let path: String
+    /// The machine's name, for an account on another machine. Nil for this Mac,
+    /// so plugins never match on a display string.
+    public let machine: String?
 
-    public init(id: String, kind: LeoPluginCredentialKind, label: String, path: String) {
+    public init(id: String, kind: LeoPluginCredentialKind, label: String, path: String, machine: String? = nil) {
         self.id = id
         self.kind = kind
         self.label = label
         self.path = path
+        self.machine = machine
     }
 }
 
@@ -78,15 +103,15 @@ extension LeoPluginRegistry {
     /// kind isn't approved, or the path isn't absolute. The same kind and
     /// folder granted twice returns the existing grant.
     public mutating func addGrant(
-        pluginID: String, kind: LeoPluginCredentialKind, path: String, id: String
+        pluginID: String, kind: LeoPluginCredentialKind, path: String, id: String, machine: LeoHostID = .local
     ) -> LeoPluginCredentialGrant? {
         guard let record = record(for: pluginID), record.approvedPermissions.credentials.contains(kind),
             path.hasPrefix("/"), let standardized = LeoPluginCredentialPath.standardize(path, home: "/")
         else { return nil }
-        if let existing = record.credentialGrants.first(where: { $0.kind == kind && $0.path == standardized }) {
+        if let existing = record.credentialGrants.first(where: { $0.kind == kind && $0.path == standardized && $0.machine == machine }) {
             return existing
         }
-        let grant = LeoPluginCredentialGrant(id: id, kind: kind, path: standardized)
+        let grant = LeoPluginCredentialGrant(id: id, kind: kind, path: standardized, machine: machine)
         update(pluginID) { $0.credentialGrants.append(grant) }
         return grant
     }
