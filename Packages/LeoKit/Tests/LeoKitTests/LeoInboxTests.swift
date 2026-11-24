@@ -30,12 +30,12 @@ struct LeoInboxTests {
     }
 
     @Test func aTerminalPermissionReasonCarriesToolAndDetail() throws {
-        let reason = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm -rf build")
+        let reason = LeoAttentionReason(kind: .permission, tool: "Bash", detail: "rm -rf build", input: "rm -rf build && echo ok")
         let agent = F.agent("zeus", signal: F.signal(.needsInput, reason: reason, at: 5))
 
         let item = try #require(derive([agent]).blocked.first)
 
-        #expect(item.kind == .permission(tool: "Bash", detail: "rm -rf build"))
+        #expect(item.kind == .permission(tool: "Bash", detail: "rm -rf build", input: "rm -rf build && echo ok"))
         #expect(item.at == F.at(5))
     }
 

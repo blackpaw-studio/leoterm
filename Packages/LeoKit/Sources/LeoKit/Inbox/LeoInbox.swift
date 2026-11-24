@@ -36,7 +36,9 @@ public enum LeoInboxKind: Equatable, Sendable {
     /// An open `leo_chat_ask` or chat permission row, answerable inline.
     case chatAsk(LeoChatMessage)
     /// A terminal permission prompt (no chat row): Go to Agent only.
-    case permission(tool: String?, detail: String?)
+    /// `input` is the full command when the daemon sent it; show it in
+    /// preference to `detail`.
+    case permission(tool: String?, detail: String?, input: String?)
     /// An AskUserQuestion or elicitation, or a needs-input with no reason.
     case question(text: String?)
     /// A finished (or errored) turn with its one-line result.
@@ -129,7 +131,7 @@ public struct LeoInbox: Equatable, Sendable {
 
     private static func reasonKind(_ reason: LeoAttentionReason?) -> LeoInboxKind {
         switch reason?.kind {
-        case .permission: .permission(tool: reason?.tool, detail: reason?.detail)
+        case .permission: .permission(tool: reason?.tool, detail: reason?.detail, input: reason?.input)
         case .question: .question(text: reason?.detail)
         case .elicitation: .question(text: reason?.detail ?? reason?.tool)
         case nil: .question(text: nil)

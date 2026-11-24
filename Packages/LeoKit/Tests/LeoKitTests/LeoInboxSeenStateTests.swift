@@ -68,6 +68,14 @@ struct LeoInboxSeenStateTests {
         #expect(!unread(seen, finished("zeus", at: 55)))
     }
 
+    @Test func reseedingNeverRewindsAMark() {
+        var seen = LeoInboxSeenState()
+        seen.seed(host: F.host, seen: ["zeus": F.at(50)])
+        seen.seed(host: F.host, seen: ["zeus": F.at(20)])
+
+        #expect(!unread(seen, finished("zeus", at: 40)))
+    }
+
     @Test func anAgentSeenEventBeforeSeedingStartsSyncedMarks() {
         var seen = LeoInboxSeenState()
         seen.apply(host: F.host, agent: "zeus", seenAt: F.at(60))

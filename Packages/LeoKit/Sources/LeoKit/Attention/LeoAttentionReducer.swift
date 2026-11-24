@@ -55,8 +55,10 @@ public struct LeoAttentionReducer: Equatable, Sendable {
     /// is only reported when it changes, so switching away and back must
     /// not forget it.
     private var focusedID: LeoAgentID?
-    /// The last `hello.boot_id` seen for `host`.
-    private var bootID: String?
+    /// The last `hello.boot_id` seen for `host`; nil before the first hello
+    /// and after a host switch. Pair it with a signal's `revision` to name
+    /// a prompt uniquely (local seen marks).
+    public private(set) var bootID: String?
     /// The highest revision seen per agent name this boot. The daemon's
     /// counter is per name per boot and survives delete, recreate and
     /// rename, so `(bootID, name, revision)` is unique: a signal at or below
