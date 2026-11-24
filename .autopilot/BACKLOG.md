@@ -3451,6 +3451,7 @@ Note: clearer confirmation before switching delegation profile on iOS; also move
 Source: autopilot polish (B-299)
 
 ## B-441 · on mac when a chat message has multiple images, in the full screen…   [ready]
+Issue: #411
 Type: bug
 Report: on mac when a chat message has multiple images, in the full screen view i should be able to use the arrow keys or buttons to cycle through them
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3458,6 +3459,7 @@ Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T005424260130Z-a6852666#1
 
 ## B-440 · Drag a Browser or Files tab to dock it on the right or below   [ready]
+Issue: #412
 Why: Follow-up to the right/below docking item: moving a pane by dragging is the natural direct-manipulation route on the Mac (P1).
 Accept: Dragging a Browser or Files tab over the terminal shows a Dock Below or Dock Right drop zone only during the drag; dropping it docks the pane exactly as the menu command does (tested through the same code path); an Escape or a drop outside a zone leaves the layout unchanged; screenshot of the drop zone from the isolated debug build
 Out: Dragging panes between windows; docking on the left or top; iOS
@@ -3465,6 +3467,7 @@ Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005228052478Z-9065746d#1
 
 ## B-439 · Dock the Browser and Files panes on the right or below the terminal   [ready]
+Issue: #413
 Why: You can see the agent's page below the terminal while you read its code on the right (P4: everything through Leo; P1: keyboard-first). This is option B from Evan's pick on 2026-11-23; mockup: /Users/evan/.leo/agents/leoterm/scratchpad/pane-orientation-mockups/option-b-dock-per-pane.png (HTML next to it).
 Accept: Browser and Files each dock either on the right or below the terminal, set per pane and the same for every agent, and each pane's position survives a relaunch (tested); you can move a pane from View ▸ Dock Focused Pane Right/Below (⌃⌥⌘→ / ⌃⌥⌘↓, checked for conflicts with existing Leo and macOS shortcuts) and from its tab's right-click menu; panes on different edges are both visible at once, and panes on the same edge are tabs as they are today; each dock has its own divider and remembered size, a drag stops at a 200 pt minimum instead of collapsing, and closing a docked pane gives its space back to the terminal (tested); the agent drawer stays under the terminal column; screenshots from the isolated debug build of both panes on the right, browser below with files on the right, and after a relaunch
 Out: Drag-to-dock (a separate follow-up item); positions that differ per agent; docking on the left or top; iOS (Mac only, since the panes exist only on Mac)
@@ -3472,6 +3475,7 @@ Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005227812070Z-030f6ea1#1
 
 ## B-438 · Reorder sidebar sections, including plugin sections   [ready]
+Issue: #414
 Why: You can drag the sidebar's sections into the order you want, and that order stays after a relaunch. This covers built-in sections like Agents and Terminals as well as sections that plugins add, such as Usage (P6: the sidebar is the navigation).
 Accept: Dragging a section header moves the whole section, and the new order survives a relaunch (tested); each section header's right-click menu has Move Up and Move Down, so you can reorder without dragging (P1); a newly installed plugin's section appears at the bottom, and removing a plugin drops its section without disturbing the order of the others (tested); screenshots from the isolated debug build, before and after moving a plugin section above Agents
 Out: No reordering of rows inside a section, no hiding or collapsing sections, no sync of the order across Macs, and no iOS (Mac only: the sidebar sections and plugins exist only on Mac)
