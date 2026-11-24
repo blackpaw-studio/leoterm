@@ -3439,6 +3439,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-302)
 Done: c32801b6c (editor pinned to the side safe area; new landscape layout test failed before, passes after; LeoTests 126 pass). Decision D-993.
 Verified: not visually verified — no isolated iOS launch recipe in verify.md; the layout test measures the real laid-out view
+Reviewed: accepted 2026-11-24 — edf4408a04be
 
 ## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
 Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
