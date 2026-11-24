@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-24T11:58:07Z
 Budget: 20 items, until 2026-11-24T23:58:07Z
-Digested-through: 0
+Digested-through: 5
 Filed: 3/3 bugs, 6/5 ideas
 Self-filed: B-438 → B-447 bug — Flaky focus-landing tests in LeoRowSplitIntoShellTests
 Self-filed: B-438 → B-448 idea — A plugin section moved to the top reads as part of Agents
@@ -110,12 +110,13 @@ Lane: B-445
   Branch: autopilot-lane/B-445
   Base: 9cd3f7c245a12d8b022c868376fc2ecb61f6a384
   Tier: light
-  State: building
+  State: shelved
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: none
   Dispatched: 2026-11-24T15:27:22Z
+  Tokens: 1.58M in (1.46M cache read), ≥9.23k out, 20 requests
 
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
@@ -126,3 +127,4 @@ Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/
 Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
 Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-0.png
 Finished 4: B-444 landed 315518028 · not visually verified
+Finished 5: B-445 blocked
