@@ -91,6 +91,17 @@ Lane: B-440
   Reviewed-tip: none
   Dispatched: 2026-11-24T14:42:34Z
 
+Lane: B-444
+  Branch: autopilot-lane/B-444
+  Base: 1eab2c3df2993fb812aaec570f87c9f892ec8a78
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T15:10:42Z
+
 Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
 Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
