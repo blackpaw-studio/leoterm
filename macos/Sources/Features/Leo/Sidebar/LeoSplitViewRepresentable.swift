@@ -221,6 +221,7 @@ enum LeoSplitViewControllerFactory {
             controller.addSplitViewItem(LeoSplitViewControllerFactory.rightItem(for: slot))
         }
         controller.paneDock = dock
+        controller.updateRightDockMinimum()
         controller.splitView.dividerStyle = .thin
         controller.sidebarItem = sidebarItem
         controller.detailItem = detailItem
@@ -598,6 +599,20 @@ final class LeoSplitViewController: NSSplitViewController {
         DispatchQueue.main.async { [weak self] in self?.isApplyingDockWidth = false }
     }
 
+    /// The right dock stops at `LeoPaneDockMetrics.minimumSize` as a whole
+    /// (B-439). Its strip's item has that minimum; Files' outline alone on
+    /// the right (no file open) is the whole dock, so it takes the dock's
+    /// minimum then and its own beside the strip. Run after a right item
+    /// shows or hides.
+    func updateRightDockMinimum() {
+        guard let paneDock, let outline = paneDock.rightOutline.flatMap(splitViewItem(for:)) else { return }
+        let isStripShown = paneDock.rightStrip.flatMap(splitViewItem(for:)).map { !$0.isCollapsed } ?? false
+        let minimum = isStripShown
+            ? LeoWorkspaceBrowserViewController.minimumWidth
+            : max(LeoWorkspaceBrowserViewController.minimumWidth, LeoPaneDockMetrics.minimumSize)
+        if abs(outline.minimumThickness - minimum) > 0.5 { outline.minimumThickness = minimum }
+    }
+
     /// A move of the terminal's trailing divider we make ourselves (an
     /// opening, the floor), not the user's: it sets no dock width.
     private var isApplyingDockWidth = false
@@ -819,6 +834,7 @@ extension NSViewController {
         let leoSplit = split as? LeoSplitViewController
         if !collapsed { leoSplit?.makeRoom(forShowing: item) }
         item.isCollapsed = collapsed
+        leoSplit?.updateRightDockMinimum()
         if !collapsed, openingAtHalfWidth { leoSplit?.openAtHalfWidth(item) }
     }
 }

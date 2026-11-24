@@ -92,6 +92,26 @@ struct LeoPaneDockSplitTests {
         }
     }
 
+    /// Files on the right with no file open is its outline alone: the dock
+    /// still stops at 200 pt, not at the outline's own 180.
+    @Test func theRightDockStopsAtTwoHundredPointsWithOnlyTheOutline() async throws {
+        try await withLeoFileSandbox(.local) { sandbox, _ in
+            let harness = Harness(presence: presence, store: LeoPaneDockStore(defaults: defaults))
+            defer { harness.close() }
+            await harness.pane.browser.open(LeoEditorAgentContext(host: .local, name: "alpha", workspace: sandbox.root))
+            await harness.settle()
+            let outline = try #require(harness.rightOutlineItem)
+            try #require(outline.isCollapsed == false)
+            try #require(harness.rightStripItem.isCollapsed)
+
+            harness.dragRightDock(toWidth: 40)
+            await harness.settle()
+
+            #expect(outline.isCollapsed == false)
+            #expect(abs(harness.rightOutlineWidth - LeoPaneDockMetrics.minimumSize) <= Self.pointTolerance)
+        }
+    }
+
     @Test func draggingADockDividerRemembersItsSize() async throws {
         try await withLeoFileSandbox(.local) { sandbox, _ in
             let store = LeoPaneDockStore(defaults: defaults)
@@ -351,6 +371,8 @@ struct LeoPaneDockSplitTests {
         var rightStripItem: NSSplitViewItem { split.splitViewItem(for: dock.rightStrip!)! }
         var rightStripView: NSView { dock.rightStrip!.view }
         var rightStripWidth: CGFloat { LeoSplitViewController.paneWidth(of: rightStripView, in: split.splitView) }
+        var rightOutlineItem: NSSplitViewItem? { dock.rightOutline.flatMap(split.splitViewItem(for:)) }
+        var rightOutlineWidth: CGFloat { LeoSplitViewController.paneWidth(of: dock.rightOutline!.view, in: split.splitView) }
         var drawerView: NSView? { (split.detailItem?.viewController as? LeoDetailColumnController)?.paneItem.viewController.view }
 
         func strip(_ container: LeoRowPaneContainerViewController?) -> LeoEditorTabsViewController? {

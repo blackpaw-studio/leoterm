@@ -372,10 +372,12 @@ struct LeoSplitViewRepresentableTests {
             preferredWidth: LeoSidebarSplitMetrics.minimumWidth, windowWidth: 1_400, isSidebarVisible: sidebarVisible,
             editor: editor, browser: browser,
             onSidebarAutoCollapse: { counts.collapses += 1 }, onSidebarAutoRestore: { counts.restores += 1 })
+        // The file first: the outline then opens beside it at its own
+        // minimum, not alone at the dock's (B-439).
+        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
         if opensBrowser {
             await browser.open(LeoEditorAgentContext(host: .local, name: "scratch", workspace: sandbox.root))
         }
-        try await editor.open(LeoEditorFileID(host: .local, path: try sandbox.file("a.swift", "let a = 1")))
         await harness.settle()
         if !sidebarVisible {
             // The factory's first width shows it on layout; the
