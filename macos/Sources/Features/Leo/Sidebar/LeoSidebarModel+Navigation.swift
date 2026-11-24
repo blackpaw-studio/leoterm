@@ -17,8 +17,9 @@ extension LeoSidebarModel {
 
     /// Every row the list can select, top to bottom: each machine's agents
     /// (an attachable dispatch right under its agent) and the window's
-    /// terminals, in the sidebar's section order (B-438). Collapsed sections and folded, offline or still loading
-    /// machines list nothing; a filter lists only its matches.
+    /// terminals, in the sidebar's section order (B-438). Collapsed
+    /// sections and folded, offline or still loading machines list
+    /// nothing; a filter lists only its matches.
     func navigableItems(terminalIDs: [UUID]) -> [LeoSidebarItemID] {
         let agents = machineSections.flatMap { machine -> [LeoSidebarItemID] in
             guard machine.connectivity != .loading, !machine.connectivity.isOffline, !isMachineFolded(machine) else { return [] }
