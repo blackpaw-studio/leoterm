@@ -2,8 +2,11 @@ Status: running
 Started: 2026-11-24T00:56:31Z
 Budget: 20 items, until 2026-11-24T12:56:31Z
 Digested-through: 0
-Filed: 1/3 bugs, 0/5 ideas
+Filed: 3/3 bugs, 1/5 ideas
 Self-filed: B-324 → B-442 bug — Mac composer on a moved agent still offers Start and shows Idle
+Self-filed: B-441 → B-444 bug — Escape doesn't close the full-window image viewer while caps lock is on
+Self-filed: B-441 → B-445 bug — Right-click on a chat image misses after a send (reply shifts scroll)
+Self-filed: B-441 → B-446 idea — Menu items for the chat image viewer's Open/Exit Full Window and Close
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -48,13 +51,17 @@ Lane: B-437
 Lane: B-441
   Branch: autopilot-lane/B-441
   Base: 06b47fbd7a14f3063ed1aa7d8ff97499b0e56904
-  Tier: light
-  State: building
+  Tier: light→full
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 55d74e838f399798c9e885dd8e7b678edd526e35
   Dispatched: 2026-11-24T01:16:36Z
+  Call: Arrows and header buttons step only in the full-window viewer; the pane viewer keeps its arrows — principle 1 / principle 6
+  Call: Stepping stops at either end, no wrap (as in Preview) — principle 1
+  Call: View ▸ Previous Image / Next Image added in this item, enabled exactly where the arrow keys step — principle 1
+  Call: Mac only: iOS already pages a message's images (ChatImagePageController), so nothing moves to LeoKit — AGENTS.md parity rule
 
 Lane: B-443
   Branch: autopilot-lane/B-443
