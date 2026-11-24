@@ -786,6 +786,17 @@ final class LeoSplitViewController: NSSplitViewController {
 }
 
 extension NSViewController {
+    /// The window split this controller sits in, however deep: a pane's
+    /// container is in a dock slot (B-439), maybe in the bottom dock.
+    var enclosingLeoSplit: LeoSplitViewController? {
+        var ancestor = parent
+        while let current = ancestor {
+            if let split = current as? LeoSplitViewController { return split }
+            ancestor = current.parent
+        }
+        return nil
+    }
+
     /// Collapses or shows this controller's own split item (the browser's
     /// or the editor's). Showing it makes room for it first, and with
     /// `openingAtHalfWidth` then widens it to half of what it shares with

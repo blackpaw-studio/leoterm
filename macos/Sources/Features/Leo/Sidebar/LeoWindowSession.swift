@@ -175,11 +175,9 @@ struct LeoWindowVisibilityState: Equatable {
         split?.restoreSidebarWidth(displayedWidth)
     }
 
-    /// The window's split, found through the panes it built: up from a
-    /// pane's container, through its dock slot (B-439).
+    /// The window's split, found through the panes it built.
     var split: LeoSplitViewController? {
-        let start: NSViewController? = editorContainer ?? browserContainer
-        return sequence(first: start, next: { $0?.parent }).lazy.compactMap { $0 as? LeoSplitViewController }.first
+        (editorContainer ?? browserContainer)?.enclosingLeoSplit
     }
 
     private let defaults: UserDefaults

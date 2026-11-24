@@ -11,7 +11,9 @@ import Testing
 @MainActor struct LeoSplitViewRepresentableUpdateTests {
     @MainActor private final class SidebarState: ObservableObject {
         @Published var isVisible = true
-        var split: LeoSplitViewController?
+        weak var container: LeoRowPaneContainerViewController?
+        /// Found on use, as the window session does: up from a pane's container.
+        var split: LeoSplitViewController? { container?.enclosingLeoSplit }
     }
 
     private struct Host: View {
@@ -28,7 +30,7 @@ import Testing
                 detail: Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity),
                 editor: editor,
                 browser: browser,
-                onPaneContainer: { [state] in state.split = $0.parent as? LeoSplitViewController },
+                onPaneContainer: { [state] in if $0.role == .editor { state.container = $0 } },
                 onSidebarAutoCollapse: { [state] in state.isVisible = false },
                 onSidebarAutoRestore: { [state] in state.isVisible = true })
         }
@@ -55,10 +57,13 @@ import Testing
         let state = SidebarState()
         let editor = LeoEditorTabs(makeAccess: { _ in LeoFileAccessor.local() })
         let browser = LeoWorkspaceBrowserModel(makeAccess: { _ in LeoFileAccessor.local() }, openFile: { _ in .opened })
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1_000, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
+        // 20 pt short of the sidebar, both panes at their minimums, and the terminal's floor.
+        let width = LeoSidebarSplitMetrics.minimumWidth + LeoWorkspaceBrowserViewController.minimumWidth
+            + LeoEditorPaneViewController.minimumWidth + LeoSidebarSplitMetrics.terminalFloor - 20
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentViewController = NSHostingController(rootView: Host(state: state, editor: editor, browser: browser))
-        window.setContentSize(NSSize(width: 1_000, height: 600))
+        window.setContentSize(NSSize(width: width, height: 600))
         window.makeKeyAndOrderFront(nil)
         defer { window.close() }
         await settle(window)
