@@ -291,4 +291,48 @@ struct LeoMenuCommandsTests {
         #expect(previous.title == "Previous Image" && previous.shortcut == "\u{F702}")
         #expect(next.title == "Next Image" && next.shortcut == "\u{F703}")
     }
+
+    // MARK: View ▸ Dock Focused Pane Right / Below (B-439)
+
+    /// Enabled only while Browser or Files has focus: the terminal, chat or
+    /// sidebar has no pane to move.
+    @Test(arguments: [LeoDockPane?.none, .browser, .files])
+    func dockItemsEnableOnlyForAFocusedBrowserOrFilesPane(focused: LeoDockPane?) {
+        for edge in LeoDockEdge.allCases {
+            let item = LeoMenuCommands.dockFocusedPaneItem(edge, focused: focused, layout: LeoPaneDockLayout())
+            #expect(item.isEnabled == (focused != nil))
+        }
+    }
+
+    @Test func dockItemChecksThePanesCurrentEdge() {
+        let layout = LeoPaneDockLayout().moving(.browser, to: .below)
+
+        #expect(LeoMenuCommands.dockFocusedPaneItem(.below, focused: .browser, layout: layout).isChecked)
+        #expect(!LeoMenuCommands.dockFocusedPaneItem(.right, focused: .browser, layout: layout).isChecked)
+        #expect(LeoMenuCommands.dockFocusedPaneItem(.right, focused: .files, layout: layout).isChecked)
+        #expect(!LeoMenuCommands.dockFocusedPaneItem(.below, focused: .files, layout: layout).isChecked)
+        #expect(!LeoMenuCommands.dockFocusedPaneItem(.right, focused: nil, layout: layout).isChecked)
+    }
+
+    @Test func theViewMenuHasDockFocusedPaneOnControlOptionCommandArrows() throws {
+        let shortcuts = try LeoMenuXib.shortcuts()
+        let right = try #require(shortcuts.first { $0.action == "dockFocusedLeoPaneRight:" })
+        let below = try #require(shortcuts.first { $0.action == "dockFocusedLeoPaneBelow:" })
+        #expect(right.title == "Dock Focused Pane Right" && right.shortcut == "⌃⌥⌘\u{F703}")
+        #expect(below.title == "Dock Focused Pane Below" && below.shortcut == "⌃⌥⌘\u{F701}")
+        let viewMenu = try XMLDocument(contentsOf: LeoMenuXib.xibURL)
+            .nodes(forXPath: "//items[menuItem/@id='Leo-PaneDock-Right']/menuItem/@id").compactMap(\.stringValue)
+        #expect(viewMenu.contains("Leo-ChatImage-Next"), "in the View menu, with the other View items")
+        #expect(viewMenu.contains("Leo-PaneDock-Below"))
+    }
+
+    /// No other Leo or Ghostty menu item sits on ⌃⌥⌘→ or ⌃⌥⌘↓ (the
+    /// arrows' neighbours, ⌃⌥ and ⌃⌘ arrows, are Ghostty's split moves).
+    @Test func noOtherMenuItemSharesTheDockShortcuts() throws {
+        let xib = try LeoMenuXib.shortcuts()
+        for (action, shortcut) in [("dockFocusedLeoPaneRight:", "⌃⌥⌘\u{F703}"), ("dockFocusedLeoPaneBelow:", "⌃⌥⌘\u{F701}")] {
+            #expect(xib.filter { $0.shortcut == shortcut }.map(\.action) == [action], "\(shortcut) belongs to \(action) alone")
+            #expect(xib.filter { $0.action == action }.count == 1)
+        }
+    }
 }
