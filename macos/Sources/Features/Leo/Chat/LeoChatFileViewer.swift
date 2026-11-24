@@ -69,11 +69,13 @@ final class LeoChatFileViewerView: NSView {
 
     /// Escape is Back, unless the key belongs to something inside: the find
     /// bar's field, or (side by side) a terminal that isn't this view. A view
-    /// that covers the window owns every key that isn't in a field.
+    /// that covers the window owns every key that isn't in a field. Caps lock is
+    /// state, not a chord, so it doesn't stop Escape.
     static func closesOnEscape(
         keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool, coversWindow: Bool = false
     ) -> Bool {
-        keyCode == escapeKeyCode && modifiers.isDisjoint(with: .deviceIndependentFlagsMask) && (isInViewer || coversWindow) && !isFieldEditor
+        let chord = modifiers.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
+        return keyCode == escapeKeyCode && chord.isEmpty && (isInViewer || coversWindow) && !isFieldEditor
     }
 
     /// Modifier flags that AppKit sets on a bare arrow press (`.function`,

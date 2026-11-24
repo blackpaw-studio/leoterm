@@ -81,6 +81,25 @@ struct LeoChatFileViewerTests {
         )
     }
 
+    /// B-444: caps lock is state, not a chord, so Escape still closes with it on
+    /// (a real keyDown carries `.capsLock` in the device-independent flags).
+    @Test(arguments: [(true, false), (false, true)])
+    func escapeClosesWithCapsLockOn(isInViewer: Bool, coversWindow: Bool) {
+        #expect(
+            LeoChatFileViewerView.closesOnEscape(
+                keyCode: 53, modifiers: .capsLock, isInViewer: isInViewer, isFieldEditor: false, coversWindow: coversWindow
+            )
+        )
+    }
+
+    @Test func capsLockDoesNotMaskARealChordOnEscape() {
+        #expect(
+            !LeoChatFileViewerView.closesOnEscape(
+                keyCode: 53, modifiers: [.capsLock, .command], isInViewer: true, isFieldEditor: false
+            )
+        )
+    }
+
     // MARK: Gallery (B-441)
 
     /// AppKit puts `.function` and `.numericPad` on every arrow-key keyDown, so a
