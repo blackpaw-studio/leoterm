@@ -2247,3 +2247,45 @@ Chose: "Change…" stays an inline row button with no menu item or shortcut, lik
 Why: Keyboard-first, Mac-native
 Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
 Veto: [ ]
+
+## D-1008 · 2026-11-24 · B-438: All machines move together as one Agents unit and keep…
+Chose: All machines move together as one Agents unit and keep their Settings order
+Why: P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1009 · 2026-11-24 · B-438: A drop takes the target header's slot; an accent line marks…
+Chose: A drop takes the target header's slot; an accent line marks where it lands; no live reordering while hovering
+Why: P1
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1010 · 2026-11-24 · B-438: No keyboard shortcut for moving sections (headers can't be…
+Chose: No keyboard shortcut for moving sections (headers can't be focused; the context menu covers P1; a shortcut is a follow-up)
+Why: P1
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1011 · 2026-11-24 · B-438: A hidden, disabled or uninstalled section keeps its saved…
+Chose: A hidden, disabled or uninstalled section keeps its saved slot and returns to it; with no saved order the default stands
+Why: P1/P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1012 · 2026-11-24 · B-438: The order is app-wide across windows, stored in the sidebar…
+Chose: The order is app-wide across windows, stored in the sidebar preferences
+Why: P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1013 · 2026-11-24 · B-438: Drag source sits on the title Button's label, because a…
+Chose: Drag source sits on the title Button's label, because a Button swallows .onDrag
+Why: P1
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1014 · 2026-11-24 · B-438: Removed the invisible placeholder row under a collapsed…
+Chose: Removed the invisible placeholder row under a collapsed plugin section; a shared LeoPluginSectionListing drives both the drawn rows and the row count
+Why: P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]

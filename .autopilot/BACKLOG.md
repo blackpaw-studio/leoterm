@@ -3491,13 +3491,15 @@ Out: Drag-to-dock (a separate follow-up item); positions that differ per agent; 
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005227812070Z-030f6ea1#1
 
-## B-438 · Reorder sidebar sections, including plugin sections   [ready]
+## B-438 · Reorder sidebar sections, including plugin sections   [done]
 Issue: #414
 Why: You can drag the sidebar's sections into the order you want, and that order stays after a relaunch. This covers built-in sections like Agents and Terminals as well as sections that plugins add, such as Usage (P6: the sidebar is the navigation).
 Accept: Dragging a section header moves the whole section, and the new order survives a relaunch (tested); each section header's right-click menu has Move Up and Move Down, so you can reorder without dragging (P1); a newly installed plugin's section appears at the bottom, and removing a plugin drops its section without disturbing the order of the others (tested); screenshots from the isolated debug build, before and after moving a plugin section above Agents
 Out: No reordering of rows inside a section, no hiding or collapsing sections, no sync of the order across Macs, and no iOS (Mac only: the sidebar sections and plugins exist only on Mac)
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261123T235734756623Z-26910159#1
+Done: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925 (sidebar sections reorder by header drag or Move Up/Down, order app-wide and kept across relaunch; new plugin sections land at the bottom; full suite 5091 pass; 1 fix round). Decisions D-1008..D-1014.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
 
 ## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready]
 Issue: #416
@@ -3520,6 +3522,28 @@ Report: Right-click on a chat image misses after a send (reply shifts scroll) �
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
 
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
+Type: bug
+Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-438)
+
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
 Source: autopilot polish (B-441)
+
+## B-448 · A plugin section moved to the top reads as part of Agents   [idea]
+Note: a plugin section moved to the top sits above the fixed "Agents" title and search field, so it reads as if it belongs under Agents — P6
+Source: autopilot polish (B-438)
+
+## B-449 · After a relaunch the Files pane starts closed and the right dock is empty   [idea]
+Note: after a relaunch Files starts closed for that row, so the right dock is empty until it's toggled — P6: the window should come back as it was
+Source: autopilot polish (B-439)
+
+## B-450 · Opening a second file can squeeze the terminal and hide the sidebar   [idea]
+Note: opening a second file once squeezed the terminal to ~380 pt and auto-hid the sidebar (seen once during B-439's first verify) — P6: the content area shouldn't shift under you
+Source: autopilot polish (B-439)
+
+## B-451 · Outline comes back ~20 pt narrower after a window zoom or tile jump   [idea]
+Note: the widening-back restore after a zoom or tile jump gives width back only to the editor — P1: layout should return to where it was
+Source: autopilot polish (B-439)

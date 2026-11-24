@@ -26,12 +26,14 @@ extension LeoSidebarView {
     }
 
     /// The listed agent rows that need you, and how many table rows the
-    /// machine blocks took in counting them.
+    /// list has down to the last machine block's. B-438: the sections above
+    /// the agents push their rows down.
     func offscreenAttention(
-        machines: [LeoMachineSection]
+        machines: [LeoMachineSection], layout: LeoSidebarBlockLayout
     ) -> (candidates: [LeoOffscreenAttention.Candidate], rowCount: Int) {
-        let mirror = LeoSidebarListRows.rows(of: listMachines(machines))
-        let tableRows = Dictionary(mirror.agentRows.map { ($0.id, $0.tableRow) }) { first, _ in first }
+        let offset = layout.rowOffset(of: LeoSidebarSectionOrder.agents)
+        let mirror = layout.agentRows
+        let tableRows = Dictionary(mirror.agentRows.map { ($0.id, offset + $0.tableRow) }) { first, _ in first }
         let candidates = machines.flatMap(\.sections).filter { !$0.isCollapsed }.flatMap(\.rows).compactMap { row in
             let unreadCount = unread.count(for: row.id)
             guard let tableRow = tableRows[row.id],
@@ -41,6 +43,6 @@ extension LeoSidebarView {
                 id: row.id, name: row.displayName, tableRow: tableRow, kind: kind, unreadCount: unreadCount
             )
         }
-        return (candidates, mirror.rowCount)
+        return (candidates, offset + mirror.rowCount)
     }
 }

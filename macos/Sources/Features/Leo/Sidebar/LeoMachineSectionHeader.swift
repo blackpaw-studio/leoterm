@@ -17,6 +17,8 @@ struct LeoMachineSectionHeader: View {
     let host: LeoHostID
     let presentation: LeoMachineHeaderPresentation
     let style: LeoStatsStyle
+    /// Moves the Agents section, which every machine is part of (B-438).
+    let mover: LeoSidebarSectionMover
     let actions: LeoMachineHeaderActions
 
     private static let rowHeight: CGFloat = 20
@@ -41,6 +43,7 @@ struct LeoMachineSectionHeader: View {
         }
         .textCase(nil)
         .contextMenu { menu }
+        .leoSidebarSectionDrag(mover)
         .accessibilityElement(children: .contain)
     }
 
@@ -61,6 +64,9 @@ struct LeoMachineSectionHeader: View {
                     .truncationMode(.tail)
             }
             .contentShape(Rectangle())
+            // The button's click tracking keeps a drag from the title from
+            // reaching the header's own drag (B-438).
+            .leoSidebarSectionDragSource(mover)
         }
         .buttonStyle(.plain)
         .disabled(!presentation.canToggleCollapse)
@@ -85,6 +91,8 @@ struct LeoMachineSectionHeader: View {
             Button("Edit Machine…", action: actions.editMachine)
             Button("Disable", action: actions.disable)
         }
+        Divider()
+        LeoSidebarSectionMoveItems(mover: mover)
     }
 }
 

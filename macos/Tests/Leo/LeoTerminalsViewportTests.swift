@@ -4,8 +4,9 @@ import Testing
 @testable import Ghostty
 @testable import LeoKit
 
-/// B-105: whether the Terminals section -- the list's last rows -- shows in
-/// what the list doesn't cover with a bar.
+/// B-105: whether the Terminals section's rows show in what the list
+/// doesn't cover with a bar. B-438: the section can sit anywhere in the
+/// list, so it's read from its own first row.
 @MainActor struct LeoTerminalsViewportTests {
     private static let rowCount = 10
     private static let rowHeight: CGFloat = 20
@@ -36,28 +37,41 @@ import Testing
 
     @Test func lastRowsWithinTheListShow() {
         let list = Self.list(showingFrom: 100)
-        #expect(LeoTerminalsViewport.showsLastRows(2, in: list.scrollView))
+        #expect(Self.showsLast(2, in: list.scrollView))
     }
 
     /// Rows 5-9 start where the list's bottom edge is: touching isn't showing.
     @Test func lastRowsBelowTheBottomEdgeDoNotShow() {
         let list = Self.list(showingFrom: 0)
-        #expect(!LeoTerminalsViewport.showsLastRows(5, in: list.scrollView))
-        #expect(LeoTerminalsViewport.showsLastRows(6, in: list.scrollView), "row 4 is on screen")
+        #expect(!Self.showsLast(5, in: list.scrollView))
+        #expect(Self.showsLast(6, in: list.scrollView), "row 4 is on screen")
     }
 
     /// A 30 pt bar covers 170-200: the last row there doesn't show, the one
     /// above it does.
     @Test func aRowOnlyUnderABottomBarDoesNotShow() {
         let list = Self.list(showingFrom: 100, bottomBar: 30)
-        #expect(!LeoTerminalsViewport.showsLastRows(1, in: list.scrollView))
-        #expect(LeoTerminalsViewport.showsLastRows(2, in: list.scrollView))
+        #expect(!Self.showsLast(1, in: list.scrollView))
+        #expect(Self.showsLast(2, in: list.scrollView))
+    }
+
+    /// B-438: plugin sections below Terminals. Rows 2-3 are Terminals, on
+    /// screen in a list showing rows 0-4, while the list's last rows aren't.
+    @Test func terminalsVisibilityReadsItsOwnRowsWhenNotLast() {
+        let list = Self.list(showingFrom: 0)
+        #expect(LeoTerminalsViewport.showsRows(start: 2, count: 2, in: list.scrollView))
+        #expect(!LeoTerminalsViewport.showsRows(start: 6, count: 2, in: list.scrollView), "rows 6-7 are below the edge")
     }
 
     @Test func noRowsOrMoreThanTheListHasDoNotShow() {
         let list = Self.list(showingFrom: 100)
-        #expect(!LeoTerminalsViewport.showsLastRows(0, in: list.scrollView))
-        #expect(!LeoTerminalsViewport.showsLastRows(Self.rowCount + 1, in: list.scrollView))
+        #expect(!Self.showsLast(0, in: list.scrollView))
+        #expect(!Self.showsLast(Self.rowCount + 1, in: list.scrollView))
+    }
+
+    /// Whether the last `rows` rows show: the section as the list's last.
+    private static func showsLast(_ rows: Int, in scrollView: NSScrollView) -> Bool {
+        LeoTerminalsViewport.showsRows(start: rowCount - rows, count: rows, in: scrollView)
     }
 
     /// The list launches with its top bar's worth showing above the first

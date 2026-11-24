@@ -2,9 +2,10 @@ import AppKit
 import SwiftUI
 
 /// B-105: whether any part of the sidebar's Terminals section shows in
-/// the list. The section is always the list's last, so that's whether
-/// its last rows -- its header and terminals -- reach into what the list
-/// shows. A finder behind the list locates its scroll view.
+/// the list: whether its rows -- its header and terminals -- reach into
+/// what the list shows. The sections can come in any order (B-438), so
+/// they're read from the section's own first row. A finder behind the
+/// list locates its scroll view.
 ///
 /// Neither the section's own row views nor probes in them can say this:
 /// the list reuses a row's views for other rows (a probe lingers in an
@@ -25,10 +26,11 @@ import SwiftUI
     private(set) weak var shownIn: NSScrollView?
 
     /// `sectionRows` is how many rows the section has in the list as it
-    /// stands: its header and terminals, or 0 when it isn't listed.
-    func snapshot(sectionRows: Int) {
+    /// stands: its header and terminals, or 0 when it isn't listed;
+    /// `sectionStart` is its header's row.
+    func snapshot(sectionStart: Int, sectionRows: Int) {
         if list?.window == nil { list = finder.flatMap(Self.tableScrollView(behind:)) }
-        shownIn = list.flatMap { Self.showsLastRows(sectionRows, in: $0) ? $0 : nil }
+        shownIn = list.flatMap { Self.showsRows(start: sectionStart, count: sectionRows, in: $0) ? $0 : nil }
     }
 
     /// The table's scroll view `view` sits behind: the nearest one, up
@@ -49,12 +51,13 @@ import SwiftUI
         return view.subviews.flatMap(tableScrollViews(in:))
     }
 
-    /// Whether any of the last `rows` rows of `scrollView`'s table shows
-    /// in what it doesn't cover with a bar.
-    static func showsLastRows(_ rows: Int, in scrollView: NSScrollView) -> Bool {
-        guard rows > 0, let table = scrollView.documentView as? NSTableView, table.numberOfRows >= rows else { return false }
-        let last = table.numberOfRows - 1
-        let section = table.rect(ofRow: last - rows + 1).union(table.rect(ofRow: last))
+    /// Whether any of the `rows` rows from `start` of `scrollView`'s table
+    /// shows in what it doesn't cover with a bar.
+    static func showsRows(start: Int, count rows: Int, in scrollView: NSScrollView) -> Bool {
+        guard start >= 0, rows > 0, let table = scrollView.documentView as? NSTableView, table.numberOfRows >= start + rows else {
+            return false
+        }
+        let section = table.rect(ofRow: start).union(table.rect(ofRow: start + rows - 1))
         let clip = scrollView.contentView
         return table.convert(section, to: clip).intersects(unobscuredBounds(of: clip))
     }

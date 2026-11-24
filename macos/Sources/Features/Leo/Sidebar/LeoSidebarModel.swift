@@ -90,6 +90,8 @@ import LeoKit
     private let preferencesStore: any LeoSidebarPreferencesStore
     /// The plugin platform's sidebar sections; set once the plugin system starts.
     @Published var pluginSections: LeoPluginSidebarSections?
+    /// A section header being dragged (B-438), in any window.
+    let sectionDrags = LeoSidebarSectionDrags()
 
     func managedPresentationChanged(_ presentation: LeoManagedPresentation) {
         managedBanner = presentation.banner
