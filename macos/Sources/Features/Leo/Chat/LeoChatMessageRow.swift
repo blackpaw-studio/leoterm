@@ -152,9 +152,9 @@ struct LeoChatTaskCard: View {
 /// answer at once, a radio group or checkboxes then Submit, a text field
 /// (also under the choices with `allow_text`); the recorded answer once
 /// closed.
-struct LeoChatAskControls: View {
+struct LeoChatAskControls<Host: LeoChatAnswerHost>: View {
     let message: LeoChatMessage
-    @ObservedObject var chat: LeoChatPaneModel
+    @ObservedObject var chat: Host
 
     var body: some View {
         if message.isOpen, let input = message.answerInput {
@@ -170,10 +170,10 @@ struct LeoChatAskControls: View {
     }
 }
 
-private struct LeoChatOpenAsk: View {
+private struct LeoChatOpenAsk<Host: LeoChatAnswerHost>: View {
     let message: LeoChatMessage
     let input: LeoChatInput
-    @ObservedObject var chat: LeoChatPaneModel
+    @ObservedObject var chat: Host
     @FocusState private var isTextFocused: Bool
 
     private var draft: LeoChatAskDraft { chat.askDraft(for: message.id) }

@@ -62,6 +62,8 @@ import GhosttyKit
             model.dispatchClicked(ref, from: windowID)
         case .terminal(let id):
             terminals.activate(id)
+        case .inbox:
+            break
         }
     }
 }

@@ -86,4 +86,43 @@ struct LeoAttentionInboxSignalTests {
 
         #expect(reducer.tick(now: 0.3).filter(\.shouldNotify).map(\.id.name) == ["a", "b"])
     }
+
+    @Test func aPermissionReasonCarriesTheFullCommandInput() throws {
+        let signal = try decode(#"{"state":"needs_input","revision":2,"reason":{"kind":"permission","tool":"Bash","detail":"short","input":"nomad job run x.nomad"}}"#)
+        #expect(signal.reason?.input == "nomad job run x.nomad")
+        #expect(signal.reason?.detail == "short")
+    }
+
+    @Test func reasonInputIsSingleLineAndClampedTo500() throws {
+        let long = String(repeating: "a", count: 700)
+        let reason = try JSONDecoder().decode(
+            LeoAttentionReason.self, from: Data(#"{"kind":"permission","input":"echo\nhi\u001b[31m \#(long)"}"#.utf8)
+        )
+        let input = try #require(reason.input)
+        #expect(!input.contains("\n") && !input.contains("\u{1b}"))
+        #expect(input.count == LeoAttentionReason.inputLimit)
+        #expect(input.hasSuffix("…"))
+    }
+
+    @Test func reasonInputKeepsQuotesAsSent() {
+        let reason = LeoAttentionReason(kind: .permission, input: #"git commit -m "fix: it's done""#)
+        #expect(reason.input == #"git commit -m "fix: it's done""#)
+    }
+
+    @Test func reasonInputIsAbsentFromOldDaemonsAndIgnoredOnOtherKinds() throws {
+        #expect(try decode(#"{"state":"needs_input","revision":2,"reason":{"kind":"permission","tool":"Bash"}}"#).reason?.input == nil)
+        let question = try decode(#"{"state":"needs_input","revision":2,"reason":{"kind":"question","detail":"Q","input":"x"}}"#)
+        #expect(question.reason?.input == nil)
+    }
+
+    @Test func theCommittedBootIDIsExposedAndResetsWithTheHost() {
+        var reducer = live()
+        #expect(reducer.bootID == nil)
+        _ = reducer.observeBoot("boot-1")
+        #expect(reducer.bootID == "boot-1")
+        _ = reducer.observeBoot("boot-2")
+        #expect(reducer.bootID == "boot-2")
+        reducer.switchHost(.local)
+        #expect(reducer.bootID == nil)
+    }
 }

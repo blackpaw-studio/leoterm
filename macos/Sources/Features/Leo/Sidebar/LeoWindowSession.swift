@@ -196,6 +196,7 @@ struct LeoWindowVisibilityState: Equatable {
     private var visibility = LeoWindowVisibilityState()
     private var activePaneSubscription: AnyCancellable?
     private var terminalSelectionSubscription: AnyCancellable?
+    private var inboxSelectionSubscription: AnyCancellable?
 
     init(
         id: LeoWindowID = LeoWindowID(),
@@ -249,6 +250,15 @@ struct LeoWindowVisibilityState: Equatable {
         // Leaving a shell row for the agent row is a selection too. A turn
         // later, so the row's selection reads the new value.
         terminalSelectionSubscription = terminals.$selection.dropFirst().removeDuplicates().sink { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                selectionChanged(unreadCount: unreadCount)
+            }
+        }
+        // Leaving the Inbox for the agent still selected behind it moves
+        // neither selection (the Inbox hides the agent, see `shownAgent`),
+        // so the check for what it wrote meanwhile is this one.
+        inboxSelectionSubscription = terminals.$isInboxSelected.dropFirst().removeDuplicates().filter { !$0 }.sink { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 selectionChanged(unreadCount: unreadCount)
@@ -363,8 +373,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     /// The agent this window's content area shows: the selected one, unless
-    /// a terminal row of this window is selected instead.
-    var shownAgent: LeoAgentID? { terminals.selection == nil ? selectedAgent() : nil }
+    /// a terminal row of this window or the Inbox is selected instead.
+    var shownAgent: LeoAgentID? { LeoSidebarSelection.showsSelectedAgent(terminals: terminals) ? selectedAgent() : nil }
 
     /// `agent` sent a message: show its chat here if this window shows
     /// its terminal. Never selects the agent or activates the app; keyboard

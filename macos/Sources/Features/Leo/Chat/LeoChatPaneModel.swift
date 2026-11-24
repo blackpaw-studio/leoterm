@@ -289,21 +289,23 @@ import LeoKit
     func answer(messageID: String, _ answer: LeoChatAnswer) async {
         guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
         defer { answering.remove(messageID) }
-        do {
-            let client = try connectedClient(for: agent.host)
-            let updated = try await client.answer(agent: agent.name, messageID: messageID, answer: answer)
+        let outcome = await LeoChatAnswering.perform {
+            try await connectedClient(for: agent.host).answer(agent: agent.name, messageID: messageID, answer: answer)
+        }
+        switch outcome {
+        case .answered(let updated):
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])
             } else if let message = timeline.message(id: messageID) {
                 timeline.merge([message.answered(answer)])
             }
-        } catch LeoChatAnswerError.settled {
+        case .settled:
             askDrafts[messageID] = nil
             guard agent == self.agent else { return }
             await refreshSettled(messageID, agent: agent)
-        } catch {
-            notice = "Couldn't answer: \(error.localizedDescription)"
+        case .failed(let reason):
+            notice = "Couldn't answer: \(reason)"
         }
     }
 
@@ -353,8 +355,9 @@ import LeoKit
         guard let agent, timeline.message(id: messageID) != nil, answering.insert(messageID).inserted else { return }
         questionsErrors[messageID] = nil
         defer { answering.remove(messageID) }
-        do {
-            let updated = try await request(try connectedClient(for: agent.host), agent.name)
+        let outcome = await LeoChatAnswering.perform { try await request(try connectedClient(for: agent.host), agent.name) }
+        switch outcome {
+        case .answered(let updated):
             guard agent == self.agent else { return }
             if let updated, timeline.admits(updated, agent: agent.name) {
                 timeline.merge([updated])
@@ -365,12 +368,12 @@ import LeoKit
                     await refreshSettled(messageID, agent: agent)
                 }
             }
-        } catch LeoChatAnswerError.settled {
+        case .settled:
             questionsDrafts[messageID] = nil
             guard agent == self.agent else { return }
             await refreshSettled(messageID, agent: agent)
-        } catch {
-            questionsErrors[messageID] = "\(failure): \(error.localizedDescription)"
+        case .failed(let reason):
+            questionsErrors[messageID] = "\(failure): \(reason)"
         }
     }
 

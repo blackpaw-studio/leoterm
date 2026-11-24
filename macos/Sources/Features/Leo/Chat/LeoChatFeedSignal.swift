@@ -6,6 +6,8 @@ enum LeoChatFeedSignal: Equatable, Sendable {
     case event(LeoChatEvent)
     /// Events may have been lost: reload the shown thread.
     case resync
+    /// Another client (or this one) looked at `agent` (`agent_seen`).
+    case agentSeen(agent: String, seenAt: Date)
 
     /// A hello follows every (re)subscribe and a daemon restart; a gap or
     /// a snapshot means the stream skipped ahead.
@@ -13,6 +15,7 @@ enum LeoChatFeedSignal: Equatable, Sendable {
         switch event {
         case .chat(_, let chat): self = .event(chat)
         case .hello, .gap, .snapshot: self = .resync
+        case .agentSeen(_, let agent, let seenAt): self = .agentSeen(agent: agent, seenAt: seenAt)
         default: return nil
         }
     }
@@ -29,6 +32,7 @@ extension LeoChatPaneModel {
         switch delivery.signal {
         case .event(let event): await receive(event, host: delivery.host)
         case .resync: await resync(host: delivery.host)
+        case .agentSeen: break
         }
     }
 

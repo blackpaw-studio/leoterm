@@ -134,6 +134,7 @@ extension LeoRuntime {
     private func chatMachineConnected(_ host: LeoHostID, _ client: any LeoChatClient) {
         unread.bind(client, host: host)
         chat.bind(client, host: host)
+        inbox.bind(client, host: host)
         chatRelay.send(LeoChatFeedDelivery(host: host, signal: .resync))
     }
 
@@ -142,6 +143,7 @@ extension LeoRuntime {
     private func chatMachineDisconnected(_ host: LeoHostID) {
         unread.unbind(host)
         chat.unbind(host)
+        inbox.unbind(host)
     }
 
     /// The production `LeoRemoteDaemonFactory`: a socket client over the

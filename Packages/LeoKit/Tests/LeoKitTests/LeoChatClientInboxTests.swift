@@ -8,8 +8,10 @@ struct LeoChatClientInboxTests {
         #"{"id":"\#(id)","agent":"zeus","direction":"out","kind":"ask","text":"Which?","state":"open","ts":1,"input":{"type":"buttons","options":[{"value":"a","label":"A"}]}}"#
     }
 
+    private static let t1 = Date(timeIntervalSince1970: 1_795_539_600)
+
     @Test func openAsksReadsTheCrossAgentRoute() async throws {
-        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"asks":[\#(Self.ask("m1")),\#(Self.ask("m2"))]}}"#])
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"messages":[\#(Self.ask("m1")),\#(Self.ask("m2"))]}}"#])
 
         let asks = try #require(try await LeoChatHTTPClient(transport: transport).openAsks())
 
@@ -19,9 +21,11 @@ struct LeoChatClientInboxTests {
         #expect(request.path == "/api/v1/chat/asks?state=open")
     }
 
-    @Test func openAsksAcceptsABareArray() async throws {
-        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":[\#(Self.ask("m1"))]}"#])
+    @Test func openAsksDropsUndecodableMessagesAndAcceptsAnEmptyList() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"messages":[{"id":"bad"},\#(Self.ask("m1"))]}}"#])
         #expect(try await LeoChatHTTPClient(transport: transport).openAsks()?.map(\.id) == ["m1"])
+        let empty = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"messages":[]}}"#])
+        #expect(try await LeoChatHTTPClient(transport: empty).openAsks() == [])
     }
 
     @Test func openAsksIsNilOnAnOldDaemon() async throws {
@@ -34,45 +38,36 @@ struct LeoChatClientInboxTests {
         await #expect(throws: LeoDaemonError.self) { _ = try await LeoChatHTTPClient(transport: transport).openAsks() }
     }
 
-    @Test func seenReadsTheSharedMarks() async throws {
-        let body = #"{"ok":true,"data":{"agents":[{"agent":"zeus","seen_at":"2026-11-24T17:00:00Z"},{"agent":"hera","seen_at":"2026-11-24T18:00:00Z"}]}}"#
-        let transport = FakeWebTransport(responses: [200: body])
+    @Test func seenReadsTheAgentToTimestampMapWithOrWithoutMilliseconds() async throws {
+        let map = #"{"zeus":"2026-11-24T17:00:00Z","hera":"2026-11-24T17:00:00.500Z"}"#
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":\#(map)}"#])
 
         let seen = try #require(try await LeoChatHTTPClient(transport: transport).seen())
 
-        #expect(seen == ["zeus": Date(timeIntervalSince1970: 1_795_539_600), "hera": Date(timeIntervalSince1970: 1_795_543_200)])
+        #expect(seen == ["zeus": Self.t1, "hera": Self.t1.addingTimeInterval(0.5)])
         let request = try #require(await transport.requests.first)
         #expect(request.method == "GET")
         #expect(request.path == "/api/v1/agents/seen")
     }
 
-    @Test func seenAcceptsAnAgentToTimestampMap() async throws {
-        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"agents":{"zeus":"2026-11-24T17:00:00Z"}}}"#])
-        #expect(try await LeoChatHTTPClient(transport: transport).seen() == ["zeus": Date(timeIntervalSince1970: 1_795_539_600)])
+    @Test func seenIsEmptyForADaemonWithNoMarksAndNilOnAnOldDaemon() async throws {
+        let none = FakeWebTransport(responses: [200: #"{"ok":true,"data":{}}"#])
+        #expect(try await LeoChatHTTPClient(transport: none).seen() == [:])
+        let old = FakeWebTransport(responses: [404: #"{"ok":false}"#])
+        #expect(try await LeoChatHTTPClient(transport: old).seen() == nil)
     }
 
-    @Test func seenIsNilOnAnOldDaemon() async throws {
-        let transport = FakeWebTransport(responses: [404: #"{"ok":false}"#])
-        #expect(try await LeoChatHTTPClient(transport: transport).seen() == nil)
-    }
+    @Test func markSeenAlwaysUsesTheBatchRouteAndReturnsTheServerTimes() async throws {
+        let transport = FakeWebTransport(responses: [200: #"{"ok":true,"data":{"zeus":"2026-11-24T17:00:00.250Z"}}"#])
 
-    @Test func markSeenPutsTheBatchAndReturnsTheServerTimes() async throws {
-        let body = #"{"ok":true,"data":{"agents":[{"agent":"zeus","seen_at":"2026-11-24T17:00:00Z"}]}}"#
-        let transport = FakeWebTransport(responses: [200: body])
+        let marked = try await LeoChatHTTPClient(transport: transport).markSeen(agents: ["zeus"])
 
-        let marked = try await LeoChatHTTPClient(transport: transport).markSeen(agents: ["zeus", "a/b"])
-
-        #expect(marked == ["zeus": Date(timeIntervalSince1970: 1_795_539_600)])
+        #expect(marked == ["zeus": Self.t1.addingTimeInterval(0.25)])
         let request = try #require(await transport.requests.first)
         #expect(request.method == "PUT")
         #expect(request.path == "/api/v1/agents/seen")
         let sent = try JSONSerialization.jsonObject(with: try #require(request.body)) as? [String: [String]]
-        #expect(sent == ["agents": ["zeus", "a/b"]])
-    }
-
-    @Test func markSeenWithoutTimesInTheReplyIsAnEmptyMap() async throws {
-        let transport = FakeWebTransport(responses: [200: #"{"ok":true}"#])
-        #expect(try await LeoChatHTTPClient(transport: transport).markSeen(agents: ["zeus"]) == [:])
+        #expect(sent == ["agents": ["zeus"]])
     }
 
     @Test func markSeenIsNilOnAnOldDaemon() async throws {

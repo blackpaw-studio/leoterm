@@ -23,6 +23,9 @@ public struct LeoDaemonFeatures: Equatable, Sendable {
         case agentMove = "agent_move"
         case agentProgress = "agent_progress"
         case agentShell = "agent_shell"
+        case agentSeen = "agent_seen"
+        /// A failed turn reports `errored` (with an error preview).
+        case attentionTurnFailed = "attention.turn_failed"
     }
 
     public static let none = LeoDaemonFeatures([])

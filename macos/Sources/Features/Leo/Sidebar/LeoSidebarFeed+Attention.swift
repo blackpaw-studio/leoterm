@@ -104,7 +104,9 @@ extension LeoSidebarSnapshot {
             rows: rows.map { row in
                 row.withAttention(
                     isLive ? reducer.badge(for: row.name, legacyActivity: row.activity) : nil,
-                    reason: isLive ? reducer.reason(for: row.name) : nil
+                    reason: isLive ? reducer.reason(for: row.name) : nil,
+                    signal: isLive ? reducer.committedSignal(for: row.name) : nil,
+                    bootID: isLive ? reducer.bootID : nil
                 )
             },
             connectivity: connectivity,

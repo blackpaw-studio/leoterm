@@ -25,8 +25,8 @@ public protocol LeoChatClient: Sendable {
     /// The shared per-agent "last seen" times (`GET /agents/seen`); nil from
     /// a daemon without the route (marks stay local).
     func seen() async throws -> [String: Date]?
-    /// Marks agents seen now (`PUT /agents/seen`); the daemon's times, empty
-    /// when it sent none, nil from a daemon without the route.
+    /// Marks agents seen now (`PUT /agents/seen`, always the batch route); the
+    /// daemon's times, empty when it sent none, nil from a daemon without it.
     func markSeen(agents: [String]) async throws -> [String: Date]?
 }
 
@@ -260,56 +260,33 @@ public struct LeoChatHTTPClient: LeoChatClient {
     }
 }
 
-/// `GET /chat/asks`: the messages as `{asks}` / `{messages}` or a bare array.
+/// `GET /chat/asks` data: `{messages: [...]}`; an undecodable message is dropped.
 struct LeoOpenAsksPayload: Decodable, Sendable {
     let messages: [LeoChatMessage]
 
+    private enum CodingKeys: String, CodingKey { case messages }
+
     init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case asks, messages }
-        if let bare = try? decoder.singleValueContainer().decode(LeoLenientArray<LeoChatMessage>.self) {
-            messages = bare.elements
-            return
-        }
-        let container = try decoder.container(keyedBy: Keys.self)
-        let lenient = try container.decodeIfPresent(LeoLenientArray<LeoChatMessage>.self, forKey: .asks)
-            ?? container.decode(LeoLenientArray<LeoChatMessage>.self, forKey: .messages)
-        messages = lenient.elements
+        messages = try decoder.container(keyedBy: CodingKeys.self).decode(LeoLenientArray<LeoChatMessage>.self, forKey: .messages).elements
     }
 }
 
-/// `GET`/`PUT /agents/seen`: `{agents|seen}` holding `[{agent, seen_at}]` or
-/// `{name: seen_at}`. Unreadable entries are dropped.
+/// `GET`/`PUT /agents/seen` data: `{name: seen_at}`, RFC 3339 UTC with an
+/// optional millisecond fraction. An unreadable entry is dropped.
 struct LeoSeenPayload: Decodable, Sendable {
     let marks: [String: Date]
 
-    private struct Row: Decodable {
-        let agent: String
-        let seenAt: LeoChatTimestamp
-        enum CodingKeys: String, CodingKey { case agent; case seenAt = "seen_at" }
+    init(from decoder: any Decoder) throws {
+        let map = try decoder.singleValueContainer().decode([String: LeoSeenTimestamp].self)
+        marks = map.compactMapValues(\.date)
     }
+}
 
-    private struct Rows: Decodable {
-        let marks: [String: Date]
-
-        init(from decoder: any Decoder) throws {
-            if let rows = try? decoder.singleValueContainer().decode(LeoLenientArray<Row>.self) {
-                marks = rows.elements.reduce(into: [:]) { $0[$1.agent] = $1.seenAt.date }
-                return
-            }
-            let map = try decoder.singleValueContainer().decode([String: LeoChatTimestamp?].self)
-            marks = map.reduce(into: [:]) { result, pair in
-                if let stamp = pair.value { result[pair.key] = stamp.date }
-            }
-        }
-    }
+private struct LeoSeenTimestamp: Decodable, Sendable {
+    let date: Date?
 
     init(from decoder: any Decoder) throws {
-        enum Keys: String, CodingKey { case agents, seen }
-        guard let container = try? decoder.container(keyedBy: Keys.self) else {
-            marks = try Rows(from: decoder).marks
-            return
-        }
-        marks = try (container.decodeIfPresent(Rows.self, forKey: .agents) ?? container.decodeIfPresent(Rows.self, forKey: .seen))?.marks ?? [:]
+        date = (try? decoder.singleValueContainer().decode(String.self)).flatMap(LeoChatTimestamp.parse)
     }
 }
 

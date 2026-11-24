@@ -96,6 +96,12 @@ struct LeoTerminalList: Equatable, Sendable {
     /// The terminal row this window's sidebar selects; `nil` when an agent
     /// row (or nothing) is selected there.
     @Published private(set) var selection: UUID? { didSet { changed() } }
+    /// Whether this window's sidebar selects the pinned Inbox row instead
+    /// (the content area shows the inbox). Exclusive with `selection`, and
+    /// ended by anything else being selected here: an agent, a terminal, or
+    /// an attach landing in this window. The app-wide agent selection is
+    /// untouched either way.
+    @Published private(set) var isInboxSelected = false
     /// B-332: the rows, a title or the selection changed -- what the
     /// window saves for restoring at launch (wired by `LeoRuntime`).
     var changed: () -> Void = {}
@@ -154,9 +160,16 @@ struct LeoTerminalList: Equatable, Sendable {
 
     /// Selects a row this window holds, or none.
     func select(_ id: UUID?) {
+        if isInboxSelected { isInboxSelected = false }
         let selected = id.flatMap { contains($0) ? $0 : nil }
         guard selected != selection else { return }
         selection = selected
+    }
+
+    /// Selects the pinned Inbox row (deselecting any terminal row).
+    func selectInbox() {
+        isInboxSelected = true
+        if selection != nil { selection = nil }
     }
 
     /// A click on the row, or Return with it selected: select and show it.
