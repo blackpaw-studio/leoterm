@@ -67,13 +67,20 @@ Lane: B-441
 Lane: B-443
   Branch: autopilot-lane/B-443
   Base: c396b9d07cf69bbdc580382d310c9a5c9fc582a0
-  Tier: light
-  State: building
+  Tier: light→full
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: a51b4b40ec3b3c9ba748ae560ad5ab10afea14a6
   Dispatched: 2026-11-24T01:49:51Z
+  Call: Mac only; iOS has no plugin settings or updater consumer, and the updater logic is already in LeoKit — Mac/iOS parity rule
+  Call: Each git plugin row shows "Follows “<ref>”" and a "Change…" link, not shown for bundled or dev plugins — Keyboard-first, Mac-native
+  Call: A stored `HEAD` reads as "the default branch", and an empty field switches back to it — Calm, attention-driven
+  Call: Reuses the existing approval sheet — Local = remote; Everything through Leo
+  Call: A declined ref change shows no message, same as a declined install — Never invent a state
+  Call: A same-commit ref switch refreshes the row without restarting the plugin — Never invent a state
+  Call: "Change…" stays an inline row button with no menu item or shortcut, like Uninstall — Keyboard-first, Mac-native
 
 Lane: B-439
   Branch: autopilot-lane/B-439
