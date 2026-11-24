@@ -86,12 +86,17 @@ Lane: B-440
   Branch: autopilot-lane/B-440
   Base: 4a7cb8b8a07df43d3f737167a4f2f8aca3e8800f
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: dd1e9dcdb282dd747b62de012b2e0508b1438649
   Dispatched: 2026-11-24T14:42:34Z
+  Call: Only the edge the pane isn't on shows a drop zone, so no zone ever does nothing — P2
+  Call: The zone previews where the pane lands (half the terminal along that edge), faint over the terminal and accent-filled while armed; a drop elsewhere slides the tab back — P1
+  Call: A drag starts only after a 4 pt threshold; a click still selects at once — P1
+  Call: Drags never leave the app: the pasteboard carries only a private type, never text or a file URL, so the terminal can't paste it — P1
+  Call: Dropping calls the same LeoPaneDockController.move as the menu, so there is no second dock path — P6
 
 Lane: B-444
   Branch: autopilot-lane/B-444
