@@ -3477,6 +3477,7 @@ Source: owner (/issue, 2026-11-23)
 Inbox: 20261124T014054218316Z-edf65908#1
 Done: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72 (Settings ▸ Plugins: a git plugin row shows the ref it follows and Change… switches branch/tag via the updater and the approval sheet, no reinstall; LeoKit updater 16/16, Mac suite 5061 pass). Decisions D-1001..D-1007.
 Verified: not visually verified — the published leo-plugin-usage tags need plugin API 2 and this build supports 1, so the Change… flow couldn't be driven; unit tests cover it
+Reviewed: accepted 2026-11-24 — 0809800ef115
 
 ## B-440 · Drag a Browser or Files tab to dock it on the right or below   [done]
 Issue: #412
