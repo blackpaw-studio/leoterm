@@ -218,7 +218,7 @@ public struct LeoAttentionReducer: Equatable, Sendable {
             acknowledged[agent] = signal.revision
         }
         entries[agent] = entry
-        let notifies = !isFocused && !isSamePrompt && (signal.state == .needsInput || signal.state == .finished)
+        let notifies = !isFocused && !isSamePrompt && signal.state.needsAttention
         return LeoAttentionTransition(
             id: LeoAgentID(host: host, name: agent), from: from, to: signal.state,
             revision: signal.revision, shouldNotify: notifies, bootID: bootID, reason: signal.reason
@@ -286,6 +286,13 @@ public struct LeoAttentionReducer: Equatable, Sendable {
         guard let entry = entries[agent], !entry.isStale, let committed = entry.committed,
               committed.state == .needsInput else { return nil }
         return committed.reason
+    }
+
+    /// The committed signal of a live (non-stale) agent, with its `reason`,
+    /// `preview` and `at`; nil while settling, stale or unreported.
+    public func committedSignal(for agent: String) -> LeoAttentionSignal? {
+        guard let entry = entries[agent], !entry.isStale else { return nil }
+        return entry.committed
     }
 
     /// The row badge. Without committed semantic attention (legacy daemon,
