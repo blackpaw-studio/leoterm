@@ -1,6 +1,6 @@
 # Plugin credentials on remote machines
 
-Status: draft for Evan's approval (2026-11-24)
+Status: approved by Evan 2026-11-24. Orchestrator amendments after planning are marked (amended).
 Platform: **Mac app + leo daemon.** iOS has no plugin host.
 
 ## Goal
@@ -24,7 +24,9 @@ The routes go on the operator-authenticated API, never on routes agents or paire
   - It includes the default `~/.claude` and `~/.codex`, plus every `CLAUDE_CONFIG_DIR` / `CODEX_HOME` named in `environments:` config.
   - `label` is the environment name, or the dir's basename.
   - It returns no tokens and no token metadata.
-- `POST /credentials/fetch` takes `{kind, dir, url, method, headers, body?}` and returns `{status, headers, body}` or `{error}`. The error reasons are the app's existing ones: `credentialHostMismatch`, `credentialHeaderConflict`, `credentialNeedsAuthorization`, `credentialUnavailable`.
+- `POST /credentials/check` takes `{kind, dir}` and returns `{ok}` or `{error}`. It only resolves the token, which is the same validation local adds do today, so Leo holds no plugin-owned probe URL. (amended)
+- `POST /credentials/fetch` takes `{kind, dir, url, method, headers, bodyBase64?}` and returns `{status, headers, bodyBase64}` or `{error: {reason, message}}`. The error reasons are the app's existing ones, using `credentialInvalid` where an earlier draft said `credentialUnavailable` (amended). The exact JSON is in the plan.
+- Routes are on the daemon's Unix-socket mux only, the one the Mac app reaches over its SSH socket forward. They are never on the web `/api` mux, so agent and device tokens cannot reach them. (amended)
 
 ### Rules, mirroring the app's fetcher exactly
 - `dir` must be one listed by `/credentials/accounts`. There are no arbitrary paths.
@@ -35,10 +37,11 @@ The routes go on the operator-authenticated API, never on routes agents or paire
 - Response bodies are capped at 5 MB and requests time out at 30 s.
 - There is no token refresh and no writes to CLI-owned files or Keychain items.
 
-### Token source
+### Token source (amended)
 - Codex reads `<dir>/auth.json`.
-- Claude reads `<dir>/.credentials.json` first, then the Keychain item `Claude Code-credentials[-sha8]`.
-- The Keychain read must never block on a UI prompt. If it would need one, the daemon returns `credentialNeedsAuthorization`. See open question 1.
+- Claude reads the Keychain item `Claude Code-credentials[-sha8]` first, matching the app. It falls back to `<dir>/.credentials.json` only when the item is missing (`security` exit 44). On Dionysus every config dir has a fresh Keychain item, and the `.credentials.json` copies are stale or absent.
+- The read shells out to `/usr/bin/security find-generic-password -a $USER -s <svc> -w`, with an absolute path, no shell, a 5 s timeout, and stdout never logged. Any other failure maps to `credentialNeedsAuthorization`. Non-darwin builds read the file only.
+- Using the `security` CLI was confirmed on 2026-11-23: the same command on Dionysus returned the token with no dialog. It also grants nothing new, because same-user processes can already run it.
 
 ## Mac app (LeoKit plus macos/)
 
@@ -96,11 +99,9 @@ The routes go on the operator-authenticated API, never on routes agents or paire
 - **Plugin:** subtitle, offline and expired copy.
 - **Live E2E:** the laptop app adds `Dionysus · ~/.claude-blackpaw-leo` and `Dionysus · ~/.codex`. The numbers match `claude /usage` on Dionysus, and the laptop has no login for those accounts.
 
-## Open questions
-
-1. **Claude Keychain access from the daemon on Dionysus.** A headless read through `/usr/bin/security` would prompt "security wants to access…". Clicking Always Allow there would let any process read the item through `security`, which is too broad. Two options:
-   - **(a)** The daemon reads through Security.framework (cgo), so the Keychain approval names the leo binary. The cost: a re-sign on each leo update re-prompts.
-   - **(b)** Rely on `.credentials.json`, if Claude Code on Dionysus stores custom-dir logins there.
-
-   The planner verifies which store the Dionysus accounts actually use before choosing.
-2. Does the app reach remote daemons through a forwarded Unix socket or through the HTTPS `/api` with a bearer token? This decides which daemon mux the routes go on. The planner confirms.
+## Resolved questions
+1. Keychain on Dionysus: use the `security` CLI (see Token source). cgo / Security.framework is rejected because it costs CGO_ENABLED=0 and adds re-prompts.
+2. The app reaches remote daemons through an SSH-forwarded Unix socket (`LeoSocketDaemonClient`), so the routes go on the socket mux.
+3. A remote daemon without these routes returns 404. The app maps that to `credentialMachineUnavailable` with the message "<machine>'s Leo is too old to share accounts".
+4. The JS handle includes `machine` only for remote grants. Local handles omit it, so the plugin never matches on a "This Mac" string. Settings and the add sheet still show "This Mac".
+5. Accepted risk: a same-user process on the remote machine can open the 0600 socket. That is no new privilege, since it can already spawn agents and run `security`.
