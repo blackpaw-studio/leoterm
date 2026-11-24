@@ -3484,3 +3484,9 @@ Accept: Dragging a section header moves the whole section, and the new order sur
 Out: No reordering of rows inside a section, no hiding or collapsing sections, no sync of the order across Macs, and no iOS (Mac only: the sidebar sections and plugins exist only on Mac)
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261123T235734756623Z-26910159#1
+
+## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [ready (next run)]
+Type: bug
+Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-324)

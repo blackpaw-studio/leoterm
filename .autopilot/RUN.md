@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-24T00:56:31Z
 Budget: 20 items, until 2026-11-24T12:56:31Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 0/5 ideas
+Self-filed: B-324 → B-442 bug — Mac composer on a moved agent still offers Start and shows Idle
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -19,12 +20,15 @@ Lane: B-324
   Branch: autopilot-lane/B-324
   Base: 785cf8d787f0446d2fa3200b902d16160ec883d9
   Tier: full
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 7880c2ee4501a72c279836a7cb6589d2b0385c7a
   Dispatched: 2026-11-24T00:59:01Z
+  Call: A moved row opened in a new window (⌘-click, ⌥-double-click) shows its chat, like a plain click, not a Start sheet — VISION 2, 6
+  Call: The chat bar on a moved row reads "<name> moved to <host>." with no Start button — VISION 2
+  Call: The moved-row guard in go(to:) comes before the status check, so it covers every status — VISION 2
 
 Lane: B-437
   Branch: autopilot-lane/B-437
