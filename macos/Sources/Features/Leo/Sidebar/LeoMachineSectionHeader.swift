@@ -17,6 +17,8 @@ struct LeoMachineSectionHeader: View {
     let host: LeoHostID
     let presentation: LeoMachineHeaderPresentation
     let style: LeoStatsStyle
+    /// Moves the Agents section, which every machine is part of (B-438).
+    let mover: LeoSidebarSectionMover
     let actions: LeoMachineHeaderActions
 
     private static let rowHeight: CGFloat = 20
@@ -41,6 +43,7 @@ struct LeoMachineSectionHeader: View {
         }
         .textCase(nil)
         .contextMenu { menu }
+        .leoSidebarSectionDrag(mover)
         .accessibilityElement(children: .contain)
     }
 
@@ -85,6 +88,8 @@ struct LeoMachineSectionHeader: View {
             Button("Edit Machine…", action: actions.editMachine)
             Button("Disable", action: actions.disable)
         }
+        Divider()
+        LeoSidebarSectionMoveItems(mover: mover)
     }
 }
 

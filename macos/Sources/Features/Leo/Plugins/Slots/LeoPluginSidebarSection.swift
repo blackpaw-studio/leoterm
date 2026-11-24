@@ -11,6 +11,8 @@ struct LeoPluginSidebarSection: View {
     /// Observed so the rows change when the plugin renders.
     @ObservedObject var slots: LeoPluginSlotStore
     let entry: LeoPluginSidebarSectionEntry
+    /// Moves the section among the sidebar's others (B-438).
+    let mover: LeoSidebarSectionMover
     @Environment(\.leoPluginSurfaces) private var surfaces
 
     var body: some View {
@@ -63,6 +65,21 @@ struct LeoPluginSidebarSection: View {
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .contextMenu {
             Button("Hide Section") { sections.hide(entry) }
+            Divider()
+            LeoSidebarSectionMoveItems(mover: mover)
+        }
+        .leoSidebarSectionDrag(mover)
+    }
+
+    /// The table rows a section takes: its header, then what `body` lists
+    /// under it. `content` is nil while it is collapsed or there are no
+    /// plugin surfaces: the placeholder row. Otherwise it's the content
+    /// `LeoPluginSectionRowsView` draws. B-438 counts these for the
+    /// sections below it.
+    static func tableRows(listing content: LeoPluginSlotContent?) -> Int {
+        switch content {
+        case nil, .loading, .error, .notice: 2
+        case .nodes(let nodes, _): 1 + LeoPluginSectionRows.make(from: nodes).count
         }
     }
 }

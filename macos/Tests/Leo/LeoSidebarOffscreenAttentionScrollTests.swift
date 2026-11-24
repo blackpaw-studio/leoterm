@@ -163,6 +163,26 @@ struct LeoSidebarOffscreenAttentionScrollTests {
         sidebar.scrollTo(y: sidebar.table.rect(ofRow: row).maxY - height)
         #expect(await sidebar.waits { sidebar.indicator(Self.bottom) == nil }, "agent-19 is in view")
     }
+
+    /// B-438: a plugin section moved above the agents (collapsed: its header
+    /// and one placeholder row) pushes every agent row down by its rows.
+    @Test func offscreenCandidatesShiftBelowSectionsAboveAgents() async throws {
+        let sidebar = try await Sidebar.make(unread: ["agent-19": 1], collapsed: ["stopped"], pluginSectionAbove: true)
+        defer { sidebar.close() }
+        let row = Sidebar.tableRow(ofAgent: 19) + Sidebar.collapsedPluginSectionRows
+        sidebar.scroll(toRow: row)
+        sidebar.model.userSelected(LeoAgentID(host: .local, name: "agent-19"))
+        try #require(await sidebar.waits { sidebar.table.selectedRow >= 0 }, "the list selects agent-19")
+        try #require(sidebar.table.selectedRow == row, "the list draws agent-19 at row \(row)")
+
+        sidebar.scroll(toRow: 0)
+        let height = sidebar.table.visibleRect.height
+        sidebar.scrollTo(y: sidebar.table.rect(ofRow: row).minY - height)
+        #expect(await sidebar.waits { sidebar.indicator(Self.bottom) != nil }, "agent-19 is below the edge: \(sidebar.diagnostics())")
+
+        sidebar.scrollTo(y: sidebar.table.rect(ofRow: row).maxY - height)
+        #expect(await sidebar.waits { sidebar.indicator(Self.bottom) == nil }, "agent-19 is in view")
+    }
 }
 
 // MARK: - Harness
@@ -183,9 +203,10 @@ struct LeoSidebarOffscreenAttentionScrollTests {
     /// `dispatchesUnder`; `collapsed` are section ids.
     static func make(
         states: [String: LeoAttentionBadge] = [:], unread: [String: Int] = [:],
-        dispatchesUnder: String? = nil, collapsed: [String] = []
+        dispatchesUnder: String? = nil, collapsed: [String] = [], pluginSectionAbove: Bool = false
     ) async throws -> Sidebar {
         let sidebar = Sidebar(states: states, unread: unread, dispatchesUnder: dispatchesUnder, collapsed: collapsed)
+        if pluginSectionAbove { sidebar.addPluginSectionAboveAgents() }
         try await sidebar.settledTable(moreThan: collapsed.isEmpty ? 40 : 20)
         return sidebar
     }
@@ -222,6 +243,26 @@ struct LeoSidebarOffscreenAttentionScrollTests {
     }
 
     func close() { window.close() }
+
+    /// A collapsed plugin section's rows: its header and the placeholder row.
+    static let collapsedPluginSectionRows = 2
+    private var pluginHost: LeoPluginSlotHostFake?
+
+    /// One plugin section, collapsed, moved above the agents (B-438).
+    func addPluginSectionAboveAgents() {
+        let host = LeoPluginSlotHostFake(plugins: [LeoPluginTestPlugins.info(
+            sections: [LeoPluginSidebarSectionContribution(id: "issues", title: "Issues")]
+        )])
+        pluginHost = host
+        model.pluginSections = LeoPluginSidebarSections(
+            host: host, preferences: { [model] in model.preferences }, update: { [model] in model.update($0) }
+        )
+        let entry = LeoSidebarPreferences.pluginSectionKey(plugin: "studio.test.demo", section: "issues")
+        model.moveSection(
+            LeoSidebarSectionOrder.pluginKey(entry), onto: LeoSidebarSectionOrder.agents,
+            visible: [LeoSidebarSectionOrder.agents, LeoSidebarSectionOrder.pluginKey(entry)]
+        )
+    }
 
     // MARK: Driving
 

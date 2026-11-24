@@ -21,6 +21,9 @@ import SwiftUI
 /// own; a stale one, from before the filter hid the section, is harmless
 /// because the filter guard never lands then.
 struct LeoTerminalsSectionExit: ViewModifier {
+    /// The Terminals header's row in the list (B-438: sections can sit
+    /// above it).
+    let sectionStart: Int
     /// How many rows the Terminals section has in the list: its header
     /// and terminals, or 0 when it isn't listed.
     let sectionRows: Int
@@ -52,7 +55,7 @@ struct LeoTerminalsSectionExit: ViewModifier {
             .background(LeoTerminalsViewportFinder(viewport: viewport).accessibilityHidden(true))
             .onAppear { wasListed = isListed }
             // Its rows as of the last update, which the list has.
-            .onReceive(terminalsWillChange) { viewport.snapshot(sectionRows: sectionRows) }
+            .onReceive(terminalsWillChange) { viewport.snapshot(sectionStart: sectionStart, sectionRows: sectionRows) }
             .onChange(of: trigger) { settle($0) }
     }
 
@@ -101,11 +104,11 @@ extension LeoTerminalsSectionExit {
 
 extension View {
     func leoLandsWhenTerminalsClose(
-        sectionRows: Int, isFiltering: Bool, landing: LeoTerminalsSectionExit.Landing?,
+        sectionStart: Int, sectionRows: Int, isFiltering: Bool, landing: LeoTerminalsSectionExit.Landing?,
         terminalsWillChange: ObservableObjectPublisher, proxy: ScrollViewProxy
     ) -> some View {
         modifier(LeoTerminalsSectionExit(
-            sectionRows: sectionRows, isFiltering: isFiltering, landing: landing,
+            sectionStart: sectionStart, sectionRows: sectionRows, isFiltering: isFiltering, landing: landing,
             terminalsWillChange: terminalsWillChange, proxy: proxy
         ))
     }

@@ -30,9 +30,9 @@ enum LeoMachineListContent: Equatable {
 
 /// B-413: the sidebar `List`'s table-row index of each agent row. Rows that
 /// aren't drawn have no views to ask, so the indices are counted from the
-/// same structure the view draws: the machine blocks come first in the list
-/// (before Terminals and plugin sections), each one header row then its
-/// content.
+/// same structure the view draws: the machine blocks, together, each one
+/// header row then its content. They're counted from the first machine's
+/// header; `LeoSidebarBlockLayout` adds the sections above them (B-438).
 enum LeoSidebarListRows {
     /// A status group as listed: its title row, then (unless collapsed)
     /// each agent row with the dispatch rows under it.
