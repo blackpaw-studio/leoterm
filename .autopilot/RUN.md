@@ -25,12 +25,13 @@ Lane: B-439
   Branch: autopilot-lane/B-439
   Base: 095fd564e1c3abfbce82c49343dc0a916af638c8
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
   Reviewed-tip: 58b736a723a6a519d31bb5ad21d9984a916ecfb9
   Dispatched: 2026-11-24T14:19:18Z
+  Tokens: 84M in (82.7M cache read), ≥233k out, 577 requests
   Call: "Files" = outline plus editor and plugin tabs as one unit; "Browser" = the agent web-view tab — P6
   Call: Both panes default to the right, so layout is unchanged on upgrade — P2
   Call: Dock menu items enable only while Browser or Files has focus, with the current edge checked; no toolbar item or Settings picker — P1
@@ -75,4 +76,6 @@ Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB
 Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
 Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
 Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
+Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge panes sit side by side, not as tabs (unchecked against Accept) — flag for review; verify.md launch flag -ApplePersistenceIgnoreState shows a Configuration Errors dialog
 Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-8.png
+Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png

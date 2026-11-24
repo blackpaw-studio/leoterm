@@ -3483,13 +3483,15 @@ Out: Dragging panes between windows; docking on the left or top; iOS
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005228052478Z-9065746d#1
 
-## B-439 · Dock the Browser and Files panes on the right or below the terminal   [ready]
+## B-439 · Dock the Browser and Files panes on the right or below the terminal   [done]
 Issue: #413
 Why: You can see the agent's page below the terminal while you read its code on the right (P4: everything through Leo; P1: keyboard-first). This is option B from Evan's pick on 2026-11-23; mockup: /Users/evan/.leo/agents/leoterm/scratchpad/pane-orientation-mockups/option-b-dock-per-pane.png (HTML next to it).
 Accept: Browser and Files each dock either on the right or below the terminal, set per pane and the same for every agent, and each pane's position survives a relaunch (tested); you can move a pane from View ▸ Dock Focused Pane Right/Below (⌃⌥⌘→ / ⌃⌥⌘↓, checked for conflicts with existing Leo and macOS shortcuts) and from its tab's right-click menu; panes on different edges are both visible at once, and panes on the same edge are tabs as they are today; each dock has its own divider and remembered size, a drag stops at a 200 pt minimum instead of collapsing, and closing a docked pane gives its space back to the terminal (tested); the agent drawer stays under the terminal column; screenshots from the isolated debug build of both panes on the right, browser below with files on the right, and after a relaunch
 Out: Drag-to-dock (a separate follow-up item); positions that differ per agent; docking on the left or top; iOS (Mac only, since the panes exist only on Mac)
 Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005227812070Z-030f6ea1#1
+Done: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153 (Browser and Files each dock right or below, app-wide, kept across relaunch; View ▸ Dock Focused Pane Right/Below ⌃⌥⌘→/⌃⌥⌘↓ and tab right-click menu; 200 pt dock minimum; full suite 5126 pass; 1 fix round + 1 re-verify). Decisions D-1015..D-1023.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
 
 ## B-438 · Reorder sidebar sections, including plugin sections   [done]
 Issue: #414
