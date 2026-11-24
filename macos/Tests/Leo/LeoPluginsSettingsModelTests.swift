@@ -485,13 +485,13 @@ import Testing
         #expect(rig.model.message == .notice("“Demo” now follows “next”."))
     }
 
-    @Test func changingToARefAtTheSameCommitRestartsNothing() async {
+    @Test func changingToARefAtTheSameCommitRefreshesTheRowWithoutRestarting() async {
         let rig = Self.rig([Self.info()])
         rig.updater.outcomes = ["dev.example.demo": .upToDate(sha: Self.sha)]
 
         await rig.model.changeRef("dev.example.demo", to: "stable")
 
-        #expect(rig.log.events == ["check dev.example.demo ref=stable"])
+        #expect(rig.log.events == ["check dev.example.demo ref=stable", "reload "])
         #expect(rig.model.message == .notice("“Demo” now follows “stable”."))
     }
 
@@ -515,6 +515,7 @@ import Testing
         await rig.model.changeRef("dev.example.demo", to: "next")
 
         #expect(rig.log.events == ["check dev.example.demo ref=next", "approve dev.example.demo", "discard dev.example.demo"])
+        #expect(rig.model.message == nil)
     }
 
     @Test func aRefThatCannotBeResolvedShowsTheErrorAndRestartsNothing() async {

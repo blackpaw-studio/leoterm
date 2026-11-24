@@ -172,7 +172,7 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
             var failures: [String] = []
             for row in rows where row.canChangeRef {
                 do {
-                    if try await update(row.id, ref: nil) { updated.append(row.id) }
+                    if try await update(row.id, ref: nil) == .applied { updated.append(row.id) }
                 } catch {
                     failures.append("\(row.name): \(error.localizedDescription)")
                 }
@@ -201,8 +201,13 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         guard let row = rows.first(where: { $0.id == id && $0.canChangeRef }) else { return }
         await run {
             do {
-                let didMove = try await update(id, ref: ref)
-                if didMove { manager.reload(restarting: [id]) }
+                switch try await update(id, ref: ref) {
+                case .applied: manager.reload(restarting: [id])
+                // Same commit under a new name: the registry changed, so republish the row without restarting anything.
+                case .unchanged: manager.reload(restarting: [])
+                // Declined the approval sheet: nothing changed, so claim nothing (as with a declined install).
+                case .declined: return
+                }
                 message = .notice("“\(row.name)” now follows \(LeoPluginRow.refText(ref)).")
             } catch {
                 fail(error)
@@ -221,18 +226,20 @@ extension LeoPluginUpdater: LeoPluginUpdating {}
         isBusy = false
     }
 
-    /// One plugin's check, with the approval sheet when it asks for more. True if a new commit was applied.
-    private func update(_ id: String, ref: String?) async throws -> Bool {
+    private enum UpdateResult { case applied, unchanged, declined }
+
+    /// One plugin's check, with the approval sheet when it asks for more.
+    private func update(_ id: String, ref: String?) async throws -> UpdateResult {
         switch try await updater.check(id: id, ref: ref) {
-        case .upToDate: return false
-        case .updated: return true
+        case .upToDate: return .unchanged
+        case .updated: return .applied
         case .needsApproval(let pending):
             guard await approve(pending.request) else {
                 updater.discard(pending)
-                return false
+                return .declined
             }
             try updater.approve(pending)
-            return true
+            return .applied
         }
     }
 
