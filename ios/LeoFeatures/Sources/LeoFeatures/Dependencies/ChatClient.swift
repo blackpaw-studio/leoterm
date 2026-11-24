@@ -44,6 +44,12 @@ public struct ChatClient: Sendable {
         _ connection: DaemonConnection, _ agent: String, _ messageID: String
     ) async throws -> LeoChatMessage?
     public var markRead: @Sendable (_ connection: DaemonConnection, _ agent: String, _ messageID: String) async throws -> Void
+    /// Every open ask/permission row; nil from a daemon without the route.
+    public var openAsks: @Sendable (_ connection: DaemonConnection) async throws -> [LeoChatMessage]?
+    /// Per-agent `seen_at`; nil from a daemon without the route (local marks).
+    public var seen: @Sendable (_ connection: DaemonConnection) async throws -> [String: Date]?
+    /// Marks the agents seen now; nil from a daemon without the route.
+    public var markSeen: @Sendable (_ connection: DaemonConnection, _ agents: [String]) async throws -> [String: Date]?
 }
 
 extension ChatClient: DependencyKey {
@@ -81,7 +87,10 @@ extension ChatClient: DependencyKey {
             dismiss: { connection, agent, messageID in
                 try await client(connection).dismiss(agent: agent, messageID: messageID)
             },
-            markRead: { connection, agent, messageID in try await client(connection).markRead(agent: agent, upTo: messageID) }
+            markRead: { connection, agent, messageID in try await client(connection).markRead(agent: agent, upTo: messageID) },
+            openAsks: { try await client($0).openAsks() },
+            seen: { try await client($0).seen() },
+            markSeen: { connection, agents in try await client(connection).markSeen(agents: agents) }
         )
     }
 }

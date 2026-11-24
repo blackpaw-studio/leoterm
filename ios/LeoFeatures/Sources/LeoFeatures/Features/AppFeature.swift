@@ -91,6 +91,8 @@ public struct AppFeature {
     }
 
     @Dependency(\.chatClient) var chatClient
+    @Dependency(\.date) var date
+    @Dependency(\.inboxSeenStore) var inboxSeenStore
     @Dependency(\.clientTools) var clientTools
     @Dependency(\.chatNotifier) var chatNotifier
     @Dependency(\.agentDirectory) var agentDirectory
@@ -116,7 +118,7 @@ public struct AppFeature {
                     guard let session = state.fleet.sessions[id: ref.daemonID],
                           let agent = session.agents[id: ref.name] else { return .none }
                     state.selectAgent(ref, session: session, agent: agent)
-                    return .none
+                    return markSeen(ref, state: &state)
 
                 case .appearanceRequested(let ref):
                     guard let session = state.fleet.sessions[id: ref.daemonID], session.supportsAppearance,
@@ -133,7 +135,7 @@ public struct AppFeature {
                     return .none
 
                 case .chatOpened(let ref), .chats(.newChatPicked(let ref)), .chats(.rowTapped(let ref)):
-                    return openChat(ref, state: &state)
+                    return .merge(openChat(ref, state: &state), markSeen(ref, state: &state))
 
                 case .chatPopped:
                     state.parkChatDrafts()
@@ -217,6 +219,9 @@ public struct AppFeature {
                     let toThread: Effect<Action> = state.chat?.ref == ref ? .send(.chat(.chatEvent(event))) : .none
                     return .concatenate(.send(.chats(.chatEvent(id, event, isOpen: state.isChatOnScreen(ref)))), toThread)
 
+                case .fleet(.eventReceived(let id, .agentSeen(_, let agent, let seenAt))):
+                    return .send(.chats(.agentSeen(id, agent: agent, seenAt: seenAt)))
+
                 case .fleet(.taskFinished(let id, let finish)):
                     return notify(finish, daemonID: id, state: state)
 
@@ -242,8 +247,9 @@ public struct AppFeature {
                     return .none
 
                 case .detail(.chatButtonTapped):
-                    if let ref = state.detail?.ref { state.openChat(ref) }
-                    return .none
+                    guard let ref = state.detail?.ref else { return .none }
+                    state.openChat(ref)
+                    return markSeen(ref, state: &state)
 
                 case .chat(.infoButtonTapped):
                     state.selectedTab = .agents
@@ -315,6 +321,13 @@ public struct AppFeature {
                 return .merge(opening, state.machineLinkUpdate(), state.terminalRunningUpdates(), state.reconcileStrip(stripReducer))
             }
         }
+    }
+
+    /// Opening an agent (detail or chat) marks it seen in the inbox.
+    private func markSeen(_ ref: AgentRef, state: inout State) -> Effect<Action> {
+        ChatList.markSeen(
+            state.seenTargets(ref), state: &state.chats, now: { date.now }, store: inboxSeenStore, chatClient: chatClient, secrets: secrets
+        ).map(Action.chats)
     }
 
     /// Opens `ref`'s thread; a different thread already open is closed first.
