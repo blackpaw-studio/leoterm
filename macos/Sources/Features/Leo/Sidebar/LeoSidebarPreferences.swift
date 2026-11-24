@@ -33,13 +33,17 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     var toggledSubagents: Set<LeoAgentRow.ID>
     /// Plugin sidebar sections the user opened (`pluginSectionKey`); they all start collapsed.
     var expandedPluginSections: Set<String>
+    /// B-438: the top-level sections in the order the user put them
+    /// (`LeoSidebarSectionOrder` keys). Empty until the first move; a
+    /// section that isn't in it goes at the bottom.
+    var sectionOrder: [String]
 
     init(
         sortOrder: LeoSidebarSortOrder = .lastActivity, groupBy: LeoSidebarGroupBy = .status,
         pinned: Set<LeoAgentRow.ID> = [], collapsed: [LeoHostID: Set<String>] = [:],
         expanded: [LeoHostID: Set<String>] = [:], collapsedMachines: Set<LeoHostID> = [],
         hidesSubagents: Bool = false, toggledSubagents: Set<LeoAgentRow.ID> = [],
-        expandedPluginSections: Set<String> = []
+        expandedPluginSections: Set<String> = [], sectionOrder: [String] = []
     ) {
         self.sortOrder = sortOrder
         self.groupBy = groupBy
@@ -50,6 +54,7 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         self.hidesSubagents = hidesSubagents
         self.toggledSubagents = toggledSubagents
         self.expandedPluginSections = expandedPluginSections
+        self.sectionOrder = sectionOrder
     }
 
     /// Lenient: a field that's missing or unreadable falls back to its
@@ -66,6 +71,7 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
         hidesSubagents = (try? container.decodeIfPresent(Bool.self, forKey: .hidesSubagents)) ?? defaults.hidesSubagents
         toggledSubagents = (try? container.decodeIfPresent(Set<LeoAgentRow.ID>.self, forKey: .toggledSubagents)) ?? defaults.toggledSubagents
         expandedPluginSections = (try? container.decodeIfPresent(Set<String>.self, forKey: .expandedPluginSections)) ?? defaults.expandedPluginSections
+        sectionOrder = (try? container.decodeIfPresent([String].self, forKey: .sectionOrder)) ?? defaults.sectionOrder
     }
 
     static func decode(_ data: Data?) -> LeoSidebarPreferences {
@@ -121,6 +127,12 @@ struct LeoSidebarPreferences: Codable, Equatable, Sendable {
     func with(groupBy: LeoSidebarGroupBy) -> LeoSidebarPreferences {
         var updated = self
         updated.groupBy = groupBy
+        return updated
+    }
+
+    func with(sectionOrder: [String]) -> LeoSidebarPreferences {
+        var updated = self
+        updated.sectionOrder = sectionOrder
         return updated
     }
 

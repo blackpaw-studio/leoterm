@@ -11,13 +11,17 @@ import SwiftUI
 /// `Section` collapses on hover under macOS 13 (the deployment
 /// target); macOS 14+ only does so with `isExpanded:`, which this
 /// section never passes, so `collapsible(false)` is a no-op there.
+///
+/// Its header moves the section (B-438): Move Up and Move Down in its
+/// context menu, or a drag.
 struct LeoTerminalsSection: View {
     @ObservedObject var titles: LeoTerminalTitles
     /// Its window's rows: what each row acts through.
     let terminals: LeoWindowTerminals
+    let mover: LeoSidebarSectionMover
 
     var body: some View {
-        Section(header: Text("Terminals")) {
+        Section(header: header) {
             ForEach(titles.rows) { title in
                 LeoTerminalTitleRow(title: title, terminals: terminals)
                     .frame(minHeight: LeoDispatchRowMetrics.terminalRowHeight)
@@ -27,6 +31,14 @@ struct LeoTerminalsSection: View {
             }
         }
         .collapsible(false)
+    }
+
+    private var header: some View {
+        Text("Terminals")
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+            .contextMenu { LeoSidebarSectionMoveItems(mover: mover) }
+            .leoSidebarSectionDrag(mover)
     }
 }
 

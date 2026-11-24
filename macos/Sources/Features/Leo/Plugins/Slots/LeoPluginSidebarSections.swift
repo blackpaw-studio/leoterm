@@ -49,6 +49,17 @@ struct LeoPluginSidebarSectionEntry: Identifiable, Equatable {
         }
     }
 
+    /// Every section an installed plugin contributes, listed or not (turned
+    /// off, or hidden in Settings): the section order keeps a slot for each
+    /// (B-438).
+    var allEntryIDs: [String] {
+        host.plugins.flatMap { info in
+            (info.manifest?.contributes.sidebarSections ?? []).map {
+                LeoSidebarPreferences.pluginSectionKey(plugin: info.id, section: $0.id)
+            }
+        }
+    }
+
     func isExpanded(_ entry: LeoPluginSidebarSectionEntry) -> Bool {
         !preferences().isPluginSectionCollapsed(entry.id)
     }

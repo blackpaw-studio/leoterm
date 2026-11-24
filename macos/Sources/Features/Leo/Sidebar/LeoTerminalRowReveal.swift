@@ -1,13 +1,13 @@
 import SwiftUI
 
-/// B-067: the Terminals section sits below every agent, so the window's
-/// selected terminal row is scrolled into view whenever it's newly
-/// selected (⌘T adds and selects one) or newly listed (the section shows
-/// again once the search filter clears), when the agents arrive above it
-/// or go, and when the window's list first appears -- as Mail and Finder
-/// reveal their selection. The scroll is the list's own minimal one,
-/// without animation; a row already on screen doesn't move, and nothing
-/// else (a retitle, an agent refresh) scrolls.
+/// B-067: the window's selected terminal row is scrolled into view
+/// whenever it's newly selected (⌘T adds and selects one) or newly listed
+/// (the section shows again once the search filter clears), when the
+/// agents arrive or go, and when the window's list first appears -- as
+/// Mail and Finder reveal their selection. The scroll is the list's own
+/// minimal one, by the row's ID, so it works wherever the section sits
+/// (B-438), and without animation; a row already on screen doesn't move,
+/// and nothing else (a retitle, an agent refresh) scrolls.
 ///
 /// The sidebar keeps one list through filtering and loading while the
 /// window has agents or terminals (B-099, B-148), so `onAppear` runs for
@@ -19,7 +19,7 @@ struct LeoTerminalRowReveal: ViewModifier {
     let selection: UUID?
     /// Whether the Terminals section is in the list.
     let isListed: Bool
-    /// Whether the agents are in the list above the section, rather than a
+    /// Whether the agents are in the list, rather than a
     /// state (Loading, No Agents) standing in for them: their arriving or
     /// going moves the section, as the list reappearing did (B-099).
     let listsAgents: Bool

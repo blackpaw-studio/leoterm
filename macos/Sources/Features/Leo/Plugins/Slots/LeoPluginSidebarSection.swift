@@ -11,15 +11,18 @@ struct LeoPluginSidebarSection: View {
     /// Observed so the rows change when the plugin renders.
     @ObservedObject var slots: LeoPluginSlotStore
     let entry: LeoPluginSidebarSectionEntry
+    /// Moves the section among the sidebar's others (B-438).
+    let mover: LeoSidebarSectionMover
     @Environment(\.leoPluginSurfaces) private var surfaces
 
     var body: some View {
         let expanded = sections.isExpanded(entry)
         // A real Section header, like Terminals and the machine groups, so the
         // section reads as top level and not as a subsection of the machine
-        // above it. SwiftUI's sidebar List never inserts rows into a section
-        // that was empty when it first appeared, so a collapsed section holds
-        // one invisible row.
+        // above it. A collapsed section lists no rows (B-438: an invisible
+        // placeholder row left a gap above the next section). SwiftUI's
+        // sidebar List never inserts rows into a section that was empty when
+        // it first appeared, but opening one builds a new section (see `.id`).
         Section(
             header: header(expanded: expanded)
                 .onAppear { if expanded { sections.ensureLoaded(entry) } }
@@ -28,21 +31,23 @@ struct LeoPluginSidebarSection: View {
         ) {
             if expanded, let surfaces {
                 LeoPluginSectionRowsView(surfaces: surfaces, key: entry.slotKey)
-            } else {
-                Color.clear
-                    .frame(height: 1)
-                    .listRowInsets(EdgeInsets())
-                    .accessibilityHidden(true)
             }
         }
         .collapsible(false)
         // Opening a section at runtime must build it afresh, like a launch with
-        // it open does: SwiftUI's sidebar List doesn't swap the placeholder row
-        // for the plugin's rows in place (the section stays empty).
+        // it open does: SwiftUI's sidebar List doesn't add the plugin's rows to
+        // the section in place (it stays empty).
         .id(LeoPluginSectionIdentity.make(entry: entry, expanded: expanded))
     }
 
+    /// A drop lands on the whole header; the drag starts from the button's
+    /// label (B-438).
     private func header(expanded: Bool) -> some View {
+        HStack(spacing: 0) { headerButton(expanded: expanded) }
+            .leoSidebarSectionDropTarget(mover)
+    }
+
+    private func headerButton(expanded: Bool) -> some View {
         Button { sections.toggle(entry) } label: {
             HStack(spacing: 4) {
                 Image(systemName: "chevron.right")
@@ -56,6 +61,7 @@ struct LeoPluginSidebarSection: View {
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
+            .leoSidebarSectionDragSource(mover)
         }
         .buttonStyle(.plain)
         .help(expanded ? "Collapse \(entry.title)" : "Expand \(entry.title)")
@@ -63,6 +69,47 @@ struct LeoPluginSidebarSection: View {
         .accessibilityValue(expanded ? "Expanded" : "Collapsed")
         .contextMenu {
             Button("Hide Section") { sections.hide(entry) }
+            Divider()
+            LeoSidebarSectionMoveItems(mover: mover)
+        }
+    }
+
+    /// The table rows a section takes: its header, then each row `body`
+    /// lists under it. `content` is nil while it is collapsed or there are
+    /// no plugin surfaces, when it lists nothing. B-438 counts these for
+    /// the sections below it.
+    static func tableRows(listing content: LeoPluginSlotContent?) -> Int {
+        1 + LeoPluginSectionListing.rows(for: content).count
+    }
+}
+
+/// What a plugin section lists under its header, one entry per table row:
+/// a status row while it loads, fails or is unavailable, else the plugin's
+/// rows. `LeoPluginSectionRowsView` draws exactly these, and the sidebar
+/// counts them (B-438).
+enum LeoPluginSectionListing: Equatable, Identifiable {
+    case loading
+    case error(String)
+    case notice(String)
+    case row(LeoPluginSectionRows.Row)
+
+    var id: String {
+        switch self {
+        case .loading: "status.loading"
+        case .error: "status.error"
+        case .notice: "status.notice"
+        case .row(let row): "row.\(row.id)"
+        }
+    }
+
+    /// Nothing while the section is collapsed (`content` is nil).
+    static func rows(for content: LeoPluginSlotContent?) -> [LeoPluginSectionListing] {
+        switch content {
+        case nil: []
+        case .loading: [.loading]
+        case .error(let message): [.error(message)]
+        case .notice(let message): [.notice(message)]
+        case .nodes(let nodes, _): LeoPluginSectionRows.make(from: nodes).map(Self.row)
         }
     }
 }
@@ -76,38 +123,35 @@ private struct LeoPluginSectionRowsView: View {
     private let mint = LeoPluginGestureMint()
 
     var body: some View {
-        switch surfaces.content(for: key) {
-        case .loading:
-            statusRow { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Loading…") } }
-        case .error(let message):
-            statusRow {
-                HStack(spacing: 8) {
-                    Text(message).lineLimit(2)
-                    Spacer(minLength: 0)
-                    Button("Retry") { surfaces.retry(key) }.buttonStyle(.link)
-                }
-            }
-        case .notice(let message):
-            statusRow { Text(message).lineLimit(2) }
-        case .nodes(let nodes, _):
-            ForEach(LeoPluginSectionRows.make(from: nodes)) { row in
-                switch row {
-                case .subheader(_, let title):
-                    Text(title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
-                case .item(_, let item):
-                    LeoPluginSectionItemRow(item: item) { action in
-                        surfaces.perform(action, gesture: mint.mint(.click), in: key)
+        ForEach(LeoPluginSectionListing.rows(for: surfaces.content(for: key))) { listed in
+            switch listed {
+            case .loading:
+                statusRow { HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Loading…") } }
+            case .error(let message):
+                statusRow {
+                    HStack(spacing: 8) {
+                        Text(message).lineLimit(2)
+                        Spacer(minLength: 0)
+                        Button("Retry") { surfaces.retry(key) }.buttonStyle(.link)
                     }
-                case .message(_, let title, let detail):
-                    statusRow {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(title).lineLimit(2)
-                            if let detail { Text(detail).font(.caption).lineLimit(2) }
-                        }
+                }
+            case .notice(let message):
+                statusRow { Text(message).lineLimit(2) }
+            case .row(.subheader(_, let title)):
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
+            case .row(.item(_, let item)):
+                LeoPluginSectionItemRow(item: item) { action in
+                    surfaces.perform(action, gesture: mint.mint(.click), in: key)
+                }
+            case .row(.message(_, let title, let detail)):
+                statusRow {
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(title).lineLimit(2)
+                        if let detail { Text(detail).font(.caption).lineLimit(2) }
                     }
                 }
             }
