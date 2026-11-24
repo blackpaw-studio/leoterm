@@ -41,6 +41,9 @@ struct LeoInboxSidebarRow: View {
         .accessibilityIdentifier("sidebar.inbox")
     }
 
+    /// Orange dark enough to read on the white capsule of a selected row.
+    private static let onSelectionOrange = Color(red: 0.78, green: 0.33, blue: 0)
+
     @ViewBuilder private var badgeView: some View {
         switch badge {
         case .none:
@@ -53,7 +56,7 @@ struct LeoInboxSidebarRow: View {
             Text(count > 99 ? "99+" : "\(count)")
                 .font(.caption2.weight(.semibold))
                 .monospacedDigit()
-                .foregroundStyle(isSelected ? Color.orange : Color.white)
+                .foregroundStyle(isSelected ? Self.onSelectionOrange : Color.white)
                 .padding(.horizontal, 5)
                 .frame(minWidth: 16, minHeight: 16)
                 .background(Capsule().fill(isSelected ? Color.white : Color.orange))

@@ -60,6 +60,7 @@ struct LeoInboxDetail: View {
                 }
                 goToAgentButton
             }
+            .fixedSize()
         }
     }
 

@@ -40,6 +40,8 @@ import LeoKit
     /// answer may predate them, so they are applied again when it lands.
     private var eventsDuringSeed: [LeoHostID: [LeoChatEvent]] = [:]
     private var seenTasks: [UUID: Task<Void, Never>] = [:]
+    /// DEBUG fixture: the agents and asks are fixed, never overwritten by the sidebar.
+    private(set) var isFixture = false
 
     init(
         clients: [LeoHostID: any LeoChatClient] = [:], persistence: LeoInboxSeenPersistence = .none,
@@ -71,10 +73,23 @@ import LeoKit
 
     /// The sidebar's agents changed (rows, attention signals, connectivity).
     func updateAgents(_ updated: [LeoInboxAgent]) {
-        guard updated != agents else { return }
+        guard !isFixture, updated != agents else { return }
         agents = updated
         rederive()
     }
+
+    #if DEBUG
+    /// Shows exactly `agents`, their open asks (with the agent's message
+    /// before each, as context) and `seen` (`LEO_INBOX_FIXTURE`).
+    func installFixture(agents: [LeoInboxAgent], messages: [LeoChatMessage], seen: LeoInboxSeenState) {
+        isFixture = true
+        self.agents = agents
+        self.seen = seen
+        openAsks.seed(host: .local, messages: messages, complete: true)
+        for host in Set(agents.map(\.id.host)) where host != .local { openAsks.seed(host: host, messages: messages, complete: true) }
+        rederive()
+    }
+    #endif
 
     // MARK: Feed
 

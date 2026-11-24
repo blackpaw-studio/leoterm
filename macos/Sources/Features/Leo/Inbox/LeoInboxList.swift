@@ -109,7 +109,7 @@ struct LeoInboxRow: View {
                     .accessibilityLabel("Unread")
             }
         }
-        .opacity(!item.isBlocked && !item.isUnread ? 0.6 : 1)
+        .opacity(!item.isBlocked && !item.isUnread && !isSelected ? 0.6 : 1)
         .contentShape(Rectangle())
     }
 }

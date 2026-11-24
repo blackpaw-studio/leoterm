@@ -8,12 +8,15 @@ enum LeoInboxAgents {
         snapshots.flatMap { host, snapshot in
             snapshot.rows.filter { $0.movedTo == nil }.map { row in
                 LeoInboxAgent(
-                    id: row.id, name: row.displayName, machine: host.displayName, project: project(of: row),
+                    id: row.id, name: row.displayName, machine: machineName(host), project: project(of: row),
                     signal: row.attentionSignal, isStale: snapshot.connectivity.isOffline
                 )
             }
         }
     }
+
+    /// What the sidebar calls the machine.
+    static func machineName(_ host: LeoHostID) -> String { host == .local ? "This Mac" : host.displayName }
 
     /// The repo's name (`owner/repo` → `repo`), else the workspace folder.
     static func project(of row: LeoAgentRow) -> String? {

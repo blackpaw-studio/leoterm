@@ -397,6 +397,9 @@ import LeoKit
         self.unread = unread
         let inbox = LeoInboxModel(persistence: .userDefaults(defaults))
         self.inbox = inbox
+        #if DEBUG
+        LeoInboxFixture.loadFile()?.install(into: inbox)
+        #endif
         let chat = LeoChatPaneModel(
             clients: [:], recorder: LeoChatVoiceRecorder(),
             attachmentDirectory: LeoChatPaneModel.defaultAttachmentDirectory,
@@ -741,6 +744,9 @@ import LeoKit
         // A new window comes up on the shared selection without moving it.
         session.selectionChanged(unreadCount: session.unreadCount)
         wireTerminals(session.terminals, window: sessionID)
+        #if DEBUG
+        if LeoInboxFixture.loadFile() != nil { session.terminals.selectInbox() }
+        #endif
         if let window = controller.window {
             let presentation = LeoPickerPresentation(
                 window: window,
