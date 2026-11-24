@@ -3486,6 +3486,7 @@ Source: owner (/feature, 2026-11-23)
 Inbox: 20261124T005228052478Z-9065746d#1
 Done: 8509119b7 10a0d4202 e1380172e (dragging a Browser or Files tab over the terminal shows a Dock Right/Below zone for the other edge only; a drop docks through the same LeoPaneDockController.move as the menu; a drop outside slides back; suite 5143 pass). Decisions D-1029..D-1033.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-440-6-zone.png
+Reviewed: accepted 2026-11-24 — 96e9bfa7f0e0
 
 ## B-439 · Dock the Browser and Files panes on the right or below the terminal   [done]
 Issue: #413
