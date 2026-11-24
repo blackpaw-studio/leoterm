@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox: Mac option B</title>
+<link rel="stylesheet" href="mac.css">
+<style>
+/* Option B: one scrolling column. Needs-you items are cards that open in place;
+   finished items are one-line rows. No detail pane. */
+.scroll { flex: 1; overflow: hidden; padding: 22px 32px 32px; }
+.col { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px; }
+.shdr { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; padding: 4px 4px 2px; }
+.shdr .badge { height: 17px; font-size: 10.5px; }
+.shdr .grow { flex: 1; }
+.shdr .sub { font-weight: 400; font-size: 12px; color: var(--label-2); }
+.card { background: var(--card); border: 0.5px solid var(--card-edge); border-radius: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.card.focus { box-shadow: 0 0 0 2px var(--accent-ring), 0 4px 16px rgba(0,0,0,.06); }
+.ch { display: flex; align-items: center; gap: 10px; padding: 12px 14px 0 14px; }
+.ch b { font-size: 14px; font-weight: 650; }
+.ch .age { font-size: 11px; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.ch .grow { flex: 1; }
+.ch .x { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; color: var(--label-3); }
+.ch .x .ic { width: 11px; height: 11px; }
+.cb { padding: 8px 14px 14px 40px; display: flex; flex-direction: column; gap: 10px; }
+.ctx { border-left: 2px solid var(--sep); padding-left: 9px; }
+.card.collapsed .cb { padding-bottom: 12px; }
+.card.collapsed .qtext { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; color: var(--label); }
+.kind { color: var(--orange); font-weight: 500; }
+.perm { display: flex; gap: 10px; align-items: center; }
+.perm .code { flex: 1; }
+.fin { padding: 2px 0; }
+.frow { display: grid; grid-template-columns: 8px 18px 112px 1fr auto auto; gap: 8px; align-items: center; padding: 9px 12px; font-size: 12.5px; }
+.frow + .frow { border-top: 0.5px solid var(--sep); }
+.frow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.frow b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow .res { color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow .res.err { color: var(--red); }
+.frow .when { font-size: 11px; color: var(--label-3); white-space: nowrap; }
+.frow .open { color: var(--label-3); width: 12px; height: 12px; }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="window tall">
+  <aside class="side" data-state="full" data-sel="inbox"></aside>
+  <main class="main">
+    <div class="tb">
+      <div class="tb-title"><b>Inbox</b><span>3 need you · 3 finished since you looked</span></div>
+      <div class="grow"></div>
+      <div class="glass seg"><span class="on">All</span><span>Needs you <i class="n">3</i></span><span>Finished <i class="n">3</i></span></div>
+      <div class="glass gbtn round"><i class="ic" data-i="ellipsis"></i></div>
+    </div>
+    <div class="scroll">
+      <div class="col">
+        <div class="shdr">Needs you <span class="badge">3</span><span class="grow"></span><span class="sub">Oldest first</span></div>
+
+        <!-- Radio ask: open, keyboard focus -->
+        <div class="card focus">
+          <div class="ch"><i class="ic sym ny" data-i="qbubble" data-fill="1"></i><b>leoterm</b>
+            <span class="meta"><span class="tag">leoterm</span>This Mac<span class="sep">·</span>Leo Chat</span>
+            <span class="grow"></span><span class="age">4m</span>
+            <span class="btn"><i class="ic" data-i="goto"></i>Go to Agent</span></div>
+          <div class="cb">
+            <div class="ctx">CI is green on feat/voice-to-agent (e068f10f5) and signing is done. TestFlight build 214 is still processing.</div>
+            <div class="qcard">
+              <div class="qsec">
+                <div class="qhdr">Release</div>
+                <div class="qtext">Ship Voice-to-Agent in leo-v0.31 tonight, or hold for device checks?</div>
+                <div class="opts">
+                  <div class="opt on"><span class="r"></span><div><b>Ship tonight</b><small>Tag leo-v0.31.0 now; run device checks on build 214 tomorrow.</small></div></div>
+                  <div class="opt"><span class="r"></span><div><b>Hold for device checks</b><small>Check the Action button and Siri on iPhone first, then tag.</small></div></div>
+                  <div class="opt"><span class="r"></span><div><b>Ship the Mac half only</b><small>Release the Mac app now; keep the iOS intent on the branch.</small></div></div>
+                </div>
+                <div class="field">Other…</div>
+              </div>
+              <div class="qfoot"><span class="btn">Answer in Terminal</span><span class="grow"></span><span class="btn pri">Submit</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Text ask: open, typing -->
+        <div class="card">
+          <div class="ch"><i class="ic sym ny" data-i="qbubble" data-fill="1"></i><b>olympus</b>
+            <span class="meta"><span class="tag">olympus</span>Dionysus<span class="sep">·</span>Leo Chat</span>
+            <span class="grow"></span><span class="age">12m</span>
+            <span class="btn"><i class="ic" data-i="goto"></i>Go to Agent</span></div>
+          <div class="cb">
+            <div class="qcard">
+              <div class="qsec">
+                <div class="qhdr">Plex</div>
+                <div class="qtext">Prometheus has 412 GB free. What cap should I set for the Plex transcode cache?</div>
+                <div class="field typed tall">150 GB, and purge anything older than 7 days<span class="caret"></span></div>
+              </div>
+              <div class="qfoot"><span class="btn">Answer in Terminal</span><span class="grow"></span><span class="btn pri">Submit</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permission prompt: text only, go to agent -->
+        <div class="card">
+          <div class="ch"><i class="ic sym ny" data-i="hand"></i><b>brooklyn-cam</b>
+            <span class="meta"><span class="tag">brooklyn-cam</span>Hestia<span class="sep">·</span>Permission prompt</span>
+            <span class="grow"></span><span class="age">27m</span></div>
+          <div class="cb">
+            <div class="ctx"><span class="kind">Bash</span> · Redeploy the camera job with the new 15 s RTSP reconnect timeout.</div>
+            <div class="perm"><div class="code">nomad job run jobs/brooklyn-cam.nomad</div><span class="btn pri lg"><i class="ic" data-i="goto"></i>Go to Agent</span></div>
+          </div>
+        </div>
+
+        <div class="shdr" style="margin-top:10px">Finished since you looked <span class="badge gray">3</span><span class="grow"></span><span class="btn plain">Clear All</span></div>
+        <div class="card fin">
+          <div class="frow"><span class="dot"></span><i class="ic sym er" data-i="warnf" data-fill="1"></i><b>leo</b>
+            <span class="res err">release.yml failed: notarytool rejected leo-helper (invalid signature)</span><span class="when">Hestia · 2h</span><i class="ic open" data-i="chevR"></i></div>
+          <div class="frow"><span class="dot"></span><i class="ic sym ok" data-i="checkc"></i><b>assistant</b>
+            <span class="res">Booked Thursday 2:00 PM with Dr. Patel; it's on your calendar.</span><span class="when">Dionysus · 41m</span><i class="ic open" data-i="chevR"></i></div>
+          <div class="frow"><span class="dot"></span><i class="ic sym ok" data-i="checkc"></i><b>edc-blog</b>
+            <span class="res">Draft "Leo in November" saved to drafts/2026-11-leo.md (1,840 words).</span><span class="when">This Mac · 1h</span><i class="ic open" data-i="chevR"></i></div>
+        </div>
+        <div class="hint" style="text-align:center;margin-top:6px"><kbd>↑</kbd> <kbd>↓</kbd> move between cards · <kbd>↩</kbd> submit · <kbd>⌘</kbd> <kbd>↩</kbd> go to agent · <kbd>⌫</kbd> clear</div>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+<script src="sidebar.js"></script>
+<script src="icons.js"></script>
+</body>
+</html>

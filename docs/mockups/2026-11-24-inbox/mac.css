@@ -1,0 +1,157 @@
+/* Inbox mockups: macOS 26 window chrome, Leo sidebar, and inbox content.
+   Semantic tokens only; ?theme=dark (icons.js) flips them. */
+:root {
+  --desk-a: #d9e2ec; --desk-b: #e8e1ee;
+  --win-bg: #ffffff;
+  --side-bg: #f0eff3;
+  --card: #ffffff;
+  --card-2: #f6f6f8;
+  --card-edge: rgba(0, 0, 0, 0.08);
+  --sep: rgba(0, 0, 0, 0.085);
+  --label: rgba(0, 0, 0, 0.86);
+  --label-2: rgba(0, 0, 0, 0.52);
+  --label-3: rgba(0, 0, 0, 0.28);
+  --accent: #0088ff;
+  --accent-soft: rgba(0, 136, 255, 0.11);
+  --accent-ring: rgba(0, 136, 255, 0.45);
+  --green: #28b44c; --orange: #f08a1c; --red: #ff383c;
+  --orange-soft: rgba(255, 141, 40, 0.13);
+  --green-soft: rgba(52, 199, 89, 0.13);
+  --red-soft: rgba(255, 56, 60, 0.11);
+  --glass: rgba(250, 250, 252, 0.72);
+  --glass-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 4px 14px rgba(0, 0, 0, 0.06);
+  --control: #ffffff;
+  --control-edge: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 1px 2px rgba(0, 0, 0, 0.07);
+  --fill: rgba(0, 0, 0, 0.055);
+  --field: #ffffff;
+  --field-edge: inset 0 0 0 0.5px rgba(0, 0, 0, 0.22);
+  --win-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.18), 0 22px 60px rgba(0, 0, 0, 0.22);
+  --code-bg: rgba(0, 0, 0, 0.045);
+  --ink-on: #ffffff;
+  --mono: "SF Mono", ui-monospace, Menlo, monospace;
+  --sys: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  --desk-a: #1a2130; --desk-b: #2a2134;
+  --win-bg: #1f1f21;
+  --side-bg: #2a292d;
+  --card: #2a2a2d;
+  --card-2: #262628;
+  --card-edge: rgba(255, 255, 255, 0.07);
+  --sep: rgba(255, 255, 255, 0.08);
+  --label: rgba(255, 255, 255, 0.9);
+  --label-2: rgba(255, 255, 255, 0.55);
+  --label-3: rgba(255, 255, 255, 0.28);
+  --accent: #0091ff;
+  --accent-soft: rgba(0, 145, 255, 0.2);
+  --accent-ring: rgba(0, 145, 255, 0.55);
+  --green: #30d158; --orange: #ff9f0a; --red: #ff453a;
+  --orange-soft: rgba(255, 159, 10, 0.16);
+  --green-soft: rgba(48, 209, 88, 0.15);
+  --red-soft: rgba(255, 69, 58, 0.16);
+  --glass: rgba(50, 50, 54, 0.72);
+  --glass-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.1), 0 4px 14px rgba(0, 0, 0, 0.3);
+  --control: rgba(255, 255, 255, 0.1);
+  --control-edge: 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  --fill: rgba(255, 255, 255, 0.08);
+  --field: rgba(255, 255, 255, 0.06);
+  --field-edge: inset 0 0 0 0.5px rgba(255, 255, 255, 0.16);
+  --win-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 22px 60px rgba(0, 0, 0, 0.55);
+  --code-bg: rgba(255, 255, 255, 0.06);
+  --ink-on: #1f1f21;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { font-family: var(--sys); font-size: 13px; color: var(--label); background: linear-gradient(135deg, var(--desk-a), var(--desk-b)); -webkit-font-smoothing: antialiased; }
+.stage { padding: 36px; width: max-content; }
+.ic { display: inline-flex; width: 16px; height: 16px; flex: none; }
+.ic svg { width: 100%; height: 100%; }
+
+/* ---------- Window ---------- */
+.window { width: 1280px; height: 800px; border-radius: 16px; overflow: hidden; display: flex; background: var(--win-bg); box-shadow: var(--win-shadow); position: relative; }
+.window.tall { height: 960px; }
+.lights { display: flex; gap: 8px; padding: 18px 0 0 18px; height: 46px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights i:nth-child(1) { background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+
+/* ---------- Sidebar (matches LeoSidebarView) ---------- */
+.side { width: 256px; flex: none; background: var(--side-bg); border-right: 0.5px solid var(--sep); display: flex; flex-direction: column; padding: 0 10px; }
+.side-h { display: flex; justify-content: space-between; align-items: center; padding: 8px 2px 8px 2px; font-weight: 700; font-size: 13px; }
+.side-h .ic { color: var(--label-2); }
+.search { display: flex; align-items: center; gap: 6px; height: 26px; border-radius: 7px; background: var(--fill); padding: 0 8px; color: var(--label-3); font-size: 13px; }
+.search .ic { width: 13px; height: 13px; }
+.inbox-entry { display: flex; align-items: center; gap: 8px; height: 30px; margin: 10px 0 4px; padding: 0 8px; border-radius: 8px; font-weight: 600; }
+.inbox-entry .ic { color: var(--accent); width: 17px; height: 17px; }
+.inbox-entry .badge { margin-left: auto; }
+.inbox-entry.sel { background: var(--accent); color: #fff; }
+.inbox-entry.sel .ic { color: #fff; }
+.inbox-entry.sel .badge { background: rgba(255, 255, 255, 0.95); color: var(--orange); }
+.badge { min-width: 20px; height: 18px; padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; background: var(--orange); color: #fff; font-variant-numeric: tabular-nums; }
+.badge.gray { background: var(--fill); color: var(--label-2); }
+.side-sep { height: 0.5px; background: var(--sep); margin: 6px 2px 6px; }
+.mach { display: flex; align-items: center; gap: 6px; padding: 8px 2px 4px; font-weight: 700; }
+.mach .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.mach .chev { color: var(--label-3); width: 10px; height: 10px; }
+.grp { font-size: 11px; font-weight: 600; color: var(--label-2); padding: 6px 0 2px 18px; }
+.row { display: grid; grid-template-columns: 16px 1fr auto; column-gap: 8px; align-items: center; padding: 4px 6px 4px 14px; border-radius: 7px; }
+.row .ic { width: 14px; height: 14px; color: var(--label-3); }
+.row .nm { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t { font-size: 11px; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.row .d { grid-column: 2 / 4; font-size: 11px; color: var(--label-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row.ny .ic, .row.ny .d { color: var(--orange); }
+.row.er .ic, .row.er .d { color: var(--red); }
+.row.ok .ic { color: var(--green); }
+.side-foot { margin-top: auto; border-top: 0.5px solid var(--sep); height: 40px; display: flex; align-items: center; gap: 14px; padding: 0 4px; color: var(--label-2); }
+
+/* ---------- Content + toolbar ---------- */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.tb { height: 52px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 12px 0 18px; border-bottom: 0.5px solid var(--sep); }
+.tb-title { display: flex; flex-direction: column; line-height: 1.15; }
+.tb-title b { font-size: 15px; font-weight: 700; }
+.tb-title span { font-size: 11px; color: var(--label-2); }
+.tb .grow { flex: 1; }
+.glass { background: var(--glass); box-shadow: var(--glass-shadow); border-radius: 999px; backdrop-filter: blur(18px); }
+.seg { display: flex; padding: 3px; gap: 2px; }
+.seg span { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500; color: var(--label-2); display: inline-flex; gap: 6px; align-items: center; }
+.seg span.on { background: var(--control); box-shadow: var(--control-edge); color: var(--label); }
+.seg .n { font-size: 11px; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.gbtn { height: 32px; padding: 0 13px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; }
+.gbtn.round { width: 32px; padding: 0; justify-content: center; }
+.gbtn .ic { width: 14px; height: 14px; }
+
+/* ---------- Controls ---------- */
+.btn { display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12px; font-weight: 500; background: var(--control); box-shadow: var(--control-edge); color: var(--label); white-space: nowrap; }
+.btn .ic { width: 12px; height: 12px; }
+.btn.pri { background: var(--accent); color: #fff; box-shadow: none; }
+.btn.lg { height: 28px; padding: 0 14px; font-size: 13px; }
+.btn.plain { background: none; box-shadow: none; color: var(--accent); padding: 0 4px; }
+.tag { display: inline-flex; align-items: center; height: 17px; padding: 0 6px; border-radius: 5px; background: var(--fill); color: var(--label-2); font-size: 11px; font-weight: 500; white-space: nowrap; }
+.meta { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--label-2); white-space: nowrap; }
+.meta .sep { color: var(--label-3); }
+.sym { width: 16px; height: 16px; }
+.sym.ny { color: var(--orange); } .sym.ok { color: var(--green); } .sym.er { color: var(--red); }
+
+/* Questions card: LeoChatQuestionsCard look (caption header, callout question, radio rows, Other field, footer). */
+.qcard { display: flex; flex-direction: column; gap: 14px; }
+.qsec { display: flex; flex-direction: column; gap: 5px; }
+.qhdr { font-size: 10px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--label-2); }
+.qtext { font-size: 13px; font-weight: 500; line-height: 1.38; }
+.opts { display: flex; flex-direction: column; gap: 5px; padding-top: 2px; }
+.opt { display: grid; grid-template-columns: 16px 1fr; gap: 6px; align-items: start; }
+.opt .r { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--label-3); margin-top: 1px; }
+.opt.on .r { border: 4px solid var(--accent); }
+.opt b { font-weight: 400; display: block; line-height: 1.35; }
+.opt small { display: block; font-size: 11px; color: var(--label-2); line-height: 1.35; }
+.field { min-height: 24px; border-radius: 6px; background: var(--field); box-shadow: var(--field-edge); padding: 4px 8px; color: var(--label-3); font-size: 12px; line-height: 1.35; }
+.field.typed { color: var(--label); }
+.field.tall { min-height: 52px; }
+.field .caret { display: inline-block; width: 1px; height: 13px; background: var(--accent); vertical-align: -2px; margin-left: 1px; }
+.qfoot { display: flex; align-items: center; gap: 8px; }
+.qfoot .grow { flex: 1; }
+.code { font-family: var(--mono); font-size: 11.5px; background: var(--code-bg); border-radius: 6px; padding: 7px 9px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.ctx { font-size: 12px; color: var(--label-2); line-height: 1.45; }
+.hint { font-size: 11px; color: var(--label-3); }
+kbd { font-family: var(--sys); font-size: 10.5px; padding: 0 4px; border-radius: 4px; box-shadow: var(--control-edge); color: var(--label-2); }
