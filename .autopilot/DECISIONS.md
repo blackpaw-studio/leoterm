@@ -2136,3 +2136,24 @@ Chose: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBottomSa
 Why: AUTONOMY bug fix
 Commit: 2a7b603a4
 Veto: [ ]
+
+## D-990 · 2026-11-23 · Answer to B-324: Move, copy, and duplicate agents from the Mac and iOS…
+Context: B-324 (Move, copy, and duplicate agents from the Mac and iOS apps) blocked question
+Chose: accept your recommendation (yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-991 · 2026-11-23 · Answer to B-431: CI flake — Leo CI test-macos "Unit tests" hangs until…
+Context: B-431 (CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-992 · 2026-11-23 · Answer to B-432: CI flake — Leo iOS CI "App tests":…
+Context: B-432 (CI flake — Leo iOS CI "App tests":…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)

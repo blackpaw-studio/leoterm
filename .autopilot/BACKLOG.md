@@ -1279,13 +1279,13 @@ Inbox: 20261027T235417266137Z-9e9ee6e4#1
 Done: 2f2454a5c e17978ce2
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png (no UI change; shows the debug app still reaches its daemon); 5 new LeoLocalDaemonIsolationTests + full suite 3834 pass
 
-## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [blocked]
+## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [ready]
 Issue: #299
 Why: Leo's new agent move/copy lets an agent hand off or fork between hosts; doing it from the app keeps that work in Leo ("Everything through Leo", "Local = remote"). Both platforms: request/response and moved_to state live in LeoKit, only UI glue per app.
 Accept: Mac — an agent row's context menu and the Agent menu offer Move to ▸ <host>, Copy to ▸ <host>, and Duplicate (copy to the agent's own host), each with a menu item and shortcut per HIG; iOS — the same three actions from the agent row's context menu / swipe and the agent detail screen (UIKit + TCA); each action calls the daemon's move route (mode move/copy, to, optional name) through the existing client, shows the daemon's own error text on failure, and offers Force only when the daemon refuses because the agent is mid-turn; a moved agent's row shows its moved_to host as dormant and can't be started or attached, and a copy appears as a new row once the daemon reports it; LeoKit tests cover the request shape, the mid-turn refusal → Force path, and moved_to decoding; TCA reducer tests on iOS; shots from the isolated Mac debug build and the iOS simulator against a fake daemon.
 Out: renaming the copy or choosing its branch beyond an optional name field; progress streaming beyond the daemon's response; any daemon changes.
 Question: A live cross-host Move needs a destination host running leo, and the only reachable ones are your real daemons (stop list). Make the one live check a live Duplicate plus the daemon's own refusal of a Move to a `.invalid` host, leaving cross-host success to the tests and the leo-v0.28.0 shots? I'd pick yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing. Work kept on autopilot-shelved/B-324.
-Answer:
+Answer: accept your recommendation (yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing)
 Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
 
@@ -3247,25 +3247,27 @@ Dropped: 2026-11-17 — duplicate of B-372
 Note: the bar looks mid-edit after a navigation starts (P1 Safari parity)
 Source: autopilot polish (B-426)
 
-## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [blocked]
+## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [done]
 Issue: #397
 Type: bug
 Report: CI flake — Leo CI test-macos "Unit tests" hangs until the 900s timeout; last test started was attachmentResponseDownloadsIntoWorkspace() in the browser downloads tests (likely the known WKWebView hang). Hit main 8d9248096 (run 44201642042) and the leo-v0.36.1 release run 44201644337 (passed on rerun). Fix at cause so it can't block releases.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-17)
 Question: couldn't reproduce — LeoWKBrowserDownloadTests ran 25× in isolation on the lane build, all passing (~12 s, no hang). Full single-host-process suite runs (as CI, run-unit-tests.sh) hit their own 300–400 s timeout twice at different tests, never the download tests, with load 125–180, so they say little about CI. In run 44201642042's log the last tests logged were LeoWKBrowserPageTests, not attachmentResponseDownloadsIntoWorkspace, but the log is block-buffered; run 44201644337's failed attempt log is gone. Unproven suspects: unbounded evaluateJavaScript/takeSnapshot/pdf awaits in the WKWebView page tests, and LeoHTTPFixtureServer.stop() closing the listener while accept() blocks. Suggested retry scope: per-test time limits + unbuffered output in the unit-test script so a hang names its test, and deadlines on the WebKit awaits (Mac only). Reply "B-431: close" to close it, or "B-431: <more detail>" to retry. Work kept on autopilot-shelved/B-431.
-Answer:
+Answer: close
 Inbox: 20261118T020458680192Z-72eeed98#1
+Done: closed — not reproducible (owner)
 
-## B-432 · CI flake — Leo iOS CI "App tests":…   [blocked]
+## B-432 · CI flake — Leo iOS CI "App tests":…   [done]
 Issue: #398
 Type: bug
 Report: CI flake — Leo iOS CI "App tests": theAgentsTypingClicksAndPicksChangeThePageLikeAUsers() failed after 32.7s with 1 issue, alongside an RBSAssertionErrorDomain Code=2 "Specified target process … does not exist" log. Hit main 8d9248096 (run 44201641773); passed on 8d20e6250. Fix at cause so it can't keep main red.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-17)
 Question: couldn't reproduce — LeoIOSBrowserTests alone (8/8) and the full LeoTests bundle (125/125) passed 3× on a warm iOS 26.5 simulator and 2× on a freshly erased one; the target test took ~4.1 s vs 32.7 s in CI. CI log (run 44201641773): it failed at its first await, host.openPage("form") (LeoIOSBrowserTests.swift:29), hitting LeoIOSBrowserPage.load's 28 s navigation deadline as the first WebKit user in the process ("WebContent process took 3.12 seconds to launch", "Failed to resolve host network app id … com.apple.WebKit.Networking"); the RBSAssertion lines are teardown noise. Likely a cold WebKit process start on the hosted simulator; a retry would need that run's leo-ios-xcresult artifact. Reply "B-432: close" to close it, or "B-432: <more detail>" to retry. Work kept on autopilot-shelved/B-432.
-Answer:
+Answer: close
 Inbox: 20261118T020458768349Z-88087e88#1
+Done: closed — not reproducible (owner)
 
 ## B-218 · Remove remaining Ghostty branding from user-facing strings   [done]
 Why: Shipped Leo still says "Quit Ghostty?" and "Update Ghostty and Restart"; Ghostty branding in a Leo app is immediately noticeable.
@@ -3447,3 +3449,31 @@ Source: autopilot polish (B-384)
 ## B-436 · iOS Make Active preview is plain paragraphs with no emphasis on changed roles   [idea]
 Note: clearer confirmation before switching delegation profile on iOS; also move the preview wording and effort-level list into LeoKit (duplicated on iOS)
 Source: autopilot polish (B-299)
+
+## B-441 · on mac when a chat message has multiple images, in the full screen…   [ready]
+Type: bug
+Report: on mac when a chat message has multiple images, in the full screen view i should be able to use the arrow keys or buttons to cycle through them
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-23)
+Inbox: 20261124T005424260130Z-a6852666#1
+
+## B-440 · Drag a Browser or Files tab to dock it on the right or below   [ready]
+Why: Follow-up to the right/below docking item: moving a pane by dragging is the natural direct-manipulation route on the Mac (P1).
+Accept: Dragging a Browser or Files tab over the terminal shows a Dock Below or Dock Right drop zone only during the drag; dropping it docks the pane exactly as the menu command does (tested through the same code path); an Escape or a drop outside a zone leaves the layout unchanged; screenshot of the drop zone from the isolated debug build
+Out: Dragging panes between windows; docking on the left or top; iOS
+Source: owner (/feature, 2026-11-23)
+Inbox: 20261124T005228052478Z-9065746d#1
+
+## B-439 · Dock the Browser and Files panes on the right or below the terminal   [ready]
+Why: You can see the agent's page below the terminal while you read its code on the right (P4: everything through Leo; P1: keyboard-first). This is option B from Evan's pick on 2026-11-23; mockup: /Users/evan/.leo/agents/leoterm/scratchpad/pane-orientation-mockups/option-b-dock-per-pane.png (HTML next to it).
+Accept: Browser and Files each dock either on the right or below the terminal, set per pane and the same for every agent, and each pane's position survives a relaunch (tested); you can move a pane from View ▸ Dock Focused Pane Right/Below (⌃⌥⌘→ / ⌃⌥⌘↓, checked for conflicts with existing Leo and macOS shortcuts) and from its tab's right-click menu; panes on different edges are both visible at once, and panes on the same edge are tabs as they are today; each dock has its own divider and remembered size, a drag stops at a 200 pt minimum instead of collapsing, and closing a docked pane gives its space back to the terminal (tested); the agent drawer stays under the terminal column; screenshots from the isolated debug build of both panes on the right, browser below with files on the right, and after a relaunch
+Out: Drag-to-dock (a separate follow-up item); positions that differ per agent; docking on the left or top; iOS (Mac only, since the panes exist only on Mac)
+Source: owner (/feature, 2026-11-23)
+Inbox: 20261124T005227812070Z-030f6ea1#1
+
+## B-438 · Reorder sidebar sections, including plugin sections   [ready]
+Why: You can drag the sidebar's sections into the order you want, and that order stays after a relaunch. This covers built-in sections like Agents and Terminals as well as sections that plugins add, such as Usage (P6: the sidebar is the navigation).
+Accept: Dragging a section header moves the whole section, and the new order survives a relaunch (tested); each section header's right-click menu has Move Up and Move Down, so you can reorder without dragging (P1); a newly installed plugin's section appears at the bottom, and removing a plugin drops its section without disturbing the order of the others (tested); screenshots from the isolated debug build, before and after moving a plugin section above Agents
+Out: No reordering of rows inside a section, no hiding or collapsing sections, no sync of the order across Macs, and no iOS (Mac only: the sidebar sections and plugins exist only on Mac)
+Source: owner (/feature, 2026-11-23)
+Inbox: 20261123T235734756623Z-26910159#1
