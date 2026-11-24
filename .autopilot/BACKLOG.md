@@ -3519,6 +3519,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-324)
 Done: ee6f67417 (a moved agent's header pill reads "Moved to <host>" and the composer refuses send naming the host, no Start or Idle; Mac only; suite 5129 pass). Decisions D-1024..D-1027.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-1.png
+Reviewed: accepted 2026-11-24 — 55d23af2799e
 
 ## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [done]
 Issue: #417
