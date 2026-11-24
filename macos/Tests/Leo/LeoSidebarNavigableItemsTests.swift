@@ -62,6 +62,14 @@ import Testing
         #expect(model.navigableItems(terminalIDs: [first, second]) == [id("a"), id("b", remote), .terminal(first), .terminal(second)])
     }
 
+    /// B-438: with Terminals moved above Agents, row switching walks them first, as the list shows them.
+    @Test func terminalsMovedAboveTheAgentsComeFirst() {
+        let model = makeModel([.local: [agent("a")]])
+        model.moveSection(LeoSidebarSectionOrder.terminals, .up, visible: [LeoSidebarSectionOrder.agents, LeoSidebarSectionOrder.terminals])
+        let terminal = UUID()
+        #expect(model.navigableItems(terminalIDs: [terminal]) == [.terminal(terminal), id("a")])
+    }
+
     // MARK: Helpers
 
     private func makeModel(

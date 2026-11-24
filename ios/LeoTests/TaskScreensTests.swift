@@ -96,6 +96,30 @@ struct TaskScreensTests {
         #expect(rig.navigation.viewControllers.map { String(describing: type(of: $0)) } == ["TasksViewController", "ConfigItemViewController", "TaskPromptViewController"])
     }
 
+    @Test func theEditorStaysOutOfTheSideSafeAreaInLandscape() async throws {
+        let rig = try Self.rig()
+        await Self.openPrompt(rig)
+        let prompt = try #require(rig.navigation.topViewController as? TaskPromptViewController)
+        // A notch or Dynamic Island on the leading edge, the home indicator
+        // side on the trailing one, as an iPhone held in landscape has.
+        let sideInset: CGFloat = 60
+        prompt.additionalSafeAreaInsets = UIEdgeInsets(top: 0, left: sideInset, bottom: 0, right: sideInset)
+        prompt.view.setNeedsLayout()
+        prompt.view.layoutIfNeeded()
+
+        let textView = try #require(Self.findTextView(in: prompt.view, id: "task.prompt.text"))
+        let editor = textView.convert(textView.bounds, to: prompt.view)
+        let safe = prompt.view.safeAreaLayoutGuide.layoutFrame
+        #expect(safe.minX >= sideInset)
+        #expect(editor.minX >= safe.minX)
+        #expect(editor.maxX <= safe.maxX)
+    }
+
+    private static func findTextView(in view: UIView, id: String) -> UITextView? {
+        if let textView = view as? UITextView, textView.accessibilityIdentifier == id { return textView }
+        return view.subviews.lazy.compactMap { findTextView(in: $0, id: id) }.first
+    }
+
     @Test func aDirtyPromptIsHeldOnScreenAndBackAsks() async throws {
         let rig = try Self.rig()
         await Self.openPrompt(rig)

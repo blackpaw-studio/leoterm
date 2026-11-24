@@ -42,7 +42,7 @@ struct LeoActivityCapsule: View {
     private func presentation(for row: LeoAgentRow?, now: Date, width: CGFloat) -> LeoActivityCapsulePresentation {
         guard let row else { return .noAgent(availableWidth: width) }
         return LeoActivityCapsulePresentation(
-            tasks: row.tasks, state: .init(attention: row.attention, isWorking: row.activity == .working), now: now,
+            tasks: row.tasks, state: .init(attention: row.attention, isWorking: row.activity == .working, movedTo: row.movedTo), now: now,
             availableWidth: width, measure: LeoActivityCapsuleFonts.width(of:role:))
     }
 
@@ -114,7 +114,7 @@ struct LeoActivityCapsule: View {
     private static func dotTint(_ state: LeoActivityCapsulePresentation.AgentState?) -> Color {
         switch state {
         case .working: .blue
-        case .idle: Color.secondary
+        case .idle, .moved: Color.secondary
         case .needsYou: .orange
         case .errored: .red
         case nil: Color.secondary.opacity(0.5)

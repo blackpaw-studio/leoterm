@@ -217,7 +217,7 @@ struct LeoRowPaneContentTests {
         window.isReleasedWhenClosed = false
         window.contentViewController = split
         window.setContentSize(NSSize(width: 1_400, height: 700))
-        let container = split.splitViewItems[3].viewController as? LeoRowPaneContainerViewController
+        let container = split.splitViewItems[3].leoPaneContainer
         func tabs() -> LeoEditorTabsViewController? { container?.activeChild as? LeoEditorTabsViewController }
 
         panes.activate(Self.agentA)

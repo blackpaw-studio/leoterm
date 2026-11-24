@@ -52,7 +52,7 @@ struct LeoChatMessageRow: View {
                 LeoChatMarkdownText(text: message.displayText, isMine: isMine)
             }
             ForEach(message.attachments.filter { message.kind != .voice || !$0.isAudio }) { attachment in
-                LeoChatAttachmentView(attachment: attachment, chat: chat)
+                LeoChatAttachmentView(attachment: attachment, chat: chat, siblings: message.attachments)
             }
             if isQuestionsCard {
                 LeoChatQuestionsCard(message: message, chat: chat)
@@ -134,7 +134,7 @@ struct LeoChatTaskCard: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             if !message.displayText.isEmpty { LeoChatMarkdownText(text: message.displayText) }
-            ForEach(message.attachments) { LeoChatAttachmentView(attachment: $0, chat: chat) }
+            ForEach(message.attachments) { LeoChatAttachmentView(attachment: $0, chat: chat, siblings: message.attachments) }
             Button { chat.setReply(to: message.id) } label: { Label("Reply", systemImage: "arrowshape.turn.up.left") }
                 .buttonStyle(.link)
                 .font(.callout)

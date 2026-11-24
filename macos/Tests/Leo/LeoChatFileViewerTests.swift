@@ -81,6 +81,48 @@ struct LeoChatFileViewerTests {
         )
     }
 
+    /// B-444: caps lock is state, not a chord, so Escape still closes with it on
+    /// (a real keyDown carries `.capsLock` in the device-independent flags).
+    @Test(arguments: [(true, false), (false, true)])
+    func escapeClosesWithCapsLockOn(isInViewer: Bool, coversWindow: Bool) {
+        #expect(
+            LeoChatFileViewerView.closesOnEscape(
+                keyCode: 53, modifiers: .capsLock, isInViewer: isInViewer, isFieldEditor: false, coversWindow: coversWindow
+            )
+        )
+    }
+
+    @Test func capsLockDoesNotMaskARealChordOnEscape() {
+        #expect(
+            !LeoChatFileViewerView.closesOnEscape(
+                keyCode: 53, modifiers: [.capsLock, .command], isInViewer: true, isFieldEditor: false
+            )
+        )
+    }
+
+    // MARK: Gallery (B-441)
+
+    /// AppKit puts `.function` and `.numericPad` on every arrow-key keyDown, so a
+    /// bare press carries them; ⌘⌥⌃⇧ make it something else, and caps lock is
+    /// state, not a chord.
+    private static let arrowFlags: NSEvent.ModifierFlags = [.function, .numericPad]
+
+    @Test(arguments: [(UInt16(123), -1), (UInt16(124), 1)], [NSEvent.ModifierFlags(), .capsLock])
+    func bareArrowsStepAsAppKitDeliversThem(key: (UInt16, Int), extra: NSEvent.ModifierFlags) {
+        let flags = Self.arrowFlags.union(extra)
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: key.0, modifiers: flags, isFieldEditor: false) == key.1)
+    }
+
+    @Test(arguments: [UInt16(123), UInt16(124)], [NSEvent.ModifierFlags.command, .option, .control, .shift])
+    func chordedArrowsDoNotStep(keyCode: UInt16, chord: NSEvent.ModifierFlags) {
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: keyCode, modifiers: Self.arrowFlags.union(chord), isFieldEditor: false) == nil)
+    }
+
+    @Test(arguments: [(UInt16(123), true), (UInt16(124), true), (UInt16(126), false), (UInt16(53), false)])
+    func otherKeysAndFieldEditorsDoNotStep(keyCode: UInt16, isFieldEditor: Bool) {
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: keyCode, modifiers: Self.arrowFlags, isFieldEditor: isFieldEditor) == nil)
+    }
+
     // MARK: Find
 
     /// Find… is wired to `find:` (the terminal's search), which a text view

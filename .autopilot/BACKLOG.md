@@ -1279,15 +1279,18 @@ Inbox: 20261027T235417266137Z-9e9ee6e4#1
 Done: 2f2454a5c e17978ce2
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-322-1.png (no UI change; shows the debug app still reaches its daemon); 5 new LeoLocalDaemonIsolationTests + full suite 3834 pass
 
-## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [blocked]
+## B-324 · Move, copy, and duplicate agents from the Mac and iOS apps   [done]
 Issue: #299
 Why: Leo's new agent move/copy lets an agent hand off or fork between hosts; doing it from the app keeps that work in Leo ("Everything through Leo", "Local = remote"). Both platforms: request/response and moved_to state live in LeoKit, only UI glue per app.
 Accept: Mac — an agent row's context menu and the Agent menu offer Move to ▸ <host>, Copy to ▸ <host>, and Duplicate (copy to the agent's own host), each with a menu item and shortcut per HIG; iOS — the same three actions from the agent row's context menu / swipe and the agent detail screen (UIKit + TCA); each action calls the daemon's move route (mode move/copy, to, optional name) through the existing client, shows the daemon's own error text on failure, and offers Force only when the daemon refuses because the agent is mid-turn; a moved agent's row shows its moved_to host as dormant and can't be started or attached, and a copy appears as a new row once the daemon reports it; LeoKit tests cover the request shape, the mid-turn refusal → Force path, and moved_to decoding; TCA reducer tests on iOS; shots from the isolated Mac debug build and the iOS simulator against a fake daemon.
 Out: renaming the copy or choosing its branch beyond an optional name field; progress streaming beyond the daemon's response; any daemon changes.
 Question: A live cross-host Move needs a destination host running leo, and the only reachable ones are your real daemons (stop list). Make the one live check a live Duplicate plus the daemon's own refusal of a Move to a `.invalid` host, leaving cross-host success to the tests and the leo-v0.28.0 shots? I'd pick yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing. Work kept on autopilot-shelved/B-324.
-Answer:
+Answer: accept your recommendation (yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing)
 Source: owner (/feature, 2026-10-27)
 Inbox: 20261028T004216695906Z-63ec4cf1#1
+Done: b1761eee4 3e62f1bbb (moved row never asks to start; chat bar offers no Start for a moved agent; live Duplicate + daemon refusal of a .invalid Move verified per D-990; LeoKit 53 + iOS 29 move tests pass). Decisions D-990, D-994..D-996.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-324-2.png
+Reviewed: accepted 2026-11-24 — b127fba37f1e
 
 ## B-172 · Drain pending reconciles before a sidebar click selects   [done]
 Issue: #176
@@ -3247,25 +3250,27 @@ Dropped: 2026-11-17 — duplicate of B-372
 Note: the bar looks mid-edit after a navigation starts (P1 Safari parity)
 Source: autopilot polish (B-426)
 
-## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [blocked]
+## B-431 · CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…   [done]
 Issue: #397
 Type: bug
 Report: CI flake — Leo CI test-macos "Unit tests" hangs until the 900s timeout; last test started was attachmentResponseDownloadsIntoWorkspace() in the browser downloads tests (likely the known WKWebView hang). Hit main 8d9248096 (run 44201642042) and the leo-v0.36.1 release run 44201644337 (passed on rerun). Fix at cause so it can't block releases.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-17)
 Question: couldn't reproduce — LeoWKBrowserDownloadTests ran 25× in isolation on the lane build, all passing (~12 s, no hang). Full single-host-process suite runs (as CI, run-unit-tests.sh) hit their own 300–400 s timeout twice at different tests, never the download tests, with load 125–180, so they say little about CI. In run 44201642042's log the last tests logged were LeoWKBrowserPageTests, not attachmentResponseDownloadsIntoWorkspace, but the log is block-buffered; run 44201644337's failed attempt log is gone. Unproven suspects: unbounded evaluateJavaScript/takeSnapshot/pdf awaits in the WKWebView page tests, and LeoHTTPFixtureServer.stop() closing the listener while accept() blocks. Suggested retry scope: per-test time limits + unbuffered output in the unit-test script so a hang names its test, and deadlines on the WebKit awaits (Mac only). Reply "B-431: close" to close it, or "B-431: <more detail>" to retry. Work kept on autopilot-shelved/B-431.
-Answer:
+Answer: close
 Inbox: 20261118T020458680192Z-72eeed98#1
+Done: closed — not reproducible (owner)
 
-## B-432 · CI flake — Leo iOS CI "App tests":…   [blocked]
+## B-432 · CI flake — Leo iOS CI "App tests":…   [done]
 Issue: #398
 Type: bug
 Report: CI flake — Leo iOS CI "App tests": theAgentsTypingClicksAndPicksChangeThePageLikeAUsers() failed after 32.7s with 1 issue, alongside an RBSAssertionErrorDomain Code=2 "Specified target process … does not exist" log. Hit main 8d9248096 (run 44201641773); passed on 8d20e6250. Fix at cause so it can't keep main red.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-17)
 Question: couldn't reproduce — LeoIOSBrowserTests alone (8/8) and the full LeoTests bundle (125/125) passed 3× on a warm iOS 26.5 simulator and 2× on a freshly erased one; the target test took ~4.1 s vs 32.7 s in CI. CI log (run 44201641773): it failed at its first await, host.openPage("form") (LeoIOSBrowserTests.swift:29), hitting LeoIOSBrowserPage.load's 28 s navigation deadline as the first WebKit user in the process ("WebContent process took 3.12 seconds to launch", "Failed to resolve host network app id … com.apple.WebKit.Networking"); the RBSAssertion lines are teardown noise. Likely a cold WebKit process start on the hosted simulator; a retry would need that run's leo-ios-xcresult artifact. Reply "B-432: close" to close it, or "B-432: <more detail>" to retry. Work kept on autopilot-shelved/B-432.
-Answer:
+Answer: close
 Inbox: 20261118T020458768349Z-88087e88#1
+Done: closed — not reproducible (owner)
 
 ## B-218 · Remove remaining Ghostty branding from user-facing strings   [done]
 Why: Shipped Leo still says "Quit Ghostty?" and "Update Ghostty and Restart"; Ghostty branding in a Leo app is immediately noticeable.
@@ -3426,12 +3431,16 @@ Done: 2a7b603a4
 Verified: screen capture — iOS simulator at native pixels, /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-302-1.png, B-302-2.png
 Reviewed: accepted 2026-11-18 — 90615b86c62d
 
-## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [ready (next run)]
+## B-437 · iOS task prompt editor side edges ignore the safe area in landscape   [done]
 Issue: #410
 Type: bug
 Report: iOS task prompt editor side edges ignore the safe area in landscape — TaskPromptViewController.swift:63-64 pins leading/trailing to the view, so in iPhone landscape the text may sit under the notch or Dynamic Island (inferred from code, not run)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-302)
+Done: c32801b6c (editor pinned to the side safe area; new landscape layout test failed before, passes after; LeoTests 126 pass). Decision D-993.
+Verified: not visually verified — no isolated iOS launch recipe in verify.md; the layout test measures the real laid-out view
+Reviewed: accepted 2026-11-24 — edf4408a04be
+
 ## B-433 · Ghostty.sdef AppleScript dictionary still says Ghostty   [idea]
 Note: ~19 hits in Ghostty.sdef; Script Editor users see Ghostty branding — P1 first-party feel
 Source: autopilot polish (B-218)
@@ -3447,3 +3456,136 @@ Source: autopilot polish (B-384)
 ## B-436 · iOS Make Active preview is plain paragraphs with no emphasis on changed roles   [idea]
 Note: clearer confirmation before switching delegation profile on iOS; also move the preview wording and effort-level list into LeoKit (duplicated on iOS)
 Source: autopilot polish (B-299)
+
+## B-441 · on mac when a chat message has multiple images, in the full screen…   [done]
+Issue: #411
+Type: bug
+Report: on mac when a chat message has multiple images, in the full screen view i should be able to use the arrow keys or buttons to cycle through them
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-23)
+Inbox: 20261124T005424260130Z-a6852666#1
+Done: be1b94b97 ce0441d3e ec7c8a71b (←/→, header chevrons and View ▸ Previous/Next Image step a message's images in the full-window viewer; bare-arrow tests failed before the fix; Mac suite 5054 pass). Decisions D-997..D-1000.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-441-1.png
+Reviewed: accepted 2026-11-24 — 45a6e33e9dc4
+
+## B-443 · we need a way to change the branch/tag for a plugin without having to…   [done]
+Issue: #415
+Type: bug
+Report: we need a way to change the branch/tag for a plugin without having to reinstall it
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-23)
+Inbox: 20261124T014054218316Z-edf65908#1
+Done: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72 (Settings ▸ Plugins: a git plugin row shows the ref it follows and Change… switches branch/tag via the updater and the approval sheet, no reinstall; LeoKit updater 16/16, Mac suite 5061 pass). Decisions D-1001..D-1007.
+Verified: not visually verified — the published leo-plugin-usage tags need plugin API 2 and this build supports 1, so the Change… flow couldn't be driven; unit tests cover it
+Reviewed: accepted 2026-11-24 — 0809800ef115
+
+## B-440 · Drag a Browser or Files tab to dock it on the right or below   [done]
+Issue: #412
+Why: Follow-up to the right/below docking item: moving a pane by dragging is the natural direct-manipulation route on the Mac (P1).
+Accept: Dragging a Browser or Files tab over the terminal shows a Dock Below or Dock Right drop zone only during the drag; dropping it docks the pane exactly as the menu command does (tested through the same code path); an Escape or a drop outside a zone leaves the layout unchanged; screenshot of the drop zone from the isolated debug build
+Out: Dragging panes between windows; docking on the left or top; iOS
+Source: owner (/feature, 2026-11-23)
+Inbox: 20261124T005228052478Z-9065746d#1
+Done: 8509119b7 10a0d4202 e1380172e (dragging a Browser or Files tab over the terminal shows a Dock Right/Below zone for the other edge only; a drop docks through the same LeoPaneDockController.move as the menu; a drop outside slides back; suite 5143 pass). Decisions D-1029..D-1033.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-440-6-zone.png
+Reviewed: accepted 2026-11-24 — 96e9bfa7f0e0
+
+## B-439 · Dock the Browser and Files panes on the right or below the terminal   [done]
+Issue: #413
+Why: You can see the agent's page below the terminal while you read its code on the right (P4: everything through Leo; P1: keyboard-first). This is option B from Evan's pick on 2026-11-23; mockup: /Users/evan/.leo/agents/leoterm/scratchpad/pane-orientation-mockups/option-b-dock-per-pane.png (HTML next to it).
+Accept: Browser and Files each dock either on the right or below the terminal, set per pane and the same for every agent, and each pane's position survives a relaunch (tested); you can move a pane from View ▸ Dock Focused Pane Right/Below (⌃⌥⌘→ / ⌃⌥⌘↓, checked for conflicts with existing Leo and macOS shortcuts) and from its tab's right-click menu; panes on different edges are both visible at once, and panes on the same edge are tabs as they are today; each dock has its own divider and remembered size, a drag stops at a 200 pt minimum instead of collapsing, and closing a docked pane gives its space back to the terminal (tested); the agent drawer stays under the terminal column; screenshots from the isolated debug build of both panes on the right, browser below with files on the right, and after a relaunch
+Out: Drag-to-dock (a separate follow-up item); positions that differ per agent; docking on the left or top; iOS (Mac only, since the panes exist only on Mac)
+Source: owner (/feature, 2026-11-23)
+Inbox: 20261124T005227812070Z-030f6ea1#1
+Done: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153 (Browser and Files each dock right or below, app-wide, kept across relaunch; View ▸ Dock Focused Pane Right/Below ⌃⌥⌘→/⌃⌥⌘↓ and tab right-click menu; 200 pt dock minimum; full suite 5126 pass; 1 fix round + 1 re-verify). Decisions D-1015..D-1023.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
+Reviewed: accepted 2026-11-24 — cca402d84635
+
+## B-438 · Reorder sidebar sections, including plugin sections   [done]
+Issue: #414
+Why: You can drag the sidebar's sections into the order you want, and that order stays after a relaunch. This covers built-in sections like Agents and Terminals as well as sections that plugins add, such as Usage (P6: the sidebar is the navigation).
+Accept: Dragging a section header moves the whole section, and the new order survives a relaunch (tested); each section header's right-click menu has Move Up and Move Down, so you can reorder without dragging (P1); a newly installed plugin's section appears at the bottom, and removing a plugin drops its section without disturbing the order of the others (tested); screenshots from the isolated debug build, before and after moving a plugin section above Agents
+Out: No reordering of rows inside a section, no hiding or collapsing sections, no sync of the order across Macs, and no iOS (Mac only: the sidebar sections and plugins exist only on Mac)
+Source: owner (/feature, 2026-11-23)
+Inbox: 20261123T235734756623Z-26910159#1
+Done: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925 (sidebar sections reorder by header drag or Move Up/Down, order app-wide and kept across relaunch; new plugin sections land at the bottom; full suite 5091 pass; 1 fix round). Decisions D-1008..D-1014.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-12.png
+Reviewed: accepted 2026-11-24 — d9842679a19a
+
+## B-442 · Mac composer on a moved agent still offers Start and shows Idle   [done]
+Issue: #416
+Type: bug
+Report: Mac composer on a moved agent still offers Start and shows Idle — the composer says "Start <name> to send a message" and the header pill reads "Idle" on a moved agent; VISION 2 (never invent a state the daemon didn't report); the B-324 plan named LeoChatSendGate as the follow-up
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-324)
+Done: ee6f67417 (a moved agent's header pill reads "Moved to <host>" and the composer refuses send naming the host, no Start or Idle; Mac only; suite 5129 pass). Decisions D-1024..D-1027.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-1.png
+Reviewed: accepted 2026-11-24 — 55d23af2799e
+
+## B-444 · Escape doesn't close the full-window image viewer while caps lock is on   [done]
+Issue: #417
+Type: bug
+Report: Escape doesn't close the full-window image viewer while caps lock is on — Escape closes the viewer on a plain press, so with caps lock on the key looks dead (principle 1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-441)
+Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real chord on Escape still doesn't; failing test first; suite 5131 pass). Decision D-1028.
+Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
+Reviewed: accepted 2026-11-24 — 315518028f82
+
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [blocked]
+Issue: #418
+Type: bug
+Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-441)
+Question: couldn't reproduce — the implementer traced send → LeoChatScrollPin (re-pins only within 40 pt of the bottom; tests cover it) → the image right-click (LeoChatAttachmentDragView.hitTest passes right-clicks to the SwiftUI .contextMenu, independent of scroll) and found no app defect; likely the B-441 verifier clicked stale screenshot coordinates after the stub reply scrolled. Reply "B-445: close" to close it, or "B-445: <more detail>" to retry. I'd pick close. Work kept on autopilot-shelved/B-445.
+Answer:
+
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
+Issue: #420
+Type: bug
+Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-438)
+
+## B-453 · Composer placeholder says Start on a restoring agent   [ready (next run)]
+Issue: #421
+Type: bug
+Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-442)
+
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready (next run)]
+Issue: #422
+Type: bug
+Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-444)
+
+## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
+Note: principle 1: every action has a menu item
+Source: autopilot polish (B-441)
+
+## B-448 · A plugin section moved to the top reads as part of Agents   [idea]
+Note: a plugin section moved to the top sits above the fixed "Agents" title and search field, so it reads as if it belongs under Agents — P6
+Source: autopilot polish (B-438)
+
+## B-449 · After a relaunch the Files pane starts closed and the right dock is empty   [idea]
+Note: after a relaunch Files starts closed for that row, so the right dock is empty until it's toggled — P6: the window should come back as it was
+Source: autopilot polish (B-439)
+
+## B-450 · Opening a second file can squeeze the terminal and hide the sidebar   [idea]
+Note: opening a second file once squeezed the terminal to ~380 pt and auto-hid the sidebar (seen once during B-439's first verify) — P6: the content area shouldn't shift under you
+Source: autopilot polish (B-439)
+
+## B-451 · Outline comes back ~20 pt narrower after a window zoom or tile jump   [idea]
+Note: the widening-back restore after a zoom or tile jump gives width back only to the editor — P1: layout should return to where it was
+Source: autopilot polish (B-439)
+
+## B-452 · iOS may show Idle for a moved agent too   [idea]
+Note: check ChatThreadTitleView.swift:80 and AgentPresentation.swift:17 for the Idle-on-moved case B-442 fixed on Mac; file a bug if iOS can show a moved agent — Mac/iOS parity
+Source: autopilot polish (B-442)
+
+## B-455 · Escape doesn't dismiss the agent-browser handoff banner with caps lock on   [idea]
+Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed (principle 1); a bug past the 3-bug cap
+Source: autopilot bug (B-444)

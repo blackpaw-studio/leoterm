@@ -17,6 +17,9 @@ import Combine
 ///
 /// A plugin view the user opened on the row's agent (`rowPane.pluginView`)
 /// is a second leading item and, in front, takes the pane's content the same way.
+///
+/// Docked (B-439), a strip shows only the panes on its edge (`dock`): the
+/// Browser item, or the Files items (plugin view and files), or both.
 final class LeoEditorTabsViewController: NSViewController {
     let tabs: LeoEditorTabs
     let tabBar = LeoEditorTabBar()
@@ -28,6 +31,9 @@ final class LeoEditorTabsViewController: NSViewController {
     private(set) var shownPlugin: LeoPluginPaneViewController?
     private let rowPane: LeoRowPane?
     private let headerTopInset: LeoToolbarInset?
+    /// Which panes this strip shows and how its tabs move them; nil shows
+    /// both, with no dock menu.
+    private let dock: LeoPaneDockStripContext?
     private var tabViews: [ObjectIdentifier: LeoEditorPaneViewController] = [:]
     private var browserViews: [ObjectIdentifier: LeoAgentBrowserPaneViewController] = [:]
     private var pluginViews: [LeoPluginViewRef: LeoPluginPaneViewController] = [:]
@@ -36,13 +42,23 @@ final class LeoEditorTabsViewController: NSViewController {
 
     /// Binds right away, as the pane view does: a collapsed split item's
     /// view isn't loaded until it is shown.
-    init(tabs: LeoEditorTabs, rowPane: LeoRowPane? = nil, headerTopInset: LeoToolbarInset? = nil) {
+    init(tabs: LeoEditorTabs, rowPane: LeoRowPane? = nil, headerTopInset: LeoToolbarInset? = nil, dock: LeoPaneDockStripContext? = nil) {
         self.tabs = tabs
         self.rowPane = rowPane
         self.headerTopInset = headerTopInset
+        self.dock = dock
         super.init(nibName: nil, bundle: nil)
         tabBar.onSelect = { [weak self] index in self?.selectTab(at: index) }
         tabBar.onClose = { [weak self] index in self?.closeTab(at: index) }
+        if let dock {
+            tabBar.dockState = { [weak self] index in
+                guard let pane = self?.dockPane(atStripIndex: index) else { return nil }
+                return (pane, dock.edge(pane))
+            }
+            tabBar.onDock = { pane, edge in dock.move(pane, edge) }
+            tabBar.onDragBegin = { dock.beginDrag($0) }
+            tabBar.onDragEnd = { dock.endDrag() }
+        }
         bind()
         refresh()
     }
@@ -62,6 +78,11 @@ final class LeoEditorTabsViewController: NSViewController {
     /// Focuses the selected tab's text.
     func focusText() {
         shown?.focusText()
+    }
+
+    /// Focuses the agent browser's page, while the strip shows it (B-439).
+    func focusBrowser() {
+        shownBrowser?.pageSlot.focusPage()
     }
 
     /// The view of `tab`, made the first time it's asked for.
@@ -102,11 +123,20 @@ final class LeoEditorTabsViewController: NSViewController {
             .store(in: &subscriptions)
     }
 
-    private var showsBrowser: Bool { rowPane?.content == .agentBrowser }
+    /// The panes this strip shows now.
+    var hostedPanes: Set<LeoDockPane> { dock?.hosts() ?? Set(LeoDockPane.allCases) }
+
+    /// What the strip shows: the row's content as far as this strip hosts it.
+    private var content: LeoRowPane.Content? {
+        guard let rowPane else { return .editor }
+        return rowPane.content(hosting: hostedPanes)
+    }
+
+    private var showsBrowser: Bool { content == .agentBrowser }
 
     /// The plugin view in front, if one is.
     private var frontPluginRef: LeoPluginViewRef? {
-        guard case .plugin(let ref)? = rowPane?.content else { return nil }
+        guard case .plugin(let ref)? = content else { return nil }
         return ref
     }
 
@@ -142,7 +172,7 @@ final class LeoEditorTabsViewController: NSViewController {
         pluginViews = pluginViews.filter { $0.key == rowPane?.pluginView }
         let nextPlugin = frontPluginRef.flatMap(pluginPane(for:))
         let nextBrowser = showsBrowser ? browserSource.map(browserView(for:)) : nil
-        let next = showsBrowser || nextPlugin != nil ? nil : tabs.selected.map(view(for:))
+        let next = content != .editor ? nil : tabs.selected.map(view(for:))
         if next !== shown || nextBrowser !== shownBrowser || nextPlugin !== shownPlugin {
             swap(to: next, browser: nextBrowser, plugin: nextPlugin)
         }
@@ -161,8 +191,8 @@ final class LeoEditorTabsViewController: NSViewController {
     }
 
     private func refreshStrip() {
-        let selected = showsBrowser || showsPlugin ? nil : tabs.selected
-        let files = tabs.tabs.compactMap { tab -> LeoEditorTabBar.Item? in
+        let selected = content != .editor ? nil : tabs.selected
+        let files = !hostedPanes.contains(.files) ? [] : tabs.tabs.compactMap { tab -> LeoEditorTabBar.Item? in
             guard let fileID = tab.document?.fileID else { return nil }
             return LeoEditorTabBar.Item(
                 title: LeoEditorHeaderView.title(for: fileID), toolTip: LeoEditorHeaderView.location(of: fileID),
@@ -172,7 +202,7 @@ final class LeoEditorTabsViewController: NSViewController {
         let browser = hasBrowserItem
             ? [LeoEditorTabBar.Item(title: "Browser", toolTip: "Agent browser", isDirty: false, isSelected: showsBrowser, isBrowser: true)]
             : []
-        let plugin = rowPane?.pluginView.map {
+        let plugin = (hasPluginItem ? rowPane?.pluginView : nil).map {
             [LeoEditorTabBar.Item(
                 title: $0.title, toolTip: "\($0.title), \($0.pluginName)", isDirty: false, isSelected: showsPlugin, pluginSymbol: $0.sfSymbol)]
         } ?? []
@@ -279,8 +309,8 @@ final class LeoEditorTabsViewController: NSViewController {
         close(selected)
     }
 
-    private var hasBrowserItem: Bool { rowPane?.isAgentBrowserOpen == true }
-    private var hasPluginItem: Bool { rowPane?.isPluginViewOpen == true }
+    private var hasBrowserItem: Bool { hostedPanes.contains(.browser) && rowPane?.isAgentBrowserOpen == true }
+    private var hasPluginItem: Bool { hostedPanes.contains(.files) && rowPane?.isPluginViewOpen == true }
 
     /// The leading strip items that aren't files: the Browser, then the plugin view.
     private enum Pinned { case browser, plugin }
@@ -290,10 +320,19 @@ final class LeoEditorTabsViewController: NSViewController {
     /// The strip's index for a file tab: the pinned items come first.
     private var fileIndexOffset: Int { pinnedCount }
 
+    /// The pane a strip item belongs to: the Browser item, or Files for the
+    /// plugin view and the files.
+    private func dockPane(atStripIndex index: Int) -> LeoDockPane? {
+        guard index >= 0, index < pinnedCount + (hostedPanes.contains(.files) ? tabs.tabs.count : 0) else { return nil }
+        return pinned.indices.contains(index) && pinned[index] == .browser ? .browser : .files
+    }
+
     private func selectTab(at index: Int) {
         if pinned.indices.contains(index) {
             switch pinned[index] {
-            case .browser: rowPane?.showAgentBrowser()
+            // Alone in its strip it's already shown: putting it in front of the
+            // row's content would take the plugin view out of the Files strip.
+            case .browser: if hostedPanes.contains(.files) { rowPane?.showAgentBrowser() }
             case .plugin: rowPane?.frontPluginView()
             }
             return
@@ -348,10 +387,15 @@ final class LeoEditorTabsViewController: NSViewController {
 }
 
 extension LeoEditorTabsViewController: LeoRowPaneChild {
-    var isPaneOpen: Bool { tabs.isOpen || hasBrowserItem || hasPluginItem }
+    var isPaneOpen: Bool { (hostedPanes.contains(.files) && tabs.isOpen) || hasBrowserItem || hasPluginItem }
 
     /// Back on screen (B-274): the selected tab's file may have changed.
     func onShown() {
         shown?.onShown()
+    }
+
+    /// A pane moved (B-439): the strip shows what its edge hosts now.
+    func dockDidChange() {
+        refresh()
     }
 }

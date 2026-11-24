@@ -48,6 +48,11 @@ private struct LeoPluginsPane: View {
                     Task { await model.install(url: url, ref: ref) }
                 }
             })
+        .sheet(item: Binding(get: { model.pendingRefChange }, set: { if $0 == nil { model.cancelRefChange() } })) { row in
+            LeoPluginChangeRefSheet(row: row) { ref in
+                Task { await model.changeRef(row.id, to: ref) }
+            }
+        }
         .onDisappear { model.paneDidDisappear() }
         .confirmationDialog(
             model.pendingUninstall.map { "Uninstall “\($0.name)”?" } ?? "Uninstall?",
@@ -83,6 +88,8 @@ private struct LeoPluginsPane: View {
                 showSection: { model.showSection(row.id, section: $0) },
                 setPaneShown: { pane, shown in model.setPaneShown(row.id, pane: pane, shown: shown) },
                 removeAccount: { model.removeAccount(row.id, grantID: $0) },
+                changeRef: { model.requestRefChange(row.id) },
+                isBusy: model.isBusy,
                 uninstall: { model.requestUninstall(row.id) })
         }
         .listStyle(.inset)
@@ -135,6 +142,8 @@ private struct LeoPluginRowView: View {
     let showSection: (String) -> Void
     let setPaneShown: (String, Bool) -> Void
     let removeAccount: (String) -> Void
+    let changeRef: () -> Void
+    let isBusy: Bool
     let uninstall: () -> Void
 
     var body: some View {
@@ -145,6 +154,15 @@ private struct LeoPluginRowView: View {
             VStack(alignment: .leading, spacing: 3) {
                 titleLine
                 Text(row.sourceText).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                if let refText = row.refText {
+                    HStack(spacing: 6) {
+                        Text("Follows \(refText)").font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                        Button("Change…", action: changeRef).buttonStyle(.link).font(.caption)
+                            .disabled(isBusy)
+                            .help("Switch “\(row.name)” to another branch or tag without reinstalling.")
+                            .accessibilityLabel("Change branch or tag for \(row.name)")
+                    }
+                }
                 Text(row.permissionsSummary).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 ForEach(row.accounts) { account in
                     HStack(spacing: 6) {
@@ -260,6 +278,45 @@ private struct LeoPluginInstallSourceSheet: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(LeoSettingsMetrics.sheetPadding)
+        .frame(width: 440)
+    }
+}
+
+/// Asks for the branch or tag a git plugin should follow instead.
+private struct LeoPluginChangeRefSheet: View {
+    let row: LeoPluginRow
+    let change: (String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var ref: String
+
+    init(row: LeoPluginRow, change: @escaping (String) -> Void) {
+        self.row = row
+        self.change = change
+        _ref = State(initialValue: row.ref ?? "")
+    }
+
+    private var trimmed: String { ref.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Change branch or tag for “\(row.name)”").font(.headline)
+            Form {
+                TextField("Branch or tag", text: $ref, prompt: Text("Default branch"))
+            }
+            Text("Leo fetches that version and shows anything new it asks for. The current version keeps running until you approve.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Switch") {
+                    change(trimmed)
+                    dismiss()
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(trimmed == (row.ref ?? ""))
             }
         }
         .padding(LeoSettingsMetrics.sheetPadding)

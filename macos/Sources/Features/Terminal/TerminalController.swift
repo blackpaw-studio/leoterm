@@ -2122,6 +2122,18 @@ extension TerminalController {
         case #selector(toggleLeoHideSubagents(_:)):
             return validateLeoHideSubagentsMenuItem(item)
 
+        case #selector(showPreviousLeoChatImage(_:)):
+            return canStepLeoChatImage(-1)
+
+        case #selector(showNextLeoChatImage(_:)):
+            return canStepLeoChatImage(1)
+
+        case #selector(dockFocusedLeoPaneRight(_:)):
+            return validateLeoDockMenuItem(item, edge: .right)
+
+        case #selector(dockFocusedLeoPaneBelow(_:)):
+            return validateLeoDockMenuItem(item, edge: .below)
+
         case #selector(toggleLeoAgentPane(_:)):
             return validateLeoAgentPaneMenuItem(item)
 

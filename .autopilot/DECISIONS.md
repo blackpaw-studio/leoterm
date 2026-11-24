@@ -2136,3 +2136,270 @@ Chose: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBottomSa
 Why: AUTONOMY bug fix
 Commit: 2a7b603a4
 Veto: [ ]
+
+## D-990 · 2026-11-23 · Answer to B-324: Move, copy, and duplicate agents from the Mac and iOS…
+Context: B-324 (Move, copy, and duplicate agents from the Mac and iOS apps) blocked question
+Chose: accept your recommendation (yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing)
+Why: the owner's answer
+Commit: b1761eee4 3e62f1bbb
+Veto: n/a (owner)
+
+## D-991 · 2026-11-23 · Answer to B-431: CI flake — Leo CI test-macos "Unit tests" hangs until…
+Context: B-431 (CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-992 · 2026-11-23 · Answer to B-432: CI flake — Leo iOS CI "App tests":…
+Context: B-432 (CI flake — Leo iOS CI "App tests":…) blocked question
+Chose: close
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
+
+## D-993 · 2026-11-23 · B-437: iOS only (the Mac app has no notch or side safe area)
+Chose: iOS only (the Mac app has no notch or side safe area)
+Why: Mac/iOS parity rule; consistent with D-989
+Commit: c32801b6c
+Veto: [ ]
+
+## D-994 · 2026-11-23 · B-324: A moved row opened in a new window shows its chat, not a Start sheet
+Chose: A moved row opened in a new window (⌘-click, ⌥-double-click) shows its chat, like a plain click, not a Start sheet
+Why: VISION 2, 6
+Commit: b1761eee4 3e62f1bbb
+Veto: [ ]
+
+## D-995 · 2026-11-23 · B-324: The chat bar on a moved row says it moved, with no Start button
+Chose: The chat bar on a moved row reads "<name> moved to <host>." with no Start button
+Why: VISION 2
+Commit: b1761eee4 3e62f1bbb
+Veto: [ ]
+
+## D-996 · 2026-11-23 · B-324: The moved-row guard in go(to:) precedes the status check
+Chose: The moved-row guard in go(to:) comes before the status check, so it covers every status
+Why: VISION 2
+Commit: b1761eee4 3e62f1bbb
+Veto: [ ]
+
+## D-997 · 2026-11-23 · B-441: Arrows and buttons step only in the full-window viewer
+Chose: Arrows and header buttons step only in the full-window viewer; the pane viewer keeps its arrows
+Why: principle 1 / principle 6
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-998 · 2026-11-23 · B-441: Stepping stops at either end, no wrap
+Chose: Stepping stops at either end, no wrap (as in Preview)
+Why: principle 1
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-999 · 2026-11-23 · B-441: View ▸ Previous Image / Next Image menu items
+Chose: View ▸ Previous Image / Next Image added in this item, enabled exactly where the arrow keys step
+Why: principle 1
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-1000 · 2026-11-23 · B-441: Mac only; iOS already pages a message's images
+Chose: Mac only: iOS already pages a message's images (ChatImagePageController), so nothing moves to LeoKit
+Why: AGENTS.md parity rule
+Commit: be1b94b97 ce0441d3e ec7c8a71b
+Veto: [ ]
+
+## D-1001 · 2026-11-23 · B-443: Mac only; iOS has no plugin settings or updater consumer, and the…
+Chose: Mac only; iOS has no plugin settings or updater consumer, and the updater logic is already in LeoKit
+Why: Mac/iOS parity rule
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1002 · 2026-11-23 · B-443: Each git plugin row shows "Follows “<ref>”" and a "Change…" link, not…
+Chose: Each git plugin row shows "Follows “<ref>”" and a "Change…" link, not shown for bundled or dev plugins
+Why: Keyboard-first, Mac-native
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1003 · 2026-11-23 · B-443: A stored `HEAD` reads as "the default branch", and an empty field…
+Chose: A stored `HEAD` reads as "the default branch", and an empty field switches back to it
+Why: Calm, attention-driven
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1004 · 2026-11-23 · B-443: Reuses the existing approval sheet
+Chose: Reuses the existing approval sheet
+Why: Local = remote; Everything through Leo
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1005 · 2026-11-23 · B-443: A declined ref change shows no message, same as a declined install
+Chose: A declined ref change shows no message, same as a declined install
+Why: Never invent a state
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1006 · 2026-11-23 · B-443: A same-commit ref switch refreshes the row without restarting the plugin
+Chose: A same-commit ref switch refreshes the row without restarting the plugin
+Why: Never invent a state
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1007 · 2026-11-23 · B-443: "Change…" stays an inline row button with no menu item or shortcut,…
+Chose: "Change…" stays an inline row button with no menu item or shortcut, like Uninstall
+Why: Keyboard-first, Mac-native
+Commit: d5a444e50 2768f7b37 fc5a33d90 4fb9f0f72
+Veto: [ ]
+
+## D-1008 · 2026-11-24 · B-438: All machines move together as one Agents unit and keep…
+Chose: All machines move together as one Agents unit and keep their Settings order
+Why: P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1009 · 2026-11-24 · B-438: A drop takes the target header's slot; an accent line marks…
+Chose: A drop takes the target header's slot; an accent line marks where it lands; no live reordering while hovering
+Why: P1
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1010 · 2026-11-24 · B-438: No keyboard shortcut for moving sections (headers can't be…
+Chose: No keyboard shortcut for moving sections (headers can't be focused; the context menu covers P1; a shortcut is a follow-up)
+Why: P1
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1011 · 2026-11-24 · B-438: A hidden, disabled or uninstalled section keeps its saved…
+Chose: A hidden, disabled or uninstalled section keeps its saved slot and returns to it; with no saved order the default stands
+Why: P1/P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1012 · 2026-11-24 · B-438: The order is app-wide across windows, stored in the sidebar…
+Chose: The order is app-wide across windows, stored in the sidebar preferences
+Why: P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1013 · 2026-11-24 · B-438: Drag source sits on the title Button's label, because a…
+Chose: Drag source sits on the title Button's label, because a Button swallows .onDrag
+Why: P1
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1014 · 2026-11-24 · B-438: Removed the invisible placeholder row under a collapsed…
+Chose: Removed the invisible placeholder row under a collapsed plugin section; a shared LeoPluginSectionListing drives both the drawn rows and the row count
+Why: P6
+Commit: 528d8629f 701976cbc b861fd455 c1121bfc8 ae0dd9219 ffdb37a24 ebbdec925
+Veto: [ ]
+
+## D-1015 · 2026-11-24 · B-439: "Files" = outline plus editor and plugin tabs as one unit;…
+Chose: "Files" = outline plus editor and plugin tabs as one unit; "Browser" = the agent web-view tab
+Why: P6
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1016 · 2026-11-24 · B-439: Both panes default to the right, so layout is unchanged on…
+Chose: Both panes default to the right, so layout is unchanged on upgrade
+Why: P2
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1017 · 2026-11-24 · B-439: Dock menu items enable only while Browser or Files has…
+Chose: Dock menu items enable only while Browser or Files has focus, with the current edge checked; no toolbar item or Settings picker
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1018 · 2026-11-24 · B-439: Both docks clamp at 200 pt; the editor's content minimum…
+Chose: Both docks clamp at 200 pt; the editor's content minimum drops from 320 to 200
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1019 · 2026-11-24 · B-439: An edge change applies live to every open window (one…
+Chose: An edge change applies live to every open window (one app-wide store)
+Why: P6
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1020 · 2026-11-24 · B-439: After a move, focus returns to the moved pane
+Chose: After a move, focus returns to the moved pane
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1021 · 2026-11-24 · B-439: The right dock's remembered width is its tab strip's width;…
+Chose: The right dock's remembered width is its tab strip's width; the outline keeps its own 180 pt minimum beside the strip
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1022 · 2026-11-24 · B-439: The bottom dock sits under whatever the terminal column…
+Chose: The bottom dock sits under whatever the terminal column shows, Chat included, and plain shell rows get it too
+Why: P6
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1023 · 2026-11-24 · B-439: With Files alone on the right, the outline takes the 200 pt…
+Chose: With Files alone on the right, the outline takes the 200 pt dock minimum (fix round 1)
+Why: P1
+Commit: 556b22129 e8be92072 a3da0003e dfba6b0d0 73f35b630 81235c153
+Veto: [ ]
+
+## D-1024 · 2026-11-24 · B-442: Header pill reads "Moved to <host>" for a moved agent,…
+Chose: Header pill reads "Moved to <host>" for a moved agent, outranking other states
+Why: VISION 2
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1025 · 2026-11-24 · B-442: Composer stays editable on a moved agent; send is refused…
+Chose: Composer stays editable on a moved agent; send is refused with a notice naming the host, no Start wording
+Why: VISION 2
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1026 · 2026-11-24 · B-442: Mac only: the Mac composer and capsule views change, and…
+Chose: Mac only: the Mac composer and capsule views change, and LeoChatSendGate lives in the app target, not LeoKit
+Why: Mac/iOS parity rule
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1027 · 2026-11-24 · B-442: Moved state takes priority over every status in the…
+Chose: Moved state takes priority over every status in the composer, send gate and header pill
+Why: VISION 2 (consistent with D-995 and D-996)
+Commit: ee6f67417
+Veto: [ ]
+
+## D-1028 · 2026-11-24 · B-444: Mac only; iOS has a separate viewer with no Escape key path
+Chose: Mac only; iOS has a separate viewer with no Escape key path, so nothing moves to LeoKit
+Why: principle 1
+Commit: 4683730be
+Veto: [ ]
+
+## D-1029 · 2026-11-24 · B-440: Only the edge the pane isn't on shows a drop zone, so no…
+Chose: Only the edge the pane isn't on shows a drop zone, so no zone ever does nothing
+Why: P2
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1030 · 2026-11-24 · B-440: The zone previews where the pane lands (half the terminal…
+Chose: The zone previews where the pane lands (half the terminal along that edge), faint over the terminal and accent-filled while armed; a drop elsewhere slides the tab back
+Why: P1
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1031 · 2026-11-24 · B-440: A drag starts only after a 4 pt threshold; a click still…
+Chose: A drag starts only after a 4 pt threshold; a click still selects at once
+Why: P1
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1032 · 2026-11-24 · B-440: Drags never leave the app: the pasteboard carries only a…
+Chose: Drags never leave the app: the pasteboard carries only a private type, never text or a file URL, so the terminal can't paste it
+Why: P1
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1033 · 2026-11-24 · B-440: Dropping calls the same LeoPaneDockController.move as the…
+Chose: Dropping calls the same LeoPaneDockController.move as the menu, so there is no second dock path
+Why: P6
+Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]

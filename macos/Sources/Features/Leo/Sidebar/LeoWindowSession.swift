@@ -111,11 +111,17 @@ struct LeoWindowVisibilityState: Equatable {
     /// The split items holding them, once the window's split view is built.
     weak var editorContainer: LeoRowPaneContainerViewController?
     weak var browserContainer: LeoRowPaneContainerViewController?
+    /// The Browser's own strip, used while it docks apart from Files (B-439).
+    weak var agentBrowserContainer: LeoRowPaneContainerViewController?
+    /// Where Browser and Files dock, app-wide (wired by the runtime; a
+    /// session without it reads its own defaults).
+    var paneDock: LeoPaneDockStore
 
     func adopt(_ container: LeoRowPaneContainerViewController) {
         switch container.role {
         case .editor: editorContainer = container
         case .browser: browserContainer = container
+        case .agentBrowser: agentBrowserContainer = container
         }
     }
     /// The window's plain shells, its sidebar's Terminals section (B-057).
@@ -170,8 +176,8 @@ struct LeoWindowVisibilityState: Equatable {
     }
 
     /// The window's split, found through the panes it built.
-    private var split: LeoSplitViewController? {
-        (browserContainer?.parent ?? editorContainer?.parent) as? LeoSplitViewController
+    var split: LeoSplitViewController? {
+        (editorContainer ?? browserContainer)?.enclosingLeoSplit
     }
 
     private let defaults: UserDefaults
@@ -201,6 +207,7 @@ struct LeoWindowVisibilityState: Equatable {
     ) {
         self.id = id
         self.defaults = defaults
+        paneDock = LeoPaneDockStore(defaults: defaults)
         let windowBox = LeoWeakWindow(window)
         panes = LeoRowPanes(
             makeAccess: makeFileAccess,
@@ -422,6 +429,11 @@ struct LeoWindowVisibilityState: Equatable {
     func exitChatFullWindow() {
         guard chatViewer.isFullWindow else { return }
         if !chatViewer.exitFullWindow() { requestChatFocus() }
+    }
+
+    /// Shows the previous (-1) or next (+1) image of the open file's message.
+    func stepChatGallery(_ delta: Int) {
+        Task { await chatViewer.step(delta) }
     }
 
     /// Closes the open file, in the pane or full window, back to the thread.

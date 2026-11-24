@@ -113,6 +113,10 @@ struct LeoSidebarView: View {
     /// The row a "New Agent in Worktree…" sheet branches from (B-176).
     @State private var worktreeSource: LeoAgentRow?
     @State private var searchField = LeoSidebarSearchFieldHandle()
+    @Environment(\.leoPluginSurfaces) var pluginSurfaces
+    /// The listed plugin sections' row counts as the watcher last saw them
+    /// (B-438); read so a change re-renders the list.
+    @State private var pluginRowCounts: [String: Int] = [:]
 
     /// Main-actor so a missing `shortcutHints` (tests) can be made here.
     @MainActor init(
@@ -253,37 +257,49 @@ struct LeoSidebarView: View {
 
     /// The Terminals section hides when the window has no shells, and
     /// while the filter (which searches agents) has text.
-    private var showsTerminals: Bool { model.showsTerminals(hasTerminals: hasTerminals) }
+    var showsTerminals: Bool { model.showsTerminals(hasTerminals: hasTerminals) }
 
-    /// Each machine's section, then this window's Terminals. An offline
-    /// machine folds to its header and a card saying why; the terminals
-    /// don't depend on any daemon.
+    /// Each machine's section, this window's Terminals and the plugin
+    /// sections, in the saved order (B-438). An offline machine folds to
+    /// its header and a card saying why; the terminals don't depend on any
+    /// daemon.
     private func sidebarList(machines: [LeoMachineSection]) -> some View {
         // Selection is required (`SelectionValue` is the optional ID
         // itself, so each row's tag is `Optional(id)`): the table then
         // never toggles the selected row off on ⌘-click, which here opens
         // a new window (B-048, D-104). `nil` still shows no selection.
-        let offscreen = offscreenAttention(machines: machines)
+        // The watcher's counts are only read so its update re-renders the
+        // list; the layout reads the plugins' content as it is now.
+        _ = pluginRowCounts
+        let layout = blockLayout(machines: machines, pluginRows: pluginSectionRowCounts())
+        let offscreen = offscreenAttention(machines: machines, layout: layout)
         return ScrollViewReader { proxy in
             List<LeoSidebarItemID?, _>(selection: selectionBinding) {
-                ForEach(topLevelBlocks(machines: machines)) { block in
+                ForEach(layout.blocks) { block in
+                    let mover = sectionMover(block.orderKey, in: layout)
                     switch block {
                     case .machine(let host):
-                        if let machine = machines.first(where: { $0.host == host }) { machineSection(machine) }
-                    case .terminals: terminalSection
-                    case .pluginSection(let id): pluginSection(id: id)
+                        if let machine = machines.first(where: { $0.host == host }) { machineSection(machine, mover: mover) }
+                    case .terminals: LeoTerminalsSection(titles: terminals.titles, terminals: terminals, mover: mover)
+                    case .pluginSection(let id): pluginSection(id: id, mover: mover)
                     }
                 }
             }
             .listStyle(.sidebar)
+            .background {
+                if let pluginSurfaces {
+                    LeoPluginSectionRowsWatcher(surfaces: pluginSurfaces, counts: pluginSectionRowCounts) { pluginRowCounts = $0 }
+                        .accessibilityHidden(true)
+                }
+            }
             .environment(\.sidebarRowSize, LeoDispatchRowMetrics.sidebarRowSize)
             .leoShowsOffscreenAttention(offscreen.candidates, mirroredRowCount: offscreen.rowCount, proxy: proxy)
             .leoRevealsTerminalRow(
                 terminals.selection, isListed: showsTerminals, listsAgents: !model.rows.isEmpty, scheduler: revealScheduler, proxy: proxy
             )
             .leoLandsWhenTerminalsClose(
-                // Its header's row and each terminal row `terminalSection` lists.
-                sectionRows: showsTerminals ? terminals.list.labels.count + 1 : 0,
+                sectionStart: layout.rowOffset(of: LeoSidebarSectionOrder.terminals),
+                sectionRows: layout.rowCounts[LeoSidebarSectionOrder.terminals] ?? 0,
                 isFiltering: LeoSidebarLayout.isFiltering(model.query),
                 landing: LeoTerminalsSectionExit.landing(selectedAgent: model.selection, in: machines.flatMap(\.sections)),
                 terminalsWillChange: terminals.objectWillChange,
@@ -317,11 +333,11 @@ struct LeoSidebarView: View {
         }
     }
 
-    @ViewBuilder private func machineSection(_ machine: LeoMachineSection) -> some View {
+    @ViewBuilder private func machineSection(_ machine: LeoMachineSection, mover: LeoSidebarSectionMover) -> some View {
         let presentation = LeoMachineHeaderPresentation(
             section: machine, style: statsStyle, hostName: Self.hostName, now: Date()
         )
-        Section(header: machineHeader(machine.host, presentation)) {
+        Section(header: machineHeader(machine.host, presentation, mover: mover)) {
             switch listContent(of: machine) {
             case .offline: offlineCard(machine.host, presentation)
             case .loading: machineNote("Loading agents…", showsProgress: true)
@@ -332,9 +348,12 @@ struct LeoSidebarView: View {
         }
     }
 
-    private func machineHeader(_ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation) -> some View {
+    /// Every machine's header moves the one Agents section (B-438).
+    private func machineHeader(
+        _ host: LeoHostID, _ presentation: LeoMachineHeaderPresentation, mover: LeoSidebarSectionMover
+    ) -> some View {
         LeoMachineSectionHeader(
-            host: host, presentation: presentation, style: statsStyle,
+            host: host, presentation: presentation, style: statsStyle, mover: mover,
             actions: LeoMachineHeaderActions(
                 toggle: { model.toggleMachineCollapsed(host) },
                 newAgentHere: { spawnMachine = LeoMachineSpawnItem(host: host) },
@@ -388,27 +407,16 @@ struct LeoSidebarView: View {
         .listRowInsets(LeoDispatchRowMetrics.agentRowInsets)
     }
 
-    private var terminalSection: some View {
-        LeoTerminalsSection(titles: terminals.titles, terminals: terminals)
-    }
-
     /// Plugin section entries, hidden while the filter (which searches
     /// agents) has text.
-    private var shownPluginEntries: [LeoPluginSidebarSectionEntry] {
+    var shownPluginEntries: [LeoPluginSidebarSectionEntry] {
         guard let sections = model.pluginSections, !LeoSidebarLayout.isFiltering(model.query) else { return [] }
         return sections.entries
     }
 
-    /// Machines, Terminals, then the app-level plugin sections.
-    private func topLevelBlocks(machines: [LeoMachineSection]) -> [LeoSidebarTopLevel.Block] {
-        LeoSidebarTopLevel.blocks(
-            machines: machines.map(\.host), showsTerminals: showsTerminals, pluginSectionIDs: shownPluginEntries.map(\.id)
-        )
-    }
-
-    @ViewBuilder private func pluginSection(id: String) -> some View {
+    @ViewBuilder private func pluginSection(id: String, mover: LeoSidebarSectionMover) -> some View {
         if let sections = model.pluginSections, let entry = shownPluginEntries.first(where: { $0.id == id }) {
-            LeoPluginSidebarSection(sections: sections, slots: sections.host.slots, entry: entry)
+            LeoPluginSidebarSection(sections: sections, slots: sections.host.slots, entry: entry, mover: mover)
         }
     }
 

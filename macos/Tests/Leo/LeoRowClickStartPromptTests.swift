@@ -25,6 +25,12 @@ import Testing
         LeoAgentRow(host: .local, name: name, template: nil, status: status, activity: .idle, actionDetail: nil)
     }
 
+    /// A row the daemon reports as moved to another host: its agent lives
+    /// there now, so it can never be started or attached here.
+    private func movedRow(_ name: String = "old-agent", to host: String = "nas") -> LeoAgentRow {
+        LeoAgentRow(host: .local, name: name, template: nil, status: .stopped, activity: .idle, actionDetail: nil, movedTo: host)
+    }
+
     private func makeModel(
         _ rows: [LeoAgentRow],
         attaches: [LeoAgentRow.ID: Int] = [:],
@@ -362,6 +368,63 @@ import Testing
         #expect(log.attaches.isEmpty)
     }
 
+    // MARK: Moved agents (B-324)
+
+    /// A moved agent can't be started here (the daemon refuses with
+    /// `agent_moved`), so a new-window open shows its chat in the clicked
+    /// window like a plain click, never a Start sheet.
+    @Test func aMovedRowOpenedInANewWindowShowsItsChatAndNeverAsksToStart() {
+        let moved = movedRow()
+        let (model, log) = makeModel([moved])
+
+        model.rowClicked(moved, modifierFlags: .command, from: origin)
+
+        #expect(log.chats.map(\.0) == [moved.id])
+        #expect(log.chats.first?.1 == origin)
+        #expect(model.startPrompt(in: origin) == nil)
+        #expect(log.starts.isEmpty)
+        #expect(log.attaches.isEmpty)
+    }
+
+    @Test func anOptionDoubleClickOnAMovedRowNeverAsksToStart() {
+        let moved = movedRow()
+        let (model, log) = makeModel([moved])
+
+        model.rowClicked(moved, modifierFlags: .option, clickCount: 2, from: origin)
+
+        #expect(log.chats.map(\.0) == [moved.id])
+        #expect(model.startPrompt(in: origin) == nil)
+        #expect(log.starts.isEmpty)
+        #expect(log.attaches.isEmpty)
+    }
+
+    /// A prompt opened before the daemon reported the move ends when the
+    /// report arrives: it can never run here, so it never starts or attaches.
+    @Test func aPromptEndsWhenItsAgentIsReportedMoved() {
+        let agent = row("old-agent", .stopped)
+        let (model, log) = makeModel([agent])
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
+        #expect(model.startPrompt(in: origin) != nil)
+
+        report(model, [movedRow()])
+
+        #expect(model.startPrompt(in: origin) == nil)
+        #expect(log.starts.isEmpty)
+        #expect(log.attaches.isEmpty)
+    }
+
+    @Test func anAcceptedStartEndsWhenItsAgentIsReportedMoved() throws {
+        let agent = row("old-agent", .stopped)
+        let (model, log) = makeModel([agent])
+        model.rowClicked(agent, modifierFlags: .command, from: origin)
+        model.confirmStart(try #require(model.startPrompt(in: origin)).id)
+
+        report(model, [movedRow()])
+
+        #expect(model.startPrompt(in: origin) == nil)
+        #expect(log.attaches.isEmpty)
+    }
+
     // MARK: Keyboard
 
     @Test func arrowKeysOnlySelect() {
@@ -470,6 +533,16 @@ import Testing
         #expect(bar != nil)
         #expect(bar?.offersStart == false)
     }
+
+    /// B-324: a moved agent can't be started here, so the bar says where it
+    /// went and offers no Start, whatever its status.
+    @Test(arguments: [LeoAgentStatus.stopped, .unknown("error"), .starting, .running])
+    func aMovedAgentOffersNoStart(status: LeoAgentStatus) throws {
+        let bar = try #require(LeoChatStartBar.prompt(for: status, movedTo: "nas"))
+
+        #expect(bar.offersStart == false)
+        #expect(bar.message.contains("nas"))
+    }
 }
 
 /// B-371: the composer refuses a send to an agent that isn't running, so the
@@ -487,5 +560,22 @@ import Testing
     ])
     func refusalFollowsStatus(status: LeoAgentStatus, expected: String?) {
         #expect(LeoChatSendGate.refusal(for: status, agentName: "alpha") == expected)
+    }
+
+    /// B-442: a moved agent lives on another host; the composer must not say
+    /// "Start" (the daemon refuses it), and a send says where it went instead.
+    @Test(arguments: [LeoAgentStatus.running, .starting, .stopped, .restoring, .unknown("x")])
+    func aMovedAgentRefusesWithWhereItWent(status: LeoAgentStatus) throws {
+        let refusal = try #require(LeoChatSendGate.refusal(for: status, agentName: "alpha", movedTo: "nas"))
+
+        #expect(refusal.contains("nas"))
+        #expect(!refusal.localizedCaseInsensitiveContains("start"))
+    }
+
+    @Test func theComposerPlaceholderOffersStartOnlyForAnAgentThatCanBeStarted() {
+        #expect(LeoChatSendGate.placeholder(for: .running, agentName: "alpha", movedTo: nil) == "Message alpha")
+        #expect(LeoChatSendGate.placeholder(for: .stopped, agentName: "alpha", movedTo: nil) == "Start alpha to send a message")
+        #expect(LeoChatSendGate.placeholder(for: .stopped, agentName: "alpha", movedTo: "nas") == "alpha moved to nas")
+        #expect(LeoChatSendGate.sendHelp(for: .stopped, agentName: "alpha", movedTo: "nas") == "alpha moved to nas")
     }
 }

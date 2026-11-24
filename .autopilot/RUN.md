@@ -1,14 +1,19 @@
 Status: finished
-Started: 2026-11-18T02:17:23Z
-Budget: 20 items, until 2026-11-18T14:17:23Z
-Digested-through: 15
-Filed: 1/3 bugs, 4/5 ideas
-Self-filed: B-324 → dropped (dup of B-324) — Mac: moved agent's row in a new window shows a dead Start prompt
-Self-filed: B-218 → B-433 idea — Ghostty.sdef AppleScript dictionary still says Ghostty
-Self-filed: B-371 → B-434 idea — iOS composer still sends to a stopped agent (starts it, no Start bar)
-Self-filed: B-384 → B-435 idea — Task popover and header strip (LeoTaskDetailRow) still spin for indeterminate tasks
-Self-filed: B-302 → B-437 bug — iOS task prompt editor side edges ignore the safe area in landscape
-Self-filed: B-299 → B-436 idea — iOS Make Active preview is plain paragraphs with no emphasis on changed roles
+Started: 2026-11-24T11:58:07Z
+Budget: 20 items, until 2026-11-24T23:58:07Z
+Digested-through: 5
+Filed: 3/3 bugs, 6/5 ideas
+Self-filed: B-438 → B-447 bug — Flaky focus-landing tests in LeoRowSplitIntoShellTests
+Self-filed: B-438 → B-448 idea — A plugin section moved to the top reads as part of Agents
+Self-filed: B-438 → dropped (dup of B-303) — leo-runtests.sh can leave Resources/terminfo/74 missing
+Self-filed: B-439 → B-449 idea — After a relaunch the Files pane starts closed and the right dock is empty
+Self-filed: B-439 → B-450 idea — Opening a second file can squeeze the terminal and hide the sidebar
+Self-filed: B-439 → B-451 idea — Outline comes back ~20 pt narrower after a window zoom or tile jump
+Self-filed: B-442 → dropped (dup of B-372) — Stopped, non-moved agent's header pill still reads Idle
+Self-filed: B-442 → B-452 idea — iOS may show Idle for a moved agent too
+Self-filed: B-442 → B-453 bug — Composer placeholder says Start on a restoring agent
+Self-filed: B-444 → B-454 bug — Escape doesn't dismiss the progress overlay while caps lock is on
+Self-filed: B-444 → B-455 idea — Escape doesn't dismiss the agent-browser handoff banner with caps lock on (bug over cap)
 Untracked-left: default.profraw scratchpad/
 
 Lane: B-058
@@ -21,313 +26,113 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
-Lane: B-324
-  Branch: autopilot-lane/B-324
-  Dispatched: 2026-11-18T02:20:50Z
-  Base: 0d5f7905144bee64282629117d65a23a915c7063
-  Tier: full
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 5.33M in (4.91M cache read), ≥58.1k out, 58 requests
-  Reviewed-tip: none
-  Call: A moved row opened in a new window shows its chat, like a plain click on a non-running row (B-369), instead of a Start prompt — VISION 2, 6
-
-Lane: B-431
-  Branch: autopilot-lane/B-431
-  Dispatched: 2026-11-18T02:20:50Z
-  Base: 0d5f7905144bee64282629117d65a23a915c7063
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 7.35M in (7.15M cache read), ≥25.6k out, 69 requests
-  Reviewed-tip: none
-
-Lane: B-432
-  Branch: autopilot-lane/B-432
-  Dispatched: 2026-11-18T02:28:13Z
-  Base: a9176ea11fb746ed8d62c9f4e5d5b350c609690d
-  Tier: light
-  State: shelved
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 3.04M in (2.9M cache read), ≥11.9k out, 35 requests
-  Reviewed-tip: none
-  Call: iOS only; LeoKit isn't involved — AUTONOMY (state the platform call)
-
-Lane: B-218
-  Branch: autopilot-lane/B-218
-  Dispatched: 2026-11-18T02:44:48Z
-  Base: fd620fa06078e8115e1e353b8f7779aaae993cd2
-  Tier: light
-  State: landed
-  Fixes: 1
-  Wip: none
-  Reverifies: 0
-  Tokens: 10.7M in (10.3M cache read), ≥49.9k out, 120 requests
-  Reviewed-tip: 84fcfc5f1344684191609dfa8ef4389e0a80c698
-  Call: Product name is the literal "Leo" in alerts, palette, popovers, accessibility labels and window titles — P1
-  Call: Kept the 👻 prefix in default window titles ("👻 Leo") — P1
-  Call: Platform: Mac only; no "Ghostty" string in ios/ or Packages/ — Mac/iOS parity rule
-
-Lane: B-371
-  Branch: autopilot-lane/B-371
-  Dispatched: 2026-11-18T05:31:25Z
-  Base: 9721a21fae384b70dfb50af0a7043717b015cd36
+Lane: B-439
+  Branch: autopilot-lane/B-439
+  Base: 095fd564e1c3abfbce82c49343dc0a916af638c8
   Tier: full
   State: landed
   Fixes: 1
   Wip: none
   Reverifies: 1
-  Tokens: 39.9M in (38.9M cache read), ≥139k out, 362 requests
-  Reviewed-tip: 7997dbb8ed64f02be8c92aed89b47c47590cbd77
-  Call: Refuse on the client; never let the daemon auto-start from the composer (the daemon starts a stopped agent on POST) — P2, D-724, item Out
-  Call: Typing stays enabled; only send is gated and the draft is kept with a notice — P1
-  Call: `.starting` sends; `.stopped`/`.unknown` refuse "isn't running"; `.restoring` refuses "still starting" — P2
-  Call: Mac only; iOS untouched (its send starts the agent and it has no Start bar, D-723) — Mac/iOS rule
-  Call: Refusal notice withdrawn on agent switch and once the agent becomes sendable — P2
-  Call: Send arrow dimmed while refused — P1/HIG
-  Call: Composer for a stopped agent: send arrow disabled, placeholder "Start <name> to send a message"; Return shows a warning banner and keeps the draft — P2
+  Reviewed-tip: 58b736a723a6a519d31bb5ad21d9984a916ecfb9
+  Dispatched: 2026-11-24T14:19:18Z
+  Tokens: 84M in (82.7M cache read), ≥233k out, 577 requests
+  Call: "Files" = outline plus editor and plugin tabs as one unit; "Browser" = the agent web-view tab — P6
+  Call: Both panes default to the right, so layout is unchanged on upgrade — P2
+  Call: Dock menu items enable only while Browser or Files has focus, with the current edge checked; no toolbar item or Settings picker — P1
+  Call: Both docks clamp at 200 pt; the editor's content minimum drops from 320 to 200 — P1
+  Call: An edge change applies live to every open window (one app-wide store) — P6
+  Call: After a move, focus returns to the moved pane — P1
+  Call: The right dock's remembered width is its tab strip's width; the outline keeps its own 180 pt minimum beside the strip — P1
+  Call: The bottom dock sits under whatever the terminal column shows, Chat included, and plain shell rows get it too — P6
+  Call: With Files alone on the right, the outline takes the 200 pt dock minimum (fix round 1) — P1
 
-Lane: B-388
-  Branch: autopilot-lane/B-388
-  Dispatched: 2026-11-18T04:05:54Z
-  Base: 8a7820117a218fc1cad37e3f095f07ada2505264
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 6.47M in (6.2M cache read), ≥20k out, 75 requests
-  Reviewed-tip: a1970295a30120ccaf48f4bb0aebba849bb95818
-  Call: Mac test target only (macos/Tests/Leo); LeoKit's helper already defaults to 10 s and iOS is unaffected — AUTONOMY: flake fixes are agent-decides
-  Call: Raise the Mac awaitCondition default bound to 10 s, no sleeps, assertions unchanged — AUTONOMY: fix at the cause
-
-Lane: B-384
-  Branch: autopilot-lane/B-384
-  Dispatched: 2026-11-18T06:44:02Z
-  Base: ef717ca0d5ce6dc7047982bb96bbf869a468b02f
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 2
-  Tokens: 14.9M in (14.3M cache read), ≥58.3k out, 176 requests
-  Reviewed-tip: aa0161fc23623536d498e97e978b94dff15e8af0
-  Call: Mac only (iOS task-row spinner is B-383) — AGENTS.md parity rule, D-743
-  Call: Indeterminate capsule task shows the static working dot, not a spinner or an empty slot — VISION 2 calm
-  Call: Stalled task shows the row's muted still pie (empty pie when there's no percent) — VISION 2 calm
-
-Lane: B-383
-  Branch: autopilot-lane/B-383
-  Dispatched: 2026-11-18T05:57:38Z
-  Base: 2baee02e635552aa1ca156ab675a5424d64126fd
-  Tier: light
+Lane: B-438
+  Branch: autopilot-lane/B-438
+  Base: 4011ab001ea209a57f368aea2219ee889c0207fa
+  Tier: full
   State: landed
   Fixes: 1
   Wip: none
   Reverifies: 0
-  Tokens: 6.75M in (6.39M cache read), ≥28.6k out, 80 requests
-  Reviewed-tip: d661e76ff620f8d1dffb01116341026af8c616e5
-  Call: iOS only; Mac done in B-381, no LeoKit change since the Mac filters in its own presentation — AGENTS.md platform rule, D-743
-  Call: Indeterminate task shows nothing on the iOS row (new iOS-side shownOnRow filter); determinate shows a static pie — P2 calm, D-744
-  Call: Other iOS spinners (agent-detail action row, pairing, chat image) left alone — D-748
+  Reviewed-tip: ebbdec92513d97f46639aa6be1e0fa37c9d204d3
+  Dispatched: 2026-11-24T11:59:23Z
+  Tokens: 64.2M in (63.1M cache read), ≥185k out, 419 requests
+  Call: All machines move together as one Agents unit and keep their Settings order — P6
+  Call: A drop takes the target header's slot; an accent line marks where it lands; no live reordering while hovering — P1
+  Call: No keyboard shortcut for moving sections (headers can't be focused; the context menu covers P1; a shortcut is a follow-up) — P1
+  Call: A hidden, disabled or uninstalled section keeps its saved slot and returns to it; with no saved order the default stands — P1/P6
+  Call: The order is app-wide across windows, stored in the sidebar preferences — P6
+  Call: Drag source sits on the title Button's label, because a Button swallows .onDrag — P1
+  Call: Removed the invisible placeholder row under a collapsed plugin section; a shared LeoPluginSectionListing drives both the drawn rows and the row count — P6
 
-Lane: B-382
-  Branch: autopilot-lane/B-382
-  Dispatched: 2026-11-18T06:34:31Z
-  Base: a657fde4535a6874bbc339e8176599036b4ffdeb
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 7.56M in (7.27M cache read), ≥26.7k out, 86 requests
-  Reviewed-tip: b92753564bf562968d3fa050969e55838a1b4e6b
-  Call: Show Tasks sits right after "Open in New Window" in the agent row context menu — P1 (every action has a menu item, HIG)
-  Call: Show Tasks is hidden, not disabled, when there is no task (sidesteps the B-329/B-335 menu-enablement quirks) — P1
-  Call: Show Tasks is shown even when an error or warning takes line 2, and for indeterminate tasks — item Note, VISION 1
-  Call: Mac only (iOS has its own fleet task panel, Fleet+TaskPanel.swift) — Mac/iOS parity rule
-
-Lane: B-428
-  Branch: autopilot-lane/B-428
-  Dispatched: 2026-11-18T07:04:55Z
-  Base: 53ad53212034dcc6242300e663e5731d645059e7
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 11M in (10.7M cache read), ≥33.6k out, 116 requests
-  Reviewed-tip: 5cdaa3ed4c0ed74cbaf72dbe8e76e6070f6ba8a4
-  Call: Mac only: AppKit address bar in the browser pane — D-925/D-929
-
-Lane: B-351
-  Branch: autopilot-lane/B-351
-  Dispatched: 2026-11-18T08:15:33Z
-  Base: c3edc651e19931e4ee05bf63536f75c773495d9d
+Lane: B-442
+  Branch: autopilot-lane/B-442
+  Base: 310008646a2c15b5965af3ee9c07c873fb7825bf
   Tier: light
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 1
-  Tokens: 15.7M in (15.2M cache read), ≥52k out, 170 requests
-  Reviewed-tip: 14b99543ae9a45ca0565a9d5f32ac6561f2e6ac5
-  Call: Mac only: iOS already shows a refusal as an alert (D-779), and its stage display is deferred to B-396 — Mac/iOS parity rule
-  Call: Move errors wrap to two lines, then truncate; the tooltip is unchanged — P2 Calm
-  Call: Only the .error detail wraps, to at most two lines; other details stay one line at a fixed height, so only an error can make a row grow — P2 Calm, P6
+  Reviewed-tip: bbbaa1f4df5199ee5d4fa4ba2b0bfd1516c4429d
+  Dispatched: 2026-11-24T14:51:30Z
+  Tokens: 11.6M in (11M cache read), ≥45.1k out, 128 requests
+  Call: Header pill reads "Moved to <host>" for a moved agent, outranking other states — VISION 2
+  Call: Composer stays editable on a moved agent; send is refused with a notice naming the host, no Start wording — VISION 2
+  Call: Mac only: the Mac composer and capsule views change, and LeoChatSendGate lives in the app target, not LeoKit — Mac/iOS parity rule
+  Call: Moved state takes priority over every status in the composer, send gate and header pill — VISION 2 (consistent with D-995 and D-996)
 
-Lane: B-335
-  Branch: autopilot-lane/B-335
-  Dispatched: 2026-11-18T08:11:41Z
-  Base: d3d6a40d14c4ceaec300f6ff027fff9c98c48066
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 8.44M in (8.12M cache read), ≥27.3k out, 88 requests
-  Reviewed-tip: c54aa16d4cc8cebc6f7f322eab63becdfa5ed461
-  Call: Mac only: AppKit menu parents get an action the window validates, following B-329's Set Template pattern — P1 Mac-native
-
-Lane: B-182
-  Branch: autopilot-lane/B-182
-  Dispatched: 2026-11-18T08:49:33Z
-  Base: f5a652f100d9f11ef4f4ad2d8450a80fc69909bf
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 0
-  Tokens: 8.61M in (8.26M cache read), ≥32.7k out, 94 requests
-  Reviewed-tip: a79e2901a72949bb69b93e3989020acd9b2a3acd
-  Call: Mac only (iOS shows no terminal names) — Mac/iOS parity rule
-  Call: After clearing a restored name, show 👻 until the terminal sends a title, matching Ghostty's startup fallback — never invent a state
-
-Lane: B-400
-  Branch: autopilot-lane/B-400
-  Dispatched: 2026-11-18T10:23:00Z
-  Base: 0862df82c174c1ba61f0356eb5902e27e67fcb57
-  Tier: light
-  State: landed
-  Fixes: 0
-  Wip: none
-  Reverifies: 1
-  Tokens: 11.1M in (10.6M cache read), ≥43.1k out, 132 requests
-  Reviewed-tip: 9e09dd00c43f92b1a8f4bc09091b4a905a6b3f4c
-  Call: Open Ghostty Config gets a doc.text icon instead of none, since macOS 26 menus show icons throughout — P1
-  Call: Mac only, because iOS has no app menu — D-795, D-954
-  Call: Open Ghostty Config kept and not renamed — item Out
-
-Lane: B-299
-  Branch: autopilot-lane/B-299
-  Dispatched: 2026-11-18T09:54:22Z
-  Base: e0f97344e9faf83d7eb72be34784944e4f7c3cf6
+Lane: B-440
+  Branch: autopilot-lane/B-440
+  Base: 4a7cb8b8a07df43d3f737167a4f2f8aca3e8800f
   Tier: full
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Tokens: 64.4M in (63.1M cache read), ≥329k out, 383 requests
-  Reviewed-tip: 96b8357d78d3b2e1155d541d4217822e825c3d75
-  Call: Daemon row replaces Service on iOS; Service becomes its first section — Mac/iOS parity (matches the Mac merge in settings-sidebar step 8)
-  Call: Delegation on the phone drills down (profiles → roles → cell editor sheet) instead of a grid — parity rule: shared logic, layout fits the screen
-  Call: iOS Settings row order follows the Mac sidebar minus Appearance (B-319) — parity, P3
-  Call: "Edit on the web" uses public_urls[0], then the paired baseURL, then nothing — P3
-  Call: Rename, copy and delete are swipe actions, held while edits are unsaved; edit sheets close only on Cancel or Save; hidden agents is one name per line; Add Role defaults to the first template — reversible UI calls
+  Reviewed-tip: dd1e9dcdb282dd747b62de012b2e0508b1438649
+  Dispatched: 2026-11-24T14:42:34Z
+  Tokens: 50.1M in (49.2M cache read), ≥203k out, 327 requests
+  Call: Only the edge the pane isn't on shows a drop zone, so no zone ever does nothing — P2
+  Call: The zone previews where the pane lands (half the terminal along that edge), faint over the terminal and accent-filled while armed; a drop elsewhere slides the tab back — P1
+  Call: A drag starts only after a 4 pt threshold; a click still selects at once — P1
+  Call: Drags never leave the app: the pasteboard carries only a private type, never text or a file URL, so the terminal can't paste it — P1
+  Call: Dropping calls the same LeoPaneDockController.move as the menu, so there is no second dock path — P6
 
-Lane: B-302
-  Branch: autopilot-lane/B-302
-  Dispatched: 2026-11-18T12:14:55Z
-  Base: 34bda63a90d2e6682a43b9f78c590bd59750cb89
+Lane: B-444
+  Branch: autopilot-lane/B-444
+  Base: 1eab2c3df2993fb812aaec570f87c9f892ec8a78
   Tier: light
   State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Tokens: 10.5M in (10.1M cache read), ≥33.8k out, 111 requests
-  Reviewed-tip: 3b4d693f6f1d76772447d41b52799148cf2e7cab
-  Call: iOS only; reuse the form-screen pattern (keyboardLayoutGuide.usesBottomSafeArea = false, as in SchemaFormHost.swift) so the editor runs to the screen edge and UITextView insets clear the home indicator — AUTONOMY bug fix
+  Reviewed-tip: 8ba06a95cc929254f2ea37192e2cebe4a092e50a
+  Dispatched: 2026-11-24T15:10:42Z
+  Tokens: 4.23M in (3.99M cache read), ≥18.4k out, 53 requests
+  Call: Mac only; iOS has a separate viewer with no Escape key path, so nothing moves to LeoKit — principle 1
 
-Progress:
-- Preflight: no open bump/leo-* PR. main merged (2 LeoKit files). Inbox: 5 entries applied — B-431, B-432 bugs; 13 ideas promoted; 10 blocked items closed not reproducible (B-317 B-321 B-338 B-344 B-367 B-373 B-374 B-375 B-393 B-427); B-324 ready for a live move check; B-311 re-blocked (answer needs a hosted-CI run = push). No ready (next run) items. Stale B-426 block (landed 2e7220332, block said building) dropped.
-- Pick: B-324 full (Mac UI shipped in leo-v0.28.0; needs live move verify + iOS check) and B-431 light bug (macOS CI hang in browser downloads tests) in parallel — independent footprints.
-- Dispatched runners via leo_dispatch implement: B-324 d-50c4c1aa6949, B-431 d-6a406081d874.
-- B-324 blocked: planner audit says 13/14 criteria met; one Mac new-window gap; live cross-host Move needs a second leo host (only Evan's real daemons) → asks to accept live Duplicate + daemon Move refusal instead. Shelved on autopilot-shelved/B-324. Polish bug dropped as dup of B-324's own gap.
-- B-324 ≈$2.07 est.
-- Pick: B-432 light bug (iOS CI App-tests flake; independent of B-431). Dispatched d-2d336b519884.
-Finished 1: B-324 blocked
-- B-432 blocked: couldn't reproduce (8/8 alone, 125/125 full bundle ×5 incl. fresh-erased sim; ~4 s vs 32.7 s in CI). CI log: first WebKit use timed out at the 28 s navigation deadline on a cold WebContent/Networking start. Shelved on autopilot-shelved/B-432.
-Finished 2: B-432 blocked
-- Pick: B-218 light (copy: Ghostty branding in user-facing strings). Dispatched d-01be07a9d7a0.
-- B-431 blocked: couldn't reproduce (download tests 25× isolated, all pass ~12 s; full single-host runs timed out elsewhere under load 125–180). Shelved on autopilot-shelved/B-431.
-Finished 3: B-431 blocked
-- Pick: B-371 full (composer behavior, parity call; B-388 waits). Dispatched d-273e47e89288.
-- B-218 ready (fix 1, general full + delta review, window shot). Calls vs D-793/D-801: consistent. Fresh. Full suite had one unrelated flake per run under load (LeoTitleIntegrationTests known flaky; LeoMachineStatsPollerTests reconnect) — re-run at merge gate.
-- B-218 landed 4be252b4f. D-952..D-954. Filed B-433 idea (Ghostty.sdef).
-Finished 4: B-218 landed 4be252b4f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-218-1.png
-- Pick: B-388 light (test flake fix). Dispatched d-6be9d413e408.
-- B-388 ready (general full review, full suite 5029 green, not visually verified: test-only). Acceptance partly unmeasured: no repeated series at load >30 (targeted run passed at load 72–114). Fresh.
-- B-388 landed dd1f3def2. D-955..D-956.
-Finished 5: B-388 landed dd1f3def2 · not visually verified
-- Interim digest 1 posted (items 1–5).
-- Pick: B-384 light (Mac toolbar capsule spinner). Dispatched d-c5112f76f5b7.
-- B-371 ready (fix 1, general full + delta, 5035 tests, window shots). Calls vs D-723..D-726, D-948: consistent. Integration stale (B-218, B-388 landed) → re-verify round 1. Note: a "Leo quit unexpectedly" dialog appeared during its verify; debug app survived, cause unconfirmed.
-- Dispatched B-371 re-verify d-b2aa58412a71.
-- B-371 re-verify 1 ready (general delta, 5037 tests, window shot). Fresh.
-- B-371 landed 4a8cda645. D-957..D-963.
-Finished 6: B-371 landed 4a8cda645 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-371-1.png
-- Pick: B-383 light (iOS task-row spinner; independent of B-384's Mac capsule). Dispatched d-eb495c0a2ed1.
-- B-384 ready (general full, 5032 tests, not visually verified: no capsule fixture for running/stalled tasks). Calls vs D-743..D-748: consistent. Integration stale (B-371 landed) → re-verify round 1.
-- Dispatched B-384 re-verify d-abd342466908.
-- B-383 ready (fix 1, general full + delta, iOS LeoTests 125 + LeoKit 1900 green, not visually verified: no live indeterminate-task fixture). Calls consistent with D-743..D-748. Fresh. Unchecked: VoiceOver spokenValue may still read an indeterminate task.
-- B-383 landed 82075531a. D-964..D-966.
-Finished 7: B-383 landed 82075531a · not visually verified
-- Pick: B-382 light (row context menu Show Tasks; B-351 skipped ahead? no — B-382 is next in order). Dispatched d-8c459759d9aa.
-- B-384 re-verify 1 ready (general delta, 5040 tests). Stale again (B-383 landed, iOS-only files) → re-verify round 2; no new lane opens until it lands. Polish "eyeball muted-pie contrast" not filed (its own re-check).
-- Dispatched B-384 re-verify 2 d-b4f5fd176179.
-- B-384 re-verify 2 ready (general delta, 5040 tests, 3 window shots: determinate/indeterminate/stalled). Fresh.
-- B-384 landed 3ca216725. D-967..D-969.
-Finished 8: B-384 landed 3ca216725 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-384-1.png
-- Pick: B-428 light (address bar drag-select; B-428 built before B-351 (independent; B-351 shares the sidebar row with open B-382)). Dispatched d-6bb022028a69.
-- B-382 ready (general full, 5041 tests, window shot). Calls vs D-745/D-766/D-770: consistent. Fresh. Verifier saw a "Configuration Errors" dialog from verify.md's launch args (-ApplePersistenceIgnoreState YES), not this change.
-- B-382 landed c69660e66. D-970..D-973.
-Finished 9: B-382 landed c69660e66 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-382-0.png
-- Pick: B-351 light (sidebar row move error wraps to two lines). Dispatched d-24c84ce977b0.
-- B-428 ready (general full, 5042 tests, not visually verified: browser pane needs a scratch daemon; tests post synthetic NSEvents). Fresh.
-- B-428 landed 580e44c07. D-974..D-974.
-Finished 10: B-428 landed 580e44c07 · not visually verified
-- Interim digest 2 posted (items 6–10).
-- Pick: B-335 light (row menu submenu-parent enablement; independent of B-351's error line). Dispatched d-3bfa9172408b.
-- B-351 ready (general full, 5042 tests, window shot). Note: the fixture refusal needs ~3 lines, so the 2-line cap still truncates its last words; tooltip has the full text. Stale (B-428 landed) → re-verify round 1.
-- Dispatched B-351 re-verify d-c384f97f449f.
-- B-351 re-verify 1 ready (general delta, 5043 tests; GUI unchanged since first verify's window shot). Fresh.
-- B-351 landed e5155196e. D-975..D-977.
-Finished 11: B-351 landed e5155196e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-351-2.png
-- Pick: B-182 light (restored terminal name clear → live title; independent of B-335). Dispatched d-c33141168cbe.
-- B-335 ready (general full, 5045 tests, xib test red before fix; not visually verified: pending row needs spawned agents). Fresh.
-- B-335 landed fdb5bbdb6. D-978..D-978.
-Finished 12: B-335 landed fdb5bbdb6 · not visually verified
-- Pick: B-400 light (app menu gear icon; independent of B-182). Dispatched d-7abc4327a3ad.
-- B-182 ready (general full after one review retry — first reviewer 'turn 1 lost'; 5046 tests; decode-then-clear test red before fix; not visually verified: restart-restore needs relaunch with saved state). Fresh.
-- B-182 landed 58e41019f. D-979..D-980.
-Finished 13: B-182 landed 58e41019f · not visually verified
-- Pick: B-299 full (iOS Settings panes, new screens; independent of B-400). Dispatched d-9f12c0db4314.
-- B-400 ready (general full, 5046 tests; not visually verified: App menu capture failed; peekaboo menu list + LeoSettingsMenuIconTests). Stale (B-182 landed) → re-verify round 1.
-- Dispatched B-400 re-verify d-cd578b8035aa.
-- B-400 re-verify 1 ready (general delta, 5047 tests; not visually verified: this host (macOS 27) renders no menu icons at all; screen captures only). Fresh.
-- B-400 landed 9c9070a2f. D-981..D-983.
-Finished 14: B-400 landed 9c9070a2f · screen capture, not attached
-- B-302 overlaps open B-299 (iOS Settings); waits.
-- B-299 ready (hard implementer, concurrency full review: 4 polish, 3 accepted risks; LeoKit 1939, Mac 5047, iOS 125 + 13 screen tests; 11 simulator screen captures). LeoSettingsE2ETests all skipped (no pairing payload). Unchecked: tab bar may cover last rows of Delegation/Defaults (not filed: its own re-check). Fresh.
-- B-299 landed 995a7eb77. D-984..D-988.
-Finished 15: B-299 landed 995a7eb77 · screen capture, not attached
-- Interim digest 3 posted (items 11–15).
-- Pick: B-302 light (iOS prompt editor safe area; B-299 landed). Dispatched d-d1a350966d21.
-- B-302 ready (general full; new frame assertion red before fix; iOS 177 + Mac 5047 green; 2 simulator screen captures at native pixels). Verifier saw light-mode Save greyed vs dark enabled (not checked whether pre-existing). Fresh.
-- B-302 landed 90615b86c. D-989..D-989.
-Finished 16: B-302 landed 90615b86c · screen capture, not attached
+Lane: B-445
+  Branch: autopilot-lane/B-445
+  Base: 9cd3f7c245a12d8b022c868376fc2ecb61f6a384
+  Tier: light
+  State: shelved
+  Fixes: 0
+  Wip: none
+  Reverifies: 0
+  Reviewed-tip: none
+  Dispatched: 2026-11-24T15:27:22Z
+  Tokens: 1.58M in (1.46M cache read), ≥9.23k out, 20 requests
+
+Progress: resumed after the 2026-11-24 disk-full early stop (Dionysus now 300 GB free); B-439 and B-438 recovered as first picks (lanes clean, Wip: none)
+Progress: runners dispatched — B-439 d-d8be886e9d11, B-438 d-a2ee13569eef
+Progress: B-438 landed d9842679a (1 fix round, implement.hard); verifier mis-aimed a right-click onto real agent timehop's row menu and dismissed it with Escape, nothing selected
+Progress: B-442 built before B-440 (B-440 depends on open lane B-439)
+Progress: B-439 landed cca402d84 after 1 re-verify; verifier noted same-edge panes sit side by side, not as tabs (unchecked against Accept) — flag for review; verify.md launch flag -ApplePersistenceIgnoreState shows a Configuration Errors dialog
+Progress: B-440 landed 96e9bfa7f; mid-drag Dock Below zone and live Escape cancel not visually verified; a single-file Files row has no tab strip so can't be dragged (menu/shortcut still work); implementer's mis-aimed drags put terminal text on Dionysus's clipboard (no keys typed into any agent)
+Finished 1: B-438 landed d9842679a · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-438-12.png
+Finished 2: B-439 landed cca402d84 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-439-1.png
+Finished 3: B-442 landed 55d23af27 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-442-1.png
+Finished 4: B-444 landed 315518028 · not visually verified
+Finished 5: B-445 blocked
+Finished 6: B-440 landed 96e9bfa7f · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-440-6-zone.png

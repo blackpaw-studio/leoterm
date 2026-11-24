@@ -75,6 +75,23 @@ enum LeoRowKey: Hashable, Sendable {
         return agentBrowser != nil && showsAgentBrowser ? .agentBrowser : .editor
     }
 
+    /// What a strip hosting `hosts` shows (B-439): the row's front content
+    /// when the strip hosts it; otherwise its own -- Files' open files, else
+    /// its plugin view; the Browser while it's open. Nil for nothing.
+    func content(hosting hosts: Set<LeoDockPane>) -> Content? {
+        let front = content
+        let hostsFront = switch front {
+        case .agentBrowser: hosts.contains(.browser)
+        case .editor, .plugin: hosts.contains(.files)
+        }
+        if hostsFront { return front }
+        if hosts.contains(.files) {
+            if tabs.tabs.isEmpty, let pluginView { return .plugin(pluginView) }
+            return .editor
+        }
+        return hosts.contains(.browser) && agentBrowser != nil ? .agentBrowser : nil
+    }
+
     /// The agent started a browser. It comes to the front only when no file
     /// is open; otherwise it opens behind what the user is editing, as a file
     /// an agent surfaces does.

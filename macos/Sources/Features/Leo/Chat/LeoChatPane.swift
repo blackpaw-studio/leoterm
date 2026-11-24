@@ -138,21 +138,25 @@ struct LeoChatPane: View {
             }
             if let feedbackControl { LeoControlFeedbackBanner(row: row, control: feedbackControl) }
             if document == nil {
-                if let prompt = LeoChatStartBar.prompt(for: row.status) {
+                if let prompt = LeoChatStartBar.prompt(for: row.status, movedTo: row.movedTo) {
                     Divider()
                     startBar(prompt)
                 }
                 Divider()
                 LeoChatComposer(
-                    chat: chat, agent: row.id, agentName: row.displayName, agentStatus: row.status,
+                    chat: chat, agent: row.id, agentName: row.displayName, agentStatus: row.status, movedTo: row.movedTo,
                     focusRequest: session.chatFocusRequest, takeFocusRequest: session.takeChatFocusRequest
                 )
             }
         }
-        .environment(\.openChatAttachment) { attachment, fullWindow in
+        .environment(\.openChatAttachment) { attachment, fullWindow, gallery in
             let agent = row.id
             Task {
-                await viewer.open(attachment, for: agent, fullWindow: fullWindow, download: { await chat.downloadedFile(attachment) })
+                await viewer.open(
+                    attachment, for: agent, fullWindow: fullWindow, gallery: gallery,
+                    download: { await chat.downloadedFile(attachment) },
+                    downloadGalleryItem: { await chat.downloadedFile($0) }
+                )
             }
         }
         .background(Color(nsColor: .textBackgroundColor))
@@ -248,15 +252,30 @@ extension LeoChatPaneModel {
 /// stopped agent when it gets a message, so the Mac refuses up front
 /// instead: nothing starts by itself (B-369) and typed text is never
 /// dropped silently. Returns the refusal to show, or nil to send.
+/// B-442: an agent moved to another host can't be started here (the daemon
+/// refuses), so whatever its status, the refusal names the host it went to.
 enum LeoChatSendGate {
-    static func refusal(for status: LeoAgentStatus, agentName: String) -> String? {
-        switch status {
+    static func refusal(for status: LeoAgentStatus, agentName: String, movedTo: String? = nil) -> String? {
+        if let movedTo { return "\(agentName) moved to \(movedTo), so this wasn\u{2019}t sent." }
+        return switch status {
         case .running, .starting: nil
         case .stopped, .unknown:
             "\(agentName) isn\u{2019}t running, so this wasn\u{2019}t sent. Start it, then send again."
         case .restoring:
             "\(agentName) is still starting, so this wasn\u{2019}t sent. Send again once it\u{2019}s running."
         }
+    }
+
+    /// The composer field's placeholder: "Start" only where Start is on offer.
+    static func placeholder(for status: LeoAgentStatus, agentName: String, movedTo: String?) -> String {
+        if let movedTo { return "\(agentName) moved to \(movedTo)" }
+        return refusal(for: status, agentName: agentName) == nil ? "Message \(agentName)" : "Start \(agentName) to send a message"
+    }
+
+    /// The send button's tooltip.
+    static func sendHelp(for status: LeoAgentStatus, agentName: String, movedTo: String?) -> String {
+        if let movedTo { return "\(agentName) moved to \(movedTo)" }
+        return refusal(for: status, agentName: agentName) == nil ? "Send (Return)" : "Start \(agentName) to send"
     }
 }
 
@@ -267,8 +286,11 @@ struct LeoChatStartBar: Equatable {
     let message: String
     let offersStart: Bool
 
-    static func prompt(for status: LeoAgentStatus) -> LeoChatStartBar? {
-        switch status {
+    /// B-324: an agent moved to another host can't run here, so the bar says
+    /// where it went and offers no Start, whatever its status.
+    static func prompt(for status: LeoAgentStatus, movedTo: String? = nil) -> LeoChatStartBar? {
+        if let movedTo { return LeoChatStartBar(message: "moved to \(movedTo).", offersStart: false) }
+        return switch status {
         case .running: nil
         case .starting, .restoring: LeoChatStartBar(message: "is starting\u{2026}", offersStart: false)
         case .stopped, .unknown: LeoChatStartBar(message: "isn\u{2019}t running.", offersStart: true)

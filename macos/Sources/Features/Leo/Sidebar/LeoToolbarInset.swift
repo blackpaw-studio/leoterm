@@ -38,6 +38,12 @@ final class LeoToolbarInset: ObservableObject {
         isFullScreen ? 0 : height(contentHeight: contentHeight, contentLayoutMaxY: contentLayoutMaxY)
     }
 
+    /// Takes `height` as it is: a docked pane's inset, which follows the
+    /// window's only while the pane sits under the toolbar (B-439).
+    func setHeight(_ height: CGFloat) {
+        if height != self.height { self.height = height }
+    }
+
     func update(from window: NSWindow) {
         guard let content = window.contentView else { return }
         let isFullScreen = window.styleMask.contains(.fullScreen)

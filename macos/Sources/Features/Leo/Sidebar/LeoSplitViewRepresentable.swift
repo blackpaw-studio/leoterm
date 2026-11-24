@@ -47,6 +47,9 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
     /// `browser`.
     var panes: LeoRowPanes?
     var onPaneContainer: (LeoRowPaneContainerViewController) -> Void = { _ in }
+    /// Where Browser and Files dock (B-439), app-wide; nil keeps a split of
+    /// its own, everything on the right.
+    var paneDock: LeoPaneDockStore?
     /// The agent pane under the detail column (plugins' summaries and bodies), and
     /// the agent the window shows; nil without a plugin system.
     var agentPane: LeoAgentPaneModel?
@@ -74,6 +77,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
             editor: editor,
             browser: browser,
             panes: panes,
+            paneDock: paneDock,
             agentPane: agentPane,
             sidePaneHeaderTopInset: sidePaneHeaderTopInset,
             onSidebarAutoCollapse: onSidebarAutoCollapse,
@@ -82,9 +86,7 @@ struct LeoSplitViewRepresentable<Sidebar: View, Detail: View>: NSViewControllerR
         components.controller.onSplitViewReady = onSplitViewReady
         context.coordinator.sidebarHosting = components.sidebarHosting
         context.coordinator.detailHosting = components.detailHosting
-        for item in components.controller.splitViewItems {
-            if let container = item.viewController as? LeoRowPaneContainerViewController { onPaneContainer(container) }
-        }
+        components.controller.paneDock?.containers.forEach(onPaneContainer)
 
         return components.controller
     }
@@ -180,6 +182,7 @@ enum LeoSplitViewControllerFactory {
         editor: LeoEditorTabs? = nil,
         browser: LeoWorkspaceBrowserModel? = nil,
         panes: LeoRowPanes? = nil,
+        paneDock: LeoPaneDockStore? = nil,
         agentPane: LeoAgentPaneModel? = nil,
         sidePaneHeaderTopInset: LeoToolbarInset? = nil,
         onSidebarAutoCollapse: @escaping () -> Void = {},
@@ -197,35 +200,28 @@ enum LeoSplitViewControllerFactory {
         sidebarItem.isCollapsed = !isSidebarVisible
 
         let detailHosting = NSHostingController(rootView: detail)
+        let sidePanes = LeoSidePanes(editor: editor, browser: browser, panes: panes)
+        // The side panes dock right (the split's trailing items) or below the
+        // terminal (B-439): the terminal sits over the bottom dock.
+        let dock = sidePanes.panes.map {
+            LeoPaneDockController(
+                store: paneDock ?? LeoPaneDockStore(defaults: nil), panes: $0, terminal: detailHosting,
+                hasOutline: sidePanes.hasBrowser, hasStrip: sidePanes.hasEditor, headerTopInset: sidePaneHeaderTopInset)
+        }
+        let terminalColumn: NSViewController = dock?.terminalDock ?? detailHosting
         // With a plugin system the detail column is the terminal over the agent pane.
-        let detailController: NSViewController = agentPane.map { LeoDetailColumnController(detail: detailHosting, model: $0) } ?? detailHosting
+        let detailController: NSViewController = agentPane.map { LeoDetailColumnController(detail: terminalColumn, model: $0) } ?? terminalColumn
         let detailItem = NSSplitViewItem(viewController: detailController)
         detailItem.holdingPriority = LeoSidebarSplitMetrics.detailHoldingPriority
         detailItem.minimumThickness = LeoSidebarSplitMetrics.minimumTerminalWidth
 
         controller.addSplitViewItem(sidebarItem)
         controller.addSplitViewItem(detailItem)
-        let sidePanes = LeoSidePanes(editor: editor, browser: browser, panes: panes)
-        if let panes = sidePanes.panes, sidePanes.hasBrowser {
-            let browserItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .browser, panes: panes) {
-                LeoWorkspaceBrowserViewController(model: $0.browser, headerTopInset: sidePaneHeaderTopInset)
-            })
-            browserItem.canCollapse = true
-            browserItem.isCollapsed = !panes.active.browser.isOpen
-            browserItem.holdingPriority = LeoSidebarSplitMetrics.browserHoldingPriority
-            browserItem.minimumThickness = LeoWorkspaceBrowserViewController.minimumWidth
-            controller.addSplitViewItem(browserItem)
+        for slot in dock?.rightSlots ?? [] {
+            controller.addSplitViewItem(LeoSplitViewControllerFactory.rightItem(for: slot))
         }
-        if let panes = sidePanes.panes, sidePanes.hasEditor {
-            let editorItem = NSSplitViewItem(viewController: LeoRowPaneContainerViewController(role: .editor, panes: panes) {
-                LeoEditorTabsViewController(tabs: $0.tabs, rowPane: $0, headerTopInset: sidePaneHeaderTopInset)
-            })
-            editorItem.canCollapse = true
-            editorItem.isCollapsed = !(panes.active.tabs.isOpen || panes.active.isAgentBrowserOpen)
-            editorItem.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
-            editorItem.minimumThickness = LeoEditorPaneViewController.minimumWidth
-            controller.addSplitViewItem(editorItem)
-        }
+        controller.paneDock = dock
+        controller.updateRightDockMinimum()
         controller.splitView.dividerStyle = .thin
         controller.sidebarItem = sidebarItem
         controller.detailItem = detailItem
@@ -236,6 +232,24 @@ enum LeoSplitViewControllerFactory {
         controller.applyProgrammaticWidth(preferredWidth)
 
         return (controller, sidebarHosting, detailHosting)
+    }
+
+    /// A right-edge slot's item: Files' outline or the tab strip. Each
+    /// collapses while it has nothing to show; a drag stops at its minimum
+    /// (B-439) rather than closing it.
+    private static func rightItem(for slot: LeoDockSlotViewController) -> NSSplitViewItem {
+        let item = NSSplitViewItem(viewController: slot)
+        item.canCollapse = false
+        item.isCollapsed = !slot.isPaneOpen
+        switch slot.column {
+        case .outline:
+            item.holdingPriority = LeoSidebarSplitMetrics.browserHoldingPriority
+            item.minimumThickness = LeoWorkspaceBrowserViewController.minimumWidth
+        case .strip:
+            item.holdingPriority = LeoSidebarSplitMetrics.editorHoldingPriority
+            item.minimumThickness = LeoEditorPaneViewController.minimumWidth
+        }
+        return item
     }
 }
 
@@ -256,6 +270,8 @@ final class LeoSplitViewController: NSSplitViewController {
     var sidebarItem: NSSplitViewItem?
     /// The terminal's item.
     var detailItem: NSSplitViewItem?
+    /// The window's docks (B-439); nil without side panes.
+    var paneDock: LeoPaneDockController?
     var onDividerWidthChange: ((CGFloat) -> Void)?
     /// Handed the split view the first time it lays out inside a window;
     /// see `LeoSplitViewRepresentable.onSplitViewReady`.
@@ -541,7 +557,9 @@ final class LeoSplitViewController: NSSplitViewController {
         let panes = splitView.arrangedSubviews
         guard let detailItem, panes.count == splitViewItems.count,
               let terminalIndex = splitViewItems.firstIndex(of: detailItem), terminalIndex < panes.count - 1 else { return }
+        isApplyingDockWidth = true
         splitView.setPosition(panes[terminalIndex].frame.maxX + offset, ofDividerAt: terminalIndex)
+        DispatchQueue.main.async { [weak self] in self?.isApplyingDockWidth = false }
     }
 
     /// After `item` (the editor) is shown: widens it to half of what it
@@ -554,6 +572,10 @@ final class LeoSplitViewController: NSSplitViewController {
     /// then keep a shown browser's width and give the editor what the
     /// terminal gives up, collapsed browser or not; the sidebar isn't
     /// touched.
+    ///
+    /// The right dock's strip opens at the width the user last dragged it
+    /// to instead, once there is one (B-439), still keeping the terminal
+    /// its floor.
     func openAtHalfWidth(_ item: NSSplitViewItem) {
         guard isReadyToPositionDivider else {
             pendingOpening = item
@@ -566,9 +588,47 @@ final class LeoSplitViewController: NSSplitViewController {
               let terminalIndex = splitViewItems.firstIndex(of: detailItem), let index = splitViewItems.firstIndex(of: item) else { return }
         let width = panes[index].frame.width
         let terminal = panes[terminalIndex].frame
-        let opening = LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: width + terminal.width, minimum: item.minimumThickness)
-        guard opening > width + 0.5 else { return }
+        let remembered = item.viewController === paneDock?.rightStrip ? paneDock?.store.size(of: .right) : nil
+        let opening = remembered.map {
+            LeoPaneDockMetrics.clampedSize(
+                max($0, item.minimumThickness), available: width + terminal.width, terminalFloor: LeoSidebarSplitMetrics.terminalFloor)
+        } ?? LeoSidebarSplitMetrics.openingPaneWidth(sharedWidth: width + terminal.width, minimum: item.minimumThickness)
+        guard remembered == nil ? opening > width + 0.5 : abs(opening - width) > 0.5 else { return }
+        isApplyingDockWidth = true
         splitView.setPosition(terminal.maxX - (opening - width), ofDividerAt: terminalIndex)
+        DispatchQueue.main.async { [weak self] in self?.isApplyingDockWidth = false }
+    }
+
+    /// The right dock stops at `LeoPaneDockMetrics.minimumSize` as a whole
+    /// (B-439). Its strip's item has that minimum; Files' outline alone on
+    /// the right (no file open) is the whole dock, so it takes the dock's
+    /// minimum then and its own beside the strip. Run after a right item
+    /// shows or hides.
+    func updateRightDockMinimum() {
+        guard let paneDock, let outline = paneDock.rightOutline.flatMap(splitViewItem(for:)) else { return }
+        let isStripShown = paneDock.rightStrip.flatMap(splitViewItem(for:)).map { !$0.isCollapsed } ?? false
+        let minimum = isStripShown
+            ? LeoWorkspaceBrowserViewController.minimumWidth
+            : max(LeoWorkspaceBrowserViewController.minimumWidth, LeoPaneDockMetrics.minimumSize)
+        if abs(outline.minimumThickness - minimum) > 0.5 { outline.minimumThickness = minimum }
+    }
+
+    /// A move of the terminal's trailing divider we make ourselves (an
+    /// opening, the floor), not the user's: it sets no dock width.
+    private var isApplyingDockWidth = false
+
+    /// Remembers the right dock's width -- its strip's -- when the user
+    /// moves a divider beside it (B-439). Not the sidebar's divider, not
+    /// our own moves, and not a window resize.
+    private func persistDockWidth(_ userInfo: [AnyHashable: Any]?) {
+        guard let userInfo, userInfo[ResizeInfoKey.userResize] != nil,
+              let divider = userInfo[ResizeInfoKey.dividerIndex] as? Int, divider >= 1,
+              !isApplyingDockWidth, !isApplyingProgrammaticWidth, isReadyToPositionDivider, !view.inLiveResize,
+              let paneDock, let strip = paneDock.rightStrip, let item = splitViewItem(for: strip), !item.isCollapsed,
+              lastSplitWidth.map({ abs($0 - splitView.bounds.width) <= 0.5 }) ?? false else { return }
+        let width = Self.paneWidth(of: strip.view, in: splitView)
+        guard width >= LeoPaneDockMetrics.minimumSize - 0.5, abs(width - (paneDock.store.size(of: .right) ?? -1)) > 0.5 else { return }
+        paneDock.store.setSize(width, of: .right)
     }
 
     override func viewWillLayout() {
@@ -705,6 +765,7 @@ final class LeoSplitViewController: NSSplitViewController {
     /// persists.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
+        persistDockWidth(notification.userInfo)
 
         // Only the sidebar's own divider is a sidebar-width choice: one that pushes it from the terminal's side isn't.
         guard Self.isSidebarDividerMove(notification.userInfo) else { return }
@@ -726,7 +787,7 @@ final class LeoSplitViewController: NSSplitViewController {
     /// window-resize layouts. `aMouseDragOnTheDividerIsStored` and
     /// `aWindowResizeThatClampsTheSidebarStoresNothing` fail if that
     /// changes.
-    private enum ResizeInfoKey {
+    enum ResizeInfoKey {
         static let dividerIndex = "NSSplitViewDividerIndex"
         static let userResize = "NSSplitViewUserResizeKey"
     }
@@ -740,19 +801,40 @@ final class LeoSplitViewController: NSSplitViewController {
 }
 
 extension NSViewController {
+    /// The window split this controller sits in, however deep: a pane's
+    /// container is in a dock slot (B-439), maybe in the bottom dock.
+    var enclosingLeoSplit: LeoSplitViewController? {
+        var ancestor = parent
+        while let current = ancestor {
+            if let split = current as? LeoSplitViewController { return split }
+            ancestor = current.parent
+        }
+        return nil
+    }
+
     /// Collapses or shows this controller's own split item (the browser's
     /// or the editor's). Showing it makes room for it first, and with
     /// `openingAtHalfWidth` then widens it to half of what it shares with
     /// the terminal. A row's pane inside a container (B-274) asks the
     /// container, which acts only for the row on screen.
+    ///
+    /// A container in a dock slot (B-439) asks the slot; a slot in the
+    /// bottom dock asks the dock, which closes as a whole once its columns are.
     func setLeoSplitItemCollapsed(_ collapsed: Bool, openingAtHalfWidth: Bool = false) {
         if let container = parent as? LeoRowPaneContainerViewController {
             return container.childRequestsCollapsed(self, collapsed, openingAtHalfWidth: openingAtHalfWidth)
+        }
+        if let slot = parent as? LeoDockSlotViewController {
+            return slot.setLeoSplitItemCollapsed(collapsed, openingAtHalfWidth: openingAtHalfWidth)
+        }
+        if let bottom = parent as? LeoBottomDockViewController, let item = bottom.splitViewItem(for: self) {
+            return bottom.setItem(item, collapsed: collapsed)
         }
         guard let split = parent as? NSSplitViewController, let item = split.splitViewItem(for: self), item.isCollapsed != collapsed else { return }
         let leoSplit = split as? LeoSplitViewController
         if !collapsed { leoSplit?.makeRoom(forShowing: item) }
         item.isCollapsed = collapsed
+        leoSplit?.updateRightDockMinimum()
         if !collapsed, openingAtHalfWidth { leoSplit?.openAtHalfWidth(item) }
     }
 }
