@@ -76,10 +76,16 @@ final class LeoChatFileViewerView: NSView {
         keyCode == escapeKeyCode && modifiers.isDisjoint(with: .deviceIndependentFlagsMask) && (isInViewer || coversWindow) && !isFieldEditor
     }
 
+    /// Modifier flags that AppKit sets on a bare arrow press (`.function`,
+    /// `.numericPad`) or that are state rather than a chord (`.capsLock`).
+    private static let arrowIncidentalFlags: NSEvent.ModifierFlags = [.function, .numericPad, .capsLock]
+
     /// ←/→ step through a message's images. Only the bare keys, and not from
-    /// a field editor, where they move the caret.
+    /// a field editor, where they move the caret. Real arrow keyDowns carry
+    /// `.function` and `.numericPad`, so those don't count as a chord.
     static func galleryStep(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isFieldEditor: Bool) -> Int? {
-        guard modifiers.isDisjoint(with: .deviceIndependentFlagsMask), !isFieldEditor else { return nil }
+        let chord = modifiers.intersection(.deviceIndependentFlagsMask).subtracting(arrowIncidentalFlags)
+        guard chord.isEmpty, !isFieldEditor else { return nil }
         switch keyCode {
         case leftArrowKeyCode: return -1
         case rightArrowKeyCode: return 1

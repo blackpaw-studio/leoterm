@@ -83,17 +83,25 @@ struct LeoChatFileViewerTests {
 
     // MARK: Gallery (B-441)
 
-    @Test(arguments: [
-        (UInt16(123), NSEvent.ModifierFlags(), false, -1),
-        (UInt16(124), NSEvent.ModifierFlags(), false, 1),
-        (UInt16(124), NSEvent.ModifierFlags.command, false, 0),
-        (UInt16(123), NSEvent.ModifierFlags.shift, false, 0),
-        (UInt16(124), NSEvent.ModifierFlags(), true, 0),
-        (UInt16(126), NSEvent.ModifierFlags(), false, 0),
-        (UInt16(53), NSEvent.ModifierFlags(), false, 0),
-    ])
-    func leftAndRightArrowsStepOnlyWhenPlain(keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isFieldEditor: Bool, delta: Int) {
-        #expect(LeoChatFileViewerView.galleryStep(keyCode: keyCode, modifiers: modifiers, isFieldEditor: isFieldEditor) == (delta == 0 ? nil : delta))
+    /// AppKit puts `.function` and `.numericPad` on every arrow-key keyDown, so a
+    /// bare press carries them; ⌘⌥⌃⇧ make it something else, and caps lock is
+    /// state, not a chord.
+    private static let arrowFlags: NSEvent.ModifierFlags = [.function, .numericPad]
+
+    @Test(arguments: [(UInt16(123), -1), (UInt16(124), 1)], [NSEvent.ModifierFlags(), .capsLock])
+    func bareArrowsStepAsAppKitDeliversThem(key: (UInt16, Int), extra: NSEvent.ModifierFlags) {
+        let flags = Self.arrowFlags.union(extra)
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: key.0, modifiers: flags, isFieldEditor: false) == key.1)
+    }
+
+    @Test(arguments: [UInt16(123), UInt16(124)], [NSEvent.ModifierFlags.command, .option, .control, .shift])
+    func chordedArrowsDoNotStep(keyCode: UInt16, chord: NSEvent.ModifierFlags) {
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: keyCode, modifiers: Self.arrowFlags.union(chord), isFieldEditor: false) == nil)
+    }
+
+    @Test(arguments: [(UInt16(123), true), (UInt16(124), true), (UInt16(126), false), (UInt16(53), false)])
+    func otherKeysAndFieldEditorsDoNotStep(keyCode: UInt16, isFieldEditor: Bool) {
+        #expect(LeoChatFileViewerView.galleryStep(keyCode: keyCode, modifiers: Self.arrowFlags, isFieldEditor: isFieldEditor) == nil)
     }
 
     // MARK: Find
