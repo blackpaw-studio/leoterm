@@ -2141,7 +2141,7 @@ Veto: [ ]
 Context: B-324 (Move, copy, and duplicate agents from the Mac and iOS apps) blocked question
 Chose: accept your recommendation (yes ("B-324: go"): the plan also fixes the one gap test-first — a moved agent's row opened in a new window shows a dead Start prompt (LeoSidebarModel+StartPrompt.swift:39-53); 13 of 14 criteria are already met, iOS needs nothing)
 Why: the owner's answer
-Commit:
+Commit: b1761eee4 3e62f1bbb
 Veto: n/a (owner)
 
 ## D-991 · 2026-11-23 · Answer to B-431: CI flake — Leo CI test-macos "Unit tests" hangs until…
@@ -2162,4 +2162,22 @@ Veto: n/a (owner)
 Chose: iOS only (the Mac app has no notch or side safe area)
 Why: Mac/iOS parity rule; consistent with D-989
 Commit: c32801b6c
+Veto: [ ]
+
+## D-994 · 2026-11-23 · B-324: A moved row opened in a new window shows its chat, not a Start sheet
+Chose: A moved row opened in a new window (⌘-click, ⌥-double-click) shows its chat, like a plain click, not a Start sheet
+Why: VISION 2, 6
+Commit: b1761eee4 3e62f1bbb
+Veto: [ ]
+
+## D-995 · 2026-11-23 · B-324: The chat bar on a moved row says it moved, with no Start button
+Chose: The chat bar on a moved row reads "<name> moved to <host>." with no Start button
+Why: VISION 2
+Commit: b1761eee4 3e62f1bbb
+Veto: [ ]
+
+## D-996 · 2026-11-23 · B-324: The moved-row guard in go(to:) precedes the status check
+Chose: The moved-row guard in go(to:) comes before the status check, so it covers every status
+Why: VISION 2
+Commit: b1761eee4 3e62f1bbb
 Veto: [ ]
