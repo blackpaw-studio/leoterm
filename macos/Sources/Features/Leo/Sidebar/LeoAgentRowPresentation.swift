@@ -20,6 +20,8 @@ struct LeoAgentRowPresentation: Equatable {
         case task(String)
         /// The running tool's name only.
         case tool(String)
+        /// The agent's own brief status: what it is doing or waiting on.
+        case brief(String)
         /// The last turn's preview ("Interrupted: …" when aborted).
         case turnPreview(String)
         /// "claude · $0.42": the template and the session's cost.
@@ -34,7 +36,7 @@ struct LeoAgentRowPresentation: Equatable {
 
         var text: String {
             switch self {
-            case .attention(let text), .error(let text), .warning(let text), .progress(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):
+            case .attention(let text), .error(let text), .warning(let text), .progress(let text), .task(let text), .tool(let text), .brief(let text), .turnPreview(let text), .fallback(let text):
                 text
             }
         }
@@ -98,6 +100,9 @@ struct LeoAgentRowPresentation: Equatable {
     let leadingEmoji: String?
     /// The leading color bar's palette color; nil leaves the slot blank.
     let barColor: LeoAppearanceColor?
+    /// An idle row is one line, except when the agent's brief has a status:
+    /// then the status is its second line, so only such rows grow.
+    private let showsIdleBrief: Bool
 
     /// What the fallback says when there is neither a template nor any spend.
     static let emptyFallback = "No activity yet"
@@ -116,6 +121,7 @@ struct LeoAgentRowPresentation: Equatable {
         isTaskFailure = summary != nil && row.tasks.primary?.state == .failed
         detail = Self.detail(row: row, error: error, moveStage: moveStage, template: template, usage: usage, progress: summary?.detail)
         if case .warning = detail { state = resolved.showingWarning() } else { state = resolved }
+        if case .brief = detail, state.state == .idle { showsIdleBrief = true } else { showsIdleBrief = false }
         let active = Self.lastActive(row.metadata, now: now)
         lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         lastActiveSpoken = active.map { LeoRelativeTime.spokenLabel(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
@@ -136,7 +142,7 @@ struct LeoAgentRowPresentation: Equatable {
     /// Whether the row draws a detail line: the state's, or one the task adds.
     /// A task keeps the line even once its text is gone (it succeeded), so
     /// the row does not change height.
-    var hasSecondLine: Bool { state.hasSecondLine || task != nil }
+    var hasSecondLine: Bool { state.hasSecondLine || task != nil || showsIdleBrief }
 
     /// The working symbol turns whenever the agent works, whatever its task:
     /// the left column means the same on every row (B-381).
@@ -177,8 +183,11 @@ struct LeoAgentRowPresentation: Equatable {
         if let moveStage { return .progress("\(moveStage)\u{2026}") }
         if let warning = row.environments?.error, !warning.isEmpty { return .warning(warning) }
         if let progress { return .progress(progress) }
-        if let task = metadata?.task { return .task(task) }
-        if let tool = metadata?.tool { return .tool(tool) }
+        // A leftover `current_action` on an agent that isn't working is stale.
+        let isWorking = metadata?.isWorking == true || row.attention == .working
+        if isWorking, let task = metadata?.task { return .task(task) }
+        if isWorking, let tool = metadata?.tool { return .tool(tool) }
+        if let status = LeoAgentBriefPresentation(brief: row.brief, lastActivity: nil, now: .distantPast)?.status { return .brief(LeoSFTPServerText.isolated(status)) }
         if let turn = row.lastTurn { return .turnPreview(turnLine(turn)) }
         let environments = overrideNames(row.environments).map { "env: \($0)" }
         let fallback = [template, environments, usage.map { LeoUsageFormat.cost($0.session.costUSD) }].compactMap { $0 }.nonEmptyJoined(" · ")

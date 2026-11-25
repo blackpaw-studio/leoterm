@@ -479,7 +479,8 @@ public struct Fleet {
                 }
                 if sequence >= 0 { lastSequence = sequence }
                 await send(.eventReceived(id, event))
-                if case .agentSpawned = event {
+                // A spawn's event lacks the harness, and the daemon withheld briefs while they were off.
+                if event.needsSnapshotRefetch {
                     await send(.snapshotLoaded(id, await listed(try await daemonClient.fetchState(connection))))
                 }
             }
@@ -617,6 +618,13 @@ extension DaemonSession {
         case .agentAppearanceChanged(_, _, let name, let appearance):
             update(name) { $0.appearance = appearance }
 
+        case .agentBrief(_, _, let name, let brief):
+            update(name) { $0.brief = brief }
+
+        case .briefConfigChanged(_, let enabled):
+            // Off hides every brief at once; on refetches (the daemon withheld them while off).
+            if !enabled { for name in agents.ids { update(name) { $0.brief = nil } } }
+
         case .snapshot(let observed):
             applySnapshot(LeoObservedState(agents: observed))
 
@@ -632,5 +640,14 @@ extension DaemonSession {
         guard var agent = agents[id: name] else { return }
         change(&agent)
         agents[id: name] = agent
+    }
+}
+
+private extension LeoObserveEvent {
+    var needsSnapshotRefetch: Bool {
+        switch self {
+        case .agentSpawned, .briefConfigChanged(_, true): true
+        default: false
+        }
     }
 }

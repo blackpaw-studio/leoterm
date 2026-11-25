@@ -24,11 +24,11 @@ struct LeoAgentRowHeightTests {
         func row(
             _ status: LeoAgentStatus = .running, activity: LeoAgentRow.Activity = .idle, attention: LeoAttentionBadge? = nil,
             reason: LeoAttentionReason? = nil, metadata: LeoAgentMetadata? = nil, lastTurn: LeoTurnPreview? = nil,
-            compaction: LeoRowCompaction? = nil, template: String? = "claude"
+            compaction: LeoRowCompaction? = nil, template: String? = "claude", brief: LeoAgentBrief? = nil
         ) -> LeoAgentRow {
             LeoAgentRow(
                 host: .local, name: "alpha", template: template, status: status, activity: activity, actionDetail: nil,
-                attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction
+                attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction, brief: brief
             )
         }
         return [
@@ -44,6 +44,7 @@ struct LeoAgentRowHeightTests {
             ("compacting", row(compaction: LeoRowCompaction(trigger: .auto)), nil),
             ("working", row(activity: .working, metadata: busy(working: true)), nil),
             ("idle", row(), nil),
+            ("idle with brief", row(brief: LeoAgentBrief(status: "Waiting on review")), nil),
             // Every detail variant.
             ("task", row(metadata: busy(task: "Reading files")), nil),
             ("tool", row(metadata: busy(tool: "Bash")), nil),
@@ -57,7 +58,7 @@ struct LeoAgentRowHeightTests {
         let oneLine = 2 * LeoAgentRowMetrics.verticalPadding + LeoAgentRowMetrics.nameLineHeight
         let twoLines = oneLine + LeoAgentRowMetrics.lineSpacing + LeoAgentRowMetrics.detailLineHeight
         for (name, row, error) in variants() {
-            let hasSecondLine = LeoAgentRowPresentation(row: row, error: error).state.hasSecondLine
+            let hasSecondLine = LeoAgentRowPresentation(row: row, error: error).hasSecondLine
             let expected = hasSecondLine ? twoLines : oneLine
             let actual = height(row: row, error: error)
             #expect(abs(actual - expected) <= Self.tolerance, "\(name) is \(actual)pt, expected \(expected)pt")

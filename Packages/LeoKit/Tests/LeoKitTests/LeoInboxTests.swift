@@ -158,4 +158,29 @@ struct LeoInboxTests {
 
         #expect(Dictionary(uniqueKeysWithValues: items.map { ($0.id.name, $0.isUnread) }) == ["old": false, "new": true])
     }
+
+    // MARK: Brief
+
+    @Test func theBriefRidesOnItsItem() throws {
+        let brief = LeoAgentBrief(goal: "g", status: "waiting on CI")
+        let signal = Fx.signal(.finished, preview: "done", at: 5)
+        let item = try #require(derive([Fx.agent("zeus", signal: signal, brief: brief)]).finished.first)
+        #expect(item.brief == brief)
+    }
+
+    @Test func secondaryLinePrefersTheBriefStatusOverContext() throws {
+        let ask = Fx.ask("m1", agent: "zeus")
+        let brief = LeoAgentBrief(status: "  next: rebase ")
+        let item = try #require(derive([Fx.agent("zeus", brief: brief)], asks: Fx.threadMap([ask], context: "ctx")).blocked.first)
+        #expect(item.secondaryLine == "next: rebase")
+    }
+
+    @Test func secondaryLineFallsBackToContextWhenTheBriefHasNoStatus() throws {
+        let ask = Fx.ask("m1", agent: "zeus")
+        let noStatus = LeoAgentBrief(goal: "g", status: " ")
+        let item = try #require(derive([Fx.agent("zeus", brief: noStatus)], asks: Fx.threadMap([ask], context: "ctx")).blocked.first)
+        #expect(item.secondaryLine == "ctx")
+        let bare = try #require(derive([Fx.agent("hera")], asks: Fx.threadMap([Fx.ask("m2", agent: "hera")])).blocked.first)
+        #expect(bare.secondaryLine == nil)
+    }
 }

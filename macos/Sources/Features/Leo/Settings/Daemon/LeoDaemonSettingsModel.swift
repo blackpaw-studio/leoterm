@@ -18,8 +18,13 @@ import LeoKit
     let web: LeoConfigSingletonModel
     let client: LeoConfigSingletonModel
     let hosts: LeoConfigCollectionModel
+    /// The machine's `brief` singleton: one "Agent briefs" switch.
+    let brief: LeoConfigSingletonModel
+    /// The daemon advertises `agent_brief` and the switch's document loaded.
+    @Published private(set) var isBriefAvailable = false
     @Published var section = Section.service
 
+    private var briefClient: any LeoConfigClient
     private var subscriptions: Set<AnyCancellable> = []
 
     init(client daemon: any LeoConfigClient, revisions: LeoConfigRevisionTracker, machineHost: String? = nil) {
@@ -28,6 +33,10 @@ import LeoKit
             resource: LeoDaemonPane.clientKey, client: daemon, revisions: revisions, machineHost: machineHost,
             resourceTransform: LeoDaemonPane.clientResource
         )
+        brief = LeoConfigSingletonModel(
+            resource: LeoAgentBriefWire.configResource, client: daemon, revisions: revisions, machineHost: machineHost
+        )
+        briefClient = daemon
         hosts = LeoConfigCollectionModel(resource: LeoDaemonPane.hostsKey, client: daemon, revisions: revisions, machineHost: machineHost)
         let client = client
         hosts.$state.map(\.items).removeDuplicates()
@@ -39,6 +48,24 @@ import LeoKit
         await hosts.load()
         await web.load()
         await client.load()
+        await loadBrief()
+    }
+
+    /// Hidden unless the daemon advertises `agent_brief`; the form isn't read otherwise.
+    private func loadBrief() async {
+        let supported = (try? await briefClient.versionInfo())?.supports(LeoDaemonFeatures.Feature.agentBrief.rawValue) ?? false
+        guard supported else {
+            isBriefAvailable = false
+            return
+        }
+        await brief.load()
+        isBriefAvailable = brief.phase == .loaded
+    }
+
+    /// The switch: sets `enabled` and saves at once.
+    func setBriefsEnabled(_ enabled: Bool) async {
+        brief.set(LeoAgentBriefWire.enabledField, .bool(enabled))
+        await brief.saveDiscardingOnFailure()
     }
 
     /// Whether the service log tail polls: only while it is on screen, which
@@ -50,12 +77,13 @@ import LeoKit
     // MARK: LeoSettingsPane
 
     var hasUnsavedChanges: Bool {
-        web.hasUnsavedChanges || client.hasUnsavedChanges || hosts.hasUnsavedChanges
+        web.hasUnsavedChanges || client.hasUnsavedChanges || brief.hasUnsavedChanges || hosts.hasUnsavedChanges
     }
 
     func discardChanges() {
         web.discardChanges()
         client.discardChanges()
+        brief.discardChanges()
         hosts.discardChanges()
     }
 
@@ -63,6 +91,8 @@ import LeoKit
         await hosts.reload(using: daemon)
         await web.reload(using: daemon)
         await client.reload(using: daemon)
+        briefClient = daemon
+        if isBriefAvailable { await brief.reload(using: daemon) } else { await loadBrief() }
     }
 
     // MARK: Hosts

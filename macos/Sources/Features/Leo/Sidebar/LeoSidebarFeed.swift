@@ -113,6 +113,7 @@ actor LeoSidebarFeed {
     var environments = LeoAgentEnvironmentsIndex.empty
     /// Resolved emoji and colors -- see `LeoSidebarFeed+Appearance.swift`.
     var appearance = LeoAgentAppearanceIndex.empty
+    var briefs = LeoAgentBriefIndex.empty
     var displayNames = LeoAgentDisplayNameIndex.empty
     var harnesses = LeoAgentHarnessIndex.empty
     /// Agent tasks and their derived ETAs -- see `LeoSidebarFeed+Progress.swift`.
@@ -304,6 +305,12 @@ actor LeoSidebarFeed {
         case .agentTaskChanged:
             receiveTask(event)
             return
+        case .agentBrief(_, _, let agent, let brief):
+            receiveBrief(agent, brief)
+            return
+        case .briefConfigChanged(_, let enabled):
+            receiveBriefConfig(enabled: enabled)
+            return
         case .hello(_, _, _, _, let bootID, let features):
             receiveFeatures(bootID: bootID, features: features)
             observeCompactionBoot(bootID)
@@ -355,7 +362,7 @@ actor LeoSidebarFeed {
             } else if activityCoalescer.add(event) {
                 scheduleActivityFlush()
             }
-        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .agentTaskChanged, .chat, .agentSeen:
+        case .other, .dispatchChanged, .dispatchRemoved, .agentTurnCompleted, .agentUsage, .agentCompaction, .agentAppearanceChanged, .agentTaskChanged, .chat, .agentSeen, .agentBrief, .briefConfigChanged:
             return
         case .disconnected(let reason):
             Self.logger.log("receive: .disconnected reason=\(reason, privacy: .public)")

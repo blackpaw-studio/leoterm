@@ -15,6 +15,7 @@ extension LeoSidebarFeed {
         snapshot.overlayingMetadata(metadata)
             .overlayingEnvironments(environments, features: daemonFeatures)
             .overlayingAppearance(appearance, features: daemonFeatures)
+            .overlayingBriefs(briefs, features: daemonFeatures)
             .overlayingDisplayNames(displayNames)
             .overlayingHarness(harnesses)
             .overlayingTasks({ [self] in rowTasks(for: $0) }, features: daemonFeatures)
@@ -48,6 +49,7 @@ extension LeoSidebarFeed {
         metadata = LeoAgentMetadataIndex(state: state, previous: metadata)
         environments = LeoAgentEnvironmentsIndex(state: state)
         appearance = LeoAgentAppearanceIndex(state: state)
+        briefs = LeoAgentBriefIndex(state: state)
         displayNames = LeoAgentDisplayNameIndex(state: state)
         harnesses = LeoAgentHarnessIndex(state: state)
         // Agents a task event touched after this `/state` was asked for keep
@@ -70,6 +72,7 @@ extension LeoSidebarFeed {
         metadata = .empty
         environments = .empty
         appearance = .empty
+        briefs = .empty
         displayNames = .empty
         harnesses = .empty
     }

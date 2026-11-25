@@ -18,6 +18,24 @@ enum LeoConfigGolden {
         try decode(LeoConfigSchema.self, "schema")
     }
 
+    /// The golden schema plus the daemon's `brief` singleton (one `enabled` switch).
+    private static func schemaWithBrief() throws -> LeoConfigSchema {
+        let body = try Data(contentsOf: directory.appendingPathComponent("schema.json"))
+        guard var root = try JSONSerialization.jsonObject(with: body) as? [String: Any],
+              var data = root["data"] as? [String: Any], var resources = data["resources"] as? [[String: Any]] else { return try schema() }
+        let field: [String: Any] = [
+            "advanced": false, "constraints": [String: Any](), "default": false, "group": "General", "help": "", "key": "enabled",
+            "label": "Agent briefs", "restart": "none", "type": "bool", "warning": "",
+        ]
+        resources.append([
+            "actions": [String](), "fields": [field], "harness_options": false, "key": "brief", "kind": "singleton", "label": "Agent briefs",
+            "restart": "none", "section": "brief", "subsections": [String](),
+        ])
+        data["resources"] = resources
+        root["data"] = data
+        return try LeoDaemonEnvelope<LeoConfigSchema>.decode(JSONSerialization.data(withJSONObject: root)).value()
+    }
+
     /// The golden `coder` template, whose `env` also holds a secret variable.
     static func coderWithSecretEnv() throws -> LeoConfigItem {
         try decode(LeoConfigWriteResult.self, "put_template_env_secret").item?.item ?? LeoConfigItem(name: "coder", values: [:])
@@ -32,20 +50,26 @@ enum LeoConfigGolden {
 
     static func client(
         supported: Bool = true, secretEnv: Bool = false, secretEnvironment: Bool = false, tasks: LeoFakeTaskData = LeoFakeTaskData(),
-        delegation: LeoDelegationDocument? = nil
+        delegation: LeoDelegationDocument? = nil, briefs: Bool? = nil
     ) throws -> LeoFakeConfigClient {
         func items(_ name: String) throws -> [LeoConfigItem] { try decode(LeoConfigCollection.self, name).items }
         func singleton(_ name: String) throws -> LeoConfigItem { try decode(LeoConfigDocument.self, name).item }
+        var singletons = ["defaults": try singleton("defaults"), "web": try singleton("web"), "client": try singleton("client")]
+        var capabilities = supported ? [LeoConfigAPI.capability] : []
+        if let briefs {
+            singletons[LeoAgentBriefWire.configResource] = LeoConfigItem(name: "", values: [LeoAgentBriefWire.enabledField: .bool(false)])
+            if briefs { capabilities.append(LeoDaemonFeatures.Feature.agentBrief.rawValue) }
+        }
         return LeoFakeConfigClient(
-            schema: try schema(),
-            singletons: ["defaults": try singleton("defaults"), "web": try singleton("web"), "client": try singleton("client")],
+            schema: try briefs == nil ? schema() : schemaWithBrief(),
+            singletons: singletons,
             collections: [
                 "templates": try items("templates").map { secretEnv && $0.name == "coder" ? try coderWithSecretEnv() : $0 },
                 "tasks": try items("tasks"),
                 "environments": secretEnvironment ? try environmentsWithSecret() : try items("environments"), "hosts": try items("hosts"),
             ],
             tasks: tasks, delegation: delegation,
-            version: LeoDaemonVersionInfo(version: "0.52.0", capabilities: supported ? [LeoConfigAPI.capability] : [])
+            version: LeoDaemonVersionInfo(version: "0.52.0", capabilities: capabilities)
         )
     }
 

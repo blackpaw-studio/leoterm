@@ -16,11 +16,15 @@ public struct LeoInboxAgent: Equatable, Sendable {
     public let bootID: String?
     /// The agent's host is disconnected: it contributes nothing.
     public let isStale: Bool
+    /// The agent's brief; nil when briefs are off, absent or withheld.
+    public let brief: LeoAgentBrief?
 
     public init(
         id: LeoAgentID, name: String, machine: String, project: String? = nil, signal: LeoAttentionSignal? = nil,
-        bootID: String? = nil, isStale: Bool = false
+        bootID: String? = nil, isStale: Bool = false,
+        brief: LeoAgentBrief? = nil
     ) {
+        self.brief = brief
         self.id = id
         self.name = name
         self.machine = machine
@@ -65,12 +69,15 @@ public struct LeoInboxItem: Equatable, Identifiable, Sendable {
     /// The signal revision and daemon boot behind this item (local seen marks).
     public let revision: Int?
     public let bootID: String?
+    /// The agent's brief, for the detail pane.
+    public let brief: LeoAgentBrief?
 
     public init(
         id: LeoAgentID, kind: LeoInboxKind, isUnread: Bool, isError: Bool = false, agent: String, machine: String,
         projectLabel: String? = nil, at: Date? = nil, context: String? = nil, moreCount: Int = 0, revision: Int? = nil,
-        bootID: String? = nil
+        bootID: String? = nil, brief: LeoAgentBrief? = nil
     ) {
+        self.brief = brief
         self.id = id
         self.kind = kind
         self.isUnread = isUnread
@@ -83,6 +90,12 @@ public struct LeoInboxItem: Equatable, Identifiable, Sendable {
         self.moreCount = moreCount
         self.revision = revision
         self.bootID = bootID
+    }
+
+    /// The one muted line under the headline: the brief's status when it has
+    /// one, else the agent's last message before the ask.
+    public var secondaryLine: String? {
+        LeoAgentBriefPresentation.clean(brief?.status) ?? context
     }
 
     public var isBlocked: Bool {
@@ -144,7 +157,7 @@ public struct LeoInbox: Equatable, Sendable {
         LeoInboxItem(
             id: agent.id, kind: kind, isUnread: unread, isError: isError, agent: agent.name, machine: agent.machine,
             projectLabel: agent.project.flatMap { $0.isEmpty || $0 == agent.name ? nil : $0 }, at: at, context: context, moreCount: more,
-            revision: agent.signal?.revision, bootID: agent.bootID
+            revision: agent.signal?.revision, bootID: agent.bootID, brief: agent.brief
         )
     }
 

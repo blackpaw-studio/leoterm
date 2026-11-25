@@ -13,11 +13,13 @@ struct LeoAgentRowPresentationTests {
     private func presentation(
         template: String? = "claude", attention: LeoAttentionBadge? = nil, reason: LeoAttentionReason? = nil,
         metadata: LeoAgentMetadata? = nil, lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil,
-        status: LeoAgentStatus = .running, error: String? = nil, now: Date? = nil, inWorkingSection: Bool = false
+        status: LeoAgentStatus = .running, error: String? = nil, now: Date? = nil, inWorkingSection: Bool = false,
+        brief: LeoAgentBrief? = nil, tasks: LeoRowTasks = .none
     ) -> LeoAgentRowPresentation {
         let row = LeoAgentRow(
             host: .local, name: "alpha", template: template, status: status, activity: .idle, actionDetail: nil,
-            attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction
+            attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            tasks: tasks, brief: brief
         )
         return LeoAgentRowPresentation(
             row: row, error: error, now: now, timeZone: TimeZone(identifier: "UTC")!, locale: Self.locale,
@@ -30,6 +32,55 @@ struct LeoAgentRowPresentationTests {
     }
 
     private let turn = LeoTurnPreview(text: "Fixed the bug", outcome: .completed)
+
+    // MARK: Brief
+
+    private let brief = LeoAgentBrief(goal: "Ship the brief", status: "Waiting on review", decisions: ["Use leo_brief"])
+
+    @Test func briefStatusReplacesTheTurnPreviewAndFallback() {
+        #expect(presentation(lastTurn: turn, brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+        #expect(presentation(brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+    }
+
+    @Test func anIdleRowWithABriefStatusGetsASecondLineShowingIt() {
+        let idle = presentation(brief: brief)
+        #expect(idle.state.state == .idle)
+        #expect(idle.hasSecondLine)
+        #expect(idle.detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+    }
+
+    @Test func anIdleRowWithoutABriefStatusStaysOneLine() {
+        #expect(!presentation().hasSecondLine)
+        #expect(!presentation(brief: LeoAgentBrief(goal: "Ship it")).hasSecondLine)
+        #expect(!presentation(brief: LeoAgentBrief(status: "  ")).hasSecondLine)
+    }
+
+    @Test func aLeftoverCurrentActionOnAnIdleAgentDoesNotHideTheBrief() {
+        let leftover = metadata(task: "Reading", tool: "Edit", isWorking: false)
+        #expect(presentation(metadata: leftover, brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+        #expect(presentation(metadata: leftover, lastTurn: turn).detail == .turnPreview(LeoSFTPServerText.isolated("Fixed the bug")))
+    }
+
+    @Test func attentionBeatsBrief() {
+        let reason = LeoAttentionReason(kind: .permission, tool: "Bash")
+        #expect(presentation(attention: .needsInput, reason: reason, brief: brief).detail == .attention("Bash"))
+    }
+
+    @Test func liveToolAndTaskBeatBriefWhileWorking() {
+        #expect(presentation(metadata: metadata(tool: "Edit", isWorking: true), brief: brief).detail == .tool("Edit"))
+        #expect(presentation(metadata: metadata(task: "Reading", isWorking: true), brief: brief).detail == .task("Reading"))
+    }
+
+    @Test func taskProgressBeatsBrief() {
+        let task = LeoAgentTask(id: "t", title: "Build", percent: 40, startedAt: Self.now)
+        let detail = presentation(brief: brief, tasks: LeoRowTasks(tasks: [task], etaAt: [:])).detail
+        #expect(detail == .progress("Build"))
+    }
+
+    @Test func aBriefWithoutStatusLeavesTheExistingLine() {
+        let goalOnly = LeoAgentBrief(goal: "Ship it")
+        #expect(presentation(lastTurn: turn, brief: goalOnly).detail == .turnPreview(LeoSFTPServerText.isolated("Fixed the bug")))
+    }
 
     // MARK: Precedence
 
@@ -49,14 +100,14 @@ struct LeoAgentRowPresentationTests {
     }
 
     @Test func errorTextBeatsTaskToolAndPreview() {
-        let busy = metadata(task: "Reading", tool: "Edit")
+        let busy = metadata(task: "Reading", tool: "Edit", isWorking: true)
         #expect(presentation(metadata: busy, lastTurn: turn, error: "Start failed").detail == .error("Start failed"))
         #expect(presentation(metadata: busy, error: "").detail == .task("Reading"))
     }
 
     @Test func taskThenToolThenTurnPreview() {
-        #expect(presentation(metadata: metadata(task: "Reading", tool: "Edit"), lastTurn: turn).detail == .task("Reading"))
-        #expect(presentation(metadata: metadata(tool: "Edit"), lastTurn: turn).detail == .tool("Edit"))
+        #expect(presentation(metadata: metadata(task: "Reading", tool: "Edit", isWorking: true), lastTurn: turn).detail == .task("Reading"))
+        #expect(presentation(metadata: metadata(tool: "Edit", isWorking: true), lastTurn: turn).detail == .tool("Edit"))
         #expect(presentation(lastTurn: turn).detail == .turnPreview(LeoSFTPServerText.isolated("Fixed the bug")))
     }
 
@@ -66,7 +117,7 @@ struct LeoAgentRowPresentationTests {
     }
 
     @Test func compactionLeavesTheDetailChain() {
-        let compacting = presentation(metadata: metadata(task: "Reading"), compaction: LeoRowCompaction(trigger: .manual))
+        let compacting = presentation(metadata: metadata(task: "Reading", isWorking: true), compaction: LeoRowCompaction(trigger: .manual))
         #expect(compacting.detail == .task("Reading"))
         #expect(presentation(compaction: LeoRowCompaction(trigger: .manual)).detail == .fallback("claude"))
     }
@@ -88,7 +139,7 @@ struct LeoAgentRowPresentationTests {
     }
 
     @Test func detailTextIsTheStringTheLineDraws() {
-        #expect(presentation(metadata: metadata(task: "Reading")).detail.text == "Reading")
+        #expect(presentation(metadata: metadata(task: "Reading", isWorking: true)).detail.text == "Reading")
         #expect(presentation(error: "Start failed").detail.text == "Start failed")
         #expect(presentation().detail.text == "claude")
     }

@@ -180,8 +180,8 @@ private final class ChatInboxCardContentView: UIView, UIContentView, UITextField
         name.font = .preferredFont(forTextStyle: .headline).withWeight(item.isUnread ? .bold : .semibold)
         time.text = item.at.map { ChatPresentation.time($0, now: card.now) }
         machine.text = [item.projectLabel, item.machine].compactMap { $0 }.joined(separator: " · ")
-        context.text = item.context
-        context.isHidden = item.context == nil
+        context.text = item.secondaryLine
+        context.isHidden = item.secondaryLine == nil
         text.attributedText = Self.bodyText(item)
         command.text = item.kind.command
         commandBox.isHidden = command.text == nil

@@ -62,6 +62,9 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
     /// The daemon boot `attentionSignal`'s revision belongs to (the feed's
     /// reducer boot id); nil off a live feed or before the first hello.
     let attentionBootID: String?
+    /// The agent's own summary of its work, overlaid at emission time; nil
+    /// unless the daemon advertised `agent_brief` and the agent has one.
+    let brief: LeoAgentBrief?
 
     init(
         host: LeoHostID, name: String, displayName: String? = nil, template: String?, status: LeoAgentStatus, activity: Activity, actionDetail: String?,
@@ -70,7 +73,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil, wakeOnMessage: Bool? = nil,
         environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil,
         movedTo: String? = nil, movedAt: String? = nil, tasks: LeoRowTasks = .none,
-        harness: String? = nil, model: String? = nil, attentionSignal: LeoAttentionSignal? = nil, attentionBootID: String? = nil
+        harness: String? = nil, model: String? = nil, attentionSignal: LeoAttentionSignal? = nil, attentionBootID: String? = nil, brief: LeoAgentBrief? = nil
     ) {
         self.host = host
         self.name = name
@@ -98,6 +101,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
         self.model = model
         self.attentionSignal = attentionSignal
         self.attentionBootID = attentionBootID
+        self.brief = brief
     }
 
     func withAttention(_ attention: LeoAttentionBadge?, reason: LeoAttentionReason? = nil, signal: LeoAttentionSignal? = nil, bootID: String? = nil) -> LeoAgentRow {
@@ -105,7 +109,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: reason, startedAt: startedAt,
             metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
-            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: signal, attentionBootID: bootID
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: signal, attentionBootID: bootID, brief: brief
         )
     }
 
@@ -114,7 +118,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
-            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -123,7 +127,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
-            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -132,7 +136,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction, wakeOnMessage: wakeOnMessage,
-            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -141,7 +145,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
-            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -150,7 +154,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
-            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -159,7 +163,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
-            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -169,7 +173,16 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
             wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks,
-            harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
+        )
+    }
+
+    func withBrief(_ brief: LeoAgentBrief?) -> LeoAgentRow {
+        LeoAgentRow(
+            host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
+            workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
+            startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 
@@ -178,7 +191,7 @@ struct LeoAgentRow: Identifiable, Equatable, Sendable {
             host: host, name: name, displayName: displayName, template: template, status: status, activity: activity, actionDetail: actionDetail,
             workspace: workspace, repo: repo, branch: branch, attention: attention, attentionReason: attentionReason,
             startedAt: startedAt, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
-            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID
+            wakeOnMessage: wakeOnMessage, environments: environments, appearance: appearance, movedTo: movedTo, movedAt: movedAt, tasks: tasks, harness: harness, model: model, attentionSignal: attentionSignal, attentionBootID: attentionBootID, brief: brief
         )
     }
 

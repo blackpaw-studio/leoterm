@@ -149,7 +149,7 @@ struct LeoAgentMetadataTests {
     @Test func taskComesFromMetadataNotTheEventDrivenDetail() {
         let fromEvents = LeoAgentRow(host: .local, name: "alpha", template: nil, status: .running, activity: .working, actionDetail: "event detail")
         #expect(LeoAgentRowPresentation(row: fromEvents, error: nil, now: Self.now).detail == .fallback(LeoAgentRowPresentation.emptyFallback))
-        let metadata = LeoAgentMetadata(lastActiveAt: nil, isWorking: false, task: "snapshot task")
+        let metadata = LeoAgentMetadata(lastActiveAt: nil, isWorking: true, task: "snapshot task")
         #expect(LeoAgentRowPresentation(row: row("alpha", template: nil, metadata: metadata), error: nil, now: Self.now).detail == .task("snapshot task"))
     }
 

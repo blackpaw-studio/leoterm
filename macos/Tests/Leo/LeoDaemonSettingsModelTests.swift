@@ -23,6 +23,58 @@ import Testing
         return names
     }
 
+    // MARK: agent briefs
+
+    private static func briefModel(advertised: Bool?) async throws -> (LeoDaemonSettingsModel, LeoFakeConfigClient) {
+        let fake = try LeoConfigGolden.client(briefs: advertised)
+        let model = LeoDaemonSettingsModel(client: fake, revisions: LeoConfigRevisionTracker())
+        await model.load()
+        return (model, fake)
+    }
+
+    @Test func theBriefSwitchShowsOnlyWhenTheDaemonAdvertisesAgentBrief() async throws {
+        let (advertising, _) = try await Self.briefModel(advertised: true)
+        #expect(advertising.isBriefAvailable)
+        #expect(advertising.brief.draft?.value(at: LeoAgentBriefWire.enabledField) == .bool(false))
+
+        let (silent, fake) = try await Self.briefModel(advertised: false)
+        #expect(!silent.isBriefAvailable)
+        #expect(await !fake.calls.contains(.document(LeoAgentBriefWire.configResource)))
+
+        let (none, _) = try await Self.briefModel(advertised: nil)
+        #expect(!none.isBriefAvailable)
+    }
+
+    @Test func turningBriefsOnSavesTheEnabledKey() async throws {
+        let (model, fake) = try await Self.briefModel(advertised: true)
+        await model.setBriefsEnabled(true)
+        let updates = await fake.calls.compactMap { call -> [String: LeoConfigValue]? in
+            if case .update(LeoAgentBriefWire.configResource, _, let patch, _) = call { patch } else { nil }
+        }
+        #expect(updates == [[LeoAgentBriefWire.enabledField: .bool(true)]])
+        #expect(model.brief.draft?.value(at: LeoAgentBriefWire.enabledField) == .bool(true))
+        #expect(!model.hasUnsavedChanges)
+    }
+
+    @Test func aBriefSaveThatFailsOutrightDiscardsTheEditAndShowsTheError() async throws {
+        let (model, fake) = try await Self.briefModel(advertised: true)
+        await fake.failNextWrite(with: LeoDaemonError.daemon(code: "internal", message: "disk full", matches: []))
+        await model.setBriefsEnabled(true)
+
+        #expect(model.brief.draft?.value(at: LeoAgentBriefWire.enabledField) == .bool(false))
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.brief.errorMessage == "disk full")
+    }
+
+    @Test func aBriefSaveThatConflictsKeepsTheEditForReloadOrOverwrite() async throws {
+        let (model, fake) = try await Self.briefModel(advertised: true)
+        await fake.externalChange(LeoAgentBriefWire.configResource, values: [LeoAgentBriefWire.enabledField: .bool(false)])
+        await model.setBriefsEnabled(true)
+
+        #expect(model.brief.conflict != nil)
+        #expect(model.brief.draft?.value(at: LeoAgentBriefWire.enabledField) == .bool(true))
+    }
+
     // MARK: service section
 
     @Test func theServiceSectionComesFirstAndIsTheDefault() async throws {
