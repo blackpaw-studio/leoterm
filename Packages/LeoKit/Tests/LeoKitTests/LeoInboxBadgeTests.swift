@@ -4,15 +4,15 @@ import Testing
 @testable import LeoKit
 
 struct LeoInboxBadgeTests {
-    typealias F = LeoInboxFixtures
+    typealias Fx = LeoInboxFixtures
 
     private func inbox(blocked: Int = 0, unreadFinished: Int = 0, readFinished: Int = 0) -> LeoInbox {
         var seen = LeoInboxSeenState()
-        seen.seed(host: F.host, seen: (0..<readFinished).reduce(into: [:]) { $0["read\($1)"] = F.at(1000) })
+        seen.seed(host: Fx.host, seen: (0..<readFinished).reduce(into: [:]) { $0["read\($1)"] = Fx.at(1000) })
         let agents =
-            (0..<blocked).map { F.agent("b\($0)", signal: F.signal(.needsInput, at: 1)) }
-            + (0..<unreadFinished).map { F.agent("u\($0)", signal: F.signal(.finished, at: 2000)) }
-            + (0..<readFinished).map { F.agent("read\($0)", signal: F.signal(.finished, at: 1)) }
+            (0..<blocked).map { Fx.agent("b\($0)", signal: Fx.signal(.needsInput, at: 1)) }
+            + (0..<unreadFinished).map { Fx.agent("u\($0)", signal: Fx.signal(.finished, at: 2000)) }
+            + (0..<readFinished).map { Fx.agent("read\($0)", signal: Fx.signal(.finished, at: 1)) }
         return LeoInbox.derive(agents: agents, openAsks: [:], seen: seen)
     }
 
