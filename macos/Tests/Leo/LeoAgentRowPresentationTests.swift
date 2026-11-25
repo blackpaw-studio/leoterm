@@ -13,11 +13,13 @@ struct LeoAgentRowPresentationTests {
     private func presentation(
         template: String? = "claude", attention: LeoAttentionBadge? = nil, reason: LeoAttentionReason? = nil,
         metadata: LeoAgentMetadata? = nil, lastTurn: LeoTurnPreview? = nil, compaction: LeoRowCompaction? = nil,
-        status: LeoAgentStatus = .running, error: String? = nil, now: Date? = nil, inWorkingSection: Bool = false
+        status: LeoAgentStatus = .running, error: String? = nil, now: Date? = nil, inWorkingSection: Bool = false,
+        brief: LeoAgentBrief? = nil, tasks: LeoRowTasks = .none
     ) -> LeoAgentRowPresentation {
         let row = LeoAgentRow(
             host: .local, name: "alpha", template: template, status: status, activity: .idle, actionDetail: nil,
-            attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction
+            attention: attention, attentionReason: reason, metadata: metadata, lastTurn: lastTurn, compaction: compaction,
+            tasks: tasks, brief: brief
         )
         return LeoAgentRowPresentation(
             row: row, error: error, now: now, timeZone: TimeZone(identifier: "UTC")!, locale: Self.locale,
@@ -30,6 +32,36 @@ struct LeoAgentRowPresentationTests {
     }
 
     private let turn = LeoTurnPreview(text: "Fixed the bug", outcome: .completed)
+
+    // MARK: Brief
+
+    private let brief = LeoAgentBrief(goal: "Ship the brief", status: "Waiting on review", decisions: ["Use leo_brief"])
+
+    @Test func briefStatusReplacesTheTurnPreviewAndFallback() {
+        #expect(presentation(lastTurn: turn, brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+        #expect(presentation(brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+    }
+
+    @Test func attentionBeatsBrief() {
+        let reason = LeoAttentionReason(kind: .permission, tool: "Bash")
+        #expect(presentation(attention: .needsInput, reason: reason, brief: brief).detail == .attention("Bash"))
+    }
+
+    @Test func liveToolAndTaskBeatBriefWhileWorking() {
+        #expect(presentation(metadata: metadata(tool: "Edit", isWorking: true), brief: brief).detail == .tool("Edit"))
+        #expect(presentation(metadata: metadata(task: "Reading", isWorking: true), brief: brief).detail == .task("Reading"))
+    }
+
+    @Test func taskProgressBeatsBrief() {
+        let task = LeoAgentTask(id: "t", title: "Build", percent: 40, startedAt: Self.now)
+        let detail = presentation(brief: brief, tasks: LeoRowTasks(tasks: [task], etaAt: [:])).detail
+        #expect(detail == .progress("Build"))
+    }
+
+    @Test func aBriefWithoutStatusLeavesTheExistingLine() {
+        let goalOnly = LeoAgentBrief(goal: "Ship it")
+        #expect(presentation(lastTurn: turn, brief: goalOnly).detail == .turnPreview(LeoSFTPServerText.isolated("Fixed the bug")))
+    }
 
     // MARK: Precedence
 

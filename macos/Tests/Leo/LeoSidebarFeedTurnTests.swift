@@ -237,6 +237,7 @@ actor TurnActivity {
     private var usage: LeoAgentUsage?
     private var environments: LeoAgentEnvironments?
     private var appearance: LeoAgentAppearance?
+    private var brief: LeoAgentBrief?
     private var tasks: [LeoAgentTask] = []
     private(set) var fetchCount = 0
 
@@ -250,13 +251,14 @@ actor TurnActivity {
     func setUsage(_ usage: LeoAgentUsage?) { self.usage = usage }
     func setEnvironments(_ environments: LeoAgentEnvironments?) { self.environments = environments }
     func setAppearance(_ appearance: LeoAgentAppearance?) { self.appearance = appearance }
+    func setBrief(_ brief: LeoAgentBrief?) { self.brief = brief }
     func setTasks(_ tasks: [LeoAgentTask]) { self.tasks = tasks }
 
     func fetchState() -> LeoObservedState {
         fetchCount += 1
         return LeoObservedState(agents: [
             LeoObservedAgent(name: "alpha", status: .running, activity: .idle, currentAction: nil, lastActivityAt: nil, startedAt: "t1", usage: usage,
-                             environments: environments, appearance: appearance, tasks: tasks)
+                             environments: environments, appearance: appearance, tasks: tasks, brief: brief)
         ])
     }
 }

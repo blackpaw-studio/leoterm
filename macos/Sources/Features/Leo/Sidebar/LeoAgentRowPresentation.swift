@@ -20,6 +20,8 @@ struct LeoAgentRowPresentation: Equatable {
         case task(String)
         /// The running tool's name only.
         case tool(String)
+        /// The agent's own brief status: what it is doing or waiting on.
+        case brief(String)
         /// The last turn's preview ("Interrupted: …" when aborted).
         case turnPreview(String)
         /// "claude · $0.42": the template and the session's cost.
@@ -34,7 +36,7 @@ struct LeoAgentRowPresentation: Equatable {
 
         var text: String {
             switch self {
-            case .attention(let text), .error(let text), .warning(let text), .progress(let text), .task(let text), .tool(let text), .turnPreview(let text), .fallback(let text):
+            case .attention(let text), .error(let text), .warning(let text), .progress(let text), .task(let text), .tool(let text), .brief(let text), .turnPreview(let text), .fallback(let text):
                 text
             }
         }
@@ -179,6 +181,7 @@ struct LeoAgentRowPresentation: Equatable {
         if let progress { return .progress(progress) }
         if let task = metadata?.task { return .task(task) }
         if let tool = metadata?.tool { return .tool(tool) }
+        if let status = LeoAgentBriefPresentation(brief: row.brief, lastActivity: nil, now: .distantPast)?.status { return .brief(LeoSFTPServerText.isolated(status)) }
         if let turn = row.lastTurn { return .turnPreview(turnLine(turn)) }
         let environments = overrideNames(row.environments).map { "env: \($0)" }
         let fallback = [template, environments, usage.map { LeoUsageFormat.cost($0.session.costUSD) }].compactMap { $0 }.nonEmptyJoined(" · ")
