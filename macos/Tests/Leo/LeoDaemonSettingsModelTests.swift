@@ -56,6 +56,25 @@ import Testing
         #expect(!model.hasUnsavedChanges)
     }
 
+    @Test func aBriefSaveThatFailsOutrightDiscardsTheEditAndShowsTheError() async throws {
+        let (model, fake) = try await Self.briefModel(advertised: true)
+        await fake.failNextWrite(with: LeoDaemonError.daemon(code: "internal", message: "disk full", matches: []))
+        await model.setBriefsEnabled(true)
+
+        #expect(model.brief.draft?.value(at: LeoAgentBriefWire.enabledField) == .bool(false))
+        #expect(!model.hasUnsavedChanges)
+        #expect(model.brief.errorMessage == "disk full")
+    }
+
+    @Test func aBriefSaveThatConflictsKeepsTheEditForReloadOrOverwrite() async throws {
+        let (model, fake) = try await Self.briefModel(advertised: true)
+        await fake.externalChange(LeoAgentBriefWire.configResource, values: [LeoAgentBriefWire.enabledField: .bool(false)])
+        await model.setBriefsEnabled(true)
+
+        #expect(model.brief.conflict != nil)
+        #expect(model.brief.draft?.value(at: LeoAgentBriefWire.enabledField) == .bool(true))
+    }
+
     // MARK: service section
 
     @Test func theServiceSectionComesFirstAndIsTheDefault() async throws {

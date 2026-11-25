@@ -183,8 +183,10 @@ struct LeoAgentRowPresentation: Equatable {
         if let moveStage { return .progress("\(moveStage)\u{2026}") }
         if let warning = row.environments?.error, !warning.isEmpty { return .warning(warning) }
         if let progress { return .progress(progress) }
-        if let task = metadata?.task { return .task(task) }
-        if let tool = metadata?.tool { return .tool(tool) }
+        // A leftover `current_action` on an agent that isn't working is stale.
+        let isWorking = metadata?.isWorking == true || row.attention == .working
+        if isWorking, let task = metadata?.task { return .task(task) }
+        if isWorking, let tool = metadata?.tool { return .tool(tool) }
         if let status = LeoAgentBriefPresentation(brief: row.brief, lastActivity: nil, now: .distantPast)?.status { return .brief(LeoSFTPServerText.isolated(status)) }
         if let turn = row.lastTurn { return .turnPreview(turnLine(turn)) }
         let environments = overrideNames(row.environments).map { "env: \($0)" }

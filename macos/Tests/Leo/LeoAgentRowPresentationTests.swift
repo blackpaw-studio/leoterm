@@ -55,6 +55,12 @@ struct LeoAgentRowPresentationTests {
         #expect(!presentation(brief: LeoAgentBrief(status: "  ")).hasSecondLine)
     }
 
+    @Test func aLeftoverCurrentActionOnAnIdleAgentDoesNotHideTheBrief() {
+        let leftover = metadata(task: "Reading", tool: "Edit", isWorking: false)
+        #expect(presentation(metadata: leftover, brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+        #expect(presentation(metadata: leftover, lastTurn: turn).detail == .turnPreview(LeoSFTPServerText.isolated("Fixed the bug")))
+    }
+
     @Test func attentionBeatsBrief() {
         let reason = LeoAttentionReason(kind: .permission, tool: "Bash")
         #expect(presentation(attention: .needsInput, reason: reason, brief: brief).detail == .attention("Bash"))
@@ -94,14 +100,14 @@ struct LeoAgentRowPresentationTests {
     }
 
     @Test func errorTextBeatsTaskToolAndPreview() {
-        let busy = metadata(task: "Reading", tool: "Edit")
+        let busy = metadata(task: "Reading", tool: "Edit", isWorking: true)
         #expect(presentation(metadata: busy, lastTurn: turn, error: "Start failed").detail == .error("Start failed"))
         #expect(presentation(metadata: busy, error: "").detail == .task("Reading"))
     }
 
     @Test func taskThenToolThenTurnPreview() {
-        #expect(presentation(metadata: metadata(task: "Reading", tool: "Edit"), lastTurn: turn).detail == .task("Reading"))
-        #expect(presentation(metadata: metadata(tool: "Edit"), lastTurn: turn).detail == .tool("Edit"))
+        #expect(presentation(metadata: metadata(task: "Reading", tool: "Edit", isWorking: true), lastTurn: turn).detail == .task("Reading"))
+        #expect(presentation(metadata: metadata(tool: "Edit", isWorking: true), lastTurn: turn).detail == .tool("Edit"))
         #expect(presentation(lastTurn: turn).detail == .turnPreview(LeoSFTPServerText.isolated("Fixed the bug")))
     }
 
@@ -111,7 +117,7 @@ struct LeoAgentRowPresentationTests {
     }
 
     @Test func compactionLeavesTheDetailChain() {
-        let compacting = presentation(metadata: metadata(task: "Reading"), compaction: LeoRowCompaction(trigger: .manual))
+        let compacting = presentation(metadata: metadata(task: "Reading", isWorking: true), compaction: LeoRowCompaction(trigger: .manual))
         #expect(compacting.detail == .task("Reading"))
         #expect(presentation(compaction: LeoRowCompaction(trigger: .manual)).detail == .fallback("claude"))
     }
@@ -133,7 +139,7 @@ struct LeoAgentRowPresentationTests {
     }
 
     @Test func detailTextIsTheStringTheLineDraws() {
-        #expect(presentation(metadata: metadata(task: "Reading")).detail.text == "Reading")
+        #expect(presentation(metadata: metadata(task: "Reading", isWorking: true)).detail.text == "Reading")
         #expect(presentation(error: "Start failed").detail.text == "Start failed")
         #expect(presentation().detail.text == "claude")
     }

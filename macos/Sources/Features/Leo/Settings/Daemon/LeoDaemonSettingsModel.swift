@@ -65,7 +65,7 @@ import LeoKit
     /// The switch: sets `enabled` and saves at once.
     func setBriefsEnabled(_ enabled: Bool) async {
         brief.set(LeoAgentBriefWire.enabledField, .bool(enabled))
-        await brief.save()
+        await brief.saveDiscardingOnFailure()
     }
 
     /// Whether the service log tail polls: only while it is on screen, which

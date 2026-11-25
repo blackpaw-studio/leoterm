@@ -124,6 +124,24 @@ import LeoKit
         if let error = state.finishWrite(outcome) { state.failed(error, sent: sent) }
     }
 
+    /// Save for a control that applies as it flips (a switch): when the write
+    /// fails outright (not a conflict, which keeps the edit for Reload or
+    /// Overwrite), the edit is dropped and the machine's value read again, so
+    /// the control never shows what the machine doesn't hold. The error stays.
+    func saveDiscardingOnFailure() async {
+        await save()
+        guard isDirty, conflict == nil else { return }
+        let message = errorMessage
+        state.revertAll()
+        await refresh()
+        if let message { state.report(FailureMessage(text: message)) }
+    }
+
+    private struct FailureMessage: LocalizedError {
+        let text: String
+        var errorDescription: String? { text }
+    }
+
     /// Reload after a conflict: the new document, with the user's edits over it.
     func reloadAfterConflict() async {
         guard conflict != nil else { return }
