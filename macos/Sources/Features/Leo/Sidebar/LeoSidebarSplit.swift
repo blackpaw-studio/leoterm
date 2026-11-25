@@ -183,9 +183,12 @@ enum LeoSidebarSplitMetrics {
 /// `NSSplitViewController` gives us the real thing instead.
 struct LeoSidebarSplit<Terminal: View>: View {
     @ObservedObject var session: LeoWindowSession
+    /// The window's own selection (terminal rows, Inbox) decides which agent the pane shows.
+    @ObservedObject private var terminals: LeoWindowTerminals
     @ObservedObject var model: LeoSidebarModel
     @ObservedObject var actions: LeoAgentActions
     @ObservedObject var unread: LeoChatUnreadStore
+    private let inbox: LeoInboxModel?
     private let terminal: Terminal
     /// The top safe-area edges the split and the sidebar extend into (an
     /// agent window's toolbar region). See `LeoTitlebarInsets`.
@@ -196,16 +199,18 @@ struct LeoSidebarSplit<Terminal: View>: View {
     private let buttonActions: LeoSidebarButtonActions
 
     init(
-        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, unread: LeoChatUnreadStore,
+        session: LeoWindowSession, model: LeoSidebarModel, actions: LeoAgentActions, unread: LeoChatUnreadStore, inbox: LeoInboxModel? = nil,
         titlebarIgnoredEdges: Edge.Set = [],
         shortcutHints: LeoShortcutHints,
         buttonActions: LeoSidebarButtonActions,
         @ViewBuilder terminal: () -> Terminal
     ) {
         self.session = session
+        _terminals = ObservedObject(wrappedValue: session.terminals)
         self.model = model
         self.actions = actions
         self.unread = unread
+        self.inbox = inbox
         self.titlebarIgnoredEdges = titlebarIgnoredEdges
         self.shortcutHints = shortcutHints
         self.buttonActions = buttonActions
@@ -227,7 +232,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             // inset plus the system sidebar's, so ignoring it on the split
             // alone isn't enough.
             sidebar: LeoSidebarView(
-                model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread,
+                model: model, windowID: session.id, actions: actions, terminals: session.terminals, unread: unread, inbox: inbox,
                 searchFocusRequest: session.searchFocusRequest,
                 shortcutHints: shortcutHints, buttonActions: buttonActions,
                 toolbarInset: session.toolbarInset
@@ -241,11 +246,7 @@ struct LeoSidebarSplit<Terminal: View>: View {
             onPaneContainer: { session.adopt($0) },
             paneDock: session.paneDock,
             agentPane: session.agentPane,
-            agentPaneAgent: model.selectedRow.flatMap {
-                $0.movedTo == nil
-                    ? LeoAgentPaneAgent(ref: LeoPluginAgentRef(machine: $0.host.displayName, name: $0.name), identity: $0.identity)
-                    : nil
-            },
+            agentPaneAgent: LeoSidebarSelection.shownPaneAgent(model: model, terminals: terminals),
             onSplitViewReady: { [weak session] in session?.onSplitViewReady($0) },
             // Not `setSidebarVisible`: an automatic collapse isn't the
             // user's preference for new windows.

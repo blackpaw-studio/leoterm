@@ -181,6 +181,9 @@ public enum LeoObserveEvent: Equatable, Sendable {
     /// A Leo Chat message was posted or changed (`chat.message`,
     /// `chat.updated`).
     case chat(seq: Int, LeoChatEvent)
+    /// The user looked at an agent on some client (`agent_seen`, daemon
+    /// >= the inbox contract); `seenAt` is the daemon's shared mark.
+    case agentSeen(seq: Int, agent: String, seenAt: Date)
     /// An event the app recognizes as carrying a seq but doesn't consume
     /// (anything newer, or a malformed dispatch, turn, usage or compaction).
     /// It only advances the sequence, so skipping it never reads as a gap.
@@ -393,6 +396,16 @@ public actor LeoActivityClient {
             if let p = LeoAgentTaskWire.event(data) { return .agentTaskChanged(seq: p.seq, at: p.at, agent: p.agent, id: p.id, task: p.task) }
             leoActivityClientLogger.debug("activityClient: malformed agent_task_changed kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case "agent_seen":
+            struct Payload: Decodable {
+                let seq: Int; let agent: String; let seenAt: LeoChatTimestamp
+                enum CodingKeys: String, CodingKey { case seq, agent; case seenAt = "seen_at" }
+            }
+            if let p = try? decoder.decode(Payload.self, from: data), !p.agent.isEmpty {
+                return .agentSeen(seq: p.seq, agent: p.agent, seenAt: p.seenAt.date)
+            }
+            leoActivityClientLogger.debug("activityClient: malformed agent_seen kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         case "chat.message", "chat.updated":
             struct Payload: Decodable { let seq: Int }
             if let p = try? decoder.decode(Payload.self, from: data), let message = chatMessage(in: data) {
@@ -461,7 +474,8 @@ extension LeoObserveEvent {
              .agentStateChanged(let seq, _, _, _, _, _, _), .agentActivity(let seq, _, _, _, _, _),
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _),
-             .agentAppearanceChanged(let seq, _, _, _), .agentTaskChanged(let seq, _, _, _, _), .chat(let seq, _): return seq
+             .agentAppearanceChanged(let seq, _, _, _), .agentTaskChanged(let seq, _, _, _, _), .chat(let seq, _),
+             .agentSeen(let seq, _, _): return seq
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }

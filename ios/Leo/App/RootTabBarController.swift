@@ -81,8 +81,16 @@ final class RootTabBarController: UITabBarController, UITabBarControllerDelegate
         store.send(.chatsEntryAppeared)
         observe { [weak self] in
             guard let self else { return }
-            let unread = store.chats.unreadTotal
-            chatsTab.badgeValue = unread > 0 ? "\(unread)" : nil
+            switch store.inboxBadge {
+            case .count(let blocked):
+                chatsTab.badgeValue = "\(blocked)"
+                chatsTab.viewController?.tabBarItem.badgeColor = .systemOrange
+            case .dot:
+                chatsTab.badgeValue = " "
+                chatsTab.viewController?.tabBarItem.badgeColor = .systemGray
+            case .none:
+                chatsTab.badgeValue = nil
+            }
         }
         observe { [weak self] in
             guard let self else { return }

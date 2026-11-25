@@ -55,8 +55,10 @@ public struct LeoAttentionReducer: Equatable, Sendable {
     /// is only reported when it changes, so switching away and back must
     /// not forget it.
     private var focusedID: LeoAgentID?
-    /// The last `hello.boot_id` seen for `host`.
-    private var bootID: String?
+    /// The last `hello.boot_id` seen for `host`; nil before the first hello
+    /// and after a host switch. Pair it with a signal's `revision` to name
+    /// a prompt uniquely (local seen marks).
+    public private(set) var bootID: String?
     /// The highest revision seen per agent name this boot. The daemon's
     /// counter is per name per boot and survives delete, recreate and
     /// rename, so `(bootID, name, revision)` is unique: a signal at or below
@@ -218,7 +220,7 @@ public struct LeoAttentionReducer: Equatable, Sendable {
             acknowledged[agent] = signal.revision
         }
         entries[agent] = entry
-        let notifies = !isFocused && !isSamePrompt && (signal.state == .needsInput || signal.state == .finished)
+        let notifies = !isFocused && !isSamePrompt && signal.state.needsAttention
         return LeoAttentionTransition(
             id: LeoAgentID(host: host, name: agent), from: from, to: signal.state,
             revision: signal.revision, shouldNotify: notifies, bootID: bootID, reason: signal.reason
@@ -286,6 +288,13 @@ public struct LeoAttentionReducer: Equatable, Sendable {
         guard let entry = entries[agent], !entry.isStale, let committed = entry.committed,
               committed.state == .needsInput else { return nil }
         return committed.reason
+    }
+
+    /// The committed signal of a live (non-stale) agent, with its `reason`,
+    /// `preview` and `at`; nil while settling, stale or unreported.
+    public func committedSignal(for agent: String) -> LeoAttentionSignal? {
+        guard let entry = entries[agent], !entry.isStale else { return nil }
+        return entry.committed
     }
 
     /// The row badge. Without committed semantic attention (legacy daemon,

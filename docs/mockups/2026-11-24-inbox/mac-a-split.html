@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox: Mac option A</title>
+<link rel="stylesheet" href="mac.css">
+<style>
+/* Option A: Mail-style list + detail inside the main content area. */
+.split { flex: 1; display: flex; min-height: 0; }
+.list { width: 372px; flex: none; border-right: 0.5px solid var(--sep); overflow: hidden; padding: 6px 8px; }
+.lhdr { display: flex; align-items: center; gap: 6px; padding: 12px 8px 6px; font-size: 11px; font-weight: 600; color: var(--label-2); }
+.lhdr .badge { height: 16px; min-width: 18px; font-size: 10px; }
+.lhdr .grow { flex: 1; }
+.item { display: grid; grid-template-columns: 18px 1fr; column-gap: 9px; padding: 9px 10px 10px 8px; border-radius: 10px; position: relative; }
+.item + .item { margin-top: 2px; }
+.item .sym { margin-top: 1px; }
+.item .top { display: flex; align-items: baseline; gap: 6px; }
+.item .top b { font-weight: 600; font-size: 13px; }
+.item .top .age { margin-left: auto; font-size: 11px; color: var(--label-3); font-variant-numeric: tabular-nums; }
+.item .q { font-size: 12.5px; line-height: 1.38; margin: 2px 0 5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.item .q .kind { color: var(--orange); font-weight: 500; }
+.item.fin .q { -webkit-line-clamp: 1; color: var(--label-2); margin-bottom: 4px; }
+.item.sel { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent-ring); }
+.item .unread { position: absolute; left: 0; top: 15px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+.item.seen { opacity: 0.55; }
+
+.detail { flex: 1; min-width: 0; overflow: hidden; padding: 26px 40px; display: flex; flex-direction: column; gap: 18px; }
+.dh { display: flex; align-items: flex-start; gap: 12px; }
+.tile { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; flex: none; }
+.tile .ic { width: 20px; height: 20px; }
+.tile.ny { background: var(--orange-soft); color: var(--orange); }
+.dh h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.dh .acts { margin-left: auto; display: flex; gap: 8px; padding-top: 4px; }
+.bubble { align-self: flex-start; max-width: 560px; background: var(--card-2); border: 0.5px solid var(--card-edge); border-radius: 14px 14px 14px 4px; padding: 9px 12px; font-size: 13px; line-height: 1.45; }
+.bubble small { display: block; color: var(--label-3); font-size: 11px; margin-top: 4px; }
+.panel { max-width: 560px; background: var(--card); border: 0.5px solid var(--card-edge); border-radius: 14px; padding: 16px 18px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+.panel.ask { border-left: 3px solid var(--orange); }
+.lbl { font-size: 11px; color: var(--label-2); }
+.perm-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.perm-row .tag { background: var(--orange-soft); color: var(--orange); }
+.note { display: flex; gap: 8px; align-items: center; font-size: 12px; color: var(--label-2); }
+.foot-hint { margin-top: auto; display: flex; gap: 14px; }
+[data-sel="perm"] .only-ask, [data-sel="ask"] .only-perm { display: none; }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="window">
+  <aside class="side" data-state="full" data-sel="inbox"></aside>
+  <main class="main">
+    <div class="tb">
+      <div class="tb-title"><b>Inbox</b><span>3 need you · 3 finished since you looked</span></div>
+      <div class="grow"></div>
+      <div class="glass seg"><span class="on">All</span><span>Needs you <i class="n">3</i></span><span>Finished <i class="n">3</i></span></div>
+      <div class="glass gbtn">Clear Finished</div>
+      <div class="glass gbtn round"><i class="ic" data-i="ellipsis"></i></div>
+    </div>
+    <div class="split" id="split">
+      <section class="list">
+        <div class="lhdr">NEEDS YOU <span class="badge">3</span></div>
+        <div class="item sel" id="i-ask">
+          <i class="ic sym ny" data-i="qbubble" data-fill="1"></i>
+          <div><div class="top"><b>leoterm</b><span class="age">4m</span></div>
+            <div class="q">Ship Voice-to-Agent in leo-v0.31 tonight, or hold for device checks?</div>
+            <div class="meta"><span class="tag">leoterm</span>This Mac<span class="sep">·</span>Leo Chat</div></div>
+        </div>
+        <div class="item">
+          <i class="ic sym ny" data-i="qbubble" data-fill="1"></i>
+          <div><div class="top"><b>olympus</b><span class="age">12m</span></div>
+            <div class="q">Prometheus has 412 GB free. What cap should I set for the Plex transcode cache?</div>
+            <div class="meta"><span class="tag">olympus</span>Dionysus<span class="sep">·</span>Leo Chat</div></div>
+        </div>
+        <div class="item" id="i-perm">
+          <i class="ic sym ny" data-i="hand" data-fill="1"></i>
+          <div><div class="top"><b>brooklyn-cam</b><span class="age">27m</span></div>
+            <div class="q"><span class="kind">Bash · </span>nomad job run jobs/brooklyn-cam.nomad</div>
+            <div class="meta"><span class="tag">brooklyn-cam</span>Hestia<span class="sep">·</span>Permission prompt</div></div>
+        </div>
+
+        <div class="lhdr">FINISHED SINCE YOU LOOKED<span class="grow"></span><span class="btn plain">Clear</span></div>
+        <div class="item fin">
+          <span class="unread"></span><i class="ic sym er" data-i="warnf" data-fill="1"></i>
+          <div><div class="top"><b>leo</b><span class="age">2h</span></div>
+            <div class="q">release.yml failed: notarytool rejected leo-helper (invalid signature)</div>
+            <div class="meta"><span class="tag">leo</span>Hestia</div></div>
+        </div>
+        <div class="item fin">
+          <span class="unread"></span><i class="ic sym ok" data-i="checkc"></i>
+          <div><div class="top"><b>assistant</b><span class="age">41m</span></div>
+            <div class="q">Booked Thursday 2:00 PM with Dr. Patel; it's on your calendar.</div>
+            <div class="meta">Dionysus</div></div>
+        </div>
+        <div class="item fin">
+          <span class="unread"></span><i class="ic sym ok" data-i="checkc"></i>
+          <div><div class="top"><b>edc-blog</b><span class="age">1h</span></div>
+            <div class="q">Draft "Leo in November" saved to drafts/2026-11-leo.md (1,840 words).</div>
+            <div class="meta"><span class="tag">edc.me</span>This Mac</div></div>
+        </div>
+      </section>
+
+      <section class="detail">
+        <!-- Selected: leo_chat_ask radio question, answered inline -->
+        <div class="dh only-ask">
+          <div class="tile ny"><i class="ic" data-i="qbubble" data-fill="1"></i></div>
+          <div><h2>leoterm</h2>
+            <div class="meta"><span class="tag">leoterm</span>This Mac<span class="sep">·</span>asked 4 min ago in Leo Chat</div></div>
+          <div class="acts"><span class="btn lg"><i class="ic" data-i="bubble"></i>Open Chat</span><span class="btn lg"><i class="ic" data-i="goto"></i>Go to Agent</span></div>
+        </div>
+        <div class="bubble only-ask">CI is green on feat/voice-to-agent (e068f10f5) and signing is done. TestFlight build 214 is still processing.<small>4:31 PM</small></div>
+        <div class="panel ask only-ask">
+          <div class="qcard">
+            <div class="qsec">
+              <div class="qhdr">Release</div>
+              <div class="qtext">Ship Voice-to-Agent in leo-v0.31 tonight, or hold for device checks?</div>
+              <div class="opts">
+                <div class="opt on"><span class="r"></span><div><b>Ship tonight</b><small>Tag leo-v0.31.0 now; run device checks on build 214 tomorrow.</small></div></div>
+                <div class="opt"><span class="r"></span><div><b>Hold for device checks</b><small>Check the Action button and Siri on iPhone first, then tag.</small></div></div>
+                <div class="opt"><span class="r"></span><div><b>Ship the Mac half only</b><small>Release the Mac app now; keep the iOS intent on the branch.</small></div></div>
+              </div>
+              <div class="field">Other…</div>
+            </div>
+            <div class="qfoot">
+              <span class="btn">Answer in Terminal</span><span class="grow"></span>
+              <span class="btn pri">Submit</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected: permission prompt, no inline answer -->
+        <div class="dh only-perm">
+          <div class="tile ny"><i class="ic" data-i="hand" data-fill="1"></i></div>
+          <div><h2>brooklyn-cam</h2>
+            <div class="meta"><span class="tag">brooklyn-cam</span>Hestia<span class="sep">·</span>waiting 27 min</div></div>
+          <div class="acts"><span class="btn lg pri"><i class="ic" data-i="goto"></i>Go to Agent</span></div>
+        </div>
+        <div class="panel ask only-perm">
+          <div class="perm-row"><span class="tag">Permission</span><span class="lbl">Claude wants to use <b>Bash</b></span></div>
+          <div class="code">nomad job run jobs/brooklyn-cam.nomad</div>
+          <div class="ctx" style="margin-top:10px">Redeploy the camera job with the new 15 s RTSP reconnect timeout.</div>
+          <div style="height:12px"></div>
+          <div class="note"><i class="ic" data-i="terminal"></i>Answer in the agent's terminal. Leo shows the prompt but never answers it for you.</div>
+        </div>
+
+        <div class="foot-hint hint"><span><kbd>↑</kbd> <kbd>↓</kbd> move</span><span><kbd>↩</kbd> submit</span><span><kbd>⌘</kbd> <kbd>↩</kbd> go to agent</span><span><kbd>⌫</kbd> clear</span></div>
+      </section>
+    </div>
+  </main>
+</div>
+</div>
+<script>
+  // ?sel=perm shows the permission prompt selected instead of the radio ask.
+  const sel = new URLSearchParams(location.search).get('sel') === 'perm' ? 'perm' : 'ask';
+  document.getElementById('split').dataset.sel = sel;
+  if (sel === 'perm') {
+    document.getElementById('i-ask').classList.remove('sel');
+    document.getElementById('i-perm').classList.add('sel');
+  }
+</script>
+<script src="sidebar.js"></script>
+<script src="icons.js"></script>
+</body>
+</html>

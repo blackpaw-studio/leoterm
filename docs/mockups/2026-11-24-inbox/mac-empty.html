@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox: Mac empty</title>
+<link rel="stylesheet" href="mac.css">
+<style>
+.empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; padding-bottom: 60px; }
+.empty .art { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; background: var(--green-soft); color: var(--green); margin-bottom: 6px; }
+.empty .art .ic { width: 32px; height: 32px; }
+.empty h2 { margin: 0; font-size: 17px; font-weight: 700; }
+.empty p { margin: 0; max-width: 400px; text-wrap: balance; color: var(--label-2); line-height: 1.45; }
+.empty .status { margin-top: 10px; display: inline-flex; gap: 10px; align-items: center; }
+.empty .status .meta { font-size: 12px; }
+.empty .status .ic { width: 13px; height: 13px; color: var(--label-3); }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="window">
+  <aside class="side" data-state="empty" data-sel="inbox"></aside>
+  <main class="main">
+    <div class="tb">
+      <div class="tb-title"><b>Inbox</b><span>Nothing needs you</span></div>
+      <div class="grow"></div>
+      <div class="glass seg"><span class="on">All</span><span>Needs you <i class="n">0</i></span><span>Finished <i class="n">0</i></span></div>
+      <div class="glass gbtn round"><i class="ic" data-i="ellipsis"></i></div>
+    </div>
+    <div class="empty">
+      <div class="art"><i class="ic" data-i="tray" data-w="1.3"></i></div>
+      <h2>You're all caught up</h2>
+      <p>Questions and permission prompts from every agent on every machine land here. Finished work stays until you've looked at it.</p>
+      <div class="status"><span class="btn"><i class="ic" data-i="moon"></i>5 agents running on 3 machines</span></div>
+    </div>
+  </main>
+</div>
+</div>
+<script src="sidebar.js"></script>
+<script src="icons.js"></script>
+</body>
+</html>

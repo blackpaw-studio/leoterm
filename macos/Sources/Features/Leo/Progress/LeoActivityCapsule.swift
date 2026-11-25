@@ -27,8 +27,8 @@ struct LeoActivityCapsule: View {
     let actions: LeoAgentActions
     @State private var showsPopover = false
 
-    /// The agent whose tasks show: the actionable row, unless a terminal row is selected.
-    private var row: LeoAgentRow? { terminals.selection == nil ? model.actionableSelection : nil }
+    /// The agent whose tasks show: the actionable row, unless a terminal row or the Inbox is selected.
+    private var row: LeoAgentRow? { LeoSidebarSelection.shownRow(model: model, terminals: terminals) }
 
     var body: some View {
         GeometryReader { proxy in

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox mockups</title>
+<style>
+:root { --bg: #f4f4f7; --ink: #1d1d22; --ink2: #5d5d6a; }
+@media (prefers-color-scheme: dark) { :root { --bg: #18181b; --ink: #ececf1; --ink2: #a1a1ad; } }
+body { margin: 0; padding: 28px 16px 48px; background: var(--bg); color: var(--ink); font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 24px; margin: 0 0 4px; } h2 { font-size: 16px; margin: 32px 0 8px; }
+p { color: var(--ink2); margin: 0 0 10px; max-width: 70ch; }
+img { width: 100%; height: auto; border-radius: 10px; display: block; margin: 8px 0 18px; }
+</style>
+</head>
+<body>
+<main>
+<h1>Inbox</h1>
+<p>One place for what needs you (open questions, permission prompts) and what finished since you looked, across every agent and machine. Static mockups; open each HTML file directly, or add <code>?theme=dark</code>.</p>
+<h2>Mac A: list + detail (mac-a-split.html)</h2>
+<p>Inbox is a pinned sidebar row with a count badge; selecting it swaps the content area for a Mail-style list and a detail pane that reuses the chat questions card.</p>
+<img src="png/a-split-light.png" alt="Mac option A, light"><img src="png/a-split-dark.png" alt="Mac option A, dark"><img src="png/a-split-permission.png" alt="Mac option A, permission prompt selected">
+<h2>Mac B: single column (mac-b-stream.html)</h2>
+<p>Every needs-you item is an open card answered in place; finished items are one-line rows below.</p>
+<img src="png/b-stream-light.png" alt="Mac option B, light"><img src="png/b-stream-dark.png" alt="Mac option B, dark">
+<h2>Mac empty (mac-empty.html)</h2>
+<img src="png/mac-empty-light.png" alt="Mac empty state">
+<h2>iOS: Chats inbox (ios.html, ios-empty.html)</h2>
+<p>Needs you rows show the full question and answer controls; Done holds finished and errored work until it is opened.</p>
+<img src="png/ios-light.png" alt="iOS, light"><img src="png/ios-dark.png" alt="iOS, dark"><img src="png/ios-empty-light.png" alt="iOS empty state" style="max-width:420px">
+</main>
+</body>
+</html>

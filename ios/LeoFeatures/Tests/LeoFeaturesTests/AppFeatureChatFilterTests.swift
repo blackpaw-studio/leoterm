@@ -78,4 +78,22 @@ struct AppFeatureChatFilterTests {
         let store = TestStore(initialState: state) { AppFeature() }
         await store.send(Self.tick) { $0.chats.filter = .all }
     }
+
+    @Test func theChatsBadgeCountsBlockedItemsThenDotsUnreadFinishedOnes() {
+        let finished = Agent(name: "hera", status: .running, attention: LeoAttentionSignal(state: .finished, revision: 2, at: Date(timeIntervalSince1970: 1_000)))
+        var state = Self.state([Self.asking(), finished])
+        #expect(state.inboxBadge == .count(1))
+        state.fleet.sessions[0].agents[id: "zeus"]?.attention = nil
+        #expect(state.inboxBadge == .dot)
+        state.chats.seen.seed(host: .remote(Self.daemon), seen: ["hera": Date(timeIntervalSince1970: 2_000)])
+        #expect(state.inboxBadge == .none)
+    }
+
+    @Test func openingAnAgentMarksItSeenWithTheAttentionItWasOpenedUnder() async {
+        var state = Self.state([Agent(name: "hera", status: .running, attention: LeoAttentionSignal(state: .finished, revision: 4, at: Date(timeIntervalSince1970: 1_000)))])
+        state.fleet.sessions[0].bootID = "boot"
+        #expect(state.seenTargets(AgentRef(daemonID: Self.daemon, name: "hera")) == [
+            SeenTarget(daemonID: Self.daemon, agent: "hera", at: Date(timeIntervalSince1970: 1_000), revision: 4, bootID: "boot")
+        ])
+    }
 }

@@ -11,10 +11,12 @@ extension TerminalController {
     /// any. Menu commands that act "on the current sidebar selection" read
     /// this rather than duplicating `LeoSidebarModel`'s selection storage.
     /// Nil while disconnected, so every agent command is disabled (D-061),
-    /// and while this window's sidebar selects a terminal row (B-057).
+    /// while this window's sidebar selects a terminal row (B-057), and
+    /// while it shows the Inbox.
     var selectedLeoRow: LeoAgentRow? {
-        guard leoSession?.terminals.selection == nil else { return nil }
-        return leoRuntime?.model.actionableSelection
+        guard let model = leoRuntime?.model else { return nil }
+        guard let terminals = leoSession?.terminals else { return model.actionableSelection }
+        return LeoSidebarSelection.shownRow(model: model, terminals: terminals)
     }
 
     /// Availability of the agent-scoped commands (Start, Stop, Rename, ...)

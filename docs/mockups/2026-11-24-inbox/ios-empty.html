@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox: iOS empty</title>
+<link rel="stylesheet" href="ios.css">
+<style>
+.empty { position: absolute; left: 0; right: 0; top: 300px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 0 40px; }
+.empty .art { width: 72px; height: 72px; border-radius: 50%; background: rgba(52, 199, 89, 0.14); color: var(--green); display: grid; place-items: center; margin-bottom: 8px; }
+.empty .art .ic { width: 36px; height: 36px; }
+.empty h2 { margin: 0; font-size: 22px; font-weight: 700; }
+.empty p { margin: 0; font-size: 16px; line-height: 1.35; color: var(--label-2); text-wrap: balance; }
+.empty .link { margin-top: 10px; font-size: 16px; color: var(--tint); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="stage">
+<div>
+<div class="phone">
+  <div class="island"></div>
+  <div class="status"><span>4:38</span><span class="r"><span class="batt"></span></span></div>
+  <div class="top"><div class="gbtn"><i class="ic" data-i="compose"></i></div></div>
+  <h1>Chats</h1>
+  <div class="search"><i class="ic" data-i="search"></i>Search chats</div>
+  <div class="chips"><span class="chip">All</span><span class="chip on">Needs you</span><span class="chip">Working (5)</span><span class="chip">Done</span></div>
+  <div class="empty">
+    <div class="art"><i class="ic" data-i="checkc" data-w="1.4"></i></div>
+    <h2>Nothing needs you</h2>
+    <p>When an agent asks a question or hits a permission prompt, it shows up here and you can answer most of them right from the list.</p>
+    <div class="link">See 5 working agents</div>
+  </div>
+  <div class="tabbar">
+    <div class="tab on"><i class="ic" data-i="bubble" data-fill="1"></i>Chats</div>
+    <div class="tab"><i class="ic" data-i="person"></i>Agents</div>
+    <div class="tab"><i class="ic" data-i="server"></i>Machines</div>
+    <div class="tab"><i class="ic" data-i="gear"></i>Settings</div>
+  </div>
+  <div class="home"></div>
+</div>
+</div>
+</div>
+<script src="icons.js"></script>
+</body>
+</html>

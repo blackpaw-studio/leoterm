@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0210459E723B77A4A4B9AEB3 /* LeoBrowserE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EE21802254FED46D02F52BF /* LeoBrowserE2ETests.swift */; };
 		037D5C755DBFEA2A75DD4ECD /* ChatMarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = B021B3688B030A313B3A9ED2 /* ChatMarkdownText.swift */; };
+		039709C3E01BE994250E375E /* ChatInboxCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DA0E5E0C53E2C4903BD7D1D /* ChatInboxCardView.swift */; };
 		055CD8F81C9A8FB17787D897 /* AgentEntity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53519A5973436AC023C802CA /* AgentEntity.swift */; };
 		05ACF0F75DB9570785530480 /* IntentLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 204C0BFDE770CB9C70074FBE /* IntentLog.swift */; };
 		062B6C7C320ACE50A93CBE91 /* ProgressFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EAF1F1D0EFF386B66C8BE13 /* ProgressFixture.swift */; };
@@ -237,6 +238,7 @@
 		36770E26AC7E79990AFA6F96 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		38482350857C026362E8F7EE /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
 		3D066856306A48A2C49D8EB4 /* ConfigGolden.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGolden.swift; sourceTree = "<group>"; };
+		3DA0E5E0C53E2C4903BD7D1D /* ChatInboxCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInboxCardView.swift; sourceTree = "<group>"; };
 		3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonsViewController.swift; sourceTree = "<group>"; };
 		3E56C0275E5A3A4673454A2F /* ChatInboxCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInboxCell.swift; sourceTree = "<group>"; };
 		3EE21802254FED46D02F52BF /* LeoBrowserE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoBrowserE2ETests.swift; sourceTree = "<group>"; };
@@ -655,6 +657,7 @@
 				BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */,
 				5FCCE0C2472AD422980F10BB /* ChatImagePageController.swift */,
 				BD4B679A6C3432B785D589E5 /* ChatImageViewerController.swift */,
+				3DA0E5E0C53E2C4903BD7D1D /* ChatInboxCardView.swift */,
 				3E56C0275E5A3A4673454A2F /* ChatInboxCell.swift */,
 				5F23F292F5C3FAFF0DC837F8 /* ChatMessageCell.swift */,
 				ED896422B42A4AB6BD982529 /* ChatPresentation.swift */,
@@ -1083,6 +1086,7 @@
 				507B10B4B682437690E21414 /* ChatImagePageController.swift in Sources */,
 				C37D6E2742E4D1036FEDE322 /* ChatImageViewerController.swift in Sources */,
 				CA43F74E91251D49D3438783 /* ChatImagesFixture.swift in Sources */,
+				039709C3E01BE994250E375E /* ChatInboxCardView.swift in Sources */,
 				D2819D329A5FA52BE25947E4 /* ChatInboxCell.swift in Sources */,
 				790C3B0A7CE9E13D2FA0B8F0 /* ChatMarkdownBlockViews.swift in Sources */,
 				0CA243D5884B9B2737859629 /* ChatMarkdownFixture.swift in Sources */,

@@ -66,6 +66,21 @@ extension AppFeature.State {
         }
     }
 
+    /// The needs-you inbox across every connected machine.
+    public var inbox: LeoInbox {
+        ChatList.inbox(sessions: fleet.sessions, openAsks: chats.openAsks, seen: chats.seen)
+    }
+
+    /// The Chats tab badge: an orange count of blocked items, else a grey dot for unread finished ones.
+    public var inboxBadge: LeoInboxBadge { inbox.badge }
+
+    /// What opening `ref` marks seen: its daemon, and the attention it was looked at under.
+    func seenTargets(_ ref: AgentRef) -> [SeenTarget] {
+        let session = fleet.sessions[id: ref.daemonID]
+        let signal = session?.agents[id: ref.name]?.attention
+        return [SeenTarget(daemonID: ref.daemonID, agent: ref.name, at: signal?.at, revision: signal?.revision, bootID: session?.bootID)]
+    }
+
     /// Selects `ref`'s agent detail; the open chat is the Chats tab's and stays.
     mutating func selectAgent(_ ref: AgentRef, session: DaemonSession, agent: Agent) {
         guard detail?.ref != ref else { return }

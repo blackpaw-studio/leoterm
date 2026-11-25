@@ -43,6 +43,45 @@ actor FakeChatClient: LeoChatClient {
     private var isHoldingThreads = false
     private var heldThreads: [CheckedContinuation<Void, Never>] = []
     private var threadWaiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var openAsksResult: Result<[LeoChatMessage]?, any Error> = .success(nil)
+    private var isHoldingOpenAsks = false
+    private var heldOpenAsks: [CheckedContinuation<Void, Never>] = []
+    private var seenResult: Result<[String: Date]?, any Error> = .success(nil)
+    private var markSeenResult: Result<[String: Date]?, any Error> = .success(nil)
+    private(set) var openAsksRequestCount = 0
+    private(set) var markedSeen: [[String]] = []
+
+    func setOpenAsks(_ messages: [LeoChatMessage]?) { openAsksResult = .success(messages) }
+    func failOpenAsks(_ message: String) { openAsksResult = .failure(Failure(message: message)) }
+    func holdOpenAsks() { isHoldingOpenAsks = true }
+
+    func releaseOpenAsks() {
+        isHoldingOpenAsks = false
+        heldOpenAsks.forEach { $0.resume() }
+        heldOpenAsks = []
+    }
+
+    /// Returns once `count` open-asks requests have arrived.
+    func waitForOpenAsksRequests(_ count: Int) async {
+        while openAsksRequestCount < count { await Task.yield() }
+    }
+
+    func setSeen(_ seen: [String: Date]?) { seenResult = .success(seen) }
+    func setMarkSeenResult(_ seen: [String: Date]?) { markSeenResult = .success(seen) }
+
+    func openAsks() async throws -> [LeoChatMessage]? {
+        openAsksRequestCount += 1
+        let result = openAsksResult
+        if isHoldingOpenAsks { await withCheckedContinuation { heldOpenAsks.append($0) } }
+        return try result.get()
+    }
+
+    func seen() async throws -> [String: Date]? { try seenResult.get() }
+
+    func markSeen(agents: [String]) async throws -> [String: Date]? {
+        markedSeen.append(agents)
+        return try markSeenResult.get()
+    }
 
     func enqueuePage(_ messages: [LeoChatMessage], hasMore: Bool = false) {
         pages.append(.success(LeoChatPage(messages: messages, hasMore: hasMore)))

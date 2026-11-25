@@ -124,7 +124,7 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                 // screen slid it out behind the placeholder.
                 if let leoSession, let runtime = (NSApp.delegate as? AppDelegate)?.leoRuntime {
                     LeoSidebarSplit(
-                        session: leoSession, model: runtime.model, actions: runtime.actions, unread: runtime.unread,
+                        session: leoSession, model: runtime.model, actions: runtime.actions, unread: runtime.unread, inbox: runtime.inbox,
                         titlebarIgnoredEdges: leoSplitIgnoredEdges,
                         // B-065: the sidebar footer's buttons are the menu
                         // items' own actions, the same ones the start
@@ -148,6 +148,13 @@ struct TerminalView<ViewModel: TerminalViewModel>: View {
                                         if viewModel.surfaceTree.isEmpty {
                                             leoPlaceholder(session: leoSession, runtime: runtime)
                                         }
+
+                                        // The sidebar's Inbox row replaces the content
+                                        // area (terminal and chat stay mounted beneath).
+                                        LeoInboxContent(
+                                            terminals: leoSession.terminals, inbox: runtime.inbox,
+                                            actions: runtime.inboxActions(for: leoSession)
+                                        )
                                     }
                                 }
                             }

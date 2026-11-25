@@ -546,7 +546,7 @@ struct LeoAttentionReducerTests {
         #expect(reducer.dockCount(among: ["alpha"]) == 0)
     }
 
-    @Test func onlyNeedsInputAndFinishedNotify() {
+    @Test func onlyAttentionStatesNotify() {
         var reducer = live()
         reducer.receive(agent: "a", signal: signal(.needsInput, 1), now: 0)
         reducer.receive(agent: "b", signal: signal(.finished, 1), now: 0)
@@ -555,7 +555,7 @@ struct LeoAttentionReducerTests {
 
         let notifying = reducer.tick(now: 0.3).filter(\.shouldNotify).map(\.id.name)
 
-        #expect(notifying == ["a", "b"])
+        #expect(notifying == ["a", "b", "c"])
     }
 
     @Test func eventsBeforeTheFirstBaselineAreSilent() {

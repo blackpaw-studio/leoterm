@@ -132,6 +132,7 @@ struct AppFeatureChatTests {
         }
         let message = LeoChatMessage.make("01", "hi")
 
+        store.exhaustivity = .off(showSkippedAssertions: false) // open-asks bookkeeping also sees chat events
         await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .chat(seq: 3, .message(message))))
         await store.receive(\.chats.chatEvent) {
             $0.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "zeus", lastMessage: message)]
@@ -151,6 +152,7 @@ struct AppFeatureChatTests {
         let store = TestStore(initialState: state) { AppFeature() }
         let threads = [LeoChatThread(agent: "zeus", unread: 2), LeoChatThread(agent: "hera", unread: 1)]
 
+        store.exhaustivity = .off(showSkippedAssertions: false) // open-asks bookkeeping also sees chat events
         await store.send(.chats(.threadsResponse(Self.zeus.daemonID, .success(threads)))) {
             $0.chats.threads[Self.zeus.daemonID] = IdentifiedArray(uniqueElements: threads)
             $0.chats.unreadCounts = LeoChatUnreadCounts().seeding([LeoChatThread(agent: "hera", unread: 1)], host: .remote(Self.zeus.daemonID))
@@ -217,6 +219,8 @@ struct AppFeatureChatTests {
             $0.chatClient.messages = { _, _, _ in LeoChatPage(messages: [], hasMore: false) }
             $0.chatClient.threads = { _ in [] }
             $0.chatClient.markRead = { _, _, _ in }
+            $0.date.now = Date(timeIntervalSince1970: 2_000)
+            $0.inboxSeenStore.save = { _ in }
             $0.pushClient = .granted
             $0.pushCleanup = .inMemory(LockIsolated([:]))
             $0.continuousClock = TestClock()
@@ -231,6 +235,7 @@ struct AppFeatureChatTests {
         state.chat = ChatThread.State(daemon: .dionysus, agent: "zeus", live: Agent(.make("zeus")))
         let store = TestStore(initialState: state) { AppFeature() }
         let message = LeoChatMessage.make("01", "hi", agent: "hera")
+        store.exhaustivity = .off(showSkippedAssertions: false) // open-asks bookkeeping also sees chat events
         await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .chat(seq: 3, .message(message))))
         await store.receive(\.chats.chatEvent) {
             $0.chats.threads[Self.zeus.daemonID] = [LeoChatThread(agent: "hera", lastMessage: message)]
@@ -246,6 +251,10 @@ struct AppFeatureChatTests {
         } withDependencies: {
             $0.secrets.load = { _ in DaemonSecrets(token: "t") }
             $0.chatClient.threads = { _ in [] }
+            $0.chatClient.openAsks = { _ in nil }
+            $0.chatClient.seen = { _ in nil }
+            $0.inboxSeenStore.load = { LeoInboxSeenState() }
+            $0.inboxSeenStore.save = { _ in }
         }
         store.exhaustivity = .off(showSkippedAssertions: false)
         // Before the Chats entry shows, a reconnect loads nothing.
@@ -494,5 +503,31 @@ struct AppFeatureChatTests {
         store.exhaustivity = .off
         await store.send(\.fleet.eventReceived, (Self.zeus.daemonID, .agentStopped(seq: 2, at: nil, agent: "zeus", wakeOnMessage: false)))
         await store.receive(\.chat.terminal.presented.agentRunningChanged, false) { $0.chat?.terminal?.isAgentRunning = false }
+    }
+
+    @Test func anAgentThatFinishesWhileItsChatIsOnScreenIsNotLeftUnread() async {
+        let store = Self.viewingStore()
+        store.exhaustivity = .off
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(.chat(.onScreenChanged(true)))
+        await store.send(.chats(.seenResponse(Self.zeus.daemonID, .success([:]))))
+        let finished = LeoAttentionSignal(state: .finished, revision: 5, at: Date(timeIntervalSince1970: 1_000))
+        await store.send(.fleet(.eventReceived(Self.zeus.daemonID, .agentActivity(
+            seq: 4, at: nil, agent: "zeus", activity: .idle, currentAction: nil, attention: finished
+        ))))
+        let item = store.state.inbox.finished.first
+        #expect(item?.id.name == "zeus")
+        #expect(item?.isUnread == false)
+    }
+
+    @Test func aHostThatDisconnectsLosesItsOpenAsks() async {
+        let ask = LeoChatMessage(id: "q", agent: "zeus", direction: .outbound, kind: .ask, text: "?", state: "open", ts: Date(timeIntervalSince1970: 1))
+        var state = Self.connected()
+        state.chats.openAsks.seed(host: .remote(Self.zeus.daemonID), messages: [ask], complete: true)
+        state.fleet.sessions[0].connection = .offline
+        let store = TestStore(initialState: state) { AppFeature() }
+        store.exhaustivity = .off
+        await store.send(.chats(.threadRead(Self.zeus)))
+        #expect(store.state.chats.openAsks.threads.isEmpty)
     }
 }

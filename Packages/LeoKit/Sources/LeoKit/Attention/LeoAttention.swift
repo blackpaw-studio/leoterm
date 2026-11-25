@@ -41,17 +41,25 @@ public struct LeoAttentionReason: Equatable, Sendable, Codable {
     /// The most characters kept of `tool` or `detail`.
     public static let textLimit = 120
 
+    /// The most characters kept of `input`.
+    public static let inputLimit = 500
+
     public let kind: Kind
     public let tool: String?
     public let detail: String?
+    /// The full command of a permission prompt (a single line, clamped to
+    /// `inputLimit`); permission reasons only, and absent from older
+    /// daemons. Prefer it over `detail` when showing the prompt.
+    public let input: String?
 
-    public init(kind: Kind, tool: String? = nil, detail: String? = nil) {
+    public init(kind: Kind, tool: String? = nil, detail: String? = nil, input: String? = nil) {
         self.kind = kind
         self.tool = Self.clean(tool)
         self.detail = Self.clean(detail)
+        self.input = kind == .permission ? Self.cleanCommand(input) : nil
     }
 
-    private enum CodingKeys: String, CodingKey { case kind, tool, detail }
+    private enum CodingKeys: String, CodingKey { case kind, tool, detail, input }
 
     /// An unknown kind or a wrong-typed field throws; `LeoAttentionSignal`
     /// turns that into "no reason" so the signal itself still decodes.
@@ -60,7 +68,8 @@ public struct LeoAttentionReason: Equatable, Sendable, Codable {
         self.init(
             kind: try container.decode(Kind.self, forKey: .kind),
             tool: try container.decodeIfPresent(String.self, forKey: .tool),
-            detail: try container.decodeIfPresent(String.self, forKey: .detail)
+            detail: try container.decodeIfPresent(String.self, forKey: .detail),
+            input: (try? container.decodeIfPresent(String.self, forKey: .input)) ?? nil
         )
     }
 
@@ -71,33 +80,76 @@ public struct LeoAttentionReason: Equatable, Sendable, Codable {
         guard sanitized.count > textLimit else { return sanitized }
         return String(sanitized.prefix(textLimit - 1)) + "…"
     }
+
+    /// One line, nothing invisible, clamped to `inputLimit`; unlike `clean`
+    /// it keeps quotes as sent, since it shows a shell command verbatim.
+    private static func cleanCommand(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let line = LeoSFTPServerText.appText(text).trimmingCharacters(in: .whitespaces)
+        guard !line.isEmpty else { return nil }
+        guard line.count > inputLimit else { return line }
+        return String(line.prefix(inputLimit - 1)) + "…"
+    }
 }
 
-/// `attention: {state, revision, reason?}`. `revision` increases per agent
-/// name per daemon boot, across delete/recreate and rename; a signal at or
-/// below one already seen for that name is a duplicate/reorder.
+/// `attention: {state, revision, reason?, preview?, at?}`. `revision` increases
+/// per agent name per daemon boot, across delete/recreate and rename; a signal
+/// at or below one already seen for that name is a duplicate/reorder.
 public struct LeoAttentionSignal: Equatable, Sendable, Codable {
+    /// The most characters kept of `preview`.
+    public static let previewLimit = 200
+
     public let state: LeoAttentionState
     public let revision: Int
     public let reason: LeoAttentionReason?
+    /// The one-line result of a finished turn, or an error summary for an
+    /// errored one. Agent-controlled: sanitized and clamped.
+    public let preview: String?
+    /// When the daemon recorded this signal (its clock); nil from a daemon
+    /// that doesn't send it or when the value doesn't parse.
+    public let at: Date?
 
-    public init(state: LeoAttentionState, revision: Int, reason: LeoAttentionReason? = nil) {
+    public init(
+        state: LeoAttentionState, revision: Int, reason: LeoAttentionReason? = nil, preview: String? = nil, at: Date? = nil
+    ) {
         self.state = state
         self.revision = revision
         self.reason = reason
+        self.preview = Self.cleanPreview(preview)
+        self.at = at
     }
 
-    private enum CodingKeys: String, CodingKey { case state, revision, reason }
+    private enum CodingKeys: String, CodingKey { case state, revision, reason, preview, at }
 
-    /// A malformed or unknown-kind reason reads as absent: behaviour falls
-    /// back to the reasonless one and nothing is invented.
+    /// A malformed or unknown-kind reason, a wrong-typed preview and an
+    /// unreadable `at` read as absent: behaviour falls back to the plainer
+    /// signal and nothing is invented.
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
             state: try container.decode(LeoAttentionState.self, forKey: .state),
             revision: try container.decode(Int.self, forKey: .revision),
-            reason: try? container.decodeIfPresent(LeoAttentionReason.self, forKey: .reason)
+            reason: try? container.decodeIfPresent(LeoAttentionReason.self, forKey: .reason),
+            preview: (try? container.decodeIfPresent(String.self, forKey: .preview)) ?? nil,
+            at: ((try? container.decodeIfPresent(String.self, forKey: .at)) ?? nil).flatMap(LeoChatTimestamp.parse)
         )
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(state, forKey: .state)
+        try container.encode(revision, forKey: .revision)
+        try container.encodeIfPresent(reason, forKey: .reason)
+        try container.encodeIfPresent(preview, forKey: .preview)
+        try container.encodeIfPresent(at.map { $0.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: true)) }, forKey: .at)
+    }
+
+    private static func cleanPreview(_ text: String?) -> String? {
+        guard let text else { return nil }
+        let sanitized = LeoSFTPServerText.sanitized(text)
+        guard !sanitized.isEmpty else { return nil }
+        guard sanitized.count > previewLimit else { return sanitized }
+        return String(sanitized.prefix(previewLimit - 1)) + "…"
     }
 }
 

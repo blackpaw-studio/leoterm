@@ -21,4 +21,11 @@ struct LeoDaemonFeaturesTests {
         #expect(LeoDaemonFeatures(["agent_shell"]).contains(.agentShell))
         #expect(!LeoDaemonFeatures.none.contains(.agentShell))
     }
+
+    @Test func advertisesTheInboxFeatures() {
+        let features = LeoDaemonFeatures(["agent_seen", "attention.turn_failed"])
+        #expect(features.contains(.agentSeen))
+        #expect(features.contains(.attentionTurnFailed))
+        #expect(!LeoDaemonFeatures.none.contains(.agentSeen))
+    }
 }

@@ -9,7 +9,10 @@ extension LeoRuntime {
     /// handle -> identity map, never from titles or sidebar selection.
     /// Changes reach the feed in order, so it ends on the latest one.
     func focusedAgentChanged(_ identity: LeoAgentIdentity?) {
-        focusedAgentRelay.send(identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) })
+        let id = identity.map { LeoAgentRow.ID(host: $0.host, name: $0.name) }
+        focusedAgentRelay.send(id)
+        // Looking at an agent's terminal counts as seeing what it finished.
+        if let id { inbox.agentOpened(id) }
     }
 
     /// The row Jump would attach to: unfiltered sidebar order (pinned
@@ -51,6 +54,7 @@ extension LeoRuntime {
 
 extension LeoRuntime {
     func attentionTransitionsCommitted(_ transitions: [LeoAttentionTransition]) {
+        inbox.transitionsCommitted(transitions)
         let displayNames = Dictionary(model.rows.map { ($0.id, $0.displayName) }, uniquingKeysWith: { first, _ in first })
         Task { [attentionNotifications] in await attentionNotifications.handle(transitions, displayNames: displayNames) }
     }
@@ -105,5 +109,27 @@ extension LeoRuntime {
             + "System Settings > Notifications, then choose Agents > Agent Notifications… again."
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+}
+
+extension LeoRuntime {
+    /// What the inbox shown in `session`'s window can do: Go to Agent selects
+    /// and clicks the agent's row there (leaving the inbox); Open Chat shows
+    /// its chat; the empty state counts the agents that are working.
+    func inboxActions(for session: LeoWindowSession) -> LeoInboxActions {
+        LeoInboxActions(
+            goToAgent: { [weak self, weak session] id in
+                guard let self, let session, let row = model.rows.first(where: { $0.id == id }) else { return }
+                LeoSidebarSelection.select(.agent(id), model: model, terminals: session.terminals)
+                model.rowClicked(row, from: session.id)
+            },
+            openChat: { [weak self, weak session] id in
+                guard let self, let session, let row = model.rows.first(where: { $0.id == id }) else { return }
+                registry.showChat(of: row, in: session.id, model: model)
+            },
+            runningCount: { [weak self] in
+                self?.model.rows.filter { $0.attentionSignal?.state == .working || $0.activity == .working }.count ?? 0
+            }
+        )
     }
 }
