@@ -42,6 +42,19 @@ struct LeoAgentRowPresentationTests {
         #expect(presentation(brief: brief).detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
     }
 
+    @Test func anIdleRowWithABriefStatusGetsASecondLineShowingIt() {
+        let idle = presentation(brief: brief)
+        #expect(idle.state.state == .idle)
+        #expect(idle.hasSecondLine)
+        #expect(idle.detail == .brief(LeoSFTPServerText.isolated("Waiting on review")))
+    }
+
+    @Test func anIdleRowWithoutABriefStatusStaysOneLine() {
+        #expect(!presentation().hasSecondLine)
+        #expect(!presentation(brief: LeoAgentBrief(goal: "Ship it")).hasSecondLine)
+        #expect(!presentation(brief: LeoAgentBrief(status: "  ")).hasSecondLine)
+    }
+
     @Test func attentionBeatsBrief() {
         let reason = LeoAttentionReason(kind: .permission, tool: "Bash")
         #expect(presentation(attention: .needsInput, reason: reason, brief: brief).detail == .attention("Bash"))

@@ -27,7 +27,7 @@ struct LeoBriefSnapshots {
     @Test func rows() throws {
         let directory = try #require(briefSnapshotDirectory)
         func row(
-            _ name: String, brief: LeoAgentBrief?, attention: LeoAttentionBadge, metadata: LeoAgentMetadata? = nil, lastTurn: LeoTurnPreview? = nil
+            _ name: String, brief: LeoAgentBrief?, attention: LeoAttentionBadge?, metadata: LeoAgentMetadata? = nil, lastTurn: LeoTurnPreview? = nil
         ) -> LeoAgentRow {
             LeoAgentRow(
                 host: .local, name: name, template: "claude", status: .running, activity: .idle, actionDetail: nil,
@@ -38,6 +38,9 @@ struct LeoBriefSnapshots {
         let working = LeoAgentMetadata(lastActiveAt: nil, isWorking: true, task: nil, usage: nil, tool: "Edit")
         let rows = VStack(spacing: 0) {
             ForEach([
+                row("idle-with-brief", brief: Self.brief, attention: nil),
+                row("idle-no-brief", brief: nil, attention: nil),
+                row("idle-goal-only", brief: LeoAgentBrief(goal: "No status yet"), attention: nil),
                 row("finished-with-brief", brief: Self.brief, attention: .finished, lastTurn: turn),
                 row("finished-no-brief", brief: nil, attention: .finished, lastTurn: turn),
                 row("working-tool-wins", brief: Self.brief, attention: .working, metadata: working),
@@ -47,7 +50,7 @@ struct LeoBriefSnapshots {
                     .padding(.horizontal, 8).padding(.vertical, 4)
             }
         }
-        try Self.write(rows, named: "row", size: NSSize(width: 300, height: 220), to: directory)
+        try Self.write(rows, named: "row", size: NSSize(width: 300, height: 340), to: directory)
     }
 
     @Test func inboxDetail() throws {
@@ -77,7 +80,7 @@ struct LeoBriefSnapshots {
         let model = LeoDaemonSettingsModel(client: fake, revisions: LeoConfigRevisionTracker(), machineHost: "dionysus")
         await model.load()
         await model.setBriefsEnabled(true)
-        try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "settingsBriefs", size: NSSize(width: 820, height: 220), to: directory)
+        try Self.write(LeoDaemonView(model: model, machine: "dionysus"), named: "settingsBriefs", size: NSSize(width: 820, height: 340), to: directory)
     }
 
     // MARK: Rendering

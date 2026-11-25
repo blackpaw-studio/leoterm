@@ -100,6 +100,9 @@ struct LeoAgentRowPresentation: Equatable {
     let leadingEmoji: String?
     /// The leading color bar's palette color; nil leaves the slot blank.
     let barColor: LeoAppearanceColor?
+    /// An idle row is one line, except when the agent's brief has a status:
+    /// then the status is its second line, so only such rows grow.
+    private let showsIdleBrief: Bool
 
     /// What the fallback says when there is neither a template nor any spend.
     static let emptyFallback = "No activity yet"
@@ -118,6 +121,7 @@ struct LeoAgentRowPresentation: Equatable {
         isTaskFailure = summary != nil && row.tasks.primary?.state == .failed
         detail = Self.detail(row: row, error: error, moveStage: moveStage, template: template, usage: usage, progress: summary?.detail)
         if case .warning = detail { state = resolved.showingWarning() } else { state = resolved }
+        if case .brief = detail, state.state == .idle { showsIdleBrief = true } else { showsIdleBrief = false }
         let active = Self.lastActive(row.metadata, now: now)
         lastActive = active.map { LeoRelativeTime.label(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
         lastActiveSpoken = active.map { LeoRelativeTime.spokenLabel(since: $0.date, now: $0.now, timeZone: timeZone, locale: locale) }
@@ -138,7 +142,7 @@ struct LeoAgentRowPresentation: Equatable {
     /// Whether the row draws a detail line: the state's, or one the task adds.
     /// A task keeps the line even once its text is gone (it succeeded), so
     /// the row does not change height.
-    var hasSecondLine: Bool { state.hasSecondLine || task != nil }
+    var hasSecondLine: Bool { state.hasSecondLine || task != nil || showsIdleBrief }
 
     /// The working symbol turns whenever the agent works, whatever its task:
     /// the left column means the same on every row (B-381).
