@@ -118,6 +118,20 @@ struct DaemonBriefSettingsTests {
         #expect(store.state.isBriefSaving == false)
     }
 
+    @Test func theSwitchFollowsTheTapAtOnceAndRevertsWhenTheWriteFails() async {
+        let (store, fake) = Self.make(enabled: false)
+        await store.send(.task)
+        await store.receive(\.briefLoaded)
+        await fake.failNextWrite(with: LeoDaemonError.timeout)
+
+        await store.send(.briefToggled(true))
+        #expect(store.state.isBriefEnabled == true)
+
+        await store.receive(\.briefSaved)
+        #expect(store.state.isBriefEnabled == false)
+        #expect(store.state.alert != nil)
+    }
+
     @Test func aConflictAlertsAndShowsTheMachinesValue() async {
         let (store, fake) = Self.make(enabled: false)
         await store.send(.task)
