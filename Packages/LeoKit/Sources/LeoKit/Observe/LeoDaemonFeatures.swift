@@ -24,6 +24,8 @@ public struct LeoDaemonFeatures: Equatable, Sendable {
         case agentProgress = "agent_progress"
         case agentShell = "agent_shell"
         case agentSeen = "agent_seen"
+        /// Agents keep a short brief (`agent_brief`); advertised whether or not it is switched on.
+        case agentBrief = "agent_brief"
         /// A failed turn reports `errored` (with an error preview).
         case attentionTurnFailed = "attention.turn_failed"
     }

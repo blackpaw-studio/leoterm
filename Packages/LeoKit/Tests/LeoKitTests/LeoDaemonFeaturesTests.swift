@@ -28,4 +28,9 @@ struct LeoDaemonFeaturesTests {
         #expect(features.contains(.attentionTurnFailed))
         #expect(!LeoDaemonFeatures.none.contains(.agentSeen))
     }
+
+    @Test func advertisesAgentBrief() {
+        #expect(LeoDaemonFeatures(["agent_brief"]).contains(.agentBrief))
+        #expect(!LeoDaemonFeatures.none.contains(.agentBrief))
+    }
 }

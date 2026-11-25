@@ -46,6 +46,8 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
     /// The agent's advertised tasks (`agent_progress`); empty when the
     /// daemon sent none. Decoded by `LeoAgentTaskWire`.
     public let tasks: [LeoAgentTask]
+    /// The agent's brief (`agent_brief`); nil when absent, withheld or malformed.
+    public let brief: LeoAgentBrief?
 
     /// What the user sees: `display_name` when set, else `name`.
     public var displayName: String { LeoAgentDisplayName.resolve(displayName: daemonDisplayName, name: name) }
@@ -55,7 +57,8 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
                 startedAt: String? = nil, usage: LeoAgentUsage? = nil,
                 environments: LeoAgentEnvironments? = nil, template: String? = nil, harness: String? = nil,
                 appearance: LeoAgentAppearance? = nil, movedTo: String? = nil, movedAt: String? = nil,
-                displayName: String? = nil, tasks: [LeoAgentTask] = [], model: String? = nil) {
+                displayName: String? = nil, tasks: [LeoAgentTask] = [], model: String? = nil, brief: LeoAgentBrief? = nil) {
+        self.brief = brief
         self.model = model
         self.tasks = tasks
         self.daemonDisplayName = displayName
@@ -106,6 +109,7 @@ public struct LeoObservedAgent: Codable, Equatable, Sendable {
         model = LeoUsageText.clean((try? container.decodeIfPresent(String.self, forKey: .model)) ?? nil)
         appearance = LeoAppearanceWire.agent(from: decoder)
         tasks = LeoAgentTaskWire.agent(from: decoder)
+        brief = LeoAgentBriefWire.agent(from: decoder)
         movedTo = (try? container.decodeIfPresent(String.self, forKey: .movedTo)) ?? nil
         movedAt = (try? container.decodeIfPresent(String.self, forKey: .movedAt)) ?? nil
         daemonDisplayName = (try? container.decodeIfPresent(String.self, forKey: .daemonDisplayName)) ?? nil
@@ -184,6 +188,10 @@ public enum LeoObserveEvent: Equatable, Sendable {
     /// The user looked at an agent on some client (`agent_seen`, daemon
     /// >= the inbox contract); `seenAt` is the daemon's shared mark.
     case agentSeen(seq: Int, agent: String, seenAt: Date)
+    /// An agent's brief was written or cleared (`agent_brief`); nil clears it.
+    case agentBrief(seq: Int, at: String?, agent: String, brief: LeoAgentBrief?)
+    /// The machine's `brief.enabled` flipped (`brief_config_changed`).
+    case briefConfigChanged(seq: Int, enabled: Bool)
     /// An event the app recognizes as carrying a seq but doesn't consume
     /// (anything newer, or a malformed dispatch, turn, usage or compaction).
     /// It only advances the sequence, so skipping it never reads as a gap.
@@ -396,6 +404,14 @@ public actor LeoActivityClient {
             if let p = LeoAgentTaskWire.event(data) { return .agentTaskChanged(seq: p.seq, at: p.at, agent: p.agent, id: p.id, task: p.task) }
             leoActivityClientLogger.debug("activityClient: malformed agent_task_changed kept as a sequence-only event")
             return sequence(in: data).map { .other(seq: $0, type: name) }
+        case LeoAgentBriefWire.eventType:
+            if let p = LeoAgentBriefWire.event(data) { return .agentBrief(seq: p.seq, at: p.at, agent: p.agent, brief: p.brief) }
+            leoActivityClientLogger.debug("activityClient: malformed agent_brief kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
+        case LeoAgentBriefWire.configEventType:
+            if let p = LeoAgentBriefWire.configEnabled(data) { return .briefConfigChanged(seq: p.seq, enabled: p.enabled) }
+            leoActivityClientLogger.debug("activityClient: malformed brief_config_changed kept as a sequence-only event")
+            return sequence(in: data).map { .other(seq: $0, type: name) }
         case "agent_seen":
             struct Payload: Decodable {
                 let seq: Int; let agent: String; let seenAt: LeoChatTimestamp
@@ -475,7 +491,7 @@ extension LeoObserveEvent {
              .agentStopped(let seq, _, _, _), .dispatchChanged(let seq, _), .dispatchRemoved(let seq, _), .other(let seq, _),
              .agentTurnCompleted(let seq, _), .agentUsage(let seq, _, _), .agentCompaction(let seq, _),
              .agentAppearanceChanged(let seq, _, _, _), .agentTaskChanged(let seq, _, _, _, _), .chat(let seq, _),
-             .agentSeen(let seq, _, _): return seq
+             .agentSeen(let seq, _, _), .agentBrief(let seq, _, _, _), .briefConfigChanged(let seq, _): return seq
         case .connected, .disconnected, .gap, .snapshot: return -1
         }
     }
