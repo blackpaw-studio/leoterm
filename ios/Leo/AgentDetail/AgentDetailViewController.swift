@@ -5,9 +5,7 @@ import UIKitNavigation
 
 /// One agent: live state, environment, actions, and what's coming next.
 final class AgentDetailViewController: UIViewController, UICollectionViewDelegate {
-    private enum Section: Int, CaseIterable {
-        case header, claude, brief, tasks, live, status, environment, move, actions
-    }
+    private typealias Section = AgentDetailSection
 
     private enum Row: Hashable {
         case header
@@ -106,12 +104,12 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     }
 
     private func makeLayout() -> UICollectionViewLayout {
-        UICollectionViewCompositionalLayout { index, environment in
+        UICollectionViewCompositionalLayout { [weak self] index, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in self?.dismissAction(at: indexPath) }
-            let section = Section(rawValue: index)
-            let titled: Set<Section> = [.brief, .tasks, .status, .environment, .move, .actions]
-            configuration.headerMode = section.map(titled.contains) == true ? .supplementary : .none
+            // By position among the sections shown: empty ones are not in the snapshot.
+            let section = self?.dataSource?.sectionIdentifier(for: index)
+            configuration.headerMode = section?.hasHeader == true ? .supplementary : .none
             let layout = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
             if section == .header {
                 // The identity block sits on the background, not in a card.
@@ -133,9 +131,9 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         let taskRow = UICollectionView.CellRegistration<ProgressListCell, Row> { [weak self] cell, _, row in
             self?.configure(cell, task: row)
         }
-        let sectionHeader = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { view, _, indexPath in
+        let sectionHeader = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { [weak self] view, _, indexPath in
             var content = UIListContentConfiguration.header()
-            content.text = switch Section(rawValue: indexPath.section) {
+            content.text = switch self?.dataSource?.sectionIdentifier(for: indexPath.section) {
             case .brief: String(localized: "Brief")
             case .tasks: String(localized: "Tasks")
             case .status: String(localized: "Status")
@@ -345,20 +343,22 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         if let error = agent.environments?.error { environmentRows.append(("environmentError", String(localized: "Problem"), error, .systemRed)) }
         values = Dictionary((rows + environmentRows).map { ($0.key, (label: $0.label, value: $0.value, tint: $0.tint)) }, uniquingKeysWith: { $1 })
 
-        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
-        snapshot.appendSections(Section.allCases)
-        snapshot.appendItems([.header], toSection: .header)
-        if agent.opensInClaude, !agent.isMoved { snapshot.appendItems([.openInClaude], toSection: .claude) }
-        snapshot.appendItems([.chat, .terminal] + (store.showsBrowser && !agent.isMoved ? [.browser] : []), toSection: .live)
         briefRows = AgentBriefRows.make(agent.briefPresentation())
-        snapshot.appendItems(briefRows.indices.map(Row.brief), toSection: .brief)
-        snapshot.appendItems(agent.tasks.map { .task($0.id) }, toSection: .tasks)
-        snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
-        snapshot.appendItems(environmentRows.map { .value($0.key) } + (agent.isMoved ? [] : [.switchEnvironment]), toSection: .environment)
-        snapshot.appendItems(moveRows(for: agent).map(Row.move), toSection: .move)
-        snapshot.appendItems(agent.availableCommands.map { Row.command(Command($0)) }, toSection: .actions)
-        // An empty section would still draw its header.
-        snapshot.deleteSections(snapshot.sectionIdentifiers.filter { snapshot.numberOfItems(inSection: $0) == 0 })
+        let items: [Section: [Row]] = [
+            .header: [.header],
+            .claude: agent.opensInClaude && !agent.isMoved ? [.openInClaude] : [],
+            .brief: briefRows.indices.map(Row.brief),
+            .tasks: agent.tasks.map { .task($0.id) },
+            .live: [.chat, .terminal] + (store.showsBrowser && !agent.isMoved ? [.browser] : []),
+            .status: rows.map { .value($0.key) },
+            .environment: environmentRows.map { .value($0.key) } + (agent.isMoved ? [] : [.switchEnvironment]),
+            .move: moveRows(for: agent).map(Row.move),
+            .actions: agent.availableCommands.map { Row.command(Command($0)) },
+        ]
+        // An empty section is left out, or it would still draw its header.
+        var snapshot = NSDiffableDataSourceSnapshot<Section, Row>()
+        snapshot.appendSections(AgentDetailSectionPlan(itemCounts: items.mapValues(\.count)).sections)
+        for section in snapshot.sectionIdentifiers { snapshot.appendItems(items[section] ?? [], toSection: section) }
         snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
     }
