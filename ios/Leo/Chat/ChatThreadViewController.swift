@@ -41,7 +41,8 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     /// The list starts under the Brief header while there is one, else at the top of the screen.
     private var collectionTopToView: NSLayoutConstraint!
     private var collectionTopToBrief: NSLayoutConstraint!
-    private var briefCollapsed: NSLayoutConstraint!
+    private var stripTopToSafeArea: NSLayoutConstraint!
+    private var stripTopToBrief: NSLayoutConstraint!
     private let stripEmulator = StripEmulator()
     @Dependency(\.terminalStripOutput) private var stripOutput
     private var stripTask: Task<Void, Never>?
@@ -114,13 +115,13 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         }
         collectionTopToView = collectionView.topAnchor.constraint(equalTo: view.topAnchor)
         collectionTopToBrief = collectionView.topAnchor.constraint(equalTo: briefHeader.bottomAnchor)
-        briefCollapsed = briefHeader.heightAnchor.constraint(equalToConstant: 0)
+        stripTopToSafeArea = stripView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Self.stripMargin)
+        stripTopToBrief = stripView.topAnchor.constraint(equalTo: briefHeader.bottomAnchor, constant: Self.stripMargin)
         NSLayoutConstraint.activate([
-            collectionTopToView, briefCollapsed,
+            collectionTopToView, stripTopToSafeArea,
             briefHeader.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             briefHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             briefHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            stripView.topAnchor.constraint(equalTo: briefHeader.bottomAnchor, constant: Self.stripMargin),
             stripView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             stripView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -293,15 +294,18 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         let rows = AgentBriefRows.make(store.agent?.briefPresentation())
         let hasBrief = !rows.isEmpty
         briefHeader.isHidden = !hasBrief
+        // A hidden header still lays out, so with no brief nothing may be pinned to it.
         // Deactivate before activating, so two tops never hold at once.
         if hasBrief {
-            briefCollapsed.isActive = false
             collectionTopToView.isActive = false
+            stripTopToSafeArea.isActive = false
             collectionTopToBrief.isActive = true
+            stripTopToBrief.isActive = true
         } else {
             collectionTopToBrief.isActive = false
-            briefCollapsed.isActive = true
+            stripTopToBrief.isActive = false
             collectionTopToView.isActive = true
+            stripTopToSafeArea.isActive = true
         }
         if hasBrief { briefHeader.configure(rows: rows, isExpanded: store.isBriefExpanded) }
     }

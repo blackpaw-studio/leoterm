@@ -32,6 +32,8 @@ public struct DaemonSettings {
         /// The revision `brief.enabled` was read at; a write sends it as `If-Match`.
         public var briefRevision: String?
         public var isBriefSaving = false
+        /// The switch's value before an in-flight toggle, to put back if the write fails.
+        var briefBeforeSave: Bool?
         @Presents public var alert: AlertState<Never>?
         @Presents public var destination: Destination.State?
 
@@ -111,6 +113,9 @@ public struct DaemonSettings {
             case .briefToggled(let isOn):
                 guard state.supportsBrief, !state.isBriefSaving, let revision = state.briefRevision else { return .none }
                 state.isBriefSaving = true
+                // The switch follows the tap at once; a failed write puts it back.
+                state.briefBeforeSave = state.isBriefEnabled
+                state.isBriefEnabled = isOn
                 let client = configClients.client(state.connection)
                 let revisions = configClients.revisions(state.daemon.id)
                 return .run { send in
@@ -126,12 +131,15 @@ public struct DaemonSettings {
 
             case .briefSaved(.success(let result)):
                 state.isBriefSaving = false
+                state.briefBeforeSave = nil
                 state.briefRevision = result.revision
                 // The write carried the requested value; read it back so the switch shows what the machine holds.
                 return loadBrief(state)
 
             case .briefSaved(.failure(let error)):
                 state.isBriefSaving = false
+                state.isBriefEnabled = state.briefBeforeSave ?? state.isBriefEnabled
+                state.briefBeforeSave = nil
                 let machine = state.daemon.name
                 let isConflict = (error as? LeoConfigError).map { if case .conflict = $0 { true } else { false } } ?? false
                 state.alert = AlertState {
