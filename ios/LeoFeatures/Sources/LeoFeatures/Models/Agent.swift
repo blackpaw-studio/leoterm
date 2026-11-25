@@ -37,6 +37,8 @@ public struct Agent: Equatable, Identifiable, Sendable {
     /// The ETA for each running task by id, from the task or derived from its
     /// progress samples (`LeoTaskETA`); a task with none has no entry.
     public var taskETAs: [String: Date] = [:]
+    /// The agent's own summary of its work (`agent_brief`); nil when none, off or withheld.
+    public var brief: LeoAgentBrief?
 
     /// What the user sees: `display_name` when set, else `name`. `name` stays
     /// the identifier for API calls, refs, and persistence.
@@ -48,7 +50,8 @@ public struct Agent: Equatable, Identifiable, Sendable {
         name: String, status: LeoAgentStatus? = nil, activity: LeoActivity? = nil, currentAction: LeoCurrentAction? = nil,
         attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
         environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil,
-        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, tasks: [LeoAgentTask] = []
+        movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, tasks: [LeoAgentTask] = [],
+        brief: LeoAgentBrief? = nil
     ) {
         self.name = name
         self.status = status
@@ -64,6 +67,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         self.movedAt = movedAt
         daemonDisplayName = displayName
         self.tasks = tasks
+        self.brief = brief
     }
 
     public init(_ observed: LeoObservedAgent) {
@@ -72,7 +76,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
             attention: observed.attention, template: observed.template, harness: observed.harness,
             environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt,
             movedTo: observed.movedTo, movedAt: observed.movedAt,
-            displayName: observed.daemonDisplayName, tasks: observed.tasks
+            displayName: observed.daemonDisplayName, tasks: observed.tasks, brief: observed.brief
         )
     }
 
