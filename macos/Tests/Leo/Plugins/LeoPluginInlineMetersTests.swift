@@ -81,6 +81,19 @@ struct LeoPluginInlineMetersTests {
         #expect(inline == stacked)
     }
 
+    @Test func aMuchWiderValueMakesEqualColumnsTooNarrowSoTheGroupStacks() {
+        // Equal columns must each fit the widest meter, not the average one.
+        func group(_ layout: LeoPluginNode.Group.MeterLayout) -> LeoPluginNode.Group {
+            .init(
+                title: "claude", sfSymbol: "sparkle",
+                children: [Self.meter("5h", "4%"), Self.meter("7d", "12.3k / 50k")], meterLayout: layout)
+        }
+        let width: CGFloat = 250
+        let inline = Self.height(of: group(.inline), width: width)
+        let stacked = Self.height(of: group(.stacked), width: width)
+        #expect(inline == stacked, "the wide value can't fit an equal column, so fall back to stacked")
+    }
+
     @Test func shortLabelsStayInlineWhenTheyFit() {
         let labels = ["5h", "7d"]
         let inline = Self.height(of: Self.group(.inline, labels: labels), width: 260)

@@ -89,7 +89,8 @@ struct LeoPluginInlineMeterRowsLayout: Layout {
             return CGSize(width: width, height: height)
         }
         let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
-        let width = sizes.reduce(0) { $0 + $1.width } + gap * CGFloat(subviews.count - 1)
+        // Columns are equal, so every one must fit the widest meter.
+        let width = CGFloat(sizes.count) * (sizes.map(\.width).max() ?? 0) + gap * CGFloat(subviews.count - 1)
         return CGSize(width: width, height: sizes.map(\.height).max() ?? 0)
     }
 
