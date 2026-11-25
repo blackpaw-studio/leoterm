@@ -86,6 +86,45 @@ extension LeoPluginNodeDecodingTests {
         #expect(group.sfSymbol == nil)
     }
 
+    @Test func aGroupMeterLayoutDefaultsToStackedAndDecodesInline() throws {
+        let plain = try decodeV2(#"{"type":"Group","title":"t","children":[]}"#)
+        let inline = try decodeV2(#"{"type":"Group","title":"t","meterLayout":"inline","children":[]}"#)
+        let stacked = try decodeV2(#"{"type":"Group","title":"t","meterLayout":"stacked","children":[]}"#)
+        guard case .group(let a) = plain.nodes[0], case .group(let b) = inline.nodes[0], case .group(let c) = stacked.nodes[0] else {
+            Issue.record("not a group"); return
+        }
+        #expect(a.meterLayout == .stacked)
+        #expect(b.meterLayout == .inline)
+        #expect(c.meterLayout == .stacked)
+    }
+
+    @Test func anUnknownMeterLayoutFallsBackToStackedInsteadOfRefusingTheTree() throws {
+        let root = try decodeV2(#"{"type":"Group","title":"t","meterLayout":"grid","children":[]}"#)
+        guard case .group(let group) = root.nodes[0] else { Issue.record("not a group"); return }
+        #expect(group.meterLayout == .stacked)
+    }
+
+    @Test func anUnknownGroupFieldIsIgnored() throws {
+        let root = try decodeV2(#"{"type":"Group","title":"t","futureField":{"a":1},"children":[]}"#)
+        guard case .group(let group) = root.nodes[0] else { Issue.record("not a group"); return }
+        #expect(group.title == "t")
+    }
+
+    @Test func aGroupMeterLayoutSurvivesAnEncodeDecodeRoundTrip() throws {
+        let group = LeoPluginNode.Group(title: "t", meterLayout: .inline)
+        let data = try JSONEncoder().encode(LeoPluginNode.group(group))
+        let decoder = JSONDecoder()
+        decoder.userInfo[LeoPluginNodeDecoding.apiVersionKey] = 2
+        #expect(try decoder.decode(LeoPluginNode.self, from: data) == .group(group))
+    }
+
+    @Test func sparkleIsAnAllowedSymbol() throws {
+        #expect(LeoPluginSymbolAllowlist.isAllowed("sparkle"))
+        let root = try decodeV2(#"{"type":"Group","title":"t","sfSymbol":"sparkle","children":[]}"#)
+        guard case .group(let group) = root.nodes[0] else { Issue.record("not a group"); return }
+        #expect(group.sfSymbol == "sparkle")
+    }
+
     @Test func aGroupWithAListChildIsRefused() {
         let child = #"{"type":"List","sections":[]}"#
         #expect(throws: DecodingError.self) { try decodeV2(groupJSON(children: child)) }

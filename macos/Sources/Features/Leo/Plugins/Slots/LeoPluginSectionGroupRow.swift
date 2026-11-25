@@ -1,7 +1,7 @@
 import LeoKit
 import SwiftUI
 
-/// A `Group` as a compact sidebar row: symbol, medium title and a trailing
+/// A `Group` as a compact sidebar row: symbol, regular-weight title and a trailing
 /// accessory, then its meters indented under the title. The subtitle shows
 /// only when there are no meters. A click runs the first action; the context
 /// menu has them all. Metrics follow `docs/designs/usage-plugin/design.md`.
@@ -9,6 +9,8 @@ struct LeoPluginSectionGroupRow: View {
     let group: LeoPluginNode.Group
     /// The slot's shared meter label column (`LeoPluginSectionMeter.labelColumn`).
     var labelColumn: CGFloat?
+    /// The slot's shared label and value columns for `inline` groups.
+    var inlineColumns: LeoPluginInlineMeterColumns?
     let perform: (LeoPluginAction) -> Void
 
     private static let symbolColumn: CGFloat = 16
@@ -32,13 +34,8 @@ struct LeoPluginSectionGroupRow: View {
                     .truncationMode(.tail)
                     .padding(.leading, Self.indent)
             }
-            ForEach(Array(group.children.enumerated()), id: \.offset) { _, child in
-                switch child {
-                case .meter(let meter): LeoPluginSectionMeter(meter: meter, labelColumn: labelColumn)
-                case .accessory(let accessory): LeoPluginSectionAccessory(accessory: accessory)
-                }
-            }
-            .padding(.leading, Self.indent)
+            children
+                .padding(.leading, Self.indent)
             if !hasMeters, let first = entries.first {
                 LeoPluginInlineActionButton(entry: first) { perform(first.action) }
                     .padding(.leading, Self.indent)
@@ -64,6 +61,19 @@ struct LeoPluginSectionGroupRow: View {
         .listRowInsets(EdgeInsets())
     }
 
+    @ViewBuilder private var children: some View {
+        if group.meterLayout == .inline {
+            LeoPluginInlineMeterChildren(children: group.children, columns: inlineColumns)
+        } else {
+            ForEach(Array(group.children.enumerated()), id: \.offset) { _, child in
+                switch child {
+                case .meter(let meter): LeoPluginSectionMeter(meter: meter, labelColumn: labelColumn)
+                case .accessory(let accessory): LeoPluginSectionAccessory(accessory: accessory)
+                }
+            }
+        }
+    }
+
     /// Title, then the subtitle even while meters hide it (the plugin puts
     /// the account's kind there, so Claude vs Codex is announced), then state.
     private var accessibilityLabel: String {
@@ -82,7 +92,7 @@ struct LeoPluginSectionGroupRow: View {
                 .opacity(group.sfSymbol == nil ? 0 : 1)
                 .accessibilityHidden(true)
             Text(group.title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.body)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(group.title)
@@ -112,10 +122,7 @@ struct LeoPluginSectionMeter: View {
     let meter: LeoPluginNode.ValueMeter
     /// The widest label in the slot, so tracks line up across Groups; nil sizes to this label.
     var labelColumn: CGFloat?
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let trackHeight: CGFloat = 5
     private static let minimumTrackWidth: CGFloat = 48
     private static let labelFont = NSFont.systemFont(ofSize: 11)
 
@@ -160,9 +167,22 @@ struct LeoPluginSectionMeter: View {
         .help(presentation.accessibilityLabel)
     }
 
-    private var track: some View {
+    private var track: some View { LeoPluginMeterTrack(meter: meter) }
+}
+
+/// The 5 pt capsule track and its tinted fill, shared by the stacked and inline meters.
+struct LeoPluginMeterTrack: View {
+    let meter: LeoPluginNode.ValueMeter
+    @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    static let height: CGFloat = 5
+
+    private var presentation: LeoPluginValueMeterPresentation { LeoPluginValueMeterPresentation(meter) }
+
+    var body: some View {
         GeometryReader { proxy in
-            let fill = presentation.fillWidth(trackWidth: Double(proxy.size.width), trackHeight: Double(Self.trackHeight))
+            let fill = presentation.fillWidth(trackWidth: Double(proxy.size.width), trackHeight: Double(Self.height))
             ZStack(alignment: .leading) {
                 Capsule().fill(Color(nsColor: contrast == .increased ? .tertiaryLabelColor : .quaternaryLabelColor))
                 Capsule()
@@ -172,7 +192,7 @@ struct LeoPluginSectionMeter: View {
             .clipShape(Capsule())
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: meter.value)
         }
-        .frame(height: Self.trackHeight)
+        .frame(height: Self.height)
     }
 }
 

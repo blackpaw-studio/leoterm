@@ -114,19 +114,26 @@ extension LeoPluginNode {
             }
         }
 
+        /// How a Group lays out its meter children. `inline` puts them side by
+        /// side on one line, each with its detail under its own bar.
+        public enum MeterLayout: String, Codable, Equatable, Sendable {
+            case stacked, inline
+        }
+
         public var title: String
         public var subtitle: String?
         public var sfSymbol: String?
         public var accessory: Accessory?
         public var children: [Child]
         public var actions: [LeoPluginLabeledAction]
+        public var meterLayout: MeterLayout
 
         public init(
             title: String, subtitle: String? = nil, sfSymbol: String? = nil, accessory: Accessory? = nil,
-            children: [Child] = [], actions: [LeoPluginLabeledAction] = []
+            children: [Child] = [], actions: [LeoPluginLabeledAction] = [], meterLayout: MeterLayout = .stacked
         ) {
             self.title = title; self.subtitle = subtitle; self.sfSymbol = sfSymbol; self.accessory = accessory
-            self.children = children; self.actions = actions
+            self.children = children; self.actions = actions; self.meterLayout = meterLayout
         }
 
         public init(from decoder: Decoder) throws {
@@ -138,6 +145,8 @@ extension LeoPluginNode {
             accessory = try c.decodeIfPresent(Accessory.self, forKey: .accessory)
             children = try c.decodeIfPresent([Child].self, forKey: .children) ?? []
             actions = try c.decodeIfPresent([LeoPluginLabeledAction].self, forKey: .actions) ?? []
+            // A layout this host doesn't know (a newer plugin) draws stacked rather than refusing the tree.
+            meterLayout = (try? c.decodeIfPresent(MeterLayout.self, forKey: .meterLayout)).flatMap { $0 } ?? .stacked
             try checkLength(title, LeoPluginNodeLimits.maxGroupTitle, key: .title, in: c)
             try checkLength(subtitle, LeoPluginNodeLimits.maxGroupSubtitle, key: .subtitle, in: c)
             guard children.count <= LeoPluginNodeLimits.maxGroupChildren else {
@@ -146,7 +155,7 @@ extension LeoPluginNode {
             }
         }
 
-        private enum Keys: String, CodingKey { case title, subtitle, sfSymbol, accessory, children, actions }
+        private enum Keys: String, CodingKey { case title, subtitle, sfSymbol, accessory, children, actions, meterLayout }
     }
 }
 

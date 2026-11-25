@@ -41,6 +41,7 @@ A plugin may declare one pane in `contributes.panes: [{id, title, sfSymbol?}]`. 
 - Summary accepts only `Text`, `Meter` and `Accessory` (laid out in one row); anything else shows "!" and an error tooltip. Body accepts every component.
 - `Text`: `{type:"Text", runs:[{text, tone?, weight?: "regular"|"semibold", mono?}]}`. At most 20 runs, 200 characters per run.
 - `Meter`: `{type:"Meter", segments:[{value, tone}], max, label?, help?}`. 1 to 8 segments, finite non-negative values, `max > 0`, `help` at most 80 characters.
+- `Group` (apiVersion 2): `{type:"Group", title, subtitle?, sfSymbol?, accessory?, children?, actions?, meterLayout?}`. Children are value Meters (`{type:"Meter", label, value 0...1, valueText?, detail?, tone?}`) and Accessories. `meterLayout: "inline"` puts the meters on one line in equal-width columns, each `detail` under its own bar; the default `"stacked"` draws one per line. A host without `meterLayout` ignores it and draws stacked. A symbol outside the host's allowlist is dropped and the node still draws.
 - `Tone`: `secondary`, `accent1` to `accent6`, `success`, `warning`, `failure`. No raw colours; Leo maps tones to light and dark mode.
 - Refresh on `usageChanged(agent)` (at most once per agent per second, only while a pane is visible), then call `leo.agents.usage(agent)`.
 

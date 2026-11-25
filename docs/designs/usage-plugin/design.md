@@ -25,11 +25,12 @@ One row: **label | track | valueText**, then `detail` on a second line starting 
 ## Group
 - **Header row**: `sfSymbol` in a 16 pt column (`secondaryLabelColor`, decorative), 6 pt gap, title, accessory, then a trailing `ellipsis.circle` menu button (20×20 pt hit target) holding `actions`. The same actions appear in the context menu and the ⌘↩ action panel, and Return runs the first one.
   - Regular: title 13 pt semibold, accessory right after the title.
-  - Compact: title 13 pt medium, accessory at the trailing edge, no menu button (actions are in the context menu only).
+  - Compact: title 13 pt regular (`.body`; was medium until `meterLayout` shipped), accessory at the trailing edge, no menu button (actions are in the context menu only).
 - **Subtitle**: 11 pt `secondaryLabelColor`, indented 22 pt to the title's x. Regular wraps to 2 lines; compact shows only when the Group has no meters (2 lines, then tail-truncated).
 - **Children**: indented 22 pt.
   - Regular: 8 pt below the subtitle, 8 pt apart.
   - Compact: 3 pt below the title.
+- **`meterLayout: "inline"`** (option B1): meter children share one line in equal-width columns (12 pt gap), each `label | bar | valueText`, with `detail` in 11 pt secondary under its own bar, left-aligned to the bar's leading edge (a meter without detail adds no height). The label and value columns are shared by every inline Group in the slot, so every bar starts at the same x. Each meter is its own accessibility element (label, value, detail). The default `"stacked"` is the layout above.
 - **Inline action**: a Group with no Meter children shows its first action as a small capsule button below the subtitle. The button is 20 pt high, 11 pt medium text, `quaternaryLabelColor` fill, with the action's `sfSymbol`. This is renderer behaviour, not a new prop.
 - **Container**:
   - Regular: inset rounded rect, radius 10, padding 10/12, `quaternarySystemFillColor`, 10 pt between Groups. Keyboard focus adds `unemphasizedSelectedContentBackgroundColor` and a 1.5 pt `keyboardFocusIndicatorColor` ring.

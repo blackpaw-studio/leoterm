@@ -21,7 +21,7 @@ public enum LeoPluginSymbolAllowlist {
         // People and signals
         "bell", "bell.fill", "bubble.left", "bubble.left.fill", "text.bubble", "person", "person.2",
         "star", "star.fill", "heart", "bolt", "bolt.fill", "lock", "lock.fill", "key", "eye", "eye.slash",
-        "cloud", "network", "speedometer", "chart.bar",
+        "cloud", "network", "speedometer", "chart.bar", "sparkle",
     ]
 
     public static func isAllowed(_ name: String) -> Bool { names.contains(name) }

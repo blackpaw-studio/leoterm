@@ -104,6 +104,52 @@ export interface Meter {
   help?: string;
 }
 
+/** The value form of `Meter`'s tone: a semantic tint, drawn in a system colour. */
+export type MeterTone = "neutral" | "success" | "warning" | "failure";
+
+/**
+ * One labelled level from 0 to 1 (apiVersion 2). The `value` key tells it apart
+ * from the segments `Meter`; the two forms cannot be mixed. Allowed inside a
+ * `Group` and as a sidebar slot root. `value` is clamped to 0...1.
+ */
+export interface ValueMeter {
+  type: "Meter";
+  /** At most 40 characters. In an `inline` Group keep it short ("5h"). */
+  label: string;
+  value: number;
+  /** At most 16 characters, for example "42%". Never truncated. */
+  valueText?: string;
+  /** At most 80 characters. Drawn under the bar (stacked) or under its own bar in an `inline` Group. */
+  detail?: string;
+  tone?: MeterTone;
+}
+
+/**
+ * How a `Group` lays out its meters. `"stacked"` (the default) draws one meter
+ * per line. `"inline"` puts the meters side by side on one line in equal-width
+ * columns (label, bar, value), each `detail` under its own bar; non-meter
+ * children draw as before. Hosts that predate `meterLayout` ignore it and draw
+ * stacked, and a value this host doesn't know also draws stacked.
+ */
+export type MeterLayout = "stacked" | "inline";
+
+/**
+ * A titled block of meters and accessories (apiVersion 2), such as one account.
+ * Limits: title at most 80 characters, subtitle 200, 16 children. A symbol
+ * outside the host's allowlist is dropped and the Group still draws; `sparkle`
+ * is allowed since the host that added `meterLayout`.
+ */
+export interface Group {
+  type: "Group";
+  title: string;
+  subtitle?: string;
+  sfSymbol?: string;
+  accessory?: ItemAccessory;
+  children?: (ValueMeter | Accessory)[];
+  actions?: Action[];
+  meterLayout?: MeterLayout;
+}
+
 export interface ListItem {
   id: string;
   title: string;
@@ -137,7 +183,7 @@ export interface EmptyState { type: "EmptyState"; title: string; message?: strin
 export interface Loading { type: "Loading"; message?: string }
 export interface ErrorNode { type: "Error"; message: string; retry: Action }
 
-export type Node = List | Detail | Form | Accessory | Text | Meter | EmptyState | Loading | ErrorNode;
+export type Node = List | Detail | Form | Accessory | Text | Meter | ValueMeter | Group | EmptyState | Loading | ErrorNode;
 /** One component, or an ordered array drawn stacked. */
 export type SlotRoot = Node | Node[];
 

@@ -191,6 +191,7 @@ private struct LeoPluginSectionRowsView: View {
     var body: some View {
         let listing = LeoPluginSectionListing.rows(for: surfaces.content(for: key))
         let labelColumn = LeoPluginSectionMeter.labelColumn(for: listing.compactMap(\.pluginRow))
+        let inlineColumns = LeoPluginInlineMeterColumns.measure(listing.compactMap(\.pluginRow))
         ForEach(listing) { listed in
             switch listed {
             case .loading:
@@ -206,7 +207,7 @@ private struct LeoPluginSectionRowsView: View {
             case .notice(let message):
                 statusRow { Text(message).lineLimit(2) }
             case .row(let row):
-                LeoPluginSectionRowView(row: row, labelColumn: labelColumn) { action in
+                LeoPluginSectionRowView(row: row, labelColumn: labelColumn, inlineColumns: inlineColumns) { action in
                     surfaces.perform(action, gesture: mint.mint(.click), in: key)
                 }
             }
@@ -240,8 +241,9 @@ struct LeoPluginSectionNodeRows: View {
     var body: some View {
         let rows = LeoPluginSectionRows.layout(from: nodes).rows
         let labelColumn = LeoPluginSectionMeter.labelColumn(for: rows)
+        let inlineColumns = LeoPluginInlineMeterColumns.measure(rows)
         ForEach(rows) { row in
-            LeoPluginSectionRowView(row: row, labelColumn: labelColumn, perform: perform)
+            LeoPluginSectionRowView(row: row, labelColumn: labelColumn, inlineColumns: inlineColumns, perform: perform)
         }
     }
 }
@@ -250,6 +252,7 @@ struct LeoPluginSectionNodeRows: View {
 private struct LeoPluginSectionRowView: View {
     let row: LeoPluginSectionRows.Row
     let labelColumn: CGFloat?
+    var inlineColumns: LeoPluginInlineMeterColumns?
     let perform: (LeoPluginAction) -> Void
 
     var body: some View {
@@ -270,7 +273,7 @@ private struct LeoPluginSectionRowView: View {
                 }
             }
         case .group(_, let group):
-            LeoPluginSectionGroupRow(group: group, labelColumn: labelColumn, perform: perform)
+            LeoPluginSectionGroupRow(group: group, labelColumn: labelColumn, inlineColumns: inlineColumns, perform: perform)
         case .meter(_, let meter):
             LeoPluginSectionMeterRow(meter: meter, labelColumn: labelColumn)
         case .action(_, let labeled):
