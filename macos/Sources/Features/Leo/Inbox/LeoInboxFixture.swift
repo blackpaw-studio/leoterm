@@ -28,7 +28,17 @@ struct LeoInboxFixture: Decodable {
             let context: String?
         }
 
+        struct Brief: Decodable {
+            let goal: String?
+            let status: String?
+            let decisions: [String]?
+            let open: [String]?
+            /// Seconds before now the brief was written.
+            let ageSeconds: Int?
+        }
+
         let name: String
+        let brief: Brief?
         let host: String?
         let project: String?
         let state: String
@@ -66,8 +76,14 @@ struct LeoInboxFixture: Decodable {
                 LeoAttentionReason.Kind(rawValue: reason.kind).map { LeoAttentionReason(kind: $0, tool: reason.tool, detail: reason.detail) }
             }
             let signal = LeoAttentionSignal(state: state, revision: index + 1, reason: reason, preview: agent.preview, at: at)
+            let brief = agent.brief.map {
+                LeoAgentBrief(
+                    goal: $0.goal, status: $0.status, decisions: $0.decisions ?? [], open: $0.open ?? [],
+                    updatedAt: now.addingTimeInterval(-TimeInterval($0.ageSeconds ?? 0))
+                )
+            }
             agents.append(LeoInboxAgent(
-                id: id, name: agent.name, machine: LeoInboxAgents.machineName(host), project: agent.project, signal: signal
+                id: id, name: agent.name, machine: LeoInboxAgents.machineName(host), project: agent.project, signal: signal, brief: brief
             ))
             if agent.read == true { seen.markSeen(id, at: at, revision: index + 1, bootID: nil, now: now) }
             if let ask = agent.ask { messages += Self.messages(for: ask, agent: agent.name, at: at) }

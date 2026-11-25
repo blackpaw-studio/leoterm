@@ -15,6 +15,9 @@ struct LeoInboxDetail: View {
             VStack(alignment: .leading, spacing: 18) {
                 header
                 content
+                if let brief = LeoAgentBriefPresentation(brief: item.brief, lastActivity: item.at, now: Date()) {
+                    LeoInboxBriefPanel(brief: brief)
+                }
                 if item.moreCount > 0 {
                     Text("\(item.moreCount) more waiting from this agent")
                         .font(.callout)

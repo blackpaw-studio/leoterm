@@ -64,6 +64,10 @@ struct LeoDaemonView: View {
             Divider()
             switch model.section {
             case .service:
+                if model.isBriefAvailable {
+                    LeoAgentBriefSetting(model: model, brief: model.brief, machine: machine, restart: restart)
+                    Divider()
+                }
                 if let service { LeoServiceView(model: service, machine: machine) }
             case .web:
                 LeoConfigSingletonView(model: model.web, machine: machine, restart: restart)
