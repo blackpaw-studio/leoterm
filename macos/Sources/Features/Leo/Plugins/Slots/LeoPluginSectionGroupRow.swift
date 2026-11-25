@@ -63,7 +63,7 @@ struct LeoPluginSectionGroupRow: View {
 
     @ViewBuilder private var children: some View {
         if group.meterLayout == .inline {
-            LeoPluginInlineMeterChildren(children: group.children, columns: inlineColumns)
+            LeoPluginInlineMeterChildren(children: group.children, columns: inlineColumns, stackedLabelColumn: labelColumn)
         } else {
             ForEach(Array(group.children.enumerated()), id: \.offset) { _, child in
                 switch child {
