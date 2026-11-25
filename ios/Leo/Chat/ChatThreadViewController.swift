@@ -37,6 +37,11 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
     private let terminalButton = UIBarButtonItem(image: UIImage(systemName: "terminal"))
     private let titleView = ChatThreadTitleView()
     private let stripView = TerminalStripView()
+    private let briefHeader = ChatBriefHeaderView()
+    /// The list starts under the Brief header while there is one, else at the top of the screen.
+    private var collectionTopToView: NSLayoutConstraint!
+    private var collectionTopToBrief: NSLayoutConstraint!
+    private var briefCollapsed: NSLayoutConstraint!
     private let stripEmulator = StripEmulator()
     @Dependency(\.terminalStripOutput) private var stripOutput
     private var stripTask: Task<Void, Never>?
@@ -101,15 +106,23 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         stripView.onTap = { [weak self] in self?.store.send(.terminalButtonTapped) }
         stripView.onRetry = { [weak self] in self?.store.send(.strip(.terminal(.retryButtonTapped))) }
         stripView.onHide = { [weak self] in self?.store.send(.strip(.toggleTapped)) }
-        for subview in [collectionView, bottom, stripView] as [UIView] {
+        briefHeader.onToggle = { [weak self] in self?.store.send(.briefToggled) }
+        briefHeader.isHidden = true
+        for subview in [collectionView, bottom, briefHeader, stripView] as [UIView] {
             subview.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(subview)
         }
+        collectionTopToView = collectionView.topAnchor.constraint(equalTo: view.topAnchor)
+        collectionTopToBrief = collectionView.topAnchor.constraint(equalTo: briefHeader.bottomAnchor)
+        briefCollapsed = briefHeader.heightAnchor.constraint(equalToConstant: 0)
         NSLayoutConstraint.activate([
-            stripView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Self.stripMargin),
+            collectionTopToView, briefCollapsed,
+            briefHeader.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            briefHeader.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            briefHeader.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            stripView.topAnchor.constraint(equalTo: briefHeader.bottomAnchor, constant: Self.stripMargin),
             stripView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             stripView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
-            collectionView.topAnchor.constraint(equalTo: view.topAnchor),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             collectionView.bottomAnchor.constraint(equalTo: bottom.topAnchor),
@@ -192,6 +205,7 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         title = store.displayName
         titleView.configure(agentName: store.agentName, displayName: store.displayName, agent: store.agent, daemonName: store.daemon.name)
         renderReplyBanner()
+        renderBrief()
         renderStrip()
         renderMoreMenu()
 
@@ -273,6 +287,23 @@ final class ChatThreadViewController: UIViewController, UICollectionViewDelegate
         case .notRunning: .notRunning
         case .disconnected, .revoked: .unavailable
         }
+    }
+
+    private func renderBrief() {
+        let rows = AgentBriefRows.make(store.agent?.briefPresentation())
+        let hasBrief = !rows.isEmpty
+        briefHeader.isHidden = !hasBrief
+        // Deactivate before activating, so two tops never hold at once.
+        if hasBrief {
+            briefCollapsed.isActive = false
+            collectionTopToView.isActive = false
+            collectionTopToBrief.isActive = true
+        } else {
+            collectionTopToBrief.isActive = false
+            briefCollapsed.isActive = true
+            collectionTopToView.isActive = true
+        }
+        if hasBrief { briefHeader.configure(rows: rows, isExpanded: store.isBriefExpanded) }
     }
 
     private func renderStrip() {

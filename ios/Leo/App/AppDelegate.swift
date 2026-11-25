@@ -20,6 +20,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if MoveFixture.isRequested { prepareDependencies { MoveFixture.prepare(&$0) } }
         if ProgressFixture.isRequested { prepareDependencies { ProgressFixture.prepare(&$0) } }
         if BrowserFixture.isRequested { prepareDependencies { BrowserFixture.prepare(&$0) } }
+        if BriefFixture.isRequested { prepareDependencies { BriefFixture.prepare(&$0) } }
         let isBrowserFixture = BrowserFixture.isRequested
         #else
         let isBrowserFixture = false
@@ -54,6 +55,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         if AppearanceFixture.isRequested { AppearanceFixture.open(Self.store) }
         if ProgressFixture.isRequested { ProgressFixture.open(Self.store) }
         if BrowserFixture.isRequested { BrowserFixture.open(Self.store) }
+        if BriefFixture.isRequested { BriefFixture.open(Self.store) }
         // `-startTab agents`: launches on that tab, for screenshots.
         let arguments = ProcessInfo.processInfo.arguments
         if let flag = arguments.firstIndex(of: "-startTab"), arguments.indices.contains(flag + 1),

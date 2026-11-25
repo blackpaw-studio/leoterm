@@ -18,11 +18,12 @@ extension PairedDaemon {
 extension LeoObservedAgent {
     static func make(
         _ name: String, status: LeoAgentStatus = .running, activity: LeoActivity = .idle,
-        attention: LeoAttentionSignal? = nil, harness: String? = "claude", startedAt: String? = nil
+        attention: LeoAttentionSignal? = nil, harness: String? = "claude", startedAt: String? = nil,
+        brief: LeoAgentBrief? = nil
     ) -> LeoObservedAgent {
         LeoObservedAgent(
             name: name, status: status, activity: activity, currentAction: nil, lastActivityAt: nil,
-            attention: attention, startedAt: startedAt, template: "coding", harness: harness
+            attention: attention, startedAt: startedAt, template: "coding", harness: harness, brief: brief
         )
     }
 }

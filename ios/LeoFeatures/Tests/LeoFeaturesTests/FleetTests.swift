@@ -484,3 +484,68 @@ struct FleetTests {
         await store.receive(\.snapshotLoaded) { $0.sessions[0].agents = [Agent(moved)] }
     }
 }
+
+@MainActor
+struct FleetBriefTests {
+    private static let brief = LeoAgentBrief(goal: "Ship it", status: "Waiting on CI")
+
+    private func connected(snapshot: @escaping @Sendable () -> LeoObservedState) async -> (TestStoreOf<Fleet>, StreamQueue) {
+        let streams = StreamQueue(count: 1)
+        let store = TestStore(initialState: Fleet.State(daemons: [.dionysus])) {
+            Fleet()
+        } withDependencies: {
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.daemonClient.events = { streams.next($0) }
+            $0.daemonClient.fetchState = { _ in snapshot() }
+        }
+        let id = PairedDaemon.dionysus.id
+        await store.send(.scenePhaseChanged(isActive: true)) {
+            $0.isActive = true
+            $0.sessions[id: id]?.connection = .connecting
+        }
+        streams[0].yield(.hello(seq: 1, at: nil, version: "0.90.0", serverTime: nil))
+        await store.receive(\.connected) {
+            $0.sessions[id: id]?.connection = .connected
+            $0.sessions[id: id]?.agents = [Agent(.make("zeus"))]
+        }
+        return (store, streams)
+    }
+
+    @Test func aBriefEventSetsAndClearsTheAgentsBrief() async {
+        let id = PairedDaemon.dionysus.id
+        let (store, streams) = await connected { LeoObservedState(agents: [.make("zeus")]) }
+        streams[0].yield(.agentBrief(seq: 2, at: nil, agent: "zeus", brief: Self.brief))
+        await store.receive(\.eventReceived) { $0.sessions[id: id]?.agents[id: "zeus"]?.brief = Self.brief }
+        streams[0].yield(.agentBrief(seq: 3, at: nil, agent: "zeus", brief: nil))
+        await store.receive(\.eventReceived) { $0.sessions[id: id]?.agents[id: "zeus"]?.brief = nil }
+        await store.send(.scenePhaseChanged(isActive: false)) {
+            $0.isActive = false
+            $0.sessions[id: id]?.connection = .offline
+        }
+    }
+
+    @Test func switchingBriefsOffClearsEveryBriefAndOnRefetches() async {
+        let id = PairedDaemon.dionysus.id
+        let withBrief = LeoObservedAgent.make("zeus", brief: Self.brief)
+        let fetched = LockIsolated(0)
+        let served = LockIsolated(LeoObservedState(agents: [.make("zeus")]))
+        let (store, streams) = await connected { fetched.withValue { $0 += 1 }; return served.value }
+        fetched.setValue(0)
+        streams[0].yield(.agentBrief(seq: 2, at: nil, agent: "zeus", brief: Self.brief))
+        await store.receive(\.eventReceived) { $0.sessions[id: id]?.agents[id: "zeus"]?.brief = Self.brief }
+
+        streams[0].yield(.briefConfigChanged(seq: 3, enabled: false))
+        await store.receive(\.eventReceived) { $0.sessions[id: id]?.agents[id: "zeus"]?.brief = nil }
+
+        served.setValue(LeoObservedState(agents: [withBrief]))
+        streams[0].yield(.briefConfigChanged(seq: 4, enabled: true))
+        await store.receive(\.eventReceived)
+        await store.receive(\.snapshotLoaded) { $0.sessions[id: id]?.agents[id: "zeus"]?.brief = Self.brief }
+        #expect(fetched.value == 1)
+
+        await store.send(.scenePhaseChanged(isActive: false)) {
+            $0.isActive = false
+            $0.sessions[id: id]?.connection = .offline
+        }
+    }
+}

@@ -36,6 +36,8 @@ public struct ChatThread {
         public var hasMore = false
         public var isLoading = false
         public var isLoadingOlder = false
+        /// The Brief header above the messages is open. Per thread, so another agent starts collapsed.
+        public var isBriefExpanded = false
         /// Whether the thread is on screen (drives read marks and banner
         /// suppression).
         public var isOnScreen = false
@@ -129,6 +131,7 @@ public struct ChatThread {
         case askTextChanged(messageID: String, String)
         case attachmentNeeded(LeoChatAttachment)
         case attachmentResponse(id: String, Result<URL, any Error>)
+        case briefToggled
         case chatEvent(LeoChatEvent)
         case composer(Composer.Action)
         /// The header's Info button; the app root opens the agent's detail.
@@ -245,6 +248,10 @@ public struct ChatThread {
 
             case .attachmentResponse(let id, .failure(let error)):
                 state.attachmentFiles[id] = .failed(error.localizedDescription)
+                return .none
+
+            case .briefToggled:
+                state.isBriefExpanded.toggle()
                 return .none
 
             case .chatEvent(let event):

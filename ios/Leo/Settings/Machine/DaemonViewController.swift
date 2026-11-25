@@ -11,7 +11,12 @@ final class DaemonViewController: UIViewController, UICollectionViewDelegate {
     @UIBindable private var store: StoreOf<DaemonSettings>
     private let restart: StoreOf<MachineRestart>
     private lazy var collectionView = UICollectionView(frame: .zero, collectionViewLayout: Self.makeLayout())
-    private var dataSource: UICollectionViewDiffableDataSource<Int, LeoDaemonPane.Section>!
+    private enum Item: Hashable {
+        case section(LeoDaemonPane.Section)
+        case briefSwitch
+    }
+
+    private var dataSource: UICollectionViewDiffableDataSource<Int, Item>!
 
     init(store: StoreOf<DaemonSettings>, restart: StoreOf<MachineRestart>) {
         self.store = store
@@ -39,9 +44,23 @@ final class DaemonViewController: UIViewController, UICollectionViewDelegate {
         ])
         configureDataSource()
         bindDestinations()
-        var snapshot = NSDiffableDataSourceSnapshot<Int, LeoDaemonPane.Section>()
+        present(item: $store.scope(state: \.alert, action: \.alert)) { store in
+            UIAlertController(store: store)
+        }
+        observe { [weak self] in self?.render() }
+        store.send(.task)
+    }
+
+    private func render() {
+        var snapshot = NSDiffableDataSourceSnapshot<Int, Item>()
         snapshot.appendSections([0])
-        snapshot.appendItems(store.sections)
+        snapshot.appendItems(store.sections.map(Item.section), toSection: 0)
+        // Hidden until the switch's value is read, and for daemons without the feature.
+        if store.supportsBrief, store.isBriefEnabled != nil {
+            snapshot.appendSections([1])
+            snapshot.appendItems([.briefSwitch], toSection: 1)
+        }
+        snapshot.reconfigureItems(snapshot.itemIdentifiers)
         dataSource.apply(snapshot, animatingDifferences: false)
     }
 
@@ -77,14 +96,35 @@ final class DaemonViewController: UIViewController, UICollectionViewDelegate {
             cell.accessories = [.disclosureIndicator()]
             cell.accessibilityIdentifier = "daemon.section.\(section.rawValue)"
         }
-        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, section in
-            collectionView.dequeueConfiguredReusableCell(using: row, for: indexPath, item: section)
+        let briefRow = UICollectionView.CellRegistration<UICollectionViewListCell, Item> { [weak self] cell, _, _ in
+            guard let self else { return }
+            var content = UIListContentConfiguration.cell()
+            content.text = String(localized: "Agent briefs")
+            content.secondaryText = DaemonSettings.briefHelp
+            content.image = UIImage(systemName: "text.badge.checkmark")
+            cell.contentConfiguration = content
+            let toggle = UISwitch()
+            toggle.isOn = store.isBriefEnabled ?? false
+            toggle.isEnabled = !store.isBriefSaving
+            toggle.accessibilityIdentifier = "daemon.briefs.switch"
+            toggle.addAction(UIAction { [weak self, weak toggle] _ in
+                guard let toggle else { return }
+                self?.store.send(.briefToggled(toggle.isOn))
+            }, for: .valueChanged)
+            cell.accessories = [.customView(configuration: .init(customView: toggle, placement: .trailing()))]
+            cell.accessibilityIdentifier = "daemon.briefs"
+        }
+        dataSource = UICollectionViewDiffableDataSource(collectionView: collectionView) { collectionView, indexPath, item in
+            switch item {
+            case .section(let section): collectionView.dequeueConfiguredReusableCell(using: row, for: indexPath, item: section)
+            case .briefSwitch: collectionView.dequeueConfiguredReusableCell(using: briefRow, for: indexPath, item: item)
+            }
         }
     }
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         collectionView.deselectItem(at: indexPath, animated: true)
-        guard let section = dataSource.itemIdentifier(for: indexPath) else { return }
+        guard case .section(let section)? = dataSource.itemIdentifier(for: indexPath) else { return }
         store.send(.sectionTapped(section))
     }
 }

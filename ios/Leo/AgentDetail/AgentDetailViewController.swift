@@ -6,7 +6,7 @@ import UIKitNavigation
 /// One agent: live state, environment, actions, and what's coming next.
 final class AgentDetailViewController: UIViewController, UICollectionViewDelegate {
     private enum Section: Int, CaseIterable {
-        case header, claude, tasks, live, status, environment, move, actions
+        case header, claude, brief, tasks, live, status, environment, move, actions
     }
 
     private enum Row: Hashable {
@@ -18,6 +18,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         case chat, terminal, browser
         case move(MoveRow)
         case task(String)
+        case brief(Int)
     }
 
     /// B-324: the Move section's rows.
@@ -53,6 +54,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
     private var dataSource: UICollectionViewDiffableDataSource<Section, Row>!
     private var values: [String: (label: String, value: String, tint: UIColor?)] = [:]
     private var lastTappedIndexPath: IndexPath?
+    private var briefRows: [AgentBriefRow] = []
 
     init(store: StoreOf<AgentDetail>) {
         self.store = store
@@ -108,7 +110,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in self?.dismissAction(at: indexPath) }
             let section = Section(rawValue: index)
-            let titled: Set<Section> = [.tasks, .status, .environment, .move, .actions]
+            let titled: Set<Section> = [.brief, .tasks, .status, .environment, .move, .actions]
             configuration.headerMode = section.map(titled.contains) == true ? .supplementary : .none
             let layout = NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
             if section == .header {
@@ -134,6 +136,7 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         let sectionHeader = UICollectionView.SupplementaryRegistration<UICollectionViewListCell>(elementKind: UICollectionView.elementKindSectionHeader) { view, _, indexPath in
             var content = UIListContentConfiguration.header()
             content.text = switch Section(rawValue: indexPath.section) {
+            case .brief: String(localized: "Brief")
             case .tasks: String(localized: "Tasks")
             case .status: String(localized: "Status")
             case .environment: String(localized: "Environment")
@@ -159,6 +162,29 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         switch row {
         case .header, .task:
             return
+        case .brief(let index):
+            guard briefRows.indices.contains(index) else { return }
+            let brief = briefRows[index]
+            var content = UIListContentConfiguration.subtitleCell()
+            content.prefersSideBySideTextAndSecondaryText = false
+            content.textToSecondaryTextVerticalPadding = 2
+            if brief.kind == .updated {
+                content = .cell()
+                content.text = brief.text
+                content.textProperties.font = .preferredFont(forTextStyle: .footnote)
+                content.textProperties.color = brief.isMuted ? .tertiaryLabel : .secondaryLabel
+            } else {
+                // Title above, text below: the text is what the reader came for.
+                content.text = brief.kind.title
+                content.textProperties.font = .preferredFont(forTextStyle: .caption1)
+                content.textProperties.color = .secondaryLabel
+                content.secondaryText = brief.text
+                content.secondaryTextProperties.font = .preferredFont(forTextStyle: .body)
+                content.secondaryTextProperties.color = .label
+                content.secondaryTextProperties.numberOfLines = 0
+            }
+            cell.contentConfiguration = content
+            cell.accessibilityIdentifier = "agent.brief.\(index)"
         case .openInClaude:
             var content = UIListContentConfiguration.cell()
             content.image = UIImage(systemName: "arrow.up.forward.app.fill")
@@ -324,6 +350,8 @@ final class AgentDetailViewController: UIViewController, UICollectionViewDelegat
         snapshot.appendItems([.header], toSection: .header)
         if agent.opensInClaude, !agent.isMoved { snapshot.appendItems([.openInClaude], toSection: .claude) }
         snapshot.appendItems([.chat, .terminal] + (store.showsBrowser && !agent.isMoved ? [.browser] : []), toSection: .live)
+        briefRows = AgentBriefRows.make(agent.briefPresentation())
+        snapshot.appendItems(briefRows.indices.map(Row.brief), toSection: .brief)
         snapshot.appendItems(agent.tasks.map { .task($0.id) }, toSection: .tasks)
         snapshot.appendItems(rows.map { .value($0.key) }, toSection: .status)
         snapshot.appendItems(environmentRows.map { .value($0.key) } + (agent.isMoved ? [] : [.switchEnvironment]), toSection: .environment)
