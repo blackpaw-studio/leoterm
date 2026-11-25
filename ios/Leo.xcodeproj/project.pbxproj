@@ -74,6 +74,7 @@
 		691FAB10CBE4FEDE4BF0FF85 /* TaskHistoryViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8702DD90379197184ED18E /* TaskHistoryViewController.swift */; };
 		6A623ECE41CA225A9A1EE4BD /* progress_fixture.json in Resources */ = {isa = PBXBuildFile; fileRef = 7C7F37949F1B736D10A486E4 /* progress_fixture.json */; };
 		6AD426790811463F508E8740 /* ConfigBanners.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8CB022F0DC686D52A30AFFA /* ConfigBanners.swift */; };
+		6AD7F649E5DE505446E721E0 /* ChatBriefHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 808ACB070357AC2F526795EE /* ChatBriefHeaderView.swift */; };
 		6B3F6C3A8FDF1D872BB68026 /* AttachmentPickerDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */; };
 		6BBEF92458BB21F5A206EE07 /* AgentDetailViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C90AC43D9476285D3D1C5BF5 /* AgentDetailViewController.swift */; };
 		6DE00E67AA520465482EBB49 /* LeoPolling.swift in Sources */ = {isa = PBXBuildFile; fileRef = E436CDEC33A74B3075E044FE /* LeoPolling.swift */; };
@@ -88,6 +89,7 @@
 		7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */; };
 		80559A0BD2BAE4877B6A5995 /* DaemonViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80E3274DBD24B71FE785DF4D /* DaemonViewController.swift */; };
 		81C7612D440AA87361720BEE /* LeoSettingsE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AA9DE1815D6F011A55F47AC /* LeoSettingsE2ETests.swift */; };
+		8329CCADE5B729054E409675 /* AgentBriefStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C25B8FFBC3C80865C16CF7F6 /* AgentBriefStyle.swift */; };
 		853C84CD4D7A533FCB9755A1 /* DaemonsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */; };
 		856177A341DE4C84ED12AE35 /* DelegationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ED7BE18BB00689CF6C934CD /* DelegationViewController.swift */; };
 		85F958A7109376941A49B5C1 /* ChatQuestionsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5467E07FF8706EAA9E043C85 /* ChatQuestionsCard.swift */; };
@@ -139,6 +141,7 @@
 		D880CE673551A008F8CAF71C /* NoHistoryBackBarButtonItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C05504ADCDC7565C373DF7F /* NoHistoryBackBarButtonItem.swift */; };
 		DBA634BDA3B7C6688C6216F3 /* PushClientLive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57636A050F83D8C255CD37DB /* PushClientLive.swift */; };
 		DD8021B4BBC9BF41E43CD1E8 /* TaskPanelViewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F5519992F268DDD43A627F5 /* TaskPanelViewTests.swift */; };
+		DF36DBFE0375DE2E47A8FF2D /* BriefFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7C4AD20805157922DF4FC7 /* BriefFixture.swift */; };
 		DF6972AB8409A39BF38BF683 /* LeoNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 4C9E7687201F50B6862AC453 /* LeoNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E092B1F2FD246F8984A737F6 /* MachineCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93C6F25CCCD87641CD218A9C /* MachineCell.swift */; };
 		E30C2494BA45B309CA10BD07 /* LeoIOSBrowserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B56BE8D340E5B21C286BEA8 /* LeoIOSBrowserTests.swift */; };
@@ -237,6 +240,7 @@
 		35CC91E2C136D84061F083BB /* AppearanceFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceFixture.swift; sourceTree = "<group>"; };
 		36770E26AC7E79990AFA6F96 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		38482350857C026362E8F7EE /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
+		3C7C4AD20805157922DF4FC7 /* BriefFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefFixture.swift; sourceTree = "<group>"; };
 		3D066856306A48A2C49D8EB4 /* ConfigGolden.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGolden.swift; sourceTree = "<group>"; };
 		3DA0E5E0C53E2C4903BD7D1D /* ChatInboxCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInboxCardView.swift; sourceTree = "<group>"; };
 		3E30B7AA5EE2B1BCEA80F489 /* DaemonsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonsViewController.swift; sourceTree = "<group>"; };
@@ -283,6 +287,7 @@
 		7DF3E4D91083291F99E925A1 /* SettingsFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFixture.swift; sourceTree = "<group>"; };
 		7ED7BE18BB00689CF6C934CD /* DelegationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DelegationViewController.swift; sourceTree = "<group>"; };
 		7FD870297E92A050DCBF5C6C /* SelectionSplitViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelectionSplitViewController.swift; sourceTree = "<group>"; };
+		808ACB070357AC2F526795EE /* ChatBriefHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatBriefHeaderView.swift; sourceTree = "<group>"; };
 		80E3274DBD24B71FE785DF4D /* DaemonViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DaemonViewController.swift; sourceTree = "<group>"; };
 		814B887B4D27ECED43048979 /* ServiceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceViewController.swift; sourceTree = "<group>"; };
 		841E8494F49152B0FF0A07A8 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -330,6 +335,7 @@
 		BE45FDF5272832A5443C1236 /* AgentAppearanceViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentAppearanceViewController.swift; sourceTree = "<group>"; };
 		C0D9A1F7848ADA6B35BFA29E /* LeoAppearancePalette+UIKit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LeoAppearancePalette+UIKit.swift"; sourceTree = "<group>"; };
 		C24A3AA43CAD3D033B9D6E5C /* SchemaFormHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaFormHost.swift; sourceTree = "<group>"; };
+		C25B8FFBC3C80865C16CF7F6 /* AgentBriefStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentBriefStyle.swift; sourceTree = "<group>"; };
 		C6AF6DEE35A5F6470895E567 /* LeoAppearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoAppearanceTests.swift; sourceTree = "<group>"; };
 		C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoChatPasteTests.swift; sourceTree = "<group>"; };
 		C857AD83FD8CECA32A4AB586 /* LeoChatMarkdownViewerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoChatMarkdownViewerTests.swift; sourceTree = "<group>"; };
@@ -464,6 +470,7 @@
 				940CC90120F06C83AB4A2623 /* AgentsSplitViewController.swift */,
 				FD0798F4619AB2A887324F77 /* AppDelegate.swift */,
 				35CC91E2C136D84061F083BB /* AppearanceFixture.swift */,
+				3C7C4AD20805157922DF4FC7 /* BriefFixture.swift */,
 				1748556E60A9506A5B900C93 /* BrowserFixture.swift */,
 				93DE95F40C18C29D8CFBEE67 /* ChatImagesFixture.swift */,
 				91A27542FA12CEA4CBD545FA /* ChatMarkdownFixture.swift */,
@@ -653,6 +660,7 @@
 				DDDA7EFA213B93F69799839F /* AttachmentPickerDelegate.swift */,
 				CE83AB0F7C602D5245597AC2 /* ChatAskControls.swift */,
 				F2C02AB34B304D32494126D8 /* ChatBodyTextView.swift */,
+				808ACB070357AC2F526795EE /* ChatBriefHeaderView.swift */,
 				EABF66CB1EE1C883F7930FFD /* ChatBubbleView.swift */,
 				BACD0009A27F38FB8F821813 /* ChatClientsLive.swift */,
 				5FCCE0C2472AD422980F10BB /* ChatImagePageController.swift */,
@@ -678,6 +686,7 @@
 		A3C1D14FC1F5221C14272245 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				C25B8FFBC3C80865C16CF7F6 /* AgentBriefStyle.swift */,
 				2A3E500114C72A2CED014F5E /* AgentPresentation.swift */,
 				43506FF3FA25A10BE3474CA0 /* DetailLineFit.swift */,
 				238A0EF95E58F7CF1A40AB89 /* Info.plist */,
@@ -1063,6 +1072,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2F9F70D4F52ECF68E09E4D87 /* AgentAppearanceViewController.swift in Sources */,
+				8329CCADE5B729054E409675 /* AgentBriefStyle.swift in Sources */,
 				36A4C7AB1EA47A1A79A10EDF /* AgentBrowserApp.swift in Sources */,
 				424322E5D9DCC9553EA53950 /* AgentBrowserBars.swift in Sources */,
 				54D13B82C8092F1649A6481F /* AgentBrowserViewController.swift in Sources */,
@@ -1078,9 +1088,11 @@
 				674544CF6B9EBF24D05A110B /* AppearanceCells.swift in Sources */,
 				B960CCF835C7AFB147EF9C18 /* AppearanceFixture.swift in Sources */,
 				6B3F6C3A8FDF1D872BB68026 /* AttachmentPickerDelegate.swift in Sources */,
+				DF36DBFE0375DE2E47A8FF2D /* BriefFixture.swift in Sources */,
 				17B64C906E62DAC38A190468 /* BrowserFixture.swift in Sources */,
 				B5F6A59C7F45752F8442B7A4 /* ChatAskControls.swift in Sources */,
 				8E6B64BFDF8CA023C70F3378 /* ChatBodyTextView.swift in Sources */,
+				6AD7F649E5DE505446E721E0 /* ChatBriefHeaderView.swift in Sources */,
 				B08EEED0063368B5C7435B51 /* ChatBubbleView.swift in Sources */,
 				B6440DBB047A78339AE73B85 /* ChatClientsLive.swift in Sources */,
 				507B10B4B682437690E21414 /* ChatImagePageController.swift in Sources */,

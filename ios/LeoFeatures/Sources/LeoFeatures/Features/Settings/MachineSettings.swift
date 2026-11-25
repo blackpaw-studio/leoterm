@@ -183,7 +183,7 @@ public struct MachineSettings {
                 case .tasks: .tasks(TaskSettings.State(daemon: daemon, connection: connection))
                 case .delegation: .delegation(DelegationSettings.State(daemon: daemon, connection: connection))
                 case .defaults: .defaults(ConfigSingleton.State(resource: row.rawValue, daemon: daemon, connection: connection))
-                case .daemon: .daemon(DaemonSettings.State(daemon: daemon, connection: connection))
+                case .daemon: .daemon(DaemonSettings.State(daemon: daemon, connection: connection, supportsBrief: state.link.features.contains(.agentBrief)))
                 }
                 return .none
             }

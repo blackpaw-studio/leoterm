@@ -39,6 +39,8 @@ public struct Agent: Equatable, Identifiable, Sendable {
     public var taskETAs: [String: Date] = [:]
     /// The agent's own summary of its work (`agent_brief`); nil when none, off or withheld.
     public var brief: LeoAgentBrief?
+    /// When the agent last did anything (ISO 8601), from `/state`; compared with a brief's age.
+    public var lastActivityAt: String?
 
     /// What the user sees: `display_name` when set, else `name`. `name` stays
     /// the identifier for API calls, refs, and persistence.
@@ -51,7 +53,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         attention: LeoAttentionSignal? = nil, template: String? = nil, harness: String? = nil,
         environments: LeoAgentEnvironments? = nil, appearance: LeoAgentAppearance? = nil, startedAt: String? = nil,
         movedTo: String? = nil, movedAt: String? = nil, displayName: String? = nil, tasks: [LeoAgentTask] = [],
-        brief: LeoAgentBrief? = nil
+        brief: LeoAgentBrief? = nil, lastActivityAt: String? = nil
     ) {
         self.name = name
         self.status = status
@@ -68,6 +70,7 @@ public struct Agent: Equatable, Identifiable, Sendable {
         daemonDisplayName = displayName
         self.tasks = tasks
         self.brief = brief
+        self.lastActivityAt = lastActivityAt
     }
 
     public init(_ observed: LeoObservedAgent) {
@@ -76,7 +79,8 @@ public struct Agent: Equatable, Identifiable, Sendable {
             attention: observed.attention, template: observed.template, harness: observed.harness,
             environments: observed.environments, appearance: observed.appearance, startedAt: observed.startedAt,
             movedTo: observed.movedTo, movedAt: observed.movedAt,
-            displayName: observed.daemonDisplayName, tasks: observed.tasks, brief: observed.brief
+            displayName: observed.daemonDisplayName, tasks: observed.tasks, brief: observed.brief,
+            lastActivityAt: observed.lastActivityAt
         )
     }
 

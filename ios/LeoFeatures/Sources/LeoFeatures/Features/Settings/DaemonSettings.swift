@@ -25,11 +25,20 @@ public struct DaemonSettings {
     public struct State: Equatable {
         public let daemon: PairedDaemon
         public let connection: DaemonConnection
+        /// The daemon advertises `agent_brief`; the switch is hidden otherwise.
+        public let supportsBrief: Bool
+        /// `brief.enabled`; nil until read.
+        public var isBriefEnabled: Bool?
+        /// The revision `brief.enabled` was read at; a write sends it as `If-Match`.
+        public var briefRevision: String?
+        public var isBriefSaving = false
+        @Presents public var alert: AlertState<Never>?
         @Presents public var destination: Destination.State?
 
-        public init(daemon: PairedDaemon, connection: DaemonConnection) {
+        public init(daemon: PairedDaemon, connection: DaemonConnection, supportsBrief: Bool = false) {
             self.daemon = daemon
             self.connection = connection
+            self.supportsBrief = supportsBrief
         }
 
         public var sections: [LeoDaemonPane.Section] { LeoDaemonPane.Section.allCases }
@@ -37,6 +46,11 @@ public struct DaemonSettings {
 
     public enum Action {
         case sectionTapped(LeoDaemonPane.Section)
+        case task
+        case alert(PresentationAction<Never>)
+        case briefLoaded(Result<LeoConfigDocument, any Error>)
+        case briefToggled(Bool)
+        case briefSaved(Result<LeoConfigWriteResult, any Error>)
         /// The client's default host, read when Hosts opens, for its delete question.
         case defaultHostRead(String?)
         case destination(PresentationAction<Destination.Action>)
@@ -59,6 +73,8 @@ public struct DaemonSettings {
 
     @Dependency(\.configClients) var configClients
 
+    public static let briefHelp = String(localized: "Agents keep a short summary of their work. Uses a few tokens when it changes.")
+
     public init() {}
 
     public static func title(for section: LeoDaemonPane.Section) -> String {
@@ -75,6 +91,55 @@ public struct DaemonSettings {
             switch action {
             case .sectionTapped(let section):
                 return open(section, &state)
+
+            case .task:
+                guard state.supportsBrief else { return .none }
+                return loadBrief(state)
+
+            case .alert:
+                return .none
+
+            case .briefLoaded(.success(let document)):
+                state.isBriefEnabled = document.values[LeoAgentBriefWire.enabledField]?.boolValue ?? false
+                state.briefRevision = document.revision
+                return .none
+
+            case .briefLoaded(.failure):
+                // Leave the switch as it was; the next visit reads again.
+                return .none
+
+            case .briefToggled(let isOn):
+                guard state.supportsBrief, !state.isBriefSaving, let revision = state.briefRevision else { return .none }
+                state.isBriefSaving = true
+                let client = configClients.client(state.connection)
+                let revisions = configClients.revisions(state.daemon.id)
+                return .run { send in
+                    await send(.briefSaved(Result {
+                        let result = try await client.update(
+                            LeoAgentBriefWire.configResource, name: nil,
+                            patch: [LeoAgentBriefWire.enabledField: .bool(isOn)], ifMatch: revisions.resolve(revision)
+                        )
+                        revisions.recordWrite(from: revision, to: result.revision)
+                        return result
+                    }))
+                }
+
+            case .briefSaved(.success(let result)):
+                state.isBriefSaving = false
+                state.briefRevision = result.revision
+                // The write carried the requested value; read it back so the switch shows what the machine holds.
+                return loadBrief(state)
+
+            case .briefSaved(.failure(let error)):
+                state.isBriefSaving = false
+                let machine = state.daemon.name
+                let isConflict = (error as? LeoConfigError).map { if case .conflict = $0 { true } else { false } } ?? false
+                state.alert = AlertState {
+                    TextState(isConflict ? "Settings changed" : "Couldn’t save")
+                } message: {
+                    TextState(isConflict ? "Agent briefs changed on \(machine) since you opened this. Showing its current setting." : error.localizedDescription)
+                }
+                return loadBrief(state)
 
             case .defaultHostRead(let host):
                 guard case .hosts(var hosts)? = state.destination else { return .none }
@@ -98,7 +163,15 @@ public struct DaemonSettings {
                 return .none
             }
         }
+        .ifLet(\.$alert, action: \.alert)
         .ifLet(\.$destination, action: \.destination)
+    }
+
+    private func loadBrief(_ state: State) -> Effect<Action> {
+        let client = configClients.client(state.connection)
+        return .run { send in
+            await send(.briefLoaded(Result { try await client.document(LeoAgentBriefWire.configResource) }))
+        }
     }
 
     private func open(_ section: LeoDaemonPane.Section, _ state: inout State) -> Effect<Action> {

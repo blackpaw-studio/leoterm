@@ -15,6 +15,7 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     private static func rootViewController() -> UIViewController {
         #if DEBUG
+        if BriefFixture.isSettingsRequested { return BriefFixture.settingsRoot() }
         if let fixture = ChatQuestionsFixture.requested { return ChatQuestionsFixture.rootViewController(for: fixture) }
         #endif
         return RootTabBarController(store: AppDelegate.store)

@@ -297,6 +297,14 @@ struct ChatListTests {
         #expect(inbox.badge == .count(1))
     }
 
+    @Test func aBlockedAgentsBriefStatusIsItsSecondaryLine() {
+        let state = Self.listState(asks: [Self.ask("q1")])
+        var zeus = Agent(name: "zeus", status: .running)
+        zeus.brief = LeoAgentBrief(goal: "Migrate", status: "Waiting on your call")
+        let inbox = ChatList.inbox(sessions: Self.connected([zeus]), openAsks: state.openAsks, seen: state.seen)
+        #expect(inbox.blocked.first?.secondaryLine == "Waiting on your call")
+    }
+
     @Test func aDisconnectedMachineAndStoppedAgentsDropOut() {
         let state = Self.listState(asks: [Self.ask("q1")])
         var sessions = Self.connected([Agent(name: "zeus", status: .running), Agent(name: "hera", status: .stopped, attention: .state(.needsInput, 1))])

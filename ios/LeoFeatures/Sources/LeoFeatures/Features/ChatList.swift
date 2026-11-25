@@ -410,7 +410,8 @@ public struct ChatList {
             session.agents.filter { !$0.isStopped }.map { agent in
                 LeoInboxAgent(
                     id: LeoAgentID(host: .remote(session.id), name: agent.name), name: agent.displayName, machine: session.daemon.name,
-                    signal: agent.attention, bootID: session.bootID, isStale: !session.connection.isConnected
+                    signal: agent.attention, bootID: session.bootID, isStale: !session.connection.isConnected,
+                    brief: agent.brief
                 )
             }
         }
