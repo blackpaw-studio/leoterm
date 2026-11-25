@@ -69,21 +69,29 @@ enum BriefFixture {
         values.chatClient.markRead = { _, _, _ in }
     }
 
-    static func open(_ store: StoreOf<AppFeature>) {
+    @MainActor static func open(_ store: StoreOf<AppFeature>) {
         guard !isSettingsRequested else { return }
         func argument(after flag: String) -> String? {
             arguments.firstIndex(of: flag).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
         }
-        if let name = argument(after: "-briefChat") {
-            store.send(.chatOpened(AgentRef(daemonID: daemon.id, name: name)))
-            if arguments.contains("-briefChatExpanded") {
-                Task { @MainActor in
+        // Once the fleet has the agent: an action sent earlier is ignored.
+        Task { @MainActor in
+            @MainActor func ready(_ name: String) async {
+                while store.fleet.agent(AgentRef(daemonID: daemon.id, name: name)) == nil { try? await Task.sleep(for: .milliseconds(50)) }
+            }
+            if let name = argument(after: "-briefChat") {
+                await ready(name)
+                store.send(.chatOpened(AgentRef(daemonID: daemon.id, name: name)))
+                if arguments.contains("-briefChatExpanded") {
                     while store.chat == nil { try? await Task.sleep(for: .milliseconds(50)) }
                     store.send(.chat(.briefToggled))
                 }
             }
+            if let name = argument(after: "-briefDetail") {
+                await ready(name)
+                store.send(.notificationOpened(AgentRef(daemonID: daemon.id, name: name)))
+            }
         }
-        if let name = argument(after: "-briefDetail") { store.send(.notificationOpened(AgentRef(daemonID: daemon.id, name: name))) }
     }
 
     /// `-briefSettings`: the Daemon screen on its own, over an in-memory config API.
