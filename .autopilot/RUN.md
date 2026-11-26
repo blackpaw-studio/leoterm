@@ -25,7 +25,7 @@ Lane: B-447
   Branch: autopilot-lane/B-447
   Base: a7729797ae03c3d14c5e2da4fb6d79b9cc980774
   Tier: light→full
-  State: verifying
+  State: landed
   Fixes: 1
   Wip: none
   Dispatched: 2026-11-26T00:52:06Z
@@ -36,6 +36,7 @@ Lane: B-447
   Call: A window is stamped only when makeFirstResponder succeeds, so a refused move doesn't block older retries — smallest rule that keeps chat routing as it was
   Call: Dropped `heavy` around the verify-lock wait, kept it around xcodebuild (its idle killer fired during the wait) — verify mechanics
   Call: Mac only (AppKit first-responder code; iOS has no moveFocus) — Platform principle
+  Tokens: 43.4M in (42.6M cache read), ≥185k out, 310 requests
 
 Lane: B-453
   Branch: autopilot-lane/B-453
@@ -76,3 +77,4 @@ Lane: B-456
 
 Finished 1: B-453 landed b18726f6e · not visually verified
 Finished 2: B-454 landed a3738d88a · not visually verified
+Finished 3: B-447 landed 79ec7ee26 · not visually verified

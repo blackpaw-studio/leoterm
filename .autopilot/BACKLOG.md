@@ -3543,12 +3543,14 @@ Question: couldn't reproduce — the implementer traced send → LeoChatScrollPi
 Answer: accept your recommendation (close)
 Done: closed — not reproducible (owner accepted the close pick, 2026-11-25)
 
-## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready]
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [done]
 Issue: #420
 Type: bug
 Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
+Done: aa2582d32 e961c85ca (landed 79ec7ee26; Ghostty.FocusMover: an older focus move's retry never takes focus back from a newer one; deterministic red test FocusMoveOrderTests). Mac only. D-1037..D-1041.
+Verified: not visually verified — GUI session captured blank; 79 targeted tests + 3 repeats green
 
 ## B-453 · Composer placeholder says Start on a restoring agent   [done]
 Issue: #421
