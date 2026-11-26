@@ -2,7 +2,8 @@ Status: running
 Started: 2026-11-26T00:49:37Z
 Budget: 20 items, until 2026-11-26T12:49:37Z
 Digested-through: 0
-Filed: 0/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 0/5 ideas
+Self-filed: B-453 → B-461 bug — resetWindowSizeRestoresALaunchClampedSidebar fails (200 vs 199) on autopilot
 Untracked-left: default.profraw scratchpad/
 Note: B-445 closed at preflight — owner answered "accept your recommendation (close)".
 
@@ -31,10 +32,12 @@ Lane: B-453
   Branch: autopilot-lane/B-453
   Base: a7729797ae03c3d14c5e2da4fb6d79b9cc980774
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T00:52:06Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: dd560a065640a78394319de0a54498ee92324c0f
+  Call: Mac only (iOS has no composer placeholder or send-gate logic) — Mac+iOS rule
+  Call: Wording "<name> is still starting" repeats the daemon-reported state and matches the refusal and the Start bar — VISION 2
 

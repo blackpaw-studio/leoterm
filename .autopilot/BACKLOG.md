@@ -3629,3 +3629,9 @@ Accept: The lane merges PR #427's head commit e36e77ca1b5246a7a8a95d3262419b6d61
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-25)
 Inbox: 20261126T004750631657Z-337d9c02#1
+
+## B-461 · resetWindowSizeRestoresALaunchClampedSidebar fails 200 vs 199   [ready (next run)]
+Type: bug
+Report: resetWindowSizeRestoresALaunchClampedSidebar fails (200.0 vs 199.0, LeoFirstAttachWindowSizeTests.swift:274) on autopilot 482b9d787, base and lane alike — full suite is not green; fix at cause (measure the platform value, not a bare ±1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-453)
