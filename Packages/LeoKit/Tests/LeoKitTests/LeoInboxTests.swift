@@ -119,7 +119,7 @@ struct LeoInboxTests {
         #expect(items.map(\.kind) == [.finished(result: "Rate limited"), .finished(result: "Done")])
     }
 
-    @Test(arguments: ["NO_REPLY", "  no_reply \n", "NO_REPLY.", "HEARTBEAT_OK", "NO_RESPONSE"])
+    @Test(arguments: ["", "  \n", "NO_REPLY", "  no_reply \n", "NO_REPLY.", "HEARTBEAT_OK", "NO_RESPONSE"])
     func aSentinelPreviewNeverReachesTheFinishedResult(_ sentinel: String) throws {
         let agent = Fx.agent("trader", signal: Fx.signal(.finished, preview: sentinel, at: 1))
 
