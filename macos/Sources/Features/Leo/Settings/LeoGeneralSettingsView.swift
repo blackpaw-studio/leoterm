@@ -10,6 +10,7 @@ struct LeoGeneralSettingsView: View {
     @ObservedObject var statsStyle: LeoStatsStyleSetting
     @ObservedObject var agentBrowser: LeoAgentBrowserSetting
     @ObservedObject var builtIn: LeoBuiltInPaneSettings
+    @ObservedObject var chatImages: LeoChatImageOpenSetting
 
     var body: some View {
         Form {
@@ -32,6 +33,13 @@ struct LeoGeneralSettingsView: View {
                 Text("Agents")
             } footer: {
                 Text(agentsFooter)
+            }
+            Section {
+                Toggle("Open images in full window", isOn: $chatImages.opensFullWindow)
+            } header: {
+                Text("Chat")
+            } footer: {
+                Text("Clicking an image in chat opens it over the whole window instead of in the chat pane. Esc or Back returns to the chat.")
             }
         }
         .formStyle(.grouped)

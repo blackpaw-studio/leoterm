@@ -503,7 +503,7 @@ struct LeoSettingsSnapshots {
         let defaults = LeoInMemoryDefaults()
         let view = LeoGeneralSettingsView(
             statsStyle: LeoStatsStyleSetting(defaults: defaults), agentBrowser: LeoAgentBrowserSetting(defaults: defaults),
-            builtIn: LeoBuiltInPaneSettings(defaults: defaults)
+            builtIn: LeoBuiltInPaneSettings(defaults: defaults), chatImages: LeoChatImageOpenSetting(defaults: defaults)
         )
         try Self.write(view, named: "general", size: NSSize(width: 700, height: 520), to: directory)
     }
