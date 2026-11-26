@@ -218,10 +218,13 @@ public struct LeoPluginManagerDependencies {
         publish()
     }
 
-    /// Forgets one account the user granted the plugin. Its next credential
-    /// fetch with that id is refused as unknown.
+    /// Forgets one account or API key the user granted the plugin. Its next
+    /// credential fetch with that id is refused as unknown, and an API key's
+    /// Keychain item is deleted.
     public func removeCredentialGrant(_ id: String, grantID: String) throws {
+        let removed = deps.store.registry.grants(for: id).first { $0.id == grantID }
         try deps.store.update { $0.removeGrant(pluginID: id, grantID: grantID) }
+        if removed?.apiKeyProvider != nil { deleteAPIKeys(pluginID: id, grantIDs: [grantID]) }
         publish()
     }
 
@@ -234,6 +237,13 @@ public struct LeoPluginManagerDependencies {
         drop(id)
         let secrets = try LeoPluginSecrets(pluginID: id, engine: LeoPluginPermissionEngine(permissions: .none), keychain: deps.keychain)
         try secrets.removeAll()
+        // Before the record goes, so a failed delete can be retried by uninstalling again.
+        if let vault = deps.credentials?.apiKeys {
+            for grant in record.credentialGrants where grant.apiKeyProvider != nil {
+                try vault.delete(pluginID: id, grantID: grant.id)
+            }
+            try vault.deleteAll(pluginID: id)
+        }
         if case .git = record.source {
             let folder = deps.store.root.appendingPathComponent(id)
             if FileManager.default.fileExists(atPath: folder.path) { try deps.trash.moveToTrash(folder) }
@@ -393,7 +403,7 @@ public struct LeoPluginManagerDependencies {
                         grants: LeoPluginPublishingGrantStore(base: services.grants) { [weak self] in
                             Task { @MainActor in self?.publish() }
                         },
-                        home: services.home, remote: services.remote)
+                        home: services.home, remote: services.remote, apiKeys: services.apiKeys)
                 },
                 usage: { [agents = deps.agents] in agents.usage(for: $0) },
                 homeDirectory: deps.agents.homeDirectory))
@@ -503,6 +513,7 @@ public struct LeoPluginManagerDependencies {
         let current = Dictionary(records.map { ($0.id, $0.credentialGrants) }, uniquingKeysWith: { first, _ in first })
         defer { publishedGrants = current }
         guard let previous = publishedGrants else { return }
+        deleteDroppedAPIKeys(previous: previous, current: current)
         for (id, grants) in current where grants != previous[id] ?? [] {
             guard let entry = entries[id], (entry.manifest?.apiVersion ?? 1) >= Self.credentialsChangedAPIVersion else { continue }
             deliver(.credentialsChanged, to: entry)
@@ -510,6 +521,30 @@ public struct LeoPluginManagerDependencies {
     }
 
     static let credentialsChangedAPIVersion = 2
+
+    /// API-key grants the registry no longer has, however they went (an
+    /// approval that dropped the provider or moved its host, a reinstall, an
+    /// update), take their Keychain items with them.
+    private func deleteDroppedAPIKeys(previous: [String: [LeoPluginCredentialGrant]], current: [String: [LeoPluginCredentialGrant]]) {
+        for (pluginID, grants) in previous {
+            let kept = Set((current[pluginID] ?? []).map(\.id))
+            let dropped = grants.filter { $0.apiKeyProvider != nil && !kept.contains($0.id) }.map(\.id)
+            if !dropped.isEmpty { deleteAPIKeys(pluginID: pluginID, grantIDs: dropped) }
+        }
+    }
+
+    /// Best effort: an item that can't be deleted now is swept on uninstall.
+    private func deleteAPIKeys(pluginID: String, grantIDs: [String]) {
+        guard let vault = deps.credentials?.apiKeys else { return }
+        for grantID in grantIDs {
+            do {
+                try vault.delete(pluginID: pluginID, grantID: grantID)
+            } catch {
+                Self.logger.warning(
+                    "couldn't delete an API key item for \(pluginID, privacy: .public): \(String(describing: error), privacy: .public)")
+            }
+        }
+    }
 }
 
 extension LeoPluginRunState {

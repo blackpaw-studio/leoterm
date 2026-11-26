@@ -1056,3 +1056,125 @@ extension LeoPluginManagerTests {
         #expect(accountChanges(rig.hosts.last) == 0)
     }
 }
+
+// MARK: - API key cleanup
+
+private let keyService = "Leo Plugin API Key"
+
+extension LeoPluginManagerTests {
+    private static func keyPermissions(host: String) -> LeoPluginPermissions {
+        LeoPluginPermissions(network: [host], apiKeys: [LeoPluginAPIKeyProvider(provider: "deepseek", label: "DeepSeek", host: host)])
+    }
+
+    /// A dev plugin whose manifest on disk binds DeepSeek to `diskHost`, approved
+    /// for `approvedHost`, holding one key per grant id.
+    private func addKeyPlugin(
+        _ id: String, grants: [String], approvedHost: String = "api.deepseek.com", diskHost: String = "api.deepseek.com", in rig: Rig
+    ) throws {
+        let credential = #"[{"kind":"api-key","provider":"deepseek","label":"DeepSeek","host":"\#(diskHost)"}]"#
+        let dir = try rig.addPlugin(
+            in: rig.root.appendingPathComponent(id),
+            manifest: manifestJSON(id: id, network: #"["\#(diskHost)"]"#, apiVersion: 2, credentials: credential),
+            main: "leo.log('info', 'plugin \(id)')")
+        let manifest = LeoPluginManifest(
+            id: id, name: id, version: "1.0.0", apiVersion: 2, main: "main.js", permissions: Self.keyPermissions(host: approvedHost))
+        try rig.store.update {
+            $0.registerDev(manifest, path: dir.path)
+            for grant in grants { _ = $0.addAPIKeyGrant(pluginID: id, provider: "deepseek", name: "DeepSeek", id: grant) }
+        }
+        for grant in grants { try rig.keychain.set(service: keyService, account: "\(id)/\(grant)", value: "sk-\(grant)") }
+    }
+
+    private func useKeyVault(_ rig: Rig) {
+        rig.credentials = LeoPluginCredentialServices(
+            picker: NoPicker(), resolver: NoResolver(), grants: rig.store, home: "/Users/a",
+            apiKeys: LeoPluginAPIKeyVault(reader: rig.keychain, writer: rig.keychain))
+    }
+
+    private func keyAccounts(_ rig: Rig) -> Set<String> {
+        Set(rig.keychain.items.keys.filter { $0.hasPrefix(keyService + "|") }.map { String($0.dropFirst(keyService.count + 1)) })
+    }
+
+    @Test func removingAKeyGrantInSettingsDeletesOnlyItsItem() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addKeyPlugin(usage, grants: ["g1", "g2"], in: rig)
+        try addKeyPlugin(other, grants: ["g3"], in: rig)
+        useKeyVault(rig)
+        rig.buildManager()
+        rig.manager.reload()
+
+        try rig.manager.removeCredentialGrant(usage, grantID: "g1")
+
+        #expect(keyAccounts(rig) == ["\(usage)/g2", "\(other)/g3"])
+    }
+
+    @Test func approvingAMovedHostDeletesThatProvidersKeys() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addKeyPlugin(usage, grants: ["g1"], diskHost: "api.deepseek.example.com", in: rig)
+        try addKeyPlugin(other, grants: ["g3"], in: rig)
+        useKeyVault(rig)
+        rig.buildManager()
+        rig.manager.reload()
+        #expect(keyAccounts(rig) == ["\(usage)/g1", "\(other)/g3"])
+
+        try rig.manager.approveCurrentPermissions(usage)
+
+        #expect(rig.store.registry.grants(for: usage).isEmpty)
+        #expect(keyAccounts(rig) == ["\(other)/g3"])
+    }
+
+    @Test func reRegisteringWithAMovedHostDeletesTheKeysOnReload() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addKeyPlugin(usage, grants: ["g1"], in: rig)
+        useKeyVault(rig)
+        rig.buildManager()
+        rig.manager.reload()
+
+        let moved = LeoPluginManifest(
+            id: usage, name: usage, version: "1.0.1", apiVersion: 2, main: "main.js",
+            permissions: Self.keyPermissions(host: "api.deepseek.example.com"))
+        try rig.store.update { $0.registerDev(moved, path: rig.root.appendingPathComponent(usage).path) }
+        rig.manager.reload()
+
+        #expect(keyAccounts(rig).isEmpty)
+    }
+
+    @Test func uninstallDeletesEveryKeyOfThePluginIncludingOrphans() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addKeyPlugin(usage, grants: ["g1"], in: rig)
+        try addKeyPlugin(other, grants: ["g3"], in: rig)
+        try rig.keychain.set(service: keyService, account: "\(usage)/orphan", value: "sk-orphan")
+        useKeyVault(rig)
+        rig.buildManager()
+        rig.manager.reload()
+
+        try rig.manager.uninstall(usage)
+
+        #expect(keyAccounts(rig) == ["\(other)/g3"])
+    }
+}
+
+extension LeoPluginManagerTests {
+    /// The manager wraps the app's credential services for each plugin; the key vault must come along.
+    @Test func aRunningPluginCanFetchWithItsAPIKey() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addKeyPlugin(usage, grants: ["g1"], in: rig)
+        useKeyVault(rig)
+        rig.buildManager()
+        rig.manager.reload()
+        let plugin = try #require(host(usage, in: rig))
+
+        plugin.send(.fetch(id: "f1", url: "https://api.deepseek.com/user/balance", init: LeoPluginFetchInit(credential: "g1")))
+        await rig.settle()
+
+        let reply = plugin.events.first { if case .reply(id: "f1", _) = $0 { true } else { false } }
+        guard case .reply(_, .rejected(let reason))? = reply else { Issue.record("no reply: \(String(describing: reply))"); return }
+        // The fake fetcher has nothing queued, so getting that far means the key was read.
+        #expect(reason.hasPrefix("network error"), "\(reason)")
+    }
+}
