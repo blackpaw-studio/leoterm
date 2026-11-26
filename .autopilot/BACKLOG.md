@@ -3632,13 +3632,15 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T170327309810Z-ccf06312#1
 
-## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [ready]
+## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [done]
 Issue: #431
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.88.1 carries the leo_brief guidance gate fix (leo #355).
 Accept: The lane merges PR #427's head commit e36e77ca1b5246a7a8a95d3262419b6d613bcc98 (git fetch origin bump/leo-0.88.1) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.88.1; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.88.1.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-25)
 Inbox: 20261126T004750631657Z-337d9c02#1
+Done: e36e77ca1 (PR #427 head, merged unchanged; landed 788909869; also carries 1ce2767d0, the 0.88.0 bump from PR #426's history). LEO_VERSION 0.88.1; v0.88.1 tarball sha256 matches and reports leo 0.88.1; app builds.
+Verified: not visually verified — diff is only LEO_VERSION
 
 ## B-461 · resetWindowSizeRestoresALaunchClampedSidebar fails 200 vs 199   [ready (next run)]
 Type: bug
