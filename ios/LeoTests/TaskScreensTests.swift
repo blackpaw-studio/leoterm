@@ -50,7 +50,11 @@ struct TaskScreensTests {
         rig.store.send(.collection(.rowTapped("heartbeat")))
         await settle { rig.navigation.topViewController is ConfigItemViewController }
         rig.store.send(.pageOpened(.prompt))
-        await settle { rig.navigation.topViewController is TaskPromptViewController && rig.store.prompt.phase == .loaded }
+        // The push is animated: until it ends the view has no window and no safe area.
+        await settle {
+            guard let prompt = rig.navigation.topViewController as? TaskPromptViewController else { return false }
+            return rig.store.prompt.phase == .loaded && rig.navigation.transitionCoordinator == nil && prompt.view.window != nil
+        }
     }
 
     private func enabledSwitch(for task: String, in rig: Rig) -> UISwitch? {
@@ -113,6 +117,19 @@ struct TaskScreensTests {
         #expect(safe.minX >= sideInset)
         #expect(editor.minX >= safe.minX)
         #expect(editor.maxX <= safe.maxX)
+    }
+
+    /// B-459: the prompt arrives by an animated push, and its view only joins
+    /// the window (and picks up the safe area) once that transition ends. The
+    /// helper that opens it must not return before then, or a test measuring
+    /// the safe area reads 0 on a loaded runner.
+    @Test func openingThePromptReturnsOnlyOnceItsPushHasSettled() async throws {
+        let rig = try Self.rig()
+        await Self.openPrompt(rig)
+        let prompt = try #require(rig.navigation.topViewController as? TaskPromptViewController)
+
+        #expect(rig.navigation.transitionCoordinator == nil)
+        #expect(prompt.view.window != nil)
     }
 
     private static func findTextView(in view: UIView, id: String) -> UITextView? {
