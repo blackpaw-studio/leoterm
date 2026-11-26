@@ -3543,12 +3543,14 @@ Question: couldn't reproduce — the implementer traced send → LeoChatScrollPi
 Answer: accept your recommendation (close)
 Done: closed — not reproducible (owner accepted the close pick, 2026-11-25)
 
-## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready]
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [done]
 Issue: #420
 Type: bug
 Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
+Done: aa2582d32 e961c85ca (landed 79ec7ee26; Ghostty.FocusMover: an older focus move's retry never takes focus back from a newer one; deterministic red test FocusMoveOrderTests). Mac only. D-1037..D-1041.
+Verified: not visually verified — GUI session captured blank; 79 targeted tests + 3 repeats green
 
 ## B-453 · Composer placeholder says Start on a restoring agent   [done]
 Issue: #421
@@ -3639,3 +3641,11 @@ Type: bug
 Report: resetWindowSizeRestoresALaunchClampedSidebar fails (200.0 vs 199.0, LeoFirstAttachWindowSizeTests.swift:274) on autopilot 482b9d787, base and lane alike — full suite is not green; fix at cause (measure the platform value, not a bare ±1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-453)
+
+## B-462 · Row/Rows suites run slower on each repeat in one process   [idea]
+Note: 26 s up to 73 s per run on repeat, same on old code — fixtures or surfaces probably pile up; suite speed (Engineering: keep the suite fast)
+Source: autopilot polish (B-447)
+
+## B-463 · leo-runtests.sh skips 129 host-tier suites   [idea]
+Note: the script doesn't set TEST_RUNNER_LEO_HOST_TESTS=1, so its full suite skips host-tier suites including LeoContentFocusTests — merge-gate coverage gap
+Source: autopilot polish (B-447)

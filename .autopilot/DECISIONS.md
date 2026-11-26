@@ -2422,3 +2422,33 @@ Chose: Wording "<name> is still starting" repeats the daemon-reported state and 
 Why: VISION 2
 Commit: ddf9e0d49
 Veto: [ ]
+
+## D-1037 · 2026-11-25 · B-447: Fix in product Ghostty.moveFocus, not the test fixtures
+Chose: Fix in product `Ghostty.moveFocus`, not the test fixtures; the first plan's premise (fixture windows never get a display cycle) was disproved at step 0
+Why: AUTONOMY: bug/flake fixes are the agent's call
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1038 · 2026-11-25 · B-447: Newest landed focus move wins per window
+Chose: Newest landed move wins per window, decided when the retry lands; retry delays stay 50/100/200/400 ms
+Why: Engineering: fix flakes at the cause
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1039 · 2026-11-25 · B-447: Stamp a window only when makeFirstResponder succeeds
+Chose: A window is stamped only when makeFirstResponder succeeds, so a refused move doesn't block older retries
+Why: smallest rule that keeps chat routing as it was
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1040 · 2026-11-25 · B-447: No heavy around the verify-lock wait
+Chose: Dropped `heavy` around the verify-lock wait, kept it around xcodebuild (its idle killer fired during the wait)
+Why: verify mechanics
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1041 · 2026-11-25 · B-447: Mac only (AppKit first-responder code)
+Chose: Mac only (AppKit first-responder code; iOS has no moveFocus)
+Why: Platform principle
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
