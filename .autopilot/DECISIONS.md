@@ -2452,3 +2452,15 @@ Chose: Mac only (AppKit first-responder code; iOS has no moveFocus)
 Why: Platform principle
 Commit: aa2582d32 e961c85ca
 Veto: [ ]
+
+## D-1042 · 2026-11-25 · B-456: Any single snake_case token is an inbox sentinel
+Chose: Treat any single snake_case token (one letter case, contains an underscore) as a sentinel, not a fixed list; a one-word real result like build_failed also falls back to "Finished"
+Why: VISION 2 Calm
+Commit: 59184dcea e76c3dc17
+Veto: [ ]
+
+## D-1043 · 2026-11-25 · B-456: Fix in LeoKit LeoInbox derivation only
+Chose: Fix in LeoKit LeoInbox derivation only, no app changes; Mac headline and iOS card already fall back to "Finished" for a nil result
+Why: Mac+iOS rule
+Commit: 59184dcea e76c3dc17
+Veto: [ ]
