@@ -56,8 +56,8 @@ private final class FakeGrantStore: LeoPluginCredentialGrantStoring, @unchecked 
         }
     }
 
-    func addAPIKeyGrant(pluginID: String, provider: String, name: String, id: String) throws -> LeoPluginCredentialGrant? {
-        lock.withLock { registry.addAPIKeyGrant(pluginID: pluginID, provider: provider, name: name, id: id) }
+    func addAPIKeyGrant(pluginID: String, provider: String, host: String, name: String, id: String) throws -> LeoPluginCredentialGrant? {
+        lock.withLock { registry.addAPIKeyGrant(pluginID: pluginID, provider: provider, host: host, name: name, id: id) }
     }
 
     func removeGrant(pluginID: String, grantID: String) throws {

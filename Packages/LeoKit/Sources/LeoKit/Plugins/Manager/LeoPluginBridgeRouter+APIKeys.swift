@@ -29,8 +29,10 @@ extension LeoPluginBridgeRouter {
         }
     }
 
-    /// Saves the key, then the grant that names it. If the grant can't be saved
-    /// the key is deleted again, so no orphan is left behind.
+    /// Saves the key, then the grant that names it. The grant is recorded only
+    /// if the provider is still approved with the host the sheet named: the
+    /// approval can change while the sheet is open. Otherwise the key is
+    /// deleted again, so no orphan is left behind.
     private static func savedKeyGrant(
         _ entry: LeoPluginAPIKeyEntry, provider: LeoPluginAPIKeyProvider, pluginID: String, services: LeoPluginCredentialServices,
         vault: LeoPluginAPIKeyVault
@@ -45,25 +47,28 @@ extension LeoPluginBridgeRouter {
         try await offMain { () throws(LeoPluginAPIKeyVaultError) in try vault.save(key, pluginID: pluginID, grantID: grantID) }
         let grant: LeoPluginCredentialGrant?
         do {
-            grant = try services.grants.addAPIKeyGrant(pluginID: pluginID, provider: provider.provider, name: name, id: grantID)
+            grant = try services.grants.addAPIKeyGrant(pluginID: pluginID, provider: provider.provider, host: provider.host, name: name, id: grantID)
         } catch {
             grant = nil
         }
         guard let grant else {
             try? await offMain { () throws(LeoPluginAPIKeyVaultError) in try vault.delete(pluginID: pluginID, grantID: grantID) }
-            throw LeoPluginCredentialRefusal.permissionDenied("the key couldn't be saved")
+            throw LeoPluginCredentialRefusal.permissionDenied("the key wasn't saved: the plugin's API key permission changed, or the grant couldn't be written")
         }
         return grant
     }
 
-    /// Deletes a removed grant's key. A failure leaves an orphan item that the
-    /// uninstall sweep removes; the grant itself is already gone.
-    func deleteKey(grantID: String, services: LeoPluginCredentialServices) {
+    /// Deletes a grant's key before the grant goes. A missing item counts as
+    /// deleted; any other failure throws, so the caller keeps the grant and the
+    /// plugin can retry instead of leaving a key no grant names.
+    func deleteKey(grantID: String, services: LeoPluginCredentialServices) throws {
+        let vault = try Self.vault(services)
         do {
-            try services.apiKeys?.delete(pluginID: deps.identity.id, grantID: grantID)
+            try vault.delete(pluginID: deps.identity.id, grantID: grantID)
         } catch {
             LeoLog.logger(category: "leo.plugins").warning(
                 "couldn't delete the API key item for \(self.deps.identity.id, privacy: .public): \(String(describing: error), privacy: .public)")
+            throw LeoPluginCredentialRefusal.permissionDenied("the key couldn't be deleted from the Keychain; try again")
         }
     }
 

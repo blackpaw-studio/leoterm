@@ -189,11 +189,13 @@ extension LeoPluginRegistry {
     }
 
     /// Records an API-key grant (the key itself is already in the Keychain under
-    /// `id`). Nil when the plugin is unknown, the provider isn't approved, or the
+    /// `id`). Nil when the plugin is unknown, the provider isn't approved with
+    /// `host` (the host the user was shown when they pasted the key), or the
     /// name is blank, longer than 64 characters or has control characters.
     /// Several keys for one provider are allowed.
-    public mutating func addAPIKeyGrant(pluginID: String, provider: String, name: String, id: String) -> LeoPluginCredentialGrant? {
-        guard let record = record(for: pluginID), record.approvedPermissions.apiKeys.contains(where: { $0.provider == provider }),
+    public mutating func addAPIKeyGrant(pluginID: String, provider: String, host: String, name: String, id: String) -> LeoPluginCredentialGrant? {
+        guard let record = record(for: pluginID),
+            record.approvedPermissions.apiKeys.contains(where: { $0.provider == provider && $0.host == host }),
             LeoPluginCredentialGrant.isValidAPIKeyName(name)
         else { return nil }
         let grant = LeoPluginCredentialGrant(id: id, apiKeyProvider: provider, name: name)

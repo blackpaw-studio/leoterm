@@ -43,11 +43,14 @@ private final class APIKeyStubProtocol: URLProtocol, @unchecked Sendable {
 
 @MainActor private final class FakeKeyPicker: LeoPluginCredentialPicking {
     var answer: LeoPluginAPIKeyEntry?
+    /// Runs while the sheet is "open", before the answer comes back.
+    var whileOpen: (@MainActor () -> Void)?
     private(set) var asked: [(LeoPluginAPIKeyProvider, String)] = []
     init(answer: LeoPluginAPIKeyEntry?) { self.answer = answer }
     func pickFolder(for kind: LeoPluginCredentialKind) async -> String? { nil }
     func pickAPIKey(for provider: LeoPluginAPIKeyProvider, pluginName: String) async -> LeoPluginAPIKeyEntry? {
         asked.append((provider, pluginName))
+        whileOpen?()
         return answer
     }
 }
@@ -213,6 +216,42 @@ private func manifest() -> LeoPluginManifest {
         #expect(rig.reply("rm") == .value(.null))
         #expect(rig.store.grants(pluginID: usageID).isEmpty)
         #expect(rig.keychain.items.isEmpty)
+    }
+
+    @Test func aRemoveWhoseKeychainDeleteFailsKeepsTheGrantSoItCanBeRetried() async throws {
+        let rig = APIKeyRig()
+        let id = try await rig.addedGrantID()
+        rig.keychain.failDeletes(true)
+
+        rig.router.handle(.credentialsRemove(id: "rm", credential: id))
+        #expect(rig.rejection("rm").hasPrefix("credentialPermissionDenied"))
+        #expect(!rig.rejection("rm").contains(pastedKey))
+        #expect(rig.store.grants(pluginID: usageID).map(\.id) == [id])
+        #expect(rig.keychain.items.count == 1)
+
+        rig.keychain.failDeletes(false)
+        rig.router.handle(.credentialsRemove(id: "rm2", credential: id))
+        #expect(rig.reply("rm2") == .value(.null))
+        #expect(rig.store.grants(pluginID: usageID).isEmpty)
+        #expect(rig.keychain.items.isEmpty)
+    }
+
+    @Test(arguments: [
+        LeoPluginPermissions(network: ["api.deepseek.com", "evil.example.com"], credentials: [.codex]),
+        LeoPluginPermissions(
+            network: ["api.deepseek.com", "evil.example.com"], credentials: [.codex],
+            apiKeys: [LeoPluginAPIKeyProvider(provider: "deepseek", label: "DeepSeek", host: "evil.example.com")]),
+    ])
+    func anAddWhoseApprovalChangedWhileTheSheetWasOpenIsRefusedAndLeavesNoKey(changed: LeoPluginPermissions) async {
+        let rig = APIKeyRig()
+        let store = rig.store
+        rig.picker.whileOpen = { try? store.update { $0.approve(usageID, permissions: changed) } }
+
+        await rig.add("add")
+
+        #expect(rig.rejection("add").hasPrefix("credentialPermissionDenied"))
+        #expect(rig.keychain.items.isEmpty)
+        #expect(rig.store.grants(pluginID: usageID).isEmpty)
     }
 
     @Test func aFetchToTheBoundHostCarriesTheBearerKey() async throws {

@@ -9,11 +9,19 @@ final class PluginFakeKeychain: LeoPluginKeychain, LeoPluginCredentialKeychain, 
     private let lock = NSLock()
     private var _items: [String: String] = [:]
     private var _needsUI: Set<String> = []
+    private var _failsDeletes = false
     var items: [String: String] { lock.withLock { _items } }
     private func key(_ service: String, _ account: String) -> String { "\(service)|\(account)" }
     func get(service: String, account: String) throws -> String? { lock.withLock { _items[key(service, account)] } }
     func set(service: String, account: String, value: String) throws { lock.withLock { _items[key(service, account)] = value } }
-    func delete(service: String, account: String) throws { lock.withLock { _items[key(service, account)] = nil } }
+    func delete(service: String, account: String) throws {
+        try lock.withLock {
+            if _failsDeletes { throw LeoPluginKeychainError.status(-25293) }
+            _items[key(service, account)] = nil
+        }
+    }
+    /// Makes every single-item delete fail, like a Keychain that refuses access.
+    func failDeletes(_ fails: Bool) { lock.withLock { _failsDeletes = fails } }
     func deleteAll(service: String) throws {
         lock.withLock { _items = _items.filter { !$0.key.hasPrefix(service + "|") } }
     }

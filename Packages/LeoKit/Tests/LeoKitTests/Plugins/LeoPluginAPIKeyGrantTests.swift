@@ -44,9 +44,9 @@ extension LeoPluginRegistryTests {
 
     @Test func anAPIKeyGrantIsAddedForAnApprovedProviderWithoutDedupe() throws {
         var registry = registry()
-        let added1 = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: "Work", id: "g1")
+        let added1 = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: "Work", id: "g1")
         let first = try #require(added1)
-        let added2 = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: "Work", id: "g2")
+        let added2 = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: "Work", id: "g2")
         let second = try #require(added2)
         #expect(first.subject == .apiKey(provider: "deepseek", name: "Work"))
         #expect(registry.grants(for: usageID) == [first, second])
@@ -57,22 +57,28 @@ extension LeoPluginRegistryTests {
 
     @Test func anAPIKeyGrantForAnUnapprovedProviderOrUnknownPluginIsRefused() {
         var registry = registry()
-        #expect(registry.addAPIKeyGrant(pluginID: usageID, provider: "openrouter", name: "x", id: "g1") == nil)
-        #expect(registry.addAPIKeyGrant(pluginID: "studio.nobody", provider: "deepseek", name: "x", id: "g2") == nil)
+        #expect(registry.addAPIKeyGrant(pluginID: usageID, provider: "openrouter", host: "api.deepseek.com", name: "x", id: "g1") == nil)
+        #expect(registry.addAPIKeyGrant(pluginID: "studio.nobody", provider: "deepseek", host: "api.deepseek.com", name: "x", id: "g2") == nil)
+        #expect(registry.grants(for: usageID).isEmpty)
+    }
+
+    @Test func anAPIKeyGrantForAProviderApprovedWithAnotherHostIsRefused() {
+        var registry = registry()
+        #expect(registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.evil.com", name: "x", id: "g1") == nil)
         #expect(registry.grants(for: usageID).isEmpty)
     }
 
     @Test(arguments: ["", "   ", String(repeating: "n", count: 65), "a\nb", "a\u{7F}"])
     func anAPIKeyGrantWithABadNameIsRefused(name: String) {
         var registry = registry()
-        #expect(registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: name, id: "g1") == nil)
+        #expect(registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: name, id: "g1") == nil)
     }
 
     @Test func approvingWithoutTheProviderOrWithANewHostDropsItsGrants() throws {
         var registry = registry()
         let added3 = registry.addGrant(pluginID: usageID, kind: .codex, path: "/Users/a/.codex", id: "c1")
         let codex = try #require(added3)
-        _ = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: "Work", id: "g1")
+        _ = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: "Work", id: "g1")
 
         let relabelled = LeoPluginPermissions(
             network: withKeys.network, credentials: [.codex],
@@ -86,14 +92,14 @@ extension LeoPluginRegistryTests {
         registry.approve(usageID, permissions: moved)
         #expect(registry.grants(for: usageID) == [codex])
 
-        _ = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: "Work", id: "g2")
+        _ = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: "Work", id: "g2")
         registry.approve(usageID, permissions: LeoPluginPermissions(network: withKeys.network, credentials: [.codex]))
         #expect(registry.grants(for: usageID) == [codex])
     }
 
     @Test func reRegisteringWithAChangedHostDropsTheProvidersGrants() throws {
         var registry = registry()
-        let added4 = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: "Work", id: "g1")
+        let added4 = registry.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: "Work", id: "g1")
         let kept = try #require(added4)
         registry.registerDev(
             LeoPluginManifest(id: usageID, name: "Usage", version: "1.0.1", apiVersion: 2, main: "main.js", permissions: withKeys),
@@ -120,7 +126,7 @@ extension LeoPluginRegistryTests {
         defer { try? FileManager.default.removeItem(at: root) }
         let store = LeoPluginStore(root: root)
         try store.update { $0 = registry() }
-        let grant = try #require(try store.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", name: "Work", id: "g1"))
+        let grant = try #require(try store.addAPIKeyGrant(pluginID: usageID, provider: "deepseek", host: "api.deepseek.com", name: "Work", id: "g1"))
         #expect(LeoPluginStore(root: root).grants(pluginID: usageID) == [grant])
     }
 }

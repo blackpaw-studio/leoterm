@@ -56,11 +56,13 @@ public struct LeoPluginInfo: Equatable, Sendable, Identifiable {
 public enum LeoPluginManagerError: Error, Equatable, LocalizedError, Sendable {
     case unknownPlugin(String)
     case cannotUninstallBundled(String)
+    case keyNotDeleted
 
     public var errorDescription: String? {
         switch self {
         case .unknownPlugin(let id): "There is no plugin '\(id)'."
         case .cannotUninstallBundled: "Built-in plugins can be turned off but not removed."
+        case .keyNotDeleted: "Leo couldn't delete the API key from the Keychain, so it's still there. Try again."
         }
     }
 }
@@ -219,13 +221,26 @@ public struct LeoPluginManagerDependencies {
     }
 
     /// Forgets one account or API key the user granted the plugin. Its next
-    /// credential fetch with that id is refused as unknown, and an API key's
-    /// Keychain item is deleted.
+    /// credential fetch with that id is refused as unknown. An API key's
+    /// Keychain item is deleted first; if that fails the grant stays and
+    /// `keyNotDeleted` is thrown, so Settings can say so and the user can retry.
     public func removeCredentialGrant(_ id: String, grantID: String) throws {
         let removed = deps.store.registry.grants(for: id).first { $0.id == grantID }
+        if removed?.apiKeyProvider != nil { try deleteAPIKey(pluginID: id, grantID: grantID) }
         try deps.store.update { $0.removeGrant(pluginID: id, grantID: grantID) }
-        if removed?.apiKeyProvider != nil { deleteAPIKeys(pluginID: id, grantIDs: [grantID]) }
         publish()
+    }
+
+    /// A missing item counts as deleted.
+    private func deleteAPIKey(pluginID: String, grantID: String) throws {
+        guard let vault = deps.credentials?.apiKeys else { throw LeoPluginManagerError.keyNotDeleted }
+        do {
+            try vault.delete(pluginID: pluginID, grantID: grantID)
+        } catch {
+            Self.logger.warning(
+                "couldn't delete an API key item for \(pluginID, privacy: .public): \(String(describing: error), privacy: .public)")
+            throw LeoPluginManagerError.keyNotDeleted
+        }
     }
 
     /// Removes a plugin: stops it, moves its folder to the Trash, deletes its
@@ -533,7 +548,8 @@ public struct LeoPluginManagerDependencies {
         }
     }
 
-    /// Best effort: an item that can't be deleted now is swept on uninstall.
+    /// Best effort for grants that are already gone (their approval changed):
+    /// an item that can't be deleted now is swept on uninstall.
     private func deleteAPIKeys(pluginID: String, grantIDs: [String]) {
         guard let vault = deps.credentials?.apiKeys else { return }
         for grantID in grantIDs {

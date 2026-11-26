@@ -1080,7 +1080,7 @@ extension LeoPluginManagerTests {
             id: id, name: id, version: "1.0.0", apiVersion: 2, main: "main.js", permissions: Self.keyPermissions(host: approvedHost))
         try rig.store.update {
             $0.registerDev(manifest, path: dir.path)
-            for grant in grants { _ = $0.addAPIKeyGrant(pluginID: id, provider: "deepseek", name: "DeepSeek", id: grant) }
+            for grant in grants { _ = $0.addAPIKeyGrant(pluginID: id, provider: "deepseek", host: approvedHost, name: "DeepSeek", id: grant) }
         }
         for grant in grants { try rig.keychain.set(service: keyService, account: "\(id)/\(grant)", value: "sk-\(grant)") }
     }
@@ -1107,6 +1107,21 @@ extension LeoPluginManagerTests {
         try rig.manager.removeCredentialGrant(usage, grantID: "g1")
 
         #expect(keyAccounts(rig) == ["\(usage)/g2", "\(other)/g3"])
+    }
+
+    @Test func aKeyGrantWhoseKeychainDeleteFailsStaysInSettingsWithAnError() async throws {
+        let rig = try Rig()
+        defer { rig.cleanup() }
+        try addKeyPlugin(usage, grants: ["g1"], in: rig)
+        useKeyVault(rig)
+        rig.buildManager()
+        rig.manager.reload()
+        rig.keychain.failDeletes(true)
+
+        #expect(throws: LeoPluginManagerError.keyNotDeleted) { try rig.manager.removeCredentialGrant(usage, grantID: "g1") }
+
+        #expect(rig.store.registry.grants(for: usage).map(\.id) == ["g1"])
+        #expect(keyAccounts(rig) == ["\(usage)/g1"])
     }
 
     @Test func approvingAMovedHostDeletesThatProvidersKeys() async throws {

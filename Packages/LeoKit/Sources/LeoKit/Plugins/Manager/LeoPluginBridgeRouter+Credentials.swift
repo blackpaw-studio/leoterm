@@ -114,8 +114,8 @@ extension LeoPluginBridgeRouter {
     func removeCredential(grantID: String) throws -> LeoJSONValue {
         let services = try requireCredentials()
         let (grant, _) = try ownedGrant(grantID)
+        if grant.apiKeyProvider != nil { try deleteKey(grantID: grantID, services: services) }
         try services.grants.removeGrant(pluginID: deps.identity.id, grantID: grantID)
-        if grant.apiKeyProvider != nil { deleteKey(grantID: grantID, services: services) }
         return .null
     }
 
