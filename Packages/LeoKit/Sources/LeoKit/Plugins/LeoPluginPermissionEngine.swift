@@ -17,6 +17,7 @@ public struct LeoPluginPermissionEngine: Sendable {
     private let secretsGranted: Bool
     private let agentVerbs: Set<LeoPluginAgentVerb>
     private let credentialKinds: Set<LeoPluginCredentialKind>
+    private let apiKeyProviders: [String: LeoPluginAPIKeyProvider]
 
     /// Network patterns that fail to parse grant nothing (fail closed).
     public init(permissions: LeoPluginPermissions) {
@@ -24,6 +25,7 @@ public struct LeoPluginPermissionEngine: Sendable {
         secretsGranted = permissions.secrets
         agentVerbs = Set(permissions.agents)
         credentialKinds = Set(permissions.credentials)
+        apiKeyProviders = Dictionary(permissions.apiKeys.map { ($0.provider, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     /// Checks one hop of a fetch. Call it for the initial URL (`hop` 0) and again
@@ -56,6 +58,15 @@ public struct LeoPluginPermissionEngine: Sendable {
 
     public func check(credential kind: LeoPluginCredentialKind) -> LeoPluginPermissionDecision {
         credentialKinds.contains(kind) ? .allowed : .denied("credentials:\(kind.rawValue) permission not granted")
+    }
+
+    public func check(apiKeyProvider provider: String) -> LeoPluginPermissionDecision {
+        apiKeyProviders[provider] != nil ? .allowed : .denied("credentials:api-key provider not granted")
+    }
+
+    /// The approved declaration for `provider`, whose `host` is the only host its key is sent to.
+    public func apiKeyProvider(_ provider: String) -> LeoPluginAPIKeyProvider? {
+        apiKeyProviders[provider]
     }
 
     /// The one canonical host for a URL: lowercase ASCII, IDN as punycode (ACE).
@@ -93,8 +104,12 @@ public struct LeoPluginPermissionDiff: Equatable, Sendable {
     public let secretsEnabled: Bool
     public let addedAgentVerbs: [LeoPluginAgentVerb]
     public let addedCredentials: [LeoPluginCredentialKind]
+    /// New api-key providers, and existing ones whose host or label changed.
+    public let addedAPIKeys: [LeoPluginAPIKeyProvider]
 
-    public var isEmpty: Bool { addedHosts.isEmpty && !secretsEnabled && addedAgentVerbs.isEmpty && addedCredentials.isEmpty }
+    public var isEmpty: Bool {
+        addedHosts.isEmpty && !secretsEnabled && addedAgentVerbs.isEmpty && addedCredentials.isEmpty && addedAPIKeys.isEmpty
+    }
 
     public init(old: LeoPluginPermissions, new: LeoPluginPermissions) {
         let oldPatterns = old.network.compactMap { try? LeoPluginHostPattern.parse($0) }
@@ -112,5 +127,6 @@ public struct LeoPluginPermissionDiff: Equatable, Sendable {
         secretsEnabled = new.secrets && !old.secrets
         addedAgentVerbs = LeoPluginAgentVerb.allCases.filter { new.agents.contains($0) && !old.agents.contains($0) }
         addedCredentials = LeoPluginCredentialKind.allCases.filter { new.credentials.contains($0) && !old.credentials.contains($0) }
+        addedAPIKeys = new.apiKeys.filter { !old.apiKeys.contains($0) }
     }
 }

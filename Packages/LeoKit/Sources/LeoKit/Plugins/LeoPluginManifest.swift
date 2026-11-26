@@ -57,17 +57,21 @@ public struct LeoPluginPermissions: Equatable, Sendable {
     public let agents: [LeoPluginAgentVerb]
     /// Credential kinds (apiVersion 2 only; the validator refuses them on v1).
     public let credentials: [LeoPluginCredentialKind]
+    /// `api-key` providers (apiVersion 2 only). They share the manifest's
+    /// `credentials` array with the account kinds, as objects.
+    public let apiKeys: [LeoPluginAPIKeyProvider]
 
     public static let none = LeoPluginPermissions(network: [], secrets: false, agents: [])
 
     public init(
         network: [String] = [], secrets: Bool = false, agents: [LeoPluginAgentVerb] = [],
-        credentials: [LeoPluginCredentialKind] = []
+        credentials: [LeoPluginCredentialKind] = [], apiKeys: [LeoPluginAPIKeyProvider] = []
     ) {
         self.network = network
         self.secrets = secrets
         self.agents = agents
         self.credentials = credentials
+        self.apiKeys = apiKeys
     }
 }
 
@@ -187,7 +191,7 @@ struct LeoPluginManifestIssue: Error, Equatable {
     let reason: String
 }
 
-private struct AnyKey: CodingKey {
+struct LeoPluginManifestKey: CodingKey {
     let stringValue: String
     var intValue: Int? { nil }
     init?(stringValue: String) { self.stringValue = stringValue }
@@ -196,10 +200,10 @@ private struct AnyKey: CodingKey {
 
 /// Throws when the keyed container holds any key outside `allowed`.
 /// `noun` names what an unknown key is ("key", "permission", ...).
-private func rejectUnknownKeys(
+func rejectUnknownKeys(
     _ decoder: Decoder, allowed: Set<String>, in context: String, noun: String = "key"
 ) throws {
-    let keys = try decoder.container(keyedBy: AnyKey.self).allKeys.map(\.stringValue)
+    let keys = try decoder.container(keyedBy: LeoPluginManifestKey.self).allKeys.map(\.stringValue)
     let unknown = keys.filter { !allowed.contains($0) }.sorted()
     guard let first = unknown.first else { return }
     throw LeoPluginManifestIssue(reason: "unknown \(noun) '\(first)' in \(context)")
@@ -221,7 +225,7 @@ extension LeoPluginCredentialKind {
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)
         guard let kind = LeoPluginCredentialKind(rawValue: raw) else {
-            throw LeoPluginManifestIssue(reason: "unknown credential kind '\(raw)' (expected claude-code or codex)")
+            throw LeoPluginManifestIssue(reason: "unknown credential kind '\(raw)' (expected claude-code, codex or an api-key object)")
         }
         self = kind
     }
@@ -234,11 +238,13 @@ extension LeoPluginPermissions: Codable {
         try rejectUnknownKeys(
             decoder, allowed: ["network", "secrets", "agents", "credentials"], in: "permissions", noun: "permission")
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        let entries = try c.decodeIfPresent([LeoPluginCredentialEntry].self, forKey: .credentials) ?? []
         self.init(
             network: try c.decodeIfPresent([String].self, forKey: .network) ?? [],
             secrets: try c.decodeIfPresent(Bool.self, forKey: .secrets) ?? false,
             agents: try c.decodeIfPresent([LeoPluginAgentVerb].self, forKey: .agents) ?? [],
-            credentials: try c.decodeIfPresent([LeoPluginCredentialKind].self, forKey: .credentials) ?? []
+            credentials: entries.compactMap(\.accountKind),
+            apiKeys: entries.compactMap(\.apiKeyProvider)
         )
     }
 
@@ -249,7 +255,8 @@ extension LeoPluginPermissions: Codable {
         try c.encode(network, forKey: .network)
         try c.encode(secrets, forKey: .secrets)
         try c.encode(agents, forKey: .agents)
-        if !credentials.isEmpty { try c.encode(credentials, forKey: .credentials) }
+        let entries = credentials.map(LeoPluginCredentialEntry.account) + apiKeys.map(LeoPluginCredentialEntry.apiKey)
+        if !entries.isEmpty { try c.encode(entries, forKey: .credentials) }
     }
 }
 

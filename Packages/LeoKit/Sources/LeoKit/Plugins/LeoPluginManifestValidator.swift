@@ -179,7 +179,7 @@ public enum LeoPluginManifestValidator {
     /// Credentials need v2, no duplicates, and each kind's bound host listed
     /// exactly in `network` (a wildcard does not count: the grant is for one host).
     private static func credentialsProblem(_ p: LeoPluginPermissions, apiVersion: Int) -> String? {
-        guard !p.credentials.isEmpty else { return nil }
+        guard !p.credentials.isEmpty || !p.apiKeys.isEmpty else { return nil }
         if apiVersion < credentialsAPIVersion {
             return "permissions.credentials requires API version \(credentialsAPIVersion)"
         }
@@ -191,7 +191,48 @@ public enum LeoPluginManifestValidator {
         if let missing = p.credentials.first(where: { !exactHosts.contains($0.boundHost) }) {
             return "permissions.credentials '\(missing.rawValue)' requires '\(missing.boundHost)' in permissions.network"
         }
+        return apiKeysProblem(p.apiKeys, exactHosts: exactHosts)
+    }
+
+    static let maxAPIKeyLabelLength = 40
+    static let maxProviderLength = 32
+
+    private static func apiKeysProblem(_ providers: [LeoPluginAPIKeyProvider], exactHosts: Set<String>) -> String? {
+        for entry in providers {
+            if !isProviderSlug(entry.provider) {
+                return "permissions.credentials api-key provider '\(entry.provider)' must match [a-z0-9][a-z0-9-]{0,31}"
+            }
+            if !isAPIKeyLabel(entry.label) {
+                return "permissions.credentials '\(entry.provider)' label must be 1–\(maxAPIKeyLabelLength) characters with no control characters"
+            }
+            guard case .exact(let host)? = try? LeoPluginHostPattern.parse(entry.host), host == entry.host else {
+                return "permissions.credentials '\(entry.provider)' host '\(entry.host)' must be a lowercase DNS host name "
+                    + "(no scheme, port, path, wildcard or IP address)"
+            }
+            if !exactHosts.contains(host) {
+                return "permissions.credentials '\(entry.provider)' requires '\(host)' in permissions.network"
+            }
+        }
+        if let dup = firstDuplicate(providers.map(\.provider)) {
+            return "permissions.credentials lists api-key provider '\(dup)' more than once"
+        }
         return nil
+    }
+
+    /// `^[a-z0-9][a-z0-9-]{0,31}$`, byte for byte.
+    static func isProviderSlug(_ slug: String) -> Bool {
+        let bytes = Array(slug.utf8)
+        guard (1...maxProviderLength).contains(bytes.count), let first = bytes.first, isLowerAlnum(first) else { return false }
+        return bytes.allSatisfy { isLowerAlnum($0) || $0 == hyphen }
+    }
+
+    private static func isAPIKeyLabel(_ label: String) -> Bool {
+        (1...maxAPIKeyLabelLength).contains(label.count) && !isBlank(label) && !hasControlCharacters(label)
+    }
+
+    /// Any Unicode control scalar (C0, DEL, C1).
+    static func hasControlCharacters(_ text: String) -> Bool {
+        text.unicodeScalars.contains { $0.properties.generalCategory == .control }
     }
 
     private static func contributionsProblem(_ c: LeoPluginContributions) -> String? {

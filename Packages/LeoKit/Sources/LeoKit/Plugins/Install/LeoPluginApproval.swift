@@ -66,14 +66,17 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
     public var permissionLines: [String] {
         if let diff {
             return Self.lines(
-                hosts: diff.addedHosts, secrets: diff.secretsEnabled, verbs: diff.addedAgentVerbs, credentials: diff.addedCredentials)
+                hosts: diff.addedHosts, secrets: diff.secretsEnabled, verbs: diff.addedAgentVerbs, credentials: diff.addedCredentials,
+                apiKeys: diff.addedAPIKeys)
         }
         return Self.lines(
-            hosts: permissions.network, secrets: permissions.secrets, verbs: permissions.agents, credentials: permissions.credentials)
+            hosts: permissions.network, secrets: permissions.secrets, verbs: permissions.agents, credentials: permissions.credentials,
+            apiKeys: permissions.apiKeys)
     }
 
     private static func lines(
-        hosts: [String], secrets: Bool, verbs: [LeoPluginAgentVerb], credentials: [LeoPluginCredentialKind]
+        hosts: [String], secrets: Bool, verbs: [LeoPluginAgentVerb], credentials: [LeoPluginCredentialKind],
+        apiKeys: [LeoPluginAPIKeyProvider]
     ) -> [String] {
         var lines: [String] = []
         if !hosts.isEmpty { lines.append("Network: \(hosts.joined(separator: ", "))") }
@@ -88,6 +91,9 @@ public struct LeoPluginApprovalRequest: Equatable, Sendable {
         }
         for kind in credentials {
             lines.append("Accounts: use \(kind.displayName) accounts you choose, only with \(kind.boundHost) (tokens stay in Leo)")
+        }
+        for entry in apiKeys {
+            lines.append("API keys: \(entry.label), sent only to \(entry.host) (you paste it; it stays in Leo)")
         }
         return lines
     }
