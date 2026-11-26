@@ -26,6 +26,11 @@ import LeoKit
         }
     }
 
+    func pickAPIKey(for provider: LeoPluginAPIKeyProvider, pluginName: String) async -> LeoPluginAPIKeyEntry? {
+        let model = LeoPluginAPIKeySheetModel(provider: provider, pluginName: pluginName)
+        return await presenter.presentCancellable { finish in LeoPluginAPIKeySheet(model: model, finish: finish) }
+    }
+
     func pickFolder(for kind: LeoPluginCredentialKind) async -> String? {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
