@@ -3649,3 +3649,7 @@ Source: autopilot polish (B-447)
 ## B-463 · leo-runtests.sh skips 129 host-tier suites   [idea]
 Note: the script doesn't set TEST_RUNNER_LEO_HOST_TESTS=1, so its full suite skips host-tier suites including LeoContentFocusTests — merge-gate coverage gap
 Source: autopilot polish (B-447)
+
+## B-464 · Mac and iOS keep separate "Finished" inbox fallbacks   [idea]
+Note: iOS ChatInboxCardView.swift:210 and Mac LeoInboxPresentation.swift:48 each hold their own "Finished" fallback; move it into LeoKit so they can't drift (Mac+iOS parity)
+Source: autopilot polish (B-456)

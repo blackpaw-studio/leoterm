@@ -2,12 +2,14 @@ Status: running
 Started: 2026-11-26T00:49:37Z
 Budget: 20 items, until 2026-11-26T12:49:37Z
 Digested-through: 0
-Filed: 1/3 bugs, 2/5 ideas
+Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-453 → B-461 bug — resetWindowSizeRestoresALaunchClampedSidebar fails (200 vs 199) on autopilot
 Self-filed: B-454 → dropped (dup of B-455) — Handoff banner ignores Return while caps lock is on
 Self-filed: B-447 → dropped (dup of B-461) — resetWindowSizeRestoresALaunchClampedSidebar fails
 Self-filed: B-447 → B-462 idea — Row/Rows suites run slower on each repeat in one process
 Self-filed: B-447 → B-463 idea — leo-runtests.sh skips 129 host-tier suites (no TEST_RUNNER_LEO_HOST_TESTS=1)
+Self-filed: B-456 → dropped (dup of B-456's own sentinel call) — Sentinel heuristic hides single-token underscore previews
+Self-filed: B-456 → B-464 idea — Mac and iOS keep separate "Finished" fallbacks that can drift
 Untracked-left: default.profraw scratchpad/
 Note: B-445 closed at preflight — owner answered "accept your recommendation (close)".
 
@@ -73,7 +75,7 @@ Lane: B-456
   Wip: none
   Dispatched: 2026-11-26T03:35:18Z
   Reverifies: 1
-  Reviewed-tip: e76c3dc17bb7797ec1c3f7448542f45a4b2c311d
+  Reviewed-tip: 03d16c6e282faf0b4784dbf1f336bb84482867c8
   Call: Treat any single snake_case token (one letter case, contains an underscore) as a sentinel, not a fixed list — VISION 2 Calm
   Call: Fix in LeoKit LeoInbox derivation only, no app changes; Mac headline and iOS card already fall back to "Finished" for a nil result — Mac+iOS rule
 
