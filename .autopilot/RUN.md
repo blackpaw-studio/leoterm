@@ -42,4 +42,15 @@ Lane: B-453
   Call: Wording "<name> is still starting" repeats the daemon-reported state and matches the refusal and the Start bar — VISION 2
   Tokens: 7.94M in (7.66M cache read), ≥27.3k out, 92 requests
 
+Lane: B-454
+  Branch: autopilot-lane/B-454
+  Base: bbc2501a8524ee3e8f7c06e693c3263a22f5526a
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-26T01:41:27Z
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-453 landed b18726f6e · not visually verified
