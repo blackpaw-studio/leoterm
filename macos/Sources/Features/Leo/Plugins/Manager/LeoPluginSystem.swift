@@ -62,7 +62,8 @@ import LeoKit
                 daemon: { [clients] in clients.daemon(for: $0) }),
             resolver: LeoPluginCredentials(
                 keychain: LeoPluginSystemCredentialKeychain(), files: LeoPluginCredentialFileReader(), home: home, userName: NSUserName()),
-            grants: store, home: home, remote: LeoPluginMachineForwarding(clients: clients))
+            grants: store, home: home, remote: LeoPluginMachineForwarding(clients: clients),
+            apiKeys: LeoPluginKeychainSelection.makeAPIKeyVault())
         let manager = LeoPluginManager(LeoPluginManagerDependencies(
             store: store,
             bundledRoot: bundle.resourceURL?.appendingPathComponent("Plugins", isDirectory: true),

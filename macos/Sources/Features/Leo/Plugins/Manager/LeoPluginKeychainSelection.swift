@@ -15,12 +15,25 @@ enum LeoPluginKeychainSelection {
         #endif
         return LeoPluginSystemKeychain()
     }
+
+    /// The store behind `api-key` credentials: the same choice as `make`, with
+    /// reads that never show Keychain UI unless a gesture allows it. Items are
+    /// login-keychain generic passwords and are not synchronizable (no
+    /// `kSecAttrSynchronizable`), so a key never leaves this Mac through iCloud.
+    static func makeAPIKeyVault(environment: [String: String] = ProcessInfo.processInfo.environment) -> LeoPluginAPIKeyVault {
+        #if DEBUG
+        if let file = make(environment: environment) as? LeoPluginFileKeychain {
+            return LeoPluginAPIKeyVault(reader: file, writer: file)
+        }
+        #endif
+        return LeoPluginAPIKeyVault(reader: LeoPluginSystemCredentialKeychain(), writer: LeoPluginSystemKeychain())
+    }
 }
 
 #if DEBUG
 /// DEBUG only. Items live in one JSON file (mode 0600), keyed `service\0account`.
 /// Service matching is exact, like the system Keychain's.
-final class LeoPluginFileKeychain: LeoPluginKeychain, @unchecked Sendable {
+final class LeoPluginFileKeychain: LeoPluginKeychain, LeoPluginCredentialKeychain, @unchecked Sendable {
     private let url: URL
     private let lock = NSLock()
 
@@ -44,6 +57,12 @@ final class LeoPluginFileKeychain: LeoPluginKeychain, @unchecked Sendable {
 
     func deleteAll(service: String, accountPrefix: String) throws {
         try mutate { $0.filter { !$0.key.hasPrefix(Self.key(service, accountPrefix)) } }
+    }
+
+    /// A file never needs UI, so `allowUI` changes nothing.
+    func password(service: String, account: String, allowUI: Bool) throws -> Data {
+        guard let value = try get(service: service, account: account) else { throw LeoPluginCredentialKeychainError.notFound }
+        return Data(value.utf8)
     }
 
     private static func key(_ service: String, _ account: String) -> String { service + "\0" + account }
