@@ -3598,7 +3598,7 @@ Source: autopilot polish (B-442)
 Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed (principle 1); a bug past the 3-bug cap
 Source: autopilot bug (B-444)
 
-## B-456 · Inbox "Finished since you looked" shows sentinel previews like…   [ready]
+## B-456 · Inbox "Finished since you looked" shows sentinel previews like…   [done]
 Issue: #428
 Type: bug
 Report: Inbox "Finished since you looked" shows sentinel previews like "NO_REPLY" (seen live 2026-11-24 for agent trader on leo v0.87.0). Filter sentinel/empty turn previews (NO_REPLY and similar) on Mac and iOS: fall back to a neutral "Finished" line. Logic belongs in LeoKit (LeoInbox derivation).
@@ -3606,6 +3606,8 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T014930386649Z-415a1a06#1
 Attachments: .autopilot/bugs/B-456/05-scratch-selected.png
+Done: 59184dcea e76c3dc17 (landed e80427b9d; LeoInbox drops sentinel/empty previews, both apps show "Finished"). Mac + iOS via LeoKit. D-1042, D-1043.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-456-2.png
 
 ## B-457 · Inbox stale open questions: live data on 2026-11-24 surfaced…   [idea]
 Note: Inbox stale open questions: live data on 2026-11-24 surfaced unanswered leo_chat_asks 35d (leoterm), 14d (mountain-town), 22h (subway-sim) old. Add a way to handle stale asks on Mac and iOS: dismiss/decline an ask from the inbox, or fold asks older than N days into a collapsed "Older" group so they don't dominate Needs you.
@@ -3649,3 +3651,7 @@ Source: autopilot polish (B-447)
 ## B-463 · leo-runtests.sh skips 129 host-tier suites   [idea]
 Note: the script doesn't set TEST_RUNNER_LEO_HOST_TESTS=1, so its full suite skips host-tier suites including LeoContentFocusTests — merge-gate coverage gap
 Source: autopilot polish (B-447)
+
+## B-464 · Mac and iOS keep separate "Finished" inbox fallbacks   [idea]
+Note: iOS ChatInboxCardView.swift:210 and Mac LeoInboxPresentation.swift:48 each hold their own "Finished" fallback; move it into LeoKit so they can't drift (Mac+iOS parity)
+Source: autopilot polish (B-456)
