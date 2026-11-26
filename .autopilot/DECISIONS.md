@@ -2464,3 +2464,21 @@ Chose: Fix in LeoKit LeoInbox derivation only, no app changes; Mac headline and 
 Why: Mac+iOS rule
 Commit: 59184dcea e76c3dc17
 Veto: [ ]
+
+## D-1044 · 2026-11-25 · B-458: Full-window chat images setting is off by default
+Chose: Default off, so nothing changes until the owner opts in
+Why: AUTONOMY (defaults)
+Commit: 46edcf927
+Veto: [ ]
+
+## D-1045 · 2026-11-25 · B-458: Toggle lives in Settings ▸ General, new Chat section
+Chose: Plain toggle in the existing Settings ▸ General page, new "Chat" section
+Why: VISION 1 / HIG
+Commit: 46edcf927
+Veto: [ ]
+
+## D-1046 · 2026-11-25 · B-458: Full-window chat images setting is Mac only
+Chose: Mac only; iOS already opens chat images in a gallery viewer (ChatPresentation.swift:46)
+Why: Leo Mac+iOS rule
+Commit: 46edcf927
+Veto: [ ]

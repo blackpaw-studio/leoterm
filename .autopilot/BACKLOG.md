@@ -3614,13 +3614,15 @@ Note: Inbox stale open questions: live data on 2026-11-24 surfaced unanswered le
 Source: owner (/idea, 2026-11-25)
 Inbox: 20261125T014930621131Z-0e829c4d#1
 
-## B-458 · add an option to settings to have image clicks in chat open to…   [ready]
+## B-458 · add an option to settings to have image clicks in chat open to…   [done]
 Issue: #429
 Type: bug
 Report: add an option to settings to have image clicks in chat open to fullscreen mode by default
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T020052683007Z-a078f62c#1
+Done: 46edcf927 (landed a10dda60e; Settings ▸ General ▸ Chat toggle `leo.chat.imagesOpenFullWindow`, off by default; on opens chat images full-window). Mac only. D-1044..D-1046.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png
 
 ## B-459 · Flaky iOS CI test…   [ready]
 Issue: #430

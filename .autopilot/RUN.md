@@ -84,7 +84,7 @@ Lane: B-458
   Branch: autopilot-lane/B-458
   Base: f8f3ecee98c333f9ddd6453bf134348305f40ed3
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T03:34:45Z
@@ -93,6 +93,7 @@ Lane: B-458
   Call: default off, so nothing changes until the owner opts in — AUTONOMY (defaults)
   Call: plain toggle in the existing Settings ▸ General page, new "Chat" section — VISION 1 / HIG
   Call: Mac only; iOS already opens chat images in a gallery viewer (ChatPresentation.swift:46) — Leo Mac+iOS rule
+  Tokens: 9.76M in (9.45M cache read), ≥33.6k out, 104 requests
 
 Lane: B-459
   Branch: autopilot-lane/B-459
@@ -109,3 +110,4 @@ Finished 1: B-453 landed b18726f6e · not visually verified
 Finished 2: B-454 landed a3738d88a · not visually verified
 Finished 3: B-447 landed 79ec7ee26 · not visually verified
 Finished 4: B-456 landed e80427b9d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-456-2.png
+Finished 5: B-458 landed a10dda60e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png
