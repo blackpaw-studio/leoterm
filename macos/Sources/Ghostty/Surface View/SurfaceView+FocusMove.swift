@@ -24,6 +24,19 @@ extension Ghostty {
     /// Moves keyboard focus to a view that may not be in its window yet.
     /// See `Ghostty.moveFocus(to:from:delay:isAllowed:)`, which forwards to
     /// `shared`.
+    ///
+    /// Within one window the newest move that has landed wins (B-447):
+    /// moves are numbered as they are asked for, and a retry keeps its
+    /// move's number. An attempt that finds its window drops itself if that
+    /// window already took a newer move, so an older move still retrying
+    /// never takes focus back from it. Windows are ordered apart, and the
+    /// check is made where the attempt lands: a view may have no window when
+    /// the move is asked for.
+    ///
+    /// Accepted gaps: a move `isAllowed` refuses (chat covering the
+    /// terminal) and focus set outside `moveFocus` (a click, the sidebar's
+    /// own `makeFirstResponder`) leave no number, so an older pending move
+    /// can still land after them, as before.
     final class FocusMover {
         static let shared = FocusMover(scheduler: MainQueueFocusMoveScheduler())
 
@@ -35,6 +48,13 @@ extension Ghostty {
 
         private let scheduler: FocusMoveScheduler
 
+        /// The number the latest move was given.
+        private var latestMove: UInt64 = 0
+
+        /// The number of the newest move each window took. Weak keys: a
+        /// window's entry goes with it.
+        private let newestLanded = NSMapTable<NSWindow, NSNumber>.weakToStrongObjects()
+
         init(scheduler: FocusMoveScheduler) {
             self.scheduler = scheduler
         }
@@ -44,6 +64,17 @@ extension Ghostty {
             from: NSResponder? = nil,
             delay: TimeInterval? = nil,
             isAllowed: (() -> Bool)? = nil
+        ) {
+            latestMove += 1
+            attempt(to: to, from: from, delay: delay, isAllowed: isAllowed, moveNumber: latestMove)
+        }
+
+        private func attempt(
+            to: NSView,
+            from: NSResponder?,
+            delay: TimeInterval?,
+            isAllowed: (() -> Bool)?,
+            moveNumber: UInt64
         ) {
             // The whole delay machinery is a bit of a hack to work around a
             // situation where the window is destroyed and the surface view
@@ -71,9 +102,12 @@ extension Ghostty {
                 // If the callback runs before the surface is attached to a view
                 // then the window will be nil. We just reschedule in that case.
                 guard let window = to.window else {
-                    self.move(to: to, from: from, delay: nextDelay, isAllowed: isAllowed)
+                    self.attempt(to: to, from: from, delay: nextDelay, isAllowed: isAllowed, moveNumber: moveNumber)
                     return
                 }
+
+                // A newer move already landed in this window: this one is stale.
+                if let newest = self.newestLanded.object(forKey: window)?.uint64Value, newest > moveNumber { return }
 
                 // If we had a previously focused node and its not where we're sending
                 // focus, make sure that we explicitly tell it to lose focus. In theory
@@ -83,7 +117,9 @@ extension Ghostty {
                     _ = from.resignFirstResponder()
                 }
 
-                window.makeFirstResponder(to)
+                if window.makeFirstResponder(to) {
+                    self.newestLanded.setObject(NSNumber(value: moveNumber), forKey: window)
+                }
             }
         }
     }
