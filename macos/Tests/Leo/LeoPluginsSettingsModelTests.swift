@@ -159,6 +159,17 @@ import Testing
         #expect(accounts.map(\.title) == ["Codex · This Mac · ~/.codex", "Claude Code · Dionysus · /Users/evan/.claude-blackpaw-leo"])
     }
 
+    @Test func keyRowsNameTheKeyAndTheOnlyHostItIsSentTo() {
+        let deepseek = LeoPluginAPIKeyProvider(provider: "deepseek", label: "DeepSeek", host: "api.deepseek.com")
+        let approved = LeoPluginPermissions(network: ["api.deepseek.com"], apiKeys: [deepseek])
+        let grants = [LeoPluginCredentialGrant(id: "g3", apiKeyProvider: "deepseek", name: "Work")]
+
+        let row = Self.rig([Self.info(approved: approved, grants: grants)]).model.rows[0]
+
+        #expect(row.accounts.map(\.title) == ["API key · Work · api.deepseek.com"])
+        #expect(row.permissionsSummary == "Network: api.deepseek.com · API keys: DeepSeek")
+    }
+
     // MARK: Install links
 
     private final class LinkLog { var opened = 0 }

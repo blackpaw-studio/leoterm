@@ -43,19 +43,21 @@ struct LeoPluginRow: Equatable, Identifiable {
 
     struct Account: Equatable, Identifiable {
         let id: String
-        /// "Codex · This Mac · ~/.codex".
+        /// "Codex · This Mac · ~/.codex", or "API key · Work · api.deepseek.com".
         let title: String
     }
 
     /// A remote path stays absolute: this Mac's home says nothing about that machine's.
-    static func accountTitle(_ grant: LeoPluginCredentialGrant, home: String) -> String {
+    /// An API key shows its name and the one host it is sent to, never the key.
+    static func accountTitle(_ grant: LeoPluginCredentialGrant, home: String, approved: LeoPluginPermissions) -> String {
         switch grant.subject {
         case .account(let kind, let path):
             let machine = grant.isRemote ? grant.machine.displayName : "This Mac"
             let shown = grant.isRemote ? path : LeoPluginCredentialPath.abbreviate(path, home: home)
             return "\(kind.displayName) · \(machine) · \(shown)"
-        case .apiKey(_, let name):
-            return "API key · \(name)"
+        case .apiKey(let provider, let name):
+            guard let host = approved.apiKeys.first(where: { $0.provider == provider })?.host else { return "API key · \(name)" }
+            return "API key · \(name) · \(host)"
         }
     }
 
@@ -91,7 +93,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         pane = info.manifest?.contributes.panes.first.map { Pane(id: $0.id, isShown: !info.hiddenPanes.contains($0.id)) }
         permissionsSummary = Self.summary(of: info.approvedPermissions)
         accounts = info.credentialGrants.map { grant in
-            Account(id: grant.id, title: Self.accountTitle(grant, home: NSHomeDirectory()))
+            Account(id: grant.id, title: Self.accountTitle(grant, home: NSHomeDirectory(), approved: info.approvedPermissions))
         }
         isUnverified = LeoPluginSourceTrust.classify(info.source) == .unverified
         switch info.source {
@@ -148,6 +150,7 @@ struct LeoPluginRow: Equatable, Identifiable {
         if permissions.secrets { parts.append("Keychain") }
         if !permissions.agents.isEmpty { parts.append("Agents: \(permissions.agents.map(\.rawValue).joined(separator: ", "))") }
         if !permissions.credentials.isEmpty { parts.append("Accounts: \(permissions.credentials.map(\.displayName).joined(separator: ", "))") }
+        if !permissions.apiKeys.isEmpty { parts.append("API keys: \(permissions.apiKeys.map(\.label).joined(separator: ", "))") }
         return parts.isEmpty ? "No special access" : parts.joined(separator: " · ")
     }
 
