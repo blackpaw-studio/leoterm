@@ -121,11 +121,13 @@ public struct LeoPluginRegistry: Codable, Equatable, Sendable, LeoPluginIDClaimL
     }
 
     /// The user approved `permissions` (an install, or an update that asked for more).
-    /// Grants for kinds `permissions` no longer has are revoked.
+    /// Grants for kinds or providers `permissions` no longer has, and API keys
+    /// whose provider moved to another host, are revoked.
     public mutating func approve(_ id: String, permissions: LeoPluginPermissions) {
-        update(id) {
-            $0.approvedPermissions = permissions
-            $0.credentialGrants.removeAll { !permissions.credentials.contains($0.kind) }
+        update(id) { record in
+            let old = record.approvedPermissions
+            record.approvedPermissions = permissions
+            record.credentialGrants.removeAll { !$0.survives(old: old, new: permissions) }
         }
     }
 
@@ -181,8 +183,11 @@ public struct LeoPluginRegistry: Codable, Equatable, Sendable, LeoPluginIDClaimL
             id: manifest.id, source: source, enabled: true, approvedPermissions: manifest.permissions,
             hiddenSections: [], disabledReason: nil, name: manifest.name, version: manifest.version)
         // Re-registering the same plugin keeps the accounts it may still use.
-        record.credentialGrants = (self.record(for: manifest.id)?.credentialGrants ?? [])
-            .filter { manifest.permissions.credentials.contains($0.kind) }
+        if let existing = self.record(for: manifest.id) {
+            record.credentialGrants = existing.credentialGrants.filter {
+                $0.survives(old: existing.approvedPermissions, new: manifest.permissions)
+            }
+        }
         records.removeAll { $0.id == manifest.id }
         records.append(record)
         records.sort { $0.id < $1.id }

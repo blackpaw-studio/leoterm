@@ -89,19 +89,22 @@ public struct LeoPluginCredentials: Sendable {
     /// The headers for `grant`. `allowUI` is true only for reads that follow a
     /// user gesture (adding an account, "Grant access").
     public func resolve(_ grant: LeoPluginCredentialGrant, allowUI: Bool) throws(LeoPluginCredentialError) -> LeoPluginFetchCredential {
-        switch grant.kind {
-        case .claudeCode:
-            let token = try claudeToken(configDir: grant.path, allowUI: allowUI)
+        switch grant.subject {
+        case .account(.claudeCode, let path):
+            let token = try claudeToken(configDir: path, allowUI: allowUI)
             return LeoPluginFetchCredential(
-                boundHost: grant.kind.boundHost,
+                boundHost: LeoPluginCredentialKind.claudeCode.boundHost,
                 headers: [
                     "Authorization": "Bearer \(token)", "anthropic-beta": Self.anthropicBeta, "User-Agent": Self.claudeCodeUserAgent,
                 ])
-        case .codex:
-            let auth = try codexAuth(home: grant.path)
+        case .account(.codex, let path):
+            let auth = try codexAuth(home: path)
             var headers = ["Authorization": "Bearer \(auth.token)"]
             if let account = auth.accountID { headers["ChatGPT-Account-Id"] = account }
-            return LeoPluginFetchCredential(boundHost: grant.kind.boundHost, headers: headers)
+            return LeoPluginFetchCredential(boundHost: LeoPluginCredentialKind.codex.boundHost, headers: headers)
+        case .apiKey:
+            // API keys are the vault's; this resolver only reads CLI accounts.
+            throw .invalid
         }
     }
 

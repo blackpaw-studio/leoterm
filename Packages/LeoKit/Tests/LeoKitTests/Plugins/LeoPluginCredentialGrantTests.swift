@@ -35,7 +35,7 @@ extension LeoPluginRegistryTests {
         let claude = try #require(claudeAdded)
         let codexAdded = registry.addGrant(pluginID: usageID, kind: .codex, path: "/Users/a/.codex", id: "g2")
         let codex = try #require(codexAdded)
-        #expect(claude.path == "/Users/a/.claude-work")
+        #expect(claude.accountPath == "/Users/a/.claude-work")
         #expect(registry.grants(for: usageID) == [claude, codex])
 
         let reloaded = try JSONDecoder().decode(LeoPluginRegistry.self, from: JSONEncoder().encode(registry))
@@ -85,11 +85,11 @@ extension LeoPluginRegistryTests {
 
     @Test func aHandleShowsTheFolderNameAndAHomeRelativePath() {
         let grant = LeoPluginCredentialGrant(id: "g1", kind: .claudeCode, path: "/Users/evan/.claude-blackpaw-leo")
-        let handle = grant.handle(home: "/Users/evan")
+        let handle = grant.accountHandle(home: "/Users/evan")
         #expect(handle == LeoPluginCredentialHandle(id: "g1", kind: .claudeCode, label: ".claude-blackpaw-leo", path: "~/.claude-blackpaw-leo"))
-        #expect(LeoPluginCredentialGrant(id: "g2", kind: .codex, path: "/opt/codex").handle(home: "/Users/evan").path == "/opt/codex")
+        #expect(LeoPluginCredentialGrant(id: "g2", kind: .codex, path: "/opt/codex").accountHandle(home: "/Users/evan")?.path == "/opt/codex")
         // A sibling that only shares the home prefix is not inside it.
-        #expect(LeoPluginCredentialGrant(id: "g3", kind: .codex, path: "/Users/evanx/.codex").handle(home: "/Users/evan").path == "/Users/evanx/.codex")
+        #expect(LeoPluginCredentialGrant(id: "g3", kind: .codex, path: "/Users/evanx/.codex").accountHandle(home: "/Users/evan")?.path == "/Users/evanx/.codex")
     }
 
     @Test(arguments: [
@@ -140,12 +140,12 @@ extension LeoPluginRegistryTests {
     }
 
     @Test func aLocalHandleOmitsTheMachineAndARemoteHandleNamesIt() {
-        let local = LeoPluginCredentialGrant(id: "g1", kind: .codex, path: "/Users/evan/.codex").handle(home: "/Users/evan")
-        #expect(local.machine == nil)
+        let local = LeoPluginCredentialGrant(id: "g1", kind: .codex, path: "/Users/evan/.codex").accountHandle(home: "/Users/evan")
+        #expect(local?.machine == nil)
         // The remote path is shown as the daemon listed it: this Mac's home says nothing about that machine's.
-        let remote = LeoPluginCredentialGrant(id: "g2", kind: .codex, path: "/Users/evan/.codex", machine: dionysus).handle(home: "/Users/evan")
-        #expect(remote.machine == "Dionysus")
-        #expect(remote.path == "/Users/evan/.codex")
-        #expect(remote.label == ".codex")
+        let remote = LeoPluginCredentialGrant(id: "g2", kind: .codex, path: "/Users/evan/.codex", machine: dionysus).accountHandle(home: "/Users/evan")
+        #expect(remote?.machine == "Dionysus")
+        #expect(remote?.path == "/Users/evan/.codex")
+        #expect(remote?.label == ".codex")
     }
 }

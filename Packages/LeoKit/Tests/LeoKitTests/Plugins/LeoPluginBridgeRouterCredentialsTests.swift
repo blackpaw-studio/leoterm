@@ -30,11 +30,11 @@ private final class FakeResolver: LeoPluginCredentialResolving, @unchecked Senda
 
     func resolve(_ grant: LeoPluginCredentialGrant, allowUI: Bool) throws(LeoPluginCredentialError) -> LeoPluginFetchCredential {
         let failure = lock.withLock { () -> LeoPluginCredentialError? in
-            _calls.append((grant.path, allowUI))
+            _calls.append((grant.accountPath ?? "", allowUI))
             return self.failure
         }
         if let failure { throw failure }
-        return LeoPluginFetchCredential(boundHost: grant.kind.boundHost, headers: ["Authorization": "Bearer t"])
+        return LeoPluginFetchCredential(boundHost: grant.accountKind?.boundHost ?? "", headers: ["Authorization": "Bearer t"])
     }
 }
 
@@ -56,9 +56,16 @@ private final class FakeGrantStore: LeoPluginCredentialGrantStoring, @unchecked 
         }
     }
 
+    func addAPIKeyGrant(pluginID: String, provider: String, name: String, id: String) throws -> LeoPluginCredentialGrant? {
+        lock.withLock { registry.addAPIKeyGrant(pluginID: pluginID, provider: provider, name: name, id: id) }
+    }
+
     func removeGrant(pluginID: String, grantID: String) throws {
         lock.withLock { registry.removeGrant(pluginID: pluginID, grantID: grantID) }
     }
+
+    /// The registry as it would be saved to registry.json.
+    func encodedRegistry() throws -> Data { try lock.withLock { try JSONEncoder().encode(registry) } }
 }
 
 private func manifest(id: String = usageID, apiVersion: Int = 2, credentials: [LeoPluginCredentialKind] = [.claudeCode, .codex]) -> LeoPluginManifest {

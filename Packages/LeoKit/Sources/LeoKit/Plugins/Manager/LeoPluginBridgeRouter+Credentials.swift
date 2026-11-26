@@ -39,7 +39,7 @@ extension LeoPluginBridgeRouter {
         replyLater(id) {
             guard let picked = await services.picker.pickAccount(for: kind) else { return .null }
             let grant = try await Self.checkedGrant(picked, kind: kind, pluginID: pluginID, services: services)
-            return Self.value(grant.handle(home: services.home))
+            return Self.value(grant, home: services.home)
         }
     }
 
@@ -54,7 +54,7 @@ extension LeoPluginBridgeRouter {
         else { throw LeoPluginCredentialRefusal.unreadable(.invalid) }
         let candidate = LeoPluginCredentialGrant(id: "", kind: kind, path: path, machine: picked.machine)
         if isRemote {
-            try await remoteFetcher(for: candidate, services: services).check()
+            try await remoteFetcher(kind: kind, path: path, machine: picked.machine, services: services).check()
         } else {
             _ = try await resolveOffMain(candidate, allowUI: true, resolver: services.resolver)
         }
@@ -64,8 +64,10 @@ extension LeoPluginBridgeRouter {
         return grant
     }
 
-    static func remoteFetcher(for grant: LeoPluginCredentialGrant, services: LeoPluginCredentialServices) -> LeoPluginRemoteCredentialFetcher {
-        LeoPluginRemoteCredentialFetcher(host: grant.machine, kind: grant.kind, dir: grant.path, forwarding: services.remote)
+    static func remoteFetcher(
+        kind: LeoPluginCredentialKind, path: String, machine: LeoHostID, services: LeoPluginCredentialServices
+    ) -> LeoPluginRemoteCredentialFetcher {
+        LeoPluginRemoteCredentialFetcher(host: machine, kind: kind, dir: path, forwarding: services.remote)
     }
 
     func authorizeCredential(id: String, grantID: String, ref: String?) {
@@ -79,11 +81,14 @@ extension LeoPluginBridgeRouter {
             return deps.send(.reply(id: id, outcome: .rejected(reason: error.localizedDescription)))
         }
         replyLater(id) {
-            if grant.isRemote {
+            switch grant.subject {
+            case .account(let kind, let path) where grant.isRemote:
                 // Any dialog is on that machine; all this side can do is ask whether it will act as the account.
-                try await Self.remoteFetcher(for: grant, services: services).check()
-            } else {
+                try await Self.remoteFetcher(kind: kind, path: path, machine: grant.machine, services: services).check()
+            case .account:
                 _ = try await Self.resolveOffMain(grant, allowUI: true, resolver: services.resolver)
+            case .apiKey:
+                throw LeoPluginCredentialRefusal.unknownCredential
             }
             return .null
         }
@@ -91,8 +96,8 @@ extension LeoPluginBridgeRouter {
 
     func credentialHandles() throws -> LeoJSONValue {
         let services = try requireCredentials()
-        let grants = services.grants.grants(pluginID: deps.identity.id).filter { deps.engine.check(credential: $0.kind).isAllowed }
-        return .array(grants.map { Self.value($0.handle(home: services.home)) })
+        let grants = services.grants.grants(pluginID: deps.identity.id).filter { approval(of: $0).isAllowed }
+        return .array(grants.map { Self.value($0, home: services.home) })
     }
 
     func removeCredential(grantID: String) throws -> LeoJSONValue {
@@ -102,14 +107,21 @@ extension LeoPluginBridgeRouter {
         return .null
     }
 
-    /// One of this plugin's own grants, for a kind it is still approved for.
+    /// One of this plugin's own grants, for a kind or provider it is still approved for.
     func ownedGrant(_ grantID: String) throws -> (LeoPluginCredentialGrant, any LeoPluginCredentialResolving) {
         let services = try requireCredentials()
         guard let grant = services.grants.grants(pluginID: deps.identity.id).first(where: { $0.id == grantID }) else {
             throw LeoPluginCredentialRefusal.unknownCredential
         }
-        _ = try approvedKind(grant.kind.rawValue)
+        if case .denied(let why) = approval(of: grant) { throw LeoPluginCredentialRefusal.permissionDenied(why) }
         return (grant, services.resolver)
+    }
+
+    private func approval(of grant: LeoPluginCredentialGrant) -> LeoPluginPermissionDecision {
+        switch grant.subject {
+        case .account(let kind, _): deps.engine.check(credential: kind)
+        case .apiKey(let provider, _): deps.engine.check(apiKeyProvider: provider)
+        }
     }
 
     /// Reads a token on a background thread: a read with UI blocks on the dialog.
@@ -155,6 +167,15 @@ extension LeoPluginBridgeRouter {
         guard let ref, callbacks.spendCredentialPrompt(ref, now: deps.now()) else {
             throw LeoPluginCredentialRefusal.gestureRequired
         }
+    }
+
+    static func value(_ grant: LeoPluginCredentialGrant, home: String) -> LeoJSONValue {
+        if let handle = grant.accountHandle(home: home) { return value(handle) }
+        guard let handle = grant.apiKeyHandle else { return .null }
+        return .object([
+            "id": .string(handle.id), "kind": .string(LeoPluginAPIKeyProvider.kind), "provider": .string(handle.provider),
+            "name": .string(handle.name),
+        ])
     }
 
     static func value(_ handle: LeoPluginCredentialHandle) -> LeoJSONValue {

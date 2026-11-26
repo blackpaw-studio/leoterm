@@ -49,9 +49,14 @@ struct LeoPluginRow: Equatable, Identifiable {
 
     /// A remote path stays absolute: this Mac's home says nothing about that machine's.
     static func accountTitle(_ grant: LeoPluginCredentialGrant, home: String) -> String {
-        let machine = grant.isRemote ? grant.machine.displayName : "This Mac"
-        let path = grant.isRemote ? grant.path : LeoPluginCredentialPath.abbreviate(grant.path, home: home)
-        return "\(grant.kind.displayName) · \(machine) · \(path)"
+        switch grant.subject {
+        case .account(let kind, let path):
+            let machine = grant.isRemote ? grant.machine.displayName : "This Mac"
+            let shown = grant.isRemote ? path : LeoPluginCredentialPath.abbreviate(path, home: home)
+            return "\(kind.displayName) · \(machine) · \(shown)"
+        case .apiKey(_, let name):
+            return "API key · \(name)"
+        }
     }
 
     struct Pane: Equatable {

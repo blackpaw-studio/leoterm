@@ -197,13 +197,16 @@ import OSLog
         // the Keychain, or another machine. Background reads never show UI: one
         // that would needs `authorize` first.
         let source: LeoPluginFetchCredentialSource
-        if grant.isRemote {
-            let remote = Self.remoteFetcher(for: grant, services: services)
-            source = .remote(boundHost: grant.kind.boundHost, reservedHeaders: grant.kind.reservedHeaders) { try await remote.forward($0) }
-        } else {
-            source = LeoPluginFetchCredentialSource(boundHost: grant.kind.boundHost) {
+        switch grant.subject {
+        case .account(let kind, let path) where grant.isRemote:
+            let remote = Self.remoteFetcher(kind: kind, path: path, machine: grant.machine, services: services)
+            source = .remote(boundHost: kind.boundHost, reservedHeaders: kind.reservedHeaders) { try await remote.forward($0) }
+        case .account(let kind, _):
+            source = LeoPluginFetchCredentialSource(boundHost: kind.boundHost) {
                 try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
             }
+        case .apiKey:
+            return deps.send(.reply(id: id, outcome: .rejected(reason: LeoPluginCredentialRefusal.unknownCredential.localizedDescription)))
         }
         replyLater(id) { try await fetcher.fetch(url: url, init: options, credential: source).replyValue }
     }

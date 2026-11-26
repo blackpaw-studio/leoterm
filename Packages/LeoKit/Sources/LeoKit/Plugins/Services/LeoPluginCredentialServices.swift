@@ -40,6 +40,8 @@ public protocol LeoPluginCredentialGrantStoring: Sendable {
     func grants(pluginID: String) -> [LeoPluginCredentialGrant]
     /// Nil when the plugin isn't approved for `kind` or the path isn't absolute.
     func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID) throws -> LeoPluginCredentialGrant?
+    /// Nil when the plugin isn't approved for `provider` or the name is invalid.
+    func addAPIKeyGrant(pluginID: String, provider: String, name: String, id: String) throws -> LeoPluginCredentialGrant?
     func removeGrant(pluginID: String, grantID: String) throws
 }
 
@@ -57,6 +59,10 @@ extension LeoPluginStore: LeoPluginCredentialGrantStoring {
 
     public func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID) throws -> LeoPluginCredentialGrant? {
         try update { $0.addGrant(pluginID: pluginID, kind: kind, path: path, id: UUID().uuidString, machine: machine) }
+    }
+
+    public func addAPIKeyGrant(pluginID: String, provider: String, name: String, id: String) throws -> LeoPluginCredentialGrant? {
+        try update { $0.addAPIKeyGrant(pluginID: pluginID, provider: provider, name: name, id: id) }
     }
 
     public func removeGrant(pluginID: String, grantID: String) throws {
@@ -97,6 +103,11 @@ struct LeoPluginPublishingGrantStore: LeoPluginCredentialGrantStoring {
     func addGrant(pluginID: String, kind: LeoPluginCredentialKind, path: String, machine: LeoHostID) throws -> LeoPluginCredentialGrant? {
         defer { didChange() }
         return try base.addGrant(pluginID: pluginID, kind: kind, path: path, machine: machine)
+    }
+
+    func addAPIKeyGrant(pluginID: String, provider: String, name: String, id: String) throws -> LeoPluginCredentialGrant? {
+        defer { didChange() }
+        return try base.addAPIKeyGrant(pluginID: pluginID, provider: provider, name: name, id: id)
     }
 
     func removeGrant(pluginID: String, grantID: String) throws {
