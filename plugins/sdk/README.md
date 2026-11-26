@@ -29,10 +29,26 @@ Your code runs in a sandboxed JavaScriptCore host with no network, files or proc
 - `leo.secrets.get/set/delete`: needs `permissions.secrets: true`.
 - `leo.agents.list()`: needs `agents: ["read"]`. With `"usage"` too (`usage` requires `read`; a manifest with `usage` alone is refused), entries also carry `model` and `workspace` (home-relative, or absolute outside home).
 - `leo.agents.usage({machine, name})`: needs `agents: ["read", "usage"]`. Resolves a `UsageSnapshot` (all keys optional, absent keys omitted), `null` for "no data yet", or `{}` when the agent's harness reports no usage.
+- `leo.credentials` (apiVersion 2): see [Credentials](#credentials).
 - `leo.timer(sec >= 60, fn)`, `leo.after(sec >= 1, fn)`: both return `{cancel()}`.
 - `leo.log(level, message)`.
 
 Rejections carry the reason (permission denied, rate limit, …) as the error message.
+
+## Credentials
+
+`permissions.credentials` lists account kinds as strings and API keys as objects. Each one's host must also be in `permissions.network` exactly (a wildcard doesn't count):
+
+```json
+"network": ["api.anthropic.com", "api.deepseek.com"],
+"credentials": ["claude-code", {"kind": "api-key", "provider": "deepseek", "label": "DeepSeek", "host": "api.deepseek.com"}]
+```
+
+- `provider` matches `[a-z0-9][a-z0-9-]{0,31}` and is unique in the plugin; `label` is 1–40 characters; `host` is one lowercase DNS name (no scheme, port, path, wildcard or IP).
+- `leo.credentials.add("api-key", {provider})` (gesture only) shows Leo's sheet: "<Plugin> wants an API key for <label>. It will only be sent to <host>." It resolves `{id, kind: "api-key", provider, name}`, or `null` on cancel. `provider` is required for `api-key` and refused for other kinds. Several keys per provider are allowed.
+- `leo.fetch(url, {credential: handle.id})` adds `Authorization: Bearer <key>`. The URL and every redirect must stay on the provider's host (`credentialHostMismatch`); setting `authorization` yourself fails with `credentialHeaderConflict`. Leo doesn't check the key: treat a 401 as a bad key.
+- The plugin never sees a key. Leo never shows it again; to change it, remove the credential and add it again. Removing it, or uninstalling the plugin, deletes it from the Keychain. A manifest update that moves a provider to another host drops its keys.
+- Rejection codes: `gestureRequired`, `credentialPermissionDenied`, `unknownCredential`, `credentialInvalid`, `credentialNeedsAuthorization`, `credentialHostMismatch`, `credentialHeaderConflict` (see `CredentialRejection` in `leo.d.ts`).
 
 ## Agent pane
 

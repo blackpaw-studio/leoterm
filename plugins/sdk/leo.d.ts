@@ -225,7 +225,74 @@ export interface FetchInit {
   headers?: Record<string, string>;
   /** Strings only. */
   body?: string;
+  /**
+   * A credential handle's `id` (apiVersion 2). Leo adds the credential's headers
+   * itself, only for its one host, checked on the first hop and every redirect.
+   * Don't set `authorization` (any case) on such a fetch: it fails with
+   * `credentialHeaderConflict`.
+   */
+  credential?: string;
 }
+
+// ---- Credentials (apiVersion 2) --------------------------------------------
+
+/** An account kind Leo reads the sign-in for. Bound hosts: claude-code → api.anthropic.com, codex → chatgpt.com. */
+export type AccountKind = "claude-code" | "codex";
+export type CredentialKind = AccountKind | "api-key";
+
+/** A CLI account folder the user chose. Leo reads its token; the plugin never sees it. */
+export interface AccountHandle {
+  id: string;
+  kind: AccountKind;
+  /** The folder's name, such as ".claude-work". */
+  label: string;
+  /** Home-relative on this Mac (`~/.codex`); absolute on another machine. */
+  path: string;
+  /** The machine's name for an account on another machine; absent for this Mac. */
+  machine?: string;
+}
+
+/**
+ * An API key the user pasted into Leo's sheet. Leo keeps the key in the
+ * Keychain and sends it as `Authorization: Bearer <key>` only to the host the
+ * manifest declares for `provider`. The plugin never sees the key.
+ */
+export interface APIKeyHandle {
+  id: string;
+  kind: "api-key";
+  /** The manifest's provider slug, such as "deepseek". */
+  provider: string;
+  /** The user's name for the key (the provider's label by default). */
+  name: string;
+}
+
+export type CredentialHandle = AccountHandle | APIKeyHandle;
+
+export interface CredentialAddOptions {
+  /** Required for "api-key" (a provider the manifest declares); refused for other kinds. */
+  provider?: string;
+}
+
+/**
+ * Codes a credential call or credential fetch rejects with. The error message
+ * starts with the code, then a colon. Every other fetch check (network
+ * allowlist, headers, rate limit) still runs first.
+ */
+export type CredentialRejection =
+  /** `add` or `authorize` needs a click or key press from the last 30 seconds. */
+  | "gestureRequired"
+  /** Unknown kind, or an api-key provider the manifest doesn't declare (or the user didn't approve). */
+  | "credentialPermissionDenied"
+  /** No credential with that id for this plugin. */
+  | "unknownCredential"
+  /** The sign-in or the key can't be read (missing Keychain item, bad stored value, invalid pasted key). */
+  | "credentialInvalid"
+  /** Reading would need Keychain UI. Call `leo.credentials.authorize(id)` from a click. */
+  | "credentialNeedsAuthorization"
+  /** The fetch (or one of its redirects) left the credential's host. */
+  | "credentialHostMismatch"
+  /** The plugin set a header the credential sets (`authorization`, in any case). */
+  | "credentialHeaderConflict";
 export interface FetchResponse {
   status: number;
   headers: Record<string, string>;
@@ -321,6 +388,8 @@ export interface Events {
   usageChanged: (agent: AgentRef) => void | Promise<void>;
   command: (id: string, slot?: SlotID) => void | Promise<void>;
   callback: (id: string, payload: JSONValue) => CallbackResult | Promise<CallbackResult>;
+  /** The plugin's credentials changed (added, removed, or dropped after a permission change). Call `leo.credentials.list()`. */
+  credentialsChanged: () => void | Promise<void>;
 }
 
 export interface Leo {
@@ -344,6 +413,22 @@ export interface Leo {
      * - `{}`: the agent's harness does not report usage; do not wait for data.
      */
     usage(agent: AgentRef): Promise<UsageSnapshot | null>;
+  };
+  /** apiVersion 2. Needs the kind (or api-key provider) in `permissions.credentials`. */
+  credentials: {
+    /**
+     * Gesture only. For an account kind, opens the account picker; for
+     * "api-key", opens Leo's paste-a-key sheet for `options.provider`. Resolves
+     * the new handle, or null if the user cancels.
+     */
+    add(kind: AccountKind): Promise<AccountHandle | null>;
+    add(kind: "api-key", options: CredentialAddOptions & { provider: string }): Promise<APIKeyHandle | null>;
+    add(kind: CredentialKind, options?: CredentialAddOptions): Promise<CredentialHandle | null>;
+    /** Gesture only. One read that may show the Keychain dialog; resolves to null. */
+    authorize(id: string): Promise<null>;
+    list(): Promise<CredentialHandle[]>;
+    /** Forgets the credential; an API key's Keychain item is deleted. Resolves to null. */
+    remove(id: string): Promise<null>;
   };
   /** Periodic; intervalSec >= 60. */
   timer(intervalSec: number, fn: () => void | Promise<void>): TimerHandle;
