@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-26T00:49:37Z
 Budget: 20 items, until 2026-11-26T12:49:37Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-453 → B-461 bug — resetWindowSizeRestoresALaunchClampedSidebar fails (200 vs 199) on autopilot
 Self-filed: B-454 → dropped (dup of B-455) — Handoff banner ignores Return while caps lock is on
