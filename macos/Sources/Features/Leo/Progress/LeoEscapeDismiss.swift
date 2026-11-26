@@ -25,7 +25,15 @@ final class LeoEscapeMonitor {
     }
 
     private static func isPlainEscape(_ event: NSEvent) -> Bool {
-        event.keyCode == escapeKeyCode && event.modifierFlags.isDisjoint(with: .deviceIndependentFlagsMask)
+        event.keyCode == escapeKeyCode && event.modifierFlags.isChordFree
+    }
+}
+
+extension NSEvent.ModifierFlags {
+    /// No real chord held. Caps lock is state, not a chord, so it doesn't count
+    /// (a keyDown carries it in the device-independent flags while it is on).
+    var isChordFree: Bool {
+        intersection(.deviceIndependentFlagsMask).subtracting(.capsLock).isEmpty
     }
 }
 
