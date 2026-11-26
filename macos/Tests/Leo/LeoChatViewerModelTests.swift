@@ -32,9 +32,9 @@ struct LeoChatViewerModelTests {
     private let directory = FileManager.default.temporaryDirectory.appendingPathComponent("viewer-model-\(UUID().uuidString)", isDirectory: true)
     private let opened = Opened()
 
-    private func makeModel() -> LeoChatViewerModel {
+    private func makeModel(opensImagesFullWindow: Bool = false) -> LeoChatViewerModel {
         let opened = opened
-        return LeoChatViewerModel(openExternally: { opened.urls.append($0) })
+        return LeoChatViewerModel(opensImagesFullWindow: { opensImagesFullWindow }, openExternally: { opened.urls.append($0) })
     }
 
     private func file(_ name: String, _ bytes: Data) throws -> URL {
@@ -71,6 +71,34 @@ struct LeoChatViewerModelTests {
             image(current), for: Self.a, fullWindow: fullWindow, gallery: ids.map(image), download: { urls[current] },
             downloadGalleryItem: downloadSibling ?? { urls[$0.id] }
         )
+    }
+
+    // MARK: Images open full window by preference (B-458)
+
+    @Test func withThePreferenceOnAClickedImageOpensOverTheWholeWindow() async throws {
+        let model = makeModel(opensImagesFullWindow: true)
+        try await openImage(model, "i1", among: ["i1"], fullWindow: false)
+        #expect(model.shown?.presentation == .fullWindow(fromPane: false))
+        #expect(model.document(for: Self.a) == nil)
+    }
+
+    @Test func withThePreferenceOffAClickedImageOpensInThePane() async throws {
+        let model = makeModel(opensImagesFullWindow: false)
+        try await openImage(model, "i1", among: ["i1"], fullWindow: false)
+        #expect(model.shown?.presentation == .pane)
+    }
+
+    @Test func thePreferenceLeavesNonImagesInThePane() async throws {
+        let model = makeModel(opensImagesFullWindow: true)
+        try await openMarkdown(model)
+        #expect(model.shown?.presentation == .pane)
+    }
+
+    @Test func theLeavingFullWindowFromAPreferenceOpenedImageClosesTheViewer() async throws {
+        let model = makeModel(opensImagesFullWindow: true)
+        try await openImage(model, "i1", among: ["i1"], fullWindow: false)
+        #expect(!model.exitFullWindow())
+        #expect(model.shown == nil)
     }
 
     @Test func steppingShowsTheNextAndPreviousImageOfTheMessageInPlace() async throws {

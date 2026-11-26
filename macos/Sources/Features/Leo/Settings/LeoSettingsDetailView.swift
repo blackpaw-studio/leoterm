@@ -10,6 +10,7 @@ struct LeoSettingsDetailView: View {
     @ObservedObject var statsStyle: LeoStatsStyleSetting
     @ObservedObject var agentBrowser: LeoAgentBrowserSetting
     @ObservedObject var builtInPanes: LeoBuiltInPaneSettings
+    @ObservedObject var chatImages: LeoChatImageOpenSetting
     @ObservedObject var managedFeed: LeoManagedDaemonFeed
     @ObservedObject var registry: LeoMachineRegistry
     let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
@@ -34,7 +35,7 @@ struct LeoSettingsDetailView: View {
     @ViewBuilder private var page: some View {
         switch sidebar.selection {
         case .general:
-            LeoGeneralSettingsView(statsStyle: statsStyle, agentBrowser: agentBrowser, builtIn: builtInPanes)
+            LeoGeneralSettingsView(statsStyle: statsStyle, agentBrowser: agentBrowser, builtIn: builtInPanes, chatImages: chatImages)
         case .plugins:
             LeoPluginsSettingsView(system: plugins)
         case .machine(.local):
