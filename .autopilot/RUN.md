@@ -84,12 +84,15 @@ Lane: B-458
   Branch: autopilot-lane/B-458
   Base: f8f3ecee98c333f9ddd6453bf134348305f40ed3
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T03:34:45Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 38821700bd93be43dc93689edb2577b8608a01dd
+  Call: default off, so nothing changes until the owner opts in — AUTONOMY (defaults)
+  Call: plain toggle in the existing Settings ▸ General page, new "Chat" section — VISION 1 / HIG
+  Call: Mac only; iOS already opens chat images in a gallery viewer (ChatPresentation.swift:46) — Leo Mac+iOS rule
 
 Lane: B-459
   Branch: autopilot-lane/B-459
