@@ -267,15 +267,19 @@ enum LeoChatSendGate {
     }
 
     /// The composer field's placeholder: "Start" only where Start is on offer.
+    /// B-453: a restoring agent is already starting, so it says so (the
+    /// daemon's own state) instead of telling the user to start it.
     static func placeholder(for status: LeoAgentStatus, agentName: String, movedTo: String?) -> String {
         if let movedTo { return "\(agentName) moved to \(movedTo)" }
-        return refusal(for: status, agentName: agentName) == nil ? "Message \(agentName)" : "Start \(agentName) to send a message"
+        if refusal(for: status, agentName: agentName) == nil { return "Message \(agentName)" }
+        return status == .restoring ? "\(agentName) is still starting" : "Start \(agentName) to send a message"
     }
 
     /// The send button's tooltip.
     static func sendHelp(for status: LeoAgentStatus, agentName: String, movedTo: String?) -> String {
         if let movedTo { return "\(agentName) moved to \(movedTo)" }
-        return refusal(for: status, agentName: agentName) == nil ? "Send (Return)" : "Start \(agentName) to send"
+        if refusal(for: status, agentName: agentName) == nil { return "Send (Return)" }
+        return status == .restoring ? "\(agentName) is still starting" : "Start \(agentName) to send"
     }
 }
 

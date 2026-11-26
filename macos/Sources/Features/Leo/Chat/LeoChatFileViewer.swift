@@ -74,8 +74,7 @@ final class LeoChatFileViewerView: NSView {
     static func closesOnEscape(
         keyCode: UInt16, modifiers: NSEvent.ModifierFlags, isInViewer: Bool, isFieldEditor: Bool, coversWindow: Bool = false
     ) -> Bool {
-        let chord = modifiers.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
-        return keyCode == escapeKeyCode && chord.isEmpty && (isInViewer || coversWindow) && !isFieldEditor
+        keyCode == escapeKeyCode && modifiers.isChordFree && (isInViewer || coversWindow) && !isFieldEditor
     }
 
     /// Modifier flags that AppKit sets on a bare arrow press (`.function`,

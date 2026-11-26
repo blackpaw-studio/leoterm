@@ -23,6 +23,28 @@ struct LeoEscapeMonitorTests {
         withExtendedLifetime(monitor) {}
     }
 
+    /// B-454: caps lock is state, not a chord, and a real keyDown carries it in
+    /// the device-independent flags.
+    @Test func escapeReachesTheHandlerWithCapsLockOn() throws {
+        var escapes = 0
+        let monitor = LeoEscapeMonitor { escapes += 1 }
+
+        NSApp.sendEvent(try Self.keyDown(LeoEscapeMonitor.escapeKeyCode, modifiers: .capsLock))
+
+        #expect(escapes == 1)
+        withExtendedLifetime(monitor) {}
+    }
+
+    @Test func capsLockDoesNotMaskARealChordOnEscape() throws {
+        var escapes = 0
+        let monitor = LeoEscapeMonitor { escapes += 1 }
+
+        NSApp.sendEvent(try Self.keyDown(LeoEscapeMonitor.escapeKeyCode, modifiers: [.capsLock, .command]))
+
+        #expect(escapes == 0)
+        withExtendedLifetime(monitor) {}
+    }
+
     @Test func otherKeysAndChordsPassThrough() throws {
         var escapes = 0
         let monitor = LeoEscapeMonitor { escapes += 1 }

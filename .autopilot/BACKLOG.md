@@ -3550,19 +3550,23 @@ Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsS
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
 
-## B-453 · Composer placeholder says Start on a restoring agent   [ready]
+## B-453 · Composer placeholder says Start on a restoring agent   [done]
 Issue: #421
 Type: bug
 Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-442)
+Done: ddf9e0d49 (landed b18726f6e; placeholder + send tooltip say "<name> is still starting" while restoring). Mac only. D-1035, D-1036.
+Verified: not visually verified — an agent can't be put into .restoring in the isolated debug app without touching real agents; unit test covers the strings
 
-## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready]
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [done]
 Issue: #422
 Type: bug
 Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-444)
+Done: 9fa7210c0 (landed a3738d88a; shared NSEvent.ModifierFlags.isChordFree used by the progress Escape monitor and the chat image viewer). Mac only.
+Verified: not visually verified — caps lock can't be driven through the GUI tooling; tests send real NSEvent keyDowns through NSApp.sendEvent
 
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
@@ -3593,6 +3597,7 @@ Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses
 Source: autopilot bug (B-444)
 
 ## B-456 · Inbox "Finished since you looked" shows sentinel previews like…   [ready]
+Issue: #428
 Type: bug
 Report: Inbox "Finished since you looked" shows sentinel previews like "NO_REPLY" (seen live 2026-11-24 for agent trader on leo v0.87.0). Filter sentinel/empty turn previews (NO_REPLY and similar) on Mac and iOS: fall back to a neutral "Finished" line. Logic belongs in LeoKit (LeoInbox derivation).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3606,6 +3611,7 @@ Source: owner (/idea, 2026-11-25)
 Inbox: 20261125T014930621131Z-0e829c4d#1
 
 ## B-458 · add an option to settings to have image clicks in chat open to…   [ready]
+Issue: #429
 Type: bug
 Report: add an option to settings to have image clicks in chat open to fullscreen mode by default
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3613,6 +3619,7 @@ Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T020052683007Z-a078f62c#1
 
 ## B-459 · Flaky iOS CI test…   [ready]
+Issue: #430
 Type: bug
 Report: Flaky iOS CI test TaskScreensTests.theEditorStaysOutOfTheSideSafeAreaInLandscape (TaskScreensTests.swift:113): safe.minX read 0.0 instead of sideInset 60.0 on main ccd959deb (run 45655777690); same test passed on 896b31010. Likely landscape rotation/safe-area not settled before measuring; fix at cause (wait for the safe area to update), do not loosen the assertion.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3620,8 +3627,15 @@ Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T170327309810Z-ccf06312#1
 
 ## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [ready]
+Issue: #431
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.88.1 carries the leo_brief guidance gate fix (leo #355).
 Accept: The lane merges PR #427's head commit e36e77ca1b5246a7a8a95d3262419b6d613bcc98 (git fetch origin bump/leo-0.88.1) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.88.1; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.88.1.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.
 Source: owner (/feature, 2026-11-25)
 Inbox: 20261126T004750631657Z-337d9c02#1
+
+## B-461 · resetWindowSizeRestoresALaunchClampedSidebar fails 200 vs 199   [ready (next run)]
+Type: bug
+Report: resetWindowSizeRestoresALaunchClampedSidebar fails (200.0 vs 199.0, LeoFirstAttachWindowSizeTests.swift:274) on autopilot 482b9d787, base and lane alike — full suite is not green; fix at cause (measure the platform value, not a bare ±1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-453)
