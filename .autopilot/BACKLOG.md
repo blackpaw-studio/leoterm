@@ -3559,12 +3559,14 @@ Source: autopilot bug (B-442)
 Done: ddf9e0d49 (landed b18726f6e; placeholder + send tooltip say "<name> is still starting" while restoring). Mac only. D-1035, D-1036.
 Verified: not visually verified — an agent can't be put into .restoring in the isolated debug app without touching real agents; unit test covers the strings
 
-## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready]
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [done]
 Issue: #422
 Type: bug
 Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-444)
+Done: 9fa7210c0 (landed a3738d88a; shared NSEvent.ModifierFlags.isChordFree used by the progress Escape monitor and the chat image viewer). Mac only.
+Verified: not visually verified — caps lock can't be driven through the GUI tooling; tests send real NSEvent keyDowns through NSApp.sendEvent
 
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
