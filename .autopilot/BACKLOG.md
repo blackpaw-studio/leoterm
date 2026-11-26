@@ -3532,7 +3532,7 @@ Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real 
 Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
 Reviewed: accepted 2026-11-24 — 315518028f82
 
-## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready]
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [done]
 Issue: #418
 Type: bug
 Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
@@ -3541,22 +3541,23 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-441)
 Question: couldn't reproduce — the implementer traced send → LeoChatScrollPin (re-pins only within 40 pt of the bottom; tests cover it) → the image right-click (LeoChatAttachmentDragView.hitTest passes right-clicks to the SwiftUI .contextMenu, independent of scroll) and found no app defect; likely the B-441 verifier clicked stale screenshot coordinates after the stub reply scrolled. Reply "B-445: close" to close it, or "B-445: <more detail>" to retry. I'd pick close. Work kept on autopilot-shelved/B-445.
 Answer: accept your recommendation (close)
+Done: closed — not reproducible (owner accepted the close pick, 2026-11-25)
 
-## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready]
 Issue: #420
 Type: bug
 Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
 
-## B-453 · Composer placeholder says Start on a restoring agent   [ready (next run)]
+## B-453 · Composer placeholder says Start on a restoring agent   [ready]
 Issue: #421
 Type: bug
 Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-442)
 
-## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready (next run)]
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready]
 Issue: #422
 Type: bug
 Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
