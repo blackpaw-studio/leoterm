@@ -102,9 +102,9 @@ Lane: B-459
   State: verifying
   Fixes: 0
   Wip: none
-  Dispatched: 2026-11-26T04:16:54Z
-  Reverifies: 1
-  Reviewed-tip: 1d9d6bdd3ffc36d3da0e55bc9889d7bcbb9da2ae
+  Dispatched: 2026-11-26T04:42:01Z
+  Reverifies: 2
+  Reviewed-tip: 980c381891e8cee54f2939074878fc13a0797162
 
 Lane: B-460
   Branch: autopilot-lane/B-460
