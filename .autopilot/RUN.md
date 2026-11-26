@@ -110,12 +110,12 @@ Lane: B-460
   Branch: autopilot-lane/B-460
   Base: 75933ad9c13f6b8caf620001e1c9f1badf501c5e
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T04:16:28Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 2da73d1438dea4e15c062de72055588076ab3e71
 
 Finished 1: B-453 landed b18726f6e · not visually verified
 Finished 2: B-454 landed a3738d88a · not visually verified
