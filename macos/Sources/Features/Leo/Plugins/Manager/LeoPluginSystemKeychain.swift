@@ -42,6 +42,14 @@ struct LeoPluginSystemKeychain: LeoPluginKeychain {
     }
 
     func deleteAll(service: String) throws {
+        try deleteAll(service: service) { _ in true }
+    }
+
+    func deleteAll(service: String, accountPrefix: String) throws {
+        try deleteAll(service: service) { $0.hasPrefix(accountPrefix) }
+    }
+
+    private func deleteAll(service: String, where matches: (String) -> Bool) throws {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -55,7 +63,7 @@ struct LeoPluginSystemKeychain: LeoPluginKeychain {
         for item in (result as? [[String: Any]]) ?? [] {
             // Re-check the service: delete only items that exactly match it.
             guard item[kSecAttrService as String] as? String == service,
-                let account = item[kSecAttrAccount as String] as? String
+                let account = item[kSecAttrAccount as String] as? String, matches(account)
             else { continue }
             try delete(service: service, account: account)
         }

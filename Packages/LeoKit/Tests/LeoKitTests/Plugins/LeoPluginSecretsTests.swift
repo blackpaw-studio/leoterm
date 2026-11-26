@@ -27,6 +27,9 @@ private final class FakeKeychain: LeoPluginKeychain, @unchecked Sendable {
     func deleteAll(service: String) throws {
         lock.withLock { items = items.filter { $0.key.service != service } }
     }
+    func deleteAll(service: String, accountPrefix: String) throws {
+        lock.withLock { items = items.filter { $0.key.service != service || !$0.key.account.hasPrefix(accountPrefix) } }
+    }
 }
 
 private func engine(secrets: Bool) -> LeoPluginPermissionEngine {

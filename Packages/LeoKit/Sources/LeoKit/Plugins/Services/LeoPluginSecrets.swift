@@ -10,6 +10,9 @@ public protocol LeoPluginKeychain: Sendable {
     func delete(service: String, account: String) throws
     /// Deletes every item whose service is *exactly* `service`.
     func deleteAll(service: String) throws
+    /// Deletes every item whose service is exactly `service` and whose account
+    /// starts with `accountPrefix` (API-key items of one plugin on uninstall).
+    func deleteAll(service: String, accountPrefix: String) throws
 }
 
 public enum LeoPluginKeychainError: Error, Equatable, Sendable {

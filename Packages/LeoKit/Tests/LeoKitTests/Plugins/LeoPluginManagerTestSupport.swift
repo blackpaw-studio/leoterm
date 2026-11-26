@@ -2,15 +2,33 @@ import Foundation
 
 @testable import LeoKit
 
-final class PluginFakeKeychain: LeoPluginKeychain, @unchecked Sendable {
+/// An in-memory keychain for both writes (`leo.secrets`, API keys) and the
+/// no-UI credential reads. Accounts in `needsUI` answer a read without UI with
+/// `.needsAuthorization`, like an item whose ACL would show the dialog.
+final class PluginFakeKeychain: LeoPluginKeychain, LeoPluginCredentialKeychain, @unchecked Sendable {
     private let lock = NSLock()
-    private(set) var items: [String: String] = [:]
+    private var _items: [String: String] = [:]
+    private var _needsUI: Set<String> = []
+    var items: [String: String] { lock.withLock { _items } }
     private func key(_ service: String, _ account: String) -> String { "\(service)|\(account)" }
-    func get(service: String, account: String) throws -> String? { lock.withLock { items[key(service, account)] } }
-    func set(service: String, account: String, value: String) throws { lock.withLock { items[key(service, account)] = value } }
-    func delete(service: String, account: String) throws { lock.withLock { items[key(service, account)] = nil } }
+    func get(service: String, account: String) throws -> String? { lock.withLock { _items[key(service, account)] } }
+    func set(service: String, account: String, value: String) throws { lock.withLock { _items[key(service, account)] = value } }
+    func delete(service: String, account: String) throws { lock.withLock { _items[key(service, account)] = nil } }
     func deleteAll(service: String) throws {
-        lock.withLock { items = items.filter { !$0.key.hasPrefix(service + "|") } }
+        lock.withLock { _items = _items.filter { !$0.key.hasPrefix(service + "|") } }
+    }
+    func deleteAll(service: String, accountPrefix: String) throws {
+        lock.withLock { _items = _items.filter { !$0.key.hasPrefix(key(service, accountPrefix)) } }
+    }
+    func requireUI(service: String, account: String) { lock.withLock { _ = _needsUI.insert(key(service, account)) } }
+
+    func password(service: String, account: String, allowUI: Bool) throws -> Data {
+        try lock.withLock {
+            let k = key(service, account)
+            if !allowUI, _needsUI.contains(k) { throw LeoPluginCredentialKeychainError.needsAuthorization }
+            guard let value = _items[k] else { throw LeoPluginCredentialKeychainError.notFound }
+            return Data(value.utf8)
+        }
     }
 }
 

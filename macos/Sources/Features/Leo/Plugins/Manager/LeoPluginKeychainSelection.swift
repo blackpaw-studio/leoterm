@@ -42,6 +42,10 @@ final class LeoPluginFileKeychain: LeoPluginKeychain, @unchecked Sendable {
         try mutate { $0.filter { !$0.key.hasPrefix(service + "\0") } }
     }
 
+    func deleteAll(service: String, accountPrefix: String) throws {
+        try mutate { $0.filter { !$0.key.hasPrefix(Self.key(service, accountPrefix)) } }
+    }
+
     private static func key(_ service: String, _ account: String) -> String { service + "\0" + account }
 
     private func locked<R>(_ body: ([String: String]) throws -> R) throws -> R {

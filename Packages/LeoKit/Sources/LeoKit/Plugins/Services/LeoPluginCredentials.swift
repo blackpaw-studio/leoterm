@@ -39,9 +39,17 @@ public protocol LeoPluginCredentialFileReading: Sendable {
 
 /// The headers to inject into one fetch, and the only host they may go to.
 /// App-internal: never encoded onto the bridge, so tokens never reach a plugin.
-public struct LeoPluginFetchCredential: Sendable, Equatable {
+/// Every rendering redacts the header values, so a token or key can't leak
+/// through a log line or an error message.
+public struct LeoPluginFetchCredential: Sendable, Equatable, CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     public let boundHost: String
     public let headers: [String: String]
+
+    public var description: String {
+        "LeoPluginFetchCredential(boundHost: \(boundHost), headers: \(headers.keys.sorted()) <values redacted>)"
+    }
+    public var debugDescription: String { description }
+    public var customMirror: Mirror { Mirror(self, children: ["boundHost": boundHost, "headers": headers.keys.sorted()]) }
 }
 
 /// Turns a grant into fetch headers by reading the account's token fresh,
