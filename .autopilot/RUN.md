@@ -32,7 +32,7 @@ Lane: B-453
   Branch: autopilot-lane/B-453
   Base: a7729797ae03c3d14c5e2da4fb6d79b9cc980774
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T00:52:06Z
@@ -40,4 +40,6 @@ Lane: B-453
   Reviewed-tip: dd560a065640a78394319de0a54498ee92324c0f
   Call: Mac only (iOS has no composer placeholder or send-gate logic) — Mac+iOS rule
   Call: Wording "<name> is still starting" repeats the daemon-reported state and matches the refusal and the Start bar — VISION 2
+  Tokens: 7.94M in (7.66M cache read), ≥27.3k out, 92 requests
 
+Finished 1: B-453 landed b18726f6e · not visually verified

@@ -2410,3 +2410,15 @@ Chose: accept your recommendation (close)
 Why: the owner's answer
 Commit:
 Veto: n/a (owner)
+
+## D-1035 · 2026-11-25 · B-453: Mac only (iOS has no composer placeholder or send-gate logic)
+Chose: Mac only (iOS has no composer placeholder or send-gate logic)
+Why: Mac+iOS rule
+Commit: ddf9e0d49
+Veto: [ ]
+
+## D-1036 · 2026-11-25 · B-453: Restoring composer says "<name> is still starting"
+Chose: Wording "<name> is still starting" repeats the daemon-reported state and matches the refusal and the Start bar
+Why: VISION 2
+Commit: ddf9e0d49
+Veto: [ ]

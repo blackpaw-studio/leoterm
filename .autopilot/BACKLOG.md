@@ -3550,12 +3550,14 @@ Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsS
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
 
-## B-453 · Composer placeholder says Start on a restoring agent   [ready]
+## B-453 · Composer placeholder says Start on a restoring agent   [done]
 Issue: #421
 Type: bug
 Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-442)
+Done: ddf9e0d49 (landed b18726f6e; placeholder + send tooltip say "<name> is still starting" while restoring). Mac only. D-1035, D-1036.
+Verified: not visually verified — an agent can't be put into .restoring in the isolated debug app without touching real agents; unit test covers the strings
 
 ## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready]
 Issue: #422
