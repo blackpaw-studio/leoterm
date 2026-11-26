@@ -365,7 +365,7 @@ extension LeoPluginJSRuntimeTests {
         }
         runtime.deliver(.reply(id: id, outcome: .value(.null)))
         let adds = credentialRequests(sink).map { request -> String in
-            if case .credentialsAdd(_, _, let ref) = request { ref ?? "none" } else { "other" }
+            if case .credentialsAdd(_, _, _, let ref) = request { ref ?? "none" } else { "other" }
         }
         #expect(adds == ["c1", "none"])
     }
@@ -378,7 +378,7 @@ extension LeoPluginJSRuntimeTests {
         runtime.deliver(.command(id: "add-codex", slot: nil, ref: "k1"))
         runtime.deliver(.activate(slot: nil))
         let requests = credentialRequests(sink)
-        guard requests.count == 2, case .credentialsAdd(_, "codex", "k1") = requests[0],
+        guard requests.count == 2, case .credentialsAdd(_, "codex", nil, "k1") = requests[0],
             case .credentialsAuthorize(_, "g1", nil) = requests[1]
         else { Issue.record("unexpected requests \(requests)"); return }
     }
@@ -402,5 +402,41 @@ extension LeoPluginJSRuntimeTests {
         leo.fetch("https://chatgpt.com/x", { credential: 7 }).catch(e => leo.log("info", e.message));
         """)
         #expect(!sink.requests.contains { if case .fetch = $0 { true } else { false } })
+    }
+}
+
+// MARK: - API keys
+
+extension LeoPluginJSRuntimeTests {
+    @Test func addingAnAPIKeySendsItsProvider() throws {
+        let (runtime, sink) = try makeRuntime("""
+        leo.on("command", () => { leo.credentials.add("api-key", { provider: "deepseek", extra: 1 }); });
+        """)
+        runtime.deliver(.command(id: "add-deepseek", slot: nil, ref: "k1"))
+        let requests = credentialRequests(sink)
+        guard requests.count == 1, case .credentialsAdd(_, "api-key", "deepseek", "k1") = requests[0] else {
+            Issue.record("unexpected requests \(requests)"); return
+        }
+    }
+
+    @Test func aProviderIsRequiredForAPIKeysAndRefusedForAccounts() throws {
+        let (_, sink) = try makeRuntime("""
+        const tries = [
+          () => leo.credentials.add("api-key"),
+          () => leo.credentials.add("api-key", {}),
+          () => leo.credentials.add("api-key", { provider: 7 }),
+          () => leo.credentials.add("api-key", "deepseek"),
+          () => leo.credentials.add("codex", { provider: "deepseek" }),
+          () => leo.credentials.add("codex", 3),
+        ];
+        for (const t of tries) t().catch(e => leo.log("info", e.name));
+        leo.credentials.add("codex", {}).catch(() => {});
+        leo.credentials.add("codex", null).catch(() => {});
+        """)
+        #expect(sink.logs == Array(repeating: "TypeError", count: 6))
+        let adds = credentialRequests(sink).compactMap { request -> String? in
+            if case .credentialsAdd(_, let kind, let provider, _) = request { "\(kind) \(provider ?? "-")" } else { nil }
+        }
+        #expect(adds == ["codex -", "codex -"])
     }
 }

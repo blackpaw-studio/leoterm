@@ -44,7 +44,9 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     /// `leo.credentials.add(kind)`: opens the folder picker. `ref` is the
     /// delivery whose handler made the call, if it ran synchronously inside a
     /// gesture; the router refuses the request without one.
-    case credentialsAdd(id: String, kind: String, ref: String?)
+    /// For `api-key`, `provider` names the manifest's provider and the app shows
+    /// the paste-a-key sheet instead.
+    case credentialsAdd(id: String, kind: String, provider: String? = nil, ref: String?)
     /// `leo.credentials.authorize(id)`: one Keychain read that may show the
     /// system dialog. Gesture-gated like `credentialsAdd`.
     case credentialsAuthorize(id: String, credential: String, ref: String?)
@@ -57,7 +59,7 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
     case unsupported(call: String)
 
     private enum CodingKeys: String, CodingKey {
-        case call, slot, node, id, url, `init`, key, value, seconds, level, message, ref, action, source, agent, kind, credential
+        case call, slot, node, id, url, `init`, key, value, seconds, level, message, ref, action, source, agent, kind, credential, provider
     }
 
     public init(from decoder: any Decoder) throws {
@@ -99,6 +101,7 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
             self = .credentialsAdd(
                 id: try c.decode(String.self, forKey: .id),
                 kind: try c.decode(String.self, forKey: .kind),
+                provider: try c.decodeIfPresent(String.self, forKey: .provider),
                 ref: try c.decodeIfPresent(String.self, forKey: .ref))
         case "credentialsAuthorize":
             self = .credentialsAuthorize(
@@ -168,10 +171,11 @@ public enum LeoPluginHostRequest: Codable, Equatable, Sendable {
         case .timerStop(let id):
             try c.encode("timerStop", forKey: .call)
             try c.encode(id, forKey: .id)
-        case .credentialsAdd(let id, let kind, let ref):
+        case .credentialsAdd(let id, let kind, let provider, let ref):
             try c.encode("credentialsAdd", forKey: .call)
             try c.encode(id, forKey: .id)
             try c.encode(kind, forKey: .kind)
+            try c.encodeIfPresent(provider, forKey: .provider)
             try c.encodeIfPresent(ref, forKey: .ref)
         case .credentialsAuthorize(let id, let credential, let ref):
             try c.encode("credentialsAuthorize", forKey: .call)

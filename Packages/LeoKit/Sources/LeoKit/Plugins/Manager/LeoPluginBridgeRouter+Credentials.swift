@@ -7,6 +7,7 @@ enum LeoPluginCredentialRefusal: Error, Equatable, LocalizedError {
     case gestureRequired
     case unknownCredential
     case unreadable(LeoPluginCredentialError)
+    case invalidKey
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +17,8 @@ enum LeoPluginCredentialRefusal: Error, Equatable, LocalizedError {
         case .unreadable(.needsAuthorization):
             "\(LeoPluginCredentialError.needsAuthorization.code): Leo needs permission to read this account; call authorize from a click"
         case .unreadable(let error): "\(error.code): the account's sign-in couldn't be read"
+        case .invalidKey:
+            "credentialInvalid: an API key must be printable ASCII with no spaces, at most \(LeoPluginAPIKeyVault.maxKeyBytes) bytes"
         }
     }
 }
@@ -25,11 +28,13 @@ enum LeoPluginCredentialRefusal: Error, Equatable, LocalizedError {
 extension LeoPluginBridgeRouter {
     static let credentialsAPIVersion = 2
 
-    func addCredential(id: String, kind rawKind: String, ref: String?) {
+    func addCredential(id: String, kind rawKind: String, provider: String?, ref: String?) {
+        if rawKind == LeoPluginAPIKeyProvider.kind { return addAPIKey(id: id, provider: provider, ref: ref) }
         let services: LeoPluginCredentialServices
         let kind: LeoPluginCredentialKind
         do {
             services = try requireCredentials()
+            guard provider == nil else { throw LeoPluginCredentialRefusal.permissionDenied("provider is only for api-key credentials") }
             kind = try approvedKind(rawKind)
             try spendGesture(ref)
         } catch {
@@ -80,6 +85,11 @@ extension LeoPluginBridgeRouter {
         } catch {
             return deps.send(.reply(id: id, outcome: .rejected(reason: error.localizedDescription)))
         }
+        let pluginID = deps.identity.id
+        let approvedHost = { [engine = deps.engine] (provider: String) throws -> String in
+            guard let declared = engine.apiKeyProvider(provider) else { throw LeoPluginCredentialRefusal.unknownCredential }
+            return declared.host
+        }
         replyLater(id) {
             switch grant.subject {
             case .account(let kind, let path) where grant.isRemote:
@@ -87,8 +97,9 @@ extension LeoPluginBridgeRouter {
                 try await Self.remoteFetcher(kind: kind, path: path, machine: grant.machine, services: services).check()
             case .account:
                 _ = try await Self.resolveOffMain(grant, allowUI: true, resolver: services.resolver)
-            case .apiKey:
-                throw LeoPluginCredentialRefusal.unknownCredential
+            case .apiKey(let provider, _):
+                _ = try await Self.readKeyOffMain(
+                    try Self.vault(services), pluginID: pluginID, grantID: grant.id, host: try approvedHost(provider), allowUI: true)
             }
             return .null
         }
@@ -102,8 +113,9 @@ extension LeoPluginBridgeRouter {
 
     func removeCredential(grantID: String) throws -> LeoJSONValue {
         let services = try requireCredentials()
-        _ = try ownedGrant(grantID)
+        let (grant, _) = try ownedGrant(grantID)
         try services.grants.removeGrant(pluginID: deps.identity.id, grantID: grantID)
+        if grant.apiKeyProvider != nil { deleteKey(grantID: grantID, services: services) }
         return .null
     }
 
@@ -163,7 +175,7 @@ extension LeoPluginBridgeRouter {
     /// The ref must be a live delivery of this session's, made with a gesture
     /// that hasn't opened a prompt yet. Authority comes from the router's own
     /// record, never from the message.
-    private func spendGesture(_ ref: String?) throws {
+    func spendGesture(_ ref: String?) throws {
         guard let ref, callbacks.spendCredentialPrompt(ref, now: deps.now()) else {
             throw LeoPluginCredentialRefusal.gestureRequired
         }

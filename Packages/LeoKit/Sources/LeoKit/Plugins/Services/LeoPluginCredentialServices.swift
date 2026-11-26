@@ -6,12 +6,20 @@ public protocol LeoPluginCredentialPicking: Sendable {
     @MainActor func pickFolder(for kind: LeoPluginCredentialKind) async -> String?
     /// The account the user chose, on this Mac or on a connected machine.
     @MainActor func pickAccount(for kind: LeoPluginCredentialKind) async -> LeoPluginCredentialSelection?
+    /// Shows the paste-a-key sheet for `provider` on behalf of `pluginName`.
+    /// Nil when the user cancels. The entry is used once and never stored.
+    @MainActor func pickAPIKey(for provider: LeoPluginAPIKeyProvider, pluginName: String) async -> LeoPluginAPIKeyEntry?
 }
 
 extension LeoPluginCredentialPicking {
     /// A picker that only knows this Mac's folders.
     @MainActor public func pickAccount(for kind: LeoPluginCredentialKind) async -> LeoPluginCredentialSelection? {
         await pickFolder(for: kind).map { LeoPluginCredentialSelection(machine: .local, path: $0) }
+    }
+
+    /// A picker without a key sheet: every API-key add is cancelled.
+    @MainActor public func pickAPIKey(for provider: LeoPluginAPIKeyProvider, pluginName: String) async -> LeoPluginAPIKeyEntry? {
+        nil
     }
 }
 
@@ -80,16 +88,20 @@ public struct LeoPluginCredentialServices: Sendable {
     /// How to reach another machine's daemon, for accounts that live there.
     /// Nil refuses (as offline) every remote account.
     public let remote: (any LeoPluginRemoteCredentialForwarding)?
+    /// Where pasted API keys live. Nil refuses every `api-key` add and fetch.
+    public let apiKeys: LeoPluginAPIKeyVault?
 
     public init(
         picker: any LeoPluginCredentialPicking, resolver: any LeoPluginCredentialResolving,
-        grants: any LeoPluginCredentialGrantStoring, home: String, remote: (any LeoPluginRemoteCredentialForwarding)? = nil
+        grants: any LeoPluginCredentialGrantStoring, home: String, remote: (any LeoPluginRemoteCredentialForwarding)? = nil,
+        apiKeys: LeoPluginAPIKeyVault? = nil
     ) {
         self.picker = picker
         self.resolver = resolver
         self.grants = grants
         self.home = home
         self.remote = remote
+        self.apiKeys = apiKeys
     }
 }
 

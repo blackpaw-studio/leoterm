@@ -132,7 +132,7 @@ import OSLog
         case .timerStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startPeriodic(id: id, seconds: seconds) }
         case .afterStart(let id, let seconds): startTimer(id: id) { try self.deps.timers.startAfter(id: id, seconds: seconds) }
         case .timerStop(let id): deps.timers.stop(id: id)
-        case .credentialsAdd(let id, let kind, let ref): addCredential(id: id, kind: kind, ref: ref)
+        case .credentialsAdd(let id, let kind, let provider, let ref): addCredential(id: id, kind: kind, provider: provider, ref: ref)
         case .credentialsAuthorize(let id, let credential, let ref): authorizeCredential(id: id, grantID: credential, ref: ref)
         case .credentialsList(let id): reply(id) { try self.credentialHandles() }
         case .credentialsRemove(let id, let credential): reply(id) { try self.removeCredential(grantID: credential) }
@@ -205,8 +205,15 @@ import OSLog
             source = LeoPluginFetchCredentialSource(boundHost: kind.boundHost) {
                 try await Self.resolveOffMain(grant, allowUI: false, resolver: resolver)
             }
-        case .apiKey:
-            return deps.send(.reply(id: id, outcome: .rejected(reason: LeoPluginCredentialRefusal.unknownCredential.localizedDescription)))
+        case .apiKey(let provider, _):
+            // The bound host is the one the user approved, never one the plugin names now.
+            guard let declared = deps.engine.apiKeyProvider(provider), let vault = services.apiKeys else {
+                return deps.send(.reply(id: id, outcome: .rejected(reason: LeoPluginCredentialRefusal.unknownCredential.localizedDescription)))
+            }
+            let pluginID = deps.identity.id
+            source = LeoPluginFetchCredentialSource(boundHost: declared.host) {
+                try await Self.readKeyOffMain(vault, pluginID: pluginID, grantID: grantID, host: declared.host, allowUI: false)
+            }
         }
         replyLater(id) { try await fetcher.fetch(url: url, init: options, credential: source).replyValue }
     }

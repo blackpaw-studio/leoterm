@@ -106,6 +106,21 @@ enum LeoPluginJSPrelude {
         return value;
       }
 
+      // `provider` is required for "api-key" and refused for every other kind.
+      function checkedCredentialAdd(kind, options) {
+        const out = { call: "credentialsAdd", kind: checkedString(kind, "a credential kind"), ref: activeGestureRef };
+        if (options !== undefined && options !== null && typeof options !== "object") {
+          throw new TypeError("credentials.add options must be an object");
+        }
+        const provider = options ? options.provider : undefined;
+        if (kind === "api-key") {
+          out.provider = checkedString(provider, "an api-key provider");
+        } else if (provider !== undefined) {
+          throw new TypeError("provider is only for api-key credentials");
+        }
+        return out;
+      }
+
       function guarded(fn) {
         return function () {
           try {
@@ -164,7 +179,7 @@ enum LeoPluginJSPrelude {
           }
         }),
         credentials: Object.freeze({
-          add: guarded((kind) => request({ call: "credentialsAdd", kind: checkedString(kind, "a credential kind"), ref: activeGestureRef })),
+          add: guarded((kind, options) => request(checkedCredentialAdd(kind, options))),
           authorize: guarded((id) => request({ call: "credentialsAuthorize", credential: checkedString(id, "a credential id"), ref: activeGestureRef })),
           list: () => request({ call: "credentialsList" }),
           remove: guarded((id) => request({ call: "credentialsRemove", credential: checkedString(id, "a credential id") }))
