@@ -3593,6 +3593,7 @@ Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses
 Source: autopilot bug (B-444)
 
 ## B-456 · Inbox "Finished since you looked" shows sentinel previews like…   [ready]
+Issue: #428
 Type: bug
 Report: Inbox "Finished since you looked" shows sentinel previews like "NO_REPLY" (seen live 2026-11-24 for agent trader on leo v0.87.0). Filter sentinel/empty turn previews (NO_REPLY and similar) on Mac and iOS: fall back to a neutral "Finished" line. Logic belongs in LeoKit (LeoInbox derivation).
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3606,6 +3607,7 @@ Source: owner (/idea, 2026-11-25)
 Inbox: 20261125T014930621131Z-0e829c4d#1
 
 ## B-458 · add an option to settings to have image clicks in chat open to…   [ready]
+Issue: #429
 Type: bug
 Report: add an option to settings to have image clicks in chat open to fullscreen mode by default
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3613,6 +3615,7 @@ Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T020052683007Z-a078f62c#1
 
 ## B-459 · Flaky iOS CI test…   [ready]
+Issue: #430
 Type: bug
 Report: Flaky iOS CI test TaskScreensTests.theEditorStaysOutOfTheSideSafeAreaInLandscape (TaskScreensTests.swift:113): safe.minX read 0.0 instead of sideInset 60.0 on main ccd959deb (run 45655777690); same test passed on 896b31010. Likely landscape rotation/safe-area not settled before measuring; fix at cause (wait for the safe area to update), do not loosen the assertion.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
@@ -3620,6 +3623,7 @@ Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T170327309810Z-ccf06312#1
 
 ## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [ready]
+Issue: #431
 Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.88.1 carries the leo_brief guidance gate fix (leo #355).
 Accept: The lane merges PR #427's head commit e36e77ca1b5246a7a8a95d3262419b6d613bcc98 (git fetch origin bump/leo-0.88.1) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.88.1; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.88.1.
 Out: Closing or merging PRs on GitHub; any code change beyond the bump.

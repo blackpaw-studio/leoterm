@@ -16,3 +16,25 @@ Lane: B-058
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-447
+  Branch: autopilot-lane/B-447
+  Base: a7729797ae03c3d14c5e2da4fb6d79b9cc980774
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-26T00:52:06Z
+  Reverifies: 0
+  Reviewed-tip: none
+
+Lane: B-453
+  Branch: autopilot-lane/B-453
+  Base: a7729797ae03c3d14c5e2da4fb6d79b9cc980774
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-26T00:52:06Z
+  Reverifies: 0
+  Reviewed-tip: none
+
