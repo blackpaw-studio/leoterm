@@ -120,7 +120,7 @@ private struct FocusFixture {
 
     /// Just past the longest `Ghostty.moveFocus` retry chain for a move
     /// queued with no initial delay: retries at 50, 100, 200 and 400 ms
-    /// (SurfaceView.swift) end 750 ms after it; the fifth, 800 ms, is
+    /// (`Ghostty.FocusMover`, SurfaceView+FocusMove.swift) end 750 ms after it; the fifth, 800 ms, is
     /// refused by `maxDelay` (0.5 s). The one caller with an initial delay
     /// (BaseTerminalController.swift:808, 0.1 s) finishes by 700 ms. A
     /// future caller with an initial delay under 50 ms would run past this.
