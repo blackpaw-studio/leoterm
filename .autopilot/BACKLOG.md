@@ -3645,6 +3645,7 @@ Done: e36e77ca1 (PR #427 head, merged unchanged; landed 788909869; also carries 
 Verified: not visually verified — diff is only LEO_VERSION
 
 ## B-461 · resetWindowSizeRestoresALaunchClampedSidebar fails 200 vs 199   [ready (next run)]
+Issue: #432
 Type: bug
 Report: resetWindowSizeRestoresALaunchClampedSidebar fails (200.0 vs 199.0, LeoFirstAttachWindowSizeTests.swift:274) on autopilot 482b9d787, base and lane alike — full suite is not green; fix at cause (measure the platform value, not a bare ±1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
