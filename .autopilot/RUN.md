@@ -99,12 +99,13 @@ Lane: B-459
   Branch: autopilot-lane/B-459
   Base: 591dd515208cc89c99d83657e59470914b2bea13
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T04:42:01Z
   Reverifies: 2
   Reviewed-tip: f6a4491f5faa5f5ff8958dde172bdaad2d71b753
+  Tokens: 13.6M in (12.9M cache read), ≥53.3k out, 165 requests
 
 Lane: B-460
   Branch: autopilot-lane/B-460
@@ -124,3 +125,4 @@ Finished 3: B-447 landed 79ec7ee26 · not visually verified
 Finished 4: B-456 landed e80427b9d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-456-2.png
 Finished 5: B-458 landed a10dda60e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png
 Finished 6: B-460 landed 788909869 · not visually verified
+Finished 7: B-459 landed b1d377b02 · not visually verified

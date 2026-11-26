@@ -3624,13 +3624,15 @@ Inbox: 20261125T020052683007Z-a078f62c#1
 Done: 46edcf927 (landed a10dda60e; Settings ▸ General ▸ Chat toggle `leo.chat.imagesOpenFullWindow`, off by default; on opens chat images full-window). Mac only. D-1044..D-1046.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png
 
-## B-459 · Flaky iOS CI test…   [ready]
+## B-459 · Flaky iOS CI test…   [done]
 Issue: #430
 Type: bug
 Report: Flaky iOS CI test TaskScreensTests.theEditorStaysOutOfTheSideSafeAreaInLandscape (TaskScreensTests.swift:113): safe.minX read 0.0 instead of sideInset 60.0 on main ccd959deb (run 45655777690); same test passed on 896b31010. Likely landscape rotation/safe-area not settled before measuring; fix at cause (wait for the safe area to update), do not loosen the assertion.
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T170327309810Z-ccf06312#1
+Done: d3d180eea (landed b1d377b02; openPrompt test helper waits for the animated push to settle and the view to have a window before measuring). iOS only. Local 6/6 and 10/10 repeats green; the loaded-CI flake isn't proven gone.
+Verified: not visually verified — test-only iOS change
 
 ## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [done]
 Issue: #431
