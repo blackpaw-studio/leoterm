@@ -99,10 +99,21 @@ Lane: B-459
   Branch: autopilot-lane/B-459
   Base: 591dd515208cc89c99d83657e59470914b2bea13
   Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-26T04:16:54Z
+  Reverifies: 1
+  Reviewed-tip: 1d9d6bdd3ffc36d3da0e55bc9889d7bcbb9da2ae
+
+Lane: B-460
+  Branch: autopilot-lane/B-460
+  Base: 75933ad9c13f6b8caf620001e1c9f1badf501c5e
+  Tier: light
   State: building
   Fixes: 0
   Wip: none
-  Dispatched: 2026-11-26T03:47:11Z
+  Dispatched: 2026-11-26T04:16:28Z
   Reverifies: 0
   Reviewed-tip: none
 
