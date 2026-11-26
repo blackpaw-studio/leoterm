@@ -2,9 +2,12 @@ Status: running
 Started: 2026-11-26T00:49:37Z
 Budget: 20 items, until 2026-11-26T12:49:37Z
 Digested-through: 0
-Filed: 1/3 bugs, 0/5 ideas
+Filed: 1/3 bugs, 2/5 ideas
 Self-filed: B-453 → B-461 bug — resetWindowSizeRestoresALaunchClampedSidebar fails (200 vs 199) on autopilot
 Self-filed: B-454 → dropped (dup of B-455) — Handoff banner ignores Return while caps lock is on
+Self-filed: B-447 → dropped (dup of B-461) — resetWindowSizeRestoresALaunchClampedSidebar fails
+Self-filed: B-447 → B-462 idea — Row/Rows suites run slower on each repeat in one process
+Self-filed: B-447 → B-463 idea — leo-runtests.sh skips 129 host-tier suites (no TEST_RUNNER_LEO_HOST_TESTS=1)
 Untracked-left: default.profraw scratchpad/
 Note: B-445 closed at preflight — owner answered "accept your recommendation (close)".
 
@@ -21,13 +24,18 @@ Lane: B-058
 Lane: B-447
   Branch: autopilot-lane/B-447
   Base: a7729797ae03c3d14c5e2da4fb6d79b9cc980774
-  Tier: light
-  State: building
-  Fixes: 0
+  Tier: light→full
+  State: verifying
+  Fixes: 1
   Wip: none
   Dispatched: 2026-11-26T00:52:06Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 6d82a5f2d8333a56e8dbdb2ac12e1d87ab665b82
+  Call: Fix in product `Ghostty.moveFocus`, not the test fixtures; the first plan's premise (fixture windows never get a display cycle) was disproved at step 0 — AUTONOMY: bug/flake fixes are the agent's call
+  Call: Newest landed move wins per window, decided when the retry lands; retry delays stay 50/100/200/400 ms — Engineering: fix flakes at the cause
+  Call: A window is stamped only when makeFirstResponder succeeds, so a refused move doesn't block older retries — smallest rule that keeps chat routing as it was
+  Call: Dropped `heavy` around the verify-lock wait, kept it around xcodebuild (its idle killer fired during the wait) — verify mechanics
+  Call: Mac only (AppKit first-responder code; iOS has no moveFocus) — Platform principle
 
 Lane: B-453
   Branch: autopilot-lane/B-453

@@ -3639,3 +3639,11 @@ Type: bug
 Report: resetWindowSizeRestoresALaunchClampedSidebar fails (200.0 vs 199.0, LeoFirstAttachWindowSizeTests.swift:274) on autopilot 482b9d787, base and lane alike — full suite is not green; fix at cause (measure the platform value, not a bare ±1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-453)
+
+## B-462 · Row/Rows suites run slower on each repeat in one process   [idea]
+Note: 26 s up to 73 s per run on repeat, same on old code — fixtures or surfaces probably pile up; suite speed (Engineering: keep the suite fast)
+Source: autopilot polish (B-447)
+
+## B-463 · leo-runtests.sh skips 129 host-tier suites   [idea]
+Note: the script doesn't set TEST_RUNNER_LEO_HOST_TESTS=1, so its full suite skips host-tier suites including LeoContentFocusTests — merge-gate coverage gap
+Source: autopilot polish (B-447)
