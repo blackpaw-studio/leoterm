@@ -68,12 +68,14 @@ Lane: B-456
   Branch: autopilot-lane/B-456
   Base: 6350c9537c26aec686b8dfb962c1a0954191feff
   Tier: light
-  State: building
-  Fixes: 0
+  State: verifying
+  Fixes: 1
   Wip: none
-  Dispatched: 2026-11-26T02:52:54Z
-  Reverifies: 0
-  Reviewed-tip: none
+  Dispatched: 2026-11-26T03:35:18Z
+  Reverifies: 1
+  Reviewed-tip: e76c3dc17bb7797ec1c3f7448542f45a4b2c311d
+  Call: Treat any single snake_case token (one letter case, contains an underscore) as a sentinel, not a fixed list — VISION 2 Calm
+  Call: Fix in LeoKit LeoInbox derivation only, no app changes; Mac headline and iOS card already fall back to "Finished" for a nil result — Mac+iOS rule
 
 Lane: B-458
   Branch: autopilot-lane/B-458
