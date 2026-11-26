@@ -1,7 +1,7 @@
 Status: running
 Started: 2026-11-26T00:49:37Z
 Budget: 20 items, until 2026-11-26T12:49:37Z
-Digested-through: 0
+Digested-through: 5
 Filed: 1/3 bugs, 3/5 ideas
 Self-filed: B-453 → B-461 bug — resetWindowSizeRestoresALaunchClampedSidebar fails (200 vs 199) on autopilot
 Self-filed: B-454 → dropped (dup of B-455) — Handoff banner ignores Return while caps lock is on
@@ -84,21 +84,36 @@ Lane: B-458
   Branch: autopilot-lane/B-458
   Base: f8f3ecee98c333f9ddd6453bf134348305f40ed3
   Tier: light
-  State: building
+  State: landed
   Fixes: 0
   Wip: none
   Dispatched: 2026-11-26T03:34:45Z
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 38821700bd93be43dc93689edb2577b8608a01dd
+  Call: default off, so nothing changes until the owner opts in — AUTONOMY (defaults)
+  Call: plain toggle in the existing Settings ▸ General page, new "Chat" section — VISION 1 / HIG
+  Call: Mac only; iOS already opens chat images in a gallery viewer (ChatPresentation.swift:46) — Leo Mac+iOS rule
+  Tokens: 9.76M in (9.45M cache read), ≥33.6k out, 104 requests
 
 Lane: B-459
   Branch: autopilot-lane/B-459
   Base: 591dd515208cc89c99d83657e59470914b2bea13
   Tier: light
+  State: verifying
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-26T04:16:54Z
+  Reverifies: 1
+  Reviewed-tip: 1d9d6bdd3ffc36d3da0e55bc9889d7bcbb9da2ae
+
+Lane: B-460
+  Branch: autopilot-lane/B-460
+  Base: 75933ad9c13f6b8caf620001e1c9f1badf501c5e
+  Tier: light
   State: building
   Fixes: 0
   Wip: none
-  Dispatched: 2026-11-26T03:47:11Z
+  Dispatched: 2026-11-26T04:16:28Z
   Reverifies: 0
   Reviewed-tip: none
 
@@ -106,3 +121,4 @@ Finished 1: B-453 landed b18726f6e · not visually verified
 Finished 2: B-454 landed a3738d88a · not visually verified
 Finished 3: B-447 landed 79ec7ee26 · not visually verified
 Finished 4: B-456 landed e80427b9d · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-456-2.png
+Finished 5: B-458 landed a10dda60e · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png

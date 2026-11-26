@@ -42,11 +42,17 @@ import LeoKit
     /// The gallery index a step is still loading, so a second step goes on from it.
     private var pendingIndex: Int?
 
+    /// Whether a clicked image goes straight over the whole window
+    /// (Settings ▸ General). Read at each open, so a change applies at once.
+    var opensImagesFullWindow: @MainActor () -> Bool
+
     init(
         access: any LeoFileAccess = LeoFileAccessor.local(),
+        opensImagesFullWindow: @escaping @MainActor () -> Bool = { false },
         openExternally: @escaping @MainActor (URL) -> Void = { NSWorkspace.shared.open($0) }
     ) {
         self.access = access
+        self.opensImagesFullWindow = opensImagesFullWindow
         self.openExternally = openExternally
     }
 
@@ -76,8 +82,9 @@ import LeoKit
         }
         let siblings = gallery.count > 1 && gallery.contains { $0.id == attachment.id } ? gallery : []
         self.downloadGalleryItem = downloadGalleryItem
+        let overWindow = fullWindow || (attachment.isImage && opensImagesFullWindow())
         shown = Shown(
-            agent: agent, document: document, presentation: fullWindow ? .fullWindow(fromPane: false) : .pane, gallery: siblings
+            agent: agent, document: document, presentation: overWindow ? .fullWindow(fromPane: false) : .pane, gallery: siblings
         )
     }
 

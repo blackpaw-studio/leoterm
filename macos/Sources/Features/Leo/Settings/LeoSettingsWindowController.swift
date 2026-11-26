@@ -47,6 +47,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
     private let clients: any LeoMachineClientResolving
     private let statsStyle: LeoStatsStyleSetting
     private let agentBrowser: LeoAgentBrowserSetting
+    private let chatImages: LeoChatImageOpenSetting
     /// A machine's agents as the sidebar shows them, for the Appearance preview and This Mac's count.
     private let agents: @MainActor (LeoHostID) -> [LeoAgentRow]
     private let prompting: any LeoSettingsPrompting
@@ -75,6 +76,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
         self.registry = registry
         self.clients = clients
         statsStyle = LeoStatsStyleSetting(defaults: defaults)
+        chatImages = LeoChatImageOpenSetting(defaults: defaults)
         self.agentBrowser = agentBrowser ?? LeoAgentBrowserSetting(defaults: defaults)
         super.init(window: nil)
     }
@@ -142,7 +144,7 @@ struct LeoAlertPrompting: LeoSettingsPrompting {
         let detailHost = NSHostingController(
             rootView: LeoSettingsDetailView(
                 sidebar: sidebar, model: model, target: target, statsStyle: statsStyle, agentBrowser: agentBrowser, builtInPanes: builtInPanes,
-                managedFeed: managedFeed, registry: registry, agents: agents, plugins: plugins
+                chatImages: chatImages, managedFeed: managedFeed, registry: registry, agents: agents, plugins: plugins
             )
         )
         // The split view sizes its panes; a hosting controller must not also resize the window.

@@ -245,6 +245,7 @@ struct LeoWindowVisibilityState: Equatable {
             case .startScreen: nil
             }
         }
+        chatViewer.opensImagesFullWindow = { LeoChatImageOpenSetting.isOn(in: defaults) }
         agentPane = makeAgentPane()
         observeWindow()
         // Leaving a shell row for the agent row is a selection too. A turn
