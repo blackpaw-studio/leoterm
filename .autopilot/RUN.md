@@ -75,6 +75,17 @@ Lane: B-456
   Reverifies: 0
   Reviewed-tip: none
 
+Lane: B-458
+  Branch: autopilot-lane/B-458
+  Base: f8f3ecee98c333f9ddd6453bf134348305f40ed3
+  Tier: light
+  State: building
+  Fixes: 0
+  Wip: none
+  Dispatched: 2026-11-26T03:34:45Z
+  Reverifies: 0
+  Reviewed-tip: none
+
 Finished 1: B-453 landed b18726f6e · not visually verified
 Finished 2: B-454 landed a3738d88a · not visually verified
 Finished 3: B-447 landed 79ec7ee26 · not visually verified
