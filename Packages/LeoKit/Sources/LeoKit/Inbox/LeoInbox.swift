@@ -136,10 +136,27 @@ public struct LeoInbox: Equatable, Sendable {
             return make(agent, kind: reasonKind(signal.reason), at: signal.at, unread: true)
         case .finished, .errored:
             let unread = seen.isUnread(agent.id, at: signal.at, revision: signal.revision, bootID: agent.bootID)
-            return make(agent, kind: .finished(result: signal.preview), at: signal.at, unread: unread, isError: signal.state == .errored)
+            return make(agent, kind: .finished(result: displayablePreview(signal.preview)), at: signal.at, unread: unread, isError: signal.state == .errored)
         case .working, .unknown:
             return nil
         }
+    }
+
+    /// Agents sometimes end a turn with a protocol token ("NO_REPLY",
+    /// "HEARTBEAT_OK") rather than prose. That is noise, not a result: drop it
+    /// so the apps show their neutral "Finished" line instead.
+    static func displayablePreview(_ preview: String?) -> String? {
+        guard let preview else { return nil }
+        let token = preview.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters.subtracting(CharacterSet(charactersIn: "_"))))
+        return isSentinelToken(token) ? nil : preview
+    }
+
+    /// A single snake_case token with an underscore in one letter case, the
+    /// shape of every sentinel; plain words like "OK" are real text.
+    private static func isSentinelToken(_ token: String) -> Bool {
+        token.contains("_")
+            && token.allSatisfy { $0 == "_" || ($0.isASCII && ($0.isLetter || $0.isNumber)) }
+            && (token == token.uppercased() || token == token.lowercased())
     }
 
     private static func reasonKind(_ reason: LeoAttentionReason?) -> LeoInboxKind {

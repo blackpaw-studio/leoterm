@@ -119,6 +119,24 @@ struct LeoInboxTests {
         #expect(items.map(\.kind) == [.finished(result: "Rate limited"), .finished(result: "Done")])
     }
 
+    @Test(arguments: ["", "  \n", "NO_REPLY", "  no_reply \n", "NO_REPLY.", "HEARTBEAT_OK", "NO_RESPONSE"])
+    func aSentinelPreviewNeverReachesTheFinishedResult(_ sentinel: String) throws {
+        let agent = Fx.agent("trader", signal: Fx.signal(.finished, preview: sentinel, at: 1))
+
+        let item = try #require(derive([agent]).finished.first)
+
+        #expect(item.kind == .finished(result: nil))
+    }
+
+    @Test(arguments: ["Replied to Sam", "No reply needed from Sam", "OK", "NO"])
+    func aRealPreviewIsKept(_ preview: String) throws {
+        let agent = Fx.agent("trader", signal: Fx.signal(.finished, preview: preview, at: 1))
+
+        let item = try #require(derive([agent]).finished.first)
+
+        #expect(item.kind == .finished(result: preview))
+    }
+
     @Test func workingAndUnknownAgentsAreNotInTheInbox() {
         let inbox = derive([Fx.agent("a", signal: Fx.signal(.working)), Fx.agent("b", signal: Fx.signal(.unknown)), Fx.agent("c")])
         #expect(inbox.blocked.isEmpty && inbox.finished.isEmpty)
