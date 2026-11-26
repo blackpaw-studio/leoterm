@@ -578,4 +578,16 @@ import Testing
         #expect(LeoChatSendGate.placeholder(for: .stopped, agentName: "alpha", movedTo: "nas") == "alpha moved to nas")
         #expect(LeoChatSendGate.sendHelp(for: .stopped, agentName: "alpha", movedTo: "nas") == "alpha moved to nas")
     }
+
+    /// B-453: a restoring agent is already starting and Start isn't on offer
+    /// (the refusal says to wait), so neither the placeholder nor the send
+    /// tooltip may tell the user to start it.
+    @Test func aRestoringAgentsComposerNeverTellsTheUserToStartIt() {
+        let placeholder = LeoChatSendGate.placeholder(for: .restoring, agentName: "alpha", movedTo: nil)
+        let help = LeoChatSendGate.sendHelp(for: .restoring, agentName: "alpha", movedTo: nil)
+
+        #expect(placeholder.contains("alpha"))
+        #expect(!placeholder.localizedCaseInsensitiveContains("Start alpha"))
+        #expect(!help.localizedCaseInsensitiveContains("Start alpha"))
+    }
 }
