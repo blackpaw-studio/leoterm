@@ -2403,3 +2403,10 @@ Chose: Dropping calls the same LeoPaneDockController.move as the menu, so there 
 Why: P6
 Commit: 8509119b7 10a0d4202 e1380172e
 Veto: [ ]
+
+## D-1034 · 2026-11-25 · Answer to B-445: Right-click on a chat image misses after a send…
+Context: B-445 (Right-click on a chat image misses after a send (reply shifts scroll)) blocked question
+Chose: accept your recommendation (close)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)

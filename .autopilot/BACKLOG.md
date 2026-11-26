@@ -3532,14 +3532,15 @@ Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real 
 Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
 Reviewed: accepted 2026-11-24 — 315518028f82
 
-## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [blocked]
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [ready]
 Issue: #418
 Type: bug
 Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
+Update (2026-11-25): accept your recommendation (close)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
 Question: couldn't reproduce — the implementer traced send → LeoChatScrollPin (re-pins only within 40 pt of the bottom; tests cover it) → the image right-click (LeoChatAttachmentDragView.hitTest passes right-clicks to the SwiftUI .contextMenu, independent of scroll) and found no app defect; likely the B-441 verifier clicked stale screenshot coordinates after the stub reply scrolled. Reply "B-445: close" to close it, or "B-445: <more detail>" to retry. I'd pick close. Work kept on autopilot-shelved/B-445.
-Answer:
+Answer: accept your recommendation (close)
 
 ## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
 Issue: #420
@@ -3589,3 +3590,37 @@ Source: autopilot polish (B-442)
 ## B-455 · Escape doesn't dismiss the agent-browser handoff banner with caps lock on   [idea]
 Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed (principle 1); a bug past the 3-bug cap
 Source: autopilot bug (B-444)
+
+## B-456 · Inbox "Finished since you looked" shows sentinel previews like…   [ready]
+Type: bug
+Report: Inbox "Finished since you looked" shows sentinel previews like "NO_REPLY" (seen live 2026-11-24 for agent trader on leo v0.87.0). Filter sentinel/empty turn previews (NO_REPLY and similar) on Mac and iOS: fall back to a neutral "Finished" line. Logic belongs in LeoKit (LeoInbox derivation).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-25)
+Inbox: 20261125T014930386649Z-415a1a06#1
+Attachments: .autopilot/bugs/B-456/05-scratch-selected.png
+
+## B-457 · Inbox stale open questions: live data on 2026-11-24 surfaced…   [idea]
+Note: Inbox stale open questions: live data on 2026-11-24 surfaced unanswered leo_chat_asks 35d (leoterm), 14d (mountain-town), 22h (subway-sim) old. Add a way to handle stale asks on Mac and iOS: dismiss/decline an ask from the inbox, or fold asks older than N days into a collapsed "Older" group so they don't dominate Needs you.
+Source: owner (/idea, 2026-11-25)
+Inbox: 20261125T014930621131Z-0e829c4d#1
+
+## B-458 · add an option to settings to have image clicks in chat open to…   [ready]
+Type: bug
+Report: add an option to settings to have image clicks in chat open to fullscreen mode by default
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-25)
+Inbox: 20261125T020052683007Z-a078f62c#1
+
+## B-459 · Flaky iOS CI test…   [ready]
+Type: bug
+Report: Flaky iOS CI test TaskScreensTests.theEditorStaysOutOfTheSideSafeAreaInLandscape (TaskScreensTests.swift:113): safe.minX read 0.0 instead of sideInset 60.0 on main ccd959deb (run 45655777690); same test passed on 896b31010. Likely landscape rotation/safe-area not settled before measuring; fix at cause (wait for the safe area to update), do not loosen the assertion.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-25)
+Inbox: 20261125T170327309810Z-ccf06312#1
+
+## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [ready]
+Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.88.1 carries the leo_brief guidance gate fix (leo #355).
+Accept: The lane merges PR #427's head commit e36e77ca1b5246a7a8a95d3262419b6d613bcc98 (git fetch origin bump/leo-0.88.1) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.88.1; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.88.1.
+Out: Closing or merging PRs on GitHub; any code change beyond the bump.
+Source: owner (/feature, 2026-11-25)
+Inbox: 20261126T004750631657Z-337d9c02#1
