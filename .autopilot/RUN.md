@@ -47,3 +47,4 @@ Lane: B-465
 
 Finished 1: B-465 blocked
 Note: B-465 runner shots (implementer's, unverified) left at /private/tmp/claude-501/b465/macgui/shots/ and /private/tmp/claude-501/b465/shots-ios/.
+Inbox applied: B-466 idea; answered B-465 (accept your recommendation: ship plain Dismiss, cancel-ask split to B-466)

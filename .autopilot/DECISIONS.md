@@ -2482,3 +2482,10 @@ Chose: Mac only; iOS already opens chat images in a gallery viewer (ChatPresenta
 Why: Leo Mac+iOS rule
 Commit: 46edcf927
 Veto: [ ]
+
+## D-1047 · 2026-11-27 · Answer to B-465: Needs-you Inbox — dismiss blocked items
+Context: B-465 (Needs-you Inbox — dismiss blocked items) blocked question
+Chose: accept your recommendation (yes — ship plain Dismiss now; split "Dismiss & cancel ask" into a follow-up that needs a client-callable withdraw route from the leo daemon)
+Why: the owner's answer
+Commit:
+Veto: n/a (owner)
