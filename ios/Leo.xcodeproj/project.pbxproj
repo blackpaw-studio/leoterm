@@ -44,6 +44,7 @@
 		393EF210D8EE2A9BED1930C4 /* MoveFixture.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1CBEB41B43F59128C3247B5 /* MoveFixture.swift */; };
 		3E8CAAD59AE015ECC9520FDD /* ChatTimeHeaderCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7BDCBC134EA72C0D7D3E2A5 /* ChatTimeHeaderCell.swift */; };
 		40101FFCA080381767C67834 /* LeoIOSBrowserTabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA20F79E5DC9319E0C751564 /* LeoIOSBrowserTabs.swift */; };
+		40ADC248BE1F723C5106E6EA /* LeoInboxDismissTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C198B98D681C59E1A77684A /* LeoInboxDismissTests.swift */; };
 		424322E5D9DCC9553EA53950 /* AgentBrowserBars.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1FCCCE4DE37AD091A07E6E3 /* AgentBrowserBars.swift */; };
 		47162225220BCD9DBE4CD6B6 /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA2E0BF7EE43AC6DBA252554 /* SettingsViewController.swift */; };
 		47472FD2C5A2CB30AC125223 /* LeoFeatures in Frameworks */ = {isa = PBXBuildFile; productRef = 109E3E7DF0273BD4FC4FD019 /* LeoFeatures */; };
@@ -240,6 +241,7 @@
 		35CC91E2C136D84061F083BB /* AppearanceFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceFixture.swift; sourceTree = "<group>"; };
 		36770E26AC7E79990AFA6F96 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
 		38482350857C026362E8F7EE /* QRScannerViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QRScannerViewController.swift; sourceTree = "<group>"; };
+		3C198B98D681C59E1A77684A /* LeoInboxDismissTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeoInboxDismissTests.swift; sourceTree = "<group>"; };
 		3C7C4AD20805157922DF4FC7 /* BriefFixture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BriefFixture.swift; sourceTree = "<group>"; };
 		3D066856306A48A2C49D8EB4 /* ConfigGolden.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigGolden.swift; sourceTree = "<group>"; };
 		3DA0E5E0C53E2C4903BD7D1D /* ChatInboxCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatInboxCardView.swift; sourceTree = "<group>"; };
@@ -642,6 +644,7 @@
 				C78FE255C8409BCCAE741BD7 /* LeoChatPasteTests.swift */,
 				A137BFE99804E761E4738874 /* LeoChatScrollTests.swift */,
 				249F5BD758358963B9AE6F8B /* LeoE2ETests.swift */,
+				3C198B98D681C59E1A77684A /* LeoInboxDismissTests.swift */,
 				ED0234002FFB7CA220E79AA0 /* LeoMachinesTests.swift */,
 				A171CC31637A56A7F05F8448 /* LeoMoveTests.swift */,
 				FCF49D358A639A8B1B67EC7F /* LeoNavStackTests.swift */,
@@ -1045,6 +1048,7 @@
 				8DD991FAC8CF7D6FD29A9BEC /* LeoChatPasteTests.swift in Sources */,
 				E8EC2D2FF0414238ADF4AFE9 /* LeoChatScrollTests.swift in Sources */,
 				7BB11F057E27FF2F99C7B4D0 /* LeoE2ETests.swift in Sources */,
+				40ADC248BE1F723C5106E6EA /* LeoInboxDismissTests.swift in Sources */,
 				674C0103A8F4CD4165685D46 /* LeoMachinesTests.swift in Sources */,
 				F6B0223B9D1B33CB530BC87C /* LeoMoveTests.swift in Sources */,
 				E4AD252ED3954D152BA5D5B4 /* LeoNavStackTests.swift in Sources */,

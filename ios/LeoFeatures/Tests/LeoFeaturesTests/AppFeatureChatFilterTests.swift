@@ -31,6 +31,28 @@ struct AppFeatureChatFilterTests {
         await store.send(Self.tick) { $0.chats.filter = .needsYou }
     }
 
+    @Test func launchWithOnlyADismissedPromptLandsOnAll() async {
+        let prompt = Agent(
+            name: "zeus", status: .running, activity: .idle,
+            attention: LeoAttentionSignal(state: .needsInput, revision: 1, at: Date(timeIntervalSince1970: 10))
+        )
+        var state = Self.state([prompt])
+        state.chats.seen.seed(host: .remote(Self.daemon), seen: ["zeus": Date(timeIntervalSince1970: 20)])
+        let store = TestStore(initialState: state) { AppFeature() }
+
+        await store.send(Self.tick) { $0.chats.filter = .all }
+        #expect(store.state.inbox.blocked.isEmpty)
+    }
+
+    @Test func aWorkingAgentWithAnOpenAskDefaultsToNeedsYou() async {
+        var state = Self.state([Agent(name: "zeus", status: .running, activity: .working)])
+        let ask = LeoChatMessage(id: "q", agent: "zeus", direction: .outbound, kind: .ask, text: "?", state: "open", ts: Date(timeIntervalSince1970: 1))
+        state.chats.openAsks.seed(host: .remote(Self.daemon), messages: [ask], complete: true)
+        let store = TestStore(initialState: state) { AppFeature() }
+
+        await store.send(Self.tick) { $0.chats.filter = .needsYou }
+    }
+
     @Test func defaultsToAllWhenNothingNeedsYou() async {
         let store = TestStore(initialState: Self.state([Agent(name: "hera", status: .running, activity: .working)])) { AppFeature() }
         await store.send(Self.tick) { $0.chats.filter = .all }

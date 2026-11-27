@@ -56,13 +56,14 @@ private extension String {
 
 /// A key the inbox acts on while it has the keyboard.
 enum LeoInboxKeyAction: Equatable {
-    case moveUp, moveDown, submit, goToAgent, clearItem
+    case moveUp, moveDown, submit, goToAgent, dismissItem
 
-    private static let keyCodes: [UInt16: LeoInboxKeyAction] = [126: .moveUp, 125: .moveDown, 36: .submit, 76: .submit, 51: .clearItem, 117: .clearItem]
+    private static let keyCodes: [UInt16: LeoInboxKeyAction] = [126: .moveUp, 125: .moveDown, 36: .submit, 76: .submit, 51: .dismissItem, 117: .dismissItem]
     private static let returnCodes: Set<UInt16> = [36, 76]
 
-    /// ↑/↓ move, ↩ submits, ⌘↩ goes to the agent, ⌫ clears the item. Any other
-    /// modifier (⇧⌃⌥, or ⌘ with another key) is not the inbox's.
+    /// ↑/↓ move, ↩ submits, ⌘↩ goes to the agent, ⌫ dismisses (blocked) or
+    /// clears (finished) the item. Any other modifier (⇧⌃⌥, or ⌘ with another
+    /// key) is not the inbox's.
     static func action(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> LeoInboxKeyAction? {
         let held = modifiers.intersection([.shift, .control, .option, .command])
         if held == .command { return returnCodes.contains(keyCode) ? .goToAgent : nil }

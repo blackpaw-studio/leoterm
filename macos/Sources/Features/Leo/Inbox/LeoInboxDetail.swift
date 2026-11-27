@@ -29,6 +29,7 @@ struct LeoInboxDetail: View {
                         Button("Dismiss") { model.dismissNotice() }.buttonStyle(.link)
                     }
                 }
+                if item.isBlocked { dismissControls }
                 hints
             }
             .padding(.horizontal, 32)
@@ -166,6 +167,13 @@ struct LeoInboxDetail: View {
         }
     }
 
+    /// Hides the item until it changes. Answers nothing: the agent keeps waiting.
+    private var dismissControls: some View {
+        Button { model.dismiss(item) } label: { Label("Dismiss", systemImage: "eye.slash") }
+            .help("Hide this until it changes. The agent keeps waiting.")
+            .accessibilityIdentifier("inbox.dismiss")
+    }
+
     // MARK: Pieces
 
     private func panel<Content: View>(accent: Color, @ViewBuilder _ content: () -> Content) -> some View {
@@ -201,7 +209,7 @@ struct LeoInboxDetail: View {
             hint("↑↓", "move")
             if isChatAsk { hint("↩", "submit") }
             hint("⌘↩", "go to agent")
-            if !item.isBlocked { hint("⌫", "clear") }
+            hint("⌫", item.isBlocked ? "dismiss" : "clear")
         }
         .font(.caption)
         .foregroundStyle(.tertiary)

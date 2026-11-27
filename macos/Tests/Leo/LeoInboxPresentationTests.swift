@@ -38,7 +38,8 @@ struct LeoInboxPresentationTests {
         #expect(LeoInboxKeyAction.action(keyCode: 36, modifiers: []) == .submit)
         #expect(LeoInboxKeyAction.action(keyCode: 76, modifiers: []) == .submit)
         #expect(LeoInboxKeyAction.action(keyCode: 36, modifiers: .command) == .goToAgent)
-        #expect(LeoInboxKeyAction.action(keyCode: 51, modifiers: []) == .clearItem)
+        #expect(LeoInboxKeyAction.action(keyCode: 51, modifiers: []) == .dismissItem)
+        #expect(LeoInboxKeyAction.action(keyCode: 117, modifiers: []) == .dismissItem)
     }
 
     @Test func otherModifiersAndKeysAreNotTheInboxs() {

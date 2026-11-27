@@ -11,9 +11,9 @@ import Testing
 struct LeoInboxAgentsTests {
     private static let signal = LeoAttentionSignal(state: .finished, revision: 3)
 
-    private func row(bootID: String?) -> LeoAgentRow {
+    private func row(bootID: String?, name: String = "alpha", status: LeoAgentStatus = .running) -> LeoAgentRow {
         LeoAgentRow(
-            host: .local, name: "alpha", template: nil, status: .running, activity: .idle, actionDetail: nil,
+            host: .local, name: name, template: nil, status: status, activity: .idle, actionDetail: nil,
             attentionSignal: Self.signal, attentionBootID: bootID
         )
     }
@@ -35,5 +35,14 @@ struct LeoInboxAgentsTests {
         _ = reducer.observeBoot("boot-a")
         let snapshot = LeoSidebarSnapshot(rows: [row(bootID: "boot-a")], connectivity: .disconnected(reason: "gone", isRetrying: false), generation: 1)
         #expect(snapshot.overlayingAttention(reducer).rows.map(\.attentionBootID) == [nil])
+    }
+
+    @Test func aStoppedRowMapsToAStoppedInboxAgent() {
+        let snapshot = LeoSidebarSnapshot(
+            rows: [row(bootID: nil, status: .stopped), row(bootID: nil, name: "beta")], connectivity: .connected, generation: 1
+        )
+        let agents = LeoInboxAgents.make(from: [.local: snapshot])
+        #expect(Set(agents.filter(\.isStopped).map(\.name)) == ["alpha"])
+        #expect(LeoInbox.derive(agents: agents, openAsks: [:], seen: LeoInboxSeenState()).finished.map(\.agent) == ["beta"])
     }
 }

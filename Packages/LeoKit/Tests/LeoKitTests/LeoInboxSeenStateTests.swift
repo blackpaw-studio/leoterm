@@ -110,6 +110,15 @@ struct LeoInboxSeenStateTests {
         #expect(seen.isUnread(Fx.id("zeus", host: other), at: Fx.at(40), revision: 1, bootID: "b"))
     }
 
+    @Test func localMarksWithoutAnAtStillDecode() throws {
+        let stored = Data(#"{"bootID":"boot","revision":3}"#.utf8)
+        let mark = try JSONDecoder().decode(LeoInboxSeenState.Mark.self, from: stored)
+        let seen = LeoInboxSeenState(hosts: [Fx.host: .local(["zeus": mark])])
+
+        #expect(!seen.isUnread(Fx.id("zeus"), at: Fx.at(10), revision: 3, bootID: "boot"))
+        #expect(seen.isUnread(Fx.id("zeus"), at: Fx.at(10), revision: 4, bootID: "boot"))
+    }
+
     @Test func roundTripsThroughCodable() throws {
         var seen = LeoInboxSeenState()
         seen.seed(host: Fx.host, seen: ["zeus": Fx.at(50)])

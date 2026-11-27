@@ -112,6 +112,8 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
         UICollectionViewCompositionalLayout { _, environment in
             var configuration = UICollectionLayoutListConfiguration(appearance: .insetGrouped)
             configuration.headerMode = .supplementary
+            // A full trailing swipe dismisses a blocked card (the visible button covers VoiceOver).
+            configuration.trailingSwipeActionsConfigurationProvider = { [weak self] indexPath in self?.swipeActions(at: indexPath) }
             return NSCollectionLayoutSection.list(using: configuration, layoutEnvironment: environment)
         }
     }
@@ -239,12 +241,31 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
         var actions = ChatInboxCardActions()
         actions.openChat = { [weak self] in self?.store.send(.chatOpened(ref)) }
         actions.goToAgent = { [weak self] in self?.store.send(.notificationOpened(ref)) }
+        actions.dismiss = { [weak self] in self?.store.send(.chats(.dismissTapped(item))) }
         if case .chatAsk(let message) = item.kind {
             actions.answer = { [weak self] answer in
                 self?.store.send(.chats(.askAnswered(daemonID: daemonID, agent: ref.name, messageID: message.id, answer)))
             }
         }
         return actions
+    }
+
+    private func blockedCard(at indexPath: IndexPath) -> LeoInboxItem? {
+        guard case .card(let id)? = dataSource.itemIdentifier(for: indexPath), let item = cards[id], item.isBlocked else { return nil }
+        return item
+    }
+
+    private func swipeActions(at indexPath: IndexPath) -> UISwipeActionsConfiguration? {
+        guard let item = blockedCard(at: indexPath) else { return nil }
+        let dismiss = UIContextualAction(style: .normal, title: String(localized: "Dismiss")) { [weak self] _, _, done in
+            self?.store.send(.chats(.dismissTapped(item)))
+            done(true)
+        }
+        dismiss.image = UIImage(systemName: "eye.slash")
+        dismiss.backgroundColor = .systemGray
+        let configuration = UISwipeActionsConfiguration(actions: [dismiss])
+        configuration.performsFirstActionWithFullSwipe = true
+        return configuration
     }
 
     private func clearFinished() {
@@ -304,7 +325,14 @@ final class ChatsViewController: UIViewController, UICollectionViewDelegate, UIS
     /// Long press: the Agents tab's menu. Rows with no agent record (e.g. a
     /// thread whose daemon dropped the agent) get none.
     func collectionView(_ collectionView: UICollectionView, contextMenuConfigurationForItemsAt indexPaths: [IndexPath], point: CGPoint) -> UIContextMenuConfiguration? {
-        guard case .row(let ref)? = indexPaths.first.flatMap({ dataSource.itemIdentifier(for: $0) }) else { return nil }
+        guard let indexPath = indexPaths.first else { return nil }
+        if let item = blockedCard(at: indexPath) {
+            let dismiss = UIAction(title: String(localized: "Dismiss"), image: UIImage(systemName: "eye.slash")) { [weak self] _ in
+                self?.store.send(.chats(.dismissTapped(item)))
+            }
+            return UIContextMenuConfiguration(identifier: nil, previewProvider: nil) { _ in UIMenu(children: [dismiss]) }
+        }
+        guard case .row(let ref)? = dataSource.itemIdentifier(for: indexPath) else { return nil }
         return AgentContextMenu.configuration(for: ref, store: store)
     }
 }
