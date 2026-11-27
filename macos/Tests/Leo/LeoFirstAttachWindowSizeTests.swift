@@ -34,6 +34,8 @@ import Testing
         let host: GhosttyAttachContentHost
         let origin: LeoWindowID
         let savedPosition: Any?
+        /// The host's stored sidebar width as the fixture found it (nil: unset).
+        let savedSidebarWidth: Any?
         /// The window session's defaults.
         let defaults: UserDefaults
 
@@ -45,6 +47,7 @@ import Testing
         static func make(sidebarVisible: Bool? = nil) throws -> Fixture {
             let app = try #require(LeoFirstAttachWindowSizeTests.app)
             let savedPosition = UserDefaults.ghostty.object(forKey: LastWindowPosition.positionKey)
+            let savedSidebarWidth = UserDefaults.standard.object(forKey: LeoWindowSession.sidebarWidthKey)
             let controller = withoutUndo(app) { TerminalController.leoNewPlaceholderWindow(app.ghostty) }
             if let sidebarVisible { controller.leoSession?.isSidebarVisible = sidebarVisible }
             let window = try #require(controller.window)
@@ -56,7 +59,7 @@ import Testing
             }
             return Fixture(
                 app: app, controller: controller, window: window, host: host, origin: origin, savedPosition: savedPosition,
-                defaults: defaults)
+                savedSidebarWidth: savedSidebarWidth, defaults: defaults)
         }
 
         /// Shows the start screen, then gives it a known frame on screen.
@@ -120,8 +123,21 @@ import Testing
             return controller.validateMenuItem(item)
         }
 
+        /// Stores `width` as the sidebar's preferred width. The window's
+        /// session reads the host's real defaults, which anything running
+        /// the debug app rewrites (down to the 200 pt minimum, where no
+        /// window can clamp the sidebar); `close()` puts the original back.
+        func storeSidebarWidth(_ width: CGFloat) throws {
+            try #require(controller.leoSession).setPreferredWidth(width)
+        }
+
         func close() {
             window.close()
+            if let savedSidebarWidth {
+                UserDefaults.standard.set(savedSidebarWidth, forKey: LeoWindowSession.sidebarWidthKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: LeoWindowSession.sidebarWidthKey)
+            }
             if let savedPosition {
                 UserDefaults.ghostty.set(savedPosition, forKey: LastWindowPosition.positionKey)
             } else {
@@ -257,6 +273,9 @@ import Testing
         let fixture = try await Fixture.shown(sidebarVisible: true)
         defer { fixture.close() }
         let session = try #require(fixture.controller.leoSession)
+        // Wide enough that a window can clamp it: the sidebar never goes
+        // below its minimum, so a stored minimum has nothing to restore.
+        try fixture.storeSidebarWidth(LeoSidebarSplitMetrics.minimumWidth + 100)
         let surface = try fixture.fill().surface
         fixture.applyFirstContentSize(to: surface)
         await Self.drainMainQueue()
