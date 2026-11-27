@@ -22,12 +22,13 @@ Lane: B-461
   Branch: autopilot-lane/B-461
   Base: b49c7540a536b323c03cdb8f344eab010d97b64f
   Tier: light
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
   Reviewed-tip: 4730175c15c14dc5c432c5f14b33d9212af4003b
   Dispatched: 2026-11-27T20:51:40Z
+  Tokens: 11.6M in (11.2M cache read), ≥33k out, 114 requests
   Call: pin the width through the session's own setPreferredWidth and restore the host default in the fixture, following its savedPosition pattern — test infrastructure, agent-decided per AUTONOMY
   Call: Mac only, iOS unaffected — Mac/iOS parity rule
 
@@ -54,5 +55,6 @@ Lane: B-465
 
 Finished 1: B-465 blocked
 Finished 2: B-465 landed 77cca5f72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-465-1.png
+Finished 3: B-461 landed 493a2d6c3 · not visually verified
 Note: B-465 runner shots (implementer's, unverified) left at /private/tmp/claude-501/b465/macgui/shots/ and /private/tmp/claude-501/b465/shots-ios/.
 Inbox applied: B-466 idea; answered B-465 (accept your recommendation: ship plain Dismiss, cancel-ask split to B-466)

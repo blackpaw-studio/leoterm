@@ -2543,3 +2543,15 @@ Chose: iOS launch chip counts `inbox.blocked`, so an all-dismissed launch lands 
 Why: VISION 2
 Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: [ ]
+
+## D-1057 · 2026-11-27 · B-461: pin the width through the session's own…
+Chose: pin the width through the session's own setPreferredWidth and restore the host default in the fixture, following its savedPosition pattern
+Why: test infrastructure, agent-decided per AUTONOMY
+Commit: 3bea12625
+Veto: [ ]
+
+## D-1058 · 2026-11-27 · B-461: Mac only, iOS unaffected
+Chose: Mac only, iOS unaffected
+Why: Mac/iOS parity rule
+Commit: 3bea12625
+Veto: [ ]
