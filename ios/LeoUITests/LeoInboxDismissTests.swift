@@ -11,12 +11,12 @@ final class LeoInboxDismissTests: XCTestCase {
         continueAfterFailure = false
         XCUIDevice.shared.appearance = .light
         app = XCUIApplication()
-        app.launchArguments = ["-resetForUITests", "-inboxFixture"]
+        app.launchArguments = ["-inboxFixture"]
         app.launch()
         let needsYou = app.buttons["chats.filter.needsYou"]
         XCTAssertTrue(needsYou.waitForExistence(timeout: 15), "the Needs you chip never appeared")
         needsYou.tap()
-        XCTAssertTrue(app.cells["inbox.zeus"].waitForExistence(timeout: 10), "zeus's blocked card never appeared")
+        XCTAssertTrue(app.cells["inbox.brooklyn-cam"].waitForExistence(timeout: 10), "the blocked cards never appeared")
     }
 
     override func tearDown() {
@@ -25,13 +25,16 @@ final class LeoInboxDismissTests: XCTestCase {
     }
 
     func testSwipingABlockedCardDismissesIt() {
-        let zeus = app.cells["inbox.zeus"]
-        XCTAssertTrue(zeus.buttons["inbox.dismiss"].exists, "a visible Dismiss button covers accessibility")
+        // The top card is fully on screen; one lower in the list sits behind the tab bar.
+        let card = app.cells["inbox.brooklyn-cam"]
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        XCTAssertTrue(card.buttons["inbox.dismiss"].exists, "a visible Dismiss button covers accessibility")
         capture("inbox-dismiss-card")
-        zeus.swipeLeft(velocity: .slow)
+        let start = card.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.1))
+        start.press(forDuration: 0.1, thenDragTo: card.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.1)), withVelocity: .slow, thenHoldForDuration: 1)
         capture("inbox-dismiss-swipe")
-        zeus.swipeLeft()
-        XCTAssertTrue(zeus.waitForNonExistence(timeout: 5), "the swiped card never left the inbox")
+        card.swipeLeft()
+        XCTAssertTrue(card.waitForNonExistence(timeout: 5), "the swiped card never left the inbox")
         XCTAssertTrue(app.cells["inbox.olympus"].exists, "dismissing one card must not touch another")
         capture("inbox-dismiss-after-swipe")
     }
@@ -41,7 +44,7 @@ final class LeoInboxDismissTests: XCTestCase {
         XCTAssertTrue(olympus.waitForExistence(timeout: 5))
         olympus.buttons["inbox.dismiss"].tap()
         XCTAssertTrue(olympus.waitForNonExistence(timeout: 5), "the Dismiss button never hid the card")
-        XCTAssertTrue(app.cells["inbox.zeus"].exists, "dismissing one card must not touch another")
+        XCTAssertTrue(app.cells["inbox.brooklyn-cam"].exists, "dismissing one card must not touch another")
         capture("inbox-dismiss-after-button")
     }
 
