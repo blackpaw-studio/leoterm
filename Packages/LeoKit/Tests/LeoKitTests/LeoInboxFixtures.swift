@@ -13,11 +13,11 @@ enum LeoInboxFixtures {
 
     static func agent(
         _ name: String, host: LeoHostID = host, project: String? = nil, signal: LeoAttentionSignal? = nil,
-        bootID: String? = "boot", isStale: Bool = false, brief: LeoAgentBrief? = nil
+        bootID: String? = "boot", isStale: Bool = false, isStopped: Bool = false, brief: LeoAgentBrief? = nil
     ) -> LeoInboxAgent {
         LeoInboxAgent(
             id: id(name, host: host), name: name, machine: host.displayName, project: project, signal: signal, bootID: bootID,
-            isStale: isStale, brief: brief
+            isStale: isStale, isStopped: isStopped, brief: brief
         )
     }
 

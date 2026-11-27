@@ -5,7 +5,9 @@ import Foundation
 ///   every client; an item is unread when it is newer than that.
 /// - **Local** (older daemon): a mark of the `(bootID, revision)` last seen;
 ///   an item is unread when its pair differs (a daemon restart re-flags once).
-/// Blocked items are never cleared by viewing, so nothing here affects them.
+/// Blocked items are never cleared by viewing: only an explicit `dismiss` hides
+/// one, by marking the agent seen at least as far as the item's own change
+/// time, so it comes back only when it changes (see `isDismissed`).
 public struct LeoInboxSeenState: Equatable, Sendable, Codable {
     public struct Mark: Equatable, Sendable, Codable {
         public let bootID: String?
@@ -43,6 +45,20 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
         }
     }
 
+    /// A blocked item the user dismissed: the agent's mark covers the item's
+    /// `dismissAt` (synced), or is this very revision (local). Without a time
+    /// to compare (an old daemon) a synced item is never treated as dismissed.
+    public func isDismissed(_ item: LeoInboxItem) -> Bool {
+        guard item.isBlocked else { return false }
+        switch hosts[item.id.host] ?? .local([:]) {
+        case .synced(let marks):
+            guard let seenAt = marks[item.id.name], let dismissAt = item.dismissAt else { return false }
+            return dismissAt <= seenAt
+        case .local:
+            return !isUnread(item.id, at: item.dismissAt, revision: item.revision, bootID: item.bootID)
+        }
+    }
+
     // MARK: Updates
 
     /// Sets a host's mode from the daemon's `GET /agents/seen`: the map when
@@ -74,6 +90,13 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
             marks[agent.name] = Mark(bootID: bootID, revision: revision)
             hosts[agent.host] = .local(marks)
         }
+    }
+
+    /// Dismisses a blocked item: marks its agent seen at least as far as the
+    /// item's last change. It answers nothing; a later change resurfaces it.
+    public mutating func dismiss(_ item: LeoInboxItem, now: Date) {
+        guard item.isBlocked else { return }
+        markSeen(item.id, at: item.dismissAt ?? item.at, revision: item.revision, bootID: item.bootID, now: now)
     }
 
     /// "Clear Finished": marks every finished item shown; blocked ones are untouched.

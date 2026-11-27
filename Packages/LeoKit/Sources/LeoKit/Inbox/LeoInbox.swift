@@ -16,15 +16,19 @@ public struct LeoInboxAgent: Equatable, Sendable {
     public let bootID: String?
     /// The agent's host is disconnected: it contributes nothing.
     public let isStale: Bool
+    /// The agent is stopped: nothing it left behind (an ask, a prompt, a
+    /// finished turn) is actionable, so it contributes nothing.
+    public let isStopped: Bool
     /// The agent's brief; nil when briefs are off, absent or withheld.
     public let brief: LeoAgentBrief?
 
     public init(
         id: LeoAgentID, name: String, machine: String, project: String? = nil, signal: LeoAttentionSignal? = nil,
-        bootID: String? = nil, isStale: Bool = false,
+        bootID: String? = nil, isStale: Bool = false, isStopped: Bool = false,
         brief: LeoAgentBrief? = nil
     ) {
         self.brief = brief
+        self.isStopped = isStopped
         self.id = id
         self.name = name
         self.machine = machine
@@ -71,13 +75,18 @@ public struct LeoInboxItem: Equatable, Identifiable, Sendable {
     public let bootID: String?
     /// The agent's brief, for the detail pane.
     public let brief: LeoAgentBrief?
+    /// For a blocked item: when it last changed (the newest open ask's time,
+    /// or the `needsInput` signal's). Dismissing marks the agent seen at least
+    /// this far, so only a later change brings the item back.
+    public let dismissAt: Date?
 
     public init(
         id: LeoAgentID, kind: LeoInboxKind, isUnread: Bool, isError: Bool = false, agent: String, machine: String,
         projectLabel: String? = nil, at: Date? = nil, context: String? = nil, moreCount: Int = 0, revision: Int? = nil,
-        bootID: String? = nil, brief: LeoAgentBrief? = nil
+        bootID: String? = nil, brief: LeoAgentBrief? = nil, dismissAt: Date? = nil
     ) {
         self.brief = brief
+        self.dismissAt = dismissAt
         self.id = id
         self.kind = kind
         self.isUnread = isUnread
@@ -115,11 +124,15 @@ public struct LeoInbox: Equatable, Sendable {
     ///   working), else attention `needsInput` (permission, question or
     ///   elicitation reason).
     /// - Finished: attention `finished` or `errored`; `isUnread` per `seen`.
-    /// - A stale agent (disconnected host) contributes nothing.
+    /// - A stale agent (disconnected host) or a stopped one contributes nothing.
+    /// - A blocked item the user dismissed stays hidden until it changes (a
+    ///   newer ask, or a fresh `needsInput` commit); see `LeoInboxSeenState.dismiss`.
     public static func derive(
         agents: [LeoInboxAgent], openAsks: [LeoAgentID: LeoOpenAskThread], seen: LeoInboxSeenState
     ) -> LeoInbox {
-        let items = agents.filter { !$0.isStale }.compactMap { item(for: $0, thread: openAsks[$0.id], seen: seen) }
+        let items = agents.filter { !$0.isStale && !$0.isStopped }
+            .compactMap { item(for: $0, thread: openAsks[$0.id], seen: seen) }
+            .filter { !seen.isDismissed($0) }
         return LeoInbox(
             blocked: items.filter(\.isBlocked).sorted { precedes($0, $1, oldestFirst: true) },
             finished: items.filter { !$0.isBlocked }.sorted { precedes($0, $1, oldestFirst: false) }
@@ -128,12 +141,16 @@ public struct LeoInbox: Equatable, Sendable {
 
     private static func item(for agent: LeoInboxAgent, thread: LeoOpenAskThread?, seen: LeoInboxSeenState) -> LeoInboxItem? {
         if let thread, let first = thread.asks.first {
-            return make(agent, kind: .chatAsk(first), at: first.ts, unread: true, context: thread.context, more: thread.asks.count - 1)
+            let newest = thread.asks.last?.ts ?? first.ts
+            return make(
+                agent, kind: .chatAsk(first), at: first.ts, unread: true, context: thread.context, more: thread.asks.count - 1,
+                dismissAt: newest
+            )
         }
         guard let signal = agent.signal else { return nil }
         switch signal.state {
         case .needsInput:
-            return make(agent, kind: reasonKind(signal.reason), at: signal.at, unread: true)
+            return make(agent, kind: reasonKind(signal.reason), at: signal.at, unread: true, dismissAt: signal.at)
         case .finished, .errored:
             let unread = seen.isUnread(agent.id, at: signal.at, revision: signal.revision, bootID: agent.bootID)
             return make(agent, kind: .finished(result: displayablePreview(signal.preview)), at: signal.at, unread: unread, isError: signal.state == .errored)
@@ -169,13 +186,22 @@ public struct LeoInbox: Equatable, Sendable {
     }
 
     private static func make(
-        _ agent: LeoInboxAgent, kind: LeoInboxKind, at: Date?, unread: Bool, isError: Bool = false, context: String? = nil, more: Int = 0
+        _ agent: LeoInboxAgent, kind: LeoInboxKind, at: Date?, unread: Bool, isError: Bool = false, context: String? = nil, more: Int = 0,
+        dismissAt: Date? = nil
     ) -> LeoInboxItem {
         LeoInboxItem(
             id: agent.id, kind: kind, isUnread: unread, isError: isError, agent: agent.name, machine: agent.machine,
             projectLabel: agent.project.flatMap { $0.isEmpty || $0 == agent.name ? nil : $0 }, at: at, context: context, moreCount: more,
-            revision: agent.signal?.revision, bootID: agent.bootID, brief: agent.brief
+            revision: agent.signal?.revision, bootID: agent.bootID, brief: agent.brief, dismissAt: dismissAt
         )
+    }
+
+    /// Whether opening or viewing `agent` may mark it seen. Never while it is
+    /// blocked (an open ask or a `needsInput` signal): peeking at a blocked
+    /// agent must not dismiss it, whether or not the inbox is showing it.
+    public static func marksSeenOnOpen(_ agent: LeoInboxAgent, thread: LeoOpenAskThread?) -> Bool {
+        let hasOpenAsk = thread.map { !$0.asks.isEmpty } ?? false
+        return !hasOpenAsk && agent.signal?.state != .needsInput
     }
 
     /// Known times order first; an item without one sorts last, then by name.
