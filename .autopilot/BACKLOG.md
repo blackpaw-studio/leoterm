@@ -3551,6 +3551,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-438)
 Done: aa2582d32 e961c85ca (landed 79ec7ee26; Ghostty.FocusMover: an older focus move's retry never takes focus back from a newer one; deterministic red test FocusMoveOrderTests). Mac only. D-1037..D-1041.
 Verified: not visually verified — GUI session captured blank; 79 targeted tests + 3 repeats green
+Reviewed: accepted 2026-11-27 — 79ec7ee26583
 
 ## B-453 · Composer placeholder says Start on a restoring agent   [done]
 Issue: #421
