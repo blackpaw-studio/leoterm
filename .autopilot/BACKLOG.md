@@ -3561,6 +3561,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-442)
 Done: ddf9e0d49 (landed b18726f6e; placeholder + send tooltip say "<name> is still starting" while restoring). Mac only. D-1035, D-1036.
 Verified: not visually verified — an agent can't be put into .restoring in the isolated debug app without touching real agents; unit test covers the strings
+Reviewed: accepted 2026-11-27 — b18726f6e340
 
 ## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [done]
 Issue: #422
