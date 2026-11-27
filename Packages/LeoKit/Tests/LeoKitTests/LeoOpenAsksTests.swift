@@ -10,6 +10,21 @@ struct LeoOpenAsksTests {
         asks.threads(host: host).values.flatMap(\.asks).map(\.id).sorted()
     }
 
+    @Test func aHostIsSeededBySeedAloneAndUnseededOnDisconnect() {
+        var asks = LeoOpenAsks()
+        #expect(!asks.isSeeded(host: Fx.host))
+
+        asks.apply(host: Fx.host, event: .message(Fx.ask("m1", agent: "zeus")))
+        #expect(!asks.isSeeded(host: Fx.host))
+
+        asks.seed(host: Fx.host, messages: [], complete: true)
+        #expect(asks.isSeeded(host: Fx.host))
+        #expect(!asks.isSeeded(host: .local))
+
+        asks.disconnect(host: Fx.host)
+        #expect(!asks.isSeeded(host: Fx.host))
+    }
+
     @Test func aCompleteSeedReplacesTheHostsAsks() {
         var asks = LeoOpenAsks()
         asks.seed(host: Fx.host, messages: [Fx.ask("old", agent: "zeus")], complete: true)

@@ -12,10 +12,14 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
     public struct Mark: Equatable, Sendable, Codable {
         public let bootID: String?
         public let revision: Int
+        /// The change time of the item this mark covers; nil on marks stored
+        /// before it existed (and for finished items without a time).
+        public let at: Date?
 
-        public init(bootID: String?, revision: Int) {
+        public init(bootID: String?, revision: Int, at: Date? = nil) {
             self.bootID = bootID
             self.revision = revision
+            self.at = at
         }
     }
 
@@ -41,12 +45,12 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
             return at > seenAt
         case .local(let marks):
             guard let mark = marks[agent.name], let revision else { return true }
-            return mark != Mark(bootID: bootID, revision: revision)
+            return mark.bootID != bootID || mark.revision != revision
         }
     }
 
     /// A blocked item the user dismissed: the agent's mark covers the item's
-    /// `dismissAt` (synced), or is this very revision (local). Without a time
+    /// `dismissAt` (synced), or is this very revision and covers its time (local). Without a time
     /// to compare (an old daemon) a synced item is never treated as dismissed.
     public func isDismissed(_ item: LeoInboxItem) -> Bool {
         guard item.isBlocked else { return false }
@@ -54,8 +58,11 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
         case .synced(let marks):
             guard let seenAt = marks[item.id.name], let dismissAt = item.dismissAt else { return false }
             return dismissAt <= seenAt
-        case .local:
-            return !isUnread(item.id, at: item.dismissAt, revision: item.revision, bootID: item.bootID)
+        case .local(let marks):
+            guard !isUnread(item.id, at: item.dismissAt, revision: item.revision, bootID: item.bootID) else { return false }
+            // The same turn can raise a newer ask at the same revision.
+            guard let dismissAt = item.dismissAt, let markedAt = marks[item.id.name]?.at else { return true }
+            return dismissAt <= markedAt
         }
     }
 
@@ -87,7 +94,7 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
             hosts[agent.host] = .synced(marks)
         case .local(var marks):
             guard let revision else { return }
-            marks[agent.name] = Mark(bootID: bootID, revision: revision)
+            marks[agent.name] = Mark(bootID: bootID, revision: revision, at: at)
             hosts[agent.host] = .local(marks)
         }
     }

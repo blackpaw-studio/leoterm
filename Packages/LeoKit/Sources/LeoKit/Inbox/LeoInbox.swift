@@ -196,11 +196,14 @@ public struct LeoInbox: Equatable, Sendable {
         )
     }
 
-    /// Whether opening or viewing `agent` may mark it seen. Never while it is
-    /// blocked (an open ask or a `needsInput` signal): peeking at a blocked
-    /// agent must not dismiss it, whether or not the inbox is showing it.
-    public static func marksSeenOnOpen(_ agent: LeoInboxAgent, thread: LeoOpenAskThread?) -> Bool {
-        let hasOpenAsk = thread.map { !$0.asks.isEmpty } ?? false
+    /// Whether opening or viewing `agent` may mark it seen. Fails closed:
+    /// never for an agent not loaded yet, nor while its host's open asks have
+    /// not loaded (an ask may be waiting there), nor while it is blocked (an
+    /// open ask or a `needsInput` signal). Peeking at an agent that needs you
+    /// must not dismiss it, whether or not the inbox is showing it.
+    public static func marksSeenOnOpen(_ agent: LeoInboxAgent?, openAsks: LeoOpenAsks) -> Bool {
+        guard let agent, openAsks.isSeeded(host: agent.id.host) else { return false }
+        let hasOpenAsk = openAsks.threads(host: agent.id.host)[agent.id].map { !$0.asks.isEmpty } ?? false
         return !hasOpenAsk && agent.signal?.state != .needsInput
     }
 
