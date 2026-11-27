@@ -3648,6 +3648,7 @@ Source: owner (/feature, 2026-11-25)
 Inbox: 20261126T004750631657Z-337d9c02#1
 Done: e36e77ca1 (PR #427 head, merged unchanged; landed 788909869; also carries 1ce2767d0, the 0.88.0 bump from PR #426's history). LEO_VERSION 0.88.1; v0.88.1 tarball sha256 matches and reports leo 0.88.1; app builds.
 Verified: not visually verified — diff is only LEO_VERSION
+Reviewed: accepted 2026-11-27 — 788909869baf
 
 ## B-461 · resetWindowSizeRestoresALaunchClampedSidebar fails 200 vs 199   [ready (next run)]
 Issue: #432
