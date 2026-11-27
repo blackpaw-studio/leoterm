@@ -175,7 +175,11 @@ import LeoKit
     // MARK: Seen
 
     /// The user opened `agent` (its chat, its terminal, or its inbox detail).
+    /// Never while it is blocked: peeking at an agent that needs you must not
+    /// dismiss it (only an explicit `dismiss` does).
     func agentOpened(_ agent: LeoAgentID) {
+        if let known = agents.first(where: { $0.id == agent }),
+           !LeoInbox.marksSeenOnOpen(known, thread: openAsks.threads[agent]) { return }
         markSeen([agent])
     }
 
@@ -219,6 +223,24 @@ import LeoKit
         guard !finished.isEmpty else { return }
         seen.clear(finished, now: now())
         afterSeenChange(sending: finished.map(\.id))
+    }
+
+    /// Dismisses a blocked item: hides it until it changes. Answers and rejects
+    /// nothing for the agent; only the seen mark moves (and syncs).
+    func dismiss(_ item: LeoInboxItem) {
+        guard item.isBlocked else { return }
+        let successor = successorAfterRemoving(item)
+        seen.dismiss(item, now: now())
+        afterSeenChange(sending: [item.id])
+        if let successor { select(successor.id) }
+    }
+
+    /// The row selection moves to once `item` leaves the list (the next one,
+    /// else the previous); nil when `item` isn't the selected row or is alone.
+    private func successorAfterRemoving(_ item: LeoInboxItem) -> LeoInboxItem? {
+        let shown = shownBlocked + shownFinished
+        guard selectedItem?.id == item.id, let index = shown.firstIndex(where: { $0.id == item.id }) else { return nil }
+        return shown.indices.contains(index + 1) ? shown[index + 1] : (index > 0 ? shown[index - 1] : nil)
     }
 
     private func markSeen(_ ids: [LeoAgentID]) {

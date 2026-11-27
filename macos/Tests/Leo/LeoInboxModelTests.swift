@@ -278,4 +278,50 @@ struct LeoInboxModelTests {
         model.updateAgents([agent(state: .finished, revision: 4, at: 6000)])
         #expect(model.inbox.finished.map(\.isUnread) == [true])
     }
+
+    // MARK: Dismiss
+
+    @Test func dismissingABlockedItemSendsOnlyASeenMark() async throws {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .needsInput, at: 900)])
+        await model.seed(host: .local)
+        let item = try #require(model.inbox.blocked.first)
+
+        model.dismiss(item)
+
+        #expect(model.inbox.blocked.isEmpty)
+        #expect(model.inbox.badge == .none)
+        await model.settled()
+        #expect(await client.markedSeen == [["alpha"]])
+        #expect(await client.answers.isEmpty)
+        #expect(await client.dismissals.isEmpty)
+    }
+
+    @Test func aDismissedItemReturnsWhenItChanges() async throws {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .needsInput, revision: 1, at: 900)])
+        await model.seed(host: .local)
+        model.dismiss(try #require(model.inbox.blocked.first))
+        #expect(model.inbox.blocked.isEmpty)
+
+        model.updateAgents([agent(state: .needsInput, revision: 3, at: 9000)])
+
+        #expect(model.inbox.blocked.count == 1)
+    }
+
+    @Test func openingABlockedAgentKeepsItInTheInbox() async throws {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .working)])
+        await model.seed(host: .local)
+        model.receive(LeoChatFeedDelivery(host: .local, signal: .event(.message(try openAsk()))))
+
+        model.agentOpened(Self.alpha)
+
+        #expect(model.inbox.blocked.count == 1)
+        await model.settled()
+        #expect(await client.markedSeen.isEmpty)
+    }
 }
