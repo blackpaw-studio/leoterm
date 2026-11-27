@@ -22,12 +22,14 @@ Lane: B-461
   Branch: autopilot-lane/B-461
   Base: b49c7540a536b323c03cdb8f344eab010d97b64f
   Tier: light
-  State: building
+  State: verifying
   Fixes: 0
   Wip: none
   Reverifies: 0
-  Reviewed-tip: none
+  Reviewed-tip: 4730175c15c14dc5c432c5f14b33d9212af4003b
   Dispatched: 2026-11-27T20:51:40Z
+  Call: pin the width through the session's own setPreferredWidth and restore the host default in the fixture, following its savedPosition pattern — test infrastructure, agent-decided per AUTONOMY
+  Call: Mac only, iOS unaffected — Mac/iOS parity rule
 
 Lane: B-465
   Branch: autopilot-lane/B-465
