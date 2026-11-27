@@ -3671,6 +3671,7 @@ Note: iOS ChatInboxCardView.swift:210 and Mac LeoInboxPresentation.swift:48 each
 Source: autopilot polish (B-456)
 
 ## B-465 · Needs-you Inbox — dismiss blocked items   [ready]
+Issue: #433
 Why: old blocked items (unanswered chat asks, stale permission prompts) pile up in the inbox with no way to clear them; the inbox should show only what really needs Evan (serves "what needs me" from the inbox spec)
 Accept: a blocked row can be dismissed on Mac (button and ⌫) and iOS (swipe/button), and it disappears; a dismissed item reappears only when it changes (a new ask id, or a fresh needsInput transition after the agent did other work), tested; dismissal never answers or rejects anything for the agent; dismissal syncs between Mac and iOS through the existing lastSeen/unread mechanism, with the logic in LeoKit; an open chat ask also offers a non-default "Dismiss & cancel ask" that withdraws the ask so the agent stops waiting; asks or prompts from agents that are stopped or removed never appear (fix it if they do), tested; screenshots on both platforms
 Out: snooze timers; archive history view; bulk "dismiss all blocked"; push-notification changes; project grouping
