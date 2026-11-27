@@ -3610,6 +3610,7 @@ Inbox: 20261125T014930386649Z-415a1a06#1
 Attachments: .autopilot/bugs/B-456/05-scratch-selected.png
 Done: 59184dcea e76c3dc17 (landed e80427b9d; LeoInbox drops sentinel/empty previews, both apps show "Finished"). Mac + iOS via LeoKit. D-1042, D-1043.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-456-2.png
+Reviewed: accepted 2026-11-27 — e80427b9d483
 
 ## B-457 · Inbox stale open questions: live data on 2026-11-24 surfaced…   [idea]
 Note: Inbox stale open questions: live data on 2026-11-24 surfaced unanswered leo_chat_asks 35d (leoterm), 14d (mountain-town), 22h (subway-sim) old. Add a way to handle stale asks on Mac and iOS: dismiss/decline an ask from the inbox, or fold asks older than N days into a collapsed "Older" group so they don't dominate Needs you.
