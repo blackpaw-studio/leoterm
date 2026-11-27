@@ -53,8 +53,9 @@ public struct LeoOpenAsks: Equatable, Sendable {
         }
     }
 
-    /// Whether a seed has landed for `host` (not merely live events), so its
-    /// absence of an ask means "none open" rather than "not loaded yet".
+    /// Whether `host`'s open asks are fully known (a complete seed, or
+    /// `markLoaded`), so no ask there means "none open" rather than "not
+    /// loaded yet". Live events and partial seeds don't count.
     public func isSeeded(host: LeoHostID) -> Bool {
         hosts[host]?.isSeeded ?? false
     }
@@ -66,6 +67,14 @@ public struct LeoOpenAsks: Equatable, Sendable {
         var state = hosts[host] ?? HostState()
         if complete { state.asks = [:] }
         for message in messages { Self.fold(message, into: &state) }
+        if complete { state.isSeeded = true }
+        hosts[host] = state
+    }
+
+    /// The best available answer is in: an older daemon without the open-asks
+    /// route, whose asks only the threads' last messages show.
+    public mutating func markLoaded(host: LeoHostID) {
+        var state = hosts[host] ?? HostState()
         state.isSeeded = true
         hosts[host] = state
     }

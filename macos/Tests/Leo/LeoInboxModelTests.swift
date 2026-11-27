@@ -325,6 +325,20 @@ struct LeoInboxModelTests {
         #expect(await client.markedSeen.isEmpty)
     }
 
+    @Test func openingAnAgentBeforeItLoadsSendsNoSeenMark() async {
+        await client.setSeen([:])
+        let model = make()
+        await model.seed(host: .local)
+
+        // The sidebar has not delivered the agent yet: it may be blocked.
+        model.agentOpened(Self.alpha)
+        model.updateAgents([agent(state: .finished, revision: 3, at: 1000)])
+
+        #expect(model.inbox.finished.map(\.isUnread) == [true])
+        await model.settled()
+        #expect(await client.markedSeen.isEmpty)
+    }
+
     @Test func dismissingTheLastBlockedItemLeavesAFinishedOneUnread() async throws {
         await client.setSeen([:])
         let model = make()

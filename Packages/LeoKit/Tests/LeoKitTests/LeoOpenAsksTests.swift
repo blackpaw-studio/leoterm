@@ -17,12 +17,23 @@ struct LeoOpenAsksTests {
         asks.apply(host: Fx.host, event: .message(Fx.ask("m1", agent: "zeus")))
         #expect(!asks.isSeeded(host: Fx.host))
 
+        asks.seed(host: Fx.host, messages: [Fx.ask("m2", agent: "hera")], complete: false)
+        #expect(!asks.isSeeded(host: Fx.host))
+
         asks.seed(host: Fx.host, messages: [], complete: true)
         #expect(asks.isSeeded(host: Fx.host))
         #expect(!asks.isSeeded(host: .local))
 
         asks.disconnect(host: Fx.host)
         #expect(!asks.isSeeded(host: Fx.host))
+    }
+
+    @Test func markLoadedSeedsAHostWithoutTheOpenAsksRoute() {
+        var asks = LeoOpenAsks()
+        asks.seed(host: Fx.host, messages: [], complete: false)
+        asks.markLoaded(host: Fx.host)
+
+        #expect(asks.isSeeded(host: Fx.host))
     }
 
     @Test func aCompleteSeedReplacesTheHostsAsks() {

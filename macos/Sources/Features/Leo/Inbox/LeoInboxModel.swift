@@ -136,7 +136,11 @@ import LeoKit
         let seenResult = await Self.fetchSeen(client)
         guard token == seedTokens[host] else { return }
         let buffered = eventsDuringSeed.removeValue(forKey: host) ?? []
-        if let asks { openAsks.seed(host: host, messages: asks.messages, complete: asks.isComplete) }
+        if let asks {
+            openAsks.seed(host: host, messages: asks.messages, complete: asks.isComplete)
+            // No open-asks route: the threads' last messages are all there is to know.
+            if !asks.isComplete { openAsks.markLoaded(host: host) }
+        }
         buffered.forEach { openAsks.apply(host: host, event: $0) }
         if let seenResult {
             seen.seed(host: host, seen: seenResult)
@@ -175,11 +179,11 @@ import LeoKit
     // MARK: Seen
 
     /// The user opened `agent` (its chat, its terminal, or its inbox detail).
-    /// Never while it is blocked: peeking at an agent that needs you must not
-    /// dismiss it (only an explicit `dismiss` does).
+    /// Never while it is blocked, nor before the agent or its host's asks have
+    /// loaded: peeking at an agent that needs you must not dismiss it (only an
+    /// explicit `dismiss` does).
     func agentOpened(_ agent: LeoAgentID) {
-        if let known = agents.first(where: { $0.id == agent }),
-           !LeoInbox.marksSeenOnOpen(known, thread: openAsks.threads[agent]) { return }
+        guard LeoInbox.marksSeenOnOpen(agents.first { $0.id == agent }, openAsks: openAsks) else { return }
         markSeen([agent])
     }
 
