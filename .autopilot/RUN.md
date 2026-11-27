@@ -33,7 +33,7 @@ Lane: B-465
   Branch: autopilot-lane/B-465
   Base: b2dbe33218b2d90bc9d3381b9fb1d669d9f3dc11
   Tier: full
-  State: verifying
+  State: landed
   Fixes: 0
   Wip: none
   Reverifies: 0
@@ -50,5 +50,6 @@ Lane: B-465
   Call: iOS launch chip counts `inbox.blocked`, so an all-dismissed launch lands on All — VISION 2
 
 Finished 1: B-465 blocked
+Finished 2: B-465 landed 77cca5f72 · shot /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-465-1.png
 Note: B-465 runner shots (implementer's, unverified) left at /private/tmp/claude-501/b465/macgui/shots/ and /private/tmp/claude-501/b465/shots-ios/.
 Inbox applied: B-466 idea; answered B-465 (accept your recommendation: ship plain Dismiss, cancel-ask split to B-466)
