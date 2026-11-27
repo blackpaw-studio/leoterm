@@ -337,12 +337,12 @@ public struct AppFeature {
     }
 
     /// Opening an agent (detail or chat) marks it seen in the inbox, unless it
-    /// is blocked: looking at an agent that needs you must not dismiss it.
+    /// is blocked or not loaded yet: looking at an agent that needs you must
+    /// not dismiss it.
     private func markSeen(_ ref: AgentRef, state: inout State) -> Effect<Action> {
-        if let session = state.fleet.sessions[id: ref.daemonID], let agent = session.agents[id: ref.name],
-           !LeoInbox.marksSeenOnOpen(ChatList.inboxAgent(agent, session: session), thread: state.chats.openAsks.threads[ref.leoAgentID]) {
-            return .none
-        }
+        let session = state.fleet.sessions[id: ref.daemonID]
+        let known = session.flatMap { session in session.agents[id: ref.name].map { ChatList.inboxAgent($0, session: session) } }
+        guard LeoInbox.marksSeenOnOpen(known, openAsks: state.chats.openAsks) else { return .none }
         return ChatList.markSeen(
             state.seenTargets(ref), state: &state.chats, now: { date.now }, store: inboxSeenStore, chatClient: chatClient, secrets: secrets
         ).map(Action.chats)

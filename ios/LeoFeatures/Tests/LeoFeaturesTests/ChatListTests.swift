@@ -557,5 +557,13 @@ struct ChatListTests {
         await store.send(.openAsksResponse(Self.daemon, .success(nil)))
         let open = store.state.openAsks.threads
         #expect(open.keys.map(\.name) == ["hera"])
+        #expect(store.state.openAsks.isSeeded(host: Self.host))
+    }
+
+    @Test func aFailedOpenAsksRequestLeavesTheHostUnseeded() async {
+        let store = TestStore(initialState: ChatList.State()) { ChatList() }
+        store.exhaustivity = .off
+        await store.send(.openAsksResponse(Self.daemon, .failure(URLError(.notConnectedToInternet))))
+        #expect(!store.state.openAsks.isSeeded(host: Self.host))
     }
 }

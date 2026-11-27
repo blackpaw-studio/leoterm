@@ -264,6 +264,7 @@ public struct ChatList {
                     state.openAsks.disconnect(host: .remote(daemonID))
                     let lastMessages = (state.threads[daemonID] ?? []).compactMap(\.lastMessage)
                     state.openAsks.seed(host: .remote(daemonID), messages: lastMessages, complete: false)
+                    state.openAsks.markLoaded(host: .remote(daemonID))
                 case .failure:
                     break
                 }
