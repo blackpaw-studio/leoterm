@@ -3684,3 +3684,11 @@ Answer: accept your recommendation (yes — ship plain Dismiss now; split "Dismi
 Note: Needs-you Inbox — "Dismiss & cancel ask" for open chat asks (split from B-465; needs a client-callable leo daemon route to withdraw an ask)
 Source: owner (/idea, 2026-11-27)
 Inbox: 20261127T214652676145Z-40bd9764#2
+
+## B-467 · iOS dismissTarget duplicates LeoKit's dismiss rule   [idea]
+Note: iOS `dismissTarget` (ChatList.swift:400) re-implements LeoKit's `at: dismissAt ?? at`, and `dismissTapped` does nothing until the host's seen state loads — Mac+iOS rule: logic in LeoKit
+Source: autopilot polish (B-465)
+
+## B-468 · Mac ⌫ on last blocked row selects the unread finished row   [idea]
+Note: after ⌫ dismisses the last blocked inbox row, selection lands on the unread finished row — VISION 1 keyboard-first; owner may prefer no selection
+Source: autopilot polish (B-465)
