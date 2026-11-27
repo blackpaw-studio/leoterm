@@ -3626,6 +3626,7 @@ Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T020052683007Z-a078f62c#1
 Done: 46edcf927 (landed a10dda60e; Settings ▸ General ▸ Chat toggle `leo.chat.imagesOpenFullWindow`, off by default; on opens chat images full-window). Mac only. D-1044..D-1046.
 Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png
+Reviewed: accepted 2026-11-27 — a10dda60eb59
 
 ## B-459 · Flaky iOS CI test…   [done]
 Issue: #430
