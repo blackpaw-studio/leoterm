@@ -3570,6 +3570,7 @@ Accept: A failing test reproduces the report; it passes after the fix; nothing e
 Source: autopilot bug (B-444)
 Done: 9fa7210c0 (landed a3738d88a; shared NSEvent.ModifierFlags.isChordFree used by the progress Escape monitor and the chat image viewer). Mac only.
 Verified: not visually verified — caps lock can't be driven through the GUI tooling; tests send real NSEvent keyDowns through NSApp.sendEvent
+Reviewed: accepted 2026-11-27 — a3738d88a7f4
 
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
