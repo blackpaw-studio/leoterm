@@ -5,15 +5,21 @@ import Foundation
 ///   every client; an item is unread when it is newer than that.
 /// - **Local** (older daemon): a mark of the `(bootID, revision)` last seen;
 ///   an item is unread when its pair differs (a daemon restart re-flags once).
-/// Blocked items are never cleared by viewing, so nothing here affects them.
+/// Blocked items are never cleared by viewing: only an explicit `dismiss` hides
+/// one, by marking the agent seen at least as far as the item's own change
+/// time, so it comes back only when it changes (see `isDismissed`).
 public struct LeoInboxSeenState: Equatable, Sendable, Codable {
     public struct Mark: Equatable, Sendable, Codable {
         public let bootID: String?
         public let revision: Int
+        /// The change time of the item this mark covers; nil on marks stored
+        /// before it existed (and for finished items without a time).
+        public let at: Date?
 
-        public init(bootID: String?, revision: Int) {
+        public init(bootID: String?, revision: Int, at: Date? = nil) {
             self.bootID = bootID
             self.revision = revision
+            self.at = at
         }
     }
 
@@ -39,7 +45,24 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
             return at > seenAt
         case .local(let marks):
             guard let mark = marks[agent.name], let revision else { return true }
-            return mark != Mark(bootID: bootID, revision: revision)
+            return mark.bootID != bootID || mark.revision != revision
+        }
+    }
+
+    /// A blocked item the user dismissed: the agent's mark covers the item's
+    /// `dismissAt` (synced), or is this very revision and covers its time (local). Without a time
+    /// to compare (an old daemon) a synced item is never treated as dismissed.
+    public func isDismissed(_ item: LeoInboxItem) -> Bool {
+        guard item.isBlocked else { return false }
+        switch hosts[item.id.host] ?? .local([:]) {
+        case .synced(let marks):
+            guard let seenAt = marks[item.id.name], let dismissAt = item.dismissAt else { return false }
+            return dismissAt <= seenAt
+        case .local(let marks):
+            guard !isUnread(item.id, at: item.dismissAt, revision: item.revision, bootID: item.bootID) else { return false }
+            // The same turn can raise a newer ask at the same revision.
+            guard let dismissAt = item.dismissAt, let markedAt = marks[item.id.name]?.at else { return true }
+            return dismissAt <= markedAt
         }
     }
 
@@ -71,9 +94,16 @@ public struct LeoInboxSeenState: Equatable, Sendable, Codable {
             hosts[agent.host] = .synced(marks)
         case .local(var marks):
             guard let revision else { return }
-            marks[agent.name] = Mark(bootID: bootID, revision: revision)
+            marks[agent.name] = Mark(bootID: bootID, revision: revision, at: at)
             hosts[agent.host] = .local(marks)
         }
+    }
+
+    /// Dismisses a blocked item: marks its agent seen at least as far as the
+    /// item's last change. It answers nothing; a later change resurfaces it.
+    public mutating func dismiss(_ item: LeoInboxItem, now: Date) {
+        guard item.isBlocked else { return }
+        markSeen(item.id, at: item.dismissAt ?? item.at, revision: item.revision, bootID: item.bootID, now: now)
     }
 
     /// "Clear Finished": marks every finished item shown; blocked ones are untouched.

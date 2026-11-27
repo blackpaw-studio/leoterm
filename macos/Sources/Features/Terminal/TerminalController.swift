@@ -2182,6 +2182,9 @@ extension TerminalController {
         case #selector(deleteSelectedLeoAgent(_:)):
             return validateLeoDeleteMenuItem(item)
 
+        case #selector(dismissSelectedLeoInboxItem(_:)):
+            return validateLeoDismissInboxMenuItem(item)
+
         case #selector(duplicateSelectedLeoAgent(_:)):
             return validateLeoDuplicateMenuItem(item)
 

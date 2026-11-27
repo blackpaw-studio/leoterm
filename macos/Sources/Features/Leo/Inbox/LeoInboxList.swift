@@ -27,7 +27,16 @@ struct LeoInboxList: View {
             LeoInboxRow(item: item, isSelected: model.selectedItem?.id == item.id)
         }
         .buttonStyle(.plain)
+        .contextMenu { rowMenu(item) }
         .accessibilityIdentifier("inbox.row.\(item.id.name)")
+    }
+
+    @ViewBuilder private func rowMenu(_ item: LeoInboxItem) -> some View {
+        if item.isBlocked {
+            Button("Dismiss") { model.dismiss(item) }
+        } else if item.isUnread {
+            Button("Clear") { model.clear([item]) }
+        }
     }
 
     private func sectionHeader(_ title: String, count: Int) -> some View {

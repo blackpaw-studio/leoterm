@@ -60,6 +60,20 @@ extension TerminalController {
         }
     }
 
+    /// The inbox item the window's content area shows, while it shows the Inbox.
+    var shownLeoInboxItem: LeoInboxItem? {
+        guard leoSession?.terminals.isInboxSelected == true else { return nil }
+        return leoRuntime?.inbox.selectedItem
+    }
+
+    /// Agents ▸ Dismiss from Inbox: hides the blocked item until it changes. Answers nothing.
+    @IBAction func dismissSelectedLeoInboxItem(_ sender: Any?) {
+        guard let item = shownLeoInboxItem, item.isBlocked else { return }
+        leoRuntime?.inbox.dismiss(item)
+    }
+
+    func validateLeoDismissInboxMenuItem(_ item: NSMenuItem) -> Bool { shownLeoInboxItem?.isBlocked == true }
+
     @IBAction func deleteSelectedLeoAgent(_ sender: Any?) {
         guard let runtime = leoRuntime, let row = selectedLeoRow else { return }
         LeoAgentMenuSheets(runtime: runtime).presentDelete(row, in: window)
