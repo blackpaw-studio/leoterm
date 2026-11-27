@@ -235,12 +235,13 @@ import LeoKit
         if let successor { select(successor.id) }
     }
 
-    /// The row selection moves to once `item` leaves the list (the next one,
-    /// else the previous); nil when `item` isn't the selected row or is alone.
+    /// The blocked row selection moves to once `item` leaves the list (the
+    /// next one, else the previous). Never a finished row: selecting one marks
+    /// it read, which a dismiss must not do. Nil when `item` isn't selected.
     private func successorAfterRemoving(_ item: LeoInboxItem) -> LeoInboxItem? {
-        let shown = shownBlocked + shownFinished
-        guard selectedItem?.id == item.id, let index = shown.firstIndex(where: { $0.id == item.id }) else { return nil }
-        return shown.indices.contains(index + 1) ? shown[index + 1] : (index > 0 ? shown[index - 1] : nil)
+        let blocked = shownBlocked
+        guard selectedItem?.id == item.id, let index = blocked.firstIndex(where: { $0.id == item.id }) else { return nil }
+        return blocked.indices.contains(index + 1) ? blocked[index + 1] : (index > 0 ? blocked[index - 1] : nil)
     }
 
     private func markSeen(_ ids: [LeoAgentID]) {

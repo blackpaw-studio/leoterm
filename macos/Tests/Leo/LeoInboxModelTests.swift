@@ -324,4 +324,18 @@ struct LeoInboxModelTests {
         await model.settled()
         #expect(await client.markedSeen.isEmpty)
     }
+
+    @Test func dismissingTheLastBlockedItemLeavesAFinishedOneUnread() async throws {
+        await client.setSeen([:])
+        let model = make()
+        model.updateAgents([agent(state: .needsInput, at: 900), agent(LeoAgentID(host: .local, name: "beta"), state: .finished, at: 1000)])
+        await model.seed(host: .local)
+        model.select(Self.alpha)
+
+        model.dismiss(try #require(model.inbox.blocked.first))
+
+        #expect(model.inbox.finished.map(\.isUnread) == [true])
+        await model.settled()
+        #expect(await client.markedSeen == [["alpha"]])
+    }
 }
