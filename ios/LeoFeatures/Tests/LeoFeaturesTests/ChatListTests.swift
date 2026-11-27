@@ -367,6 +367,43 @@ struct ChatListTests {
         #expect(store.state.openAsks.threads.count == 1)
     }
 
+    // MARK: Dismiss
+
+    private static func blockedItem(_ state: ChatList.State) throws -> LeoInboxItem {
+        let inbox = ChatList.inbox(sessions: connected([Agent(name: "zeus", status: .running)]), openAsks: state.openAsks, seen: state.seen)
+        return try #require(inbox.blocked.first)
+    }
+
+    @Test func dismissingACardSendsOnlyMarkSeen() async throws {
+        var seeded = Self.listState(asks: [Self.ask("q1")])
+        seeded.seen.seed(host: Self.host, seen: [:])
+        let item = try Self.blockedItem(seeded)
+        let sent = LockIsolated<[String]>([])
+        let store = TestStore(initialState: seeded) { ChatList() } withDependencies: {
+            $0.date.now = Self.epoch + 60
+            $0.inboxSeenStore.save = { _ in }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.markSeen = { _, agents in
+                sent.withValue { $0 += agents }
+                return ["zeus": Self.epoch + 60]
+            }
+            // No answer, no dismiss route: any call fails the test.
+            $0.chatClient.answer = { _, _, _, _ in Issue.record("dismiss must not answer"); return nil }
+            $0.chatClient.answerQuestions = { _, _, _, _ in Issue.record("dismiss must not answer"); return nil }
+            $0.chatClient.dismiss = { _, _, _ in Issue.record("dismiss must not touch the ask"); return nil }
+        }
+
+        await store.send(.dismissTapped(item)) {
+            $0.seen.markSeen(item.id, at: Self.epoch, revision: nil, bootID: "boot", now: Self.epoch + 60)
+        }
+        await store.receive(\.seenResponse)
+
+        #expect(sent.value == ["zeus"])
+        let inbox = ChatList.inbox(sessions: Self.connected([Agent(name: "zeus", status: .running)]), openAsks: store.state.openAsks, seen: store.state.seen)
+        #expect(inbox.blocked.isEmpty)
+        #expect(inbox.badge == .none)
+    }
+
     @Test func clearingMarksEveryFinishedItemSeenAndKeepsBlockedOnes() async {
         var seeded = Self.listState()
         seeded.seen.seed(host: Self.host, seen: [:])

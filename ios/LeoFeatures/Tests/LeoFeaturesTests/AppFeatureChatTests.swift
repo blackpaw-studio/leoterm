@@ -530,4 +530,29 @@ struct AppFeatureChatTests {
         await store.send(.chats(.threadRead(Self.zeus)))
         #expect(store.state.chats.openAsks.threads.isEmpty)
     }
+
+    @Test func openingABlockedAgentSendsNoSeenMark() async {
+        let ask = LeoChatMessage(id: "q", agent: "zeus", direction: .outbound, kind: .ask, text: "?", state: "open", ts: Date(timeIntervalSince1970: 1))
+        var state = Self.connected()
+        state.chats.seen.seed(host: .remote(Self.zeus.daemonID), seen: [:])
+        state.chats.openAsks.seed(host: .remote(Self.zeus.daemonID), messages: [ask], complete: true)
+        let sent = LockIsolated<[String]>([])
+        let store = TestStore(initialState: state) { AppFeature() } withDependencies: {
+            $0.date.now = Date(timeIntervalSince1970: 100)
+            $0.inboxSeenStore.save = { _ in }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.markSeen = { _, agents in
+                sent.withValue { $0 += agents }
+                return [:]
+            }
+        }
+        store.exhaustivity = .off
+
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(.agentTapped(Self.zeus))
+
+        #expect(sent.value.isEmpty)
+        #expect(store.state.chats.seen.hosts[.remote(Self.zeus.daemonID)] == .synced([:]))
+        #expect(store.state.inbox.blocked.map(\.agent) == ["zeus"])
+    }
 }

@@ -172,6 +172,8 @@ public struct ChatList {
         case askAnswerResponse(daemonID: String, agent: String, Result<LeoChatMessage?, any Error>)
         case binding(BindingAction<State>)
         case clearFinishedTapped([LeoInboxItem])
+        /// "Dismiss" on a blocked card: hides it until it changes; answers nothing.
+        case dismissTapped(LeoInboxItem)
         case markSeen([SeenTarget])
         case openAsksResponse(String, Result<[LeoChatMessage]?, any Error>)
         case seenResponse(String, Result<[String: Date]?, any Error>)
@@ -243,6 +245,10 @@ public struct ChatList {
                     return SeenTarget(daemonID: daemonID, agent: item.id.name, at: item.at, revision: item.revision, bootID: item.bootID)
                 }
                 return markSeen(targets, state: &state)
+
+            case .dismissTapped(let item):
+                guard item.isBlocked, let target = Self.dismissTarget(item) else { return .none }
+                return markSeen([target], state: &state)
 
             case .markSeen(let targets):
                 return markSeen(targets, state: &state)
@@ -332,6 +338,12 @@ public struct ChatList {
         }
     }
 
+    /// What dismissing `item` marks seen: its agent, at least as far as the item's last change.
+    static func dismissTarget(_ item: LeoInboxItem) -> SeenTarget? {
+        guard case .remote(let daemonID) = item.id.host else { return nil }
+        return SeenTarget(daemonID: daemonID, agent: item.id.name, at: item.dismissAt ?? item.at, revision: item.revision, bootID: item.bootID)
+    }
+
     private func markSeen(_ targets: [SeenTarget], state: inout State) -> Effect<Action> {
         Self.markSeen(targets, state: &state, now: { now }, store: inboxSeenStore, chatClient: chatClient, secrets: secrets)
     }
@@ -406,16 +418,17 @@ public struct ChatList {
     /// The needs-you inbox across every connected machine; a disconnected
     /// one drops out, and stopped agents never contribute.
     public static func inbox(sessions: IdentifiedArrayOf<DaemonSession>, openAsks: LeoOpenAsks, seen: LeoInboxSeenState) -> LeoInbox {
-        let agents = sessions.flatMap { session in
-            session.agents.filter { !$0.isStopped }.map { agent in
-                LeoInboxAgent(
-                    id: LeoAgentID(host: .remote(session.id), name: agent.name), name: agent.displayName, machine: session.daemon.name,
-                    signal: agent.attention, bootID: session.bootID, isStale: !session.connection.isConnected,
-                    brief: agent.brief
-                )
-            }
-        }
+        let agents = sessions.flatMap { session in session.agents.map { inboxAgent($0, session: session) } }
         return LeoInbox.derive(agents: agents, openAsks: openAsks.threads, seen: seen)
+    }
+
+    /// The inbox's view of one agent; a stopped one contributes nothing (LeoKit).
+    static func inboxAgent(_ agent: Agent, session: DaemonSession) -> LeoInboxAgent {
+        LeoInboxAgent(
+            id: LeoAgentID(host: .remote(session.id), name: agent.name), name: agent.displayName, machine: session.daemon.name,
+            signal: agent.attention, bootID: session.bootID, isStale: !session.connection.isConnected, isStopped: agent.isStopped,
+            brief: agent.brief
+        )
     }
 
     /// The rows the selected chip and search field leave.
