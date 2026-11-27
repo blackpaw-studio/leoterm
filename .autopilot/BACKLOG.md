@@ -3637,6 +3637,7 @@ Source: owner (/issue, 2026-11-25)
 Inbox: 20261125T170327309810Z-ccf06312#1
 Done: d3d180eea (landed b1d377b02; openPrompt test helper waits for the animated push to settle and the view to have a window before measuring). iOS only. Local 6/6 and 10/10 repeats green; the loaded-CI flake isn't proven gone.
 Verified: not visually verified — test-only iOS change
+Reviewed: accepted 2026-11-27 — b1d377b0201f
 
 ## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [done]
 Issue: #431
