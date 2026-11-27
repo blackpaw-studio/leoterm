@@ -39,6 +39,7 @@ Lane: B-465
   Reverifies: 0
   Reviewed-tip: 085330cbca6a88bba8c9fa50920acdabc20ec63f
   Dispatched: 2026-11-27T21:47:14Z
+  Tokens: 60.5M in (59.1M cache read), ≥281k out, 401 requests
   Call: Dismissal reuses the synced seen mark (`seen_at` >= `dismissAt`), no daemon change — VISION 3, Mac+iOS rule
   Call: Opening or viewing never marks a blocked agent seen, and the gate fails closed while data is still loading — VISION 2
   Call: A partial seed does not count as "loaded"; `LeoOpenAsks.markLoaded(host:)` is called on the old-daemon "no route" result — VISION 2
