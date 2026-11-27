@@ -1266,3 +1266,27 @@ Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Board: https://github.com/orgs/blackpaw-studio/projects/5
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-27
+🛠 leoterm autopilot — 1 fixed, 1 shipped, 0 blocked
+Fixed
+• B-461 Launch-clamp sidebar test 200 vs 199 — test now pins its own stored width instead of reading the host's real one (not visually verified: test-only) · light
+Shipped
+• B-465 Needs-you Inbox dismiss — Mac button/⌫/menu, iOS swipe/button/menu; stopped agents drop out; reappears only on a new ask (verified: screenshot) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-1048–D-1056 (B-465): dismiss reuses the synced seen mark, no daemon change; opening a blocked agent no longer marks it seen; dismissed items leave list/badge/count but sidebar+Dock keep needs-input; ⌫ dismisses, menu item has no plain key; iOS swipe+button+menu
+• D-1057–D-1058 (B-461): pin width via setPreferredWidth in the fixture; Mac only
+• D-1047 your answer: plain Dismiss now, cancel-ask split out
+Ideas parked — "/feature B-0xx" to spec one
+• B-466 "Dismiss & cancel ask" (needs leo withdraw route) · B-467 iOS dismissTarget duplicates LeoKit rule · B-468 Mac ⌫ on last blocked row selects a finished row · +50 more
+Self-filed
+• B-467 idea (from B-465) · B-468 idea (from B-465)
+Next up: nothing ready
+Spend (estimated, lower bound · prices 2026-10-09): ≈$17.88 est. — B-465 ≈$14.86 est., B-461 ≈$3.02 est.
+Tokens (runner + its subagents): B-465 60.5M in (59.1M cache read), ≥281k out, 401 requests · B-461 11.6M in (11.2M cache read), ≥33k out, 114 requests
+Needs you
+• Lanes from earlier runs still left: B-058 held; B-233, B-332, B-439 unlanded; B-368 landed but dirty. Untracked-left: default.profraw scratchpad/
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
