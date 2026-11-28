@@ -3532,35 +3532,46 @@ Done: 4683730be (Escape closes the full-window viewer with caps lock on; a real 
 Verified: not visually verified — reproducing needs an image in a chat on the isolated debug app plus a synthetic caps-lock key event, and verify.md has no recipe for either; a test reproduces it
 Reviewed: accepted 2026-11-24 — 315518028f82
 
-## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [blocked]
+## B-445 · Right-click on a chat image misses after a send (reply shifts scroll)   [done]
 Issue: #418
 Type: bug
 Report: Right-click on a chat image misses after a send (reply shifts scroll) — the chat reply shifts the scroll position, so the context menu hits the wrong target (verifier saw it)
+Update (2026-11-25): accept your recommendation (close)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-441)
 Question: couldn't reproduce — the implementer traced send → LeoChatScrollPin (re-pins only within 40 pt of the bottom; tests cover it) → the image right-click (LeoChatAttachmentDragView.hitTest passes right-clicks to the SwiftUI .contextMenu, independent of scroll) and found no app defect; likely the B-441 verifier clicked stale screenshot coordinates after the stub reply scrolled. Reply "B-445: close" to close it, or "B-445: <more detail>" to retry. I'd pick close. Work kept on autopilot-shelved/B-445.
-Answer:
+Answer: accept your recommendation (close)
+Done: closed — not reproducible (owner accepted the close pick, 2026-11-25)
 
-## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [ready (next run)]
+## B-447 · Flaky focus-landing tests in LeoRowSplitIntoShellTests   [done]
 Issue: #420
 Type: bug
 Report: Flaky focus-landing tests in LeoRowSplitIntoShellTests — aRowKeepsItsSplitLayoutAcrossASwitch and closingTheShownRowsPaneHandsTheRowToTheNextFocusedPane time out intermittently (seen during B-438's full suite; file untouched by B-438); P6
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-438)
+Done: aa2582d32 e961c85ca (landed 79ec7ee26; Ghostty.FocusMover: an older focus move's retry never takes focus back from a newer one; deterministic red test FocusMoveOrderTests). Mac only. D-1037..D-1041.
+Verified: not visually verified — GUI session captured blank; 79 targeted tests + 3 repeats green
+Reviewed: accepted 2026-11-27 — 79ec7ee26583
 
-## B-453 · Composer placeholder says Start on a restoring agent   [ready (next run)]
+## B-453 · Composer placeholder says Start on a restoring agent   [done]
 Issue: #421
 Type: bug
 Report: Composer placeholder says Start on a restoring agent — on a non-moved agent in `.restoring` the placeholder still reads "Start <name> to send a message" while the send refusal says to wait until it's running (LeoChatPane.swift:272); VISION 2, never invent a state the daemon didn't report
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-442)
+Done: ddf9e0d49 (landed b18726f6e; placeholder + send tooltip say "<name> is still starting" while restoring). Mac only. D-1035, D-1036.
+Verified: not visually verified — an agent can't be put into .restoring in the isolated debug app without touching real agents; unit test covers the strings
+Reviewed: accepted 2026-11-27 — b18726f6e340
 
-## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [ready (next run)]
+## B-454 · Escape doesn't dismiss the progress overlay while caps lock is on   [done]
 Issue: #422
 Type: bug
 Report: Escape doesn't dismiss the progress overlay while caps lock is on — macos/Sources/Features/Leo/Progress/LeoEscapeDismiss.swift:28 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed in the image viewer (principle 1)
 Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
 Source: autopilot bug (B-444)
+Done: 9fa7210c0 (landed a3738d88a; shared NSEvent.ModifierFlags.isChordFree used by the progress Escape monitor and the chat image viewer). Mac only.
+Verified: not visually verified — caps lock can't be driven through the GUI tooling; tests send real NSEvent keyDowns through NSApp.sendEvent
+Reviewed: accepted 2026-11-27 — a3738d88a7f4
 
 ## B-446 · Menu items for the chat image viewer's Open/Exit Full Window and Close   [idea]
 Note: principle 1: every action has a menu item
@@ -3589,3 +3600,99 @@ Source: autopilot polish (B-442)
 ## B-455 · Escape doesn't dismiss the agent-browser handoff banner with caps lock on   [idea]
 Note: macos/Sources/Features/Leo/AgentBrowser/UI/LeoHandoffBanner.swift:180 uses the same `isDisjoint(with: .deviceIndependentFlagsMask)` check B-444 fixed (principle 1); a bug past the 3-bug cap
 Source: autopilot bug (B-444)
+
+## B-456 · Inbox "Finished since you looked" shows sentinel previews like…   [done]
+Issue: #428
+Type: bug
+Report: Inbox "Finished since you looked" shows sentinel previews like "NO_REPLY" (seen live 2026-11-24 for agent trader on leo v0.87.0). Filter sentinel/empty turn previews (NO_REPLY and similar) on Mac and iOS: fall back to a neutral "Finished" line. Logic belongs in LeoKit (LeoInbox derivation).
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-25)
+Inbox: 20261125T014930386649Z-415a1a06#1
+Attachments: .autopilot/bugs/B-456/05-scratch-selected.png
+Done: 59184dcea e76c3dc17 (landed e80427b9d; LeoInbox drops sentinel/empty previews, both apps show "Finished"). Mac + iOS via LeoKit. D-1042, D-1043.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-456-2.png
+Reviewed: accepted 2026-11-27 — e80427b9d483
+
+## B-457 · Inbox stale open questions: live data on 2026-11-24 surfaced…   [idea]
+Note: Inbox stale open questions: live data on 2026-11-24 surfaced unanswered leo_chat_asks 35d (leoterm), 14d (mountain-town), 22h (subway-sim) old. Add a way to handle stale asks on Mac and iOS: dismiss/decline an ask from the inbox, or fold asks older than N days into a collapsed "Older" group so they don't dominate Needs you.
+Source: owner (/idea, 2026-11-25)
+Inbox: 20261125T014930621131Z-0e829c4d#1
+
+## B-458 · add an option to settings to have image clicks in chat open to…   [done]
+Issue: #429
+Type: bug
+Report: add an option to settings to have image clicks in chat open to fullscreen mode by default
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-25)
+Inbox: 20261125T020052683007Z-a078f62c#1
+Done: 46edcf927 (landed a10dda60e; Settings ▸ General ▸ Chat toggle `leo.chat.imagesOpenFullWindow`, off by default; on opens chat images full-window). Mac only. D-1044..D-1046.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-458-1.png
+Reviewed: accepted 2026-11-27 — a10dda60eb59
+
+## B-459 · Flaky iOS CI test…   [done]
+Issue: #430
+Type: bug
+Report: Flaky iOS CI test TaskScreensTests.theEditorStaysOutOfTheSideSafeAreaInLandscape (TaskScreensTests.swift:113): safe.minX read 0.0 instead of sideInset 60.0 on main ccd959deb (run 45655777690); same test passed on 896b31010. Likely landscape rotation/safe-area not settled before measuring; fix at cause (wait for the safe area to update), do not loosen the assertion.
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: owner (/issue, 2026-11-25)
+Inbox: 20261125T170327309810Z-ccf06312#1
+Done: d3d180eea (landed b1d377b02; openPrompt test helper waits for the animated push to settle and the view to have a window before measuring). iOS only. Local 6/6 and 10/10 repeats green; the loaded-CI flake isn't proven gone.
+Verified: not visually verified — test-only iOS change
+Reviewed: accepted 2026-11-27 — b1d377b0201f
+
+## B-460 · Land bundled leo daemon bump to 0.88.1 (PR #427)   [done]
+Issue: #431
+Why: Owner wants daemon bump PRs handled by autopilot instead of by hand (2026-11-10); 0.88.1 carries the leo_brief guidance gate fix (leo #355).
+Accept: The lane merges PR #427's head commit e36e77ca1b5246a7a8a95d3262419b6d613bcc98 (git fetch origin bump/leo-0.88.1) unchanged, so shipping autopilot marks the PR merged; macos/Bundled/LEO_VERSION reads 0.88.1; the macOS app builds and the bundled daemon tarball's sha256 matches and reports leo 0.88.1.
+Out: Closing or merging PRs on GitHub; any code change beyond the bump.
+Source: owner (/feature, 2026-11-25)
+Inbox: 20261126T004750631657Z-337d9c02#1
+Done: e36e77ca1 (PR #427 head, merged unchanged; landed 788909869; also carries 1ce2767d0, the 0.88.0 bump from PR #426's history). LEO_VERSION 0.88.1; v0.88.1 tarball sha256 matches and reports leo 0.88.1; app builds.
+Verified: not visually verified — diff is only LEO_VERSION
+Reviewed: accepted 2026-11-27 — 788909869baf
+
+## B-461 · resetWindowSizeRestoresALaunchClampedSidebar fails 200 vs 199   [done]
+Issue: #432
+Type: bug
+Report: resetWindowSizeRestoresALaunchClampedSidebar fails (200.0 vs 199.0, LeoFirstAttachWindowSizeTests.swift:274) on autopilot 482b9d787, base and lane alike — full suite is not green; fix at cause (measure the platform value, not a bare ±1)
+Accept: A failing test reproduces the report; it passes after the fix; nothing else regresses.
+Source: autopilot bug (B-453)
+Done: 3bea12625 (landed 493a2d6c3). Root cause: the test read the host's real leo.sidebarWidth, already at the 200 pt minimum; it now pins minimumWidth+100 and restores it. Full Mac suite 5278 green. D-1057..D-1058.
+Verified: not visually verified — no UI change (one test file)
+
+## B-462 · Row/Rows suites run slower on each repeat in one process   [idea]
+Note: 26 s up to 73 s per run on repeat, same on old code — fixtures or surfaces probably pile up; suite speed (Engineering: keep the suite fast)
+Source: autopilot polish (B-447)
+
+## B-463 · leo-runtests.sh skips 129 host-tier suites   [idea]
+Note: the script doesn't set TEST_RUNNER_LEO_HOST_TESTS=1, so its full suite skips host-tier suites including LeoContentFocusTests — merge-gate coverage gap
+Source: autopilot polish (B-447)
+
+## B-464 · Mac and iOS keep separate "Finished" inbox fallbacks   [idea]
+Note: iOS ChatInboxCardView.swift:210 and Mac LeoInboxPresentation.swift:48 each hold their own "Finished" fallback; move it into LeoKit so they can't drift (Mac+iOS parity)
+Source: autopilot polish (B-456)
+
+## B-465 · Needs-you Inbox — dismiss blocked items   [done]
+Issue: #433
+Why: old blocked items (unanswered chat asks, stale permission prompts) pile up in the inbox with no way to clear them; the inbox should show only what really needs Evan (serves "what needs me" from the inbox spec)
+Accept: a blocked row can be dismissed on Mac (button and ⌫) and iOS (swipe/button), and it disappears; a dismissed item reappears only when it changes (a new ask id, or a fresh needsInput transition after the agent did other work), tested; dismissal never answers or rejects anything for the agent; dismissal syncs between Mac and iOS through the existing lastSeen/unread mechanism, with the logic in LeoKit; an open chat ask also offers a non-default "Dismiss & cancel ask" that withdraws the ask so the agent stops waiting; asks or prompts from agents that are stopped or removed never appear (fix it if they do), tested; screenshots on both platforms
+Out: snooze timers; archive history view; bulk "dismiss all blocked"; push-notification changes; project grouping
+Source: owner (/feature, 2026-11-27)
+Inbox: 20261127T204124818519Z-2f3878ad#1
+Question: Ship plain Dismiss now and split "Dismiss & cancel ask" into a follow-up that needs a leo daemon route? I'd pick yes. On an isolated daemon, POST /chat/{agent}/messages/{id}/dismiss returns 400 "only a questions card can be dismissed" and the agent's leo_chat_ask stays blocked; withdraw/cancel/expire/close routes 404; only the agent-side leo_chat_ask_withdraw tool withdraws an ask, so cancel needs a client-callable withdraw route from the leo agent. Everything else (LeoKit dismissal + stopped-agent filtering, Mac button/⌫/menu, iOS swipe/button) is built and unit-tested but not yet reviewed or verified. Work kept on autopilot-shelved/B-465.
+Answer: accept your recommendation (yes — ship plain Dismiss now; split "Dismiss & cancel ask" into a follow-up that needs a client-callable withdraw route from the leo daemon)
+Done: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923 (landed 77cca5f72). Dismiss on Mac (button, ⌫, menu) and iOS (swipe, button, menu); cancel-ask split to B-466. D-1047..D-1056.
+Verified: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree/.autopilot/shots/B-465-1.png
+
+## B-466 · Needs-you Inbox — "Dismiss & cancel ask" for open chat asks (split…   [idea]
+Note: Needs-you Inbox — "Dismiss & cancel ask" for open chat asks (split from B-465; needs a client-callable leo daemon route to withdraw an ask)
+Source: owner (/idea, 2026-11-27)
+Inbox: 20261127T214652676145Z-40bd9764#2
+
+## B-467 · iOS dismissTarget duplicates LeoKit's dismiss rule   [idea]
+Note: iOS `dismissTarget` (ChatList.swift:400) re-implements LeoKit's `at: dismissAt ?? at`, and `dismissTapped` does nothing until the host's seen state loads — Mac+iOS rule: logic in LeoKit
+Source: autopilot polish (B-465)
+
+## B-468 · Mac ⌫ on last blocked row selects the unread finished row   [idea]
+Note: after ⌫ dismisses the last blocked inbox row, selection lands on the unread finished row — VISION 1 keyboard-first; owner may prefer no selection
+Source: autopilot polish (B-465)

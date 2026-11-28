@@ -1226,3 +1226,67 @@ Interim updates: 1 posted, through item 5
 Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
 Review: /autopilot-review leoterm
 Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-26T00:49:37Z
+🛠 leoterm autopilot — 5 fixed, 2 shipped, 0 blocked
+Fixed
+• B-453 Restoring agent's composer says "<name> is still starting", not Start (not visually verified) · light
+• B-454 Escape closes the progress popover with caps lock on; shared isChordFree (not visually verified) · light
+• B-447 Flaky focus tests: an older focus-move retry stole focus from a newer one; newest move wins (not visually verified) · light→full
+• B-456 Inbox drops NO_REPLY-style previews, shows "Finished" on Mac + iOS (verified: screenshot) · light
+• B-459 iOS landscape flake: openPrompt helper waits for the push to settle; loaded-CI flake not proven gone (not visually verified) · light
+Shipped
+• B-458 Settings ▸ General ▸ Chat toggle opens chat images full-window, off by default (verified: screenshot) · light
+• B-460 Bundled leo 0.88.1: PR #427 head merged unchanged, sha256 + version checked (not visually verified) · light
+Calls I made — reply "veto D-0xx" to undo
+• D-1035/1036 B-453 Mac only; "is still starting" wording — VISION 2
+• D-1037–1041 B-447 fix lives in upstream Ghostty moveFocus; newest landed move wins; Mac only
+• D-1042 any single snake_case token is a sentinel (hides e.g. build_failed) — "calm"
+• D-1043 B-456 fix in LeoKit only
+• D-1044–1046 B-458 off by default; General ▸ Chat; Mac only (iOS already has a gallery)
+Needs you
+• B-445 closed at preflight: your "accept your recommendation (close)" wasn't the exact word, so I applied it as close
+• Full Mac suite has 1 failure, resetWindowSizeRestoresALaunchClampedSidebar (200 vs 199), on base too → B-461 next run
+• Lanes left from earlier runs: B-058 held; B-233, B-332, B-439 unlanded; B-368 dirty. Untracked-left: default.profraw scratchpad/
+Ideas parked — "/feature B-0xx" to spec one
+• B-058 Splits inside the content area · B-237 · B-276 · B-277 · B-280 (+45 more)
+Self-filed
+• B-461 bug (from B-453) — resetWindowSize test fails 200 vs 199
+• B-462 idea (from B-447) — Row/Rows suites slow down on repeat
+• B-463 idea (from B-447) — leo-runtests.sh skips 129 host-tier suites
+• B-464 idea (from B-456) — Mac/iOS "Finished" fallbacks can drift
+• dropped (from B-454) — handoff banner Return w/ caps lock — dup of B-455
+• dropped (from B-447) — resetWindowSize failure — dup of B-461
+• dropped (from B-456) — sentinel heuristic — dup of D-1042
+Next up: B-461
+Spend (estimated, lower bound · prices 2026-10-09): ≈$33.74 est. — B-447 ≈$14.78, B-459 ≈$5.06, B-456 ≈$4.84, B-458 ≈$2.81, B-453 ≈$2.41, B-454 ≈$2.32, B-460 ≈$1.51
+Tokens (runner + its subagents): B-447 43.4M in, ≥185k out · B-459 13.6M · B-456 12.7M · B-458 9.76M · B-453 7.94M · B-454 7.6M · B-460 2.95M
+Interim updates: 1 posted, through item 5
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot
+
+## Run 2026-11-27
+🛠 leoterm autopilot — 1 fixed, 1 shipped, 0 blocked
+Fixed
+• B-461 Launch-clamp sidebar test 200 vs 199 — test now pins its own stored width instead of reading the host's real one (not visually verified: test-only) · light
+Shipped
+• B-465 Needs-you Inbox dismiss — Mac button/⌫/menu, iOS swipe/button/menu; stopped agents drop out; reappears only on a new ask (verified: screenshot) · full
+Calls I made — reply "veto D-0xx" to undo
+• D-1048–D-1056 (B-465): dismiss reuses the synced seen mark, no daemon change; opening a blocked agent no longer marks it seen; dismissed items leave list/badge/count but sidebar+Dock keep needs-input; ⌫ dismisses, menu item has no plain key; iOS swipe+button+menu
+• D-1057–D-1058 (B-461): pin width via setPreferredWidth in the fixture; Mac only
+• D-1047 your answer: plain Dismiss now, cancel-ask split out
+Ideas parked — "/feature B-0xx" to spec one
+• B-466 "Dismiss & cancel ask" (needs leo withdraw route) · B-467 iOS dismissTarget duplicates LeoKit rule · B-468 Mac ⌫ on last blocked row selects a finished row · +50 more
+Self-filed
+• B-467 idea (from B-465) · B-468 idea (from B-465)
+Next up: nothing ready
+Spend (estimated, lower bound · prices 2026-10-09): ≈$17.88 est. — B-465 ≈$14.86 est., B-461 ≈$3.02 est.
+Tokens (runner + its subagents): B-465 60.5M in (59.1M cache read), ≥281k out, 401 requests · B-461 11.6M in (11.2M cache read), ≥33k out, 114 requests
+Needs you
+• Lanes from earlier runs still left: B-058 held; B-233, B-332, B-439 unlanded; B-368 landed but dirty. Untracked-left: default.profraw scratchpad/
+Worktree: /Users/evan/.leo/agents/leoterm/.git/autopilot/worktree
+Board: https://github.com/orgs/blackpaw-studio/projects/5
+Review: /autopilot-review leoterm
+Merge when happy (from your default branch): git -C /Users/evan/.leo/agents/leoterm merge autopilot

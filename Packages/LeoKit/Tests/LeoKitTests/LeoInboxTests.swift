@@ -119,6 +119,24 @@ struct LeoInboxTests {
         #expect(items.map(\.kind) == [.finished(result: "Rate limited"), .finished(result: "Done")])
     }
 
+    @Test(arguments: ["", "  \n", "NO_REPLY", "  no_reply \n", "NO_REPLY.", "HEARTBEAT_OK", "NO_RESPONSE"])
+    func aSentinelPreviewNeverReachesTheFinishedResult(_ sentinel: String) throws {
+        let agent = Fx.agent("trader", signal: Fx.signal(.finished, preview: sentinel, at: 1))
+
+        let item = try #require(derive([agent]).finished.first)
+
+        #expect(item.kind == .finished(result: nil))
+    }
+
+    @Test(arguments: ["Replied to Sam", "No reply needed from Sam", "OK", "NO"])
+    func aRealPreviewIsKept(_ preview: String) throws {
+        let agent = Fx.agent("trader", signal: Fx.signal(.finished, preview: preview, at: 1))
+
+        let item = try #require(derive([agent]).finished.first)
+
+        #expect(item.kind == .finished(result: preview))
+    }
+
     @Test func workingAndUnknownAgentsAreNotInTheInbox() {
         let inbox = derive([Fx.agent("a", signal: Fx.signal(.working)), Fx.agent("b", signal: Fx.signal(.unknown)), Fx.agent("c")])
         #expect(inbox.blocked.isEmpty && inbox.finished.isEmpty)
@@ -182,5 +200,168 @@ struct LeoInboxTests {
         #expect(item.secondaryLine == "ctx")
         let bare = try #require(derive([Fx.agent("hera")], asks: Fx.threadMap([Fx.ask("m2", agent: "hera")])).blocked.first)
         #expect(bare.secondaryLine == nil)
+    }
+
+    // MARK: Dismiss
+
+    private func dismissed(_ agents: [LeoInboxAgent], asks: [LeoAgentID: LeoOpenAskThread] = [:], at now: TimeInterval) -> LeoInboxSeenState {
+        var seen = LeoInboxSeenState()
+        seen.seed(host: Fx.host, seen: [:])
+        for item in derive(agents, asks: asks, seen: seen).blocked { seen.dismiss(item, now: Fx.at(now)) }
+        return seen
+    }
+
+    @Test func dismissingABlockedChatAskHidesItAndLeavesTheBadge() {
+        let agents = [Fx.agent("zeus")]
+        let asks = Fx.threadMap([Fx.ask("m1", agent: "zeus", at: 10)])
+        let seen = dismissed(agents, asks: asks, at: 20)
+
+        let inbox = derive(agents, asks: asks, seen: seen)
+
+        #expect(inbox.blocked.isEmpty)
+        #expect(inbox.badge == .none)
+    }
+
+    @Test func aNewAskIdResurfacesADismissedAgent() throws {
+        let agents = [Fx.agent("zeus")]
+        let first = Fx.ask("m1", agent: "zeus", at: 10)
+        let seen = dismissed(agents, asks: Fx.threadMap([first]), at: 20)
+
+        let second = Fx.ask("m2", agent: "zeus", at: 30)
+        let item = try #require(derive(agents, asks: Fx.threadMap([first, second]), seen: seen).blocked.first)
+
+        #expect(item.kind == .chatAsk(first))
+        #expect(item.moreCount == 1)
+    }
+
+    @Test func aFreshNeedsInputTransitionResurfacesADismissedPrompt() {
+        let reason = LeoAttentionReason(kind: .permission, tool: "Bash")
+        let first = Fx.agent("zeus", signal: Fx.signal(.needsInput, 1, reason: reason, at: 10))
+        let seen = dismissed([first], at: 20)
+        let working = Fx.agent("zeus", signal: Fx.signal(.working, 2, at: 25))
+        let again = Fx.agent("zeus", signal: Fx.signal(.needsInput, 3, reason: reason, at: 30))
+
+        #expect(derive([first], seen: seen).blocked.isEmpty)
+        #expect(derive([working], seen: seen).blocked.isEmpty)
+        #expect(derive([again], seen: seen).blocked.count == 1)
+    }
+
+    @Test func aDismissedItemStaysHiddenWhileUnchanged() {
+        let ask = Fx.ask("m1", agent: "zeus", at: 10)
+        let blocked = Fx.agent("zeus", signal: Fx.signal(.needsInput, 1, at: 10))
+        let seen = dismissed([blocked], asks: Fx.threadMap([ask]), at: 20)
+        let working = Fx.agent("zeus", signal: Fx.signal(.working, 2, at: 15))
+        let sameRevision = Fx.agent("zeus", signal: Fx.signal(.needsInput, 1, at: 10))
+
+        #expect(derive([working], asks: Fx.threadMap([ask]), seen: seen).blocked.isEmpty)
+        #expect(derive([sameRevision], seen: seen).blocked.isEmpty)
+    }
+
+    @Test func aDismissFromAnotherDeviceHidesTheItem() {
+        let agents = [Fx.agent("zeus")]
+        let asks = Fx.threadMap([Fx.ask("m1", agent: "zeus", at: 10)])
+        var seen = LeoInboxSeenState()
+        seen.seed(host: Fx.host, seen: [:])
+        #expect(derive(agents, asks: asks, seen: seen).blocked.count == 1)
+
+        seen.apply(host: Fx.host, agent: "zeus", seenAt: Fx.at(40))
+
+        #expect(derive(agents, asks: asks, seen: seen).blocked.isEmpty)
+    }
+
+    @Test func localModeDismissResurfacesOnRevisionChange() {
+        var seen = LeoInboxSeenState()
+        seen.seed(host: Fx.host, seen: nil)
+        let first = Fx.agent("zeus", signal: Fx.signal(.needsInput, 4, at: 10))
+        let item = derive([first], seen: seen).blocked[0]
+
+        seen.dismiss(item, now: Fx.at(20))
+
+        #expect(derive([first], seen: seen).blocked.isEmpty)
+        #expect(derive([Fx.agent("zeus", signal: Fx.signal(.needsInput, 5, at: 30))], seen: seen).blocked.count == 1)
+        #expect(derive([Fx.agent("zeus", signal: Fx.signal(.needsInput, 4, at: 10), bootID: "restarted")], seen: seen).blocked.count == 1)
+    }
+
+    @Test func aSamePromptRevisionBumpStaysDismissed() {
+        // The daemon bumps the revision for subagent and dispatch counts without moving `at`.
+        let reason = LeoAttentionReason(kind: .permission, tool: "Bash")
+        let first = Fx.agent("zeus", signal: Fx.signal(.needsInput, 1, reason: reason, at: 10))
+        let seen = dismissed([first], at: 20)
+        let bumped = Fx.agent("zeus", signal: Fx.signal(.needsInput, 2, reason: reason, at: 10))
+
+        #expect(derive([bumped], seen: seen).blocked.isEmpty)
+    }
+
+    @Test func localModeANewAskInTheSameTurnResurfaces() {
+        var seen = LeoInboxSeenState()
+        seen.seed(host: Fx.host, seen: nil)
+        let agents = [Fx.agent("zeus", signal: Fx.signal(.working, 4))]
+        let first = Fx.ask("m1", agent: "zeus", at: 10)
+        seen.dismiss(derive(agents, asks: Fx.threadMap([first]), seen: seen).blocked[0], now: Fx.at(20))
+
+        let second = Fx.ask("m2", agent: "zeus", at: 30)
+
+        #expect(derive(agents, asks: Fx.threadMap([first]), seen: seen).blocked.isEmpty)
+        #expect(derive(agents, asks: Fx.threadMap([first, second]), seen: seen).blocked.count == 1)
+    }
+
+    @Test func aBlockedItemWithoutATimeIsNeverTreatedAsDismissed() {
+        var seen = LeoInboxSeenState()
+        seen.seed(host: Fx.host, seen: ["zeus": Fx.at(100)])
+        let agent = Fx.agent("zeus", signal: Fx.signal(.needsInput, 1, at: nil))
+
+        #expect(derive([agent], seen: seen).blocked.count == 1)
+    }
+
+    private func seededAsks(_ asks: [LeoChatMessage] = []) -> LeoOpenAsks {
+        var openAsks = LeoOpenAsks()
+        openAsks.seed(host: Fx.host, messages: asks, complete: true)
+        return openAsks
+    }
+
+    @Test func openingABlockedAgentNeverMarksItSeen() {
+        let openAsks = seededAsks([Fx.ask("m1", agent: "zeus")])
+        let prompt = Fx.agent("hera", signal: Fx.signal(.needsInput, 1, at: 10))
+        let finished = Fx.agent("ares", signal: Fx.signal(.finished, 1, at: 10))
+        let working = Fx.agent("nike", signal: Fx.signal(.working, 1))
+
+        #expect(!LeoInbox.marksSeenOnOpen(Fx.agent("zeus"), openAsks: openAsks))
+        #expect(!LeoInbox.marksSeenOnOpen(prompt, openAsks: openAsks))
+        #expect(LeoInbox.marksSeenOnOpen(finished, openAsks: openAsks))
+        #expect(LeoInbox.marksSeenOnOpen(working, openAsks: openAsks))
+        #expect(LeoInbox.marksSeenOnOpen(Fx.agent("pan"), openAsks: openAsks))
+    }
+
+    @Test func openingBeforeAHostsAsksLoadNeverMarksSeen() {
+        let finished = Fx.agent("ares", signal: Fx.signal(.finished, 1, at: 10))
+        var openAsks = LeoOpenAsks()
+
+        #expect(!LeoInbox.marksSeenOnOpen(finished, openAsks: openAsks))
+
+        // A live event is not a load: the host's other asks may still be unknown.
+        openAsks.apply(host: Fx.host, event: .message(Fx.ask("m1", agent: "zeus")))
+        #expect(!LeoInbox.marksSeenOnOpen(finished, openAsks: openAsks))
+
+        openAsks.seed(host: Fx.host, messages: [], complete: true)
+        #expect(LeoInbox.marksSeenOnOpen(finished, openAsks: openAsks))
+
+        openAsks.disconnect(host: Fx.host)
+        #expect(!LeoInbox.marksSeenOnOpen(finished, openAsks: openAsks))
+    }
+
+    @Test func openingAnUnknownAgentNeverMarksSeen() {
+        #expect(!LeoInbox.marksSeenOnOpen(nil, openAsks: seededAsks()))
+    }
+
+    @Test func aStoppedAgentContributesNothing() {
+        let signal = Fx.signal(.needsInput, 1, at: 5)
+        let ask = Fx.threadMap([Fx.ask("m1", agent: "zeus")])
+        let agents = [
+            Fx.agent("zeus", signal: signal, isStopped: true),
+            Fx.agent("hera", signal: Fx.signal(.needsInput, 1, at: 5), isStopped: true),
+            Fx.agent("ares", signal: Fx.signal(.finished, 1, at: 5), isStopped: true),
+        ]
+
+        #expect(derive(agents, asks: ask) == .empty)
     }
 }

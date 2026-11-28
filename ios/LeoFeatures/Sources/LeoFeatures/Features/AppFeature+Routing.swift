@@ -127,8 +127,8 @@ extension AppFeature.State {
             }
         }
         guard isSettled else { return }
-        let rows = ChatList.rows(threads: chats.threads, unread: chats.unreadCounts, sessions: fleet.sessions)
-        chats.filter = ChatList.counts(rows).needsYou > 0 ? .needsYou : .all
+        // The chip counts what the inbox shows, so a dismissed prompt doesn't open an empty list.
+        chats.filter = inbox.blocked.isEmpty ? .all : .needsYou
     }
 
     /// Keeps the open thread's agent and daemon in step with the fleet.

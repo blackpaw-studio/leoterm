@@ -800,6 +800,13 @@ CA
                                     <action selector="clearSelectedLeoAgent:" target="-1" id="Leo-Agents-Clear-Action"/>
                                 </connections>
                             </menuItem>
+                            <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-Inbox"/>
+                            <menuItem title="Dismiss from Inbox" id="Leo-Agents-DismissInbox">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="dismissSelectedLeoInboxItem:" target="-1" id="Leo-Agents-DismissInbox-Action"/>
+                                </connections>
+                            </menuItem>
                             <menuItem isSeparatorItem="YES" id="Leo-Agents-Separator-3"/>
                             <menuItem title="Delete" id="Leo-Agents-Delete">
                                 <modifierMask key="keyEquivalentModifierMask"/>

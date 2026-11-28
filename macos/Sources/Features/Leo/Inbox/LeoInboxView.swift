@@ -104,11 +104,14 @@ struct LeoInboxView: View {
             return submit(item)
         case .goToAgent:
             actions.goToAgent(item.id)
-        case .clearItem:
-            guard !item.isBlocked else { return false }
-            let next = shown.indices.contains(index + 1) ? shown[index + 1] : (index > 0 ? shown[index - 1] : nil)
-            model.clear([item])
-            model.select(next?.id)
+        case .dismissItem:
+            if item.isBlocked {
+                model.dismiss(item)
+            } else {
+                let next = shown.indices.contains(index + 1) ? shown[index + 1] : (index > 0 ? shown[index - 1] : nil)
+                model.clear([item])
+                model.select(next?.id)
+            }
         }
         return true
     }

@@ -319,28 +319,28 @@ Veto: [ ]
 Context: B-348 (Mac test fixtures create NSWindow without `isReleasedWhenClosed =…) blocked question
 Chose: accept your recommendation (land it as is)
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-693 · 2026-11-06 · Answer to B-349: the update badge is weird now with the sidebar
 Context: B-349 (the update badge is weird now with the sidebar) blocked question
 Chose: retry
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-694 · 2026-11-06 · Answer to B-353: the time elapsed in the bar at the top is not updated…
 Context: B-353 (the time elapsed in the bar at the top is not updated frequently…) blocked question
 Chose: retry
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-695 · 2026-11-06 · Answer to B-354: this green is way too intense (Image #2)
 Context: B-354 (this green is way too intense (Image #2)) blocked question
 Chose: retry
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-696 · 2026-11-06 · B-349: Pill moves from a titlebar accessory to a native trailing toolbar item (.leoUpdate), left 
@@ -827,21 +827,21 @@ Veto: [ ]
 Context: B-014 (All hosts at once as sidebar sections) blocked question
 Chose: this is no longer relevant
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-777 · 2026-11-14 · Answer to B-051: Bug — working agents show "Finished" (suspected…
 Context: B-051 (Bug — working agents show "Finished" (suspected subagents)) blocked question
 Chose: accept your recommendation (hold `working` on non-empty `pending.tasks` (incl)
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-778 · 2026-11-14 · Answer to B-380: did you change behavior so that only the selected…
 Context: B-380 (did you change behavior so that only the selected agent's status icon…) blocked question
 Chose: drop it
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-779 · 2026-11-14 · B-395: Mac only for now; iOS refusal already shows an alert, iOS stage display deferred (B-396)
@@ -904,14 +904,14 @@ Veto: n/a (owner)
 Context: B-367 (Sometimes when you message the agent in the chat, it doesn't respond…) blocked question
 Chose: accept your recommendation (merge it, then reply "B-367: done" so a run checks a chat reply end to end)
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-788 · 2026-11-14 · Answer to B-393: an agent with running tasks shouldnt show as finished…
 Context: B-393 (an agent with running tasks shouldnt show as finished in the sidebar) blocked question
 Chose: yes — contract sent to the leo agent 2026-11-14; close once the bundled leo includes the pending.tasks hold
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-789 · 2026-11-14 · B-219: Pin tests in LeoKit (Mac + iOS); no UI or reducer change
@@ -1829,84 +1829,84 @@ Veto: [ ]
 Context: B-311 (LeoTerminalControlCTests.controlCInterruptsAShownTerminalRowsProcess…) blocked question
 Chose: retry — land the fix from 893d72b3b, re-enable the test, and verify it on hosted CI (not Dionysus's key-window skip).
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-941 · 2026-11-17 · Answer to B-321: ios/LeoFeatures/Package.resolved on main is stale;…
 Context: B-321 (ios/LeoFeatures/Package.resolved on main is stale; swift test…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-942 · 2026-11-17 · Answer to B-324: Move, copy, and duplicate agents from the Mac and iOS…
 Context: B-324 (Move, copy, and duplicate agents from the Mac and iOS apps) blocked question
 Chose: done — the agent move UI shipped in leo-v0.28.0 and the bundled leo 0.84.1 has the move route; verify a live move once and mark it done.
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-943 · 2026-11-17 · Answer to B-317: Key-window tests all skip on Dionysus while system…
 Context: B-317 (Key-window tests all skip on Dionysus while system prompts hold the foreground) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-944 · 2026-11-17 · Answer to B-338: iOS UI test…
 Context: B-338 (iOS UI test…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-945 · 2026-11-17 · Answer to B-344: Sometimes when I switch to an agent with the chat…
 Context: B-344 (Sometimes when I switch to an agent with the chat open, the chat…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-946 · 2026-11-17 · Answer to B-367: Sometimes when you message the agent in the chat, it…
 Context: B-367 (Sometimes when you message the agent in the chat, it doesn't respond…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-947 · 2026-11-17 · Answer to B-373: the update button on macos overflows now. not good.…
 Context: B-373 (the update button on macos overflows now. not good. [Image #4] (Image…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-948 · 2026-11-17 · Answer to B-374: when i switch to an agent thats stopped to view the…
 Context: B-374 (when i switch to an agent thats stopped to view the chat, it auto…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-949 · 2026-11-17 · Answer to B-375: the task dismiss buttons in the popover from the…
 Context: B-375 (the task dismiss buttons in the popover from the toolbar dont work) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-950 · 2026-11-17 · Answer to B-393: an agent with running tasks shouldnt show as finished…
 Context: B-393 (an agent with running tasks shouldnt show as finished in the sidebar) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-951 · 2026-11-17 · Answer to B-427: Takeover pill's "Give Back" click does nothing after…
 Context: B-427 (Takeover pill's "Give Back" click does nothing after a Return commit in the browser pane) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-952 · 2026-11-17 · B-218: Product name
@@ -2148,14 +2148,14 @@ Veto: n/a (owner)
 Context: B-431 (CI flake — Leo CI test-macos "Unit tests" hangs until the 900s…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-992 · 2026-11-23 · Answer to B-432: CI flake — Leo iOS CI "App tests":…
 Context: B-432 (CI flake — Leo iOS CI "App tests":…) blocked question
 Chose: close
 Why: the owner's answer
-Commit:
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
 Veto: n/a (owner)
 
 ## D-993 · 2026-11-23 · B-437: iOS only (the Mac app has no notch or side safe area)
@@ -2402,4 +2402,156 @@ Veto: [ ]
 Chose: Dropping calls the same LeoPaneDockController.move as the menu, so there is no second dock path
 Why: P6
 Commit: 8509119b7 10a0d4202 e1380172e
+Veto: [ ]
+
+## D-1034 · 2026-11-25 · Answer to B-445: Right-click on a chat image misses after a send…
+Context: B-445 (Right-click on a chat image misses after a send (reply shifts scroll)) blocked question
+Chose: accept your recommendation (close)
+Why: the owner's answer
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: n/a (owner)
+
+## D-1035 · 2026-11-25 · B-453: Mac only (iOS has no composer placeholder or send-gate logic)
+Chose: Mac only (iOS has no composer placeholder or send-gate logic)
+Why: Mac+iOS rule
+Commit: ddf9e0d49
+Veto: [ ]
+
+## D-1036 · 2026-11-25 · B-453: Restoring composer says "<name> is still starting"
+Chose: Wording "<name> is still starting" repeats the daemon-reported state and matches the refusal and the Start bar
+Why: VISION 2
+Commit: ddf9e0d49
+Veto: [ ]
+
+## D-1037 · 2026-11-25 · B-447: Fix in product Ghostty.moveFocus, not the test fixtures
+Chose: Fix in product `Ghostty.moveFocus`, not the test fixtures; the first plan's premise (fixture windows never get a display cycle) was disproved at step 0
+Why: AUTONOMY: bug/flake fixes are the agent's call
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1038 · 2026-11-25 · B-447: Newest landed focus move wins per window
+Chose: Newest landed move wins per window, decided when the retry lands; retry delays stay 50/100/200/400 ms
+Why: Engineering: fix flakes at the cause
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1039 · 2026-11-25 · B-447: Stamp a window only when makeFirstResponder succeeds
+Chose: A window is stamped only when makeFirstResponder succeeds, so a refused move doesn't block older retries
+Why: smallest rule that keeps chat routing as it was
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1040 · 2026-11-25 · B-447: No heavy around the verify-lock wait
+Chose: Dropped `heavy` around the verify-lock wait, kept it around xcodebuild (its idle killer fired during the wait)
+Why: verify mechanics
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1041 · 2026-11-25 · B-447: Mac only (AppKit first-responder code)
+Chose: Mac only (AppKit first-responder code; iOS has no moveFocus)
+Why: Platform principle
+Commit: aa2582d32 e961c85ca
+Veto: [ ]
+
+## D-1042 · 2026-11-25 · B-456: Any single snake_case token is an inbox sentinel
+Chose: Treat any single snake_case token (one letter case, contains an underscore) as a sentinel, not a fixed list; a one-word real result like build_failed also falls back to "Finished"
+Why: VISION 2 Calm
+Commit: 59184dcea e76c3dc17
+Veto: [ ]
+
+## D-1043 · 2026-11-25 · B-456: Fix in LeoKit LeoInbox derivation only
+Chose: Fix in LeoKit LeoInbox derivation only, no app changes; Mac headline and iOS card already fall back to "Finished" for a nil result
+Why: Mac+iOS rule
+Commit: 59184dcea e76c3dc17
+Veto: [ ]
+
+## D-1044 · 2026-11-25 · B-458: Full-window chat images setting is off by default
+Chose: Default off, so nothing changes until the owner opts in
+Why: AUTONOMY (defaults)
+Commit: 46edcf927
+Veto: [ ]
+
+## D-1045 · 2026-11-25 · B-458: Toggle lives in Settings ▸ General, new Chat section
+Chose: Plain toggle in the existing Settings ▸ General page, new "Chat" section
+Why: VISION 1 / HIG
+Commit: 46edcf927
+Veto: [ ]
+
+## D-1046 · 2026-11-25 · B-458: Full-window chat images setting is Mac only
+Chose: Mac only; iOS already opens chat images in a gallery viewer (ChatPresentation.swift:46)
+Why: Leo Mac+iOS rule
+Commit: 46edcf927
+Veto: [ ]
+
+## D-1047 · 2026-11-27 · Answer to B-465: Needs-you Inbox — dismiss blocked items
+Context: B-465 (Needs-you Inbox — dismiss blocked items) blocked question
+Chose: accept your recommendation (yes — ship plain Dismiss now; split "Dismiss & cancel ask" into a follow-up that needs a client-callable withdraw route from the leo daemon)
+Why: the owner's answer
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: n/a (owner)
+
+## D-1048 · 2026-11-27 · B-465: Dismissal reuses the synced seen mark (`seen_at` >=…
+Chose: Dismissal reuses the synced seen mark (`seen_at` >= `dismissAt`), no daemon change
+Why: VISION 3, Mac+iOS rule
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1049 · 2026-11-27 · B-465: Opening or viewing never marks a blocked agent seen,…
+Chose: Opening or viewing never marks a blocked agent seen, and the gate fails closed while data is still loading
+Why: VISION 2
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1050 · 2026-11-27 · B-465: A partial seed does not count as "loaded";…
+Chose: A partial seed does not count as "loaded"; `LeoOpenAsks.markLoaded(host:)` is called on the old-daemon "no route" result
+Why: VISION 2
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1051 · 2026-11-27 · B-465: A dismissed item leaves the list, badge and "Needs…
+Chose: A dismissed item leaves the list, badge and "Needs you" count, while the sidebar and Dock still show the daemon's needs-input state
+Why: VISION 2
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1052 · 2026-11-27 · B-465: Stopped agents contribute nothing to the inbox,…
+Chose: Stopped agents contribute nothing to the inbox, finished ones included, in one LeoKit rule
+Why: VISION 2
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1053 · 2026-11-27 · B-465: Mac: ⌫ dismisses a blocked row; Agents ▸ "Dismiss…
+Chose: Mac: ⌫ dismisses a blocked row; Agents ▸ "Dismiss from Inbox" has no plain-key equivalent, so Delete is never taken from text fields
+Why: VISION 1
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1054 · 2026-11-27 · B-465: iOS: full swipe plus a visible Dismiss button plus a…
+Chose: iOS: full swipe plus a visible Dismiss button plus a context-menu item
+Why: Mac+iOS rule
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1055 · 2026-11-27 · B-465: Local mode stores the ask time (`Mark.at`), so a new…
+Chose: Local mode stores the ask time (`Mark.at`), so a new ask in the same turn resurfaces on older daemons
+Why: acceptance criterion
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1056 · 2026-11-27 · B-465: iOS launch chip counts `inbox.blocked`, so an…
+Chose: iOS launch chip counts `inbox.blocked`, so an all-dismissed launch lands on All
+Why: VISION 2
+Commit: d848c82ee 6bbdc0fed e37d63843 7ab9d5f13 9bdbd9d06 94acd0276 df53a42d7 8fd77b4e7 432123923
+Veto: [ ]
+
+## D-1057 · 2026-11-27 · B-461: pin the width through the session's own…
+Chose: pin the width through the session's own setPreferredWidth and restore the host default in the fixture, following its savedPosition pattern
+Why: test infrastructure, agent-decided per AUTONOMY
+Commit: 3bea12625
+Veto: [ ]
+
+## D-1058 · 2026-11-27 · B-461: Mac only, iOS unaffected
+Chose: Mac only, iOS unaffected
+Why: Mac/iOS parity rule
+Commit: 3bea12625
 Veto: [ ]

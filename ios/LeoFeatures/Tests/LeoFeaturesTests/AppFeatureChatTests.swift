@@ -511,6 +511,8 @@ struct AppFeatureChatTests {
         await store.send(.chats(.rowTapped(Self.zeus)))
         await store.send(.chat(.onScreenChanged(true)))
         await store.send(.chats(.seenResponse(Self.zeus.daemonID, .success([:]))))
+        // Once the host's open asks have loaded, so nothing is waiting unseen.
+        await store.send(.chats(.openAsksResponse(Self.zeus.daemonID, .success([]))))
         let finished = LeoAttentionSignal(state: .finished, revision: 5, at: Date(timeIntervalSince1970: 1_000))
         await store.send(.fleet(.eventReceived(Self.zeus.daemonID, .agentActivity(
             seq: 4, at: nil, agent: "zeus", activity: .idle, currentAction: nil, attention: finished
@@ -529,5 +531,53 @@ struct AppFeatureChatTests {
         store.exhaustivity = .off
         await store.send(.chats(.threadRead(Self.zeus)))
         #expect(store.state.chats.openAsks.threads.isEmpty)
+    }
+
+    @Test func openingABlockedAgentSendsNoSeenMark() async {
+        let ask = LeoChatMessage(id: "q", agent: "zeus", direction: .outbound, kind: .ask, text: "?", state: "open", ts: Date(timeIntervalSince1970: 1))
+        var state = Self.connected()
+        state.chats.seen.seed(host: .remote(Self.zeus.daemonID), seen: [:])
+        state.chats.openAsks.seed(host: .remote(Self.zeus.daemonID), messages: [ask], complete: true)
+        let sent = LockIsolated<[String]>([])
+        let store = TestStore(initialState: state) { AppFeature() } withDependencies: {
+            $0.date.now = Date(timeIntervalSince1970: 100)
+            $0.inboxSeenStore.save = { _ in }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.markSeen = { _, agents in
+                sent.withValue { $0 += agents }
+                return [:]
+            }
+        }
+        store.exhaustivity = .off
+
+        await store.send(.chats(.rowTapped(Self.zeus)))
+        await store.send(.agentTapped(Self.zeus))
+
+        #expect(sent.value.isEmpty)
+        #expect(store.state.chats.seen.hosts[.remote(Self.zeus.daemonID)] == .synced([:]))
+        #expect(store.state.inbox.blocked.map(\.agent) == ["zeus"])
+    }
+
+    @Test func openingAnAgentBeforeItsHostLoadsSendsNoSeenMark() async {
+        var state = Self.connected()
+        state.fleet.sessions[0].agents = [Agent(name: "zeus", status: .running, attention: LeoAttentionSignal(state: .finished, revision: 3, at: Date(timeIntervalSince1970: 5)))]
+        state.chats.seen.seed(host: .remote(Self.zeus.daemonID), seen: [:])
+        let sent = LockIsolated<[String]>([])
+        let store = TestStore(initialState: state) { AppFeature() } withDependencies: {
+            $0.date.now = Date(timeIntervalSince1970: 100)
+            $0.inboxSeenStore.save = { _ in }
+            $0.secrets.load = { _ in DaemonSecrets(token: "t") }
+            $0.chatClient.markSeen = { _, agents in
+                sent.withValue { $0 += agents }
+                return [:]
+            }
+        }
+        store.exhaustivity = .off
+
+        // Its open asks have not loaded: a blocked ask could be waiting there.
+        await store.send(.agentTapped(Self.zeus))
+
+        #expect(sent.value.isEmpty)
+        #expect(store.state.chats.seen.hosts[.remote(Self.zeus.daemonID)] == .synced([:]))
     }
 }

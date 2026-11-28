@@ -136,7 +136,11 @@ import LeoKit
         let seenResult = await Self.fetchSeen(client)
         guard token == seedTokens[host] else { return }
         let buffered = eventsDuringSeed.removeValue(forKey: host) ?? []
-        if let asks { openAsks.seed(host: host, messages: asks.messages, complete: asks.isComplete) }
+        if let asks {
+            openAsks.seed(host: host, messages: asks.messages, complete: asks.isComplete)
+            // No open-asks route: the threads' last messages are all there is to know.
+            if !asks.isComplete { openAsks.markLoaded(host: host) }
+        }
         buffered.forEach { openAsks.apply(host: host, event: $0) }
         if let seenResult {
             seen.seed(host: host, seen: seenResult)
@@ -175,7 +179,11 @@ import LeoKit
     // MARK: Seen
 
     /// The user opened `agent` (its chat, its terminal, or its inbox detail).
+    /// Never while it is blocked, nor before the agent or its host's asks have
+    /// loaded: peeking at an agent that needs you must not dismiss it (only an
+    /// explicit `dismiss` does).
     func agentOpened(_ agent: LeoAgentID) {
+        guard LeoInbox.marksSeenOnOpen(agents.first { $0.id == agent }, openAsks: openAsks) else { return }
         markSeen([agent])
     }
 
@@ -219,6 +227,25 @@ import LeoKit
         guard !finished.isEmpty else { return }
         seen.clear(finished, now: now())
         afterSeenChange(sending: finished.map(\.id))
+    }
+
+    /// Dismisses a blocked item: hides it until it changes. Answers and rejects
+    /// nothing for the agent; only the seen mark moves (and syncs).
+    func dismiss(_ item: LeoInboxItem) {
+        guard item.isBlocked else { return }
+        let successor = successorAfterRemoving(item)
+        seen.dismiss(item, now: now())
+        afterSeenChange(sending: [item.id])
+        if let successor { select(successor.id) }
+    }
+
+    /// The blocked row selection moves to once `item` leaves the list (the
+    /// next one, else the previous). Never a finished row: selecting one marks
+    /// it read, which a dismiss must not do. Nil when `item` isn't selected.
+    private func successorAfterRemoving(_ item: LeoInboxItem) -> LeoInboxItem? {
+        let blocked = shownBlocked
+        guard selectedItem?.id == item.id, let index = blocked.firstIndex(where: { $0.id == item.id }) else { return nil }
+        return blocked.indices.contains(index + 1) ? blocked[index + 1] : (index > 0 ? blocked[index - 1] : nil)
     }
 
     private func markSeen(_ ids: [LeoAgentID]) {

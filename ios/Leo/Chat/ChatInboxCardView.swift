@@ -7,6 +7,8 @@ struct ChatInboxCardActions {
     var answer: (LeoChatAnswer) -> Void = { _ in }
     var openChat: () -> Void = {}
     var goToAgent: () -> Void = {}
+    /// Hides a blocked card until it changes; answers nothing.
+    var dismiss: () -> Void = {}
 }
 
 /// One needs-you or finished item: who, when, what, and (for an ask) how to answer.
@@ -232,6 +234,22 @@ private final class ChatInboxCardContentView: UIView, UIContentView, UITextField
         case .finished:
             break
         }
+        controls.addArrangedSubview(dismissRow(card))
+    }
+
+    /// A plain "Dismiss": hides the card until it changes; the agent keeps waiting.
+    private func dismissRow(_ card: ChatInboxCardConfiguration) -> UIView {
+        var dismiss = UIButton.Configuration.plain()
+        dismiss.title = String(localized: "Dismiss")
+        dismiss.image = UIImage(systemName: "eye.slash")
+        dismiss.imagePadding = 6
+        dismiss.contentInsets = NSDirectionalEdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0)
+        let button = UIButton(configuration: dismiss, primaryAction: UIAction { _ in card.actions.dismiss() })
+        button.accessibilityIdentifier = "inbox.dismiss"
+        button.accessibilityHint = String(localized: "Hides this until it changes. The agent keeps waiting.")
+        let row = UIStackView(arrangedSubviews: [button, UIView()])
+        row.alignment = .center
+        return row
     }
 
     private func askControls(_ input: LeoChatInput, card: ChatInboxCardConfiguration) {

@@ -10,6 +10,7 @@ enum LeoInboxAgents {
                 LeoInboxAgent(
                     id: row.id, name: row.displayName, machine: machineName(host), project: project(of: row),
                     signal: row.attentionSignal, bootID: row.attentionBootID, isStale: snapshot.connectivity.isOffline,
+                    isStopped: row.status == .stopped,
                     brief: row.brief
                 )
             }
