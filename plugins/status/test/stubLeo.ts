@@ -174,6 +174,13 @@ export function createStubLeo(startMs: number = START_MS): StubLeo {
     on: (event, fn) => {
       handlers.set(event, [...(handlers.get(event) ?? []), fn]);
     },
+    // This plugin declares no credentials; the host rejects every call.
+    credentials: {
+      add: (): Promise<never> => Promise.reject(new Error("permission denied")),
+      authorize: (): Promise<never> => Promise.reject(new Error("permission denied")),
+      list: (): Promise<never> => Promise.reject(new Error("permission denied")),
+      remove: (): Promise<never> => Promise.reject(new Error("permission denied")),
+    },
     fetch: async (url: string, init: FetchInit = {}) => {
       const method = (init.method ?? "GET").toUpperCase();
       fetches.push({ method, url, headers: { ...(init.headers ?? {}) }, body: init.body });
